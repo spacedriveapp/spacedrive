@@ -9,7 +9,7 @@ import clsx from "clsx";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { DuplicateGroup } from "@sd/ts-client";
-import { useDedupeDialog } from "../../components/modals/DedupeModal";
+import { useDeleteDialog } from "../../components/modals/DeleteModal";
 import { useCoreQuery } from "../../contexts/SpacedriveContext";
 import { TopBarItem, TopBarPortal } from "../../TopBar";
 import { formatBytes } from "../explorer/utils";
@@ -28,7 +28,7 @@ export function DuplicatesView() {
 	const [keepers, setKeepers] = useState<Record<string, string>>({});
 	/** Groups left out of the removal, by content id. */
 	const [excluded, setExcluded] = useState<Record<string, boolean>>({});
-	const openDedupe = useDedupeDialog();
+	const openDelete = useDeleteDialog();
 
 	const { data, isLoading, refetch } = useCoreQuery({
 		type: "files.duplicates",
@@ -47,7 +47,7 @@ export function DuplicatesView() {
 
 	const remove = () => {
 		if (selected.length === 0) return;
-		openDedupe({
+		openDelete({
 			title: `Remove the other copies of ${selected.length} ${
 				selected.length === 1 ? "file" : "files"
 			}`,

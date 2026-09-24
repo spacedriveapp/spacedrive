@@ -66,15 +66,26 @@ Three ways in:
 While a drag hovers a folder in the grid, the folder validates the drop and
 badges the first error or warning, such as a folder copied into itself.
 
-## Removing duplicate copies
+## Deleting, and removing duplicate copies
 
-`DedupeModal` runs `files.delete` through the same preflight for its three
-kinds of target, and is what every duplicate-removal entry point opens:
+`DeleteModal` runs `files.delete` through the same preflight for its three
+kinds of target, and is what every delete entry point opens: ⌘⌫, ⌥⌘⌫ and the
+context menu for named files, and the duplicate-removal entries for the
+rest. Validation carries the warning only an index can give, which of the
+files are the last copy of their bytes anywhere in the library; the plan
+lists the rows that go, last copies first; the trash or permanent switch is
+preset by the key that opened it; and an error finding disables confirm.
 
 ```tsx
-const openDedupe = useDedupeDialog();
+const openDelete = useDeleteDialog();
 
-openDedupe({
+openDelete({
+  title: "Trash 3 items",
+  targets: { kind: "paths", paths: selectedFiles.map((f) => f.sd_path) },
+  permanent: false,
+});
+
+openDelete({
   title: "Remove duplicate copies inside 'Photos'",
   targets: {
     kind: "duplicates",
@@ -92,9 +103,64 @@ openDedupe({
 - **Protection, Duplicates** lists the groups the `files.duplicates` query
   finds, with a keeper chosen per group and one dialog for the rest.
 
-The plan lists each kept copy beside the copies that go, confirm is disabled
-when nothing would go, and the job reads each pair in full before removing
-one.
+For duplicates the plan lists each kept copy beside the copies that go,
+confirm is disabled when nothing would go, and the job reads each pair in
+full before removing one.
+
+## Duplicate in place
+
+⌘D and the "Duplicate" menu item write a numbered copy beside each selected
+file: `files.copy` into the file's own directory, keeping both. There is
+nothing to choose, so `routes/explorer/hooks/useDuplicateFiles.ts` validates
+the input, shows a refusal, and dispatches the same input without a dialog.
+The copy preview plans it as one create at the numbered name.
+
+## Renaming
+
+A single file renames in place; the daemon validates the name at dispatch
+(a name the volume does not write, one already there, one the directory
+cannot tell from an existing one on a case-insensitive volume), and a
+refusal is shown as a toast with the findings. With several files selected,
+Enter and "Rename N items…" open `RenameModal`: an ordered list of rules
+applied to each name (replace, case, add text, number, format), previewed
+as every rule changes, with each old name beside its new one and a conflict
+where two files want one name. Confirm dispatches `files.rename_batch`.
+
+```tsx
+const openBatchRename = useBatchRenameDialog();
+openBatchRename({ targets: selectedFiles.map((f) => f.sd_path) });
+```
+
+## Undo
+
+`UndoModal` runs `files.undo` on preflight: the plan is the reverse of a
+job's journal and validation says what cannot be reversed and what changed
+since. It opens from the job list, where a completed job with something to
+reverse shows an undo button, from ⌘Z in the explorer, which undoes the
+most recent such job on this device, and from the trash view, scoped to one
+trashed item.
+
+```tsx
+const openUndo = useUndoDialog();
+openUndo({ job: job.id, label: "Copying 'Photos'" });
+openUndo({ job, label: "trashing IMG_0041.JPG", effects: [sequence] });
+```
+
+## Mirror, organize, flatten, archive, extract, attributes
+
+The merge dialog has "Remove what the sources lack", which makes the merge
+a mirror: the plan lists the files only the destination holds as flagged
+deletes. `RearrangeModal` holds `useOrganizeDialog` (subfolders by date,
+kind or extension) and `useFlattenDialog`; `ArchiveModal` holds
+`useArchiveDialog` (a zip or tar.zst beside the selection) and
+`useExtractDialog` (into the current folder, planned from the archive's
+directory); `AttributesModal` sets the mode, modification time and hidden
+flag. Each opens from a folder's or file's context menu, validates and
+previews as its options change, and dispatches the previewed input. "Make
+link" writes a symlink beside a file after validation, with no dialog.
+
+The trash view at `/trash` lists what Spacedrive trashed with a known
+location, restores one item through the undo dialog, and empties the trash.
 
 ## Browsing the result
 

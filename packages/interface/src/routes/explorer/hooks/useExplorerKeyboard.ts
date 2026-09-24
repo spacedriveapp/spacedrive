@@ -8,7 +8,16 @@ import { useKeybind } from "../../../hooks/useKeybind";
 import { useKeybindScope } from "../../../hooks/useKeybindScope";
 import { useClipboard } from "../../../hooks/useClipboard";
 import { useFileOperationDialog } from "../../../components/modals/FileOperationModal";
-import { useDeleteFiles } from "./useDeleteFiles";
+import { useDeleteDialog } from "../../../components/modals/DeleteModal";
+import { useBatchRenameDialog } from "../../../components/modals/RenameModal";
+import { useUndoDialog } from "../../../components/modals/UndoModal";
+import { getJobDisplayName } from "../../../components/JobManager/types";
+import { canUndo } from "../../../components/JobManager/components/UndoButton";
+import { useSpacedriveClient } from "../../../contexts/SpacedriveContext";
+import type { JobListInput, JobListOutput } from "@sd/ts-client";
+import { WIRE_METHODS } from "@sd/ts-client";
+import { toast } from "@spacedrive/primitives";
+import { useDuplicateFiles } from "./useDuplicateFiles";
 import { isInputFocused } from "../../../util/keybinds/platform";
 
 export function useExplorerKeyboard() {
@@ -36,7 +45,11 @@ export function useExplorerKeyboard() {
 	} = useSelection();
 	const clipboard = useClipboard();
 	const openFileOperation = useFileOperationDialog();
-	const { deleteFiles, isPending: isDeleting } = useDeleteFiles();
+	const openDelete = useDeleteDialog();
+	const openBatchRename = useBatchRenameDialog();
+	const openUndo = useUndoDialog();
+	const client = useSpacedriveClient();
+	const { duplicate, isPending: isDuplicating } = useDuplicateFiles();
 
 	// Activate explorer keybind scope when this hook is active
 	useKeybindScope("explorer");
@@ -138,15 +151,21 @@ export function useExplorerKeyboard() {
 		{ enabled: clipboard.hasClipboard() && !!currentPath },
 	);
 
-	// Rename: Enter key triggers rename mode for any selected file or directory
+	// Rename: one file edits its name in place; several open the batch dialog
 	useKeybind(
 		"explorer.renameFile",
 		() => {
-			if (selectedFiles.length === 1 && !isRenaming) {
+			if (isRenaming) return;
+			if (selectedFiles.length === 1) {
 				startRename(selectedFiles[0].id);
+				return;
 			}
+			const targets = selectedFiles
+				.filter((file) => "Physical" in file.sd_path)
+				.map((file) => file.sd_path);
+			if (targets.length > 1) openBatchRename({ targets });
 		},
-		{ enabled: selectedFiles.length === 1 && !isRenaming },
+		{ enabled: selectedFiles.length > 0 && !isRenaming },
 	);
 
 	// Tag mode: T key enters tag assignment mode
@@ -169,25 +188,47 @@ export function useExplorerKeyboard() {
 		{ enabled: selectedFiles.length === 1 },
 	);
 
-	// Delete: Move to trash
-	useKeybind(
-		"explorer.delete",
-		async () => {
-			const ok = await deleteFiles(selectedFiles, false);
-			if (ok) clearSelection();
-		},
-		{ enabled: selectedFiles.length > 0 && !isDeleting },
-	);
+	// Delete and permanent delete open the same dialog, preset by the key.
+	const deleteSelection = (permanent: boolean) => {
+		const targets = selectedFiles.filter((file) => "Physical" in file.sd_path);
+		if (targets.length === 0) return;
+		openDelete({
+			title:
+				targets.length === 1
+					? `${permanent ? "Delete" : "Trash"} '${targets[0].name}'`
+					: `${permanent ? "Delete" : "Trash"} ${targets.length} items`,
+			targets: { kind: "paths", paths: targets.map((file) => file.sd_path) },
+			permanent,
+			onComplete: clearSelection,
+		});
+	};
+	useKeybind("explorer.delete", () => deleteSelection(false), {
+		enabled: selectedFiles.length > 0,
+	});
+	useKeybind("explorer.permanentDelete", () => deleteSelection(true), {
+		enabled: selectedFiles.length > 0,
+	});
 
-	// Permanent Delete: Shift+Delete / Cmd+Alt+Backspace
-	useKeybind(
-		"explorer.permanentDelete",
-		async () => {
-			const ok = await deleteFiles(selectedFiles, true);
-			if (ok) clearSelection();
-		},
-		{ enabled: selectedFiles.length > 0 && !isDeleting },
-	);
+	// Duplicate: a numbered copy beside each selected file
+	useKeybind("explorer.duplicate", () => void duplicate(selectedFiles), {
+		enabled: selectedFiles.length > 0 && !isDuplicating,
+	});
+
+	// Undo: the most recent job on this device with something to reverse
+	useKeybind("explorer.undo", async () => {
+		const output = await client.execute<JobListInput, JobListOutput>(
+			WIRE_METHODS.libraryQueries["jobs.list"],
+			{ status: null },
+		);
+		const latest = output.jobs
+			.filter((job) => canUndo(job) && job.name !== "undo")
+			.sort((a, b) => (b.completed_at ?? "").localeCompare(a.completed_at ?? ""))[0];
+		if (!latest) {
+			toast.info("Nothing to undo");
+			return;
+		}
+		openUndo({ job: latest.id, label: getJobDisplayName(latest) });
+	});
 
 	useEffect(() => {
 		const handleKeyDown = async (e: KeyboardEvent) => {

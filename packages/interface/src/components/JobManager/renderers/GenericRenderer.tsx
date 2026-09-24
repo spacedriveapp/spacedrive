@@ -2,6 +2,7 @@ import { Pause, Play, X, CaretDown } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import type { JobRenderer, JobRendererProps } from "./index";
 import { getJobDisplayName, getJobSubtext } from "../types";
+import { UndoButton } from "../components/UndoButton";
 
 /**
  * Generic job card renderer - used for all jobs without custom renderers
@@ -50,6 +51,7 @@ function GenericCardContent({
 				{/* Action buttons */}
 				{isHovered && (
 					<div className="flex items-center gap-1">
+						<UndoButton job={job} />
 						{showActionButton && (canPause || canResume) && (
 							<button
 								onClick={onAction}

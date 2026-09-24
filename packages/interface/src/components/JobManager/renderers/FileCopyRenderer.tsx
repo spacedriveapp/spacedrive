@@ -2,6 +2,7 @@ import { Pause, Play, X, CaretDown } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import type { JobRenderer, JobRendererProps, JobDetailsRendererProps } from "./index";
 import { CopyJobDetails } from "../components/CopyJobDetails";
+import { UndoButton } from "../components/UndoButton";
 import { useNormalizedQuery } from "../../../contexts/SpacedriveContext";
 import type { Device } from "@sd/ts-client";
 
@@ -224,6 +225,7 @@ function FileCopyCardContent({
 								)}
 							</button>
 						)}
+						<UndoButton job={job} />
 						{canCancel && (
 							<button
 								onClick={onCancel}

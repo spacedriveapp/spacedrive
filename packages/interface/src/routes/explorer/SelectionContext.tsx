@@ -9,6 +9,8 @@ import {
 } from "react";
 import { usePlatform } from "../../contexts/PlatformContext";
 import type { File } from "@sd/ts-client";
+import { RefusedError } from "@sd/ts-client";
+import { toast } from "@spacedrive/primitives";
 import { useClipboard } from "../../hooks/useClipboard";
 import { useLibraryMutation } from "../../contexts/SpacedriveContext";
 import { useTabManager } from "../../components/TabManager";
@@ -270,8 +272,13 @@ export function SelectionProvider({
 			});
 			setRenamingFileId(null);
 		} catch (error) {
-			// Keep in edit mode on error so user can retry
-			console.error('Rename failed:', error);
+			// The daemon validated the name at dispatch; say why it refused
+			// and stay in edit mode.
+			toast.error(
+				error instanceof RefusedError
+					? error.validation.findings.map((finding) => finding.message).join("; ")
+					: `Could not rename: ${error instanceof Error ? error.message : String(error)}`,
+			);
 			throw error;
 		}
 	}, [renamingFileId, selectedFiles, renameFile]);

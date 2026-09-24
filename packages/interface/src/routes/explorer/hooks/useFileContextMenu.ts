@@ -6,23 +6,29 @@ import {
 	Copy,
 	Crop,
 	Eye,
+	FileArchive,
 	FileText,
 	FileVideo,
+	FileZip,
 	FilmStrip,
 	FolderOpen,
 	FolderPlus,
+	FolderSimple,
 	FolderSimplePlus,
 	Image,
+	LinkSimple,
 	MagnifyingGlass,
 	Microphone,
 	Pencil,
 	Scissors,
 	ShareNetwork,
+	SlidersHorizontal,
 	Sparkle,
 	Stack,
 	Tag as TagIconComponent,
 	TextAa,
 	Trash,
+	TreeStructure,
 	Video,
 	Waveform
 } from '@phosphor-icons/react';
@@ -31,7 +37,11 @@ import {getContentKind, isVirtualFile} from '@sd/ts-client';
 import { toast } from '@spacedrive/primitives';
 import {useFileOperationDialog} from '../../../components/modals/FileOperationModal';
 import {useMergeFoldersDialog} from '../../../components/modals/MergeFoldersModal';
-import {useDedupeDialog} from '../../../components/modals/DedupeModal';
+import {useDeleteDialog} from '../../../components/modals/DeleteModal';
+import {useBatchRenameDialog} from '../../../components/modals/RenameModal';
+import {useFlattenDialog, useOrganizeDialog} from '../../../components/modals/RearrangeModal';
+import {isArchiveName, useArchiveDialog, useExtractDialog} from '../../../components/modals/ArchiveModal';
+import {useAttributesDialog} from '../../../components/modals/AttributesModal';
 import {usePlatform} from '../../../contexts/PlatformContext';
 import {useLibraryMutation} from '../../../contexts/SpacedriveContext';
 import {useClipboard} from '../../../hooks/useClipboard';
@@ -41,7 +51,8 @@ import {useRefetchTagQueries} from '../../../hooks/useRefetchTagQueries';
 import {useTabManager} from '../../../components/TabManager';
 import {targetToUrl, useExplorer} from '../context';
 import {useSelection} from '../SelectionContext';
-import {useDeleteFiles} from './useDeleteFiles';
+import {useDuplicateFiles} from './useDuplicateFiles';
+import {useMakeLink} from './useMakeLink';
 
 interface UseFileContextMenuProps {
 	file?: File | null;
@@ -59,7 +70,8 @@ export function useFileContextMenu({
 	const platform = usePlatform();
 	const refetchTagQueries = useRefetchTagQueries();
 
-	const {deleteFiles} = useDeleteFiles();
+	const {duplicate} = useDuplicateFiles();
+	const {makeLink} = useMakeLink();
 	const unapplyTags = useLibraryMutation('tags.unapply', {
 		onSuccess: refetchTagQueries
 	});
@@ -83,7 +95,13 @@ export function useFileContextMenu({
 	const clipboard = useClipboard();
 	const openFileOperation = useFileOperationDialog();
 	const openMergeFolders = useMergeFoldersDialog();
-	const openDedupe = useDedupeDialog();
+	const openDelete = useDeleteDialog();
+	const openBatchRename = useBatchRenameDialog();
+	const openOrganize = useOrganizeDialog();
+	const openFlatten = useFlattenDialog();
+	const openArchive = useArchiveDialog();
+	const openExtract = useExtractDialog();
+	const openAttributes = useAttributesDialog();
 	const {startRename} = useSelection();
 
 	// Get physical paths for file opening
@@ -308,6 +326,19 @@ export function useFileContextMenu({
 					!hasVirtualFiles
 			},
 			{
+				icon: Pencil,
+				label: `Rename ${selectedFiles.length} items…`,
+				// Rules applied to each name, previewed as they change.
+				onClick: () =>
+					openBatchRename({
+						targets: getTargetFiles()
+							.filter((target) => 'Physical' in target.sd_path)
+							.map((target) => target.sd_path)
+					}),
+				keybindId: 'explorer.renameFile',
+				condition: () => selected && selectedFiles.length > 1 && !hasVirtualFiles
+			},
+			{
 				icon: FolderPlus,
 				label: 'New Folder',
 				onClick: async () => {
@@ -475,6 +506,20 @@ export function useFileContextMenu({
 					!hasVirtualFiles
 			},
 			{
+				icon: Copy,
+				label:
+					selected && selectedFiles.length > 1
+						? `Duplicate ${selectedFiles.length} items`
+						: 'Duplicate',
+				// A numbered copy beside each file, after the copy's validation
+				// and with nothing to choose, so no dialog.
+				onClick: () => void duplicate(getTargetFiles()),
+				keybindId: 'explorer.duplicate',
+				condition: () =>
+					!hasVirtualFiles &&
+					getTargetFiles().some((target) => 'Physical' in target.sd_path)
+			},
+			{
 				icon: TagIconComponent,
 				label:
 					selected && selectedFiles.length > 1
@@ -505,7 +550,7 @@ export function useFileContextMenu({
 				// anything goes.
 				onClick: () => {
 					if (!file) return;
-					openDedupe({
+					openDelete({
 						title: `Remove duplicate copies inside '${file.name}'`,
 						targets: {
 							kind: 'duplicates',
@@ -531,7 +576,7 @@ export function useFileContextMenu({
 				// attached, goes.
 				onClick: () => {
 					if (!file) return;
-					openDedupe({
+					openDelete({
 						title: `Remove the other copies of '${file.name}'`,
 						targets: {
 							kind: 'duplicates',
@@ -551,13 +596,102 @@ export function useFileContextMenu({
 					!hasVirtualFiles
 			},
 			{
+				icon: TreeStructure,
+				label: 'Organize…',
+				// Subfolders by date, kind or extension, previewed as moves.
+				onClick: () => {
+					if (!file) return;
+					openOrganize({scope: file.sd_path});
+				},
+				condition: () =>
+					!!file &&
+					file.kind === 'Directory' &&
+					selectedFiles.length <= 1 &&
+					'Physical' in file.sd_path &&
+					!hasVirtualFiles
+			},
+			{
+				icon: FolderSimple,
+				label: 'Flatten…',
+				onClick: () => {
+					if (!file) return;
+					openFlatten({scope: file.sd_path});
+				},
+				condition: () =>
+					!!file &&
+					file.kind === 'Directory' &&
+					selectedFiles.length <= 1 &&
+					'Physical' in file.sd_path &&
+					!hasVirtualFiles
+			},
+			{
+				icon: FileZip,
+				label:
+					selected && selectedFiles.length > 1
+						? `Compress ${selectedFiles.length} items…`
+						: 'Compress…',
+				onClick: () => {
+					if (!currentPath) return;
+					const sources = getTargetFiles()
+						.filter((target) => 'Physical' in target.sd_path)
+						.map((target) => target.sd_path);
+					if (sources.length === 0) return;
+					openArchive({sources, directory: currentPath});
+				},
+				condition: () => !!currentPath && !hasVirtualFiles
+			},
+			{
+				icon: FileArchive,
+				label: 'Extract here…',
+				onClick: () => {
+					if (!file || !currentPath) return;
+					openExtract({archive: file.sd_path, directory: currentPath});
+				},
+				condition: () =>
+					!!file &&
+					!!currentPath &&
+					file.kind === 'File' &&
+					selectedFiles.length <= 1 &&
+					'Physical' in file.sd_path &&
+					isArchiveName(
+						file.extension ? `${file.name}.${file.extension}` : file.name
+					) &&
+					!hasVirtualFiles
+			},
+			{
+				icon: SlidersHorizontal,
+				label: 'Attributes…',
+				onClick: () => {
+					const paths = getTargetFiles()
+						.filter((target) => 'Physical' in target.sd_path)
+						.map((target) => target.sd_path);
+					if (paths.length === 0) return;
+					openAttributes({paths});
+				},
+				condition: () => !hasVirtualFiles
+			},
+			{
+				icon: LinkSimple,
+				label: 'Make link',
+				// A symlink beside the file, named after it, after validation.
+				onClick: () => {
+					if (!file) return;
+					void makeLink(file);
+				},
+				condition: () =>
+					!!file &&
+					selectedFiles.length <= 1 &&
+					'Physical' in file.sd_path &&
+					!hasVirtualFiles
+			},
+			{
 				icon: Trash,
 				label: `Delete what '${clipboardFolderName}' already holds`,
 				// Removes from this folder the files whose bytes the folder on
 				// the clipboard already holds, wherever they sit in it.
 				onClick: () => {
 					if (!file || clipboard.files.length !== 1) return;
-					openDedupe({
+					openDelete({
 						title: `Delete from '${file.name}' what '${clipboardFolderName}' already holds`,
 						targets: {
 							kind: 'comparison',
@@ -587,11 +721,25 @@ export function useFileContextMenu({
 					selected && selectedFiles.length > 1
 						? `Delete ${selectedFiles.length} items`
 						: 'Delete',
-				onClick: async () => {
-					const targets = getTargetFiles();
-					await deleteFiles(targets, false);
+				// The delete dialog on preflight: the last-copy warning, the
+				// rows that go, and the trash or permanent switch.
+				onClick: () => {
+					const targets = getTargetFiles().filter(
+						(target) => 'Physical' in target.sd_path
+					);
+					if (targets.length === 0) return;
+					openDelete({
+						title:
+							targets.length === 1
+								? `Trash '${targets[0].name}'`
+								: `Trash ${targets.length} items`,
+						targets: {
+							kind: 'paths',
+							paths: targets.map((target) => target.sd_path)
+						}
+					});
 				},
-				keybind: '⌘⌫',
+				keybindId: 'explorer.delete',
 				variant: 'danger' as const,
 				condition: () => !hasVirtualFiles
 			}

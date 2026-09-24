@@ -28,6 +28,8 @@ interface MergeFoldersDialogProps {
 	destination: SdPath;
 	policy?: MergeConflictPolicy;
 	consume?: boolean;
+	/** Remove from the destination what no source holds: a mirror. */
+	removeExtras?: boolean;
 	onComplete?: () => void;
 }
 
@@ -55,6 +57,7 @@ function MergeFoldersDialog(props: MergeFoldersDialogProps) {
 	const form = useForm();
 	const [policy, setPolicy] = useState<MergeConflictPolicy>(props.policy ?? "skip");
 	const [consume, setConsume] = useState(props.consume ?? false);
+	const [removeExtras, setRemoveExtras] = useState(props.removeExtras ?? false);
 	const [failure, setFailure] = useState<string | null>(null);
 
 	const input = useMemo<FileMergeInput>(
@@ -63,8 +66,9 @@ function MergeFoldersDialog(props: MergeFoldersDialogProps) {
 			destination: props.destination,
 			on_conflict: policy,
 			consume_sources: consume,
+			remove_extras: removeExtras,
 		}),
-		[props.sources, props.destination, policy, consume],
+		[props.sources, props.destination, policy, consume, removeExtras],
 	);
 
 	const validation = useLibraryValidate({ type: "files.merge", input });
@@ -115,7 +119,9 @@ function MergeFoldersDialog(props: MergeFoldersDialogProps) {
 
 	const summary = preview.data?.summary;
 	const cta = summary
-		? `Merge ${summary.creates.files + summary.replaces.files} files`
+		? `Merge ${summary.creates.files + summary.replaces.files} files${
+				removeExtras && summary.deletes.files > 0 ? `, remove ${summary.deletes.files}` : ""
+			}`
 		: "Merge";
 
 	return (
@@ -181,6 +187,17 @@ function MergeFoldersDialog(props: MergeFoldersDialogProps) {
 						</div>
 					</div>
 					<Switch checked={consume} onCheckedChange={setConsume} size="sm" />
+				</label>
+
+				<label className="flex cursor-pointer items-center justify-between gap-3 rounded-md bg-app-box px-3 py-2">
+					<div>
+						<div className="text-sm text-ink">Remove what the sources lack</div>
+						<div className="text-[11px] text-ink-dull">
+							The destination ends up matching the sources: files it holds that no source
+							does go to the trash, and the plan flags the last copies among them.
+						</div>
+					</div>
+					<Switch checked={removeExtras} onCheckedChange={setRemoveExtras} size="sm" />
 				</label>
 
 				<PreflightPanel

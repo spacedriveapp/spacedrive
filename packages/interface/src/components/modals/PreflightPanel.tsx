@@ -118,14 +118,23 @@ function FindingRow({ finding }: { finding: Finding }) {
 function PlanSummaryView({ plan }: { plan: FsPlan }) {
 	const summary = plan.summary;
 	const rows = summaryRows(summary);
-	const stores = plan.basis.kind === "index" ? plan.basis.revisions.length : 0;
-	const attention = plan.changes.filter(
-		(change) => change.change.type === "conflict" || change.change.type === "replace",
-	);
+	const basis =
+		plan.basis.kind === "index"
+			? `from the index of ${plan.basis.revisions.length} ${
+					plan.basis.revisions.length === 1 ? "store" : "stores"
+				}`
+			: plan.basis.kind === "journal"
+				? "from the job's journal"
+				: `from the archive's directory of ${plan.basis.entries} entries`;
+	// The rows a person reads a plan for: conflicts, the last copies a
+	// deletion would remove, replacements, then everything else that goes.
+	const attention = plan.changes
+		.filter((change) => attentionRank(change.change) > 0)
+		.sort((a, b) => attentionRank(b.change) - attentionRank(a.change));
 	return (
 		<div className="space-y-2">
 			<div className="text-xs font-medium text-ink-dull">
-				Plan, from the index of {stores} {stores === 1 ? "store" : "stores"}
+				Plan, {basis}
 				{plan.truncated && " (first 5000 changes listed)"}
 			</div>
 			<div className="grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0.5 text-xs">
@@ -145,6 +154,19 @@ function PlanSummaryView({ plan }: { plan: FsPlan }) {
 			)}
 		</div>
 	);
+}
+
+function attentionRank(change: ChangeKind): number {
+	switch (change.type) {
+		case "conflict":
+			return 4;
+		case "delete":
+			return change.last_copy ? 3 : 1;
+		case "replace":
+			return 2;
+		default:
+			return 0;
+	}
 }
 
 function Row({
@@ -195,6 +217,7 @@ function summaryRows(summary: FsPlanSummary) {
 		{ label: "Skip, by policy", files: summary.skips.policy.files, bytes: summary.skips.policy.bytes },
 		{ label: "Skip, junk", files: summary.skips.junk },
 		{ label: "Conflicts", files: summary.conflicts, tone: "danger" as const },
+		{ label: "Attributes", files: summary.attributes },
 	];
 }
 
@@ -204,7 +227,8 @@ function ChangeRow({ change }: { change: PlannedChange }) {
 			<span
 				className={clsx(
 					"flex-shrink-0 rounded px-1 py-px font-medium",
-					change.change.type === "conflict"
+					change.change.type === "conflict" ||
+						(change.change.type === "delete" && change.change.last_copy)
 						? "bg-red-500/15 text-red-500"
 						: "bg-amber-500/15 text-amber-500",
 				)}
@@ -255,6 +279,8 @@ export function changeLabel(change: ChangeKind): string {
 					return "two sources";
 			}
 			return "conflict";
+		case "set_attributes":
+			return "attributes";
 	}
 }
 

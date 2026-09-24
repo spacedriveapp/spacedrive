@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Eye, Stack } from "@phosphor-icons/react";
+import { Eye, Stack, Trash } from "@phosphor-icons/react";
 import {
 	Button,
 	Dialog,
@@ -21,23 +21,27 @@ import { usePlanPreviewStore } from "../../routes/explorer/hooks/usePlanPreview"
 import { formatBytes } from "../../routes/explorer/utils";
 import { hasErrors, pathName, PreflightPanel } from "./PreflightPanel";
 
-interface DedupeDialogProps {
+interface DeleteDialogProps {
 	id: number;
-	/** What goes: the surplus copies of duplicates, or what a folder already holds. */
+	/** What goes: named files, the surplus copies of duplicates, or what a folder already holds. */
 	targets: DeleteTargets;
 	title: string;
+	/** Whether the dialog opens set to delete permanently rather than to the trash. */
+	permanent?: boolean;
 	onComplete?: () => void;
 }
 
 /**
- * Remove duplicate copies through delete's preflight: the plan lists the
- * copy of each content that stays and the copies that go, an error finding
- * gates confirm, and the job reads each pair in full before removing one.
+ * The delete dialog: `files.delete` through its preflight for any kind of
+ * target. Validation carries the warning only an index can give, which of
+ * the files are the last copy of their bytes anywhere in the library; the
+ * plan lists what goes; an error finding gates confirm; and for duplicates
+ * the job reads each pair in full before removing one.
  */
-export function useDedupeDialog() {
-	return (options: Omit<DedupeDialogProps, "id">) =>
+export function useDeleteDialog() {
+	return (options: Omit<DeleteDialogProps, "id">) =>
 		dialogManager.create((props: UseDialogProps) => (
-			<DedupeDialog {...(props as DedupeDialogProps)} {...options} />
+			<DeleteDialog {...(props as DeleteDialogProps)} {...options} />
 		));
 }
 
@@ -59,14 +63,16 @@ function describe(targets: DeleteTargets): string {
 				targets.comparison.b,
 			)} already holds, wherever they sit in it.`;
 		case "paths":
-			return `Removes ${targets.paths.length} files.`;
+			return targets.paths.length === 1
+				? `Removes ${pathName(targets.paths[0])}.`
+				: `Removes ${targets.paths.length} items.`;
 	}
 }
 
-function DedupeDialog(props: DedupeDialogProps) {
+function DeleteDialog(props: DeleteDialogProps) {
 	const dialog = useDialog(props);
 	const form = useForm();
-	const [permanent, setPermanent] = useState(false);
+	const [permanent, setPermanent] = useState(props.permanent ?? false);
 	const [failure, setFailure] = useState<string | null>(null);
 
 	const input = useMemo<FileDeleteInput>(
@@ -82,6 +88,7 @@ function DedupeDialog(props: DedupeDialogProps) {
 	const refused = hasErrors(validation.data);
 	const summary = preview.data?.summary;
 	const nothing = summary ? summary.deletes.files === 0 : false;
+	const duplicates = props.targets.kind !== "paths";
 	const close = () => dialogManager.setState(props.id, { open: false });
 
 	const submit = async () => {
@@ -128,18 +135,21 @@ function DedupeDialog(props: DedupeDialogProps) {
 		return () => window.removeEventListener("keydown", onKey);
 	});
 
+	const [one, many] = duplicates ? ["copy", "copies"] : ["item", "items"];
 	const cta = summary
-		? `Remove ${summary.deletes.files} ${summary.deletes.files === 1 ? "copy" : "copies"} (${formatBytes(
-				summary.deletes.bytes,
-			)})`
-		: "Remove";
+		? `${permanent ? "Delete" : "Trash"} ${summary.deletes.files} ${
+				summary.deletes.files === 1 ? one : many
+			} (${formatBytes(summary.deletes.bytes)})`
+		: permanent
+			? "Delete"
+			: "Trash";
 
 	return (
 		<Dialog
 			dialog={dialog}
 			form={form}
 			title={props.title}
-			icon={<Stack size={20} weight="bold" />}
+			icon={duplicates ? <Stack size={20} weight="bold" /> : <Trash size={20} weight="bold" />}
 			ctaLabel={cta}
 			ctaDanger
 			submitDisabled={refused || nothing || validation.isLoading || remove.isPending}
@@ -155,7 +165,7 @@ function DedupeDialog(props: DedupeDialogProps) {
 					<div>
 						<div className="text-sm text-ink">Delete permanently</div>
 						<div className="text-[11px] text-ink-dull">
-							Off, the copies go to the trash.
+							Off, the {many} go to the trash.
 						</div>
 					</div>
 					<Switch checked={permanent} onCheckedChange={setPermanent} size="sm" />
@@ -170,7 +180,9 @@ function DedupeDialog(props: DedupeDialogProps) {
 				/>
 
 				{nothing && (
-					<div className="text-xs text-ink-faint">Nothing to remove: no surplus copies.</div>
+					<div className="text-xs text-ink-faint">
+						Nothing to remove{duplicates ? ": no surplus copies" : ""}.
+					</div>
 				)}
 
 				{failure && (

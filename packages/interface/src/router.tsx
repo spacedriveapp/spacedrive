@@ -11,6 +11,7 @@ import {RedundancyDashboard} from './routes/redundancy';
 import {AtRiskFiles} from './routes/redundancy/at-risk';
 import {CompareVolumes} from './routes/redundancy/compare';
 import {DuplicatesView} from './routes/redundancy/duplicates';
+import {TrashView} from './routes/trash';
 import {SourcesHome} from './routes/sources';
 import {AdaptersScreen} from './routes/sources/Adapters';
 import {SourceDetail} from './routes/sources/SourceDetail';
@@ -91,6 +92,10 @@ export const explorerRoutes = [
 			{
 				path: 'sources/:sourceId',
 				element: <SourceDetail />
+			},
+			{
+				path: 'trash',
+				element: <TrashView />
 			},
 			{
 				path: 'redundancy',

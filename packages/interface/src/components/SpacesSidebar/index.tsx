@@ -9,7 +9,8 @@ import {
 	House,
 	Images,
 	ListBullets,
-	ShieldCheck
+	ShieldCheck,
+	Trash
 } from '@phosphor-icons/react';
 import FolderIcon from '@sd/assets/icons/Folder.webp';
 import HomeIcon from '@sd/assets/icons/Home.webp';
@@ -393,6 +394,13 @@ export function SpacesSidebar({
 								icon={ShieldCheck}
 								href="/redundancy"
 								activePathPrefixes={['/redundancy']}
+							/>
+							<SidebarItem
+								id="trash"
+								label="Trash"
+								icon={Trash}
+								href="/trash"
+								activePathPrefixes={['/trash']}
 							/>
 						</SidebarSection>
 

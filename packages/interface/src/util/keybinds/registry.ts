@@ -63,6 +63,13 @@ export const explorerKeybinds = {
 		scope: 'explorer'
 	}),
 
+	undo: defineKeybind({
+		id: 'explorer.undo',
+		label: 'Undo',
+		combo: { modifiers: ['Cmd'], key: 'z' },
+		scope: 'explorer'
+	}),
+
 	// Delete
 	delete: defineKeybind({
 		id: 'explorer.delete',
