@@ -23,10 +23,7 @@
 		/* Path aliases */
 		"baseUrl": ".",
 		"paths": {
-			"~/*": ["./src/*"],
-			"@spacebot/api-client": [
-				"../../packages/interface/src/Spacebot/api-client.ts"
-			]
+			"~/*": ["./src/*"]
 		}
 	},
 	"include": ["src", "vite.config.ts"],

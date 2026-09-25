@@ -3,7 +3,7 @@
 #
 # Prerequisite: `apps/web/dist/` must exist in the build context — run
 # `bun install && bun run build` in `apps/web/` before `docker build`.
-# CI workflows and the unified spacedrive+spacebot image handle this
+# CI workflows handle this
 # automatically; this Dockerfile assumes the dist directory is ready.
 
 FROM debian:bookworm-slim AS builder

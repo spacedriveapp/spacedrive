@@ -34,7 +34,7 @@ default = false
 [[adapter.config]]
 key = "project_filter"
 name = "Project Filter"
-description = "Only sync sessions from this project directory (e.g. /Users/jamie/Projects/spacebot). Leave empty for all projects."
+description = "Only sync sessions from this project directory (e.g. /Users/you/Projects/app). Leave empty for all projects."
 type = "string"
 required = false
 

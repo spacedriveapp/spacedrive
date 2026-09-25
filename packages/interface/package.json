@@ -9,9 +9,7 @@
 	"exports": {
 		".": "./src/index.tsx",
 		"./app": "./src/App.tsx",
-		"./styles.css": "./src/styles.css",
-		"./Spacebot": "./src/Spacebot/index.tsx",
-		"./windows/VoiceOverlay": "./src/windows/VoiceOverlay.tsx"
+		"./styles.css": "./src/styles.css"
 	},
 	"scripts": {
 		"lint": "eslint src --cache",
@@ -41,7 +39,6 @@
 		"@react-three/fiber": "^9.4.2",
 		"@sd/assets": "workspace:*",
 		"@sd/ts-client": "workspace:*",
-		"@spacedrive/ai": "^0.2.3",
 		"@spacedrive/primitives": "^0.2.3",
 		"@spacedrive/tokens": "^0.2.3",
 		"openapi-fetch": "^0.17",

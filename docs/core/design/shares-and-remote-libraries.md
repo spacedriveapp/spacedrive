@@ -2,7 +2,7 @@
 
 > **Status:** Design, pre-implementation
 > **Captured:** 2026-08-19
-> **Companions:** `docs/core/design/mounts.md` (how a share is consumed as a drive), `docs/core/design/spacebot-remote-execution.md` (the subtree permission model this extends), `docs/core/design/file-system-intelligence.md` (Access Intelligence)
+> **Companions:** `docs/core/design/mounts.md` (how a share is consumed as a drive), `docs/core/design/file-system-intelligence.md` (Access Intelligence)
 
 ## The feature
 
@@ -44,7 +44,7 @@ The grant is the whole primitive. It says nothing about transport, and it does n
 
 - **Browsing** it reads the shared snapshot, which is how a share stays fast and works while the owner is offline.
 - **Mounting** it presents the subtree as a local volume, per the mounts design, with the byte plane fetching ranges on demand.
-- **An agent reading it** gains a new allowed root in its subtree policy, which is the mechanism `spacebot-remote-execution.md` already describes for path permissions.
+- **An agent reading it** gains a new allowed root in its subtree policy.
 
 This is why the share is worth building as its own thing. One grant serves a person browsing, a machine mounting, and an agent reading, without three permission models.
 

@@ -223,7 +223,6 @@ impl TestConfigBuilder {
 			},
 			logging: crate::config::app_config::LoggingConfig::default(),
 			proxy_pairing: crate::config::app_config::ProxyPairingConfig::default(),
-			spacebot: crate::config::app_config::SpacebotConfig::default(),
 			mounts: crate::config::app_config::MountsConfig::default(),
 		}
 	}

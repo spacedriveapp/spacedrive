@@ -1,4 +1,4 @@
-import {createBrowserRouter, Navigate, Outlet} from 'react-router-dom';
+import {createBrowserRouter, Navigate} from 'react-router-dom';
 import {JobsScreen} from './components/JobManager';
 import {AnalyzerView} from './routes/analyzer';
 import {CollectionView} from './routes/collection';
@@ -17,26 +17,6 @@ import {AdaptersScreen} from './routes/sources/Adapters';
 import {SourceDetail} from './routes/sources/SourceDetail';
 import {TagView} from './routes/tag';
 import {ShellLayout} from './ShellLayout';
-import {AutonomyRoute} from './Spacebot/routes/AutonomyRoute';
-import {ChatRoute} from './Spacebot/routes/ChatRoute';
-import {ConversationRoute} from './Spacebot/routes/ConversationRoute';
-import {MemoriesRoute} from './Spacebot/routes/MemoriesRoute';
-import {ScheduleRoute} from './Spacebot/routes/ScheduleRoute';
-import {TasksRoute} from './Spacebot/routes/TasksRoute';
-import {SpacebotProvider} from './Spacebot/SpacebotContext';
-import {SpacebotLayout} from './Spacebot/SpacebotLayout';
-
-/**
- * Spacebot wrapper component that provides the Spacebot context
- */
-function SpacebotRoutes() {
-	return (
-		<SpacebotProvider>
-			<Outlet />
-		</SpacebotProvider>
-	);
-}
-
 /**
  * Router routes configuration (without router instance)
  */
@@ -121,54 +101,6 @@ export const explorerRoutes = [
 						Search (coming soon)
 					</div>
 				)
-			},
-			{
-				path: 'spacebot',
-				element: <SpacebotRoutes />,
-				children: [
-					{
-						index: true,
-						element: <Navigate to="/spacebot/chat" replace />
-					},
-					{
-						element: <SpacebotLayout />,
-						children: [
-							{
-								path: 'chat',
-								children: [
-									{
-										index: true,
-										element: <ChatRoute />
-									},
-									{
-										path: 'new',
-										element: <ChatRoute />
-									},
-									{
-										path: 'conversation/*',
-										element: <ConversationRoute />
-									}
-								]
-							},
-							{
-								path: 'tasks',
-								element: <TasksRoute />
-							},
-							{
-								path: 'memories',
-								element: <MemoriesRoute />
-							},
-							{
-								path: 'autonomy',
-								element: <AutonomyRoute />
-							},
-							{
-								path: 'schedule',
-								element: <ScheduleRoute />
-							}
-						]
-					}
-				]
 			},
 			{
 				path: 'activity',

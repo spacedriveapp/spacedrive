@@ -17,7 +17,6 @@ use std::sync::Arc;
 use tauri::menu::MenuItem;
 use tauri::Emitter;
 use tauri::{AppHandle, Manager};
-use tauri_plugin_global_shortcut::ShortcutState;
 use tokio::sync::oneshot;
 use tokio::sync::RwLock;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -334,18 +333,6 @@ struct MenuState {
 async fn app_ready(window: tauri::Window) {
 	window.show().ok();
 	window.set_focus().ok();
-
-	// #[cfg(debug_assertions)]
-	// if window.label() == "main" && window.app_handle().get_webview_window("spacebot").is_none() {
-	// 	if let Err(error) = windows::show_window(
-	// 		window.app_handle().clone(),
-	// 		windows::SpacedriveWindow::Spacebot,
-	// 	)
-	// 	.await
-	// 	{
-	// 		tracing::warn!(?error, "Failed to auto-open Spacebot window");
-	// 	}
-	// }
 }
 
 /// Get the daemon socket address for the frontend to connect
@@ -1917,22 +1904,6 @@ fn main() {
 		.plugin(tauri_plugin_os::init())
 		.plugin(tauri_plugin_shell::init())
 		.plugin(tauri_plugin_updater::Builder::new().build())
-		.plugin(
-			tauri_plugin_global_shortcut::Builder::new()
-				.with_shortcut("Alt+Space")
-				.expect("failed to register Alt+Space global shortcut")
-				.with_handler(|app, _shortcut, event| {
-					if event.state() == ShortcutState::Pressed {
-						if let Err(error) = windows::toggle_voice_overlay_internal(app.clone()) {
-							tracing::warn!(
-								?error,
-								"Failed to toggle voice overlay from global shortcut"
-							);
-						}
-					}
-				})
-				.build(),
-		)
 		.invoke_handler(tauri::generate_handler![
 			app_ready,
 			get_daemon_socket,
@@ -1957,10 +1928,8 @@ fn main() {
 			open_macos_settings,
 			windows::show_window,
 			windows::close_window,
-			windows::toggle_voice_overlay,
 			windows::list_windows,
 			windows::apply_macos_styling,
-			windows::resize_overlay_window,
 			windows::position_context_menu,
 			drag::begin_drag,
 			drag::end_drag,

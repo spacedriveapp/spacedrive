@@ -2,7 +2,7 @@
 
 ## The Problem
 
-9 files use the old wrapped Popover API:
+5 files use the old wrapped Popover API:
 ```tsx
 <Popover popover={popover} trigger={<button>...</button>} side="top" className="...">
   {children}
@@ -57,14 +57,10 @@ const popover = usePopover();
 
 ## Files to Refactor
 
-1. `packages/interface/src/Spacebot/ChatComposer.tsx`
-2. `packages/interface/src/Spacebot/SpacebotLayout.tsx`
-3. `packages/interface/src/Spacebot/routes/ChatRoute.tsx`
-4. `packages/interface/src/routes/explorer/components/PathBar.tsx`
-5. `packages/interface/src/routes/overview/OverviewTopBar.tsx`
-6. `packages/interface/src/components/SyncMonitor/SyncMonitorPopover.tsx`
-7. `packages/interface/src/components/JobManager/JobManagerPopover.tsx`
-8. `packages/interface/src/components/Tags/TagSelector.tsx`
-9. `packages/interface/src/windows/VoiceOverlay.tsx`
+1. `packages/interface/src/routes/explorer/components/PathBar.tsx`
+2. `packages/interface/src/routes/overview/OverviewTopBar.tsx`
+3. `packages/interface/src/components/SyncMonitor/SyncMonitorPopover.tsx`
+4. `packages/interface/src/components/JobManager/JobManagerPopover.tsx`
+5. `packages/interface/src/components/Tags/TagSelector.tsx`
 
 Search for `<Popover` followed by `popover=` in each file and apply the pattern above.

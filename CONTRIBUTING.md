@@ -630,7 +630,7 @@ The app connects to `sd-daemon` which manages libraries and P2P connections. In 
 
 ## SpaceUI (Design System)
 
-Spacedrive's UI components come from [SpaceUI](https://github.com/spacedriveapp/spaceui), a standalone design system monorepo. SpaceUI provides shared primitives (Button, Input, Dialog, etc.), design tokens, form components, AI agent UI, and explorer components used across Spacedrive and Spacebot.
+Spacedrive's UI components come from [SpaceUI](https://github.com/spacedriveapp/spaceui), a standalone design system monorepo. SpaceUI provides shared primitives (Button, Input, Dialog, etc.), design tokens, form components, AI agent UI, and explorer components used across Spacedrive.
 
 ### Packages
 

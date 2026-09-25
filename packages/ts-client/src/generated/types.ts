@@ -106,11 +106,7 @@ logging: LoggingConfigOutput;
 /**
  * Proxy pairing configuration
  */
-proxy_pairing: ProxyPairingConfigOutput; 
-/**
- * Spacebot companion configuration
- */
-spacebot: SpacebotConfigOutput };
+proxy_pairing: ProxyPairingConfigOutput };
 
 export type ApplyTagsInput = { targets: TagTargets; tag_ids: string[] };
 
@@ -4277,11 +4273,6 @@ export type SpaceUpdateInput = { space_id: string; name: string | null; icon: st
 
 export type SpaceUpdateOutput = { space: Space };
 
-/**
- * Spacebot companion configuration output
- */
-export type SpacebotConfigOutput = { enabled: boolean; base_url: string; auth_token: string | null; default_agent_id: string; default_sender_name: string };
-
 export type SpacedropSendInput = { device_id: string; paths: SdPath[]; sender: string | null };
 
 export type SpacedropSendOutput = { job_id: string | null; session_id: string | null };
@@ -4804,27 +4795,7 @@ proxy_pairing_vouch_response_timeout?: number | null;
 /**
  * Maximum retries for queued vouches
  */
-proxy_pairing_vouch_queue_retry_limit?: number | null; 
-/**
- * Whether Spacebot features are enabled in the UI
- */
-spacebot_enabled?: boolean | null; 
-/**
- * Spacebot API base URL
- */
-spacebot_base_url?: string | null; 
-/**
- * Optional Spacebot bearer token
- */
-spacebot_auth_token?: string | null; 
-/**
- * Default Spacebot agent ID for embedded chat
- */
-spacebot_default_agent_id?: string | null; 
-/**
- * Default sender name for embedded chat
- */
-spacebot_default_sender_name?: string | null };
+proxy_pairing_vouch_queue_retry_limit?: number | null };
 
 /**
  * Output for update app configuration action

@@ -64,15 +64,11 @@ The VDFS gives us:
 
 File System Intelligence uses that substrate to attach context and policy to files and subtrees in a way that is portable across devices and storage backends.
 
-## Relationship to Spacebot
+## Relationship to Agents
 
-Spacedrive owns File System Intelligence.
+Spacedrive owns File System Intelligence. It is a core capability that any agent or automation system can use.
 
-Spacebot is the first major producer and consumer of it.
-
-This is important because the intelligence layer should not be framed as only a Spacebot feature. It is a core Spacedrive capability that any agent or automation system can use.
-
-Spacebot can:
+An agent can:
 
 - write user-informed context into the filesystem intelligence layer
 - read that context while navigating files and directories
@@ -380,7 +376,7 @@ Given a home directory with:
 ~/Documents
 ```
 
-The user tells Spacebot:
+The user tells an agent:
 
 - "I keep active repositories in Projects"
 - "Archive contains repos I'm not actively working on"
@@ -487,8 +483,8 @@ This is enough to demonstrate the full value of File System Intelligence without
 
 ### Phase 3: Agent Integration
 
-- Spacebot reads context while navigating via Spacedrive
-- Spacebot can write facts and notes with attribution
+- agents read context while navigating via Spacedrive
+- agents can write facts and notes with attribution
 
 ### Phase 4: Summary Jobs
 

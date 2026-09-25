@@ -4,8 +4,6 @@
 	"description": "Default permissions for Spacedrive",
 	"windows": [
 		"main",
-		"spacebot",
-		"voice-overlay",
 		"inspector-*",
 		"quick-preview-*",
 		"settings-*",

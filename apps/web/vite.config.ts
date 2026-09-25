@@ -52,22 +52,11 @@ export default defineConfig({
 							replacement: `${spaceui}/tokens`,
 						},
 						{
-							find: /^@spacedrive\/ai$/,
-							replacement: `${spaceui}/ai/src/index.ts`,
-						},
-						{
 							find: /^@spacedrive\/primitives$/,
 							replacement: `${spaceui}/primitives/src/index.ts`,
 						},
 					]
 				: []),
-			{
-				find: "@spacebot/api-client",
-				replacement: path.resolve(
-					__dirname,
-					"../../packages/interface/src/Spacebot/api-client.ts",
-				),
-			},
 			{
 				find: "@sd/interface",
 				replacement: path.resolve(__dirname, "../../packages/interface/src"),
@@ -102,7 +91,7 @@ export default defineConfig({
 		},
 	},
 	optimizeDeps: {
-		exclude: ["@spacedrive/ai", "@spacedrive/primitives", "@spacedrive/tokens"],
+		exclude: ["@spacedrive/primitives", "@spacedrive/tokens"],
 	},
 	build: {
 		outDir: "dist",

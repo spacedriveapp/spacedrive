@@ -42,10 +42,6 @@ pub struct AppConfig {
 	#[serde(default)]
 	pub proxy_pairing: ProxyPairingConfig,
 
-	/// Spacebot companion runtime configuration
-	#[serde(default)]
-	pub spacebot: SpacebotConfig,
-
 	/// Mounted-source behaviour
 	#[serde(default)]
 	pub mounts: MountsConfig,
@@ -68,37 +64,6 @@ impl Default for MountsConfig {
 	fn default() -> Self {
 		Self {
 			cache_max_bytes: default_cache_max_bytes(),
-		}
-	}
-}
-
-/// Spacebot integration configuration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SpacebotConfig {
-	/// Whether Spacebot features are visible in the UI.
-	pub enabled: bool,
-
-	/// Base URL for the Spacebot HTTP API.
-	pub base_url: String,
-
-	/// Optional bearer token used for Spacebot API requests.
-	pub auth_token: Option<String>,
-
-	/// Default agent to target from the embedded chat.
-	pub default_agent_id: String,
-
-	/// Default sender name used by the embedded chat.
-	pub default_sender_name: String,
-}
-
-impl Default for SpacebotConfig {
-	fn default() -> Self {
-		Self {
-			enabled: false,
-			base_url: "http://127.0.0.1:19898".to_string(),
-			auth_token: None,
-			default_agent_id: "main".to_string(),
-			default_sender_name: "user".to_string(),
 		}
 	}
 }
@@ -302,7 +267,6 @@ impl AppConfig {
 			services: ServiceConfig::default(),
 			logging: LoggingConfig::default(),
 			proxy_pairing: ProxyPairingConfig::default(),
-			spacebot: SpacebotConfig::default(),
 			mounts: MountsConfig::default(),
 		}
 	}
@@ -367,7 +331,7 @@ impl Migrate for AppConfig {
 	}
 
 	fn target_version() -> u32 {
-		6 // Added Spacebot configuration
+		6
 	}
 
 	fn migrate(&mut self) -> Result<()> {
@@ -402,8 +366,6 @@ impl Migrate for AppConfig {
 				self.migrate()
 			}
 			5 => {
-				// Migration from v5 to v6: Add Spacebot companion configuration
-				self.spacebot = SpacebotConfig::default();
 				self.version = 6;
 				Ok(())
 			}

@@ -174,10 +174,6 @@ export const platform: Platform = {
 		await invoke('close_window', {label});
 	},
 
-	async toggleVoiceOverlay() {
-		await invoke('toggle_voice_overlay');
-	},
-
 	async onWindowEvent(event: string, callback: () => void) {
 		const unlisten = await listen(event, () => {
 			callback();
@@ -274,10 +270,6 @@ export const platform: Platform = {
 
 	async applyMacOSStyling() {
 		await invoke('apply_macos_styling');
-	},
-
-	async resizeWindow(label: string, width: number, height: number) {
-		await invoke('resize_overlay_window', {label, width, height});
 	},
 
 	async startDrag(config) {
