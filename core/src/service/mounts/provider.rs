@@ -12,6 +12,7 @@
 
 use crate::context::CoreContext;
 use crate::domain::volume::VolumeFingerprint;
+use crate::domain::SdPath;
 use crate::ops::indexing::volume_index::SourceStatus;
 use crate::volume::VolumeBackend;
 use async_trait::async_trait;
@@ -348,6 +349,50 @@ pub fn remote_share_name(share: &super::peer::RemoteShare) -> String {
 		Some(pos) => format!("{}@{}-{}", &base[..pos], device, &base[pos + 1..]),
 		None => format!("{base}@{device}"),
 	}
+}
+
+/// The share-relative path that serves `path`, the inverse of
+/// [`resolve_target`]: beneath the innermost source holding a path on this
+/// device, or beneath the replica holding a path on another. `None` for a path
+/// no share holds, or one with a name the share cannot spell.
+pub async fn share_path(context: &Arc<CoreContext>, path: &SdPath) -> Option<String> {
+	let (mut rel, root, abs) = match path.as_local_path() {
+		Some(local) => {
+			// The volume decides how a path is spelled, so a path reached
+			// through an alias such as /Users/me is rewritten before it meets
+			// a source root.
+			let spelled = match context.volume_manager.locate_path(local).await {
+				Some((_, spelled)) => spelled,
+				None => local.to_path_buf(),
+			};
+			let sources = context.volume_index().sources();
+			let source = crate::ops::paths::reach::innermost_source(&sources, &spelled)?;
+			(
+				share_name(&source.root, source.id),
+				source.root.clone(),
+				spelled,
+			)
+		}
+		None => {
+			let SdPath::Physical { device_slug, path } = path else {
+				return None;
+			};
+			let share = super::peer::share_for(context, device_slug, path).await?;
+			(
+				remote_share_name(&share),
+				share.info.root.clone(),
+				path.clone(),
+			)
+		}
+	};
+	for component in abs.strip_prefix(&root).ok()?.components() {
+		let Component::Normal(name) = component else {
+			return None;
+		};
+		rel.push('/');
+		rel.push_str(name.to_str()?);
+	}
+	Some(rel)
 }
 
 pub async fn resolve_target(context: &Arc<CoreContext>, rel: &str) -> Option<MountTarget> {

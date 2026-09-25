@@ -60,6 +60,30 @@ pub fn mount_url() -> Option<String> {
 	))
 }
 
+/// How this process mounts its own share: where the server listens and the
+/// login it accepts.
+pub(super) struct Login {
+	/// `smb://127.0.0.1:<port>/spacedrive`, without credentials.
+	pub url: String,
+	/// The mounted share as the mount table names it, which tells this run's
+	/// mount apart from one an earlier run left behind.
+	pub source: String,
+	pub user: &'static str,
+	pub password: &'static str,
+}
+
+/// The login for this run's server, when it is running.
+pub(super) fn login() -> Option<Login> {
+	let addr = bound_addr()?;
+	let password = PASSWORD.get()?;
+	Some(Login {
+		url: format!("smb://{}:{}/{SHARE}", addr.ip(), addr.port()),
+		source: format!("//{USER}@{}:{}/{SHARE}", addr.ip(), addr.port()),
+		user: USER,
+		password,
+	})
+}
+
 /// Password for this run: the environment when set (so a long-lived mount
 /// survives a daemon restart), otherwise freshly random.
 fn password() -> String {

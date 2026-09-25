@@ -60,6 +60,10 @@ impl CoreAction for ResetDataAction {
 		// Give services time to shut down
 		tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
+		// The share's mount sits in the data dir and serves other devices'
+		// files, which the removal below must not walk into.
+		crate::service::mounts::attach::detach(data_dir).await;
+
 		// Delete all files and directories in the data directory
 		info!("Removing contents of data directory");
 		match std::fs::read_dir(data_dir) {

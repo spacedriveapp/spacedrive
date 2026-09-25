@@ -6,7 +6,7 @@ use crate::volume::{
 	types::{DiskType, FileSystem, MountType, Volume, VolumeDetectionConfig, VolumeFingerprint},
 	utils,
 };
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use tokio::task;
 use tracing::debug;
@@ -48,6 +48,12 @@ pub async fn detect_non_apfs_volumes(
 
 				// Skip volumes already detected by the APFS detector
 				if apfs_mount_points.contains(&mount_point) {
+					continue;
+				}
+
+				// A mount inside the daemon's data dir is its own share mounted
+				// back, which would otherwise be listed and indexed as a volume.
+				if crate::config::is_own_data(Path::new(&mount_point)) {
 					continue;
 				}
 

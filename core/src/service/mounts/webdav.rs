@@ -12,8 +12,9 @@ use crate::ops::indexing::state::EntryKind;
 use crate::ops::indexing::volume_index::SourceStatus;
 use axum::{
 	body::Body,
-	extract::State,
-	http::{header, HeaderMap, Method, StatusCode, Uri},
+	extract::{Request, State},
+	http::{header, HeaderMap, HeaderValue, Method, StatusCode, Uri},
+	middleware::{self, Next},
 	response::{IntoResponse, Response},
 	routing::any,
 	Router,
@@ -32,7 +33,79 @@ pub fn router(context: Arc<CoreContext>) -> Router {
 		.route("/dav", any(handle))
 		.route("/dav/", any(handle))
 		.route("/dav/*rest", any(handle))
+		.layer(middleware::from_fn(loopback_only))
 		.with_state(context)
+}
+
+/// The URL the running share serves a share-relative path at.
+pub fn file_url(share_path: &str) -> Option<String> {
+	let addr = super::bound_addr()?;
+	Some(format!(
+		"http://{addr}{DAV_PREFIX}/{}",
+		href_encode(share_path)
+	))
+}
+
+/// Refuses requests addressed to anything but this machine's loopback, and
+/// lets pages on this machine read what the share serves.
+///
+/// A web page can point its own domain at 127.0.0.1 and then read the share
+/// as its own origin. Its requests still name that domain in their Host
+/// header, which is what refuses them. Clients that are not browsers may send
+/// no Host at all.
+async fn loopback_only(request: Request, next: Next) -> Response {
+	let host_allowed = request
+		.headers()
+		.get(header::HOST)
+		.is_none_or(|host| host.to_str().is_ok_and(is_loopback_authority));
+	if !host_allowed {
+		return (StatusCode::FORBIDDEN, "not a loopback host").into_response();
+	}
+
+	let origin = request
+		.headers()
+		.get(header::ORIGIN)
+		.filter(|origin| origin_is_local(origin))
+		.cloned();
+	let mut response = next.run(request).await;
+	if let Some(origin) = origin {
+		let headers = response.headers_mut();
+		headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+		headers.insert(
+			header::ACCESS_CONTROL_EXPOSE_HEADERS,
+			HeaderValue::from_static("accept-ranges, content-length, content-range"),
+		);
+		headers.append(header::VARY, HeaderValue::from_static("origin"));
+	}
+	response
+}
+
+/// Whether a `host[:port]` authority names this machine's loopback.
+fn is_loopback_authority(authority: &str) -> bool {
+	let host = match authority.rsplit_once(':') {
+		Some((host, port)) if !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit()) => host,
+		_ => authority,
+	};
+	["127.0.0.1", "localhost", "[::1]"]
+		.iter()
+		.any(|loopback| host.eq_ignore_ascii_case(loopback))
+}
+
+/// Whether a request comes from a page on this machine: a Tauri web view
+/// (`tauri://localhost`, or `http://tauri.localhost` on Windows) or a page a
+/// loopback server serves, such as the desktop app's dev server. Anything on
+/// this machine can already read the share directly.
+fn origin_is_local(origin: &HeaderValue) -> bool {
+	let Some((scheme, authority)) = origin.to_str().ok().and_then(|o| o.split_once("://")) else {
+		return false;
+	};
+	match scheme {
+		"tauri" => true,
+		"http" | "https" => {
+			authority.eq_ignore_ascii_case("tauri.localhost") || is_loopback_authority(authority)
+		}
+		_ => false,
+	}
 }
 
 async fn handle(
@@ -580,5 +653,51 @@ mod tests {
 	fn percent_roundtrip() {
 		let original = "Time Machine/2026 α.txt";
 		assert_eq!(percent_decode(&href_encode(original)), original);
+	}
+
+	/// A rebound domain names itself in the Host header even when it resolves
+	/// to loopback, so only loopback names pass.
+	#[test]
+	fn only_loopback_hosts_pass() {
+		for host in [
+			"127.0.0.1:7764",
+			"127.0.0.1",
+			"localhost:7764",
+			"LOCALHOST",
+			"[::1]:7764",
+			"[::1]",
+		] {
+			assert!(is_loopback_authority(host), "{host}");
+		}
+		for host in [
+			"evil.example:7764",
+			"127.0.0.1.evil.example",
+			"10.0.0.2:7764",
+			"",
+		] {
+			assert!(!is_loopback_authority(host), "{host}");
+		}
+	}
+
+	#[test]
+	fn only_pages_on_this_machine_may_read() {
+		let local = |origin: &'static str| origin_is_local(&HeaderValue::from_static(origin));
+		assert!(local("tauri://localhost"));
+		assert!(local("http://tauri.localhost"));
+		assert!(local("https://tauri.localhost"));
+		assert!(local("http://localhost:1420"));
+		assert!(local("http://127.0.0.1:8080"));
+		assert!(!local("https://evil.example"));
+		assert!(!local("http://localhost.evil.example"));
+		assert!(!local("null"));
+		assert!(!local("file://"));
+	}
+
+	#[test]
+	fn share_paths_encode_for_urls() {
+		assert_eq!(
+			href_encode("jamie-nas@titan-cc1448/Ingest/A 1.mov"),
+			"jamie-nas%40titan-cc1448/Ingest/A%201.mov"
+		);
 	}
 }

@@ -100,6 +100,14 @@ impl Core {
 
 		config.ensure_directories()?;
 
+		// Volume detection below already asks whether a mount is the daemon's
+		// own, so the data dir is known before it runs.
+		crate::config::mark_own_data_dir(&data_dir);
+
+		// A daemon that exited without shutting down left its share mounted
+		// with no server behind it. Unmount it before anything lists mounts.
+		crate::service::mounts::attach::detach(&data_dir).await;
+
 		let config = Arc::new(RwLock::new(config));
 
 		// Initialize unified key manager with file fallback
@@ -579,6 +587,9 @@ impl Core {
 	/// Shutdown the core gracefully
 	pub async fn shutdown(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		info!("Shutting down Spacedrive Core...");
+
+		// The share's server stops with this process, so its mount goes first.
+		crate::service::mounts::attach::detach(&self.context.data_dir).await;
 
 		// Networking service is stopped by services.stop_all()
 

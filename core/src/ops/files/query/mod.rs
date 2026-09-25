@@ -7,8 +7,10 @@ pub mod directory_listing;
 pub mod duplicates;
 pub mod file_by_id;
 pub mod file_by_path;
+pub mod local_path;
 pub mod media_listing;
 pub mod size_tree;
+pub mod stream_url;
 
 pub use alternate_instances::*;
 pub use content_kind_stats::*;
@@ -16,4 +18,6 @@ pub use directory_listing::*;
 pub use duplicates::*;
 pub use file_by_id::*;
 pub use file_by_path::*;
+pub use local_path::*;
 pub use media_listing::*;
+pub use stream_url::*;

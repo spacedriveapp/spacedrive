@@ -1,15 +1,18 @@
-//! Mounts service — serves indexed sources as a read-only WebDAV share.
+//! Mounts service: serves every indexed source, local and replicated from
+//! paired devices, as one read-only share over HTTP (WebDAV) and SMB.
 //!
-//! The validation surface from `docs/core/design/mounts.md` (phase 2):
-//! metadata answers from each source's arena, bytes stream from the source's
-//! byte provider (local passthrough or the volume backend for cloud roots).
-//! macOS mounts the share natively via Finder's "Connect to Server" with the
-//! URL logged at startup; any WebDAV or HTTP-Range client works.
+//! Metadata answers from each source's arena and bytes stream from the
+//! source's byte provider, so peer and cloud reads go through the block cache.
+//! Spacedrive's own viewers stream a file from its HTTP URL
+//! ([`file_url`] of its [`share_path`]); other apps open it by path inside the
+//! SMB share, which [`attach`] mounts on this machine. See
+//! `docs/core/design/mounts.md`.
 //!
 //! Detached sources appear in the share and browse from their snapshots;
-//! reads against them fail with 503 naming the source. The share is bound to
+//! reads against them fail with 503 naming the source. Both servers bind to
 //! loopback only.
 
+pub mod attach;
 pub mod cache;
 pub mod peer;
 pub mod provider;
@@ -17,7 +20,8 @@ pub mod smb;
 pub mod trace;
 mod webdav;
 
-pub use provider::{remote_share_name, resolve_target, share_name};
+pub use provider::{remote_share_name, resolve_target, share_name, share_path};
+pub use webdav::file_url;
 
 use crate::context::CoreContext;
 use std::net::SocketAddr;

@@ -2794,6 +2794,10 @@ export type ListWhisperModelsInput = Record<string, never>;
 
 export type ListWhisperModelsOutput = { models: ModelInfo[]; total_downloaded_size: number };
 
+export type LocalPathInput = { path: SdPath };
+
+export type LocalPathOutput = { path: string };
+
 /**
  * Logging configuration output
  */
@@ -4303,6 +4307,14 @@ export type StateTransition = { from: DeviceSyncState; to: DeviceSyncState; time
 
 export type StoreRevision = { source: string; revision: number };
 
+export type StreamUrlInput = { path: SdPath };
+
+export type StreamUrlOutput = { 
+/**
+ * A loopback URL that answers ranged `GET`s for the file's bytes.
+ */
+url: string };
+
 /**
  * The state of an effect's result when it was recorded: what undo checks
  * against before touching it.
@@ -5482,7 +5494,9 @@ export type CoreQuery =
   |  { type: 'core.status'; input: Empty; output: CoreStatus }
   |  { type: 'files.collection_listing'; input: CollectionListingInput; output: CollectionListingOutput }
   |  { type: 'files.duplicates'; input: DuplicatesInput; output: DuplicatesOutput }
+  |  { type: 'files.local_path'; input: LocalPathInput; output: LocalPathOutput }
   |  { type: 'files.size_tree'; input: SizeTreeInput; output: SizeTreeOutput }
+  |  { type: 'files.stream_url'; input: StreamUrlInput; output: StreamUrlOutput }
   |  { type: 'jobs.remote.all_devices'; input: RemoteJobsAllDevicesInput; output: RemoteJobsAllDevicesOutput }
   |  { type: 'jobs.remote.for_device'; input: RemoteJobsForDeviceInput; output: RemoteJobsForDeviceOutput }
   |  { type: 'libraries.list'; input: ListLibrariesInput; output: [LibraryInfo] }
@@ -5678,7 +5692,9 @@ export const WIRE_METHODS = {
     'core.status': 'query:core.status',
     'files.collection_listing': 'query:files.collection_listing',
     'files.duplicates': 'query:files.duplicates',
+    'files.local_path': 'query:files.local_path',
     'files.size_tree': 'query:files.size_tree',
+    'files.stream_url': 'query:files.stream_url',
     'jobs.remote.all_devices': 'query:jobs.remote.all_devices',
     'jobs.remote.for_device': 'query:jobs.remote.for_device',
     'libraries.list': 'query:libraries.list',

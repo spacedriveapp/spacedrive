@@ -52,11 +52,12 @@ static OWN_DATA_DIRS: OnceLock<Vec<PathBuf>> = OnceLock::new();
 /// usually the `/Users` alias; `canonicalize` resolves symlinks but not
 /// firmlinks, so a single spelling misses half the events.
 pub fn mark_own_data_dir(dir: &Path) {
-	let _ = OWN_DATA_DIRS.set(data_dir_spellings(dir));
+	let _ = OWN_DATA_DIRS.set(path_spellings(dir));
 }
 
-/// Every spelling the data directory can appear under in an event or a walk.
-fn data_dir_spellings(dir: &Path) -> Vec<PathBuf> {
+/// Every spelling a directory can appear under in an event, a walk, or the
+/// mount table.
+pub(crate) fn path_spellings(dir: &Path) -> Vec<PathBuf> {
 	let canonical = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
 	let mut spellings = vec![canonical];
 	if dir != spellings[0] {
@@ -114,14 +115,13 @@ mod tests {
 	#[test]
 	#[cfg(target_os = "macos")]
 	fn data_dir_is_recognized_under_both_firmlink_spellings() {
-		let spellings = data_dir_spellings(Path::new("/Users/someone/.spacedrive"));
+		let spellings = path_spellings(Path::new("/Users/someone/.spacedrive"));
 		assert!(spellings.contains(&PathBuf::from("/Users/someone/.spacedrive")));
 		assert!(spellings.contains(&PathBuf::from(
 			"/System/Volumes/Data/Users/someone/.spacedrive"
 		)));
 
-		let spellings =
-			data_dir_spellings(Path::new("/System/Volumes/Data/Users/someone/.spacedrive"));
+		let spellings = path_spellings(Path::new("/System/Volumes/Data/Users/someone/.spacedrive"));
 		assert!(spellings.contains(&PathBuf::from("/Users/someone/.spacedrive")));
 	}
 }

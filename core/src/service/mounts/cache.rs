@@ -2,9 +2,9 @@
 //!
 //! Streamed ranges land in fixed-size blocks so scrubbing and repeated reads
 //! do not cross the network twice. Two tiers: L1 in memory, L2 on disk under
-//! `<data_dir>/mounts-cache`, with the provider as L3. The cache is a
-//! rebuildable artifact class — deletable at any moment, never
-//! authoritative, and rebuilt by being read again.
+//! each source's `<data_dir>/sources/<source-id>/blocks/`, with the provider
+//! as L3. The cache is a rebuildable artifact class, deletable at any moment,
+//! never authoritative, and rebuilt by being read again.
 //!
 //! Blocks key on `(source_id, path, source_version, index)`, where the
 //! version is derived from the file's size and mtime. A file that changes
