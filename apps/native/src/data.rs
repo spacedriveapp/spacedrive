@@ -40,7 +40,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::sync::{mpsc, watch};
+use tokio::sync::{mpsc, oneshot, watch};
 use tokio::task::JoinHandle;
 use uuid::Uuid;
 
@@ -50,7 +50,7 @@ use sd_client::{
 };
 use sd_core::domain::{File, SdPath, Tag};
 use sd_core::ops::core::status::output::CoreStatus;
-use sd_core::ops::files::query::FileByIdQuery;
+use sd_core::ops::files::query::{FileByIdQuery, LocalPathInput, LocalPathOutput};
 use sd_core::ops::navigation::focus::DEFAULT_GROUP;
 use sd_core::ops::navigation::get::{NavigationFocusInput, NavigationFocusOutput};
 use sd_core::ops::navigation::NavigationFocus;
@@ -101,6 +101,11 @@ enum Command {
 	},
 	/// Read the library's tags again.
 	RefreshTags,
+	/// Find the path on this machine that opens a cell's file.
+	LocalPath {
+		path: SdPath,
+		reply: oneshot::Sender<anyhow::Result<PathBuf>>,
+	},
 }
 
 /// A listing ready to render: its first page, and everything the UI needs to
@@ -119,7 +124,7 @@ pub struct FolderOpen {
 	/// The record each cell of the first page shows, in listing order.
 	pub records: Vec<Uuid>,
 	/// Each cell's file, in listing order.
-	pub paths: Vec<PathBuf>,
+	pub paths: Vec<SdPath>,
 	/// The tags each cell's record carries, in listing order.
 	pub tags: Vec<Vec<Uuid>>,
 	/// What changes about the listing once it is open, queued from the moment
@@ -136,7 +141,7 @@ pub enum FolderChange {
 	/// A later page's cells, after every cell before them.
 	Appended {
 		records: Vec<Uuid>,
-		paths: Vec<PathBuf>,
+		paths: Vec<SdPath>,
 		tags: Vec<Vec<Uuid>>,
 	},
 	/// What these records carry now.
@@ -200,8 +205,8 @@ pub struct FocusSnapshot {
 	pub following: bool,
 	/// The focus group this window joined.
 	pub group: String,
-	/// Where the group is looking, when that is a directory on this device.
-	pub path: Option<PathBuf>,
+	/// The directory the group is looking at, on this device or another.
+	pub path: Option<SdPath>,
 	/// Whether the group is searching, which makes the listing the search's
 	/// rather than the folder's.
 	pub searching: bool,
@@ -300,6 +305,19 @@ impl DataHandle {
 	/// tag made in another window arrives this way.
 	pub fn refresh_tags(&self) {
 		let _ = self.commands.send(Command::RefreshTags);
+	}
+
+	/// The path on this machine that opens a cell's file, for the preview
+	/// panel. A file on another device opens inside the share the daemon
+	/// mounts here, which the first such ask mounts.
+	pub async fn local_path(&self, path: SdPath) -> anyhow::Result<PathBuf> {
+		let (reply, answer) = oneshot::channel();
+		self.commands
+			.send(Command::LocalPath { path, reply })
+			.map_err(|_| anyhow::anyhow!("the data plane has stopped"))?;
+		answer
+			.await
+			.map_err(|_| anyhow::anyhow!("the data plane has stopped"))?
 	}
 
 	/// The next folder the plane has opened, if any. Non-blocking; safe from
@@ -628,7 +646,7 @@ fn read_row(current: &[Uuid], announced: &[Tag], expected: bool) -> Reading {
 /// One listing being rendered, and the wiring feeding it.
 struct Folder {
 	/// Every media path listed so far, in listing order. Index is grid index.
-	paths: Vec<PathBuf>,
+	paths: Vec<SdPath>,
 	/// Growth and identity windows out to the grid.
 	feed_tx: std::sync::mpsc::Sender<Feed>,
 	/// Completions out to the grid.
@@ -673,11 +691,10 @@ struct Plane {
 	group: String,
 	online: bool,
 	following: bool,
-	/// This daemon's device slug, learned from `core.status`. A focus row for
-	/// another device names a path that does not exist here, so the slug is
-	/// what makes a published position usable.
+	/// This daemon's device slug, learned from `core.status`, which tells a
+	/// cell on this device from one on another.
 	device_slug: Option<String>,
-	path: Option<PathBuf>,
+	path: Option<SdPath>,
 	/// The search the followed window is running, which is listed in place
 	/// of its folder.
 	search: Option<FileSearchInput>,
@@ -724,6 +741,7 @@ impl Plane {
 				apply,
 			} => self.tag(tag, records, apply),
 			Command::RefreshTags => self.request_tags(),
+			Command::LocalPath { path, reply } => self.local_path(path, reply),
 		}
 	}
 
@@ -970,14 +988,9 @@ impl Plane {
 		let Some(folder) = self.folder.as_mut() else {
 			return;
 		};
-		let device_slug = self.device_slug.clone().unwrap_or_default();
-		let paths: Vec<SdPath> = folder.paths[first as usize..last as usize]
-			.iter()
-			.map(|path| SdPath::Physical {
-				device_slug: device_slug.clone(),
-				path: path.clone(),
-			})
-			.collect();
+		// Each cell names its own device, so a replica's tiles come from the
+		// device that owns its files.
+		let paths = folder.paths[first as usize..last as usize].to_vec();
 		if paths.is_empty() {
 			return;
 		}
@@ -1021,16 +1034,8 @@ impl Plane {
 	fn handle_slug_fetched(&mut self, result: anyhow::Result<String>) {
 		match result {
 			Ok(slug) => {
-				let learned = self.device_slug.as_deref() != Some(&slug);
 				self.online = true;
 				self.device_slug = Some(slug);
-				if learned {
-					// Focus rows could not be resolved to a local path before.
-					self.request_focus();
-					if self.folder.is_none() && (self.path.is_some() || self.search.is_some()) {
-						self.open_folder();
-					}
-				}
 				self.publish();
 			}
 			Err(error) => {
@@ -1045,13 +1050,15 @@ impl Plane {
 	}
 
 	/// Take a published position if it belongs to this window's group: a
-	/// directory on this device, a search, or both.
+	/// directory on this device or another, a search, or both.
 	fn apply_focus(&mut self, focus: NavigationFocus) {
 		if focus.group != self.group {
 			return;
 		}
 		let library_id = focus.library_id;
-		let path = focus.path.and_then(|path| self.local_path(path));
+		let path = focus
+			.path
+			.filter(|path| matches!(path, SdPath::Physical { .. }));
 		let search = focus.search;
 		if self.path == path && self.search == search && self.library_id == library_id {
 			return;
@@ -1079,24 +1086,13 @@ impl Plane {
 		self.folder = None;
 		self.rereads.clear();
 
-		if self.path.is_none() && self.search.is_none() {
+		let Some(request) = self.first_page() else {
 			self.folder_state = FolderState::Idle;
 			self.publish();
 			return;
-		}
+		};
 		let Some(library_id) = self.library_id else {
 			self.folder_state = FolderState::NoLibrary;
-			self.publish();
-			return;
-		};
-		// The listing's cells cannot be addressed yet; the slug fetch marks
-		// this listing for another attempt when it lands.
-		let Some(request) = self
-			.device_slug
-			.as_deref()
-			.and_then(|slug| self.first_page(slug))
-		else {
-			self.folder_state = FolderState::Loading;
 			self.publish();
 			return;
 		};
@@ -1108,7 +1104,7 @@ impl Plane {
 
 	/// The first page of what the followed window shows: the media its search
 	/// finds while it searches, and otherwise the media beneath its folder.
-	fn first_page(&self, device_slug: &str) -> Option<MediaSearchInput> {
+	fn first_page(&self) -> Option<MediaSearchInput> {
 		let (query, scope, filters) = match (&self.search, &self.path) {
 			(Some(search), _) => (
 				search.query.clone(),
@@ -1117,12 +1113,7 @@ impl Plane {
 			),
 			(None, Some(path)) => (
 				String::new(),
-				SearchScope::Path {
-					path: SdPath::Physical {
-						device_slug: device_slug.to_string(),
-						path: path.clone(),
-					},
-				},
+				SearchScope::Path { path: path.clone() },
 				SearchFilters::default(),
 			),
 			(None, None) => return None,
@@ -1156,29 +1147,33 @@ impl Plane {
 		match (&self.search, &self.path) {
 			(Some(search), _) if !search.query.is_empty() => format!("“{}”", search.query),
 			(Some(_), _) => "Search".to_string(),
-			(None, Some(path)) => path
+			(None, Some(SdPath::Physical { path, .. })) => path
 				.file_name()
 				.map(|name| name.to_string_lossy().into_owned())
 				.unwrap_or_else(|| path.display().to_string()),
+			(None, Some(path)) => path.to_string(),
 			(None, None) => String::new(),
 		}
 	}
 
-	/// The local directory an `SdPath` names, or `None` when it belongs to
-	/// another device or has no filesystem path at all.
-	fn local_path(&self, path: SdPath) -> Option<PathBuf> {
-		match path {
-			SdPath::Physical { device_slug, path } => {
-				match self.device_slug.as_deref() {
-					// Before the slug is known, a physical path is taken at
-					// face value; the refetch after it lands corrects this.
-					None => Some(path),
-					Some(slug) if slug == device_slug => Some(path),
-					Some(_) => None,
-				}
+	/// Answer with the path on this machine that opens `path`: its own for a
+	/// file on this device, and for one on another device its path inside the
+	/// share the daemon mounts, which the daemon hands out.
+	fn local_path(&self, path: SdPath, reply: oneshot::Sender<anyhow::Result<PathBuf>>) {
+		if let SdPath::Physical { device_slug, path } = &path {
+			if self.device_slug.as_deref() == Some(device_slug.as_str()) {
+				let _ = reply.send(Ok(path.clone()));
+				return;
 			}
-			_ => None,
 		}
+		let client = self.client.clone();
+		tokio::spawn(async move {
+			let found = client
+				.query::<_, LocalPathOutput>(&LocalPathInput { path }, None)
+				.await
+				.map(|output| output.path);
+			let _ = reply.send(found);
+		});
 	}
 
 	fn spawn_ping(&self) {
@@ -1459,7 +1454,7 @@ fn parse_hex_color(color: &str) -> Option<u32> {
 /// One cell of a listing: the file, the record it is, and the tags that
 /// record carries.
 struct Media {
-	path: PathBuf,
+	path: SdPath,
 	record: Uuid,
 	tags: Vec<Uuid>,
 }
@@ -1485,13 +1480,11 @@ async fn list_page(
 		media: output
 			.files
 			.into_iter()
-			.filter_map(|file| match file.sd_path {
-				SdPath::Physical { path, .. } => Some(Media {
-					path,
-					record: file.id,
-					tags: file.tags.iter().map(|tag| tag.id).collect(),
-				}),
-				_ => None,
+			.filter(|file| matches!(file.sd_path, SdPath::Physical { .. }))
+			.map(|file| Media {
+				record: file.id,
+				tags: file.tags.iter().map(|tag| tag.id).collect(),
+				path: file.sd_path,
 			})
 			.collect(),
 		next: output.next,
@@ -1501,7 +1494,7 @@ async fn list_page(
 
 /// A page's cells as the grid keeps them: records, files and tags, each in
 /// listing order.
-fn cells_of(media: Vec<Media>) -> (Vec<Uuid>, Vec<PathBuf>, Vec<Vec<Uuid>>) {
+fn cells_of(media: Vec<Media>) -> (Vec<Uuid>, Vec<SdPath>, Vec<Vec<Uuid>>) {
 	let mut records = Vec::with_capacity(media.len());
 	let mut paths = Vec::with_capacity(media.len());
 	let mut tags = Vec::with_capacity(media.len());
@@ -1596,7 +1589,7 @@ mod tests {
 		let (completions_tx, _) = std::sync::mpsc::channel();
 		let (changes_tx, changes) = mpsc::unbounded_channel();
 		plane.folder = Some(Folder {
-			paths: vec![PathBuf::from("/photos/a.jpg")],
+			paths: vec![physical("laptop", "/photos/a.jpg")],
 			feed_tx,
 			completions_tx,
 			visible: VisibleRange::new(0, 0),
@@ -1621,6 +1614,13 @@ mod tests {
 
 	fn file_json(record: Uuid, tags: &[Tag]) -> serde_json::Value {
 		serde_json::json!({ "id": record, "name": "IMG_0001", "tags": tags, "size": 42 })
+	}
+
+	fn physical(device_slug: &str, path: &str) -> SdPath {
+		SdPath::Physical {
+			device_slug: device_slug.to_string(),
+			path: PathBuf::from(path),
+		}
 	}
 
 	fn focus(group: &str, device_slug: &str, path: &str) -> NavigationFocus {
@@ -1681,21 +1681,34 @@ mod tests {
 		plane.apply_focus(focus("second-window", "laptop", "/photos"));
 		assert_eq!(plane.path, None);
 		plane.apply_focus(focus("default", "laptop", "/photos"));
-		assert_eq!(plane.path, Some(PathBuf::from("/photos")));
+		assert_eq!(plane.path, Some(physical("laptop", "/photos")));
 	}
 
+	/// A folder on another device is followed as it is named: its listing
+	/// and its cells address that device, before this one's slug is known or
+	/// after. A position with no filesystem path is not a folder.
 	#[test]
-	fn another_device_is_ignored() {
+	fn another_devices_folder_is_followed() {
+		for slug in [None, Some("laptop")] {
+			let mut plane = plane_at(slug);
+			plane.apply_focus(focus("default", "titan", "/mnt/pool/photos"));
+			assert_eq!(plane.path, Some(physical("titan", "/mnt/pool/photos")));
+			assert_eq!(
+				plane.first_page().map(|page| page.scope),
+				Some(SearchScope::Path {
+					path: physical("titan", "/mnt/pool/photos"),
+				})
+			);
+		}
+
 		let mut plane = plane_at(Some("laptop"));
-		plane.apply_focus(focus("default", "desktop", "/photos"));
+		plane.apply_focus(NavigationFocus {
+			path: Some(SdPath::Content {
+				content_id: Uuid::new_v4(),
+			}),
+			..focus("default", "laptop", "/photos")
+		});
 		assert_eq!(plane.path, None);
-	}
-
-	#[test]
-	fn a_physical_path_is_taken_before_the_slug_is_known() {
-		let mut plane = plane_at(None);
-		plane.apply_focus(focus("default", "desktop", "/photos"));
-		assert_eq!(plane.path, Some(PathBuf::from("/photos")));
 	}
 
 	#[test]
@@ -1834,16 +1847,11 @@ mod tests {
 	fn a_search_is_followed_in_place_of_the_folder() {
 		let mut plane = plane_at(Some("laptop"));
 		plane.apply_focus(focus("default", "laptop", "/photos"));
-		let folder = plane
-			.first_page("laptop")
-			.expect("a folder has a first page");
+		let folder = plane.first_page().expect("a folder has a first page");
 		assert_eq!(
 			folder.scope,
 			SearchScope::Path {
-				path: SdPath::Physical {
-					device_slug: "laptop".to_string(),
-					path: PathBuf::from("/photos"),
-				},
+				path: physical("laptop", "/photos"),
 			}
 		);
 		assert_eq!(plane.title(), "photos");
@@ -1854,9 +1862,7 @@ mod tests {
 			..focus("default", "laptop", "/photos")
 		});
 		assert_eq!(plane.search.as_ref(), Some(&search));
-		let page = plane
-			.first_page("laptop")
-			.expect("a search has a first page");
+		let page = plane.first_page().expect("a search has a first page");
 		assert_eq!(
 			(page.query, page.scope, page.filters, page.after, page.limit),
 			(search.query, search.scope, search.filters, None, PAGE)
@@ -1879,7 +1885,7 @@ mod tests {
 		let beach = tag(Uuid::new_v4(), "Beach");
 
 		plane.grow_listing(vec![Media {
-			path: PathBuf::from("/photos/b.jpg"),
+			path: physical("laptop", "/photos/b.jpg"),
 			record: later,
 			tags: Vec::new(),
 		}]);
@@ -1888,7 +1894,7 @@ mod tests {
 			changes.try_recv().expect("the page is sent"),
 			FolderChange::Appended {
 				records: vec![later],
-				paths: vec![PathBuf::from("/photos/b.jpg")],
+				paths: vec![physical("laptop", "/photos/b.jpg")],
 				tags: vec![Vec::new()],
 			}
 		);

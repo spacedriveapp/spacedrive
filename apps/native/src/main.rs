@@ -42,6 +42,7 @@ use gpui::{
 };
 use gpui_component::Root;
 use gpui_platform::application;
+use sd_core::domain::SdPath;
 use tokio::sync::mpsc;
 
 use crate::data::{DataHandle, FocusSnapshot, FolderChange, FolderState, TagSnapshot};
@@ -177,6 +178,9 @@ struct Photos {
 	notice_seen: u64,
 	/// The window's hold on the system preview panel, where there is one.
 	quick_look: Option<QuickLook>,
+	/// Numbers each ask for a file's path to preview, so only the latest
+	/// answer reaches the panel.
+	preview_ask: u64,
 }
 
 impl Photos {
@@ -208,6 +212,7 @@ impl Photos {
 			notice: None,
 			notice_seen: 0,
 			quick_look,
+			preview_ask: 0,
 		};
 
 		// Wake on data-plane snapshot changes; the channel is a tokio watch,
@@ -408,21 +413,55 @@ impl Photos {
 		};
 		if quick_look.is_open() {
 			quick_look.close(cx);
-		} else if let Some(path) = self.grid.read(cx).cursor_path() {
-			quick_look.show(path, cx);
+		} else if let Some(path) = self.grid.read(cx).cursor_path().cloned() {
+			self.preview(path, cx);
 		}
 	}
 
 	/// Keep an open preview on the photo under the cursor as it moves, and put
 	/// it away once nothing is selected.
-	fn follow_preview(&self, cx: &App) {
+	fn follow_preview(&mut self, cx: &mut Context<Self>) {
 		let Some(quick_look) = self.open_preview() else {
 			return;
 		};
-		match self.grid.read(cx).cursor_path() {
-			Some(path) => quick_look.show(path, cx),
-			None => quick_look.close(cx),
+		match self.grid.read(cx).cursor_path().cloned() {
+			Some(path) => self.preview(path, cx),
+			None => {
+				quick_look.close(cx);
+				// An answer still on its way must not open it again.
+				self.preview_ask += 1;
+			}
 		}
+	}
+
+	/// Show the file at `path` in the preview panel, at the path on this
+	/// machine the data plane finds for it: its own on this device, and inside
+	/// the mounted share for one on another, which the panel then streams.
+	/// Only the latest ask is shown, so a slow answer for a photo the cursor
+	/// has left does not pull the panel back to it.
+	fn preview(&mut self, path: SdPath, cx: &mut Context<Self>) {
+		self.preview_ask += 1;
+		let ask = self.preview_ask;
+		let data = self.data.clone();
+		cx.spawn(async move |this, cx| {
+			let found = data.local_path(path).await;
+			let _ = this.update(cx, |photos, cx| {
+				if photos.preview_ask != ask {
+					return;
+				}
+				match found {
+					Ok(local) => {
+						if let Some(quick_look) = &photos.quick_look {
+							quick_look.show(&local, cx);
+						}
+					}
+					Err(error) => {
+						photos.show_notice(format!("Could not preview: {error:#}").into(), cx)
+					}
+				}
+			});
+		})
+		.detach();
 	}
 
 	fn select_all(&mut self, _: &SelectAll, _: &mut Window, cx: &mut Context<Self>) {

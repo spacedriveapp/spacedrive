@@ -21,7 +21,6 @@ mod selection;
 mod stats;
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -33,6 +32,7 @@ use gpui::{
 	ScrollDelta, ScrollWheelEvent, SharedString, Style, TextAlign, TextRun, TouchPhase, Window,
 };
 use image::Frame;
+use sd_core::domain::SdPath;
 use smallvec::smallvec;
 use uuid::Uuid;
 
@@ -106,20 +106,20 @@ const COUNT_TEXT: f32 = 10.0;
 #[derive(Default)]
 pub struct Cells {
 	records: Vec<Uuid>,
-	paths: Vec<PathBuf>,
+	paths: Vec<SdPath>,
 	tags: Vec<Vec<Uuid>>,
 	index_by_record: HashMap<Uuid, u32>,
 }
 
 impl Cells {
-	pub fn new(records: Vec<Uuid>, paths: Vec<PathBuf>, tags: Vec<Vec<Uuid>>) -> Self {
+	pub fn new(records: Vec<Uuid>, paths: Vec<SdPath>, tags: Vec<Vec<Uuid>>) -> Self {
 		let mut cells = Cells::default();
 		cells.extend(records, paths, tags);
 		cells
 	}
 
 	/// Take cells onto the end, in listing order.
-	fn extend(&mut self, records: Vec<Uuid>, paths: Vec<PathBuf>, tags: Vec<Vec<Uuid>>) {
+	fn extend(&mut self, records: Vec<Uuid>, paths: Vec<SdPath>, tags: Vec<Vec<Uuid>>) {
 		let start = self.records.len() as u32;
 		self.index_by_record.extend(
 			records
@@ -151,8 +151,8 @@ impl Cells {
 		self.records.get(index as usize).copied()
 	}
 
-	fn path(&self, index: u32) -> Option<&Path> {
-		self.paths.get(index as usize).map(PathBuf::as_path)
+	fn path(&self, index: u32) -> Option<&SdPath> {
+		self.paths.get(index as usize)
 	}
 }
 
@@ -331,7 +331,7 @@ impl GridView {
 	pub fn append_cells(
 		&mut self,
 		records: Vec<Uuid>,
-		paths: Vec<PathBuf>,
+		paths: Vec<SdPath>,
 		tags: Vec<Vec<Uuid>>,
 		cx: &mut Context<Self>,
 	) {
@@ -370,7 +370,7 @@ impl GridView {
 
 	/// The file under the keyboard cursor when the cursor is on the selection,
 	/// or else the first selected. `None` with nothing selected.
-	pub fn cursor_path(&self) -> Option<&Path> {
+	pub fn cursor_path(&self) -> Option<&SdPath> {
 		let index = self
 			.selection
 			.focus()
