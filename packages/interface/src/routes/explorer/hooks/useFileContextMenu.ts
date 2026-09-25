@@ -104,16 +104,15 @@ export function useFileContextMenu({
 	const openAttributes = useAttributesDialog();
 	const {startRename} = useSelection();
 
-	// Get physical paths for file opening
-	const getPhysicalPaths = () => {
-		const targets =
-			selected && selectedFiles.length > 0 ? selectedFiles : [file];
-		return targets
-			.filter((f): f is File => f != null && f.sd_path != null && 'Physical' in f.sd_path)
-			.map((f) => (f.sd_path as any).Physical.path);
-	};
+	const openTargets = (selected && selectedFiles.length > 0 ? selectedFiles : [file]).filter(
+		(f): f is File => f != null && f.sd_path != null && 'Physical' in f.sd_path
+	);
 
-	const physicalPaths = getPhysicalPaths();
+	// Paths on this machine, for the platform calls that take one. Another
+	// device's path would name a different file here, or none.
+	const localPaths = openTargets.flatMap((f) =>
+		f.is_local && 'Physical' in f.sd_path ? [f.sd_path.Physical.path] : []
+	);
 
 	// The folder on the clipboard, by name, for the comparison delete's label.
 	const clipboardFolderName = (() => {
@@ -123,7 +122,7 @@ export function useFileContextMenu({
 		return parts[parts.length - 1] ?? held.Physical.path;
 	})();
 	const {apps, openWithDefault, openWithApp, openMultipleWithApp} =
-		useOpenWith(physicalPaths);
+		useOpenWith(openTargets);
 
 	// Get the files to operate on (multi-select or just this file)
 	// Filters out virtual files (they're display-only, not real filesystem entries)
@@ -182,9 +181,7 @@ export function useFileContextMenu({
 					if (file.kind === 'Directory') {
 						navigateToPath(file.sd_path);
 					} else if ('Physical' in file.sd_path) {
-						const physicalPath = (file.sd_path as any).Physical
-							.path;
-						await openWithDefault(physicalPath);
+						await openWithDefault(file);
 					}
 				},
 				keybind: '⌘O',
@@ -218,11 +215,9 @@ export function useFileContextMenu({
 					onClick: async () => {
 						if (!file) return;
 						if (selected && selectedFiles.length > 1) {
-							await openMultipleWithApp(physicalPaths, app.id);
+							await openMultipleWithApp(openTargets, app.id);
 						} else if ('Physical' in file.sd_path) {
-							const physicalPath = (file.sd_path as any).Physical
-								.path;
-							await openWithApp(physicalPath, app.id);
+							await openWithApp(file, app.id);
 						}
 					}
 				}))
@@ -254,6 +249,7 @@ export function useFileContextMenu({
 				keybind: '⌘⇧R',
 				condition: () =>
 					!!file &&
+					file.is_local &&
 					'Physical' in file.sd_path &&
 					!!platform.revealFile
 			},
@@ -264,7 +260,7 @@ export function useFileContextMenu({
 						? `Share ${selectedFiles.length} items`
 						: 'Share',
 				onClick: async () => {
-					const paths = physicalPaths;
+					const paths = localPaths;
 					if (paths.length === 0) {
 						console.warn('No physical files to share');
 						return;
@@ -279,7 +275,9 @@ export function useFileContextMenu({
 					}
 				},
 				condition: () =>
-					physicalPaths.length > 0 && !!platform.shareFiles
+					localPaths.length > 0 &&
+					localPaths.length === openTargets.length &&
+					!!platform.shareFiles
 			},
 			{
 				icon: Books,

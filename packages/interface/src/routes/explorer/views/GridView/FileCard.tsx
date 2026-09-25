@@ -54,12 +54,7 @@ export const FileCard = memo(
 			selected,
 		});
 
-		// Set up file opening for non-directory files
-		const physicalPath =
-			file.kind === "File" && "Physical" in file.sd_path
-				? [(file.sd_path as any).Physical.path]
-				: [];
-		const { openWithDefault } = useOpenWith(physicalPath);
+		const { openWithDefault } = useOpenWith(file.kind === "File" ? [file] : []);
 
 		const handleClick = (e: React.MouseEvent) => {
 			const multi = e.metaKey || e.ctrlKey;
@@ -82,8 +77,7 @@ export const FileCard = memo(
 
 			// Open regular files with default application
 			if (file.kind === "File" && "Physical" in file.sd_path) {
-				const physicalPath = (file.sd_path as any).Physical.path;
-				await openWithDefault(physicalPath);
+				await openWithDefault(file);
 			}
 		};
 

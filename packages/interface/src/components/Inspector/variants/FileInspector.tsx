@@ -160,15 +160,12 @@ function FileQuickActions({file}: {file: File}) {
 	const explorer = useOptionalExplorer();
 	const [isFavorite, setIsFavorite] = useState(false); // TODO: Get from file metadata
 
-	// Get physical path for sharing
-	const getPhysicalPath = (): string | null => {
-		if (file.sd_path && 'Physical' in file.sd_path) {
-			return (file.sd_path as {Physical: {path: string}}).Physical.path;
-		}
-		return null;
-	};
-
-	const physicalPath = getPhysicalPath();
+	// The share sheet takes a path on this machine. Another device's path
+	// would name a different file here, or none.
+	const physicalPath =
+		file.is_local && file.sd_path && 'Physical' in file.sd_path
+			? file.sd_path.Physical.path
+			: null;
 	const canShare = !!physicalPath && !!platform.shareFiles;
 
 	const handleFavorite = async () => {

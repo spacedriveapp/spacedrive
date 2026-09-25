@@ -4,12 +4,12 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import { useState, useEffect, useRef, Suspense, useCallback } from "react";
 import type { File } from "@sd/ts-client";
-import { usePlatform } from "../../contexts/PlatformContext";
 import { File as FileComponent } from "../../routes/explorer/File";
 import { PLYLoader } from "three/examples/jsm/loaders/PLYLoader.js";
 import * as GaussianSplats3D from "@mkkellogg/gaussian-splats-3d";
 import * as THREE from "three";
 import { CircleButton } from "@spacedrive/primitives";
+import { useOriginalUrl } from "./useOriginalUrl";
 import {
 	Play,
 	Pause,
@@ -923,11 +923,9 @@ export function MeshViewer({
 	cameraDistance: cameraDistanceProp = 0.5,
 	onControlsChange,
 }: MeshViewerProps) {
-	const platform = usePlatform();
 	const [meshUrl, setMeshUrl] = useState<string | null>(splatUrl || null);
 	const [isGaussianSplat, setIsGaussianSplat] = useState(!!splatUrl);
 	const [splatFailed, setSplatFailed] = useState(false);
-	const [shouldLoad, setShouldLoad] = useState(false);
 	const [loading, setLoading] = useState(!splatUrl);
 	const resetFocalPointRef = useRef<(() => void) | null>(null);
 	const [internalCameraDistance, setInternalCameraDistance] =
@@ -969,16 +967,11 @@ export function MeshViewer({
 		setSplatFailed(true);
 	}, []);
 
+	const originalUrl = useOriginalUrl(file, !splatUrl);
+
 	useEffect(() => {
-		setShouldLoad(false);
 		setMeshUrl(null);
 		setLoading(true);
-
-		const timer = setTimeout(() => {
-			setShouldLoad(true);
-		}, 50);
-
-		return () => clearTimeout(timer);
 	}, [fileId, splatUrl]);
 
 	useEffect(() => {
@@ -990,31 +983,15 @@ export function MeshViewer({
 			return;
 		}
 
-		if (!shouldLoad || !platform.convertFileSrc) {
+		if (!originalUrl) {
 			return;
 		}
-
-		const sdPath = file.sd_path as any;
-		const physicalPath = sdPath?.Physical?.path;
-
-		if (!physicalPath) {
-			console.log("[MeshViewer] No physical path available");
-			setLoading(false);
-			return;
-		}
-
-		const url = platform.convertFileSrc(physicalPath);
-		setMeshUrl(url);
-
-		// Only run detection if not using splatUrl (splatUrl is already known to be a Gaussian splat)
-		if (splatUrl) {
-			return;
-		}
+		setMeshUrl(originalUrl);
 
 		// Create an AbortController to cancel the detection fetch if component unmounts
 		const abortController = new AbortController();
 
-		fetch(url, { signal: abortController.signal })
+		fetch(originalUrl, { signal: abortController.signal })
 			.then((res) => res.arrayBuffer())
 			.then((buffer) => {
 				const header = new TextDecoder().decode(buffer.slice(0, 3000));
@@ -1054,7 +1031,7 @@ export function MeshViewer({
 		return () => {
 			abortController.abort();
 		};
-	}, [shouldLoad, fileId, file.sd_path, platform, splatUrl]);
+	}, [originalUrl, splatUrl]);
 
 	if (!meshUrl || loading) {
 		return (

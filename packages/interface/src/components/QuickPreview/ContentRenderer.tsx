@@ -2,7 +2,6 @@ import type { File } from "@sd/ts-client";
 import { getContentKind } from "@sd/ts-client";
 import { File as FileComponent } from "../../routes/explorer/File";
 import { formatBytes } from "../../routes/explorer/utils";
-import { usePlatform } from "../../contexts/PlatformContext";
 import { useServer } from "../../contexts/ServerContext";
 import {
 	useState,
@@ -30,6 +29,7 @@ import { WithPrismTheme } from "./prism";
 import { sounds } from "@sd/assets/sounds";
 import { CircleButton } from "@spacedrive/primitives";
 import { DirectoryPreview } from "./DirectoryPreview";
+import { useOriginalUrl } from "./useOriginalUrl";
 
 const MeshViewer = lazy(() =>
 	import("./MeshViewer").then((m) => ({ default: m.MeshViewer })),
@@ -47,12 +47,10 @@ interface ContentRendererProps {
 }
 
 function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
-	const platform = usePlatform();
 	const { buildSidecarUrl } = useServer();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [originalLoaded, setOriginalLoaded] = useState(false);
-	const [originalUrl, setOriginalUrl] = useState<string | null>(null);
-	const [shouldLoadOriginal, setShouldLoadOriginal] = useState(false);
+	const originalUrl = useOriginalUrl(file);
 	const [showSplat, setShowSplat] = useState(false);
 	const [splatLoaded, setSplatLoaded] = useState(false);
 	const { zoom, zoomIn, zoomOut, reset, isZoomed, transform } =
@@ -100,46 +98,12 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 		onZoomChange?.(isZoomed);
 	}, [isZoomed, onZoomChange]);
 
-	// Reset and defer original loading by 50ms to ensure thumbnail renders first
+	// A newly shown image starts from its thumbnail, outside the splat view
 	useEffect(() => {
-		setShouldLoadOriginal(false);
 		setOriginalLoaded(false);
-		setOriginalUrl(null);
 		setShowSplat(false);
 		setSplatLoaded(false);
-
-		const timer = setTimeout(() => {
-			setShouldLoadOriginal(true);
-		}, 50);
-
-		return () => clearTimeout(timer);
 	}, [imageFileId]);
-
-	useEffect(() => {
-		if (!shouldLoadOriginal || !platform.convertFileSrc) {
-			return;
-		}
-
-		const sdPath = file.sd_path as any;
-		const physicalPath = sdPath?.Physical?.path;
-
-		if (!physicalPath) {
-			console.log(
-				"[ImageRenderer] No physical path available, sd_path:",
-				file.sd_path,
-			);
-			return;
-		}
-
-		const url = platform.convertFileSrc(physicalPath);
-		console.log(
-			"[ImageRenderer] Loading original from:",
-			physicalPath,
-			"-> URL:",
-			url,
-		);
-		setOriginalUrl(url);
-	}, [shouldLoadOriginal, imageFileId, file.sd_path, platform]);
 
 	// Get highest resolution thumbnail first
 	const getHighestResThumbnail = () => {
@@ -411,47 +375,7 @@ function VideoRenderer({
 	onShowVideoControlsChange,
 	getVideoCallbacks,
 }: ContentRendererProps) {
-	const platform = usePlatform();
-	const [videoUrl, setVideoUrl] = useState<string | null>(null);
-	const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
-
-	// Get a stable identifier for the video file itself
-	const videoFileId = file.content_identity?.uuid || file.id;
-
-	// Reset and defer video loading by 50ms to ensure thumbnail renders first
-	useEffect(() => {
-		setShouldLoadVideo(false);
-		setVideoUrl(null);
-
-		const timer = setTimeout(() => {
-			setShouldLoadVideo(true);
-		}, 50);
-
-		return () => clearTimeout(timer);
-	}, [videoFileId]);
-
-	useEffect(() => {
-		if (!shouldLoadVideo || !platform.convertFileSrc) {
-			return;
-		}
-
-		const sdPath = file.sd_path as any;
-		const physicalPath = sdPath?.Physical?.path;
-
-		if (!physicalPath) {
-			console.log("[VideoRenderer] No physical path available");
-			return;
-		}
-
-		const url = platform.convertFileSrc(physicalPath);
-		console.log(
-			"[VideoRenderer] Loading video from:",
-			physicalPath,
-			"-> URL:",
-			url,
-		);
-		setVideoUrl(url);
-	}, [shouldLoadVideo, videoFileId, file.sd_path, platform]);
+	const videoUrl = useOriginalUrl(file);
 
 	if (!videoUrl) {
 		return (
@@ -478,47 +402,7 @@ function VideoRenderer({
 }
 
 function AudioRenderer({ file }: ContentRendererProps) {
-	const platform = usePlatform();
-	const [audioUrl, setAudioUrl] = useState<string | null>(null);
-	const [shouldLoadAudio, setShouldLoadAudio] = useState(false);
-
-	// Get a stable identifier for the audio file itself
-	const audioFileId = file.content_identity?.uuid || file.id;
-
-	// Reset and defer audio loading by 50ms to ensure thumbnail renders first
-	useEffect(() => {
-		setShouldLoadAudio(false);
-		setAudioUrl(null);
-
-		const timer = setTimeout(() => {
-			setShouldLoadAudio(true);
-		}, 50);
-
-		return () => clearTimeout(timer);
-	}, [audioFileId]);
-
-	useEffect(() => {
-		if (!shouldLoadAudio || !platform.convertFileSrc) {
-			return;
-		}
-
-		const sdPath = file.sd_path as any;
-		const physicalPath = sdPath?.Physical?.path;
-
-		if (!physicalPath) {
-			console.log("[AudioRenderer] No physical path available");
-			return;
-		}
-
-		const url = platform.convertFileSrc(physicalPath);
-		console.log(
-			"[AudioRenderer] Loading audio from:",
-			physicalPath,
-			"-> URL:",
-			url,
-		);
-		setAudioUrl(url);
-	}, [shouldLoadAudio, audioFileId, file.sd_path, platform]);
+	const audioUrl = useOriginalUrl(file);
 
 	if (!audioUrl) {
 		return (
@@ -556,45 +440,7 @@ function DocumentRenderer({ file }: ContentRendererProps) {
 }
 
 function TextRenderer({ file }: ContentRendererProps) {
-	const platform = usePlatform();
-	const [textUrl, setTextUrl] = useState<string | null>(null);
-	const [shouldLoadText, setShouldLoadText] = useState(false);
-
-	const textFileId = file.content_identity?.uuid || file.id;
-
-	useEffect(() => {
-		setShouldLoadText(false);
-		setTextUrl(null);
-
-		const timer = setTimeout(() => {
-			setShouldLoadText(true);
-		}, 50);
-
-		return () => clearTimeout(timer);
-	}, [textFileId]);
-
-	useEffect(() => {
-		if (!shouldLoadText || !platform.convertFileSrc) {
-			return;
-		}
-
-		const sdPath = file.sd_path as any;
-		const physicalPath = sdPath?.Physical?.path;
-
-		if (!physicalPath) {
-			console.log("[TextRenderer] No physical path available");
-			return;
-		}
-
-		const url = platform.convertFileSrc(physicalPath);
-		console.log(
-			"[TextRenderer] Loading text from:",
-			physicalPath,
-			"-> URL:",
-			url,
-		);
-		setTextUrl(url);
-	}, [shouldLoadText, textFileId, file.sd_path, platform]);
+	const textUrl = useOriginalUrl(file);
 
 	const extension = file.name.split(".").pop()?.toLowerCase();
 
