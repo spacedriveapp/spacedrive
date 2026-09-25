@@ -490,3 +490,6 @@ test_data
 
 # machine-local ops notes (credentials, hosts), never committed
 docs/local/
+
+# Claude Code session state
+.claude/scheduled_tasks.lock
