@@ -36,6 +36,7 @@ Fallback: `df -h -T` for non-APFS volumes (HFS+, external FAT32, etc.).
 Classification:
 - `/`, `/System/Volumes/Data`, `/System/Volumes/Preboot` etc. are system roles, hidden from user-visible view but still fingerprinted.
 - `/Volumes/*` that aren't system roles are External.
+- A mount inside the daemon's data dir is skipped. It is the daemon's own SMB share mounted at `<data-dir>/mount`, which serves other devices' files so apps can open them by path, and is never a volume of this machine.
 
 ### Linux (`core/src/volume/platform/linux.rs`)
 

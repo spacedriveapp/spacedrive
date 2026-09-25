@@ -482,6 +482,37 @@ next read, so the files move while no row does. A refresh still transfers the
 whole database; `docs/plans/2026-09-19-incremental-replication.md` replaces
 that with the changes since the replica's revision.
 
+## Implementation status (2026-09-24)
+
+**The SMB share mounts itself.** `service/mounts/attach.rs` mounts the
+loopback SMB share at `<data-dir>/mount` through `NetFSMountURLSync` the first
+time something needs a path to another device's file, read-only, soft and
+hidden from Finder, and unmounts it at shutdown. A daemon that exits without
+shutting down leaves a mount with no server behind it, so startup unmounts
+whatever is at the mount point, reading the mount table with `MNT_NOWAIT`
+rather than asking the dead mount. Volume detection skips mounts inside the
+data dir. macOS only; other platforms answer that it is not available yet.
+
+**One resolver in both directions.** `share_path` turns an `SdPath` into its
+share-relative path, the inverse of `resolve_target`, and two core queries
+render it: `files.stream_url` as the HTTP URL Spacedrive's viewers stream
+from, and `files.local_path` as the path inside the mount that another app,
+Quick Look included, opens. `docs/plans/2026-09-21-opening-remote-files.md`
+has the clients.
+
+**The SMB frontend served the wrong file after a listing.** Every entry
+reported file id 0, and `list_dir` ignored its search pattern, although the
+server crate leaves filtering to the backend. macOS looks one name up by
+searching for it and takes the first entry back as that name's, so it gave
+one file another's size and, once the ids differed, another's bytes. Entries
+now carry a hash of their share path as their id, and a pattern answers with
+the entries it names.
+
+**The HTTP share answers only loopback hosts.** A request whose Host header
+names anything else is refused, which stops a web page that points its own
+domain at 127.0.0.1 from reading the share, and CORS headers go only to Tauri
+web views and pages served from loopback.
+
 ## Open questions
 
 - One OS volume per mount target, or one Spacedrive volume with targets as
