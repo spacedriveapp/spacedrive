@@ -468,7 +468,7 @@ async fn collect_results(
 }
 
 /// Check if arena metadata passes the search filters
-fn passes_arena_filters(
+pub(super) fn passes_arena_filters(
 	metadata: &EntryMetadata,
 	filters: &SearchFilters,
 	file_type_registry: &FileTypeRegistry,

@@ -9,10 +9,12 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
+use crate::context::CoreContext;
 use crate::domain::{File, Tag};
 use crate::library::Library;
 use crate::ops::indexing::{store::SourceStore, VolumeIndex};
 use crate::ops::tags::outbox;
+use crate::service::mounts::peer::{self, RemoteShare};
 
 /// Decorate files already known to live in one store, one batched read.
 pub async fn decorate_from_store(db: &sd_store::SourceDb, files: &mut [File]) {
@@ -31,6 +33,24 @@ pub async fn decorate_from_store(db: &sd_store::SourceDb, files: &mut [File]) {
 		if let Some(applied) = state.get(&file.id) {
 			file.tags = applied.iter().map(Tag::from_applied).collect();
 		}
+	}
+}
+
+/// Decorate files of one replica: the owner's tags as of the generation its
+/// database was delivered at, with this device's claims still awaiting the
+/// owner's ack on top.
+pub async fn decorate_replica(
+	context: &Arc<CoreContext>,
+	library_id: Uuid,
+	share: &RemoteShare,
+	files: &mut [File],
+) {
+	if let Some(db) = peer::open_replica_db(context, share.device_id, share.info.id).await {
+		decorate_from_store(&db, files).await;
+		db.pool().close().await;
+	}
+	if let Some(library) = context.libraries().await.get_library(library_id).await {
+		overlay_pending(&library, share.info.id, files).await;
 	}
 }
 

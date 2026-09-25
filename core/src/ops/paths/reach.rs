@@ -6,12 +6,18 @@
 //! than the outer one's. What is beneath a path is therefore the innermost
 //! source holding the path, read from the path down, and every source nested
 //! beneath the path, read whole.
+//!
+//! The sources this device replicates from a paired device nest the same way
+//! beneath paths on that device. File operations never reach them, since a
+//! replica's files change only on the device that owns them; viewers do.
 
 use std::path::Path;
+use std::sync::Arc;
 
 use crate::context::CoreContext;
 use crate::domain::SdPath;
 use crate::ops::indexing::{volume_index::SourceStatus, VolumeIndex};
+use crate::service::mounts::peer::{self, RemoteShare};
 use crate::volume::VolumeManager;
 
 /// One store a path reaches, and how its files sit beneath the path.
@@ -29,10 +35,18 @@ pub struct Reach {
 /// The innermost source holding `path`, among those with a root on this
 /// machine.
 pub fn innermost_source<'a>(sources: &'a [SourceStatus], path: &Path) -> Option<&'a SourceStatus> {
-	sources
-		.iter()
-		.filter(|source| !source.root.as_os_str().is_empty() && path.starts_with(&source.root))
-		.max_by_key(|source| source.root.as_os_str().len())
+	innermost_root(sources.iter().map(|source| source.root.as_path()), path)
+		.map(|index| &sources[index])
+}
+
+/// The position of the innermost of `roots` holding `path`. An empty root
+/// holds nothing.
+fn innermost_root<'a>(roots: impl Iterator<Item = &'a Path>, path: &Path) -> Option<usize> {
+	roots
+		.enumerate()
+		.filter(|(_, root)| !root.as_os_str().is_empty() && path.starts_with(root))
+		.max_by_key(|(_, root)| root.as_os_str().len())
+		.map(|(index, _)| index)
 }
 
 /// The stores beneath a path on this device, in root order. A path on another
@@ -90,24 +104,113 @@ fn mounted_sources(index: &VolumeIndex) -> Vec<SourceStatus> {
 }
 
 fn reach(sources: Vec<SourceStatus>, path: &Path) -> Vec<Reach> {
-	let innermost = innermost_source(&sources, path).map(|source| source.id);
+	let roots: Vec<&Path> = sources.iter().map(|source| source.root.as_path()).collect();
+	let mut reached = reach_roots(&roots, path).into_iter().peekable();
 	sources
 		.into_iter()
-		.filter_map(|source| {
-			if Some(source.id) == innermost {
-				let scope = relative(path, &source.root)?;
-				Some(Reach {
-					source,
-					scope,
-					prefix: String::new(),
-				})
-			} else if source.root.starts_with(path) {
-				let prefix = relative(&source.root, path)?;
-				Some(Reach {
-					source,
-					scope: String::new(),
-					prefix,
-				})
+		.enumerate()
+		.filter_map(|(index, source)| {
+			let (_, scope, prefix) = reached.next_if(|(at, ..)| *at == index)?;
+			Some(Reach {
+				source,
+				scope,
+				prefix,
+			})
+		})
+		.collect()
+}
+
+/// A source this device replicates from a paired device, reached by a path on
+/// that device, and how its files sit beneath the path.
+#[derive(Clone)]
+pub struct ReplicaReach {
+	pub share: Arc<RemoteShare>,
+	/// The owning device's slug, which addresses the replica's files.
+	pub device_slug: String,
+	/// The directory the replica is read from, relative to its root.
+	pub scope: String,
+	/// Where the replica's files sit relative to the path.
+	pub prefix: String,
+}
+
+/// The replicas beneath a path on another device, in root order. A path on
+/// this device reaches none.
+pub async fn replicas_beneath(context: &CoreContext, path: &SdPath) -> Vec<ReplicaReach> {
+	if path.as_local_path().is_some() {
+		return Vec::new();
+	}
+	let SdPath::Physical { device_slug, path } = path else {
+		return Vec::new();
+	};
+	let shares = replicas_of(context, Some(device_slug)).await;
+	let roots: Vec<&Path> = shares
+		.iter()
+		.map(|(share, _)| share.info.root.as_path())
+		.collect();
+	reach_roots(&roots, path)
+		.into_iter()
+		.map(|(index, scope, prefix)| ReplicaReach {
+			share: shares[index].0.clone(),
+			device_slug: shares[index].1.clone(),
+			scope,
+			prefix,
+		})
+		.collect()
+}
+
+/// Every replica this device holds, each read whole, by device and then root.
+pub async fn every_replica(context: &CoreContext) -> Vec<ReplicaReach> {
+	replicas_of(context, None)
+		.await
+		.into_iter()
+		.map(|(share, device_slug)| ReplicaReach {
+			share,
+			device_slug,
+			scope: String::new(),
+			prefix: String::new(),
+		})
+		.collect()
+}
+
+/// Replicas with their owners' slugs, of the one device `device_slug` names
+/// or of every device, ordered by owner and root. A replica whose owner has no
+/// slug here cannot be addressed and is left out.
+async fn replicas_of(
+	context: &CoreContext,
+	device_slug: Option<&str>,
+) -> Vec<(Arc<RemoteShare>, String)> {
+	let mut shares: Vec<(Arc<RemoteShare>, String)> = peer::remote_shares()
+		.await
+		.into_iter()
+		.filter_map(|share| {
+			let slug = context.device_manager.get_device_slug(share.device_id)?;
+			device_slug
+				.is_none_or(|wanted| wanted == slug)
+				.then_some((share, slug))
+		})
+		.collect();
+	shares.sort_by(|(a, a_slug), (b, b_slug)| {
+		a_slug
+			.cmp(b_slug)
+			.then_with(|| a.info.root.cmp(&b.info.root))
+			.then_with(|| a.info.id.cmp(&b.info.id))
+	});
+	shares
+}
+
+/// Which of `roots` a path reaches, as `(index, scope, prefix)` in the roots'
+/// order: the innermost root holding the path, read from the path down, and
+/// every root nested beneath the path, read whole. An empty root holds nothing.
+fn reach_roots(roots: &[&Path], path: &Path) -> Vec<(usize, String, String)> {
+	let innermost = innermost_root(roots.iter().copied(), path);
+	roots
+		.iter()
+		.enumerate()
+		.filter_map(|(index, root)| {
+			if Some(index) == innermost {
+				Some((index, relative(path, root)?, String::new()))
+			} else if root.starts_with(path) {
+				Some((index, String::new(), relative(root, path)?))
 			} else {
 				None
 			}

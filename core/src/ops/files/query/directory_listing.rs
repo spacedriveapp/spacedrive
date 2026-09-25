@@ -465,25 +465,13 @@ impl DirectoryListingQuery {
 			.files_from_index(&share.index, children, device_slug)
 			.await;
 		let mut listing = self.finalize_listing(files);
-
-		// The replica database carries the owner's tags as of its delivered
-		// generation; locally authored claims ride on top until their acks.
-		if let Some(db) =
-			crate::service::mounts::peer::open_replica_db(context, share.device_id, share.info.id)
-				.await
-		{
-			crate::ops::tags::decorate::decorate_from_store(&db, &mut listing.files).await;
-			db.pool().close().await;
-		}
-		if let Some(library) = context.libraries().await.get_library(library_id).await {
-			crate::ops::tags::decorate::overlay_pending(
-				&library,
-				share.info.id,
-				&mut listing.files,
-			)
-			.await;
-		}
-
+		crate::ops::tags::decorate::decorate_replica(
+			context,
+			library_id,
+			&share,
+			&mut listing.files,
+		)
+		.await;
 		Some(listing)
 	}
 
