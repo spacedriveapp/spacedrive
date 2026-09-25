@@ -13,6 +13,7 @@
 
 use super::provider::{self, remote_share_name, share_name, ByteProvider, ByteTarget, MountTarget};
 use crate::context::CoreContext;
+use crate::ops::indexing::metadata::EntryMetadata;
 use crate::ops::indexing::state::EntryKind;
 use async_trait::async_trait;
 use smb_server::{
@@ -79,7 +80,92 @@ fn to_filetime(time: Option<SystemTime>) -> u64 {
 	(since.as_secs() + FILETIME_EPOCH_OFFSET) * 10_000_000 + (since.subsec_nanos() as u64) / 100
 }
 
-fn dir_info(name: String, modified: Option<SystemTime>) -> FileInfo {
+/// The file id the share reports for a share-relative path.
+///
+/// The macOS client keys the nodes it builds from a directory listing on this
+/// id, so two entries sharing one would read as a single file. Hashing the
+/// path gives every entry its own id, and the same one whether the client
+/// learns it from a listing or from opening the path. Zero means "no id" to
+/// clients.
+fn file_id(rel: &str) -> u64 {
+	let hash = blake3::hash(rel.as_bytes());
+	let mut id = [0u8; 8];
+	id.copy_from_slice(&hash.as_bytes()[..8]);
+	u64::from_le_bytes(id).max(1)
+}
+
+/// Whether a directory entry named `name` answers a client's search
+/// `pattern`.
+///
+/// A client lists a directory with `*`, which reaches the backend as no
+/// pattern at all, and looks one name up by searching for that name alone and
+/// taking the first entry back as its answer. So an entry the pattern does not
+/// name must never be returned. `*` matches any run of characters and `?` any
+/// one; the DOS forms `<`, `>` and `"` are read as `*`, `?` and `.`. Case is
+/// ignored, as the share declares itself case-insensitive.
+fn name_matches(pattern: &str, name: &str) -> bool {
+	let pattern: Vec<char> = pattern
+		.chars()
+		.flat_map(char::to_lowercase)
+		.map(|c| match c {
+			'<' => '*',
+			'>' => '?',
+			'"' => '.',
+			c => c,
+		})
+		.collect();
+	let name: Vec<char> = name.chars().flat_map(char::to_lowercase).collect();
+
+	let (mut p, mut n) = (0, 0);
+	// The last `*` seen, and where in the name it started matching, so a
+	// mismatch after it retries with the star taking one more character.
+	let mut star: Option<(usize, usize)> = None;
+	while n < name.len() {
+		match pattern.get(p) {
+			Some('?') => {
+				p += 1;
+				n += 1;
+			}
+			Some('*') => {
+				star = Some((p, n));
+				p += 1;
+			}
+			Some(c) if *c == name[n] => {
+				p += 1;
+				n += 1;
+			}
+			_ => match star {
+				Some((star_at, from)) => {
+					p = star_at + 1;
+					n = from + 1;
+					star = Some((star_at, from + 1));
+				}
+				None => return false,
+			},
+		}
+	}
+	pattern[p..].iter().all(|c| *c == '*')
+}
+
+/// Whether a search pattern names one entry rather than matching several.
+fn is_exact(pattern: &str) -> bool {
+	!pattern.contains(['*', '?', '<', '>', '"'])
+		&& Path::new(pattern)
+			.components()
+			.map(|component| matches!(component, std::path::Component::Normal(_)))
+			.eq([true])
+}
+
+/// The share-relative path of `name` inside the directory at `parent`.
+fn child_rel(parent: &str, name: &str) -> String {
+	if parent.is_empty() {
+		name.to_string()
+	} else {
+		format!("{parent}/{name}")
+	}
+}
+
+fn dir_info(name: String, id: u64, modified: Option<SystemTime>) -> FileInfo {
 	let ft = to_filetime(modified);
 	FileInfo {
 		name,
@@ -90,11 +176,11 @@ fn dir_info(name: String, modified: Option<SystemTime>) -> FileInfo {
 		last_write_time: ft,
 		change_time: ft,
 		is_directory: true,
-		file_index: 0,
+		file_index: id,
 	}
 }
 
-fn file_info(name: String, size: u64, modified: Option<SystemTime>) -> FileInfo {
+fn file_info(name: String, id: u64, size: u64, modified: Option<SystemTime>) -> FileInfo {
 	let ft = to_filetime(modified);
 	FileInfo {
 		name,
@@ -105,7 +191,7 @@ fn file_info(name: String, size: u64, modified: Option<SystemTime>) -> FileInfo 
 		last_write_time: ft,
 		change_time: ft,
 		is_directory: false,
-		file_index: 0,
+		file_index: id,
 	}
 }
 
@@ -197,12 +283,14 @@ impl ShareBackend for LibraryShare {
 		}
 
 		let name = display_name(&abs, &rel);
+		let id = file_id(&rel);
 
 		if is_directory {
 			return Ok(Box::new(DirHandle {
 				index,
 				abs,
-				info: dir_info(name, meta.as_ref().and_then(|m| m.modified)),
+				info: dir_info(name, id, meta.as_ref().and_then(|m| m.modified)),
+				rel,
 			}));
 		}
 
@@ -220,6 +308,7 @@ impl ShareBackend for LibraryShare {
 			target: byte_target,
 			info: file_info(
 				name,
+				id,
 				stat.size,
 				stat.modified.or(meta.and_then(|m| m.modified)),
 			),
@@ -284,7 +373,7 @@ impl Handle for RootHandle {
 	}
 
 	async fn stat(&self) -> SmbResult<FileInfo> {
-		Ok(dir_info(SHARE.to_string(), None))
+		Ok(dir_info(SHARE.to_string(), file_id(""), None))
 	}
 
 	async fn set_times(&self, _times: FileTimes) -> SmbResult<()> {
@@ -295,14 +384,15 @@ impl Handle for RootHandle {
 		Err(SmbError::AccessDenied)
 	}
 
-	async fn list_dir(&self, _pattern: Option<&str>) -> SmbResult<Vec<DirEntry>> {
+	async fn list_dir(&self, pattern: Option<&str>) -> SmbResult<Vec<DirEntry>> {
 		Ok(self
 			.share
 			.source_names()
 			.await
 			.into_iter()
+			.filter(|(name, _)| pattern.is_none_or(|pattern| name_matches(pattern, name)))
 			.map(|(name, modified)| DirEntry {
-				info: dir_info(name, modified),
+				info: dir_info(name.clone(), file_id(&name), modified),
 			})
 			.collect())
 	}
@@ -316,6 +406,22 @@ struct DirHandle {
 	index: Arc<tokio::sync::RwLock<crate::ops::indexing::arena::Arena>>,
 	abs: PathBuf,
 	info: FileInfo,
+	/// The directory's share-relative path, which its entries' ids hash under.
+	rel: String,
+}
+
+impl DirHandle {
+	/// The listing entry for the child called `name`.
+	fn entry(&self, name: String, meta: &EntryMetadata) -> DirEntry {
+		let id = file_id(&child_rel(&self.rel, &name));
+		DirEntry {
+			info: if meta.kind == EntryKind::Directory {
+				dir_info(name, id, meta.modified)
+			} else {
+				file_info(name, id, meta.size, meta.modified)
+			},
+		}
+	}
 }
 
 #[async_trait]
@@ -344,8 +450,14 @@ impl Handle for DirHandle {
 		Err(SmbError::AccessDenied)
 	}
 
-	async fn list_dir(&self, _pattern: Option<&str>) -> SmbResult<Vec<DirEntry>> {
+	async fn list_dir(&self, pattern: Option<&str>) -> SmbResult<Vec<DirEntry>> {
 		let index = self.index.read().await;
+		// A lookup of one name reads that entry rather than the directory.
+		if let Some(name) = pattern.filter(|pattern| is_exact(pattern)) {
+			if let Some(meta) = index.get_entry_ref(&self.abs.join(name)) {
+				return Ok(vec![self.entry(name.to_string(), &meta)]);
+			}
+		}
 		let Some(children) = index.list_directory(&self.abs) else {
 			return Ok(Vec::new());
 		};
@@ -358,13 +470,10 @@ impl Handle for DirHandle {
 				.file_name()
 				.map(|n| n.to_string_lossy().into_owned())
 				.unwrap_or_default();
-			out.push(DirEntry {
-				info: if meta.kind == EntryKind::Directory {
-					dir_info(name, meta.modified)
-				} else {
-					file_info(name, meta.size, meta.modified)
-				},
-			});
+			if pattern.is_some_and(|pattern| !name_matches(pattern, &name)) {
+				continue;
+			}
+			out.push(self.entry(name, &meta));
 		}
 		Ok(out)
 	}
@@ -521,7 +630,7 @@ mod tests {
 				source_id: uuid::Uuid::nil(),
 				path: PathBuf::from("/src/a001.braw"),
 			},
-			info: file_info("a001.braw".into(), size, None),
+			info: file_info("a001.braw".into(), file_id("src/a001.braw"), size, None),
 		}
 	}
 
@@ -594,18 +703,118 @@ mod tests {
 
 	#[test]
 	fn directories_and_files_carry_the_right_attributes() {
-		let dir = dir_info("Footage".into(), None);
+		let dir = dir_info("Footage".into(), file_id("Footage"), None);
 		assert!(dir.is_directory);
 		assert_eq!(dir.end_of_file, 0);
 		assert_eq!(dir.attributes(), 0x10);
 
-		let file = file_info("a001.braw".into(), 24_300_000_000, None);
+		let file = file_info(
+			"a001.braw".into(),
+			file_id("Footage/a001.braw"),
+			24_300_000_000,
+			None,
+		);
 		assert!(!file.is_directory);
 		assert_eq!(file.end_of_file, 24_300_000_000);
 		// Allocation size matching end-of-file is what makes a streamed file
 		// report its real size rather than its resident size.
 		assert_eq!(file.allocation_size, file.end_of_file);
 		assert_eq!(file.attributes(), 0x80);
+	}
+
+	#[test]
+	fn search_patterns_match_as_the_protocol_asks() {
+		assert!(name_matches("clip.mp4", "clip.mp4"));
+		assert!(name_matches("CLIP.MP4", "clip.mp4"));
+		assert!(!name_matches("clip.mp4", "tail-moov.mov"));
+		assert!(!name_matches("clip", "clip.mp4"));
+		assert!(name_matches("*", "clip.mp4"));
+		assert!(name_matches("*.mov", "tail-moov.MOV"));
+		assert!(!name_matches("*.mov", "clip.mp4"));
+		assert!(name_matches("c?ip.*", "clip.mp4"));
+		assert!(name_matches("*moov*", "tail-moov.mov"));
+		assert!(name_matches("<.mov", "tail-moov.mov"));
+		assert!(is_exact("clip.mp4"));
+		assert!(!is_exact("*.mov"));
+		assert!(!is_exact("../clip.mp4"));
+		assert!(!is_exact("a/clip.mp4"));
+		assert!(!is_exact(""));
+	}
+
+	fn listed_names(entries: &[DirEntry]) -> Vec<&str> {
+		entries
+			.iter()
+			.map(|entry| entry.info.name.as_str())
+			.collect()
+	}
+
+	/// A lookup of one name answers with that entry alone. macOS takes the
+	/// first entry back as the name's, so answering with the directory's first
+	/// entry would give one file another's id, size and bytes.
+	#[tokio::test]
+	async fn a_name_lookup_answers_with_that_entry_alone() {
+		let root = PathBuf::from("/src/clips");
+		let mut arena = crate::ops::indexing::arena::Arena::new().expect("arena");
+		for (name, size) in [("tail-moov.mov", 10), ("clip.mp4", 60)] {
+			let path = root.join(name);
+			let metadata = EntryMetadata {
+				path: path.clone(),
+				kind: EntryKind::File,
+				size,
+				modified: None,
+				accessed: None,
+				created: None,
+				inode: None,
+				permissions: None,
+				uid: None,
+				gid: None,
+				link_target: None,
+				is_hidden: false,
+			};
+			arena
+				.add_entry(path, uuid::Uuid::now_v7(), metadata)
+				.expect("entry");
+		}
+		let dir = DirHandle {
+			index: Arc::new(tokio::sync::RwLock::new(arena)),
+			abs: root,
+			info: dir_info("clips".into(), file_id("src/clips"), None),
+			rel: "src/clips".into(),
+		};
+
+		let found = dir.list_dir(Some("clip.mp4")).await.unwrap();
+		assert_eq!(listed_names(&found), ["clip.mp4"]);
+		assert_eq!(found[0].info.end_of_file, 60);
+		assert_eq!(found[0].info.file_index, file_id("src/clips/clip.mp4"));
+
+		assert_eq!(
+			listed_names(&dir.list_dir(Some("CLIP.MP4")).await.unwrap()),
+			["clip.mp4"]
+		);
+		assert!(dir.list_dir(Some("._clip.mp4")).await.unwrap().is_empty());
+		assert_eq!(
+			listed_names(&dir.list_dir(Some("*.mov")).await.unwrap()),
+			["tail-moov.mov"]
+		);
+
+		let all = dir.list_dir(None).await.unwrap();
+		assert_eq!(all.len(), 2);
+		assert_ne!(all[0].info.file_index, all[1].info.file_index);
+	}
+
+	/// Every entry gets its own id, the same one a listing and an open of its
+	/// path report, and never the zero clients read as "no id".
+	#[test]
+	fn file_ids_follow_the_path() {
+		let listed = file_id(&child_rel("Footage-a1b2c3/day1", "a001.braw"));
+		let opened = file_id("Footage-a1b2c3/day1/a001.braw");
+		assert_eq!(listed, opened);
+		assert_ne!(opened, file_id("Footage-a1b2c3/day1/a002.braw"));
+		assert_ne!(file_id(""), file_id("Footage-a1b2c3"));
+		assert_eq!(child_rel("", "Footage-a1b2c3"), "Footage-a1b2c3");
+		for rel in ["", "Footage-a1b2c3", "Footage-a1b2c3/day1/a001.braw"] {
+			assert_ne!(file_id(rel), 0);
+		}
 	}
 
 	#[test]
