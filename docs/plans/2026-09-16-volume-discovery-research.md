@@ -1,7 +1,7 @@
 # Automatic volume snapshots and explicit sources
 
 Status: read-only audit, September 16, 2026, approximately 03:55–04:05 Pacific.
-Code inspected through `0e605105b`. The running Mac daemon reports a build time
+Code inspected through `3ee5449bf`. The running Mac daemon reports a build time
 of `2026-09-16T10:52:21.950839+00:00`; that timestamp does not prove its exact
 revision. No volume was mounted, ejected, indexed, tracked or reconfigured for
 this audit.

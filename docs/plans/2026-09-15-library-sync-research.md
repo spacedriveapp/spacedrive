@@ -3,7 +3,7 @@
 Status: research and proposed direction for review. No library was joined,
 merged, reconfigured or restarted during this research.
 
-Code inspected at `adf729cd9`, including existing uncommitted work. Live
+Code inspected at `954c6d980`, including existing uncommitted work. Live
 observations were captured on September 15, 2026, at approximately 20:45–20:49
 Pacific, September 16 at 03:45–03:49 UTC. The deployed binaries differ from
 this checkout; live observations and code findings are identified separately.
@@ -360,7 +360,7 @@ discovers that device's libraries, offers share or join, confirms the choice
 and calls `network.sync_setup`. The frontend and backend operation definitions
 remain available.
 
-Commit `2c7e058ce`, September 15, 2026, removed the `useSyncSetupDialog` import,
+Commit `b653676e8`, September 15, 2026, removed the `useSyncSetupDialog` import,
 handler and Setup Sync button from `routes/overview/OverviewTopBar.tsx` during
 overview simplification. The dialog file survived. Searching the current
 application finds its exported opener only in its own definition.

@@ -2,7 +2,7 @@
 
 > Status: draft for James's review. Research and documentation only.
 > Audited: September 15, 2026, approximately 19:17–19:35 America/Vancouver.
-> Code: `fe4a100b3` plus the existing uncommitted worktree changes.
+> Code: `4bc442e43` plus the existing uncommitted worktree changes.
 > Live builds: Mac `2026-09-16T01:46:44Z`; titan `2026-09-15T23:05:47Z`.
 > Register: [PROJECT_STATUS.md](../../PROJECT_STATUS.md).
 
@@ -692,8 +692,8 @@ confirm or revise it from the benchmark before making a product promise.
 
 #### R6 results, 2026-09-16
 
-Landed as `51e4873d4` (read-only store path), `3d8c44394` (routing), and
-`475a6b0b3` (database delivery), verified live on the fleet.
+Landed as `9e29e7c46` (read-only store path), `4cf25c17c` (routing), and
+`5f1fdd287` (database delivery), verified live on the fleet.
 
 - `SourceManager::open_read_only` and `open_file_read_only` open without
   DDL, migrations, ledger or writer; the unaddressable-generation refusal
@@ -771,7 +771,7 @@ complete again from the number of visible source cards.
 
 #### R7 results, 2026-09-16
 
-Both machines run build `b57cb2857` (Mac debug daemon; titan
+Both machines run build `4a690c84a` (Mac debug daemon; titan
 `x86_64-unknown-linux-musl` release at `~/spacedrive/bin/sd-daemon`, previous
 binary kept as `.prev`). Checks against the stores used read-only SQLite over
 each `data.db`.
@@ -787,7 +787,7 @@ next walk — they are also the only pending-identification rows in the fleet),
 calvin-nas 1,525, cctv 49,263 (748 accepted root-owned `content_error` rows),
 footage 1,380, dev-tools 28,079, jamie-public 2, jamvm/vm-data/windows-vm 1
 each. dev-tools' missing owner snapshot was the explicit-discovery gap plus
-the empty-partition fuse; `fd40a5b87`'s heal walked it and its first complete
+the empty-partition fuse; `5a65d0998`'s heal walked it and its first complete
 snapshot now serves.
 
 The Mac home store validated the same way: 1,759,739 records (1,507,147
@@ -800,7 +800,7 @@ ancestry entirely, so steps 4-6 close with no unresolved rows.
 Live fleet proofs on this build:
 
 - Startup restores all nine arenas on titan in about a second and arms all
-  nine watchers, dev-tools included (`88f496891`, `1d8d23962`, `0e605105b`).
+  nine watchers, dev-tools included (`8c8499413`, `847144ba0`, `3ee5449bf`).
   The pool volume watch still fails on the root-owned
   `ix-applications/docker` directory, and the per-source fallback covers
   every registered source under it.
@@ -813,10 +813,10 @@ Live fleet proofs on this build:
   connected.
 - Generations recorded per source in
   `~/.spacedrive/mounts-remote/3cee…/manifest.json` name the delivered
-  artifacts (`0650e0acb`); the restart settle after both daemons moved to
+  artifacts (`98e8a1485`); the restart settle after both daemons moved to
   this build transferred nothing on either side.
 - Refresh economics: a dirty listing over an unchanged artifact paces at
-  five minutes (`b57cb2857`), which ended titan re-pulling the Mac's 116 MB
+  five minutes (`4a690c84a`), which ended titan re-pulling the Mac's 116 MB
   home artifact once a minute during builds. Memory for R4's ledger: Mac
   daemon 2.70 GB RSS (own 1.76 M-entry arena plus nine replicas), titan
   2.14 GB RSS (nine own arenas plus the Mac home replica).

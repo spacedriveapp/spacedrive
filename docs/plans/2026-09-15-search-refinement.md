@@ -1,10 +1,10 @@
 # Search Refinement
 
 > Status: planned, unowned
-> Audited: 2026-09-15 against `fe4a100b3` and the current worktree
+> Audited: 2026-09-15 against `4bc442e43` and the current worktree
 > Register: `PROJECT_STATUS.md`
 > Companion history: the matching and duplicate-partition fixes in
-> `fe4a100b3` made name search correct. This document owns everything above
+> `4bc442e43` made name search correct. This document owns everything above
 > matching: scopes, filters, sort, pagination, and the refinement bar.
 
 ## Outcome
@@ -22,7 +22,7 @@ leaves the search reachable through the back button.
 
 ## Current state
 
-Matching is correct as of `fe4a100b3`. Everything above it is partly
+Matching is correct as of `4bc442e43`. Everything above it is partly
 theatrical:
 
 - The Filters button is a styled element with no click handler. No filter UI

@@ -62,7 +62,7 @@ gpui `Task` that aborts the tokio task when it drops. Relevant to the `bridge`
 module in `sd-ui`.
 
 **`sd-bake` is unused by `apps/native`.** The prototype at `a802e9053` used it
-(BakePool, ImageProducer, IconProducer). The rewrite at `6846244ab` removed the
+(BakePool, ImageProducer, IconProducer). The rewrite at `33a86dacd` removed the
 import and left the Cargo line. The architectural reason it stays out: the daemon
 owns every writer, and clients map `thumbs.pvcache` read-only.
 

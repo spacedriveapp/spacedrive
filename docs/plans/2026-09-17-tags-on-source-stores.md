@@ -258,7 +258,7 @@ existing store adds empty tables without touching record rows.
    `TagContextResolver`, `TagUsageAnalyzer`, `TagClosureService`, and
    `TagConflictResolver` are deleted. Validation slims to path, name, and
    color checks.
-8. Keep the event contract from `0f5e4a1ef`: content-scoped changes emit for
+8. Keep the event contract from `f32da4777`: content-scoped changes emit for
    every copy. Events fire on local state change, committed or pending.
 
 Proof: focused tests pass; on a fresh daemon, create, apply to two local

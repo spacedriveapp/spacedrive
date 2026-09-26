@@ -1,7 +1,7 @@
 # Project Status
 
 > Last updated: 2026-09-25
-> Code baseline: `e8febd196`
+> Code baseline: `3ee1041f7`
 > Purpose: short-term working context across development sessions while
 > `.tasks/` is frozen.
 
@@ -28,7 +28,7 @@ kept privately in the company repo. This file records engineering state.
 Development focus is the product sequence below, starting with running
 Spacedrive on the Mac and operating a paired NAS's sources from it.
 
-The drive-catalog and physical-drives plans are committed (`07fc633c2`), but
+The drive-catalog and physical-drives plans are committed (`2d380fd26`), but
 the early `packages/drives` implementation described by previous handoffs is
 no longer in the checkout. See the register row before restarting that work.
 Physical-drive identity remains separate from product recognition and visuals.
@@ -110,7 +110,7 @@ local replica, never the remote live SQLite file through a network mount.
 Store placement does not change this access contract.
 
 Add to Library implementation research is recorded in that plan (Codex,
-September 16), through `3d8c44394` plus identified uncommitted database-export
+September 16), through `4cf25c17c` plus identified uncommitted database-export
 work. Reuse the new read-only store path and exports. Remaining foundations:
 consistent volume registration/defaults, library-scoped store resolution,
 portable source identity, handle retirement, unconditional managed-directory
@@ -132,7 +132,7 @@ coupling, and repair membership and write durability. This research changed
 no live membership or config.
 
 The UI setup audit confirmed `SyncSetupModal.tsx` survives without callers:
-`2c7e058ce` removed the overview's Setup Sync button. Pairing still closes
+`b653676e8` removed the overview's Setup Sync button. Pairing still closes
 without library setup, and Library Settings only exposes the sync toggle.
 The library-sync research now includes restoring setup entry points,
 continuing after pairing, and resuming setup for already paired devices.
@@ -179,17 +179,17 @@ Recent landed.
 
 | Work                                              | Status                                 | Owner           | Next proof or action                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | ------------------------------------------------- | -------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Source runtime reliability | R1-R3, R6 and R7 landed and verified live | in progress | Execute `docs/plans/2026-09-15-source-runtime-reliability.md`. Landed: destructive paths removed, flush made a durability barrier, self-nudge loop stopped and hashing progress labeled (`c63359a9e`, `adf729cd9`, `92bb4412e`); R1 ancestor synthesis (`3a425c629`); R2 anchored volume roots (`4b3eb7389`); R3 persisted replica inventory (`18304e041`) plus the fetch-generation fix (`0650e0acb`: header names the generation and blake3 of the bytes delivered, a delivery must parse before it replaces a good artifact, one failed source no longer aborts the device sync, fetch failures back off, an unchanged generation still refreshes owner facts, revocation unloads and quarantines replicas, snapshot decode is bounded); the coverage heal (`fd40a5b87`); watchers made unconditional on a bare daemon (`88f496891`, `1d8d23962`, `0e605105b`); dirty-driven refetches paced to five minutes (`b57cb2857`). R6 (results in the plan): `51e4873d4` opened stores read-only with listings, lookups and Unicode-folded name search; `3d8c44394` routes one backend per source (arena when restored or walked, SQLite otherwise, no empty-result retry, `total_is_exact` on the wire, detached directories list from their stores); `475a6b0b3` delivers a nested source's replica as its own database with the snapshot header contract; the 100-store/1M-record cold fan-out measures 1.7 s (`b88bfe4cf`). R7 (results in the plan): stores validated by direct SQL with zero dangling ancestry, a cold restart with the owner down serves and searches every replica, byte read, remote op and remote log stream verified, and reconvergence transfers zero bytes. Since then: musl builds use mimalloc as the global allocator, since musl's allocator gives each allocation group its own mapping and exhausted the kernel's map limit within an hour of a restart; a nested source's generation is the store's revision, a count of committed row changes kept by triggers (`crates/store/src/revision.rs`), so a drained WAL no longer causes a full re-copy; the file type registry is built once per process, taking arena inserts from 3.00 ms to 7.2 µs and a large replica restore from 56 minutes to 19 s; video thumbnails scale ahead of the `thumbnail` filter and the decode pool is bounded by free memory (`7847728c1`, `3b1bb2ba3`); the arena's backing file is unnamed, so the kernel reclaims it however the process ends (`19b62033b`). Tiles cross to replicas over `FetchTiles` (P6 of `docs/plans/2026-09-19-incremental-replication.md`), and every baked tile is also kept as WebP in its source's `sidecars.db`, which replicas copy page by page over `FetchSidecars` (P7, L5's first sidecar kind). Remaining: the restart refetch (a replica publishes its share only after its arena rebuild, so the first sync pass refetches what it already holds; P1 of the replication plan), R4 compaction and memory honesty, R5 typed health and coverage, R8 acceptance matrix and the docs sweep, delta replication and transfer cleanup (its `temp_store` decision is James's), plus R6's follow-ons (request cancellation, the deferred title index). |
-| Drive catalog H0                                  | plans committed, code missing          | unconfirmed     | The drive-catalog and physical-drives plans landed in `07fc633c2`, but the uncommitted `packages/drives` package earlier handoffs said to preserve is no longer in the checkout. Confirm whether that code survives elsewhere before restarting the package and archetype contract from the plan. The physical-identity firewall still applies.                                                                                                                                                                                                                                                                                                                       |
+| Source runtime reliability | R1-R3, R6 and R7 landed and verified live | in progress | Execute `docs/plans/2026-09-15-source-runtime-reliability.md`. Landed: destructive paths removed, flush made a durability barrier, self-nudge loop stopped and hashing progress labeled (`bb033de1b`, `954c6d980`, `fb0dab3e6`); R1 ancestor synthesis (`9242a14a1`); R2 anchored volume roots (`0aa0d390c`); R3 persisted replica inventory (`59b05a6c8`) plus the fetch-generation fix (`98e8a1485`: header names the generation and blake3 of the bytes delivered, a delivery must parse before it replaces a good artifact, one failed source no longer aborts the device sync, fetch failures back off, an unchanged generation still refreshes owner facts, revocation unloads and quarantines replicas, snapshot decode is bounded); the coverage heal (`5a65d0998`); watchers made unconditional on a bare daemon (`8c8499413`, `847144ba0`, `3ee5449bf`); dirty-driven refetches paced to five minutes (`4a690c84a`). R6 (results in the plan): `9e29e7c46` opened stores read-only with listings, lookups and Unicode-folded name search; `4cf25c17c` routes one backend per source (arena when restored or walked, SQLite otherwise, no empty-result retry, `total_is_exact` on the wire, detached directories list from their stores); `5f1fdd287` delivers a nested source's replica as its own database with the snapshot header contract; the 100-store/1M-record cold fan-out measures 1.7 s (`33bd1ce5d`). R7 (results in the plan): stores validated by direct SQL with zero dangling ancestry, a cold restart with the owner down serves and searches every replica, byte read, remote op and remote log stream verified, and reconvergence transfers zero bytes. Since then: musl builds use mimalloc as the global allocator, since musl's allocator gives each allocation group its own mapping and exhausted the kernel's map limit within an hour of a restart; a nested source's generation is the store's revision, a count of committed row changes kept by triggers (`crates/store/src/revision.rs`), so a drained WAL no longer causes a full re-copy; the file type registry is built once per process, taking arena inserts from 3.00 ms to 7.2 µs and a large replica restore from 56 minutes to 19 s; video thumbnails scale ahead of the `thumbnail` filter and the decode pool is bounded by free memory (`bf1ca21a1`, `4d18db0ab`); the arena's backing file is unnamed, so the kernel reclaims it however the process ends (`f5bf69d60`). Tiles cross to replicas over `FetchTiles` (P6 of `docs/plans/2026-09-19-incremental-replication.md`), and every baked tile is also kept as WebP in its source's `sidecars.db`, which replicas copy page by page over `FetchSidecars` (P7, L5's first sidecar kind). Remaining: the restart refetch (a replica publishes its share only after its arena rebuild, so the first sync pass refetches what it already holds; P1 of the replication plan), R4 compaction and memory honesty, R5 typed health and coverage, R8 acceptance matrix and the docs sweep, delta replication and transfer cleanup (its `temp_store` decision is James's), plus R6's follow-ons (request cancellation, the deferred title index). |
+| Drive catalog H0                                  | plans committed, code missing          | unconfirmed     | The drive-catalog and physical-drives plans landed in `2d380fd26`, but the uncommitted `packages/drives` package earlier handoffs said to preserve is no longer in the checkout. Confirm whether that code survives elsewhere before restarting the package and archetype contract from the plan. The physical-identity firewall still applies.                                                                                                                                                                                                                                                                                                                       |
 | Final entries drop                                | FD0–FD5 done; FDA ready                | Opus            | Execute `docs/plans/2026-09-15-entries-final-drop.md`. FD0 through FD4 are done (2026-09-18): no production code reads the entry tables, legacy row sync is gone, and a transactional migration drops 29 retired tables so every library converges on a 14-table schema. Both live libraries upgraded after backups. Locations are gone end to end: pins are Space items, Places come from `paths.system_folders`, and Add Storage tracks sources. FD5 is done: the ephemeral qualifier is retired (`VolumeIndex`, `Partition`, `Arena`, `core.index_status`), entry-era tests and examples are deleted or repointed, and the persistent-era search, event, status, and error surface is gone. Follow-ups are in its record: redundancy over source stores, and `indexing.start` walking the caller's path spelling. Next: FDA runs the acceptance matrix. Preserve source stores, paired-source replication, remote byte reads, remote operations, jobs, and logs. Remove locations without data migration or API compatibility.                                                                                                                                                                                                                                                                                                                     |
 | Tags on source stores (FD2) | stretch 1 complete (Fable, 2026-09-18) | Fable | Landed in five commits through the outbox delivery fix. Verified against a paired NAS: queued outbox batches delivered on reconnect, acked and retired, the owner's stores answer `files.by_tag`, and both libraries' legacy tag tables verified empty, clearing FD4's preconditions. Search phase 4 landed: store-resolved include/exclude proven exact by CLI, replica hits removed under a tag filter, Tags advertised, and a picker pill in the refinement bar. P6 done across `tagging.mdx`, `library.mdx`, the design doc, and the stats tag count. |
-| Search refinement                                 | phases 1 and part of 2 committed       | in progress     | Execute `docs/plans/2026-09-15-search-refinement.md`. Landed: `fcf7f85d1` made sort, pagination, and filters honest (pipeline module with the R6 backend-neutral candidate stage, true `total_found` past the old 200 cap, case-folded extensions, hidden excluded by default, date filters fail closed; verified live with `--limit`, sorts, and offsets), and `fdf4902aa` fixed the debounce, preserved the picked scope across keystrokes, unified the length gate, and wired Cmd+F. `26fdf65c2` replaced the Location scope with a working Source scope resolved through `paths.context`, and `0c0226df3` plus `68bd52676` built the refinement bar: kind, extension, size, modified-date, and hidden filters with facet counts folded over the full match set and a true result count, recomposed as one row of `@spacedrive/primitives` (ToggleGroup scope, SelectPill popovers, Switch) where each pill carries its own state. Phase 4 tag filtering landed 2026-09-18 (store-resolved include/exclude, replica honesty, a Tags pill; results in the plan). Remaining: per-tab search state and search as a navigation target (deferrable no longer now that the shell work landed), and phase 5 redundancy-view verification. Inspect the live panel, then consider consolidating onto ts-client `useSearchFiles`. |
-| Sidebar simplification                            | first slice committed (`321818b55`)    | unowned         | The sidebar has one library scope, flat daily destinations, Places computed from system folders without persisting them as locations, canonical rows, and an Activity/Settings footer. Topology groups retired; their pins survive seed convergence, and replica sources render under their owning device. Next: inspect the live library, then refine Home and Storage ownership from real use.                                                                                                                                                                                                                                                                    |
+| Search refinement                                 | phases 1 and part of 2 committed       | in progress     | Execute `docs/plans/2026-09-15-search-refinement.md`. Landed: `af3470373` made sort, pagination, and filters honest (pipeline module with the R6 backend-neutral candidate stage, true `total_found` past the old 200 cap, case-folded extensions, hidden excluded by default, date filters fail closed; verified live with `--limit`, sorts, and offsets), and `f34fc3c8a` fixed the debounce, preserved the picked scope across keystrokes, unified the length gate, and wired Cmd+F. `7733fe8a9` replaced the Location scope with a working Source scope resolved through `paths.context`, and `81accc3ad` plus `3f4b67100` built the refinement bar: kind, extension, size, modified-date, and hidden filters with facet counts folded over the full match set and a true result count, recomposed as one row of `@spacedrive/primitives` (ToggleGroup scope, SelectPill popovers, Switch) where each pill carries its own state. Phase 4 tag filtering landed 2026-09-18 (store-resolved include/exclude, replica honesty, a Tags pill; results in the plan). Remaining: per-tab search state and search as a navigation target (deferrable no longer now that the shell work landed), and phase 5 redundancy-view verification. Inspect the live panel, then consider consolidating onto ts-client `useSearchFiles`. |
+| Sidebar simplification                            | first slice committed (`2097fc141`)    | unowned         | The sidebar has one library scope, flat daily destinations, Places computed from system folders without persisting them as locations, canonical rows, and an Activity/Settings footer. Topology groups retired; their pins survive seed convergence, and replica sources render under their owning device. Next: inspect the live library, then refine Home and Storage ownership from real use.                                                                                                                                                                                                                                                                    |
 | Explorer path status                              | visual polish built, uncommitted; live proof pending | unowned    | `paths.context` distinguishes source-database existence from a committed record for the exact path. The PathBar uses neutral surfaces, floating Spacedrive source and volume assets, unfilled status chips, and large 36px circle actions for pinning, full-source reindex, navigation, and technical details. All explicit small CircleButton usages in Spacedrive are removed; the shared variant definition lives in the separate SpaceUI package. Pins rebuild from the registry's mounted source root. Earlier generated-client, focused Rust, scoped PathBar, and Fumadocs checks passed. The desktop frontend production build and scoped diff check pass after the styling change. Inspect the panel live. |
-| Virtualized thumbnail remounts                    | committed (`d806ba7f1`); live proof pending | unowned    | Hot-tier bake completion epochs now survive cell unmounts, and each thumbnail hides its fallback only after its current DOM image loads. Media rows now keep stable React identity as the virtual window advances, width is measured before paint, content is no longer deliberately invalidated for every render, and live row-count changes no longer snap the camera roll to the bottom. The desktop production build passes. Scroll and trigger selection or inspector rerenders in a large media view to confirm the grid remains stable.                                                                                                  |
-| Quick Preview originals                           | committed (`d806ba7f1`); live proof pending | unowned    | The Tauri asset boundary now maps canonical macOS APFS data-volume paths back to the scoped `/Users` and `/Volumes` aliases. Image, video, audio, text, mesh, and local thumbnail-original renderers share the fix. Open a home-directory image and an external-volume file to confirm originals load without a 403.                                                                                                                                                                                                                                                                                                                                                 |
-| Permission-aware automatic startup                | first slice committed (`4b84e2c05`)    | unowned         | Library loading no longer dispatches a new filesystem discovery pass. The desktop requests one idempotent pass after the connected shell renders; a bare daemon does not initiate discovery, and `sd index start --defaults` gives CLI and server operators the same explicit path. Restored volume snapshots now prevent repeat full walks. Next: model denied coverage and add the macOS permission explanation and Full Disk Access affordance.                                                                                                                                                                                                                   |
-| Host media tools                                  | committed (`bbc53866e`); live proof pending | unowned    | The machine-scoped registry discovers host FFmpeg outside GUI PATHs, reports its version and media capabilities, and exposes explicit Homebrew/WinGet installation. Services settings now shows the resolved version, path, capability coverage, missing FFprobe state, refresh, and a confirmed package-manager install action. Default builds use QuickLook or host FFmpeg for hot video thumbnails and generate immutable 5 by 5 thumbstrips on hover. Core, linked-feature, server, Tauri shell, generated-client, and desktop production builds pass; real FFmpeg output is 384×216 and 800×450 in the focused fixtures. Restart the daemon, inspect Services settings, then open a video with no old sidecars and confirm its poster and hover scrub sheet. |
+| Virtualized thumbnail remounts                    | committed (`4e53d58db`); live proof pending | unowned    | Hot-tier bake completion epochs now survive cell unmounts, and each thumbnail hides its fallback only after its current DOM image loads. Media rows now keep stable React identity as the virtual window advances, width is measured before paint, content is no longer deliberately invalidated for every render, and live row-count changes no longer snap the camera roll to the bottom. The desktop production build passes. Scroll and trigger selection or inspector rerenders in a large media view to confirm the grid remains stable.                                                                                                  |
+| Quick Preview originals                           | committed (`4e53d58db`); live proof pending | unowned    | The Tauri asset boundary now maps canonical macOS APFS data-volume paths back to the scoped `/Users` and `/Volumes` aliases. Image, video, audio, text, mesh, and local thumbnail-original renderers share the fix. Open a home-directory image and an external-volume file to confirm originals load without a 403.                                                                                                                                                                                                                                                                                                                                                 |
+| Permission-aware automatic startup                | first slice committed (`c32768f2e`)    | unowned         | Library loading no longer dispatches a new filesystem discovery pass. The desktop requests one idempotent pass after the connected shell renders; a bare daemon does not initiate discovery, and `sd index start --defaults` gives CLI and server operators the same explicit path. Restored volume snapshots now prevent repeat full walks. Next: model denied coverage and add the macOS permission explanation and Full Disk Access affordance.                                                                                                                                                                                                                   |
+| Host media tools                                  | committed (`f3a1ede2f`); live proof pending | unowned    | The machine-scoped registry discovers host FFmpeg outside GUI PATHs, reports its version and media capabilities, and exposes explicit Homebrew/WinGet installation. Services settings now shows the resolved version, path, capability coverage, missing FFprobe state, refresh, and a confirmed package-manager install action. Default builds use QuickLook or host FFmpeg for hot video thumbnails and generate immutable 5 by 5 thumbstrips on hover. Core, linked-feature, server, Tauri shell, generated-client, and desktop production builds pass; real FFmpeg output is 384×216 and 800×450 in the focused fixtures. Restart the daemon, inspect Services settings, then open a video with no old sidecars and confirm its poster and hover scrub sheet. |
 | Opening remote files                              | O1, O2 (desktop), O4 (macOS) and O6 (Photos) landed 2026-09-24, uncommitted; live proof on the NAS next | Opus            | Plan: `docs/plans/2026-09-21-opening-remote-files.md`. Quick Preview streams another device's originals from `files.stream_url`, the mounts share's loopback URL; Open and double-click open them through `files.local_path`, which mounts the SMB share at `<data-dir>/mount` with NetFS and returns the file's path inside it; Photos follows a folder on another device (`search.media` pages replicas from their index) and shows a cell in Quick Look through the mount. The mount unmounts at shutdown, a killed daemon's mount is removed at the next start, and volume detection skips it. The SMB frontend served one file's bytes under another's name after a listing (every file id was 0 and search patterns were ignored); both are fixed and covered by tests. The HTTP share refuses non-loopback Host headers and answers CORS only for Tauri and loopback origins; no share key, since RPC on 6969 is open to local processes anyway. Verified end to end on two paired throwaway daemons. Next, on the Mac against the paired NAS after restarting the Mac's daemon on this build: preview and scrub a remote video and read `mounts.cache_status`, Space on a remote clip in Photos, and open a remote clip larger than free disk in QuickTime. Open: O3 open by copy, O5 settings, the web client's `sd-server` route, Open With for remote files (needs a submenu that loads when the menu opens), and Show in Finder on sidebar items, which still takes a path unchecked. |
 | File operations on preflight                      | F1 through F7 landed 2026-09-23; live acceptance next | unowned | Plan: `docs/plans/2026-09-23-file-operations.md`. Delete and duplicate in the explorer on preflight; rename and batch rename on preflight with filesystem name rules; the operation journal every mutating job writes, the trash with recorded locations and a Spacedrive trash directory where a volume has none, stashing on replace, and `files.undo` on preflight reached from the job list, ⌘Z and the trash view; mirror as `remove_extras` on merge; organize and flatten; zip and tar.zst archive and extract; attributes and links. CLI commands and dialogs for each, 30 tests over the fixture. Next: the acceptance case on an external drive and a run of trash restore on Windows and Linux. |
 | Action validation, preview, and folder merge      | V1 through V9 and dedupe landed; live acceptance on the NAS next | Opus            | Plan: `docs/plans/2026-09-22-action-previews.md`. Preflight (`validate:` and `preview:`), `FsPlan`, copy, move, merge, and delete on both methods, the merge job, dedupe as a delete target (first copy in walk order or chosen copies, read in full before removal) with `sd file dedupe` and a Duplicates screen, `sd file copy`, `merge`, and `delete` rendering preflight, the merge dialog, the modifier drop, the preflight-driven operation modal, plan handles, and overlay listings with the explorer's preview mode; the old validation hook is gone. Remote execution rides the existing `--device` forwarding. Two opt-in preflight methods on actions, both taking the action's exact input: `validate:` answers whether and how an operation runs (findings with stable codes plus execution facts, re-run server-side at dispatch, errors refuse) and `preview:` answers what will exist afterward (`FsPlan` from the index, advisory, browsable through plan handles as an overlay on `files.directory_listing`). The plan catalogs both methods across copy, move, merge, delete, batch rename, and dedupe. Folder merge is the first action on them: recursive merge with integrity-confirmed duplicate skipping, per-leaf conflict policy, optional source consumption, remote execution via `--device`. Also fixes copy's silent blind overwrite inside directory collisions, deletes the CLI's local conflict logic per the operations-are-the-unit principle, and removes the dead `ValidationResult`/`ConfirmationRequest` hook. Six decisions are James's. Landed ahead of preflight: `files.delete` takes a comparison as its targets (`sd file delete A --against B --show both`); the job derives the set from the index as it runs, reads both copies in full before removing one, checkpoints the compare cursor, and reports skips. |
@@ -302,7 +302,7 @@ These are regression boundaries, not incidental fixes:
 
 ### Interface and desktop
 
-- `fe4a100b3`: made ephemeral search case-insensitive (lowercased registry
+- `4bc442e43`: made ephemeral search case-insensitive (lowercased registry
   keys, folded on snapshot restore too) and removed the exact/prefix/contains
   short-circuit so an exact name no longer hides its substring matches. Also
   stopped the double-indexed macOS home tree: the volume map skips hidden
@@ -310,95 +310,95 @@ These are regression boundaries, not incidental fixes:
   second time), and directory browse and scoped search normalize their paths
   through `locate_path` like `sources.track` does. Verified live: duplicates
   gone, mixed-case names found, full result sets on exact queries.
-- `321818b55`, `dd5a0f1aa`, `d806ba7f1`, `bbc53866e`, `4b84e2c05`: the sidebar
+- `2097fc141`, `cf5f3f45a`, `4e53d58db`, `f3a1ede2f`, `c32768f2e`: the sidebar
   simplification, `paths.context` and the locations demotion, the thumbnail
   remount and Quick Preview fixes, host media tool discovery with on-demand
   thumbstrips, and explicit permission-aware startup discovery. Register rows
   above track their remaining live proofs and next steps.
-- `38ff5c059`, `912f01274`: fixed hot-thumb 404s, silenced browse indexer
+- `f0347a317`, `632d04359`: fixed hot-thumb 404s, silenced browse indexer
   jobs, and kept background hashing passes off the event bus.
 
 ### Documentation
 
-- `07fc633c2`: moved docs to Fumadocs and rewrote the core pages around the
+- `2d380fd26`: moved docs to Fumadocs and rewrote the core pages around the
   daemon/source-store/library split, added `product-direction.mdx` and the
   drive-catalog plan, and retired the whitepaper page.
-- `2c7e058ce`: README and CONTRIBUTING updates, locations and data-model pages
+- `b653676e8`: README and CONTRIBUTING updates, locations and data-model pages
   reconciled, regenerated Tauri schemas, and the new icon asset.
 
 ### Multi-device
 
-- `1044e0977`, `38a78bafc`, `171a80ecf`: cross-device search over paired
+- `50fdbad59`, `3ac1f0af7`, `a0180d1b7`: cross-device search over paired
   devices, peer replicas surfaced in `sources.list` with remote listings
   served, and remote job completions delivered.
-- `29703a5db`, `dedaba5c9`: stopped device presence flapping (a connection
+- `aa589a767`, `9d948817e`: stopped device presence flapping (a connection
   loss only marks a device disconnected when no connections remain),
   classified Tailscale CGNAT paths with their own badge, and made overview
   and sidebar request paired devices explicitly so a fresh page sees them.
   Verified live: 20 consecutive samples online.
-- `f2dbbac0d`: fleet-wide statistics are computed once by the owning device
+- `5f49a0141`: fleet-wide statistics are computed once by the owning device
   and reported identically everywhere; fixed the PATH-dependent ZFS capacity
   correction, stale persisted volume capacity, and double-counted source
   totals.
-- `1d4afd204`: fixed peer snapshot serving to read from the volume index
+- `5d822a0ca`: fixed peer snapshot serving to read from the volume index
   directory, restoring source replication between paired devices.
-- `bab963d8d`, `777dc327f`: wired remote job activity end to end. Paired
+- `1766bd175`, `728403b4f`: wired remote job activity end to end. Paired
   devices are subscribed as they connect, the cache builds rows from started
   and progress events (nothing emits a queued event), `sd job remote` lists
   them, and terminal rows are swept hourly. Verified live in both directions.
-- `996ec6422`: added `--device` to the CLI and the remote-ops protocol: any
+- `960febb2b`: added `--device` to the CLI and the remote-ops protocol: any
   Wire action or query can be forwarded to a paired device and executed
   through the same registries, with the target resolving its own open
   library. Verified live: sources listed, jobs listed, and a verify job
   dispatched on the NAS from the Mac.
-- `0f9307b62`: pairing completion broadcasts the connection so peer sync
+- `29b9b8abc`: pairing completion broadcasts the connection so peer sync
   starts immediately; `sd --device <x> logs follow` streams a paired
   device's log bus with server-side filtering; `sd job remote --watch`
   follows remote jobs; stale remote job rows are swept by `updated_at`.
 
 ### Linux and archival correctness
 
-- `04ed3f3e7`: captured uid, gid, symlink targets, content errors, and invalid
+- `c446235e6`: captured uid, gid, symlink targets, content errors, and invalid
   UTF-8 diagnostics.
-- `93c3e515a`: added source freezing and the `sd sources` CLI domain.
-- `301026ae1`: enabled self-contained Linux musl builds with vendored OpenSSL.
-- `7a91f0034`: made content hashing wait for committed batches.
-- `33437d3cd`: excluded the daemon data directory and salvaged failed batches.
-- `b8c915db7`: derived volume IDs from fingerprints instead of process-local
+- `50ab6038e`: added source freezing and the `sd sources` CLI domain.
+- `a33fde636`: enabled self-contained Linux musl builds with vendored OpenSSL.
+- `55e962717`: made content hashing wait for committed batches.
+- `4aaec8b5c`: excluded the daemon data directory and salvaged failed batches.
+- `a1c9919da`: derived volume IDs from fingerprints instead of process-local
   randomness.
-- `09eaaa2b3`: added full-byte verification for shared sampled content.
-- `166038bd5`, `cee729c22`: read Linux birth time through `statx` and corrected
+- `ac9f266ed`: added full-byte verification for shared sampled content.
+- `81070270d`, `63ba30edd`: read Linux birth time through `statx` and corrected
   the kernel ABI buffer size.
-- `a3fe7e0ec`: recorded ZFS pool topology in drive groups and tightened the
+- `3dd5f6a3a`: recorded ZFS pool topology in drive groups and tightened the
   pre-export evidence list.
 
 ### Restart, registry, and sweep safety
 
-- `4feb6448a`, `72fe40684`: registered every job type, made startup
+- `c1a6bbfa2`, `1ab9017c6`: registered every job type, made startup
   reconciliation truthful, enabled it, deduplicated dispatch, and removed the
   task-system panic-on-drop source by logging it in release builds.
-- `359521db7`, `50d712d08`: resolved verify and freeze roots through the source
+- `8e5fdfbc3`, `8f50a1538`: resolved verify and freeze roots through the source
   registry and persisted the volume rows those roots depend on.
 - `023015552`: made walks restart from zero and added the destructive-sweep
   refusal.
 
 ### Reporting and live capture
 
-- `d5beaf0c0`, `1a0539a91`, `38a455167`: implemented store-derived unique and
+- `672d472e1`, `db15a2177`, `f545663e1`: implemented store-derived unique and
   indexed byte counts, indexed the content join, and made the duplicate bar
   honest under compressed filesystems.
-- `fdc6e77f9`: made watcher events follow the source's persisted capture policy.
-- `bec3c2ac6`: made watcher changes nudge content hashing.
-- `48377348b`: typed source capture policy and added `sources.update` for
+- `0aa1cdc4e`: made watcher events follow the source's persisted capture policy.
+- `4badfe403`: made watcher changes nudge content hashing.
+- `7690309d8`: typed source capture policy and added `sources.update` for
   renaming sources or widening their capture policy safely.
 
 ### Storage cutover
 
-- `c30aa2365`: demoted locations to six-field pins.
-- `554942ce8`, `d94f59f86`, `74f294625`, `79f0c385f`: stopped writing entries,
+- `59520ee5e`: demoted locations to six-field pins.
+- `9d5465832`, `7d41e07ab`, `ba8efcdda`, `c78cf8f31`: stopped writing entries,
   moved reads to the arena and source stores, deleted the unreachable media
   pipeline, and removed most remaining production entry-era support.
-- `0f5e4a1ef`: rewrote tag operations around record and content identity.
+- `f32da4777`: rewrote tag operations around record and content identity.
 
 ## Worktree handoff
 

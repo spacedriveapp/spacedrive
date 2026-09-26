@@ -183,7 +183,7 @@ membership and replication. This flow composes those contracts.
 
 ## Implementation research, September 16
 
-Inspected commits through `3d8c44394` and concurrent uncommitted work. These
+Inspected commits through `4cf25c17c` and concurrent uncommitted work. These
 findings are code research, not new live acceptance. No code was changed and
 no daemon, source, volume or library was reconfigured. Existing test cases were
 read, not rerun. The findings below refine implementation proposals without
@@ -191,12 +191,12 @@ making the remaining defaults user decisions.
 
 ### Recent work already answers part of the problem
 
-`51e4873d4` adds `SourceManager::open_read_only` and source-store lookup, listing
+`9e29e7c46` adds `SourceManager::open_read_only` and source-store lookup, listing
 and title-search helpers. It opens without schema mutation, store creation,
 ledger hydration or a writer. Tests cover relative paths, Unicode matching,
 search truncation, refusing writes and refusing to create a missing store.
 
-`3d8c44394` adds local store fallback to search and detached-directory listing.
+`4cf25c17c` adds local store fallback to search and detached-directory listing.
 This is a first slice of R6: scoped search still attempts snapshot restoration,
 directory fallback is currently gated on detachment, and `arena_answers` uses
 restoration/indexed-path evidence rather than a complete typed coverage model.
@@ -214,7 +214,7 @@ database's assertions even when an arena is also delivered for fast reads.
 The [R7 results](2026-09-15-source-runtime-reliability.md#r7-results-2026-09-16)
 supersede the initial broken-fleet observations: the other session recorded all
 ten local stores with valid ancestry and all nine titan replicas searchable on
-the Mac after a restart with titan stopped. That proof used `b57cb2857`.
+the Mac after a restart with titan stopped. That proof used `4a690c84a`.
 The later SQLite commits are repository facts, not proof of the deployed build.
 Keep the dated NAS freezes and current replica recovery working through this
 change.

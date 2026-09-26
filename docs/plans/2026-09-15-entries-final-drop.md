@@ -1,7 +1,7 @@
 # Entries Final Drop
 
 > Status: ready to start, unowned
-> Audited: 2026-09-15 against `1044e0977` and the current worktree
+> Audited: 2026-09-15 against `50fdbad59` and the current worktree
 > Register: `PROJECT_STATUS.md`
 > Replaces the executable part of P6 in
 > `2026-08-20-entries-teardown-execution.md`. That document remains the history

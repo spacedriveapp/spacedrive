@@ -4,7 +4,7 @@ Status: separate durable policy target agreed with James; implementation details
 remain for review. No runtime code, source, pin, library membership or daemon
 configuration changed during this audit.
 
-Inspected September 15, 2026, against `92bb4412e` and the current worktree.
+Inspected September 15, 2026, against `fb0dab3e6` and the current worktree.
 Other development was active in the worktree. Live read-only queries used the
 running Mac and titan daemons, which can differ from this checkout.
 
@@ -207,7 +207,7 @@ their home. The later capture/navigation/display taxonomy omitted processing.
 The replacement is not implemented in the inspected tree.
 
 Historical evidence is available with
-`git show 554942ce8^:core/src/domain/location.rs`: `JobPolicies` configures
+`git show 9d5465832^:core/src/domain/location.rs`: `JobPolicies` configures
 thumbnails, thumbstrips, proxies, OCR, transcription and object detection. The
 old `ops/locations/trigger_job/action.rs` reads those policies for manual
 dispatch. That same revision's `ops/indexing/processor.rs` defines watcher
