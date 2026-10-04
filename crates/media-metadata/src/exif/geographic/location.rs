@@ -28,7 +28,7 @@ impl MediaLocation {
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_metadata::image::MediaLocation;
+	/// use sd_media_metadata::exif::MediaLocation;
 	///
 	/// let x = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// ```
@@ -58,7 +58,7 @@ impl MediaLocation {
 	/// # Examples
 	///
 	/// ```ignore
-	/// use sd_media_metadata::image::{ExifReader, Location};
+	/// use sd_media_metadata::exif::{ExifReader, Location};
 	///
 	/// let mut reader = ExifReader::from_path("path").unwrap();
 	/// MediaLocation::from_exif_reader(&mut reader).unwrap();
@@ -111,7 +111,7 @@ impl MediaLocation {
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_metadata::image::MediaLocation;
+	/// use sd_media_metadata::exif::MediaLocation;
 	///
 	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// assert_eq!(home.coordinates(), (38.89767633, -7.36560353));
@@ -127,10 +127,10 @@ impl MediaLocation {
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_metadata::image::MediaLocation;
+	/// use sd_media_metadata::exif::MediaLocation;
 	///
 	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
-	/// assert_eq!(home.pluscode().to_string(), "894HFGG5+82".to_string());
+	/// assert_eq!(home.pluscode().to_string(), "8CCJVJXM+3Q".to_string());
 	/// ```
 	#[inline]
 	#[must_use]
@@ -143,7 +143,7 @@ impl MediaLocation {
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_metadata::image::MediaLocation;
+	/// use sd_media_metadata::exif::MediaLocation;
 	///
 	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// home.update_latitude(60_f64);
@@ -159,7 +159,7 @@ impl MediaLocation {
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_metadata::image::MediaLocation;
+	/// use sd_media_metadata::exif::MediaLocation;
 	///
 	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// home.update_longitude(20_f64);
@@ -173,7 +173,7 @@ impl MediaLocation {
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_metadata::image::MediaLocation;
+	/// use sd_media_metadata::exif::MediaLocation;
 	///
 	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// home.update_altitude(20);
@@ -186,7 +186,7 @@ impl MediaLocation {
 	/// # Examples
 	///
 	/// ```
-	/// use sd_media_metadata::image::MediaLocation;
+	/// use sd_media_metadata::exif::MediaLocation;
 	///
 	/// let mut home = MediaLocation::new(38.89767633, -7.36560353, Some(32), Some(20));
 	/// home.update_direction(233);
@@ -228,11 +228,11 @@ impl TryFrom<String> for MediaLocation {
 	/// # Examples:
 	///
 	/// ```
-	/// use sd_media_metadata::image::MediaLocation;
+	/// use sd_media_metadata::exif::MediaLocation;
 	///
 	/// let s = String::from("32.47583923, -28.49238495");
 	/// let location = MediaLocation::try_from(s).unwrap();
-	/// assert_eq!(location.to_string(), "32.47583923, -28.49238495".to_string());
+	/// assert_eq!(location.coordinates(), (32.47583923, -28.49238495));
 	/// ```
 	fn try_from(mut value: String) -> std::result::Result<Self, Self::Error> {
 		value.retain(|c| !c.is_whitespace() || c.is_numeric() || c == '-' || c == '.');

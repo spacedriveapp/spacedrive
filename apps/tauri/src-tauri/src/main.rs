@@ -12,7 +12,7 @@ mod windows;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::menu::MenuItem;
 use tauri::Emitter;
@@ -454,7 +454,7 @@ async fn validate_and_reset_library_if_needed(
 	app: AppHandle,
 	current_library_id_arc: &Arc<RwLock<Option<String>>>,
 	daemon_state: &Arc<RwLock<DaemonState>>,
-	data_dir: &PathBuf,
+	data_dir: &Path,
 ) -> Result<(), String> {
 	let current_library_id = {
 		let library_id = current_library_id_arc.read().await;
@@ -799,7 +799,6 @@ async fn subscribe_to_events(
 		}
 
 		// Explicitly shutdown and drop the stream to close the TCP connection
-		drop(writer);
 		drop(reader);
 		tracing::info!(subscription_id = subscription_id, "TCP connection closed");
 	});
@@ -1162,7 +1161,7 @@ WantedBy=default.target
 
 		// Enable and start the service
 		let output = std::process::Command::new("systemctl")
-			.args(&["--user", "daemon-reload"])
+			.args(["--user", "daemon-reload"])
 			.output()
 			.map_err(|e| format!("Failed to reload systemd: {}", e))?;
 
@@ -1172,7 +1171,7 @@ WantedBy=default.target
 		}
 
 		let output = std::process::Command::new("systemctl")
-			.args(&["--user", "enable", "spacedrive-daemon.service"])
+			.args(["--user", "enable", "spacedrive-daemon.service"])
 			.output()
 			.map_err(|e| format!("Failed to enable service: {}", e))?;
 
@@ -1182,7 +1181,7 @@ WantedBy=default.target
 		}
 
 		let output = std::process::Command::new("systemctl")
-			.args(&["--user", "start", "spacedrive-daemon.service"])
+			.args(["--user", "start", "spacedrive-daemon.service"])
 			.output()
 			.map_err(|e| format!("Failed to start service: {}", e))?;
 
@@ -1407,18 +1406,18 @@ async fn uninstall_daemon_service() -> Result<(), String> {
 		if service_path.exists() {
 			// Stop and disable the service
 			let _ = std::process::Command::new("systemctl")
-				.args(&["--user", "stop", "spacedrive-daemon.service"])
+				.args(["--user", "stop", "spacedrive-daemon.service"])
 				.output();
 
 			let _ = std::process::Command::new("systemctl")
-				.args(&["--user", "disable", "spacedrive-daemon.service"])
+				.args(["--user", "disable", "spacedrive-daemon.service"])
 				.output();
 
 			std::fs::remove_file(&service_path)
 				.map_err(|e| format!("Failed to remove service file: {}", e))?;
 
 			let _ = std::process::Command::new("systemctl")
-				.args(&["--user", "daemon-reload"])
+				.args(["--user", "daemon-reload"])
 				.output();
 		}
 
@@ -1465,14 +1464,11 @@ async fn open_macos_settings() -> Result<(), String> {
 			.arg("x-apple.systempreferences:com.apple.LoginItems-Settings.extension")
 			.spawn()
 			.map_err(|e| format!("Failed to open settings: {}", e))?;
+		Ok(())
 	}
 
 	#[cfg(not(target_os = "macos"))]
-	{
-		return Err("Not supported on this platform".to_string());
-	}
-
-	Ok(())
+	Err("Not supported on this platform".to_string())
 }
 
 /// Check if daemon is running by trying to connect and send a ping

@@ -36,7 +36,7 @@ use super::{
 };
 
 const TEN_SECONDS: Duration = Duration::from_secs(10);
-const ONE_MINUTE: Duration = Duration::from_secs(60);
+const ONE_MINUTE: Duration = Duration::from_mins(1);
 
 const TASK_QUEUE_INITIAL_SIZE: usize = 64;
 const PRIORITY_TASK_QUEUE_INITIAL_SIZE: usize = 32;

@@ -39,8 +39,8 @@ impl TimeSource for SystemTimeSource {
 /// clock skew testing scenarios.
 ///
 /// ## Example
-/// ```rust,no_run
-/// use sd_core::infra::sync::time_source::FakeTimeSource;
+/// ```rust
+/// use sd_core::infra::sync::time_source::{FakeTimeSource, TimeSource};
 ///
 /// let time = FakeTimeSource::new(1000);
 /// assert_eq!(time.current_time_ms(), 1000);

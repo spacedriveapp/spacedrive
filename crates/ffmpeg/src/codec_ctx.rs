@@ -36,11 +36,11 @@ impl FFmpegCodecContext {
 		Ok(Self(ptr))
 	}
 
-	pub(crate) fn as_ref(&self) -> &AVCodecContext {
+	pub(crate) const fn as_ref(&self) -> &AVCodecContext {
 		unsafe { self.0.as_ref() }.expect("initialized on struct creation")
 	}
 
-	pub(crate) fn as_mut(&mut self) -> &mut AVCodecContext {
+	pub(crate) const fn as_mut(&mut self) -> &mut AVCodecContext {
 		unsafe { self.0.as_mut() }.expect("initialized on struct creation")
 	}
 
@@ -248,19 +248,24 @@ impl FFmpegCodecContext {
 			reserved_padding: [0; 1000],
 		};
 		unsafe {
-			av_bprint_init(&mut bprint, 0, u32::MAX /* AV_BPRINT_SIZE_UNLIMITED */);
+			av_bprint_init(
+				&raw mut bprint,
+				0,
+				u32::MAX, /* AV_BPRINT_SIZE_UNLIMITED */
+			);
 		};
 		let mut channel_layout = ptr::null_mut();
-		let channel_layout =
-			if unsafe { av_channel_layout_describe_bprint(&ctx.ch_layout, &mut bprint) } < 0
-				|| unsafe { av_bprint_finalize(&mut bprint, &mut channel_layout) } < 0
-				|| channel_layout.is_null()
-			{
-				None
-			} else {
-				let cstr = unsafe { CStr::from_ptr(channel_layout) };
-				Some(String::from_utf8_lossy(cstr.to_bytes()).to_string())
-			};
+		let channel_layout = if unsafe {
+			av_channel_layout_describe_bprint(&raw const ctx.ch_layout, &raw mut bprint)
+		} < 0 || unsafe {
+			av_bprint_finalize(&raw mut bprint, &raw mut channel_layout)
+		} < 0 || channel_layout.is_null()
+		{
+			None
+		} else {
+			let cstr = unsafe { CStr::from_ptr(channel_layout) };
+			Some(String::from_utf8_lossy(cstr.to_bytes()).to_string())
+		};
 
 		let sample_format = if ctx.sample_fmt == AVSampleFormat::AV_SAMPLE_FMT_NONE {
 			None
@@ -324,8 +329,8 @@ fn extract_aspect_ratio(
 		let max = 1024 * 1024;
 		unsafe {
 			av_reduce(
-				&mut display_aspect_ratio.num,
-				&mut display_aspect_ratio.den,
+				&raw mut display_aspect_ratio.num,
+				&raw mut display_aspect_ratio.den,
 				num,
 				den,
 				max,
@@ -437,7 +442,7 @@ fn extract_pixel_format(ctx: &AVCodecContext) -> Option<String> {
 impl Drop for FFmpegCodecContext {
 	fn drop(&mut self) {
 		if !self.0.is_null() {
-			unsafe { avcodec_free_context(&mut self.0) };
+			unsafe { avcodec_free_context(&raw mut self.0) };
 			self.0 = ptr::null_mut();
 		}
 	}

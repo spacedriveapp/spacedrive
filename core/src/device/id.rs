@@ -34,8 +34,10 @@
 //!
 //! ## Usage Pattern
 //! ```rust
-//! // Set once during initialization
-//! set_current_device_id(device_manager.device_id()?);
+//! use sd_core::device::{get_current_device_id, set_current_device_id};
+//!
+//! // Set once during initialization, from the device manager's id
+//! set_current_device_id(uuid::Uuid::new_v4());
 //!
 //! // Use anywhere in the codebase
 //! let device_id = get_current_device_id();

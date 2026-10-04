@@ -60,7 +60,7 @@ impl<'a> FFmpegFilterGraph {
 
 		let mut filter_source = ptr::null_mut();
 		filter_graph.setup_filter(
-			&mut filter_source,
+			&raw mut filter_source,
 			c"buffer",
 			c"thumb_buffer",
 			Some(CString::new(args)?.as_c_str()),
@@ -70,7 +70,7 @@ impl<'a> FFmpegFilterGraph {
 
 		let mut filter_sink = ptr::null_mut();
 		filter_graph.setup_filter(
-			&mut filter_sink,
+			&raw mut filter_sink,
 			c"buffersink",
 			c"thumb_buffersink",
 			None,
@@ -81,7 +81,7 @@ impl<'a> FFmpegFilterGraph {
 		let mut yadif_filter = ptr::null_mut();
 		if interlaced_frame {
 			filter_graph.setup_filter(
-				&mut yadif_filter,
+				&raw mut yadif_filter,
 				c"yadif",
 				c"thumb_deint",
 				Some(c"deint=1"),
@@ -91,7 +91,7 @@ impl<'a> FFmpegFilterGraph {
 
 		let mut scale_filter = ptr::null_mut();
 		filter_graph.setup_filter(
-			&mut scale_filter,
+			&raw mut scale_filter,
 			c"scale",
 			c"thumb_scale",
 			Some(
@@ -108,7 +108,7 @@ impl<'a> FFmpegFilterGraph {
 
 		let mut format_filter = ptr::null_mut();
 		filter_graph.setup_filter(
-			&mut format_filter,
+			&raw mut format_filter,
 			c"format",
 			c"thumb_format",
 			Some(c"pix_fmts=rgb24"),
@@ -158,7 +158,7 @@ impl<'a> FFmpegFilterGraph {
 		Ok((filter_graph, filter_source_ctx, filter_sink_ctx))
 	}
 
-	pub(crate) fn as_mut(&mut self) -> &mut AVFilterGraph {
+	pub(crate) const fn as_mut(&mut self) -> &mut AVFilterGraph {
 		unsafe { self.0.as_mut() }.expect("initialized on struct creation")
 	}
 
@@ -198,7 +198,7 @@ impl<'a> FFmpegFilterGraph {
 impl Drop for FFmpegFilterGraph {
 	fn drop(&mut self) {
 		if !self.0.is_null() {
-			unsafe { avfilter_graph_free(&mut self.0) };
+			unsafe { avfilter_graph_free(&raw mut self.0) };
 			self.0 = ptr::null_mut();
 		}
 	}

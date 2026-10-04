@@ -39,6 +39,33 @@ use crate::schema::{
 	DataTypeMeta, DataTypeSchema, FieldType, ModelDef, RelationsDef, SearchContract,
 };
 
+/// One `record JOIN facet_file` row: uuid, parent uuid, title, size, mtime, inode.
+type LedgerRow = (Uuid, Option<Uuid>, Option<String>, i64, i64, Option<i64>);
+
+/// One pending-content row: uuid, parent uuid, parent path, title, size.
+type PendingContentRow = (Uuid, Option<Uuid>, Option<String>, Option<String>, i64);
+
+/// A pending-content row plus the sampled hash to verify against.
+type PendingVerificationRow = (
+	Uuid,
+	Option<Uuid>,
+	Option<String>,
+	Option<String>,
+	i64,
+	Option<String>,
+);
+
+/// One copy of a content row: content uuid, size, record uuid, parent uuid,
+/// parent path, title.
+type ContentCopyRow = (
+	Uuid,
+	Option<i64>,
+	Uuid,
+	Option<Uuid>,
+	Option<String>,
+	Option<String>,
+);
+
 /// What the walk found at a path. `record.type` carries this, so a directory
 /// is queryable without joining a facet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -197,13 +224,12 @@ impl Ledger {
 				.map(|(uuid, path)| (uuid, Arc::from(path.as_str())))
 				.collect();
 
-		let rows: Vec<(Uuid, Option<Uuid>, Option<String>, i64, i64, Option<i64>)> =
-			sqlx::query_as(
-				"SELECT r.uuid, r.parent_uuid, r.title, f.size, f.mtime, f.inode
+		let rows: Vec<LedgerRow> = sqlx::query_as(
+			"SELECT r.uuid, r.parent_uuid, r.title, f.size, f.mtime, f.inode
 			 FROM record r JOIN facet_file f ON f.record_uuid = r.uuid",
-			)
-			.fetch_all(pool)
-			.await?;
+		)
+		.fetch_all(pool)
+		.await?;
 
 		let mut ledger = Self::default();
 		for (uuid, parent_uuid, title, size, mtime, inode) in rows {
@@ -759,13 +785,12 @@ pub async fn files_needing_content(
 	pool: &sqlx::SqlitePool,
 	batch_size: usize,
 ) -> Result<Vec<PendingContent>> {
-	let rows: Vec<(Uuid, Option<Uuid>, Option<String>, Option<String>, i64)> =
-		sqlx::query_as(&format!(
+	let rows: Vec<PendingContentRow> = sqlx::query_as(&format!(
 		"SELECT r.uuid, r.parent_uuid, d.path, r.title, f.size {PENDING_CONTENT} ORDER BY r.rowid LIMIT ?"
 	))
-		.bind(batch_size as i64)
-		.fetch_all(pool)
-		.await?;
+	.bind(batch_size as i64)
+	.fetch_all(pool)
+	.await?;
 
 	Ok(rows
 		.into_iter()
@@ -821,14 +846,7 @@ pub async fn files_needing_verification(
 	pool: &sqlx::SqlitePool,
 	batch_size: usize,
 ) -> Result<Vec<PendingVerification>> {
-	let rows: Vec<(
-		Uuid,
-		Option<Uuid>,
-		Option<String>,
-		Option<String>,
-		i64,
-		Option<String>,
-	)> = sqlx::query_as(&format!(
+	let rows: Vec<PendingVerificationRow> = sqlx::query_as(&format!(
 		"SELECT r.uuid, r.parent_uuid, d.path, r.title, f.size, c.sampled_hash \
 			 {PENDING_VERIFICATION} ORDER BY r.rowid LIMIT ?"
 	))
@@ -897,14 +915,7 @@ pub async fn duplicate_copies(
 	min_size: i64,
 	group_limit: usize,
 ) -> Result<Vec<ContentCopy>> {
-	let rows: Vec<(
-		Uuid,
-		Option<i64>,
-		Uuid,
-		Option<Uuid>,
-		Option<String>,
-		Option<String>,
-	)> = sqlx::query_as(
+	let rows: Vec<ContentCopyRow> = sqlx::query_as(
 		"WITH duplicated AS (
 				SELECT r.content_id AS content_id, c.size AS size
 				FROM record r
@@ -966,14 +977,7 @@ pub async fn copies_of_content(
 	pool: &sqlx::SqlitePool,
 	content_uuid: Uuid,
 ) -> Result<Vec<ContentCopy>> {
-	let rows: Vec<(
-		Uuid,
-		Option<i64>,
-		Uuid,
-		Option<Uuid>,
-		Option<String>,
-		Option<String>,
-	)> = sqlx::query_as(
+	let rows: Vec<ContentCopyRow> = sqlx::query_as(
 		"SELECT c.uuid, c.size, r.uuid, r.parent_uuid, d.path, r.title
 			 FROM content c
 			 JOIN record r ON r.content_id = c.id

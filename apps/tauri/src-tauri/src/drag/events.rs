@@ -42,11 +42,3 @@ pub enum DragResult {
 		error: String,
 	},
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DropEvent {
-	pub window_label: String,
-	pub items: Vec<DragItem>,
-	pub position: (f64, f64),
-}

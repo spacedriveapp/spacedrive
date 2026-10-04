@@ -9,6 +9,7 @@ path = "src/main.rs"
 
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }
+serde_json = "1.0"
 
 [dependencies]
 # Tauri

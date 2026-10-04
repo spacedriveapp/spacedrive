@@ -29,17 +29,6 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Maximize build space
-        if: ${{ runner.os == 'Linux' }}
-        uses: easimon/maximize-build-space@master
-        with:
-          swap-size-mb: 3072
-          root-reserve-mb: 6144
-          remove-dotnet: "true"
-          remove-codeql: "true"
-          remove-haskell: "true"
-          remove-docker-images: "true"
-
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
         shell: powershell
@@ -93,25 +82,15 @@ jobs:
       fail-fast: false # Don't cancel other platforms if one fails
       matrix:
         settings:
-          - host: ubuntu-22.04
-            target: blacksmith-4vcpu-ubuntu-2404
-    name: Clippy (${{ matrix.settings.host }})
+          - host: blacksmith-4vcpu-ubuntu-2404
+            label: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+    name: Clippy (${{ matrix.settings.label }})
     runs-on: ${{ matrix.settings.host }}
     permissions:
       contents: read
     timeout-minutes: 45
     steps:
-      - name: Maximize build space
-        if: ${{ runner.os == 'Linux' }}
-        uses: easimon/maximize-build-space@master
-        with:
-          swap-size-mb: 3072
-          root-reserve-mb: 6144
-          remove-dotnet: "true"
-          remove-codeql: "true"
-          remove-haskell: "true"
-          remove-docker-images: "true"
-
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
         shell: powershell
@@ -194,7 +173,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: TypeScript typecheck
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'

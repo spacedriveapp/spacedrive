@@ -45,7 +45,7 @@ impl FFmpegDictionary {
 		check_error(
 			unsafe {
 				av_dict_set(
-					&mut self.dict,
+					&raw mut self.dict,
 					key.as_ptr(),
 					ptr::null(),
 					AV_DICT_MATCH_CASE,
@@ -61,7 +61,7 @@ impl FFmpegDictionary {
 impl Drop for FFmpegDictionary {
 	fn drop(&mut self) {
 		if self.managed && !self.dict.is_null() {
-			unsafe { av_dict_free(&mut self.dict) };
+			unsafe { av_dict_free(&raw mut self.dict) };
 			self.dict = ptr::null_mut();
 		}
 	}

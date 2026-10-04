@@ -47,6 +47,15 @@ runs:
       run: |
         rustup target add ${{ inputs.target }}
 
+    # Self-hosted runners ship a toolchain without rustfmt or clippy, and
+    # rust-toolchain.toml selects a channel the preinstalled toolchain may not
+    # have yet, so install both components for the pinned channel every run.
+    - name: Ensure rustfmt and clippy components
+      shell: bash
+      run: |
+        rustup show active-toolchain || rustup toolchain install
+        rustup component add rustfmt clippy
+
     - name: Verify Rust installation
       shell: bash
       run: |

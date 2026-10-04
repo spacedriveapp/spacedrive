@@ -53,7 +53,7 @@ use tokio::{
 };
 use tracing::{error, instrument, warn};
 
-const ONE_MINUTE: Duration = Duration::from_secs(60);
+const ONE_MINUTE: Duration = Duration::from_mins(1);
 
 pub trait ActorId: Hash + Eq + Send + Sync + Copy + fmt::Debug + fmt::Display + 'static {}
 

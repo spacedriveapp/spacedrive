@@ -18,6 +18,7 @@ pub async fn reveal_file(path: String) -> Result<(), String> {
 
 /// Share files using the native system share sheet (macOS/iOS only)
 #[tauri::command]
+#[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
 pub async fn share_files(paths: Vec<String>) -> Result<(), String> {
 	#[cfg(target_os = "macos")]
 	{

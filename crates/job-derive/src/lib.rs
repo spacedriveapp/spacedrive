@@ -9,8 +9,11 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput};
 /// This macro generates the necessary code to automatically register a job type
 /// with the job registry using the `inventory` crate.
 ///
+/// The expansion refers to `crate::infra` and `crate::library`, so the
+/// derive only compiles inside `sd-core`; the example is not compiled here.
+///
 /// Usage:
-/// ```rust
+/// ```ignore
 /// use job_derive::Job;
 ///
 /// #[derive(Job, Serialize, Deserialize)]

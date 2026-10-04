@@ -5,6 +5,10 @@ edition = "2021"
 
 [dependencies]
 file-opening = { path = "../file-opening" }
+
+# A plain workspace member is checked on every host, so the Win32 bindings
+# are only pulled in where they exist.
+[target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.58", features = [
     "Win32_Foundation",
     "Win32_System_Com",

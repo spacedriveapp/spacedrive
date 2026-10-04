@@ -1,7 +1,7 @@
 # Project Status
 
-> Last updated: 2026-09-25
-> Code baseline: `3ee1041f7`
+> Last updated: 2026-10-04
+> Code baseline: `9929d22c7`
 > Purpose: short-term working context across development sessions while
 > `.tasks/` is frozen.
 
@@ -196,6 +196,7 @@ Recent landed.
 | Addressing                                        | proposed 2026-09-25; P0 and P1 ready, D1 to D6 open | unowned | Plan: `docs/plans/2026-09-25-addressing.md`. P1 first: content rows that hold each file's own integrity hash (today a file changed in place, or one sharing a sampled hash, can carry another file's hash, and compare-delete and dedupe trust it), network admission for fully paired devices only, and refusals for addresses that destructive operations can't honor. Then device UUIDs in `SdPath` with content and sidecars split out, the source-relative target and record reference, one resolver with scope and version checks, content addressing, and cloud identity. P0 rewrites `docs/core/addressing.mdx` to match the code. |
 | Locked and unmounted volumes                      | proposed 2026-09-28; nothing built     | unowned         | Plan: `docs/plans/2026-09-28-locked-volumes.md`. A source on an encrypted ZFS dataset whose key is not loaded reads as attached: the volume monitor never marks a vanished volume offline, `attach_library` trusts the stale `is_online` flag, and attachment is `Path::exists` on the empty mount point. The index survives through ordering and thresholds (restore before heal, sweeps only on whole-volume walks, the store's half-removal fuse, the snapshot collapse guard), but reads fail, and once the key loads the watch stays on the covered directory until a restart. L1 marks vanished volumes offline and attaches from live detection, L2 makes attached mean mounted with a mount point check before any walk, L3 reads ZFS `mounted` and `keystatus`, L4 follows mounts while running, L5 shows the state. One decision is James's: whether a locked source's index stays browsable. |
 | Retire Spacebot, Console, and storefront surfaces | done (2026-09-25)                      | Opus            | The Spacebot UI, voice overlay, `spacebot` app config, window, build aliases, generated types, and design docs are removed; the Alt+Space global shortcut and its plugin went with the voice overlay. Console and Pod design docs are removed. Private copies are in `company/archive/spacedrive-sources-public-cleanup/`. No storefront code remained. |
+| CI green on `sources` | landed 2026-10-04 (Fable, SPAC-4); Rust Formatting, Clippy and TypeScript green on #3102 | Fable | The three `ci.yml` jobs were red on `sources` before any PR: the self-hosted runner's preinstalled toolchain had no rustfmt or clippy (`setup-rust` now installs both every run, and `rust-toolchain.toml` names them), `maximize-build-space` left the Blacksmith runner's root disk with 100 MB so no toolchain could install (step removed), the clippy job ran on GitHub's ubuntu-22.04 whose FFmpeg 4.4 cannot build `sd-ffmpeg` (now `blacksmith-4vcpu-ubuntu-2404`), and the server and desktop crates failed to compile without a built web UI (debug builds now get an empty dist with a warning; release builds still refuse), `cargo clippy --workspace -D warnings` failed in seven crates plus the Tauri sidecar check and the two platform-only file-opening crates, and `bun run typecheck` in `apps/tauri` had 30 errors in `packages/interface`. All fixed with no product change: sqlx row aliases in `sd-store`, exact casts and raw FFI borrows in `sd-ffmpeg`, `DaemonRequest.device` in `sd-mobile-core`, target-gated `file-opening-macos`/`-windows`, a Tauri build script that drops `externalBin` when no daemon sidecar exists, unused imports and `SourceInfo.adapter_id` nullability in the interface, the `/redundancy/duplicates` route the dashboard already linked. `core/tests/delete_strategy_test.rs` compiles again (calls `ops::files::trash::trash` directly), the 13 stale doctests compile, `scripts/setup.sh` installs the libav dev packages, bun is pinned to 1.3.4 with `--frozen-lockfile`, workspace `rust-version` is 1.95 (gpui's floor). Still red and out of this scope: the btrfs UUID parser unit test, two plus-code parser tests, the FTS5 fixture race under parallel `cargo test`, and 20 integration-test failures on a bare Linux VM (see SPAC-2). Next: confirm the three jobs green on the PR, then decide whether `core_tests.yml` should run on pull requests. |
 
 ## Product sequence
 
@@ -303,6 +304,11 @@ These are regression boundaries, not incidental fixes:
   left in place, reads as attached. Its index is kept, but reads fail, and
   after the volume returns its watch misses changes until the daemon restarts.
   See `docs/plans/2026-09-28-locked-volumes.md`.
+- `crates/ffmpeg` is a default workspace member and links the system libav
+  libraries through `ffmpeg-sys-next`, so `cargo build` needs the FFmpeg
+  development headers (`libav*-dev` and `libclang-dev` on Debian and Ubuntu,
+  `ffmpeg` from Homebrew) before the first build. `scripts/setup.sh` installs
+  them and `xtask setup` warns when pkg-config cannot find them.
 
 ## Recent landed
 

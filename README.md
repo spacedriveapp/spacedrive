@@ -236,8 +236,9 @@ types, so every interface shares one contract.
 
 ## Build from source
 
-You need [Rust](https://rustup.rs/) stable with MSRV 1.81,
-[Bun](https://bun.sh) 1.3 or newer, Node 20, and
+You need [Rust](https://rustup.rs/) 1.95 or newer (`rust-toolchain.toml` pins 1.97.1),
+[Bun](https://bun.sh) 1.3.4 (the version `package.json` and CI pin; a newer
+Bun rewrites `bun.lockb`), Node 20, and
 [just](https://github.com/casey/just).
 
 ```bash
@@ -259,6 +260,14 @@ just dev-desktop    # Desktop client
 just dev-server     # Headless server and web interface
 just dev-mobile     # Mobile client
 ```
+
+The `sd-ffmpeg` crate is a default workspace member and links the FFmpeg
+development libraries installed on the host (`libavutil`, `libavformat`,
+`libavcodec`, `libavfilter`, `libavdevice`, `libswscale`, `libswresample`) and
+uses `libclang` to generate its bindings. `scripts/setup.sh` installs them
+(`libav*-dev` and `libclang-dev` on Debian and Ubuntu, `ffmpeg` on Homebrew).
+Without them the first `cargo build` fails in `ffmpeg-sys-next` with
+`libavutil.pc not found`.
 
 The default build can use FFmpeg installed on the host for video thumbnails and
 thumbstrips. Install the native codec bundle only when developing code that

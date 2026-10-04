@@ -47,11 +47,14 @@
 //! async fn main() {
 //!     let system = TaskSystem::new();
 //!
-//!     let handle = system.dispatch(ReadyTask { id: TaskId::new_v4() }).await;
+//!     let handle = system
+//!         .dispatch(ReadyTask { id: TaskId::new_v4() })
+//!         .await
+//!         .expect("the system is running");
 //!
 //!     assert!(matches!(
 //!         handle.await,
-//!         Ok(TaskStatus::Done(TaskOutput::Empty))
+//!         Ok(TaskStatus::Done((_, TaskOutput::Empty)))
 //!     ));
 //!
 //!     system.shutdown().await;

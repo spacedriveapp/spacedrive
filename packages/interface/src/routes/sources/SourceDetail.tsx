@@ -83,9 +83,10 @@ export function SourceDetail() {
 	const deleteMutation = useLibraryMutation("sources.delete");
 	const updateMutation = useLibraryMutation("adapters.update");
 
-	const adapterHasUpdate =
-		adapters?.find((a) => a.id === source?.adapter_id)?.update_available ??
-		false;
+	// A filesystem source has no adapter, so there is nothing to update.
+	const updatableAdapterId = adapters?.find(
+		(a) => a.id === source?.adapter_id && a.update_available,
+	)?.id;
 
 	// Sync tab title with source name
 	const { activeTabId, updateTabTitle } = useTabManager();
@@ -259,12 +260,11 @@ export function SourceDetail() {
 							priority="normal"
 						>
 							<MoreActionsMenu
-								adapterHasUpdate={adapterHasUpdate}
-								onUpdate={() =>
-									updateMutation.mutate({
-										adapter_id: source.adapter_id,
-									})
-								}
+								adapterHasUpdate={updatableAdapterId !== undefined}
+								onUpdate={() => {
+									if (updatableAdapterId === undefined) return;
+									updateMutation.mutate({ adapter_id: updatableAdapterId });
+								}}
 								isUpdating={updateMutation.isPending}
 								onDelete={() => setShowDeleteConfirm(true)}
 							/>

@@ -350,12 +350,12 @@ function RuleFields({
 					/>
 					<Check
 						label="regex"
-						checked={rule.regex}
+						checked={rule.regex ?? false}
 						onChange={(regex) => onChange({ ...rule, regex })}
 					/>
 					<Check
 						label="whole name"
-						checked={rule.whole_name}
+						checked={rule.whole_name ?? false}
 						onChange={(whole_name) => onChange({ ...rule, whole_name })}
 					/>
 				</>
@@ -409,8 +409,8 @@ function RuleFields({
 						value={rule.pattern}
 						onChange={(event) => onChange({ ...rule, pattern: event.target.value })}
 					/>
-					<Counter label="from" value={rule.start} onChange={(start) => onChange({ ...rule, start })} />
-					<Counter label="step" value={rule.step} onChange={(step) => onChange({ ...rule, step })} />
+					<Counter label="from" value={rule.start ?? 1} onChange={(start) => onChange({ ...rule, start })} />
+					<Counter label="step" value={rule.step ?? 1} onChange={(step) => onChange({ ...rule, step })} />
 				</>
 			);
 		case "template":

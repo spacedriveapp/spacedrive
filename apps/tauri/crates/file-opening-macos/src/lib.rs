@@ -1,3 +1,5 @@
+#![cfg(target_os = "macos")]
+
 use file_opening::{FileOpener, OpenResult, OpenWithApp};
 use std::path::{Path, PathBuf};
 use swift_rs::*;

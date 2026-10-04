@@ -12,11 +12,11 @@ impl FFmpegFrame {
 		Ok(Self(ptr))
 	}
 
-	pub(crate) fn as_ref(&self) -> &AVFrame {
+	pub(crate) const fn as_ref(&self) -> &AVFrame {
 		unsafe { self.0.as_ref() }.expect("initialized on struct creation")
 	}
 
-	pub(crate) fn as_mut(&mut self) -> &mut AVFrame {
+	pub(crate) const fn as_mut(&mut self) -> &mut AVFrame {
 		unsafe { self.0.as_mut() }.expect("initialized on struct creation")
 	}
 }
@@ -24,7 +24,7 @@ impl FFmpegFrame {
 impl Drop for FFmpegFrame {
 	fn drop(&mut self) {
 		if !self.0.is_null() {
-			unsafe { av_frame_free(&mut self.0) };
+			unsafe { av_frame_free(&raw mut self.0) };
 			self.0 = std::ptr::null_mut();
 		}
 	}

@@ -1,3 +1,4 @@
 [toolchain]
 # gpui's floor: it uses std::hint::cold_path (stable 1.95+); zed pins 1.97.1.
 channel = "1.97.1"
+components = ["rustfmt", "clippy"]

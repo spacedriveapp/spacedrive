@@ -36,7 +36,8 @@ resolver = "2"
 edition      = "2021"
 license      = "Apache-2.0"
 repository   = "https://github.com/spacedriveapp/spacedrive"
-rust-version = "1.81"
+# gpui needs 1.95 (std::hint::cold_path); rust-toolchain.toml pins 1.97.1.
+rust-version = "1.95"
 
 [workspace.dependencies]
 # First party dependencies

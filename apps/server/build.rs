@@ -11,13 +11,6 @@ fn main() {
 		return;
 	}
 
-	// If bun isn't available (e.g., Docker Rust build stage), the caller is
-	// expected to have prebuilt apps/web/dist. Skip silently.
-	if Command::new("bun").arg("--version").output().is_err() {
-		println!("cargo:warning=bun not found on PATH — using existing apps/web/dist");
-		return;
-	}
-
 	let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
 	let repo_root = manifest_dir
 		.parent()
@@ -25,6 +18,29 @@ fn main() {
 		.expect("apps/server is two levels below the repo root")
 		.to_path_buf();
 	let web_dir = repo_root.join("apps/web");
+
+	// If bun isn't available (e.g., Docker Rust build stage), the caller is
+	// expected to have prebuilt apps/web/dist. RustEmbed needs the folder to
+	// exist even for a check or clippy run, so a debug build without either
+	// gets an empty one; a release build refuses to ship a server without a UI.
+	if Command::new("bun").arg("--version").output().is_err() {
+		let dist = web_dir.join("dist");
+		if !dist.exists() {
+			if env::var("PROFILE").as_deref() == Ok("release") {
+				panic!(
+					"bun not found on PATH and {} does not exist; build the web UI first or set SD_SKIP_WEB_BUILD=1 with a prebuilt dist",
+					dist.display()
+				);
+			}
+			std::fs::create_dir_all(&dist).expect("create an empty apps/web/dist");
+			println!(
+				"cargo:warning=bun not found on PATH — created an empty apps/web/dist so the server compiles without the web UI"
+			);
+			return;
+		}
+		println!("cargo:warning=bun not found on PATH — using existing apps/web/dist");
+		return;
+	}
 
 	// Refuse to proceed if workspace dependencies aren't installed.
 	if !repo_root.join("node_modules").exists() {

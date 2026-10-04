@@ -14,10 +14,6 @@ import {
 	dialogManager,
 	useDialog,
 	CircleButton,
-	TabsRoot,
-	TabsList,
-	TabsTrigger,
-	TabsContent,
 } from "@spacedrive/primitives";
 import type {
 	VolumeAddCloudInput,
@@ -70,13 +66,6 @@ interface NetworkProtocol {
 	name: string;
 	description: string;
 	icon: string;
-}
-
-interface JobOption {
-	id: string;
-	label: string;
-	description: string;
-	order: number;
 }
 
 interface LocalFolderFormData {
@@ -295,39 +284,6 @@ function StorageDialog({
 		</Dialog>
 	);
 }
-
-const jobOptions: JobOption[] = [
-	{
-		id: "thumbnail",
-		label: "Generate Thumbnails",
-		description: "Create preview thumbnails for images and videos",
-		order: 1,
-	},
-	{
-		id: "thumbstrip",
-		label: "Generate Thumbstrips",
-		description: "Create video storyboard grids (5×5 grid of frames)",
-		order: 2,
-	},
-	{
-		id: "proxy",
-		label: "Generate Proxies",
-		description: "Create scrubbing proxies for videos (~8s per video)",
-		order: 3,
-	},
-	{
-		id: "ocr",
-		label: "Extract Text (OCR)",
-		description: "OCR and text extraction from images/PDFs",
-		order: 4,
-	},
-	{
-		id: "speech_to_text",
-		label: "Speech to Text",
-		description: "Transcribe audio and video files",
-		order: 5,
-	},
-];
 
 export function useAddStorageDialog(
 	onStorageAdded?: (sdPath: any) => void,

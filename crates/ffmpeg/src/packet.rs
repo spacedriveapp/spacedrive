@@ -12,11 +12,11 @@ impl FFmpegPacket {
 		Ok(Self(ptr))
 	}
 
-	pub(crate) fn as_ptr(&self) -> *mut AVPacket {
+	pub(crate) const fn as_ptr(&self) -> *mut AVPacket {
 		self.0
 	}
 
-	pub(crate) fn as_ref(&self) -> Option<&AVPacket> {
+	pub(crate) const fn as_ref(&self) -> Option<&AVPacket> {
 		unsafe { self.0.as_ref() }
 	}
 
@@ -30,7 +30,7 @@ impl FFmpegPacket {
 impl Drop for FFmpegPacket {
 	fn drop(&mut self) {
 		if !self.0.is_null() {
-			unsafe { av_packet_free(&mut self.0) };
+			unsafe { av_packet_free(&raw mut self.0) };
 			self.0 = std::ptr::null_mut();
 		}
 	}

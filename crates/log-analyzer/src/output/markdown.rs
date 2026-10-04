@@ -50,7 +50,7 @@ pub fn generate_markdown_report(
 	report.push_str("## Top Templates by Frequency\n\n");
 
 	let mut sorted_templates = templates.to_vec();
-	sorted_templates.sort_by(|a, b| b.total_count.cmp(&a.total_count));
+	sorted_templates.sort_by_key(|t| std::cmp::Reverse(t.total_count));
 
 	for (i, template) in sorted_templates.iter().take(10).enumerate() {
 		report.push_str(&format!("### {}. Template #{}\n\n", i + 1, template.id));
@@ -73,7 +73,7 @@ pub fn generate_markdown_report(
 	report.push_str("## Top Collapsed Groups\n\n");
 
 	let mut sorted_groups = groups.to_vec();
-	sorted_groups.sort_by(|a, b| b.count.cmp(&a.count));
+	sorted_groups.sort_by_key(|g| std::cmp::Reverse(g.count));
 
 	for (i, group) in sorted_groups.iter().take(10).enumerate() {
 		let template = templates.iter().find(|t| t.id == group.template_id);
@@ -111,7 +111,7 @@ pub fn generate_markdown_report(
 		report.push_str("Repeating patterns of log groups:\n\n");
 
 		let mut sorted_sequences = sequences.to_vec();
-		sorted_sequences.sort_by(|a, b| b.repetitions.cmp(&a.repetitions));
+		sorted_sequences.sort_by_key(|s| std::cmp::Reverse(s.repetitions));
 
 		for (i, seq) in sorted_sequences.iter().take(10).enumerate() {
 			report.push_str(&format!(
