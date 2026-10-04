@@ -153,7 +153,7 @@ impl crate::infra::sync::Syncable for Model {
 
 	/// Apply shared change with HLC-based conflict resolution
 	/// Slug changes propagate to all devices; a slug another local row already
-	/// holds gets a suffix derived from the device id so every peer picks the same one
+	/// holds gets a suffix derived from the device id, stable for that device
 	async fn apply_shared_change(
 		entry: crate::infra::sync::SharedChangeEntry,
 		db: &DatabaseConnection,
@@ -442,10 +442,12 @@ impl crate::infra::sync::Syncable for Model {
 
 /// Pick a slug that no other device in this library holds.
 ///
-/// The suffix comes from the device id rather than a counter so two peers that
-/// both see the collision store the same slug, and so the result does not depend
-/// on the order records arrived. The counter fallback only runs if the suffixed
-/// slug is somehow taken as well.
+/// The first record to claim a slug keeps it; a later device with the same
+/// slug gets a suffix. The suffix comes from the device id rather than a
+/// counter so the same device always resolves to the same suffixed slug in a
+/// given library, whatever else arrived in between. Which device keeps the
+/// bare slug still depends on arrival order. The counter fallback only runs
+/// if the suffixed slug is somehow taken as well.
 pub fn resolve_slug_collision(slug: &str, device_id: Uuid, taken_slugs: &[String]) -> String {
 	if !taken_slugs.iter().any(|taken| taken == slug) {
 		return slug.to_string();

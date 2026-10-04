@@ -950,10 +950,12 @@ impl FileTransferProtocolHandler {
 				.map_err(|e| format!("Failed to create parent directory: {}", e))?;
 		}
 
-		// Open file for writing (create if doesn't exist)
+		// The first chunk truncates so a longer file already at the destination
+		// cannot leave stale bytes past the end of what the sender sent.
 		let mut file = tokio::fs::OpenOptions::new()
 			.create(true)
 			.write(true)
+			.truncate(chunk_index == 0)
 			.open(&file_path)
 			.await
 			.map_err(|e| format!("Failed to open file for writing: {}", e))?;
@@ -1992,6 +1994,29 @@ mod tests {
 			handler.get_session(&transfer_id).unwrap().state,
 			TransferState::Completed
 		);
+	}
+
+	#[tokio::test]
+	async fn test_first_chunk_truncates_existing_destination() {
+		let handler = FileTransferProtocolHandler::new_default(Arc::new(SilentLogger));
+		let dir = tempfile::tempdir().unwrap();
+		let destination = dir.path().join("shrunk.bin");
+		tokio::fs::write(&destination, vec![1u8; 10 * 1024])
+			.await
+			.unwrap();
+
+		let transfer_id = Uuid::new_v4();
+		handler.sessions.write().unwrap().insert(
+			transfer_id,
+			session_for_received_file(transfer_id, &destination),
+		);
+
+		let payload = vec![2u8; 1024];
+		handler
+			.write_chunk_to_file(&transfer_id, 0, &payload)
+			.await
+			.unwrap();
+		assert_eq!(tokio::fs::read(&destination).await.unwrap(), payload);
 	}
 
 	#[tokio::test]

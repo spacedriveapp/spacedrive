@@ -125,7 +125,11 @@ impl EventHandler for LinuxHandler {
 		};
 
 		match event.kind {
-			RawEventKind::Create => Ok(vec![FsEvent::create(path)]),
+			RawEventKind::Create => {
+				// A new file at a path that was just moved away is not a removal.
+				self.pending_move_from.write().await.remove(&path);
+				Ok(vec![FsEvent::create(path)])
+			}
 			RawEventKind::Remove => {
 				// A buffered modify for a path that is gone would only be
 				// reported after the removal and then point at nothing.
@@ -133,6 +137,7 @@ impl EventHandler for LinuxHandler {
 				Ok(vec![FsEvent::remove(path)])
 			}
 			RawEventKind::Modify => {
+				self.pending_move_from.write().await.remove(&path);
 				// Buffer modifications for stabilization
 				let mut updates = self.pending_updates.write().await;
 				updates.insert(path, Instant::now());
@@ -164,7 +169,7 @@ impl EventHandler for LinuxHandler {
 			}
 			RawEventKind::Rename(_) => {
 				// No direction from the platform: the path's existence decides.
-				if path.exists() {
+				if tokio::fs::metadata(&path).await.is_ok() {
 					Ok(vec![FsEvent::create(path)])
 				} else {
 					Ok(vec![FsEvent::remove(path)])
@@ -313,6 +318,28 @@ mod tests {
 		assert_eq!(events.len(), 1);
 		assert!(events[0].kind.is_remove());
 		assert_eq!(events[0].path, PathBuf::from("/test/gone.txt"));
+	}
+
+	#[tokio::test]
+	async fn test_create_at_moved_path_cancels_remove() {
+		let handler = LinuxHandler::new();
+		assert!(handler
+			.process(raw(
+				RawEventKind::Rename(RawRenameMode::From),
+				&["/test/notes.txt"],
+			))
+			.await
+			.unwrap()
+			.is_empty());
+		let events = handler
+			.process(raw(RawEventKind::Create, &["/test/notes.txt"]))
+			.await
+			.unwrap();
+		assert_eq!(events.len(), 1);
+		assert!(events[0].kind.is_create());
+
+		tokio::time::sleep(Duration::from_millis(RENAME_TIMEOUT_MS + 50)).await;
+		assert!(handler.tick().await.unwrap().is_empty());
 	}
 
 	#[tokio::test]
