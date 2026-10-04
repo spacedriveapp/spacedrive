@@ -1011,6 +1011,21 @@ impl FileTransferProtocolHandler {
 			)));
 		}
 
+		// Land an empty file now so a zero-byte source, which sends no chunks,
+		// still replaces whatever was at the destination and the final hash
+		// has a file to check.
+		if let Some(parent) = dest_path_buf.parent() {
+			tokio::fs::create_dir_all(parent).await.map_err(|e| {
+				NetworkingError::file_system_error(format!(
+					"Failed to create destination directory: {}",
+					e
+				))
+			})?;
+		}
+		tokio::fs::File::create(&dest_path_buf).await.map_err(|e| {
+			NetworkingError::file_system_error(format!("Failed to create destination file: {}", e))
+		})?;
+
 		// Create new transfer session
 		let session = TransferSession {
 			id: transfer_id,
@@ -2017,6 +2032,44 @@ mod tests {
 			.await
 			.unwrap();
 		assert_eq!(tokio::fs::read(&destination).await.unwrap(), payload);
+	}
+
+	#[tokio::test]
+	async fn test_accepted_request_lands_empty_destination() {
+		let handler = FileTransferProtocolHandler::new_default(Arc::new(SilentLogger));
+		let dir = tempfile::tempdir().unwrap();
+		let root = dir.path().canonicalize().unwrap();
+		handler.set_allowed_paths(vec![root.clone()]);
+		let destination = root.join("emptied.bin");
+		tokio::fs::write(&destination, vec![1u8; 10 * 1024])
+			.await
+			.unwrap();
+
+		let transfer_id = Uuid::new_v4();
+		let metadata = FileMetadata {
+			name: "emptied.bin".to_string(),
+			size: 0,
+			modified: None,
+			is_directory: false,
+			checksum: None,
+			mime_type: None,
+		};
+		handler
+			.handle_incoming_transfer_request(
+				Uuid::new_v4(),
+				transfer_id,
+				metadata,
+				destination.to_string_lossy().to_string(),
+			)
+			.await
+			.unwrap();
+		assert_eq!(tokio::fs::metadata(&destination).await.unwrap().len(), 0);
+
+		let empty_hash = blake3::hash(&[]).to_hex().to_string();
+		handler
+			.handle_incoming_transfer_complete(transfer_id, empty_hash, 0)
+			.await
+			.expect("a zero-byte push verifies against the landed empty file");
 	}
 
 	#[tokio::test]
