@@ -60,6 +60,7 @@ fn main() {
 	// Create target-suffixed daemon binary for Tauri bundler
 	// Tauri's externalBin expects binaries with target triple suffix
 	let target_triple = std::env::var("TARGET").expect("TARGET not set");
+	let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
 
 	// Expose target triple to runtime code for daemon binary resolution
 	println!("cargo:rustc-env=SD_TARGET_TRIPLE={}", target_triple);
@@ -111,6 +112,24 @@ fn main() {
 			.unwrap_or_else(|| serde_json::json!({}));
 		config["bundle"]["externalBin"] = serde_json::json!([]);
 		std::env::set_var("TAURI_CONFIG", config.to_string());
+	}
+
+	// generate_context! embeds frontendDist and panics when the directory is
+	// missing, which is the state of a check or clippy run that never built
+	// the frontend. A debug build gets an empty one; a release build still
+	// refuses so a bundle never ships without its UI.
+	let frontend_dist = std::path::Path::new(&manifest_dir).join("../dist");
+	if !frontend_dist.exists() {
+		if profile == "release" {
+			panic!(
+				"{} does not exist; run `bun run build` in apps/tauri before a release build",
+				frontend_dist.display()
+			);
+		}
+		std::fs::create_dir_all(&frontend_dist).expect("create an empty apps/tauri/dist");
+		println!(
+			"cargo:warning=apps/tauri/dist not found; created an empty one so the desktop binary compiles without the frontend. Run `bun run build` in apps/tauri for the real UI."
+		);
 	}
 
 	tauri_build::build()
