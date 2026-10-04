@@ -237,7 +237,8 @@ types, so every interface shares one contract.
 ## Build from source
 
 You need [Rust](https://rustup.rs/) 1.95 or newer (`rust-toolchain.toml` pins 1.97.1),
-[Bun](https://bun.sh) 1.3 or newer, Node 20, and
+[Bun](https://bun.sh) 1.3.4 (the version `package.json` and CI pin; a newer
+Bun rewrites `bun.lockb`), Node 20, and
 [just](https://github.com/casey/just).
 
 ```bash
