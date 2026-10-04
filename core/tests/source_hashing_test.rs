@@ -28,8 +28,11 @@ async fn tracking_hashes_every_file_the_walk_records(
 		let subdir = source_dir.join(format!("dir_{dir}"));
 		tokio::fs::create_dir_all(&subdir).await?;
 		for file in 0..20 {
-			tokio::fs::write(subdir.join(format!("file_{file}.txt")), format!("{dir} {file}"))
-				.await?;
+			tokio::fs::write(
+				subdir.join(format!("file_{file}.txt")),
+				format!("{dir} {file}"),
+			)
+			.await?;
 			files += 1;
 		}
 	}
