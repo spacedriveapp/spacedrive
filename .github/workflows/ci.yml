@@ -29,17 +29,6 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Maximize build space
-        if: ${{ runner.os == 'Linux' }}
-        uses: easimon/maximize-build-space@master
-        with:
-          swap-size-mb: 3072
-          root-reserve-mb: 6144
-          remove-dotnet: "true"
-          remove-codeql: "true"
-          remove-haskell: "true"
-          remove-docker-images: "true"
-
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
         shell: powershell
@@ -101,17 +90,6 @@ jobs:
       contents: read
     timeout-minutes: 45
     steps:
-      - name: Maximize build space
-        if: ${{ runner.os == 'Linux' }}
-        uses: easimon/maximize-build-space@master
-        with:
-          swap-size-mb: 3072
-          root-reserve-mb: 6144
-          remove-dotnet: "true"
-          remove-codeql: "true"
-          remove-haskell: "true"
-          remove-docker-images: "true"
-
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
         shell: powershell
