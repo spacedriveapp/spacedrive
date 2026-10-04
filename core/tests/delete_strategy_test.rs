@@ -6,7 +6,11 @@
 use bytes::Bytes;
 use sd_core::{
 	domain::addressing::SdPath,
-	ops::files::delete::{routing::DeleteStrategyRouter, strategy::LocalDeleteStrategy},
+	infra::job::types::JobId,
+	ops::files::{
+		delete::{routing::DeleteStrategyRouter, strategy::LocalDeleteStrategy},
+		trash,
+	},
 	volume::backend::{CloudBackend, CloudServiceType, VolumeBackend},
 };
 use std::path::{Path, PathBuf};
@@ -82,9 +86,9 @@ async fn test_local_delete_strategy_trash() {
 
 	assert!(test_file.exists());
 
-	// Execute deletion using trash mode
-	let strategy = LocalDeleteStrategy;
-	let result = strategy.move_to_trash(&test_file).await;
+	// LocalDeleteStrategy::move_to_trash needs a running job's context, so
+	// call the trash it delegates to with the same arguments a job supplies.
+	let result = trash::trash(&test_file, None, JobId::new()).await;
 
 	// Verify result - print error if it fails
 	if let Err(e) = &result {
@@ -183,7 +187,7 @@ async fn test_delete_modes_all_types() {
 	// Test 2: Trash delete
 	let trash_file = test_root.join("trash.txt");
 	create_test_file(&trash_file, "Trash").await.unwrap();
-	let result = strategy.move_to_trash(&trash_file).await;
+	let result = trash::trash(&trash_file, None, JobId::new()).await;
 	if let Err(e) = &result {
 		eprintln!("Trash test failed with error: {}", e);
 	}
