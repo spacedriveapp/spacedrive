@@ -62,7 +62,7 @@ mod watcher;
 
 pub use config::{EventFilters, WatchConfig, WatcherConfig};
 pub use error::{Result, WatcherError};
-pub use event::{FsEvent, FsEventKind, RawEventKind, RawNotifyEvent};
+pub use event::{FsEvent, FsEventKind, RawEventKind, RawNotifyEvent, RawRenameMode};
 pub use platform::{EventHandler, PlatformHandler};
 pub use spelling::{restore, subscriptions, Subscription};
 pub use watcher::{FsWatcher, WatchHandle};

@@ -107,7 +107,7 @@ impl EventHandler for WindowsHandler {
 				updates.insert(path, Instant::now());
 				Ok(vec![])
 			}
-			RawEventKind::Rename => {
+			RawEventKind::Rename(_) => {
 				// Windows sometimes provides proper rename events
 				if event.paths.len() >= 2 {
 					let from = event.paths[0].clone();

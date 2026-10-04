@@ -126,7 +126,7 @@ impl EventHandler for DefaultHandler {
 			RawEventKind::Create => FsEvent::create(path),
 			RawEventKind::Modify => FsEvent::modify(path),
 			RawEventKind::Remove => FsEvent::remove(path),
-			RawEventKind::Rename => {
+			RawEventKind::Rename(_) => {
 				// Without platform-specific handling, treat rename as modify
 				FsEvent::modify(path)
 			}
