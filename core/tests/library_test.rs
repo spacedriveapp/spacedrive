@@ -25,7 +25,8 @@ async fn test_library_lifecycle() {
 	assert!(lib_path.exists());
 	assert!(lib_path.join("library.json").exists());
 	assert!(lib_path.join("library.db").exists());
-	assert!(lib_path.join("sidecars").exists());
+	assert!(lib_path.join("previews").exists());
+	assert!(lib_path.join("exports").exists());
 
 	// Test configuration update
 	library
@@ -190,5 +191,6 @@ async fn test_default_library_creation() {
 	assert!(lib_path.exists());
 	assert!(lib_path.join("library.json").exists());
 	assert!(lib_path.join("library.db").exists());
-	assert!(lib_path.join("sidecars").exists());
+	assert!(lib_path.join("previews").exists());
+	assert!(lib_path.join("exports").exists());
 }
