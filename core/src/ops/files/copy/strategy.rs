@@ -1177,6 +1177,7 @@ async fn stream_file_data<'a>(
 	let mut buffer = vec![0u8; chunk_size as usize];
 	let mut chunk_index = 0u32;
 	let mut bytes_transferred = 0u64;
+	let mut file_hasher = blake3::Hasher::new();
 
 	ctx.log(format!(
 		"Starting to stream {} chunks ({} bytes) to device {}",
@@ -1194,6 +1195,7 @@ async fn stream_file_data<'a>(
 		// Checksum before encryption so receiver can verify decrypted data.
 		let chunk_data = &buffer[..bytes_read];
 		let chunk_checksum = blake3::hash(chunk_data);
+		file_hasher.update(chunk_data);
 
 		// Skip encryption - Iroh already provides E2E encryption for the connection
 		let encrypted_data = chunk_data.to_vec();
@@ -1252,7 +1254,8 @@ async fn stream_file_data<'a>(
 		chunk_index
 	));
 
-	let final_checksum = calculate_file_checksum(file_path).await?;
+	// Full blake3 of the sent bytes; the receiver hashes the landed file the same way.
+	let final_checksum = file_hasher.finalize().to_hex().to_string();
 	let completion_message =
 		crate::service::network::protocol::file_transfer::FileTransferMessage::TransferComplete {
 			transfer_id,

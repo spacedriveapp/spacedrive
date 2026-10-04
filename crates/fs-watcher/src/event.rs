@@ -168,9 +168,27 @@ pub enum RawEventKind {
 	/// Remove event
 	Remove,
 	/// Rename event (platform-specific semantics)
-	Rename,
+	Rename(RawRenameMode),
 	/// Other/unknown event type
 	Other(String),
+}
+
+/// Which half of a rename a raw event describes.
+///
+/// inotify reports a move as a `From` event for the old path followed, when the
+/// new path is also inside the watched tree, by a `To` event and a `Both` event
+/// that carries both paths. A `From` with no partner means the file left the
+/// watched tree, which downstream must see as a removal, not a modification.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RawRenameMode {
+	/// Old path only
+	From,
+	/// New path only
+	To,
+	/// Old and new paths
+	Both,
+	/// Platform did not say
+	Any,
 }
 
 impl RawNotifyEvent {
@@ -181,10 +199,18 @@ impl RawNotifyEvent {
 
 		let kind = match event.kind {
 			EventKind::Create(_) => RawEventKind::Create,
-			EventKind::Modify(ModifyKind::Name(RenameMode::Any)) => RawEventKind::Rename,
-			EventKind::Modify(ModifyKind::Name(RenameMode::From)) => RawEventKind::Rename,
-			EventKind::Modify(ModifyKind::Name(RenameMode::To)) => RawEventKind::Rename,
-			EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => RawEventKind::Rename,
+			EventKind::Modify(ModifyKind::Name(RenameMode::Any)) => {
+				RawEventKind::Rename(RawRenameMode::Any)
+			}
+			EventKind::Modify(ModifyKind::Name(RenameMode::From)) => {
+				RawEventKind::Rename(RawRenameMode::From)
+			}
+			EventKind::Modify(ModifyKind::Name(RenameMode::To)) => {
+				RawEventKind::Rename(RawRenameMode::To)
+			}
+			EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
+				RawEventKind::Rename(RawRenameMode::Both)
+			}
 			EventKind::Modify(_) => RawEventKind::Modify,
 			EventKind::Remove(_) => RawEventKind::Remove,
 			other => RawEventKind::Other(format!("{:?}", other)),

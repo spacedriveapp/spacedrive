@@ -7,7 +7,7 @@ use iroh::EndpointId;
 use serde::{Deserialize, Serialize};
 use std::{
 	collections::HashMap,
-	path::PathBuf,
+	path::{Path, PathBuf},
 	sync::{Arc, RwLock},
 	time::{Duration, SystemTime},
 };
@@ -164,7 +164,9 @@ pub enum FileTransferMessage {
 	/// Transfer completion notification
 	TransferComplete {
 		transfer_id: Uuid,
-		final_checksum: String, // ContentHashGenerator hash
+		/// Hex blake3 of every file byte (`ContentHashGenerator::generate_integrity_hash`).
+		/// Empty when the sender could not compute it.
+		final_checksum: String,
 		total_bytes: u64,
 	},
 
@@ -645,13 +647,20 @@ impl FileTransferProtocolHandler {
 			})
 	}
 
-	/// Calculate file checksum as bytes for compatibility
-	async fn calculate_file_checksum_bytes(&self, path: &PathBuf) -> Result<[u8; 32]> {
-		// Generate the content hash and then hash it again for 32-byte output
-		let content_hash = self.calculate_file_checksum(path).await?;
-		let mut hasher = blake3::Hasher::new();
-		hasher.update(content_hash.as_bytes());
-		Ok(hasher.finalize().into())
+	/// Hash every byte of a file for end-to-end transfer verification.
+	///
+	/// The sampled content hash identifies files in the stores but skips most
+	/// bytes of a large file, so it cannot prove a transfer arrived intact.
+	/// Both transfer directions compare this full hash on both ends.
+	async fn calculate_integrity_checksum(&self, path: &Path) -> Result<String> {
+		crate::domain::content_identity::ContentHashGenerator::generate_integrity_hash(path)
+			.await
+			.map_err(|e| {
+				NetworkingError::file_system_error(format!(
+					"Failed to generate integrity hash: {}",
+					e
+				))
+			})
 	}
 
 	/// Handle transfer request message
@@ -838,8 +847,9 @@ impl FileTransferProtocolHandler {
 					}
 				};
 
-				// Calculate checksum of received file
-				let received_checksum = self.calculate_file_checksum(&received_file_path).await?;
+				let received_checksum = self
+					.calculate_integrity_checksum(&received_file_path)
+					.await?;
 
 				// Compare with sender's checksum
 				if received_checksum != final_checksum {
@@ -940,10 +950,12 @@ impl FileTransferProtocolHandler {
 				.map_err(|e| format!("Failed to create parent directory: {}", e))?;
 		}
 
-		// Open file for writing (create if doesn't exist)
+		// The first chunk truncates so a longer file already at the destination
+		// cannot leave stale bytes past the end of what the sender sent.
 		let mut file = tokio::fs::OpenOptions::new()
 			.create(true)
 			.write(true)
+			.truncate(chunk_index == 0)
 			.open(&file_path)
 			.await
 			.map_err(|e| format!("Failed to open file for writing: {}", e))?;
@@ -997,6 +1009,27 @@ impl FileTransferProtocolHandler {
 				"Destination path not allowed: {}",
 				destination_path
 			)));
+		}
+
+		// A zero-byte source sends no chunks, so nothing else would replace
+		// what sits at the destination or give the final hash a file to check.
+		// Larger files wait for chunk 0 to truncate, so a push that dies before
+		// sending anything leaves the old file intact.
+		if file_metadata.size == 0 {
+			if let Some(parent) = dest_path_buf.parent() {
+				tokio::fs::create_dir_all(parent).await.map_err(|e| {
+					NetworkingError::file_system_error(format!(
+						"Failed to create destination directory: {}",
+						e
+					))
+				})?;
+			}
+			tokio::fs::File::create(&dest_path_buf).await.map_err(|e| {
+				NetworkingError::file_system_error(format!(
+					"Failed to create destination file: {}",
+					e
+				))
+			})?;
 		}
 
 		// Create new transfer session
@@ -1140,10 +1173,43 @@ impl FileTransferProtocolHandler {
 			))
 			.await;
 
-		// Mark transfer as completed
+		if self.config.verify_checksums {
+			if final_checksum.is_empty() {
+				self.logger
+					.warn(&format!(
+						"Transfer {}: sender provided no checksum, skipping verification",
+						transfer_id
+					))
+					.await;
+			} else {
+				let received_file_path = {
+					let sessions = self.sessions.read().unwrap();
+					let session = sessions
+						.get(&transfer_id)
+						.ok_or_else(|| NetworkingError::transfer_not_found_error(transfer_id))?;
+					PathBuf::from(&session.destination_path)
+				};
+
+				let received_checksum = self
+					.calculate_integrity_checksum(&received_file_path)
+					.await?;
+				if received_checksum != final_checksum {
+					let message = format!(
+						"Final checksum mismatch: expected {}, got {}",
+						final_checksum, received_checksum
+					);
+					self.update_session_state(
+						&transfer_id,
+						TransferState::Failed(message.clone()),
+					)?;
+					let _ = tokio::fs::remove_file(&received_file_path).await;
+					return Err(NetworkingError::Protocol(message));
+				}
+			}
+		}
+
 		self.update_session_state(&transfer_id, TransferState::Completed)?;
 
-		// TODO: Verify final file checksum
 		self.logger
 			.info(&format!("Transfer {} completed successfully", transfer_id))
 			.await;
@@ -1298,19 +1364,21 @@ impl FileTransferProtocolHandler {
 			.await;
 
 		// Stream file chunks to requester
-		self.stream_file_for_pull(transfer_id, &source_path, file_size, checksum, send)
+		self.stream_file_for_pull(transfer_id, &source_path, send)
 			.await?;
 
 		Ok(())
 	}
 
-	/// Stream file data back to a PULL requester
+	/// Stream file data back to a PULL requester.
+	///
+	/// The final checksum is a blake3 over the bytes as they are sent, so the
+	/// receiver can verify it against its own streaming hash without either
+	/// side reading the file a second time.
 	async fn stream_file_for_pull(
 		&self,
 		transfer_id: Uuid,
 		source_path: &PathBuf,
-		file_size: u64,
-		final_checksum: Option<String>,
 		send: &mut (dyn tokio::io::AsyncWrite + Send + Unpin),
 	) -> Result<()> {
 		use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -1323,6 +1391,7 @@ impl FileTransferProtocolHandler {
 		let mut buffer = vec![0u8; chunk_size];
 		let mut chunk_index = 0u32;
 		let mut bytes_sent = 0u64;
+		let mut file_hasher = blake3::Hasher::new();
 
 		loop {
 			let bytes_read = file.read(&mut buffer).await.map_err(|e| {
@@ -1335,6 +1404,7 @@ impl FileTransferProtocolHandler {
 
 			let chunk_data = &buffer[..bytes_read];
 			let chunk_checksum = blake3::hash(chunk_data);
+			file_hasher.update(chunk_data);
 
 			// Skip encryption - Iroh provides E2E encryption
 			let chunk_message = FileTransferMessage::FileChunk {
@@ -1379,7 +1449,7 @@ impl FileTransferProtocolHandler {
 		// Send completion message
 		let completion_message = FileTransferMessage::TransferComplete {
 			transfer_id,
-			final_checksum: final_checksum.unwrap_or_default(),
+			final_checksum: file_hasher.finalize().to_hex().to_string(),
 			total_bytes: bytes_sent,
 		};
 
@@ -1602,6 +1672,21 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
 											e
 										))
 										.await;
+
+									let error_message = FileTransferMessage::TransferError {
+										transfer_id,
+										error_type: TransferErrorType::ChecksumMismatch,
+										message: e.to_string(),
+										recoverable: false,
+									};
+									if let Ok(error_data) = rmp_serde::to_vec(&error_message) {
+										let _ = send.write_u8(0).await;
+										let _ = send
+											.write_all(&(error_data.len() as u32).to_be_bytes())
+											.await;
+										let _ = send.write_all(&error_data).await;
+										let _ = send.flush().await;
+									}
 								} else {
 									// Send TransferFinalAck response back to sender
 									self.logger
@@ -1883,6 +1968,183 @@ mod tests {
 		assert!(handler
 			.update_session_state(&transfer_id, TransferState::Active)
 			.is_err());
+	}
+
+	fn session_for_received_file(transfer_id: Uuid, path: &Path) -> TransferSession {
+		TransferSession {
+			id: transfer_id,
+			file_metadata: FileMetadata {
+				name: path.file_name().unwrap().to_string_lossy().to_string(),
+				size: 0,
+				modified: None,
+				is_directory: false,
+				checksum: None,
+				mime_type: None,
+			},
+			mode: TransferMode::TrustedCopy,
+			state: TransferState::Active,
+			created_at: SystemTime::now(),
+			bytes_transferred: 0,
+			chunks_received: Vec::new(),
+			source_device: Some(Uuid::new_v4()),
+			destination_device: None,
+			destination_path: path.to_string_lossy().to_string(),
+		}
+	}
+
+	#[tokio::test]
+	async fn test_push_completion_verifies_full_file_hash() {
+		let handler = FileTransferProtocolHandler::new_default(Arc::new(SilentLogger));
+		let dir = tempfile::tempdir().unwrap();
+		let received = dir.path().join("received.bin");
+		let payload = vec![7u8; 3 * 1024 * 1024];
+		tokio::fs::write(&received, &payload).await.unwrap();
+
+		let transfer_id = Uuid::new_v4();
+		handler.sessions.write().unwrap().insert(
+			transfer_id,
+			session_for_received_file(transfer_id, &received),
+		);
+
+		let good = blake3::hash(&payload).to_hex().to_string();
+		handler
+			.handle_incoming_transfer_complete(transfer_id, good, payload.len() as u64)
+			.await
+			.expect("matching full hash completes the transfer");
+		assert_eq!(
+			handler.get_session(&transfer_id).unwrap().state,
+			TransferState::Completed
+		);
+	}
+
+	#[tokio::test]
+	async fn test_first_chunk_truncates_existing_destination() {
+		let handler = FileTransferProtocolHandler::new_default(Arc::new(SilentLogger));
+		let dir = tempfile::tempdir().unwrap();
+		let destination = dir.path().join("shrunk.bin");
+		tokio::fs::write(&destination, vec![1u8; 10 * 1024])
+			.await
+			.unwrap();
+
+		let transfer_id = Uuid::new_v4();
+		handler.sessions.write().unwrap().insert(
+			transfer_id,
+			session_for_received_file(transfer_id, &destination),
+		);
+
+		let payload = vec![2u8; 1024];
+		handler
+			.write_chunk_to_file(&transfer_id, 0, &payload)
+			.await
+			.unwrap();
+		assert_eq!(tokio::fs::read(&destination).await.unwrap(), payload);
+	}
+
+	#[tokio::test]
+	async fn test_accepted_request_lands_empty_destination() {
+		let handler = FileTransferProtocolHandler::new_default(Arc::new(SilentLogger));
+		let dir = tempfile::tempdir().unwrap();
+		let root = dir.path().canonicalize().unwrap();
+		handler.set_allowed_paths(vec![root.clone()]);
+		let destination = root.join("emptied.bin");
+		tokio::fs::write(&destination, vec![1u8; 10 * 1024])
+			.await
+			.unwrap();
+
+		let transfer_id = Uuid::new_v4();
+		let metadata = FileMetadata {
+			name: "emptied.bin".to_string(),
+			size: 0,
+			modified: None,
+			is_directory: false,
+			checksum: None,
+			mime_type: None,
+		};
+		handler
+			.handle_incoming_transfer_request(
+				Uuid::new_v4(),
+				transfer_id,
+				metadata,
+				destination.to_string_lossy().to_string(),
+			)
+			.await
+			.unwrap();
+		assert_eq!(tokio::fs::metadata(&destination).await.unwrap().len(), 0);
+
+		let empty_hash = blake3::hash(&[]).to_hex().to_string();
+		handler
+			.handle_incoming_transfer_complete(transfer_id, empty_hash, 0)
+			.await
+			.expect("a zero-byte push verifies against the landed empty file");
+	}
+
+	#[tokio::test]
+	async fn test_accepted_request_keeps_destination_until_first_chunk() {
+		let handler = FileTransferProtocolHandler::new_default(Arc::new(SilentLogger));
+		let dir = tempfile::tempdir().unwrap();
+		let root = dir.path().canonicalize().unwrap();
+		handler.set_allowed_paths(vec![root.clone()]);
+		let destination = root.join("kept.bin");
+		let existing = vec![1u8; 10 * 1024];
+		tokio::fs::write(&destination, &existing).await.unwrap();
+
+		let metadata = FileMetadata {
+			name: "kept.bin".to_string(),
+			size: 2048,
+			modified: None,
+			is_directory: false,
+			checksum: None,
+			mime_type: None,
+		};
+		handler
+			.handle_incoming_transfer_request(
+				Uuid::new_v4(),
+				Uuid::new_v4(),
+				metadata,
+				destination.to_string_lossy().to_string(),
+			)
+			.await
+			.unwrap();
+		assert_eq!(
+			tokio::fs::read(&destination).await.unwrap(),
+			existing,
+			"a push that has not sent a chunk must not touch the old file"
+		);
+	}
+
+	#[tokio::test]
+	async fn test_push_completion_rejects_corrupted_file() {
+		let handler = FileTransferProtocolHandler::new_default(Arc::new(SilentLogger));
+		let dir = tempfile::tempdir().unwrap();
+		let received = dir.path().join("received.bin");
+		// Large enough that the sampled content hash would skip the middle.
+		let mut payload = vec![7u8; 3 * 1024 * 1024];
+		let sent_hash = blake3::hash(&payload).to_hex().to_string();
+		let middle = payload.len() / 2;
+		payload[middle] ^= 0xff;
+		tokio::fs::write(&received, &payload).await.unwrap();
+
+		let transfer_id = Uuid::new_v4();
+		handler.sessions.write().unwrap().insert(
+			transfer_id,
+			session_for_received_file(transfer_id, &received),
+		);
+
+		let result = handler
+			.handle_incoming_transfer_complete(transfer_id, sent_hash, payload.len() as u64)
+			.await;
+		assert!(result.is_err(), "a flipped byte must fail verification");
+		assert!(
+			matches!(
+				handler.get_session(&transfer_id).unwrap().state,
+				TransferState::Failed(_)
+			),
+			"session must record the failure"
+		);
+		assert!(
+			!received.exists(),
+			"corrupted file must not be left at the destination"
+		);
 	}
 
 	// Path validation security tests
