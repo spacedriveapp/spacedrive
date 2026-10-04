@@ -1011,20 +1011,26 @@ impl FileTransferProtocolHandler {
 			)));
 		}
 
-		// Land an empty file now so a zero-byte source, which sends no chunks,
-		// still replaces whatever was at the destination and the final hash
-		// has a file to check.
-		if let Some(parent) = dest_path_buf.parent() {
-			tokio::fs::create_dir_all(parent).await.map_err(|e| {
+		// A zero-byte source sends no chunks, so nothing else would replace
+		// what sits at the destination or give the final hash a file to check.
+		// Larger files wait for chunk 0 to truncate, so a push that dies before
+		// sending anything leaves the old file intact.
+		if file_metadata.size == 0 {
+			if let Some(parent) = dest_path_buf.parent() {
+				tokio::fs::create_dir_all(parent).await.map_err(|e| {
+					NetworkingError::file_system_error(format!(
+						"Failed to create destination directory: {}",
+						e
+					))
+				})?;
+			}
+			tokio::fs::File::create(&dest_path_buf).await.map_err(|e| {
 				NetworkingError::file_system_error(format!(
-					"Failed to create destination directory: {}",
+					"Failed to create destination file: {}",
 					e
 				))
 			})?;
 		}
-		tokio::fs::File::create(&dest_path_buf).await.map_err(|e| {
-			NetworkingError::file_system_error(format!("Failed to create destination file: {}", e))
-		})?;
 
 		// Create new transfer session
 		let session = TransferSession {
@@ -2070,6 +2076,40 @@ mod tests {
 			.handle_incoming_transfer_complete(transfer_id, empty_hash, 0)
 			.await
 			.expect("a zero-byte push verifies against the landed empty file");
+	}
+
+	#[tokio::test]
+	async fn test_accepted_request_keeps_destination_until_first_chunk() {
+		let handler = FileTransferProtocolHandler::new_default(Arc::new(SilentLogger));
+		let dir = tempfile::tempdir().unwrap();
+		let root = dir.path().canonicalize().unwrap();
+		handler.set_allowed_paths(vec![root.clone()]);
+		let destination = root.join("kept.bin");
+		let existing = vec![1u8; 10 * 1024];
+		tokio::fs::write(&destination, &existing).await.unwrap();
+
+		let metadata = FileMetadata {
+			name: "kept.bin".to_string(),
+			size: 2048,
+			modified: None,
+			is_directory: false,
+			checksum: None,
+			mime_type: None,
+		};
+		handler
+			.handle_incoming_transfer_request(
+				Uuid::new_v4(),
+				Uuid::new_v4(),
+				metadata,
+				destination.to_string_lossy().to_string(),
+			)
+			.await
+			.unwrap();
+		assert_eq!(
+			tokio::fs::read(&destination).await.unwrap(),
+			existing,
+			"a push that has not sent a chunk must not touch the old file"
+		);
 	}
 
 	#[tokio::test]
