@@ -133,6 +133,15 @@ unknown connection state until it can query the job again.
 Remote reads fail with explicit availability. Cached metadata can remain
 browsable, but the interface does not pretend that unavailable bytes are local.
 
+Paired devices reconnect on their own. The device with the lower endpoint ID
+dials as soon as a connection drops or the daemon starts; the other side waits
+15 seconds for that dial and then dials itself, so a peer whose retry state was
+lost (its own restart, a dial that cannot reach us) does not leave the pair
+stuck. Each dial has a 30 second bound, retries back off from 2 seconds to 30
+seconds for 12 attempts, one loop runs per device, and a 30 second sweep
+re-arms any device still unconnected. Shutdown closes the endpoint so peers see
+the drop at once rather than at the QUIC idle timeout.
+
 ## Observability
 
 Status and logs expose:

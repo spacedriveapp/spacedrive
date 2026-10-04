@@ -89,6 +89,10 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		test_args: &["--test", "file_transfer_test"],
 	},
 	TestSuite {
+		name: "File transfer with restart test",
+		test_args: &["--test", "file_transfer_with_restart_test"],
+	},
+	TestSuite {
 		name: "Cross device copy test",
 		test_args: &["--test", "cross_device_copy_test"],
 	},
