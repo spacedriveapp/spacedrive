@@ -100,25 +100,66 @@ impl TryFrom<String> for PlusCode {
 	type Error = Error;
 
 	fn try_from(value: String) -> Result<Self, Self::Error> {
-		let mut pc_value = value.clone();
-		pc_value.retain(|c| !c.is_whitespace());
+		let value = value.trim();
+		// Google shows short codes with a locality after them ("WR2C+2C Bibra Lake");
+		// only the first token is the code, the rest is free text.
+		let code = value.split_whitespace().next().ok_or(Error::Conversion)?;
 
-		if pc_value.len() > 11 {
-			pc_value.truncate(11);
-		}
-
-		if pc_value.len() < 2
-			|| (pc_value.len() < 8 && pc_value.chars().nth(7) != Some('+'))
-			// this covers Google's shorter format
-			|| (pc_value.len() == 7 && pc_value.chars().nth(4) != Some('+'))
-		|| PLUSCODE_DIGITS
-			.iter()
-			.any(|x| pc_value.chars().any(|y| y != '+' && x != &y))
-		{
+		if !Self::is_valid(code) {
 			return Err(Error::Conversion);
 		}
 
-		Ok(Self(value))
+		Ok(Self(value.to_string()))
+	}
+}
+
+impl PlusCode {
+	/// Code validation per the Open Location Code specification.
+	///
+	/// A code has exactly one `+` separator at an even index no later than 8.
+	/// Short codes drop 2 to 8 leading characters, so the separator can sit at
+	/// 0, 2, 4 or 6. Zero padding may only appear before the separator in a
+	/// full code: it starts at an even index of at least 2, runs up to the
+	/// separator and nothing follows the separator. The part after the
+	/// separator is empty or at least two characters, and every other character
+	/// comes from the 20 character alphabet, in either case.
+	fn is_valid(code: &str) -> bool {
+		if !code.is_ascii() {
+			return false;
+		}
+
+		let mut separators = code.match_indices('+').map(|(i, _)| i);
+		let Some(separator) = separators.next() else {
+			return false;
+		};
+		if separators.next().is_some() || separator > 8 || separator % 2 != 0 {
+			return false;
+		}
+
+		let prefix = &code[..separator];
+		let suffix = &code[separator + 1..];
+		if suffix.len() == 1 || (prefix.is_empty() && suffix.is_empty()) {
+			return false;
+		}
+
+		let digits = match prefix.find('0') {
+			Some(pad) => {
+				if pad < 2
+					|| pad % 2 != 0 || separator != 8
+					|| !suffix.is_empty()
+					|| !prefix[pad..].bytes().all(|b| b == b'0')
+				{
+					return false;
+				}
+				&prefix[..pad]
+			}
+			None => prefix,
+		};
+
+		digits
+			.chars()
+			.chain(suffix.chars())
+			.all(|c| PLUSCODE_DIGITS.contains(&c.to_ascii_uppercase()))
 	}
 }
 
@@ -136,5 +177,55 @@ mod tests {
 	fn pluscode_google() {
 		let x = String::from("WR2C+2C Bibra Lake");
 		PlusCode::try_from(x).unwrap();
+	}
+
+	#[test]
+	fn pluscode_accepts_spec_forms() {
+		for code in [
+			"8FW4V74V+",
+			"8FW4V74V+X8",
+			"8FW4V74V+X8Q",
+			"8FW4V74V+X8QRGHJ",
+			"8FVC0000+",
+			"8F000000+",
+			"8fw4v74v+x8",
+			"+X8",
+			"4V+X8",
+		] {
+			PlusCode::try_from(code.to_string()).unwrap_or_else(|_| panic!("{code} rejected"));
+		}
+	}
+
+	#[test]
+	fn pluscode_rejects_invalid_forms() {
+		for code in [
+			"",
+			"+",
+			"8FW4V74VX8",
+			"8FW4V74V+X8+",
+			"8FW4V74V+X",
+			"8FW4V74+VX8",
+			"8FW4V74VX8+Q",
+			"8FW4V74V+X0",
+			"8FVC000+",
+			"8F0C0000+",
+			"8FVC0000+X8",
+			"WR00+",
+			"8FW4V74V+XA",
+		] {
+			assert!(
+				PlusCode::try_from(code.to_string()).is_err(),
+				"{code} accepted"
+			);
+		}
+	}
+
+	#[test]
+	fn pluscode_roundtrips_the_encoder() {
+		let encoded = PlusCode::new(-32.1, 115.8).to_string();
+		assert_eq!(
+			PlusCode::try_from(encoded.clone()).unwrap().to_string(),
+			encoded
+		);
 	}
 }
