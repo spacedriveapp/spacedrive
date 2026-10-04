@@ -23,7 +23,7 @@ use chrono::{DateTime, Utc};
 use once_cell::sync::OnceCell;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use tokio::sync::{Mutex, RwLock};
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::infra::db::entities;
@@ -42,6 +42,9 @@ pub use metrics::SyncMetricsCollector;
 
 pub use backfill::BackfillManager;
 pub use protocol_handler::LogSyncHandler;
+
+/// Consecutive automatic backfill failures tolerated before sync is paused.
+const MAX_BACKFILL_ATTEMPTS: u32 = 3;
 
 /// Retry state for incremental catch-up operations
 ///
@@ -316,6 +319,7 @@ impl SyncService {
 		info!("Starting peer sync loop");
 
 		let mut backfill_attempted = false;
+		let mut backfill_failures: u32 = 0;
 		let mut retry_state = CatchUpRetryState::new();
 
 		tokio::select! {
@@ -360,19 +364,45 @@ impl SyncService {
 										match backfill_manager.start_backfill(peer_info).await {
 											Ok(()) => {
 												info!("Automatic backfill completed successfully");
+												backfill_failures = 0;
 											}
 											Err(e) => {
-												warn!("Automatic backfill failed: {}", e);
-												// Reset state to Uninitialized so retry logic runs
+												backfill_failures += 1;
 												let old_state = peer_sync.state().await;
 												let mut state = peer_sync.state.write().await;
-												*state = DeviceSyncState::Uninitialized;
-												info!(
-													from_state = ?old_state,
-													to_state = ?DeviceSyncState::Uninitialized,
-													reason = "backfill_failed",
-													"Sync state transition"
-												);
+
+												if backfill_failures >= MAX_BACKFILL_ATTEMPTS {
+													// A backfill that fails the same way every few
+													// seconds is a data problem, not a flaky peer.
+													// Stop retrying so the error is visible instead of
+													// bouncing Backfilling -> Uninitialized forever.
+													error!(
+														attempts = backfill_failures,
+														error = %e,
+														"Automatic backfill failed repeatedly, pausing sync for this library"
+													);
+													*state = DeviceSyncState::Paused;
+													info!(
+														from_state = ?old_state,
+														to_state = ?DeviceSyncState::Paused,
+														reason = "backfill_failed_repeatedly",
+														"Sync state transition"
+													);
+												} else {
+													warn!(
+														attempt = backfill_failures,
+														max_attempts = MAX_BACKFILL_ATTEMPTS,
+														"Automatic backfill failed: {}",
+														e
+													);
+													*state = DeviceSyncState::Uninitialized;
+													info!(
+														from_state = ?old_state,
+														to_state = ?DeviceSyncState::Uninitialized,
+														reason = "backfill_failed",
+														"Sync state transition"
+													);
+												}
 												// Reset flag to retry on next loop
 												backfill_attempted = false;
 											}

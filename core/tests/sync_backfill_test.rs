@@ -251,7 +251,13 @@ async fn test_bidirectional_volume_sync() -> anyhow::Result<()> {
 	Ok(())
 }
 
-/// Test that volume ResourceChanged events are emitted on the receiving device during sync
+/// Test that the receiving device's UI is told about a volume that arrived by sync.
+///
+/// Per-record ResourceChanged events are suppressed inside the backfill scope
+/// (see `ResourceManager::emit_batch_resource_events`), and the coordinator
+/// emits one coarse `Event::Refresh` once the whole backfill has landed. A
+/// live update after backfill still produces the per-record event, so both
+/// shapes count here as long as the volume row exists when the event arrives.
 #[tokio::test]
 async fn test_volume_resource_events_on_sync() -> anyhow::Result<()> {
 	let snapshot_dir = create_snapshot_dir("volume_resource_events").await?;
@@ -319,11 +325,12 @@ async fn test_volume_resource_events_on_sync() -> anyhow::Result<()> {
 
 	tracing::info!("=== Phase 3: Set up event listener on Bob BEFORE sync ===");
 
-	// Subscribe to Bob's event bus for volume ResourceChanged events
+	// Subscribe to Bob's event bus for volume ResourceChanged or Refresh events
 	let mut bob_events = library_bob.event_bus().subscribe();
 	let volume_event_received = Arc::new(tokio::sync::Mutex::new(false));
 	let volume_event_received_clone = volume_event_received.clone();
 	let alice_volume_uuid_clone = alice_volume_uuid;
+	let bob_db_for_listener = library_bob.db().clone();
 
 	// Spawn event listener task
 	let event_listener = tokio::spawn(async move {
@@ -392,6 +399,26 @@ async fn test_volume_resource_events_on_sync() -> anyhow::Result<()> {
 							}
 						}
 					}
+				}
+				Event::Refresh => {
+					// Backfill signals the whole import with one Refresh; it only
+					// counts if Alice's volume has landed in Bob's database by then.
+					let landed = entities::volume::Entity::find()
+						.filter(entities::volume::Column::Uuid.eq(alice_volume_uuid_clone))
+						.one(bob_db_for_listener.conn())
+						.await
+						.ok()
+						.flatten()
+						.is_some();
+					if landed {
+						tracing::info!(
+							volume_uuid = %alice_volume_uuid_clone,
+							"✅ Bob received Refresh after Alice's volume was applied by backfill"
+						);
+						*volume_event_received_clone.lock().await = true;
+						return;
+					}
+					tracing::debug!("Bob received Refresh before Alice's volume landed, ignoring");
 				}
 				_ => {
 					// Ignore other events
@@ -473,12 +500,10 @@ async fn test_volume_resource_events_on_sync() -> anyhow::Result<()> {
 
 	assert!(
 		event_was_received,
-		"Bob should have received a ResourceChanged event for Alice's volume during sync, but didn't"
+		"Bob should have received a ResourceChanged or Refresh event for Alice's volume during sync, but didn't"
 	);
 
-	tracing::info!(
-		"✅ Volume ResourceChanged event was emitted on the receiving device during sync"
-	);
+	tracing::info!("✅ Volume event was emitted on the receiving device during sync");
 
 	Ok(())
 }
