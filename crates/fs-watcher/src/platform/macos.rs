@@ -459,7 +459,7 @@ impl EventHandler for MacOsHandler {
 				};
 				self.process_modify(path).await
 			}
-			RawEventKind::Rename => {
+			RawEventKind::Rename(_) => {
 				// macOS FSEvents provides rename events with both paths
 				// paths[0] = from (old path), paths[1] = to (new path)
 				if event.paths.len() >= 2 {

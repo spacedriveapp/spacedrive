@@ -152,7 +152,8 @@ impl crate::infra::sync::Syncable for Model {
 	}
 
 	/// Apply shared change with HLC-based conflict resolution
-	/// Slug changes propagate to all devices, with collision avoidance only on initial insert
+	/// Slug changes propagate to all devices; a slug another local row already
+	/// holds gets a suffix derived from the device id, stable for that device
 	async fn apply_shared_change(
 		entry: crate::infra::sync::SharedChangeEntry,
 		db: &DatabaseConnection,
@@ -180,10 +181,6 @@ impl crate::infra::sync::Syncable for Model {
 				)
 				.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid uuid: {}", e)))?;
 
-				// Check if device already exists
-				let existing_device = Entity::find().filter(Column::Uuid.eq(uuid)).one(db).await?;
-
-				// Determine slug to use: collision avoidance only on INSERT
 				let slug_from_data: String = serde_json::from_value(
 					data.get("slug")
 						.cloned()
@@ -191,39 +188,26 @@ impl crate::infra::sync::Syncable for Model {
 				)
 				.unwrap_or_else(|_| "unknown".to_string());
 
-				let slug_to_use = if let Some(existing) = &existing_device {
-					// Device exists - use incoming slug (allow slug changes to propagate)
-					tracing::debug!(
-						"[DEVICE_SYNC] Updating existing device, accepting slug change: {} -> {}",
-						existing.slug,
-						slug_from_data
+				// The slug is unique per library. The sender picked it against its
+				// own rows, so it can still collide here, on insert and on update
+				// alike (two machines named the same, or a rename to a taken name).
+				let taken_slugs: Vec<String> = Entity::find()
+					.filter(Column::Uuid.ne(uuid))
+					.all(db)
+					.await?
+					.into_iter()
+					.map(|d| d.slug)
+					.collect();
+
+				let slug_to_use = resolve_slug_collision(&slug_from_data, uuid, &taken_slugs);
+				if slug_to_use != slug_from_data {
+					tracing::warn!(
+						"[DEVICE_SYNC] Slug '{}' already used by another device in this library, storing '{}' for device {}",
+						slug_from_data,
+						slug_to_use,
+						uuid
 					);
-					slug_from_data
-				} else {
-					// New device - check for slug collisions
-					tracing::debug!("[DEVICE_SYNC] New device, checking for slug collisions");
-					let existing_slugs: Vec<String> = Entity::find()
-						.all(db)
-						.await?
-						.iter()
-						.map(|d| d.slug.clone())
-						.collect();
-
-					let unique_slug = crate::library::Library::ensure_unique_slug(
-						&slug_from_data,
-						&existing_slugs,
-					);
-
-					if unique_slug != slug_from_data {
-						tracing::debug!(
-							"[DEVICE_SYNC] Slug collision on insert! Using '{}' instead of '{}'",
-							unique_slug,
-							slug_from_data
-						);
-					}
-
-					unique_slug
-				};
+				}
 
 				// Build ActiveModel for upsert
 				let active = ActiveModel {
@@ -453,6 +437,61 @@ impl crate::infra::sync::Syncable for Model {
 		}
 
 		Ok(())
+	}
+}
+
+/// Pick a slug that no other device in this library holds.
+///
+/// The first record to claim a slug keeps it; a later device with the same
+/// slug gets a suffix. The suffix comes from the device id rather than a
+/// counter so the same device always resolves to the same suffixed slug in a
+/// given library, whatever else arrived in between. Which device keeps the
+/// bare slug still depends on arrival order. The counter fallback only runs
+/// if the suffixed slug is somehow taken as well.
+pub fn resolve_slug_collision(slug: &str, device_id: Uuid, taken_slugs: &[String]) -> String {
+	if !taken_slugs.iter().any(|taken| taken == slug) {
+		return slug.to_string();
+	}
+
+	let suffixed = format!("{}-{}", slug, &device_id.simple().to_string()[..8]);
+	crate::library::Library::ensure_unique_slug(&suffixed, taken_slugs)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::resolve_slug_collision;
+	use uuid::Uuid;
+
+	#[test]
+	fn keeps_free_slug() {
+		let id = Uuid::new_v4();
+		assert_eq!(
+			resolve_slug_collision("macbook-pro", id, &["other".to_string()]),
+			"macbook-pro"
+		);
+	}
+
+	#[test]
+	fn suffix_is_deterministic_for_device() {
+		let id = Uuid::parse_str("0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0").unwrap();
+		let taken = vec!["macbook-pro".to_string()];
+		let first = resolve_slug_collision("macbook-pro", id, &taken);
+		let second = resolve_slug_collision("macbook-pro", id, &taken);
+		assert_eq!(first, "macbook-pro-0f1e2d3c");
+		assert_eq!(first, second);
+	}
+
+	#[test]
+	fn falls_back_to_counter_when_suffix_taken() {
+		let id = Uuid::parse_str("0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0").unwrap();
+		let taken = vec![
+			"macbook-pro".to_string(),
+			"macbook-pro-0f1e2d3c".to_string(),
+		];
+		assert_eq!(
+			resolve_slug_collision("macbook-pro", id, &taken),
+			"macbook-pro-0f1e2d3c-2"
+		);
 	}
 }
 

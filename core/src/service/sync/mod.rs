@@ -23,7 +23,7 @@ use chrono::{DateTime, Utc};
 use once_cell::sync::OnceCell;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use tokio::sync::{Mutex, RwLock};
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::infra::db::entities;
@@ -42,6 +42,14 @@ pub use metrics::SyncMetricsCollector;
 
 pub use backfill::BackfillManager;
 pub use protocol_handler::LogSyncHandler;
+
+/// Consecutive automatic backfill failures tolerated before sync pauses.
+const MAX_BACKFILL_ATTEMPTS: u32 = 3;
+
+/// How long sync stays paused after repeated backfill failures before it
+/// tries again. Long enough that the error is visible and the loop is not
+/// hammering a peer, short enough that a connectivity blip heals itself.
+const BACKFILL_PAUSE_SECS: u64 = 300;
 
 /// Retry state for incremental catch-up operations
 ///
@@ -316,6 +324,8 @@ impl SyncService {
 		info!("Starting peer sync loop");
 
 		let mut backfill_attempted = false;
+		let mut backfill_failures: u32 = 0;
+		let mut backfill_paused_until: Option<tokio::time::Instant> = None;
 		let mut retry_state = CatchUpRetryState::new();
 
 		tokio::select! {
@@ -360,19 +370,52 @@ impl SyncService {
 										match backfill_manager.start_backfill(peer_info).await {
 											Ok(()) => {
 												info!("Automatic backfill completed successfully");
+												backfill_failures = 0;
 											}
 											Err(e) => {
-												warn!("Automatic backfill failed: {}", e);
-												// Reset state to Uninitialized so retry logic runs
+												backfill_failures += 1;
 												let old_state = peer_sync.state().await;
 												let mut state = peer_sync.state.write().await;
-												*state = DeviceSyncState::Uninitialized;
-												info!(
-													from_state = ?old_state,
-													to_state = ?DeviceSyncState::Uninitialized,
-													reason = "backfill_failed",
-													"Sync state transition"
-												);
+
+												if backfill_failures >= MAX_BACKFILL_ATTEMPTS {
+													// Three failures in a row is more likely a data
+													// problem than a flaky peer. Pause so the error is
+													// visible instead of bouncing Backfilling ->
+													// Uninitialized every few seconds, and come back
+													// after a backoff in case it was connectivity.
+													error!(
+														attempts = backfill_failures,
+														retry_in_secs = BACKFILL_PAUSE_SECS,
+														error = %e,
+														"Automatic backfill failed repeatedly, pausing sync for this library"
+													);
+													backfill_failures = 0;
+													backfill_paused_until = Some(
+														tokio::time::Instant::now()
+															+ tokio::time::Duration::from_secs(BACKFILL_PAUSE_SECS),
+													);
+													*state = DeviceSyncState::Paused;
+													info!(
+														from_state = ?old_state,
+														to_state = ?DeviceSyncState::Paused,
+														reason = "backfill_failed_repeatedly",
+														"Sync state transition"
+													);
+												} else {
+													warn!(
+														attempt = backfill_failures,
+														max_attempts = MAX_BACKFILL_ATTEMPTS,
+														"Automatic backfill failed: {}",
+														e
+													);
+													*state = DeviceSyncState::Uninitialized;
+													info!(
+														from_state = ?old_state,
+														to_state = ?DeviceSyncState::Uninitialized,
+														reason = "backfill_failed",
+														"Sync state transition"
+													);
+												}
 												// Reset flag to retry on next loop
 												backfill_attempted = false;
 											}
@@ -565,7 +608,20 @@ impl SyncService {
 						}
 
 						DeviceSyncState::Paused => {
-							// Sync paused by user or offline, skip
+							// Only a pause this loop imposed is lifted here; a user
+							// or offline pause has no deadline and stays put.
+							if backfill_paused_until.is_some_and(|until| tokio::time::Instant::now() >= until) {
+								backfill_paused_until = None;
+								let mut state = peer_sync.state.write().await;
+								*state = DeviceSyncState::Uninitialized;
+								info!(
+									from_state = ?DeviceSyncState::Paused,
+									to_state = ?DeviceSyncState::Uninitialized,
+									reason = "backfill_pause_expired",
+									"Sync state transition"
+								);
+								backfill_attempted = false;
+							}
 						}
 					}
 
