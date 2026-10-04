@@ -245,30 +245,38 @@ pub(crate) async fn dispatch_source_walk(
 
 	// The walk is the long pole and the row already exists, so this answers now
 	// and the job reports against the source it just made.
-	let job_id = match library.jobs().dispatch(job).await {
-		Ok(handle) => Some(handle.id().0),
+	let handle = match library.jobs().dispatch(job).await {
+		Ok(handle) => handle,
 		Err(e) => {
 			tracing::error!(source = %id, %e, "tracked the source but could not start indexing");
-			None
+			return None;
 		}
 	};
+	let job_id = handle.id().0;
 
-	// Behind the walk, because it has nothing to hash until the walk has
-	// written the records. Dispatched rather than chained: the job queue runs
-	// it when the walk is out of the way, which is what LOW means.
-	if let Err(e) = library
-		.jobs()
-		.dispatch_with_priority(
-			crate::ops::indexing::content_identity::ContentIdentityJob::new(root.clone()),
-			crate::infra::job::types::JobPriority::LOW,
-			None,
-		)
-		.await
-	{
-		tracing::warn!(source = %id, %e, "could not start content identification");
-	}
+	// Hashing reads the records the walk writes, so it starts when the walk
+	// completes. The job queue runs a LOW job as soon as a worker is free, and
+	// one dispatched beside the walk finds an empty store and finishes. A walk
+	// that fails or is cancelled leaves hashing to the next track.
+	let library = library.clone();
+	tokio::spawn(async move {
+		if handle.wait().await.is_err() {
+			return;
+		}
+		if let Err(e) = library
+			.jobs()
+			.dispatch_with_priority(
+				crate::ops::indexing::content_identity::ContentIdentityJob::new(root),
+				crate::infra::job::types::JobPriority::LOW,
+				None,
+			)
+			.await
+		{
+			tracing::warn!(source = %id, %e, "could not start content identification");
+		}
+	});
 
-	job_id
+	Some(job_id)
 }
 
 #[cfg(test)]
