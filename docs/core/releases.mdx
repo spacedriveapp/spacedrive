@@ -77,6 +77,81 @@ metadata are signed with the platform or Spacedrive release key.
 Stable container releases update the **latest** tag. Prereleases keep their
 explicit version tag.
 
+## Nightly channel
+
+The nightly channel is a rolling build of the CLI and daemon for people who
+want to track the development branch without compiling. Every push to that
+branch runs `.github/workflows/nightly.yml`, which builds `sd` and `sd-daemon`
+in release mode for macOS ARM64 and Linux x86-64 and republishes them on the
+GitHub prerelease tagged `nightly`. The tag moves to the built commit each
+time, so there is one nightly release and it always names the commit it came
+from.
+
+Nightly builds are not a release:
+
+- They are not signed with a Developer ID and are not notarized. The macOS
+  linker adds an ad-hoc signature, which is enough to run a binary the CLI
+  downloaded itself. A copy downloaded in a browser carries the quarantine
+  attribute and Gatekeeper refuses it until you remove that attribute.
+- They can break, lose data, or change schemas without migrations. Keep
+  backups of any library you point a nightly build at.
+- They carry sd-core's default features only: no bundled FFmpeg, libheif, or
+  Pdfium. macOS reaches those formats through its system codecs.
+
+Each binary ships with a `.sha256` file, which `sd update` verifies before it
+writes anything.
+
+### Opting in
+
+~~~bash
+sd config set update.repo spacedriveapp/spacedrive
+sd config set update.channel nightly
+sd update
+~~~
+
+The repository line matters on installs whose `cli.json` was written before
+the default pointed at this repository. On the nightly channel, `sd update`
+fetches the `nightly` release by tag and compares the commit it was built at
+with the commit the installed binary was built from. `sd --version` prints
+both the package version and that commit, for example
+`2.0.0-alpha.2 (46a54caf3be5...)`. Builds from a tree without git report
+`unknown` and always see an update.
+
+`sd update --yes` skips the confirmation prompt and does nothing when the
+installed commit already matches. `sd update --force` reinstalls the current
+nightly even when it matches. Both replace the running `sd` binary and the
+`sd-daemon` next to it through a temporary file and a rename, stop the daemon
+first, and start it again afterwards. When `sd daemon install` has launchd
+managing the daemon, the restart goes through `launchctl kickstart` so launchd
+keeps owning the process.
+
+### Updating on a schedule
+
+~~~bash
+sd update install-timer              # every hour
+sd update install-timer --interval 21600
+sd update timer-status
+sd update uninstall-timer
+~~~
+
+On macOS this writes `~/Library/LaunchAgents/com.spacedrive.update.plist` with
+a `StartInterval`, running the installed `sd` with `--data-dir` and, when set,
+`--instance`, followed by `update --yes`. Output goes to `logs/update.log` in
+the data directory. On Linux it writes a systemd user timer and oneshot service
+named `spacedrive-update`. The service runs the binary at the absolute path of
+the `sd` that installed it, so move the binary and reinstall the timer
+together.
+
+### Going back to stable
+
+~~~bash
+sd config set update.channel stable
+sd update --force
+~~~
+
+The stable channel follows the repository's latest release and compares its
+tag to the package version, unchanged from before the nightly channel existed.
+
 ## Required gates
 
 ### Repository

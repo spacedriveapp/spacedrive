@@ -1,0 +1,138 @@
+# Nightly CLI and daemon builds.
+#
+# Every push to the branch below builds sd-cli and sd-daemon in release mode
+# and republishes them on the rolling `nightly` prerelease, whose tag moves to
+# the built commit. `sd update` on the nightly channel reads that commit from
+# the release and installs the binaries when it differs from the one the
+# installed CLI was built from (see docs/core/releases.mdx).
+#
+# These binaries are not signed with a Developer ID and are not notarized. The
+# macOS linker adds an ad-hoc signature, which is enough to run a file the CLI
+# downloaded itself; a copy fetched through a browser carries the quarantine
+# attribute and Gatekeeper refuses it until that attribute is removed.
+#
+# The binaries are built with sd-core's default features: no bundled FFmpeg,
+# libheif or Pdfium, so they do not depend on apps/.deps at runtime. macOS
+# reaches the same formats through its system codecs.
+name: Nightly
+
+on:
+  push:
+    branches:
+      # The branch the nightly channel tracks. Change this one line when the
+      # rewrite moves to main.
+      - sources
+  workflow_dispatch:
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+  NIGHTLY_TAG: nightly
+
+# A second push while a build is running makes the first result stale.
+concurrency:
+  group: nightly
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - host: macos-15
+            target: aarch64-apple-darwin
+            platform: macos-aarch64
+          - host: blacksmith-4vcpu-ubuntu-2204
+            target: x86_64-unknown-linux-gnu
+            platform: linux-x86_64
+    name: Build ${{ matrix.settings.platform }}
+    runs-on: ${{ matrix.settings.host }}
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup System and Rust
+        uses: ./.github/actions/setup-system
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          target: ${{ matrix.settings.target }}
+
+      - name: Build sd-cli and sd-daemon
+        env:
+          SD_GIT_SHA: ${{ github.sha }}
+        run: |
+          cargo build --release --locked \
+            -p sd-cli -p sd-core --bin sd-cli --bin sd-daemon \
+            --target ${{ matrix.settings.target }}
+
+      # Names are <binary>-<platform>; the updater strips the platform and
+      # expects exactly `sd` and `sd-daemon`.
+      - name: Prepare binaries and checksums
+        run: |
+          set -eux
+          mkdir -p dist
+          platform=${{ matrix.settings.platform }}
+          cp target/${{ matrix.settings.target }}/release/sd-cli "dist/sd-$platform"
+          cp target/${{ matrix.settings.target }}/release/sd-daemon "dist/sd-daemon-$platform"
+          chmod +x dist/*
+          cd dist
+          for f in "sd-$platform" "sd-daemon-$platform"; do
+            if command -v sha256sum >/dev/null; then
+              sha256sum "$f" > "$f.sha256"
+            else
+              shasum -a 256 "$f" > "$f.sha256"
+            fi
+          done
+          cat ./*.sha256
+          "./sd-$platform" --version
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-${{ matrix.settings.platform }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish nightly prerelease
+    needs: build
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nightly-*
+          merge-multiple: true
+          path: dist
+
+      # Delete and recreate rather than edit: the release's target commit is
+      # fixed at creation, and the updater reads it to decide whether to
+      # install.
+      - name: Move the nightly release to this commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -eux
+          ls -l dist
+          gh release delete "$NIGHTLY_TAG" --cleanup-tag --yes || true
+          short=$(echo "${{ github.sha }}" | cut -c1-12)
+          cat > notes.md <<EOF
+          Rolling nightly build of the CLI and daemon from \`${{ github.ref_name }}\` at ${{ github.sha }}.
+
+          Unsigned, may break, replaced on every push. Opt in with \`sd config set update.channel nightly\` and run \`sd update\`; see docs/core/releases.mdx.
+          EOF
+          gh release create "$NIGHTLY_TAG" \
+            --target "${{ github.sha }}" \
+            --prerelease \
+            --title "Nightly $short" \
+            --notes-file notes.md \
+            dist/*
