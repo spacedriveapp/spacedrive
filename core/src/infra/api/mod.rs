@@ -5,8 +5,8 @@
 //!
 //! ## Architecture
 //!
-//! ```
-//! Applications → ApiDispatcher → PermissionLayer → Operations
+//! ```text
+//! Applications -> ApiDispatcher -> PermissionLayer -> Operations
 //! ```
 //!
 //! ## Key Components

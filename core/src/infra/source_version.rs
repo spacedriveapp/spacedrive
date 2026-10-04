@@ -18,7 +18,7 @@
 //!
 //! ## Example
 //! ```rust
-//! use spacedrive_core::infra::source_version::source_version;
+//! use sd_core::infra::source_version::source_version;
 //! use std::time::{Duration, UNIX_EPOCH};
 //!
 //! let mtime = UNIX_EPOCH + Duration::from_secs(1_700_000_000);

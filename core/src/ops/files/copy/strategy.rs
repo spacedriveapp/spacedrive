@@ -23,13 +23,13 @@
 //! mode or cross-volume operations use LocalStreamCopyStrategy for progress tracking.
 //!
 //! ## Example
-//! ```rust,no_run
-//! use spacedrive_core::ops::files::copy::strategy::{CopyStrategy, LocalMoveStrategy};
-//! use spacedrive_core::domain::addressing::SdPath;
+//! Inside a running job, where `ctx` is its `JobContext`:
+//! ```rust,ignore
+//! use sd_core::ops::files::copy::strategy::{CopyStrategy, LocalMoveStrategy};
 //!
 //! let strategy = LocalMoveStrategy;
 //! let bytes_moved = strategy.execute(
-//!     &ctx,
+//!     ctx,
 //!     &source_path,
 //!     &dest_path,
 //!     true,  // verify_checksum
