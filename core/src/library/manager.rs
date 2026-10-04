@@ -26,9 +26,9 @@ use chrono::Utc;
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use once_cell::sync::OnceCell;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::{mpsc, RwLock};
 use tracing::{debug, error, info, warn};
@@ -71,6 +71,27 @@ pub struct LibraryManager {
 
 	/// Core context (needed for opening libraries on filesystem events)
 	context: Arc<RwLock<Option<Arc<CoreContext>>>>,
+
+	/// Library directories a create call is still building. The directory
+	/// watcher sees a new `.sdlibrary` folder before its creator has finished
+	/// initializing and opening it; opening it a second time from the watcher
+	/// runs the migrations twice on one database and fights over the lock, so
+	/// the watcher leaves these paths to their creator.
+	creating: Arc<Mutex<HashSet<PathBuf>>>,
+}
+
+/// Marks a library path as being created until dropped.
+struct CreationGuard {
+	creating: Arc<Mutex<HashSet<PathBuf>>>,
+	path: PathBuf,
+}
+
+impl Drop for CreationGuard {
+	fn drop(&mut self) {
+		if let Ok(mut creating) = self.creating.lock() {
+			creating.remove(&self.path);
+		}
+	}
 }
 
 impl LibraryManager {
@@ -97,6 +118,7 @@ impl LibraryManager {
 			watcher: Arc::new(RwLock::new(None)),
 			is_watching: Arc::new(RwLock::new(false)),
 			context: Arc::new(RwLock::new(None)),
+			creating: Arc::new(Mutex::new(HashSet::new())),
 		}
 	}
 
@@ -118,6 +140,7 @@ impl LibraryManager {
 			watcher: Arc::new(RwLock::new(None)),
 			is_watching: Arc::new(RwLock::new(false)),
 			context: Arc::new(RwLock::new(None)),
+			creating: Arc::new(Mutex::new(HashSet::new())),
 		}
 	}
 
@@ -191,6 +214,8 @@ impl LibraryManager {
 
 		// Find unique library path
 		let library_path = find_unique_library_path(&base_path, &safe_name).await?;
+
+		let _creating = self.mark_creating(library_path.clone()).await;
 
 		// Create library directory
 		tokio::fs::create_dir_all(&library_path).await?;
@@ -278,6 +303,8 @@ impl LibraryManager {
 		// Find unique library path
 		let library_path = find_unique_library_path(&base_path, &safe_name).await?;
 
+		let _creating = self.mark_creating(library_path.clone()).await;
+
 		// Create library directory
 		tokio::fs::create_dir_all(&library_path).await?;
 
@@ -363,6 +390,18 @@ impl LibraryManager {
 		Ok(library)
 	}
 
+	async fn mark_creating(&self, path: PathBuf) -> CreationGuard {
+		let path = creation_key(&path).await;
+		self.creating
+			.lock()
+			.expect("creating set poisoned")
+			.insert(path.clone());
+		CreationGuard {
+			creating: self.creating.clone(),
+			path,
+		}
+	}
+
 	/// Internal library creation with optional sync init
 	async fn create_library_internal(
 		&self,
@@ -403,6 +442,8 @@ impl LibraryManager {
 
 		// Find unique library path
 		let library_path = find_unique_library_path(&base_path, &safe_name).await?;
+
+		let _creating = self.mark_creating(library_path.clone()).await;
 
 		// Create library directory
 		tokio::fs::create_dir_all(&library_path).await?;
@@ -1390,6 +1431,7 @@ impl LibraryManager {
 		let is_watching = self.is_watching.clone();
 		let context = self.context.clone();
 		let watch_path_clone = watch_path.clone();
+		let creating = self.creating.clone();
 
 		// Create filesystem watcher
 		let mut watcher = notify::recommended_watcher(
@@ -1468,6 +1510,12 @@ impl LibraryManager {
 						});
 
 						for path in to_create {
+							let key = creation_key(&path).await;
+							if creating.lock().is_ok_and(|creating| creating.contains(&key)) {
+								debug!("Library {:?} is being created here, leaving it to its creator", path);
+								continue;
+							}
+
 							// Check if the library exists and is valid
 							if path.exists() && is_library_directory(&path) {
 								debug!("Processing library create: {:?}", path);
@@ -1501,6 +1549,7 @@ impl LibraryManager {
 											watcher: Arc::new(RwLock::new(None)),
 											is_watching: Arc::new(RwLock::new(false)),
 											context: Arc::new(RwLock::new(None)),
+											creating: creating.clone(),
 										};
 
 										match temp_manager.open_library(&path, ctx).await {
@@ -1565,6 +1614,7 @@ impl LibraryManager {
 										watcher: Arc::new(RwLock::new(None)),
 										is_watching: Arc::new(RwLock::new(false)),
 										context: Arc::new(RwLock::new(None)),
+										creating: creating.clone(),
 									};
 
 									match temp_manager.close_library(id).await {
@@ -1636,6 +1686,20 @@ fn sanitize_filename(name: &str) -> String {
 		.collect::<String>()
 		.trim()
 		.to_string()
+}
+
+/// The watcher reports a library directory as the filesystem spells it, which
+/// on macOS differs from the path a create call built (`/var` versus
+/// `/private/var`), so both sides key on the canonical parent. The directory
+/// itself may not exist yet when its creator registers it.
+async fn creation_key(path: &Path) -> PathBuf {
+	match (path.parent(), path.file_name()) {
+		(Some(parent), Some(name)) => tokio::fs::canonicalize(parent)
+			.await
+			.map(|parent| parent.join(name))
+			.unwrap_or_else(|_| path.to_path_buf()),
+		_ => path.to_path_buf(),
+	}
 }
 
 /// Find a unique library path by adding numbers if needed

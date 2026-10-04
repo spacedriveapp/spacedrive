@@ -189,19 +189,14 @@ fn parse_btrfs_filesystem_info(output: &str) -> VolumeResult<BtrfsInfo> {
 	for line in output.lines() {
 		let line = line.trim();
 
-		// Parse UUID: "uuid: 12345678-1234-1234-1234-123456789abc"
-		if line.starts_with("uuid:") {
-			if let Some(uuid_str) = line.split_whitespace().nth(1) {
+		// The header line carries both: "Label: 'MyVolume'  uuid: 12345678-..."
+		if let Some((label_part, uuid_part)) = line.split_once("uuid:") {
+			if let Some(uuid_str) = uuid_part.split_whitespace().next() {
 				uuid = uuid_str.to_string();
 			}
-		}
-		// Parse label: "Label: 'MyVolume'  uuid: ..."
-		else if line.starts_with("Label:") {
-			if let Some(label_part) = line.split("uuid:").next() {
-				if let Some(label_str) = label_part.strip_prefix("Label:").map(|s| s.trim()) {
-					if label_str != "none" && !label_str.is_empty() {
-						label = Some(label_str.trim_matches('\'').to_string());
-					}
+			if let Some(label_str) = label_part.strip_prefix("Label:").map(str::trim) {
+				if label_str != "none" && !label_str.is_empty() {
+					label = Some(label_str.trim_matches('\'').to_string());
 				}
 			}
 		}
@@ -307,6 +302,21 @@ Label: 'MyVolume'  uuid: 12345678-1234-1234-1234-123456789abc
 		assert_eq!(info.label, Some("MyVolume".to_string()));
 		assert_eq!(info.devices, vec!["/dev/sda1"]);
 		assert!(info.supports_reflinks);
+	}
+
+	#[test]
+	fn test_parse_btrfs_filesystem_info_without_label() {
+		let output = r#"
+Label: none  uuid: 12345678-1234-1234-1234-123456789abc
+	Total devices 2 FS bytes used 123.45GiB
+	devid    1 size 931.51GiB used 456.78GiB path /dev/sda1
+	devid    2 size 931.51GiB used 456.78GiB path /dev/sdb1
+"#;
+
+		let info = parse_btrfs_filesystem_info(output).unwrap();
+		assert_eq!(info.uuid, "12345678-1234-1234-1234-123456789abc");
+		assert_eq!(info.label, None);
+		assert_eq!(info.devices, vec!["/dev/sda1", "/dev/sdb1"]);
 	}
 
 	#[test]
