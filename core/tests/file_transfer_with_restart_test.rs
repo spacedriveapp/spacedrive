@@ -108,7 +108,7 @@ async fn alice_restart_scenario() {
 	// === RESTART SIMULATION ===
 	println!("Alice: ========== RESTARTING DAEMON ==========");
 	println!("Alice: Shutting down Core to simulate daemon restart...");
-	drop(core);
+	core.shutdown().await.expect("shutdown");
 	tokio::time::sleep(Duration::from_secs(2)).await;
 
 	println!("Alice: Starting fresh Core instance with same data dir...");

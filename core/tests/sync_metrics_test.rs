@@ -82,14 +82,18 @@ async fn test_metrics_initial_state() -> anyhow::Result<()> {
 		"Initial broadcast counts"
 	);
 
-	// No sync operations should have happened yet
-	assert_eq!(
-		alice.operations.changes_received, 0,
-		"Alice should have 0 changes received initially"
+	// Opening a library broadcasts its own device record as a shared change,
+	// so each side may already have received that one record from its peer.
+	// Nothing else has been synced yet.
+	assert!(
+		alice.operations.changes_received <= 1,
+		"Alice should have received at most the peer's device record, got {}",
+		alice.operations.changes_received
 	);
-	assert_eq!(
-		bob.operations.changes_received, 0,
-		"Bob should have 0 changes received initially"
+	assert!(
+		bob.operations.changes_received <= 1,
+		"Bob should have received at most the peer's device record, got {}",
+		bob.operations.changes_received
 	);
 
 	tracing::info!("Initial metrics state verified");
