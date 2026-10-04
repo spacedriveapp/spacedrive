@@ -42,22 +42,27 @@ impl FFmpegFormatContext {
 
 		check_error(
 			unsafe {
-				avformat_open_input(&mut ptr, filename.as_ptr(), ptr::null(), ptr::null_mut())
+				avformat_open_input(
+					&raw mut ptr,
+					filename.as_ptr(),
+					ptr::null(),
+					ptr::null_mut(),
+				)
 			},
 			"Fail to open an input stream and read the header",
 		)
 		.map(|()| Self(ptr))
 	}
 
-	pub(crate) fn as_ref(&self) -> &AVFormatContext {
+	pub(crate) const fn as_ref(&self) -> &AVFormatContext {
 		unsafe { self.0.as_ref() }.expect("initialized on struct creation")
 	}
 
-	pub(crate) fn as_mut(&mut self) -> &mut AVFormatContext {
+	pub(crate) const fn as_mut(&mut self) -> &mut AVFormatContext {
 		unsafe { self.0.as_mut() }.expect("initialized on struct creation")
 	}
 
-	pub(crate) fn duration(&self) -> Option<i64> {
+	pub(crate) const fn duration(&self) -> Option<i64> {
 		let duration = self.as_ref().duration;
 		if duration == AV_NOPTS_VALUE {
 			return None;
@@ -207,7 +212,7 @@ impl FFmpegFormatContext {
 			.unwrap_or(vec![])
 	}
 
-	fn start_time(&self) -> Option<i64> {
+	const fn start_time(&self) -> Option<i64> {
 		let start_time = self.as_ref().start_time;
 		if start_time == AV_NOPTS_VALUE {
 			return None;
@@ -216,7 +221,7 @@ impl FFmpegFormatContext {
 		Some(start_time)
 	}
 
-	fn bit_rate(&self) -> i64 {
+	const fn bit_rate(&self) -> i64 {
 		self.as_ref().bit_rate
 	}
 
@@ -296,7 +301,7 @@ impl FFmpegFormatContext {
 impl Drop for FFmpegFormatContext {
 	fn drop(&mut self) {
 		if !self.0.is_null() {
-			unsafe { avformat_close_input(&mut self.0) };
+			unsafe { avformat_close_input(&raw mut self.0) };
 			self.0 = ptr::null_mut();
 		}
 	}
@@ -357,8 +362,8 @@ impl From<&AVStream> for FFmpegStream {
 					let max = 1024 * 1024;
 					unsafe {
 						av_reduce(
-							&mut display_aspect_ratio.num,
-							&mut display_aspect_ratio.den,
+							&raw mut display_aspect_ratio.num,
+							&raw mut display_aspect_ratio.den,
 							num,
 							den,
 							max,

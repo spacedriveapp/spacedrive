@@ -59,6 +59,7 @@ pub trait TileSource {
 
 	/// Envelope edge in physical pixels: the buffer size a reader allocates,
 	/// and the ceiling on any delivered [`Bitmap`].
+	#[cfg_attr(not(test), allow(dead_code))]
 	fn tile(&self) -> u32;
 
 	/// Ask for the tile at `idx`. Idempotent while a request is outstanding,

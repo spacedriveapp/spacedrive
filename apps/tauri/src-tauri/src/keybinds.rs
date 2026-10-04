@@ -1,7 +1,5 @@
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter};
 
 /// Keybind registration state
 /// This tracks registered keybinds for potential use in native menus
@@ -18,10 +16,6 @@ impl KeybindState {
 		}
 	}
 
-	pub fn get_accelerator(&self, id: &str) -> Option<String> {
-		self.registered.lock().unwrap().get(id).cloned()
-	}
-
 	pub fn list_all(&self) -> HashMap<String, String> {
 		self.registered.lock().unwrap().clone()
 	}
@@ -31,12 +25,6 @@ impl Default for KeybindState {
 	fn default() -> Self {
 		Self::new()
 	}
-}
-
-/// Event payload when a keybind is triggered
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KeybindEvent {
-	pub id: String,
 }
 
 /// Register a keybind
@@ -76,12 +64,4 @@ pub async fn get_registered_keybinds(
 	state: tauri::State<'_, KeybindState>,
 ) -> Result<HashMap<String, String>, String> {
 	Ok(state.list_all())
-}
-
-/// Emit a keybind trigger event to the frontend
-/// This can be called from Rust (e.g., from native menu actions) to trigger keybind handlers
-pub fn emit_keybind_triggered(app: &AppHandle, id: &str) {
-	if let Err(e) = app.emit("keybind-triggered", KeybindEvent { id: id.to_string() }) {
-		tracing::error!("Failed to emit keybind-triggered event: {}", e);
-	}
 }

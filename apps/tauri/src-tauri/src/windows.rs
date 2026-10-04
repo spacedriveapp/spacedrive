@@ -440,6 +440,7 @@ pub async fn close_window(app: AppHandle, label: String) -> Result<(), String> {
 
 /// Apply macOS window styling to current window (called from frontend when ready)
 #[tauri::command]
+#[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
 pub fn apply_macos_styling(app: AppHandle) -> Result<(), String> {
 	#[cfg(target_os = "macos")]
 	{

@@ -1,3 +1,5 @@
+#![cfg(target_os = "windows")]
+
 use file_opening::{FileOpener, OpenResult, OpenWithApp};
 use std::path::Path;
 use windows::core::*;

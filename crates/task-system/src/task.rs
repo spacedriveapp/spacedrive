@@ -931,12 +931,11 @@ impl<E: RunError> Drop for PanicOnSenderDrop<E> {
 			// that took the whole process down, so the invariant stays loud
 			// in debug builds and becomes a log in release.
 			#[cfg(debug_assertions)]
-			if !std::thread::panicking() {
-				panic!(
-					"TaskHandle done channel dropped before sending a result: {}",
-					std::panic::Location::caller()
-				);
-			}
+			assert!(
+				std::thread::panicking(),
+				"TaskHandle done channel dropped before sending a result: {}",
+				std::panic::Location::caller()
+			);
 			#[cfg(not(debug_assertions))]
 			tracing::warn!(
 				task_id = %self.task_id,

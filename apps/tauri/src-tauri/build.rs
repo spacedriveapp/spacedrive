@@ -93,5 +93,25 @@ fn main() {
 		}
 	}
 
+	// tauri_build fails when an externalBin is missing, which is the state of
+	// every `cargo check` or `cargo clippy` that never built the daemon. Drop
+	// the sidecar from the config for those builds so the workspace still
+	// type-checks; a bundle always runs the daemon build first.
+	let sidecar = format!(
+		"{}/target/release/sd-daemon-{}{}",
+		workspace_dir, target_triple, exe_ext
+	);
+	if !std::path::Path::new(&sidecar).exists() {
+		println!(
+			"cargo:warning=sd-daemon sidecar not found in target/release; building without externalBin. Run `bun run daemon:sidecar` before bundling."
+		);
+		let mut config: serde_json::Value = std::env::var("TAURI_CONFIG")
+			.ok()
+			.and_then(|raw| serde_json::from_str(&raw).ok())
+			.unwrap_or_else(|| serde_json::json!({}));
+		config["bundle"]["externalBin"] = serde_json::json!([]);
+		std::env::set_var("TAURI_CONFIG", config.to_string());
+	}
+
 	tauri_build::build()
 }

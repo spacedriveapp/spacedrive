@@ -26,7 +26,7 @@ pub fn extract_audio_samples(filename: impl AsRef<Path>) -> Result<Vec<f32>, Err
 			find_best_audio_stream(format_ctx.as_ref()).ok_or(FFmpegError::StreamNotFound)?;
 
 		let audio_stream = format_ctx
-			.stream(audio_stream_index as u32)
+			.stream(u32::try_from(audio_stream_index).map_err(|_| FFmpegError::StreamNotFound)?)
 			.ok_or(FFmpegError::StreamNotFound)?;
 
 		// Get codec parameters
@@ -90,7 +90,13 @@ pub fn extract_audio_samples(filename: impl AsRef<Path>) -> Result<Vec<f32>, Err
 		let in_channels = codec_ref.ch_layout.nb_channels;
 
 		let final_samples = if in_sample_rate != 16000 || in_channels != 1 {
-			resample_audio(&samples, in_sample_rate, in_channels, 16000, 1)?
+			let in_sample_rate =
+				usize::try_from(in_sample_rate).map_err(|_| FFmpegError::InvalidData)?;
+			let in_channels = usize::try_from(in_channels).map_err(|_| FFmpegError::InvalidData)?;
+			if in_sample_rate == 0 || in_channels == 0 {
+				return Err(FFmpegError::InvalidData.into());
+			}
+			resample_audio(&samples, in_sample_rate, in_channels, 16000, 1)
 		} else {
 			samples
 		};
@@ -106,21 +112,26 @@ unsafe fn find_best_audio_stream(format_ctx: &ffmpeg_sys_next::AVFormatContext) 
 		return None;
 	}
 
-	for i in 0..format_ctx.nb_streams {
-		let stream = (*streams.add(i as usize)).as_ref()?;
+	for i in 0..usize::try_from(format_ctx.nb_streams).ok()? {
+		let stream = (*streams.add(i)).as_ref()?;
 		let codecpar = stream.codecpar.as_ref()?;
 
 		if codecpar.codec_type == AVMediaType::AVMEDIA_TYPE_AUDIO {
-			return Some(i as i32);
+			return i32::try_from(i).ok();
 		}
 	}
 	None
 }
 
 /// Extract and convert audio frame to f32 samples
+// FFmpeg allocates frame planes with at least 32-byte alignment, so viewing
+// the byte planes as their sample type is sound. s32 samples deliberately lose
+// their low bits when they become f32, which is the output format.
+#[allow(clippy::cast_ptr_alignment, clippy::cast_precision_loss)]
 unsafe fn extract_and_convert_frame(frame: &AVFrame) -> Result<Vec<f32>, Error> {
-	let nb_samples = frame.nb_samples as usize;
-	let channels = frame.ch_layout.nb_channels as usize;
+	let nb_samples = usize::try_from(frame.nb_samples).map_err(|_| FFmpegError::InvalidData)?;
+	let channels =
+		usize::try_from(frame.ch_layout.nb_channels).map_err(|_| FFmpegError::InvalidData)?;
 	let format = frame.format;
 
 	match format {
@@ -144,7 +155,7 @@ unsafe fn extract_and_convert_frame(frame: &AVFrame) -> Result<Vec<f32>, Error> 
 		f if f == AVSampleFormat::AV_SAMPLE_FMT_S16 as i32 => {
 			// Interleaved s16 - convert to f32
 			let data = slice::from_raw_parts(frame.data[0] as *const i16, nb_samples * channels);
-			Ok(data.iter().map(|&s| s as f32 / 32768.0).collect())
+			Ok(data.iter().map(|&s| f32::from(s) / 32768.0).collect())
 		}
 		f if f == AVSampleFormat::AV_SAMPLE_FMT_S16P as i32 => {
 			// Planar s16 - interleave and convert
@@ -153,7 +164,7 @@ unsafe fn extract_and_convert_frame(frame: &AVFrame) -> Result<Vec<f32>, Error> 
 				for ch in 0..channels {
 					let channel_data =
 						slice::from_raw_parts(frame.data[ch] as *const i16, nb_samples);
-					output.push(channel_data[i] as f32 / 32768.0);
+					output.push(f32::from(channel_data[i]) / 32768.0);
 				}
 			}
 			Ok(output)
@@ -161,7 +172,7 @@ unsafe fn extract_and_convert_frame(frame: &AVFrame) -> Result<Vec<f32>, Error> 
 		f if f == AVSampleFormat::AV_SAMPLE_FMT_S32 as i32 => {
 			// Interleaved s32 - convert to f32
 			let data = slice::from_raw_parts(frame.data[0] as *const i32, nb_samples * channels);
-			Ok(data.iter().map(|&s| s as f32 / 2147483648.0).collect())
+			Ok(data.iter().map(|&s| s as f32 / 2_147_483_648.0).collect())
 		}
 		f if f == AVSampleFormat::AV_SAMPLE_FMT_S32P as i32 => {
 			// Planar s32 - interleave and convert
@@ -170,7 +181,7 @@ unsafe fn extract_and_convert_frame(frame: &AVFrame) -> Result<Vec<f32>, Error> 
 				for ch in 0..channels {
 					let channel_data =
 						slice::from_raw_parts(frame.data[ch] as *const i32, nb_samples);
-					output.push(channel_data[i] as f32 / 2147483648.0);
+					output.push(channel_data[i] as f32 / 2_147_483_648.0);
 				}
 			}
 			Ok(output)
@@ -179,84 +190,79 @@ unsafe fn extract_and_convert_frame(frame: &AVFrame) -> Result<Vec<f32>, Error> 
 	}
 }
 
+/// Linear interpolation between two neighbouring samples.
+fn lerp(s1: f32, s2: f32, frac: f32) -> f32 {
+	s1.mul_add(1.0 - frac, s2 * frac)
+}
+
 /// Simple resampling using linear interpolation
 /// For production, this should use a proper resampling library
+// The fractional position is computed from a remainder below `out_rate` and
+// the downmix count is below `in_channels`, both far under 2^24 where f32 is
+// exact.
+#[allow(clippy::cast_precision_loss)]
 fn resample_audio(
 	samples: &[f32],
-	in_rate: i32,
-	in_channels: i32,
-	out_rate: i32,
-	out_channels: i32,
-) -> Result<Vec<f32>, Error> {
+	in_rate: usize,
+	in_channels: usize,
+	out_rate: usize,
+	out_channels: usize,
+) -> Vec<f32> {
 	if samples.is_empty() {
-		return Ok(Vec::new());
+		return Vec::new();
 	}
 
-	let in_rate = in_rate as usize;
-	let out_rate = out_rate as usize;
-	let in_channels = in_channels as usize;
-	let out_channels = out_channels as usize;
-
 	let in_frames = samples.len() / in_channels;
-	let out_frames = (in_frames * out_rate + in_rate - 1) / in_rate;
+	let out_frames = (in_frames * out_rate).div_ceil(in_rate);
 
 	let mut output = Vec::with_capacity(out_frames * out_channels);
 
 	for out_frame_idx in 0..out_frames {
-		// Calculate corresponding input frame (with fractional part)
-		let in_frame_pos = (out_frame_idx * in_rate) as f32 / out_rate as f32;
-		let in_frame_idx = in_frame_pos as usize;
-		let frac = in_frame_pos - in_frame_idx as f32;
+		// Corresponding input frame, split into whole frame and fraction
+		let in_pos = out_frame_idx * in_rate;
+		let in_frame_idx = in_pos / out_rate;
+		let frac = (in_pos % out_rate) as f32 / out_rate as f32;
 
 		// For each output channel
 		for out_ch in 0..out_channels {
-			let mut sample = 0.0f32;
-
-			if in_channels == out_channels {
-				// Same channel count - just resample
-				let in_ch = out_ch;
-
+			let sample_at = |in_ch: usize| {
 				if in_frame_idx + 1 < in_frames {
 					let s1 = samples[in_frame_idx * in_channels + in_ch];
 					let s2 = samples[(in_frame_idx + 1) * in_channels + in_ch];
-					sample = s1 * (1.0 - frac) + s2 * frac;
+					Some(lerp(s1, s2, frac))
 				} else if in_frame_idx < in_frames {
-					sample = samples[in_frame_idx * in_channels + in_ch];
+					Some(samples[in_frame_idx * in_channels + in_ch])
+				} else {
+					None
 				}
-			} else if in_channels > out_channels {
-				// Downmix (e.g., stereo to mono) - average channels
-				let mut sum = 0.0f32;
-				let mut count = 0;
+			};
 
-				for in_ch in 0..in_channels {
-					if in_frame_idx + 1 < in_frames {
-						let s1 = samples[in_frame_idx * in_channels + in_ch];
-						let s2 = samples[(in_frame_idx + 1) * in_channels + in_ch];
-						sum += s1 * (1.0 - frac) + s2 * frac;
-						count += 1;
-					} else if in_frame_idx < in_frames {
-						sum += samples[in_frame_idx * in_channels + in_ch];
-						count += 1;
+			let sample = match in_channels.cmp(&out_channels) {
+				// Same channel count - just resample
+				std::cmp::Ordering::Equal => sample_at(out_ch).unwrap_or(0.0),
+				// Downmix (e.g., stereo to mono) - average channels
+				std::cmp::Ordering::Greater => {
+					let mut sum = 0.0f32;
+					let mut count = 0usize;
+					for in_ch in 0..in_channels {
+						if let Some(s) = sample_at(in_ch) {
+							sum += s;
+							count += 1;
+						}
+					}
+					if count > 0 {
+						sum / count as f32
+					} else {
+						0.0
 					}
 				}
-
-				sample = if count > 0 { sum / count as f32 } else { 0.0 };
-			} else {
 				// Upmix (e.g., mono to stereo) - duplicate channel
-				let in_ch = 0;
-
-				if in_frame_idx + 1 < in_frames {
-					let s1 = samples[in_frame_idx * in_channels + in_ch];
-					let s2 = samples[(in_frame_idx + 1) * in_channels + in_ch];
-					sample = s1 * (1.0 - frac) + s2 * frac;
-				} else if in_frame_idx < in_frames {
-					sample = samples[in_frame_idx * in_channels + in_ch];
-				}
-			}
+				std::cmp::Ordering::Less => sample_at(0).unwrap_or(0.0),
+			};
 
 			output.push(sample);
 		}
 	}
 
-	Ok(output)
+	output
 }

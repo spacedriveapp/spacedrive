@@ -236,7 +236,7 @@ types, so every interface shares one contract.
 
 ## Build from source
 
-You need [Rust](https://rustup.rs/) stable with MSRV 1.81,
+You need [Rust](https://rustup.rs/) 1.95 or newer (`rust-toolchain.toml` pins 1.97.1),
 [Bun](https://bun.sh) 1.3 or newer, Node 20, and
 [just](https://github.com/casey/just).
 

@@ -304,7 +304,7 @@ impl FrameDecoder {
 impl Drop for FrameDecoder {
 	fn drop(&mut self) {
 		unsafe {
-			av_packet_free(&mut self.packet);
+			av_packet_free(&raw mut self.packet);
 		}
 	}
 }

@@ -166,7 +166,7 @@ pub fn config_from_env() -> (Option<u32>, bool) {
 	let explicit = std::env::var("SD_GRID_CELLS")
 		.ok()
 		.and_then(|v| v.parse().ok());
-	let bench = std::env::var("SD_GRID_BENCH").map_or(false, |v| v == "1");
+	let bench = std::env::var("SD_GRID_BENCH").is_ok_and(|v| v == "1");
 	(explicit.or(bench.then_some(DEFAULT_CELLS)), bench)
 }
 
@@ -468,11 +468,6 @@ impl GridView {
 		true
 	}
 
-	/// How many cells the current source is offering.
-	pub fn len(&self) -> u32 {
-		self.source.len()
-	}
-
 	/// Columns and displayed cell size for the current width. While a pinch is
 	/// live the column count is held and the tile scales continuously, so the
 	/// grid overflows sideways; otherwise the row width is shared across
@@ -493,7 +488,7 @@ impl GridView {
 
 	fn max_scroll(&self, width: f32, height: f32) -> f32 {
 		let (cols, cell) = self.layout(width);
-		let rows = (self.source.len() + cols - 1) / cols;
+		let rows = self.source.len().div_ceil(cols);
 		(rows as f32 * (cell + GAP) - height).max(0.0)
 	}
 
@@ -799,7 +794,7 @@ impl GridView {
 		}
 
 		self.stats.end_frame(t0, painted);
-		if self.auto.is_some() && self.frame_index % 300 == 0 {
+		if self.auto.is_some() && self.frame_index.is_multiple_of(300) {
 			eprintln!(
 				"frame {} | scroll {:.0} | cache {} tiles | rss {:.0} MB",
 				self.frame_index,

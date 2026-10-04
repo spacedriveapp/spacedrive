@@ -171,13 +171,11 @@ pub fn has_linker(name: &str) -> bool {
 
 /// Get the best available linker for the platform
 pub fn get_best_linker() -> Option<String> {
-	if cfg!(target_os = "linux") {
-		if has_linker("clang") {
-			if has_linker("mold") {
-				return Some("mold".to_string());
-			} else if has_linker("lld") {
-				return Some("lld".to_string());
-			}
+	if cfg!(target_os = "linux") && has_linker("clang") {
+		if has_linker("mold") {
+			return Some("mold".to_string());
+		} else if has_linker("lld") {
+			return Some("lld".to_string());
 		}
 	}
 	None

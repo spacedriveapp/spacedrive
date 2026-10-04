@@ -409,12 +409,14 @@ fn convert_jsonrpc_to_daemon_request(
 			method: jsonrpc.method.clone(),
 			library_id,
 			payload,
+			device: None,
 		}
 	} else if jsonrpc.method.starts_with("action:") {
 		DaemonRequest::Action {
 			method: jsonrpc.method.clone(),
 			library_id,
 			payload: jsonrpc.params.input.clone(),
+			device: None,
 		}
 	} else {
 		return Err(format!("Invalid method prefix: {}", jsonrpc.method));
