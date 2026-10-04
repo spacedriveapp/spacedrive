@@ -91,6 +91,10 @@ export const explorerRoutes = [
 					{
 						path: 'compare',
 						element: <CompareVolumes />
+					},
+					{
+						path: 'duplicates',
+						element: <DuplicatesView />
 					}
 				]
 			},

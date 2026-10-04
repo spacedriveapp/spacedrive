@@ -1,18 +1,11 @@
+import type { SourceInfo } from "@sd/ts-client";
 import { useNavigate } from "react-router-dom";
 import { useAdapterIcons } from "../../hooks/useAdapterIcons";
 import { SourceTypeIcon } from "./SourceTypeIcon";
 import { SourceStatusBadge } from "./SourceStatusBadge";
 
 interface SourceCardProps {
-	source: {
-		id: string;
-		name: string;
-		data_type: string;
-		adapter_id: string;
-		status: string;
-		item_count: number;
-		last_synced: string | null;
-	};
+	source: SourceInfo;
 }
 
 function formatRelative(iso: string): string {
@@ -40,12 +33,16 @@ export function SourceCard({ source }: SourceCardProps) {
 			className="border-app-line bg-app-box hover:border-app-line/80 hover:bg-app-hover group relative rounded-lg border p-4 text-left transition-all"
 		>
 			<div className="mb-3 flex items-center gap-3">
-				<SourceTypeIcon type={source.data_type} svg={getIcon(source.adapter_id)} size="md" />
+				<SourceTypeIcon
+					type={source.data_type}
+					svg={source.adapter_id ? getIcon(source.adapter_id) : null}
+					size="md"
+				/>
 				<div className="min-w-0 flex-1">
 					<h3 className="text-ink truncate text-sm font-medium">
 						{source.name}
 					</h3>
-					<p className="text-ink-faint text-xs">{source.adapter_id}</p>
+					<p className="text-ink-faint text-xs">{source.adapter_id ?? source.data_type}</p>
 				</div>
 				<SourceStatusBadge status={source.status} />
 			</div>

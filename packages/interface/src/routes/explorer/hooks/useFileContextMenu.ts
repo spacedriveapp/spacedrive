@@ -4,36 +4,26 @@ import {
 	Books,
 	Browsers,
 	Copy,
-	Crop,
 	Eye,
 	FileArchive,
-	FileText,
-	FileVideo,
 	FileZip,
-	FilmStrip,
 	FolderOpen,
 	FolderPlus,
 	FolderSimple,
 	FolderSimplePlus,
-	Image,
 	LinkSimple,
 	MagnifyingGlass,
-	Microphone,
 	Pencil,
 	Scissors,
 	ShareNetwork,
 	SlidersHorizontal,
-	Sparkle,
 	Stack,
 	Tag as TagIconComponent,
-	TextAa,
 	Trash,
-	TreeStructure,
-	Video,
-	Waveform
+	TreeStructure
 } from '@phosphor-icons/react';
 import type {File} from '@sd/ts-client';
-import {getContentKind, isVirtualFile} from '@sd/ts-client';
+import {isVirtualFile} from '@sd/ts-client';
 import { toast } from '@spacedrive/primitives';
 import {useFileOperationDialog} from '../../../components/modals/FileOperationModal';
 import {useMergeFoldersDialog} from '../../../components/modals/MergeFoldersModal';
@@ -79,19 +69,6 @@ export function useFileContextMenu({
 	const addToLibrary = useLibraryMutation('sources.track');
 	const generateThumbnails = useLibraryMutation('thumbs.generate');
 
-	// Helper to run a mutation on each target file
-	const forEachTarget = async (
-		targets: File[],
-		fn: (f: File) => Promise<unknown>
-	) => {
-		for (const f of targets) {
-			try {
-				await fn(f);
-			} catch (err) {
-				console.error(`Failed for ${f.name}:`, err);
-			}
-		}
-	};
 	const clipboard = useClipboard();
 	const openFileOperation = useFileOperationDialog();
 	const openMergeFolders = useMergeFoldersDialog();

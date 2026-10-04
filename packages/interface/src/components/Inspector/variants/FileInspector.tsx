@@ -1,12 +1,9 @@
 import {
-	ArrowsClockwise,
 	Calendar,
 	ChatCircle,
 	ClockCounterClockwise,
-	Cube,
 	DotsThree,
 	Eye,
-	FilmStrip,
 	Fingerprint,
 	HardDrive,
 	Hash,
@@ -15,7 +12,6 @@ import {
 	Info,
 	MagnifyingGlass,
 	MapPin,
-	Microphone,
 	Paperclip,
 	PaperPlaneRight,
 	ShareNetwork,
@@ -23,8 +19,7 @@ import {
 	Tag as TagIcon,
 	TextAa,
 	Timer,
-	Trash,
-	VideoCamera
+	Trash
 } from '@phosphor-icons/react';
 import {getIcon} from '@sd/assets/util';
 import type {File, SdPath} from '@sd/ts-client';
