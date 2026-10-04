@@ -106,10 +106,12 @@ fi
 # Install system deps
 case "$(uname)" in
   "Darwin")
+    # crates/ffmpeg is a default workspace member and links the system libav
+    # libraries, so FFmpeg's headers must be present before the first build.
     if [ "$(uname -m)" = 'x86_64' ] && ! [ "${CI:-}" = "true" ]; then
-      brew install nasm cmake
+      brew install nasm cmake ffmpeg pkg-config
     elif ! [ "${CI:-}" = "true" ]; then
-      brew install cmake
+      brew install cmake ffmpeg pkg-config
     fi
 
     # Install rust deps for iOS
@@ -151,7 +153,12 @@ case "$(uname)" in
       set -- "$@" gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 
       # C/C++ build dependencies, required to build some *-sys crates
-      set -- "$@" llvm-dev libclang-dev clang nasm perl cmake
+      set -- "$@" llvm-dev libclang-dev clang nasm perl cmake pkg-config
+
+      # FFmpeg headers: crates/ffmpeg (a default workspace member) links libav* and
+      # ffmpeg-sys-next runs bindgen against them, which needs libclang
+      set -- "$@" libavutil-dev libavformat-dev libavcodec-dev libavfilter-dev \
+        libavdevice-dev libswscale-dev libswresample-dev
 
       # React dependencies
       set -- "$@" libvips42
@@ -169,7 +176,10 @@ case "$(uname)" in
       set -- "$@" gst-plugins-base gst-plugins-good gst-plugins-ugly
 
       # C/C++ build dependencies, required to build some *-sys crates
-      set -- "$@" clang nasm perl cmake
+      set -- "$@" clang nasm perl cmake pkgconf
+
+      # FFmpeg headers for crates/ffmpeg
+      set -- "$@" ffmpeg
 
       # React dependencies
       set -- "$@" libvips
@@ -194,7 +204,10 @@ case "$(uname)" in
         gstreamer1-plugins-good-extras gstreamer1-plugins-ugly-free
 
       # C/C++ build dependencies, required to build some *-sys crates
-      set -- "$@" clang clang-devel nasm perl-core cmake
+      set -- "$@" clang clang-devel nasm perl-core cmake pkgconf-pkg-config
+
+      # FFmpeg headers for crates/ffmpeg (ffmpeg-free ships the libav*-devel packages)
+      set -- "$@" ffmpeg-free-devel
 
       # React dependencies
       set -- "$@" vips
@@ -213,7 +226,10 @@ case "$(uname)" in
       set -- "$@" gst-plugins-base-dev gst-plugins-good gst-plugins-ugly
 
       # C/C++ build dependencies, required to build some *-sys crates
-      set -- "$@" llvm16-dev clang16 nasm perl cmake
+      set -- "$@" llvm16-dev clang16 nasm perl cmake pkgconf
+
+      # FFmpeg headers for crates/ffmpeg
+      set -- "$@" ffmpeg-dev
 
       # React dependencies
       set -- "$@" vips
@@ -232,7 +248,10 @@ case "$(uname)" in
       set -- "$@" gstreamer-1.0-plugins-good gstreamer-1.0-plugins-ugly gstreamer-1.0-devel gstreamer-1.0-plugins-base-devel
 
       # C/C++ build dependencies, required to build some *-sys crates
-      set -- "$@" llvm-devel llvm-clang-devel llvm-clang nasm perl cmake
+      set -- "$@" llvm-devel llvm-clang-devel llvm-clang nasm perl cmake pkg-config
+
+      # FFmpeg headers for crates/ffmpeg
+      set -- "$@" ffmpeg-devel
 
       # React dependencies
       set -- "$@" libvips

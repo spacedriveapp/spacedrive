@@ -151,6 +151,27 @@ fn setup(with_native_deps: bool) -> Result<()> {
 	}
 	println!("   ✓ Rust toolchain found");
 
+	// crates/ffmpeg is a default workspace member that links the system libav
+	// libraries, so a missing libavutil fails the first `cargo build` twelve
+	// minutes in. Warn up front and point at the script that installs it.
+	let has_libav = Command::new("pkg-config")
+		.args([
+			"--exists",
+			"libavutil",
+			"libavformat",
+			"libavcodec",
+			"libavfilter",
+		])
+		.status()
+		.map(|status| status.success())
+		.unwrap_or(false);
+	if has_libav {
+		println!("   ✓ FFmpeg development libraries found");
+	} else {
+		println!("   ! FFmpeg development libraries (libavutil, libavformat, libavcodec, libavfilter) not found via pkg-config");
+		println!("     Run ./scripts/setup.sh to install them, or set PKG_CONFIG_PATH if FFmpeg lives in a custom prefix");
+	}
+
 	// The bundle carries FFmpeg, libheif and Pdfium, which only the `ffmpeg` and
 	// `heif` features link against. Neither is on by default, and macOS reaches
 	// the same formats through ImageIO and QuickLook, so the download is opt-in.
