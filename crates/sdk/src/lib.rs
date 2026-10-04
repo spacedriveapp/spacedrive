@@ -4,7 +4,10 @@
 //!
 //! # Example
 //!
-//! ```no_run
+//! This sketches the intended API. `ExtensionContext`, `CreateEntry` and
+//! `OcrOptions` do not exist yet, so the example is not compiled.
+//!
+//! ```ignore
 //! use spacedrive_sdk::{ExtensionContext, prelude::*};
 //!
 //! #[spacedrive_extension]
