@@ -102,7 +102,9 @@ fn test_exact_mode_subdirectory_only() {
 		path: PathBuf::from("/Desktop"),
 	};
 
-	// Event with only subdirectory files
+	// Event with only files nested below a direct child. The subdirectory
+	// itself is a direct child of the scope and would match in exact mode,
+	// so it is deliberately absent here.
 	let event = create_test_batch_event(
 		vec![
 			SdPath::Physical {
@@ -111,10 +113,10 @@ fn test_exact_mode_subdirectory_only() {
 			},
 			SdPath::Physical {
 				device_slug: "test-mac".to_string(),
-				path: PathBuf::from("/Desktop/Subfolder"), // Subdirectory
+				path: PathBuf::from("/Desktop/Subfolder/Deeper/file2.txt"),
 			},
 		],
-		vec!["file1"],
+		vec!["file1", "file2"],
 	);
 
 	// Exact mode: should NOT match (only subdirectory files)

@@ -88,13 +88,14 @@ impl EventCollector {
 		}
 	}
 
-	async fn get_events(&self) -> Vec<Event> {
-		self.events.lock().await.clone()
+	fn events(&self) -> Arc<tokio::sync::Mutex<Vec<Event>>> {
+		self.events.clone()
 	}
+}
 
+impl EventStats {
 	/// Analyze collected events and return statistics
-	async fn analyze(&self) -> EventStats {
-		let events = self.events.lock().await;
+	fn from_events(events: &[Event]) -> EventStats {
 		let mut stats = EventStats::default();
 
 		for event in events.iter() {
@@ -193,62 +194,83 @@ async fn test_resource_events_during_indexing(
 
 	eprintln!("Created test library");
 
-	// Use Desktop directory for real-world testing
-	let desktop_path = dirs::desktop_dir().expect("Could not find Desktop directory");
+	// Index a seeded temp directory so the test does not depend on the
+	// machine having a Desktop folder or on what it contains.
+	let source_dir = TempDir::new()?;
+	let source_path = source_dir.path().to_path_buf();
+	for i in 0..20 {
+		tokio::fs::write(
+			source_path.join(format!("file_{i:02}.txt")),
+			format!("resource events test file {i}\n"),
+		)
+		.await?;
+	}
+	let nested = source_path.join("nested");
+	tokio::fs::create_dir_all(&nested).await?;
+	for i in 0..5 {
+		tokio::fs::write(
+			nested.join(format!("nested_{i}.md")),
+			format!("# nested {i}\n"),
+		)
+		.await?;
+	}
 
-	eprintln!("Using Desktop directory: {:?}", desktop_path);
+	eprintln!("Using source directory: {:?}", source_path);
 
 	// Start event collection
-	let event_bus = core.events.clone();
-	let collection_handle = {
-		let mut collector = EventCollector::new(&event_bus);
-		tokio::spawn(async move {
-			collector.collect_events(Duration::from_secs(60)).await;
-			collector
-		})
-	};
+	let mut collector = EventCollector::new(&core.events);
+	let collected = collector.events();
+	let collection_handle = tokio::spawn(async move {
+		collector.collect_events(Duration::from_secs(60)).await;
+	});
 
 	tokio::time::sleep(Duration::from_millis(100)).await;
 
 	// Tracking dispatches the walk, then the hashing pass behind it
-	eprintln!("Tracking Desktop as a source...");
+	eprintln!("Tracking the source...");
 
 	TrackSourceAction::from_input(TrackSourceInput {
-		path: desktop_path.clone(),
-		name: Some("Desktop Test Source".to_string()),
+		path: source_path.clone(),
+		name: Some("Resource Events Test Source".to_string()),
 		unfiltered: false,
 	})?
 	.execute(library.clone(), core.context.clone())
 	.await?;
 
-	eprintln!("Waiting for indexing to complete (up to 2 minutes)...");
-
-	// Wait longer for Desktop indexing
-	tokio::time::sleep(Duration::from_secs(120)).await;
+	// Wait until a file batch arrives instead of sleeping for a fixed time
+	eprintln!("Waiting for file resource events (up to 60s)...");
+	let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+	loop {
+		let seen_files = collected.lock().await.iter().any(|event| {
+			matches!(
+				event,
+				Event::ResourceChangedBatch { resource_type, .. } if resource_type == "file"
+			)
+		});
+		if seen_files || tokio::time::Instant::now() >= deadline {
+			break;
+		}
+		tokio::time::sleep(Duration::from_millis(250)).await;
+	}
+	// Let the remaining batches of the walk land before analyzing
+	tokio::time::sleep(Duration::from_secs(2)).await;
+	collection_handle.abort();
 
 	eprintln!("\nAnalyzing collected events...\n");
 
-	let collector = collection_handle.await.unwrap();
-	let stats = collector.analyze().await;
+	let events = collected.lock().await.clone();
+	let stats = EventStats::from_events(&events);
 	stats.print();
 
-	// Assertions
-	let total_events = collector.get_events().await.len();
-	eprintln!("\nTotal events received: {}", total_events);
+	eprintln!("\nTotal events received: {}", events.len());
 
-	let file_events = stats.resource_changed_batch.get("file").unwrap_or(&0);
+	let file_events = *stats.resource_changed_batch.get("file").unwrap_or(&0);
 	eprintln!("File ResourceChangedBatch events: {}", file_events);
 
-	if *file_events > 0 {
-		eprintln!("\nSUCCESS: Normalized cache for Files is working!");
-		eprintln!(
-			"   Received {} file resource events during indexing",
-			file_events
-		);
-	} else {
-		eprintln!("\nFAIL: No file resource events received");
-		eprintln!("   The normalized cache system is not emitting file events");
-	}
+	assert!(
+		file_events > 0,
+		"indexing a tracked source should emit file ResourceChangedBatch events"
+	);
 
 	Ok(())
 }

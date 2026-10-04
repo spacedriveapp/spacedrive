@@ -127,7 +127,14 @@ async fn test_real_volume_tracking_lifecycle() {
 		Some("My Custom Test Volume".to_string())
 	);
 	assert!(tracked.is_online);
-	assert_eq!(tracked.total_capacity, Some(50 * 1024 * 1024)); // 50MB
+	// Filesystem metadata eats part of the image, so the usable capacity is
+	// below the image size. Tracking must record what detection saw.
+	assert_eq!(tracked.total_capacity, Some(our_volume.total_capacity));
+	assert!(
+		our_volume.total_capacity <= 50 * 1024 * 1024,
+		"capacity {} exceeds the 50 MB image",
+		our_volume.total_capacity
+	);
 
 	// Untrack the volume
 	let untrack_action = VolumeUntrackAction::new(VolumeUntrackInput {
@@ -323,10 +330,19 @@ async fn test_volume_capacity_scenarios() {
 				.find(|v| v.fingerprint == volume.fingerprint)
 				.expect("Volume should be tracked");
 
+			// Filesystem metadata eats part of the image, so the usable
+			// capacity is below the image size. Tracking must record what
+			// detection saw.
 			assert_eq!(
 				tracked.total_capacity,
-				Some((size_mb as u64) * 1024 * 1024),
-				"Volume capacity should match"
+				Some(volume.total_capacity),
+				"Volume capacity should match the detected volume"
+			);
+			assert!(
+				volume.total_capacity <= (size_mb as u64) * 1024 * 1024,
+				"capacity {} exceeds the {} MB image",
+				volume.total_capacity,
+				size_mb
 			);
 
 			// Test speed on different sized volumes

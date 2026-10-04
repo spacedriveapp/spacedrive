@@ -1,6 +1,10 @@
 //! Integration tests for volume tracking functionality
 
+mod helpers;
+use helpers::test_volumes::{TestVolume, TestVolumeBuilder, TestVolumeManager};
+
 use sd_core::{
+	domain::volume::Volume,
 	ops::volumes::{
 		speed_test::action::{VolumeSpeedTestAction, VolumeSpeedTestInput},
 		track::{VolumeTrackAction, VolumeTrackInput},
@@ -11,7 +15,58 @@ use sd_core::{
 };
 use std::sync::Arc;
 use tempfile::tempdir;
-use tracing::info;
+use tracing::{info, warn};
+
+/// Find a volume the track action accepts, creating one when the machine has none.
+///
+/// `volumes.track` refuses volumes that are not user-visible, and a bare CI
+/// machine exposes only system mounts, which the platform visibility rules
+/// hide. When nothing user-visible is mounted this builds a small loop-backed
+/// volume under the temp dir and keeps it mounted for the test's lifetime by
+/// returning the handle. Returns `None` when creating one needs privileges the
+/// machine does not grant; callers skip the test in that case.
+async fn user_visible_volume(core: &Core, name: &str) -> Option<(Volume, Option<TestVolume>)> {
+	core.volumes
+		.refresh_volumes()
+		.await
+		.expect("Failed to refresh volumes");
+
+	if let Some(volume) = core
+		.volumes
+		.get_all_volumes()
+		.await
+		.into_iter()
+		.find(|v| v.is_user_visible)
+	{
+		return Some((volume, None));
+	}
+
+	if TestVolumeManager::new().check_privileges().await.is_err() {
+		warn!("No user-visible volume and no privileges to create one, skipping test");
+		return None;
+	}
+
+	let test_volume = TestVolumeBuilder::new(name)
+		.size_mb(50)
+		.build()
+		.await
+		.expect("Failed to create test volume");
+
+	core.volumes
+		.refresh_volumes()
+		.await
+		.expect("Failed to refresh volumes");
+
+	let volume = core
+		.volumes
+		.get_all_volumes()
+		.await
+		.into_iter()
+		.find(|v| v.mount_point == test_volume.mount_point && v.is_user_visible)
+		.expect("Test volume should be detected as user-visible");
+
+	Some((volume, Some(test_volume)))
+}
 
 #[tokio::test]
 async fn test_volume_tracking_lifecycle() {
@@ -46,23 +101,9 @@ async fn test_volume_tracking_lifecycle() {
 	// Get volume manager
 	let volume_manager = core.volumes.clone();
 
-	// Refresh volumes to ensure we have the latest
-	volume_manager
-		.refresh_volumes()
-		.await
-		.expect("Failed to refresh volumes");
-
-	// Get all volumes
-	let all_volumes = volume_manager.get_all_volumes().await;
-
-	info!("Detected {} volumes", all_volumes.len());
-
-	// Get first user-visible volume for testing (skip system volumes)
-	let test_volume = all_volumes
-		.iter()
-		.find(|v| v.is_user_visible)
-		.expect("No user-visible volumes available for testing")
-		.clone();
+	let Some((test_volume, _mounted)) = user_visible_volume(&core, "SdTrackLifecycle").await else {
+		return;
+	};
 
 	info!("Using volume '{}' for testing", test_volume.name);
 
@@ -282,21 +323,11 @@ async fn test_volume_tracking_multiple_libraries() {
 
 	info!("Created libraries: {} and {}", library1_id, library2_id);
 
-	// Get volume manager and refresh
 	let volume_manager = core.volumes.clone();
-	volume_manager
-		.refresh_volumes()
-		.await
-		.expect("Failed to refresh volumes");
 
-	// Get first user-visible volume for testing (skip system volumes)
-	let test_volume = volume_manager
-		.get_all_volumes()
-		.await
-		.iter()
-		.find(|v| v.is_user_visible)
-		.expect("No user-visible volumes available for testing")
-		.clone();
+	let Some((test_volume, _mounted)) = user_visible_volume(&core, "SdTrackMultiLib").await else {
+		return;
+	};
 
 	let fingerprint = test_volume.fingerprint.clone();
 
@@ -1022,15 +1053,9 @@ async fn test_volume_tracking_edge_cases() {
 
 	let library_id = library.id();
 
-	// Get a user-visible volume for testing
-	let test_volume = core
-		.volumes
-		.get_all_volumes()
-		.await
-		.iter()
-		.find(|v| v.is_user_visible)
-		.cloned()
-		.expect("No user-visible volumes available");
+	let Some((test_volume, _mounted)) = user_visible_volume(&core, "SdTrackEdgeCases").await else {
+		return;
+	};
 
 	let fingerprint = test_volume.fingerprint.clone();
 
