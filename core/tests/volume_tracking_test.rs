@@ -31,12 +31,16 @@ async fn user_visible_volume(core: &Core, name: &str) -> Option<(Volume, Option<
 		.await
 		.expect("Failed to refresh volumes");
 
+	// Never adopt a sibling test's loop volume: under parallel `cargo test`
+	// its owner unmounts it mid-test. Volumes this file builds live under the
+	// test-volume temp dir, so anything mounted there belongs to someone else.
+	let test_volume_root = std::env::temp_dir().join("spacedrive_test_volumes");
 	if let Some(volume) = core
 		.volumes
 		.get_all_volumes()
 		.await
 		.into_iter()
-		.find(|v| v.is_user_visible)
+		.find(|v| v.is_user_visible && !v.mount_point.starts_with(&test_volume_root))
 	{
 		return Some((volume, None));
 	}
