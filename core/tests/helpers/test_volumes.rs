@@ -766,6 +766,20 @@ impl LinuxTestVolumeManager {
 			));
 		}
 
+		// A container or VM without /dev/loop-control has sudo but cannot back a
+		// volume with a loop device; report that instead of failing at mkfs time.
+		let output = tokio::process::Command::new("sudo")
+			.args(&["-n", "losetup", "--find"])
+			.output()
+			.await?;
+
+		if !output.status.success() {
+			return Err(anyhow!(
+				"no loop device available for test volumes on Linux: {}",
+				String::from_utf8_lossy(&output.stderr).trim()
+			));
+		}
+
 		Ok(())
 	}
 }

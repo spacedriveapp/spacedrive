@@ -108,38 +108,34 @@ impl EventFilters {
 	/// Check if a path should be filtered out
 	pub fn should_skip(&self, path: &std::path::Path) -> bool {
 		let path_str = path.to_string_lossy();
+		// Temp and system checks look at the file name only: a substring match
+		// on the whole path would hide every file under a directory such as
+		// `.tmpAbc123` or `templates`.
+		let name = path
+			.file_name()
+			.map(|n| n.to_string_lossy())
+			.unwrap_or_default();
 
-		// Check temp files
 		if self.skip_temp_files
-			&& (path_str.contains(".tmp")
-				|| path_str.contains(".temp")
-				|| path_str.ends_with("~")
-				|| path_str.ends_with(".swp"))
+			&& (name.ends_with(".tmp")
+				|| name.ends_with(".temp")
+				|| name.ends_with('~')
+				|| name.ends_with(".swp"))
 		{
 			return true;
 		}
 
-		// Check system files
-		if self.skip_system_files
-			&& (path_str.contains(".DS_Store") || path_str.contains("Thumbs.db"))
-		{
+		if self.skip_system_files && (name == ".DS_Store" || name == "Thumbs.db") {
 			return true;
 		}
 
-		// Check hidden files
-		if self.skip_hidden {
-			if let Some(file_name) = path.file_name() {
-				let name = file_name.to_string_lossy();
-				if name.starts_with('.') {
-					// Check if it's an important dotfile
-					let is_important = self
-						.important_dotfiles
-						.iter()
-						.any(|d| d.as_str() == name.as_ref());
-					if !is_important {
-						return true;
-					}
-				}
+		if self.skip_hidden && name.starts_with('.') {
+			let is_important = self
+				.important_dotfiles
+				.iter()
+				.any(|d| d.as_str() == name.as_ref());
+			if !is_important {
+				return true;
 			}
 		}
 
@@ -235,6 +231,12 @@ mod tests {
 
 		// Should NOT skip normal files
 		assert!(!filters.should_skip(&PathBuf::from("/test/file.txt")));
+
+		// A temp-looking ancestor does not hide its children
+		assert!(!filters.should_skip(&PathBuf::from("/tmp/.tmpAb12Cd/file.txt")));
+		assert!(!filters.should_skip(&PathBuf::from("/test/templates/index.html")));
+		assert!(!filters.should_skip(&PathBuf::from("/test/.DS_Store/other.txt")));
+		assert!(filters.should_skip(&PathBuf::from("/tmp/.tmpAb12Cd/file.tmp")));
 	}
 
 	#[test]

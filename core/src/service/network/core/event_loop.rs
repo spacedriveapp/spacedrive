@@ -87,6 +87,9 @@ pub struct NetworkingEventLoop {
 	/// Nodes that already have connection watchers spawned (to prevent duplicates)
 	watched_nodes: Arc<RwLock<std::collections::HashSet<EndpointId>>>,
 
+	/// Devices with a reconnection loop in flight (shared with the service)
+	reconnecting: Arc<RwLock<std::collections::HashSet<Uuid>>>,
+
 	/// Logger for event loop operations
 	logger: Arc<dyn NetworkLogger>,
 }
@@ -102,6 +105,7 @@ impl NetworkingEventLoop {
 		active_connections: Arc<
 			RwLock<std::collections::HashMap<(EndpointId, Vec<u8>), Connection>>,
 		>,
+		reconnecting: Arc<RwLock<std::collections::HashSet<Uuid>>>,
 		logger: Arc<dyn NetworkLogger>,
 	) -> Self {
 		let (command_tx, command_rx) = mpsc::unbounded_channel();
@@ -118,6 +122,7 @@ impl NetworkingEventLoop {
 			shutdown_tx,
 			identity,
 			active_connections,
+			reconnecting,
 			watched_nodes: Arc::new(RwLock::new(std::collections::HashSet::new())),
 			logger,
 		}
@@ -653,18 +658,21 @@ impl NetworkingEventLoop {
 					{
 						let command_sender = Some(self.command_tx.clone());
 						let endpoint = Some(self.endpoint.clone());
+						let device_registry = self.device_registry.clone();
+						let reconnecting = self.reconnecting.clone();
 						let logger = self.logger.clone();
 
-						// Spawn reconnection with a small delay to prevent immediate retry loops
 						tokio::spawn(async move {
 							crate::service::network::core::NetworkingService::attempt_device_reconnection(
-							device_id,
-							persisted_device,
-							command_sender,
-							endpoint,
-							logger,
-						)
-						.await;
+								device_id,
+								persisted_device,
+								command_sender,
+								endpoint,
+								device_registry,
+								reconnecting,
+								logger,
+							)
+							.await;
 						});
 					}
 				}

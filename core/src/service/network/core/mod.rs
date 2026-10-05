@@ -1,6 +1,7 @@
 //! Core networking engine with Iroh P2P
 
 pub mod event_loop;
+pub mod reconnect;
 
 use crate::device::DeviceManager;
 use crate::service::network::{
@@ -17,6 +18,7 @@ use tokio::sync::{broadcast, mpsc, RwLock};
 use uuid::Uuid;
 
 pub use event_loop::{EventLoopCommand, NetworkingEventLoop};
+pub use reconnect::{dial_role, DialRole, ReconnectSchedule};
 
 /// Protocol ALPN identifiers
 pub const PAIRING_ALPN: &[u8] = b"spacedrive/pairing/1";
@@ -112,6 +114,14 @@ pub struct NetworkingService {
 	/// Nodes that already have connection watchers spawned (to prevent duplicates)
 	watched_nodes: Arc<RwLock<std::collections::HashSet<EndpointId>>>,
 
+	/// Devices with a reconnection loop in flight, so the periodic sweep and
+	/// connection-lost handling never run two dial loops for one device
+	reconnecting: Arc<RwLock<std::collections::HashSet<Uuid>>>,
+
+	/// Long-running tasks (periodic reconnection) aborted on shutdown so they
+	/// release their endpoint clones
+	background_tasks: Arc<RwLock<Vec<tokio::task::JoinHandle<()>>>>,
+
 	/// Sync multiplexer for routing sync messages to correct library
 	sync_multiplexer: Arc<SyncMultiplexer>,
 
@@ -165,6 +175,8 @@ impl NetworkingService {
 			event_sender,
 			active_connections: Arc::new(RwLock::new(std::collections::HashMap::new())),
 			watched_nodes: Arc::new(RwLock::new(std::collections::HashSet::new())),
+			reconnecting: Arc::new(RwLock::new(std::collections::HashSet::new())),
+			background_tasks: Arc::new(RwLock::new(Vec::new())),
 			sync_multiplexer,
 			logger,
 		})
@@ -297,6 +309,7 @@ impl NetworkingService {
 			self.event_sender.clone(),
 			self.identity.clone(),
 			self.active_connections.clone(),
+			self.reconnecting.clone(),
 			self.logger.clone(),
 		);
 
@@ -362,15 +375,18 @@ impl NetworkingService {
 		for (device_id, persisted_device) in auto_reconnect_devices {
 			let command_sender = self.command_sender.clone();
 			let endpoint = self.endpoint.clone();
+			let device_registry = self.device_registry.clone();
+			let reconnecting = self.reconnecting.clone();
 			let logger = self.logger.clone();
 
-			// Spawn a background task for each device reconnection
 			tokio::spawn(async move {
 				Self::attempt_device_reconnection(
 					device_id,
 					persisted_device,
 					command_sender,
 					endpoint,
+					device_registry,
+					reconnecting,
 					logger,
 				)
 				.await;
@@ -378,25 +394,31 @@ impl NetworkingService {
 		}
 	}
 
-	/// Attempt to reconnect to a specific device
-	async fn attempt_device_reconnection(
+	/// Run one bounded dial loop for a paired device.
+	///
+	/// The lower EndpointId dials first and the other side waits a grace
+	/// period, which avoids both sides racing into duplicate connections while
+	/// still guaranteeing that one side dials even when the initiator's retry
+	/// state was lost (see `reconnect`). Each dial is bounded by a timeout so a
+	/// hung discovery never stalls the schedule, and the loop stops as soon as
+	/// the registry shows the device connected, whichever side made it so.
+	pub(crate) async fn attempt_device_reconnection(
 		device_id: Uuid,
 		persisted_device: crate::service::network::device::PersistedPairedDevice,
 		command_sender: Option<tokio::sync::mpsc::UnboundedSender<EventLoopCommand>>,
 		endpoint: Option<Endpoint>,
+		device_registry: Arc<RwLock<DeviceRegistry>>,
+		reconnecting: Arc<RwLock<std::collections::HashSet<Uuid>>>,
 		logger: Arc<dyn NetworkLogger>,
 	) {
-		// Deterministic reconnection: only the device with the lower EndpointId initiates
-		// This prevents both sides from simultaneously trying to connect
-		let endpoint_ref = match &endpoint {
-			Some(ep) => ep,
-			None => {
+		let (endpoint, sender) = match (endpoint, command_sender) {
+			(Some(endpoint), Some(sender)) => (endpoint, sender),
+			_ => {
 				logger.warn("No endpoint available for reconnection").await;
 				return;
 			}
 		};
 
-		let my_node_id = endpoint_ref.id();
 		let remote_node_id = match persisted_device
 			.device_info
 			.network_fingerprint
@@ -412,174 +434,178 @@ impl NetworkingService {
 			}
 		};
 
-		// Deterministic rule: only device with lower EndpointId initiates outbound connections
-		// This prevents both sides from creating competing connections
-		if my_node_id > remote_node_id {
+		if !reconnecting.write().await.insert(device_id) {
 			logger
 				.debug(&format!(
-					"Skipping outbound reconnection to {} - waiting for them to connect to us (EndpointId rule: {} > {})",
-					persisted_device.device_info.device_name,
-					my_node_id,
-					remote_node_id
+					"Reconnection to {} already in progress, not starting another",
+					persisted_device.device_info.device_name
 				))
 				.await;
 			return;
 		}
 
+		let mut schedule = ReconnectSchedule::new(dial_role(&endpoint.id(), &remote_node_id));
 		logger
 			.info(&format!(
-				"EndpointId rule: {} < {} - we should initiate connection",
-				my_node_id, remote_node_id
+				"Reconnecting to {} as {:?} (EndpointId rule: {} vs {}), first dial in {:?}",
+				persisted_device.device_info.device_name,
+				schedule.role(),
+				endpoint.id(),
+				remote_node_id,
+				schedule.initial_delay()
 			))
 			.await;
+		tokio::time::sleep(schedule.initial_delay()).await;
 
-		logger
-			.info(&format!(
-				"Starting reconnection attempts for device: {}",
-				device_id
-			))
+		loop {
+			let already_connected = matches!(
+				device_registry.read().await.get_device_state(device_id),
+				Some(crate::service::network::device::DeviceState::Connected { .. })
+			);
+			if already_connected || endpoint.is_closed() {
+				logger
+					.debug(&format!(
+						"Stopping reconnection loop for device {} (connected or endpoint closed)",
+						device_id
+					))
+					.await;
+				break;
+			}
+
+			let node_addr = EndpointAddr::new(remote_node_id);
+			let dial = tokio::time::timeout(
+				reconnect::CONNECT_TIMEOUT,
+				endpoint.connect(node_addr, MESSAGING_ALPN),
+			)
 			.await;
 
-		if let (Some(endpoint), Some(sender)) = (endpoint, command_sender) {
-			// Try to parse node ID from the persisted device
-			if let Ok(node_id) = persisted_device
-				.device_info
-				.network_fingerprint
-				.node_id
-				.parse::<EndpointId>()
-			{
-				// Build EndpointAddr - Iroh will discover addresses automatically
-				let node_addr = EndpointAddr::new(node_id);
+			match dial {
+				Ok(Ok(conn)) => {
+					logger
+						.info(&format!("Successfully connected to device {}", device_id))
+						.await;
+					let _ = sender.send(EventLoopCommand::TrackOutboundConnection {
+						node_id: remote_node_id,
+						conn,
+					});
+					let _ = sender.send(EventLoopCommand::ConnectionEstablished {
+						device_id,
+						node_id: remote_node_id,
+					});
+					break;
+				}
+				Ok(Err(e)) => {
+					logger
+						.info(&format!(
+							"Connection attempt {} failed for device {}: {}",
+							schedule.attempts() + 1,
+							device_id,
+							e
+						))
+						.await;
+				}
+				Err(_) => {
+					logger
+						.info(&format!(
+							"Connection attempt {} timed out for device {}",
+							schedule.attempts() + 1,
+							device_id
+						))
+						.await;
+				}
+			}
 
-				// Attempt connection with retries to give discovery time to work
-				let mut retry_count = 0;
-				let max_retries = 10;
-				let retry_delay = tokio::time::Duration::from_secs(5);
-
-				loop {
-					// Use MESSAGING_ALPN for reconnection to paired devices
-					match endpoint.connect(node_addr.clone(), MESSAGING_ALPN).await {
-						Ok(conn) => {
-							logger
-								.info(&format!("Successfully connected to device {}", device_id))
-								.await;
-
-							// Track this outbound connection so it persists
-							let _ = sender.send(EventLoopCommand::TrackOutboundConnection {
-								node_id,
-								conn: conn.clone(),
-							});
-
-							logger
-								.info(&format!("Connection established to device {}", device_id))
-								.await;
-
-							// Send connection established command
-							let _ = sender.send(EventLoopCommand::ConnectionEstablished {
-								device_id,
-								node_id,
-							});
-
-							break;
-						}
-						Err(e) => {
-							retry_count += 1;
-							if retry_count >= max_retries {
-								logger
-									.error(&format!(
-										"Failed to connect to device {} after {} attempts: {}",
-										device_id, max_retries, e
-									))
-									.await;
-								break;
-							} else {
-								logger
-									.info(&format!(
-										"Connection attempt {} of {} failed for device {}, retrying in {:?}...",
-										retry_count, max_retries, device_id, retry_delay
-									))
-									.await;
-								tokio::time::sleep(retry_delay).await;
-							}
-						}
-					}
+			match schedule.next_delay() {
+				Some(delay) => tokio::time::sleep(delay).await,
+				None => {
+					logger
+						.warn(&format!(
+							"Giving up on device {} after {} attempts; the periodic sweep will retry",
+							device_id,
+							schedule.attempts()
+						))
+						.await;
+					break;
 				}
 			}
 		}
+
+		reconnecting.write().await.remove(&device_id);
 	}
 
 	/// Start periodic reconnection attempts for disconnected devices
+	///
+	/// This is the safety net behind the event-driven loop: a device whose
+	/// dial loop exhausted, or whose peer vanished without a clean close, gets
+	/// a fresh schedule on every tick while it stays unconnected.
 	async fn start_periodic_reconnection(&self) {
 		let device_registry = self.device_registry.clone();
 		let command_sender = self.command_sender.clone();
 		let endpoint = self.endpoint.clone();
+		let reconnecting = self.reconnecting.clone();
 		let logger = self.logger.clone();
 
-		tokio::spawn(async move {
+		let task = tokio::spawn(async move {
 			let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30));
 
 			loop {
 				interval.tick().await;
 
-				// Get disconnected devices that should be reconnected
-				if let Ok(auto_reconnect_devices) = {
+				let auto_reconnect_devices = {
 					let registry = device_registry.read().await;
-					registry.get_auto_reconnect_devices().await
-				} {
-					// Only attempt reconnection for devices we haven't seen recently
-					let now = chrono::Utc::now();
-					for (device_id, persisted_device) in auto_reconnect_devices {
-						// Skip if device was seen recently (within last 5 minutes)
-						if let Some(last_connected) = persisted_device.last_connected_at {
-							if now.signed_duration_since(last_connected)
-								< chrono::Duration::minutes(5)
-							{
-								continue;
-							}
-						}
-
-						// Every paired device loads as Paired and only becomes
-						// Disconnected after a session drops, so a peer that was
-						// unreachable when this device started is still Paired and
-						// needs dialing just the same.
-						let is_unconnected = {
-							let registry = device_registry.read().await;
-							if let Some(device_state) = registry.get_device_state(device_id) {
-								matches!(
-									device_state,
-									crate::service::network::device::DeviceState::Paired { .. }
-										| crate::service::network::device::DeviceState::Disconnected { .. }
-								)
-							} else {
-								true // Not in registry, try to reconnect
-							}
-						};
-
-						if is_unconnected {
-							logger
-								.info(&format!(
-									"Attempting periodic reconnection to device: {}",
-									device_id
-								))
-								.await;
-							let cmd_sender = command_sender.clone();
-							let ep = endpoint.clone();
-							let logger_clone = logger.clone();
-							tokio::spawn(async move {
-								Self::attempt_device_reconnection(
-									device_id,
-									persisted_device,
-									cmd_sender,
-									ep,
-									logger_clone,
-								)
-								.await;
-							});
-						}
+					match registry.get_auto_reconnect_devices().await {
+						Ok(devices) => devices,
+						Err(_) => continue,
 					}
+				};
+
+				for (device_id, persisted_device) in auto_reconnect_devices {
+					// Every paired device loads as Paired and only becomes
+					// Disconnected after a session drops, so a peer that was
+					// unreachable when this device started is still Paired and
+					// needs dialing just the same.
+					let is_unconnected = {
+						let registry = device_registry.read().await;
+						match registry.get_device_state(device_id) {
+							Some(state) => matches!(
+								state,
+								crate::service::network::device::DeviceState::Paired { .. }
+									| crate::service::network::device::DeviceState::Disconnected { .. }
+							),
+							None => true,
+						}
+					};
+					if !is_unconnected || reconnecting.read().await.contains(&device_id) {
+						continue;
+					}
+
+					logger
+						.info(&format!(
+							"Attempting periodic reconnection to device: {}",
+							device_id
+						))
+						.await;
+					let cmd_sender = command_sender.clone();
+					let ep = endpoint.clone();
+					let registry = device_registry.clone();
+					let in_flight = reconnecting.clone();
+					let logger_clone = logger.clone();
+					tokio::spawn(async move {
+						Self::attempt_device_reconnection(
+							device_id,
+							persisted_device,
+							cmd_sender,
+							ep,
+							registry,
+							in_flight,
+							logger_clone,
+						)
+						.await;
+					});
 				}
 			}
 		});
+		self.background_tasks.write().await.push(task);
 	}
 
 	/// Start periodic health checks for connected devices
@@ -845,6 +871,20 @@ impl NetworkingService {
 			let _ = shutdown_sender.send(());
 			// Wait a bit for graceful shutdown
 			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+		}
+
+		for task in self.background_tasks.write().await.drain(..) {
+			task.abort();
+		}
+
+		// Closing the endpoint sends CONNECTION_CLOSE to every peer so they
+		// see the drop at once instead of at QUIC idle timeout, and stops the
+		// old socket answering for our node id once a new endpoint takes over
+		// (an in-process restart with the same identity).
+		if let Some(endpoint) = &self.endpoint {
+			endpoint.close().await;
+			self.active_connections.write().await.clear();
+			self.logger.info("Endpoint closed").await;
 		}
 		Ok(())
 	}

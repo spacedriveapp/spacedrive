@@ -1,91 +1,73 @@
 name: Core Tests
 
 on:
-  workflow_dispatch: # manual trigger only, auto-run disabled for now
-  # push:
-  #   branches: ["main"]
-  # pull_request:
-  #   branches: ["main"]
+  push:
+    branches: ["sources"]
+  pull_request:
+    branches: ["sources"]
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
   CARGO_NET_RETRY: 10
+  RUST_BACKTRACE: short
   RUSTUP_MAX_RETRIES: 10
+  SD_AUTH: disabled
+
+# Cancel previous runs of the same workflow on the same branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
     strategy:
       fail-fast: false
       matrix:
-        settings:
-          - host: [self-hosted, macOS, ARM64]
-            target: aarch64-apple-darwin
-            os: macos
-          - host: ubuntu-22.04
-            target: blacksmith-4vcpu-ubuntu-2404
-            os: linux
-          - host: [self-hosted, Windows, X64]
-            target: x86_64-pc-windows-msvc
-            os: windows
-    name: Test Core - ${{ matrix.settings.os }}
-    runs-on: ${{ matrix.settings.host }}
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        suite:
+          - name: unit
+            # sd-fs-watcher's lib tests exercise the Linux inotify handler and
+            # live outside the sd-core runner, so the unit job runs them too.
+            run: |
+              cargo run -p xtask -- test-core --unit --verbose
+              cargo test -p sd-fs-watcher --lib
+          - name: integration
+            run: cargo run -p xtask -- test-core --integration --verbose
+    name: Core Tests (${{ matrix.suite.name }}, ubuntu-24.04)
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
-      - name: Maximize build space
-        if: ${{ matrix.settings.os == 'linux' }}
-        uses: easimon/maximize-build-space@master
-        with:
-          swap-size-mb: 3072
-          root-reserve-mb: 6144
-          remove-dotnet: 'true'
-          remove-codeql: 'true'
-          remove-haskell: 'true'
-          remove-docker-images: 'true'
-
-      - name: Symlink target to C:\
-        if: ${{ matrix.settings.os == 'windows' }}
-        shell: cmd
-        run: |
-          if exist target rmdir /S /Q target
-          if not exist C:\spacedrive_target mkdir C:\spacedrive_target
-          mklink /J target C:\spacedrive_target
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: ./.github/actions/setup-rust
         with:
-          targets: ${{ matrix.settings.target }}
+          restore-cache: "false"
 
-      - name: Setup System and Rust
-        uses: ./.github/actions/setup-system
+      # Blacksmith serves actions/cache transparently, so the upstream action
+      # is the right one here. Each half keeps its own key: the two jobs build
+      # different test targets and would otherwise overwrite each other.
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          target: ${{ matrix.settings.target }}
+          shared-key: core-tests-${{ matrix.suite.name }}
 
-      - name: Cache cargo registry
-        uses: actions/cache@v4
+      - name: Install system dependencies
+        run: ./scripts/setup.sh
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
         with:
-          path: ~/.cargo/registry
-          key: ${{ matrix.settings.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          bun-version: "1.3.4"
 
-      - name: Cache cargo index
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/git
-          key: ${{ matrix.settings.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install TypeScript dependencies
+        run: bun install --frozen-lockfile
 
-      - name: Cache cargo build
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: ${{ matrix.settings.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Setup native dependencies
-        run: cargo run -p xtask -- setup
-
-      - name: Run all tests
-        run: cargo run -p xtask -- test-core --verbose
+      - name: Run tests
+        run: ${{ matrix.suite.run }}
