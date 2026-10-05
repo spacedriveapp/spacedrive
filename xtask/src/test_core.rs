@@ -118,6 +118,30 @@ pub const CORE_TESTS: &[TestSuite] = &[
 	// },
 ];
 
+/// Which part of `CORE_TESTS` to run
+///
+/// CI runs the unit tests and the integration suites as two jobs so they
+/// compile and run in parallel; locally the default runs everything.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Selection {
+	All,
+	/// Only the `--lib` suite
+	Unit,
+	/// Every `--test` suite
+	Integration,
+}
+
+impl Selection {
+	fn includes(self, suite: &TestSuite) -> bool {
+		let is_unit = suite.test_args.first() == Some(&"--lib");
+		match self {
+			Selection::All => true,
+			Selection::Unit => is_unit,
+			Selection::Integration => !is_unit,
+		}
+	}
+}
+
 /// Test result for a single test suite
 #[derive(Debug)]
 pub struct TestResult {
@@ -125,9 +149,13 @@ pub struct TestResult {
 	pub passed: bool,
 }
 
-/// Run all core integration tests with progress tracking
-pub fn run_tests(verbose: bool) -> Result<Vec<TestResult>> {
-	let total_tests = CORE_TESTS.len();
+/// Run the selected core test suites with progress tracking
+pub fn run_tests(verbose: bool, selection: Selection) -> Result<Vec<TestResult>> {
+	let suites: Vec<&TestSuite> = CORE_TESTS
+		.iter()
+		.filter(|suite| selection.includes(suite))
+		.collect();
+	let total_tests = suites.len();
 	let mut results = Vec::new();
 
 	println!();
@@ -136,7 +164,7 @@ pub fn run_tests(verbose: bool) -> Result<Vec<TestResult>> {
 
 	let overall_start = Instant::now();
 
-	for (index, test_suite) in CORE_TESTS.iter().enumerate() {
+	for (index, test_suite) in suites.into_iter().enumerate() {
 		let current = index + 1;
 
 		print!("[{}/{}] ", current, total_tests);
