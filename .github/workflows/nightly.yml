@@ -13,7 +13,10 @@
 #
 # The binaries are built with sd-core's default features: no bundled FFmpeg,
 # libheif or Pdfium, so they do not depend on apps/.deps at runtime. macOS
-# reaches the same formats through its system codecs.
+# reaches the same formats through its system codecs. Because `-p sd-cli -p
+# sd-core` without the `ffmpeg` feature never compiles crates/ffmpeg, the Linux
+# job can use ubuntu-22.04, whose FFmpeg 4.4 is too old for sd-ffmpeg and
+# breaks the full-workspace clippy job in ci.yml.
 name: Nightly
 
 on:
@@ -61,6 +64,9 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           target: ${{ matrix.settings.target }}
+          # Save the cargo cache so a warm macOS build does not pay the
+          # 65-minute cold compile on every push.
+          save-cache: 'true'
 
       - name: Build sd-cli and sd-daemon
         env:
