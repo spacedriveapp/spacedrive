@@ -67,6 +67,7 @@ impl NetworkTransport for NetworkingService {
 			endpoint,
 			node_id,
 			SYNC_ALPN,
+			self.command_sender.as_ref(),
 			&self.logger,
 		)
 		.await

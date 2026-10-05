@@ -5,11 +5,12 @@
 //! - Lightweight streams for individual messages (0 RTT overhead)
 //! - Automatic connection reuse across all protocols
 
+use crate::service::network::core::event_loop::EventLoopCommand;
 use crate::service::network::{NetworkingError, Result};
 use iroh::{endpoint::Connection, Endpoint, EndpointAddr, EndpointId};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{mpsc, RwLock};
 
 use super::logging::NetworkLogger;
 
@@ -23,6 +24,8 @@ use super::logging::NetworkLogger;
 /// * `endpoint` - Iroh endpoint for creating new connections
 /// * `node_id` - Target node to connect to
 /// * `alpn` - Protocol ALPN identifier
+/// * `command_sender` - Event loop handle; a connection this call dials is
+///   handed to it so the event loop accepts streams the peer opens on it
 /// * `logger` - Logger for connection events
 ///
 /// # Returns
@@ -33,6 +36,7 @@ pub async fn get_or_create_connection(
 	endpoint: &Endpoint,
 	node_id: EndpointId,
 	alpn: &'static [u8],
+	command_sender: Option<&mpsc::UnboundedSender<EventLoopCommand>>,
 	logger: &Arc<dyn NetworkLogger>,
 ) -> Result<Connection> {
 	let alpn_vec = alpn.to_vec();
@@ -82,6 +86,17 @@ pub async fn get_or_create_connection(
 	{
 		let mut connections_guard = connections.write().await;
 		connections_guard.insert(cache_key, conn.clone());
+	}
+
+	// The cache is shared with the accept side, so the peer finds this
+	// connection too and opens its own streams on it. Nobody reads those
+	// streams unless the event loop serves the connection like an inbound
+	// one; without this the peer's request times out while ours succeed.
+	if let Some(sender) = command_sender {
+		let _ = sender.send(EventLoopCommand::TrackOutboundConnection {
+			node_id,
+			conn: conn.clone(),
+		});
 	}
 
 	logger

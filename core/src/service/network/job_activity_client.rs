@@ -27,6 +27,12 @@ pub struct JobActivityClient {
 	/// event; the receiver task removes its device when the stream closes,
 	/// so a reconnect subscribes cleanly.
 	subscribed: Arc<RwLock<HashSet<Uuid>>>,
+	/// Event loop handle so connections this client dials are served too
+	command_sender: Option<
+		tokio::sync::mpsc::UnboundedSender<
+			crate::service::network::core::event_loop::EventLoopCommand,
+		>,
+	>,
 }
 
 impl JobActivityClient {
@@ -35,12 +41,18 @@ impl JobActivityClient {
 		connections: Arc<RwLock<HashMap<(EndpointId, Vec<u8>), Connection>>>,
 		remote_cache: Arc<RemoteJobCache>,
 		device_registry: Arc<RwLock<DeviceRegistry>>,
+		command_sender: Option<
+			tokio::sync::mpsc::UnboundedSender<
+				crate::service::network::core::event_loop::EventLoopCommand,
+			>,
+		>,
 	) -> Self {
 		Self {
 			endpoint,
 			connections,
 			remote_cache,
 			device_registry,
+			command_sender,
 			subscribed: Arc::new(RwLock::new(HashSet::new())),
 		}
 	}
@@ -80,6 +92,7 @@ impl JobActivityClient {
 			&self.endpoint,
 			node_id,
 			JOB_ACTIVITY_ALPN,
+			self.command_sender.as_ref(),
 			&logger,
 		)
 		.await?;
