@@ -113,7 +113,8 @@ impl LibraryQuery for LibraryInfoQuery {
 		// so every device shows the same numbers and a stale peer figure
 		// never outlives the next sync.
 		let mut statistics = statistics;
-		crate::service::mounts::peer::add_device_summaries(&mut statistics).await;
+		crate::service::mounts::peer::add_device_summaries(&mut statistics, library.db().conn())
+			.await;
 
 		tracing::debug!(
 			library_id = %config.id,

@@ -54,6 +54,53 @@ to remote queries and bytes. Revocation cannot erase data that the device was
 previously allowed to cache, so access policy should expose the smallest useful
 scope.
 
+## Joining an existing library
+
+Pairing makes two devices trust each other; it does not put the new device in
+any library. A device joins a library with `library sync-setup --action
+join-remote` on the joiner, or `--action share-local` on the device that holds
+the library. Either way, one side already has the library's state and the other
+side has none.
+
+The side that creates its copy during the join is the one that must backfill.
+It persists a "first backfill pending" marker in its `sync.db` when the library
+is created, starts its sync service in the `Uninitialized` state, and pulls a
+state snapshot from the existing member. The join request also carries an
+explicit `needs_initial_state` flag, so the existing member knows the joiner has
+nothing to offer yet and does not catch up from it until the joiner reports
+its first watermarks. A device that created its library itself, or that has
+completed its first backfill, starts `Ready` and never adopts a full snapshot
+from a peer; it only receives incremental changes and the device-owned rows of
+peers it has not synced with before. A device that has not finished its first
+backfill refuses state requests, so its half-built copy is never a source.
+
+Both devices register each other in their device tables as part of the join:
+the joiner sends its record with the request and the existing member returns
+its own in the response. The command reports `devices_registered: false` and
+`success: false` when the remote device did not register the joiner, instead
+of claiming success.
+
+## Catch-up with a peer
+
+A `Ready` device catches up with a connected peer once per connection session.
+After a catch-up completes it records the completion per peer in `sync.db`,
+even when the peer had no rows to send, so the same peer is not caught up again
+while the connection lasts. The record is cleared when the peer disconnects and
+when the sync service starts, so changes a peer made while the two were apart
+are pulled once they reconnect. Live changes travel as broadcasts and do not
+depend on this loop; a record older than ten minutes is refreshed as a net for
+a broadcast whose retries ran out while the connection stayed up.
+
+## Library totals
+
+`library info` reports fleet totals. Each member publishes its own file, unique
+content, source, and capacity counts; a device adds the published figures of
+every other member of that library to its own at read time. The device count is
+the number of rows in the library's device table. A joined device with no
+sources of its own therefore shows the same totals as the member that holds the
+data, and the figures stay consistent with the device count because only
+members contribute.
+
 ## Source generations
 
 Each source generation has one ingest authority. For a local filesystem source,

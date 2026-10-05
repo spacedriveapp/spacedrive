@@ -22,6 +22,7 @@ pub mod hlc;
 pub mod peer_log;
 pub mod peer_watermarks;
 pub mod registry;
+pub mod sync_state;
 pub mod syncable;
 pub mod time_source;
 pub mod transaction;
@@ -54,6 +55,7 @@ pub use registry::{
 	apply_shared_change, apply_state_change, compute_registry_sync_order, get_fk_mappings,
 	get_table_name, is_device_owned, ApplyError, SyncableInventoryEntry, SyncableModelRegistration,
 };
+pub use sync_state::SyncStateStore;
 pub use syncable::Syncable;
 pub use time_source::{FakeTimeSource, SystemTimeSource, TimeSource};
 pub use transaction::{TransactionManager, TxError};

@@ -427,21 +427,43 @@ pub async fn device_summaries(
 	summaries_map().read().await.clone()
 }
 
-/// Add every cached peer summary to a set of library statistics.
+/// Add the cached summary of every other member of a library to that
+/// library's statistics.
 ///
 /// Fleet totals are never persisted: the local figures live in the library
 /// config, and every surface that hands statistics to a client adds the peer
-/// summaries through this one path — the read in `libraries.info` and the
+/// summaries through this one path, the read in `libraries.info` and the
 /// `ResourceChanged` emission after a recalculation alike. A surface that
 /// skips it publishes local-only numbers that overwrite the fleet ones in the
-/// client's normalized cache.
-pub async fn add_device_summaries(statistics: &mut crate::library::LibraryStatistics) {
-	for summary in summaries_map().read().await.values() {
+/// client's normalized cache. Only devices in the library's device table
+/// contribute, so the file, source, and capacity totals describe the same
+/// set of devices that `device_count` counts; a paired device that has not
+/// joined this library adds nothing.
+pub async fn add_device_summaries(
+	statistics: &mut crate::library::LibraryStatistics,
+	library_db: &sea_orm::DatabaseConnection,
+) {
+	use crate::infra::db::entities;
+	use sea_orm::EntityTrait;
+
+	let members: Vec<Uuid> = match entities::device::Entity::find().all(library_db).await {
+		Ok(devices) => devices.into_iter().map(|d| d.uuid).collect(),
+		Err(err) => {
+			tracing::debug!("library members unavailable for fleet totals: {err}");
+			return;
+		}
+	};
+
+	for (device_id, summary) in summaries_map().read().await.iter() {
+		if !members.contains(device_id) {
+			continue;
+		}
 		statistics.total_files += summary.file_count;
 		statistics.total_size += summary.total_size;
 		statistics.unique_content_count += summary.unique_content_count;
 		statistics.total_capacity += summary.total_capacity;
 		statistics.available_capacity += summary.available_capacity;
+		statistics.source_count += summary.source_count;
 	}
 }
 

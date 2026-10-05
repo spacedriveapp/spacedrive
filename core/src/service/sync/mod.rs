@@ -51,6 +51,12 @@ const MAX_BACKFILL_ATTEMPTS: u32 = 3;
 /// hammering a peer, short enough that a connectivity blip heals itself.
 const BACKFILL_PAUSE_SECS: u64 = 300;
 
+/// How old a peer's catch-up record may get before the loop catches up with
+/// it again while the connection holds. Live broadcasts carry changes; this
+/// is the net for one whose retries ran out without a disconnect. A catch-up
+/// with nothing new costs two small requests, so ten minutes is cheap.
+const CATCH_UP_REFRESH_SECS: i64 = 600;
+
 /// Retry state for incremental catch-up operations
 ///
 /// Implements exponential backoff to prevent infinite retry loops when catch-up fails.
@@ -325,6 +331,12 @@ impl SyncService {
 
 		let mut backfill_attempted = false;
 		let mut backfill_failures: u32 = 0;
+		// Peers whose backfill failed since the last success. They score below
+		// the others on the next attempt, so a copy that refuses to serve a
+		// snapshot (still pending its own) does not get picked forever while
+		// a member holding state is connected.
+		let mut backfill_failed_peers: std::collections::HashSet<Uuid> =
+			std::collections::HashSet::new();
 		let mut backfill_paused_until: Option<tokio::time::Instant> = None;
 		let mut retry_state = CatchUpRetryState::new();
 
@@ -361,9 +373,12 @@ impl SyncService {
 												device_id,
 												latency_ms,
 												is_online: true,
-												has_complete_state: true,
+												has_complete_state: !backfill_failed_peers.contains(&device_id),
 												active_syncs: 0,
 											});
+										}
+										if peer_info.iter().all(|p| !p.has_complete_state) {
+											backfill_failed_peers.clear();
 										}
 
 										// Start backfill process
@@ -371,9 +386,13 @@ impl SyncService {
 											Ok(()) => {
 												info!("Automatic backfill completed successfully");
 												backfill_failures = 0;
+												backfill_failed_peers.clear();
 											}
 											Err(e) => {
 												backfill_failures += 1;
+												if let DeviceSyncState::Backfilling { peer, .. } = peer_sync.state().await {
+													backfill_failed_peers.insert(peer);
+												}
 												let old_state = peer_sync.state().await;
 												let mut state = peer_sync.state.write().await;
 
@@ -434,8 +453,11 @@ impl SyncService {
 						}
 
 						DeviceSyncState::Ready => {
-							// Check for connected partners and catch up if watermarks are outdated
-							// FIX: Iterate ALL partners and check per-peer watermarks from sync.db
+							// Catch up once per connection session with every connected
+							// partner: the record is cleared when the service starts and
+							// when the peer disconnects. Later changes arrive as live
+							// broadcasts; the slow refresh only covers a broadcast whose
+							// retries ran out while the connection stayed up.
 							match peer_sync.network().get_connected_sync_partners(
 								peer_sync.library_id(),
 								peer_sync.db(),
@@ -446,41 +468,21 @@ impl SyncService {
 									if peer_sync.is_realtime_active().await {
 										debug!("Skipping catch-up - real-time sync is active (lock mechanism)");
 									} else {
-									// Iterate each partner individually (FIX: was only checking partners[0])
 									for partner_id in partners {
-										// Query per-peer watermarks from sync.db
-										let peer_watermarks = peer_sync
-											.get_all_watermarks_for_peer(partner_id)
-											.await
-											.unwrap_or_default();
-
-										// Determine if we need to sync with this peer
-										let needs_sync = if peer_watermarks.is_empty() {
-											// NEW PEER - never synced with them before
-											info!(peer = %partner_id, "Detected new peer, no watermarks exist - initiating sync");
-											true
-										} else {
-											// EXISTING PEER - check if watermarks are stale
-											let oldest_watermark = peer_watermarks.iter()
-												.map(|(_, ts)| *ts)
-												.min()
-												.unwrap();
-
-											let time_since_sync = chrono::Utc::now().signed_duration_since(oldest_watermark);
-
-											if time_since_sync.num_seconds() > 60 {
-												debug!(
-													peer = %partner_id,
-													time_since_sync_secs = time_since_sync.num_seconds(),
-													"Peer watermarks stale, needs catch-up"
-												);
+										let needs_sync = match peer_sync.peer_caught_up_at(partner_id).await {
+											Ok(Some(at)) => {
+												let age = chrono::Utc::now().signed_duration_since(at).num_seconds();
+												if age >= CATCH_UP_REFRESH_SECS {
+													debug!(peer = %partner_id, age_secs = age, "Catch-up record is stale - refreshing");
+												}
+												age >= CATCH_UP_REFRESH_SECS
+											}
+											Ok(None) => {
+												info!(peer = %partner_id, "Never caught up with this peer - initiating sync");
 												true
-											} else {
-												debug!(
-													peer = %partner_id,
-													time_since_sync_secs = time_since_sync.num_seconds(),
-													"Peer watermarks up to date"
-												);
+											}
+											Err(e) => {
+												warn!(peer = %partner_id, error = %e, "Failed to read peer catch-up record");
 												false
 											}
 										};
@@ -498,31 +500,24 @@ impl SyncService {
 											continue;
 										}
 
-										// Check if we should escalate to full backfill after repeated failures
+										// Repeated failures used to send a Ready device back to
+										// Uninitialized, which pulls a full snapshot over its own
+										// rows. A device that holds state keeps it; the failure
+										// stays visible and the backoff keeps growing.
 										if retry_state.should_escalate() {
-											warn!(
+											error!(
 												failures = retry_state.consecutive_failures,
 												peer = %partner_id,
-												"Too many catch-up failures, escalating to full backfill"
+												"Catch-up keeps failing against this peer; keeping local state, retrying with backoff"
 											);
-											retry_state.record_success(); // Reset retry state
-
-											// Transition to Uninitialized to trigger full backfill
-											let old_state = peer_sync.state().await;
-											let mut state = peer_sync.state.write().await;
-											*state = DeviceSyncState::Uninitialized;
-											info!(
-												from_state = ?old_state,
-												to_state = ?DeviceSyncState::Uninitialized,
-												reason = "too_many_catchup_failures",
-												"Sync state transition"
-											);
-											backfill_attempted = false; // Allow backfill to run again
-											break; // Exit partner loop, will restart as Uninitialized
 										}
 
 										// Get watermarks for this specific peer (oldest across resource types)
-										let state_watermark = peer_watermarks.iter()
+										let state_watermark = peer_sync
+											.get_all_watermarks_for_peer(partner_id)
+											.await
+											.unwrap_or_default()
+											.iter()
 											.map(|(_, ts)| *ts)
 											.min();
 

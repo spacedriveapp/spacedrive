@@ -736,7 +736,8 @@ impl Library {
 		// figures, but an event carrying those would overwrite the summed
 		// statistics `libraries.info` served into the normalized cache.
 		let mut library = crate::domain::Library::from_config(&config, path.clone());
-		crate::service::mounts::peer::add_device_summaries(&mut library.statistics).await;
+		crate::service::mounts::peer::add_device_summaries(&mut library.statistics, db.conn())
+			.await;
 		use crate::domain::resource::EventEmitter;
 		if let Err(e) = library.emit_changed(&event_bus) {
 			warn!(
@@ -810,7 +811,11 @@ impl Library {
 		let config = self.config.read().await;
 		let mut library = crate::domain::Library::from_config(&config, self.path().to_path_buf());
 		drop(config);
-		crate::service::mounts::peer::add_device_summaries(&mut library.statistics).await;
+		crate::service::mounts::peer::add_device_summaries(
+			&mut library.statistics,
+			self.db().conn(),
+		)
+		.await;
 
 		use crate::domain::resource::EventEmitter;
 		if let Err(e) = library.emit_changed(&self.event_bus) {
@@ -1146,7 +1151,7 @@ impl Library {
 	}
 
 	/// Count the sources registered in this library (static version).
-	async fn calculate_source_count_static(db: &sea_orm::DatabaseConnection) -> Result<u32> {
+	pub async fn calculate_source_count_static(db: &sea_orm::DatabaseConnection) -> Result<u32> {
 		use crate::infra::db::entities::source;
 		use sea_orm::{EntityTrait, PaginatorTrait};
 

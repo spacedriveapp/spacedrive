@@ -2,6 +2,7 @@
 
 use super::{input::LibrarySyncSetupInput, output::LibrarySyncSetupOutput, LibrarySyncAction};
 use crate::infra::action::{error::ActionError, CoreAction};
+use crate::service::network::protocol::library_messages::{DeviceRecord, LibraryMessage};
 use std::sync::Arc;
 use tracing::{info, warn};
 use uuid::Uuid;
@@ -101,136 +102,198 @@ impl CoreAction for LibrarySyncSetupAction {
 }
 
 impl LibrarySyncSetupAction {
-	/// Register remote device in local library using its library-specific slug
-	/// The slug should come from the remote device (either from CreateSharedLibraryResponse
-	/// or from the remote device's DeviceInfo which includes library overrides)
-	async fn register_remote_device_in_library(
-		&self,
-		context: &Arc<crate::context::CoreContext>,
+	/// Store the remote device's record in a local library.
+	///
+	/// The record comes back in the RegisterDeviceResponse, so both device
+	/// tables are complete when the setup command returns instead of relying
+	/// on a second request the peer sends later. Insert or update, with the
+	/// same slug collision rule the inbound handler applies.
+	async fn store_remote_device(
 		local_library: &Arc<crate::library::Library>,
-		remote_device_id: Uuid,
-		remote_device_slug: String,
+		record: DeviceRecord,
 	) -> Result<(), ActionError> {
 		use crate::infra::db::entities;
 		use chrono::Utc;
 		use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 
-		// Get networking to access device info
-		let networking = context
-			.get_networking()
-			.await
-			.ok_or_else(|| ActionError::Internal("Networking not available".to_string()))?;
-
-		let device_registry = networking.device_registry();
-		let registry = device_registry.read().await;
-
-		// Get remote device info
-		let remote_device_info = match registry.get_device_state(remote_device_id) {
-			Some(crate::service::network::device::DeviceState::Paired { info, .. }) => info.clone(),
-			Some(crate::service::network::device::DeviceState::Connected { info, .. }) => {
-				info.clone()
-			}
-			_ => {
-				return Err(ActionError::Internal(format!(
-					"Could not get info for device {}",
-					remote_device_id
-				)));
-			}
-		};
-
-		drop(registry);
-
-		let db = local_library.db();
-
-		// Check if remote device already exists
-		let existing_device = entities::device::Entity::find()
-			.filter(entities::device::Column::Uuid.eq(remote_device_id))
-			.one(db.conn())
+		let db = local_library.db().conn();
+		let existing = entities::device::Entity::find()
+			.filter(entities::device::Column::Uuid.eq(record.device_id))
+			.one(db)
 			.await
 			.map_err(|e| ActionError::Internal(format!("Database error: {}", e)))?;
 
-		if existing_device.is_none() {
-			// Extract device OS info
-			let device_os = match &remote_device_info.device_type {
-				crate::service::network::device::DeviceType::Desktop => "Desktop",
-				crate::service::network::device::DeviceType::Laptop => "Laptop",
-				crate::service::network::device::DeviceType::Mobile => "Mobile",
-				crate::service::network::device::DeviceType::Server => "Server",
-				crate::service::network::device::DeviceType::Other(s) => s.as_str(),
-			};
+		let gpu_models = record.gpu_models.map(|g| serde_json::json!(g));
 
-			// Register remote device with its library-specific slug
-			let device_model = entities::device::ActiveModel {
-				id: sea_orm::ActiveValue::NotSet,
-				uuid: Set(remote_device_id),
-				name: Set(remote_device_info.device_name.clone()),
-				slug: Set(remote_device_slug.clone()),
-				os: Set(device_os.to_string()),
-				os_version: Set(Some(remote_device_info.os_version.clone())),
-				hardware_model: Set(None),
-				// Hardware specs - not available for remote devices
-				cpu_model: Set(None),
-				cpu_architecture: Set(None),
-				cpu_cores_physical: Set(None),
-				cpu_cores_logical: Set(None),
-				cpu_frequency_mhz: Set(None),
-				memory_total_bytes: Set(None),
-				form_factor: Set(None),
-				manufacturer: Set(None),
-				gpu_models: Set(None),
-				boot_disk_type: Set(None),
-				boot_disk_capacity_bytes: Set(None),
-				swap_total_bytes: Set(None),
-				network_addresses: Set(serde_json::json!([])),
-				is_online: Set(false),
-				last_seen_at: Set(Utc::now()),
-				capabilities: Set(serde_json::json!({
-					"indexing": true,
-					"p2p": true,
-					"volume_detection": true
-				})),
-				created_at: Set(Utc::now()),
-				updated_at: Set(Utc::now()),
-				sync_enabled: Set(true),
-			};
-
-			device_model
-				.insert(db.conn())
+		if let Some(existing) = existing {
+			let mut model: entities::device::ActiveModel = existing.into();
+			model.name = Set(record.device_name);
+			model.os = Set(record.os_name);
+			model.os_version = Set(record.os_version);
+			model.hardware_model = Set(record.hardware_model);
+			model.cpu_model = Set(record.cpu_model);
+			model.cpu_architecture = Set(record.cpu_architecture);
+			model.cpu_cores_physical = Set(record.cpu_cores_physical);
+			model.cpu_cores_logical = Set(record.cpu_cores_logical);
+			model.cpu_frequency_mhz = Set(record.cpu_frequency_mhz);
+			model.memory_total_bytes = Set(record.memory_total_bytes);
+			model.form_factor = Set(record.form_factor);
+			model.manufacturer = Set(record.manufacturer);
+			model.gpu_models = Set(gpu_models);
+			model.boot_disk_type = Set(record.boot_disk_type);
+			model.boot_disk_capacity_bytes = Set(record.boot_disk_capacity_bytes);
+			model.swap_total_bytes = Set(record.swap_total_bytes);
+			model.last_seen_at = Set(Utc::now());
+			model.updated_at = Set(Utc::now());
+			model
+				.update(db)
 				.await
-				.map_err(|e| ActionError::Internal(format!("Failed to insert device: {}", e)))?;
-
-			info!(
-				"Registered remote device {} in library {} with slug '{}'",
-				remote_device_id,
-				local_library.id(),
-				remote_device_slug
-			);
-
-			// Sync the device record so it propagates to all devices in library
-			let inserted_device = entities::device::Entity::find()
-				.filter(entities::device::Column::Uuid.eq(remote_device_id))
-				.one(db.conn())
-				.await
-				.map_err(|e| ActionError::Internal(format!("Failed to query device: {}", e)))?
-				.ok_or_else(|| {
-					ActionError::Internal("Device not found after insert".to_string())
-				})?;
-
-			use crate::infra::sync::ChangeType;
-			local_library
-				.sync_model(&inserted_device, ChangeType::Insert)
-				.await
-				.map_err(|e| {
-					ActionError::Internal(format!("Failed to sync device record: {}", e))
-				})?;
-
-			info!(
-				"Synced device record for {} to all library members",
-				remote_device_id
-			);
+				.map_err(|e| ActionError::Internal(format!("Failed to update device: {}", e)))?;
+			return Ok(());
 		}
 
+		let existing_slugs: Vec<String> = entities::device::Entity::find()
+			.all(db)
+			.await
+			.map_err(|e| ActionError::Internal(format!("Database error: {}", e)))?
+			.into_iter()
+			.map(|d| d.slug)
+			.collect();
+		let slug =
+			crate::library::Library::ensure_unique_slug(&record.device_slug, &existing_slugs);
+
+		entities::device::ActiveModel {
+			id: sea_orm::ActiveValue::NotSet,
+			uuid: Set(record.device_id),
+			name: Set(record.device_name),
+			slug: Set(slug),
+			os: Set(record.os_name),
+			os_version: Set(record.os_version),
+			hardware_model: Set(record.hardware_model),
+			cpu_model: Set(record.cpu_model),
+			cpu_architecture: Set(record.cpu_architecture),
+			cpu_cores_physical: Set(record.cpu_cores_physical),
+			cpu_cores_logical: Set(record.cpu_cores_logical),
+			cpu_frequency_mhz: Set(record.cpu_frequency_mhz),
+			memory_total_bytes: Set(record.memory_total_bytes),
+			form_factor: Set(record.form_factor),
+			manufacturer: Set(record.manufacturer),
+			gpu_models: Set(gpu_models),
+			boot_disk_type: Set(record.boot_disk_type),
+			boot_disk_capacity_bytes: Set(record.boot_disk_capacity_bytes),
+			swap_total_bytes: Set(record.swap_total_bytes),
+			network_addresses: Set(serde_json::json!([])),
+			is_online: Set(true),
+			last_seen_at: Set(Utc::now()),
+			capabilities: Set(serde_json::json!({
+				"indexing": true,
+				"p2p": true,
+				"volume_detection": true
+			})),
+			created_at: Set(Utc::now()),
+			updated_at: Set(Utc::now()),
+			sync_enabled: Set(true),
+		}
+		.insert(db)
+		.await
+		.map_err(|e| ActionError::Internal(format!("Failed to insert device: {}", e)))?;
+
+		info!(
+			"Registered remote device {} in library {}",
+			record.device_id,
+			local_library.id()
+		);
 		Ok(())
+	}
+
+	/// Send our registration to the remote device and store its record from
+	/// the response. Returns false when the remote did not register us.
+	async fn exchange_device_records(
+		&self,
+		context: &Arc<crate::context::CoreContext>,
+		networking: &Arc<crate::service::network::NetworkingService>,
+		local_library: &Arc<crate::library::Library>,
+		needs_initial_state: bool,
+	) -> Result<bool, ActionError> {
+		let library_id = local_library.id();
+		let local_device = context
+			.device_manager
+			.to_device()
+			.map_err(|e| ActionError::Internal(format!("Failed to get device info: {}", e)))?;
+		let local_device_slug = context
+			.device_manager
+			.slug_for_library(library_id)
+			.map_err(|e| ActionError::Internal(format!("Failed to get device slug: {}", e)))?;
+
+		let register_request = LibraryMessage::RegisterDeviceRequest {
+			request_id: Uuid::new_v4(),
+			library_id: Some(library_id),
+			device_id: self.input.local_device_id,
+			device_name: local_device.name,
+			device_slug: local_device_slug,
+			os_name: local_device.os.to_string(),
+			os_version: local_device.os_version,
+			hardware_model: local_device.hardware_model,
+			cpu_model: local_device.cpu_model,
+			cpu_architecture: local_device.cpu_architecture,
+			cpu_cores_physical: local_device.cpu_cores_physical,
+			cpu_cores_logical: local_device.cpu_cores_logical,
+			cpu_frequency_mhz: local_device.cpu_frequency_mhz,
+			memory_total_bytes: local_device.memory_total_bytes,
+			form_factor: local_device.form_factor.map(|f| f.to_string()),
+			manufacturer: local_device.manufacturer,
+			gpu_models: local_device.gpu_models,
+			boot_disk_type: local_device.boot_disk_type,
+			boot_disk_capacity_bytes: local_device.boot_disk_capacity_bytes,
+			swap_total_bytes: local_device.swap_total_bytes,
+			needs_initial_state,
+		};
+
+		match networking
+			.send_library_request(self.input.remote_device_id, register_request)
+			.await
+		{
+			Ok(LibraryMessage::RegisterDeviceResponse {
+				success: true,
+				device,
+				..
+			}) => {
+				info!("Successfully registered local device on remote device");
+				match device {
+					Some(record) => {
+						Self::store_remote_device(local_library, record).await?;
+						Ok(true)
+					}
+					None => {
+						warn!("Remote device registered us but did not return its own record");
+						Ok(false)
+					}
+				}
+			}
+			Ok(LibraryMessage::RegisterDeviceResponse {
+				success: false,
+				message,
+				..
+			}) => {
+				warn!(
+					"Remote device failed to register local device: {}",
+					message
+						.clone()
+						.unwrap_or_else(|| "Unknown error".to_string())
+				);
+				Err(ActionError::Internal(format!(
+					"Remote device refused registration: {}",
+					message.unwrap_or_else(|| "Unknown error".to_string())
+				)))
+			}
+			Ok(_) => Err(ActionError::Internal(
+				"Unexpected response from remote device for register request".to_string(),
+			)),
+			Err(e) => Err(ActionError::Internal(format!(
+				"Failed to send register request to remote device: {}",
+				e
+			))),
+		}
 	}
 
 	/// Execute ShareLocalLibrary action - share local library to remote device
@@ -256,8 +319,6 @@ impl LibrarySyncSetupAction {
 			.ok_or_else(|| ActionError::Internal("Networking not available".to_string()))?;
 
 		// Send CreateSharedLibraryRequest to remote device
-		use crate::service::network::protocol::library_messages::LibraryMessage;
-
 		// Get full device information including hardware specs
 		let local_device = context
 			.device_manager
@@ -332,80 +393,17 @@ impl LibrarySyncSetupAction {
 					remote_slug
 				);
 
-				// Send RegisterDeviceRequest to remote device
-				// Remote will register us, then send RegisterDeviceRequest back to register themselves
-				// This bidirectional exchange ensures both devices have full hardware specs
-				let networking = context
-					.get_networking()
-					.await
-					.ok_or_else(|| ActionError::Internal("Networking not available".to_string()))?;
-
-				// Get full device information including hardware specs
-				let local_device = context.device_manager.to_device().map_err(|e| {
-					ActionError::Internal(format!("Failed to get device info: {}", e))
-				})?;
-
-				// Get library-specific slug (uses override if set, otherwise global slug)
-				let local_device_slug = context
-					.device_manager
-					.slug_for_library(library_id)
-					.map_err(|e| {
-						ActionError::Internal(format!("Failed to get device slug: {}", e))
-					})?;
-
-				let register_request = LibraryMessage::RegisterDeviceRequest {
-					request_id: Uuid::new_v4(),
-					library_id: Some(library_id),
-					device_id: self.input.local_device_id,
-					device_name: local_device.name,
-					device_slug: local_device_slug,
-					os_name: local_device.os.to_string(),
-					os_version: local_device.os_version,
-					hardware_model: local_device.hardware_model,
-					cpu_model: local_device.cpu_model,
-					cpu_architecture: local_device.cpu_architecture,
-					cpu_cores_physical: local_device.cpu_cores_physical,
-					cpu_cores_logical: local_device.cpu_cores_logical,
-					cpu_frequency_mhz: local_device.cpu_frequency_mhz,
-					memory_total_bytes: local_device.memory_total_bytes,
-					form_factor: local_device.form_factor.map(|f| f.to_string()),
-					manufacturer: local_device.manufacturer,
-					gpu_models: local_device.gpu_models,
-					boot_disk_type: local_device.boot_disk_type,
-					boot_disk_capacity_bytes: local_device.boot_disk_capacity_bytes,
-					swap_total_bytes: local_device.swap_total_bytes,
-				};
-
-				match networking
-					.send_library_request(self.input.remote_device_id, register_request)
-					.await
-				{
-					Ok(LibraryMessage::RegisterDeviceResponse { success: true, .. }) => {
-						info!("Successfully registered local device on remote device");
-					}
-					Ok(LibraryMessage::RegisterDeviceResponse {
-						success: false,
-						message,
-						..
-					}) => {
-						warn!(
-							"Remote device failed to register local device: {}",
-							message.unwrap_or_else(|| "Unknown error".to_string())
-						);
-					}
-					Err(e) => {
-						warn!("Failed to send register request to remote device: {}", e);
-					}
-					_ => {
-						warn!("Unexpected response from remote device for register request");
-					}
-				}
+				// Both device tables fill in one round trip: the remote stores
+				// us, and its own record comes back in the response.
+				let devices_registered = self
+					.exchange_device_records(&context, &networking, local_library, false)
+					.await?;
 
 				Ok(LibrarySyncSetupOutput {
 					success: true,
 					local_library_id: library_id,
 					remote_library_id: Some(library_id),
-					devices_registered: true,
+					devices_registered,
 					message: format!(
 						"Successfully shared library '{}' to remote device",
 						library_name
@@ -459,100 +457,29 @@ impl LibrarySyncSetupAction {
 			remote_library_name, remote_library_id
 		);
 
-		// Get remote device's slug from DeviceInfo and register it
 		let networking = context
 			.get_networking()
 			.await
 			.ok_or_else(|| ActionError::Internal("Networking not available".to_string()))?;
 
-		let device_registry = networking.device_registry();
-		let remote_device_slug = {
-			let registry = device_registry.read().await;
-			match registry.get_device_state(self.input.remote_device_id) {
-				Some(crate::service::network::device::DeviceState::Paired { info, .. })
-				| Some(crate::service::network::device::DeviceState::Connected { info, .. }) => {
-					info.device_slug.clone()
-				}
-				_ => {
-					return Err(ActionError::Internal(
-						"Could not get remote device info".to_string(),
-					));
-				}
-			}
-		};
-
-		// Register remote device in the newly created local library
-		// Send RegisterDeviceRequest to remote device
-		// Remote will register us, then send RegisterDeviceRequest back to register themselves
-		// This bidirectional exchange ensures both devices have full hardware specs
-
-		// Get full device information including hardware specs
-		let local_device = context
-			.device_manager
-			.to_device()
-			.map_err(|e| ActionError::Internal(format!("Failed to get device info: {}", e)))?;
-
-		// Get library-specific slug (uses override if set, otherwise global slug)
-		let local_device_slug = context
-			.device_manager
-			.slug_for_library(remote_library_id)
-			.map_err(|e| ActionError::Internal(format!("Failed to get device slug: {}", e)))?;
-
-		use crate::service::network::protocol::library_messages::LibraryMessage;
-
-		let register_request = LibraryMessage::RegisterDeviceRequest {
-			request_id: Uuid::new_v4(),
-			library_id: Some(remote_library_id),
-			device_id: self.input.local_device_id,
-			device_name: local_device.name,
-			device_slug: local_device_slug,
-			os_name: local_device.os.to_string(),
-			os_version: local_device.os_version,
-			hardware_model: local_device.hardware_model,
-			cpu_model: local_device.cpu_model,
-			cpu_architecture: local_device.cpu_architecture,
-			cpu_cores_physical: local_device.cpu_cores_physical,
-			cpu_cores_logical: local_device.cpu_cores_logical,
-			cpu_frequency_mhz: local_device.cpu_frequency_mhz,
-			memory_total_bytes: local_device.memory_total_bytes,
-			form_factor: local_device.form_factor.map(|f| f.to_string()),
-			manufacturer: local_device.manufacturer,
-			gpu_models: local_device.gpu_models,
-			boot_disk_type: local_device.boot_disk_type,
-			boot_disk_capacity_bytes: local_device.boot_disk_capacity_bytes,
-			swap_total_bytes: local_device.swap_total_bytes,
-		};
-
-		match networking
-			.send_library_request(self.input.remote_device_id, register_request)
-			.await
-		{
-			Ok(LibraryMessage::RegisterDeviceResponse { success: true, .. }) => {
-				info!("Successfully registered local device on remote device");
-			}
-			Ok(LibraryMessage::RegisterDeviceResponse {
-				success: false,
-				message,
-				..
-			}) => {
-				warn!(
-					"Remote device failed to register local device: {}",
-					message.unwrap_or_else(|| "Unknown error".to_string())
-				);
-			}
-			Err(e) => {
-				warn!("Failed to send register request to remote device: {}", e);
-			}
-			_ => {
-				warn!("Unexpected response from remote device for register request");
-			}
+		// The new copy holds nothing. The flag tells the remote device it must
+		// have state to offer, and its record in the response gives the sync
+		// service a member to backfill from. A join whose registration failed
+		// leaves a library with no partner, so that is a failure, not a warning.
+		let devices_registered = self
+			.exchange_device_records(&context, &networking, &local_library, true)
+			.await?;
+		if !devices_registered {
+			return Err(ActionError::Internal(
+				"Remote device registered this device but did not return its own record; the joined library has no member to sync from".to_string(),
+			));
 		}
 
 		Ok(LibrarySyncSetupOutput {
 			success: true,
 			local_library_id: remote_library_id,
 			remote_library_id: Some(remote_library_id),
-			devices_registered: true,
+			devices_registered,
 			message: format!(
 				"Successfully joined remote library '{}'",
 				remote_library_name

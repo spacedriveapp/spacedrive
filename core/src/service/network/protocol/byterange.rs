@@ -139,6 +139,10 @@ pub struct RemoteDeviceSummary {
 	pub unique_content_count: u64,
 	pub total_capacity: u64,
 	pub available_capacity: u64,
+	/// Sources the device registered itself. Older builds omit it, and
+	/// their sources then just do not count toward the fleet total.
+	#[serde(default)]
+	pub source_count: u32,
 }
 
 /// What a device publishes about itself. Only that device writes these
@@ -783,6 +787,9 @@ impl ByteRangeProtocolHandler {
 					crate::library::Library::calculate_unique_content_count_static(db)
 						.await
 						.unwrap_or(0);
+				let source_count = crate::library::Library::calculate_source_count_static(db)
+					.await
+					.unwrap_or(0);
 				let live = crate::library::Library::live_capacity_by_fingerprint(
 					&self.context.volume_manager,
 				)
@@ -799,6 +806,7 @@ impl ByteRangeProtocolHandler {
 						unique_content_count,
 						total_capacity,
 						available_capacity,
+						source_count,
 					}),
 				)
 				.await
