@@ -304,10 +304,12 @@ impl SyncProtocolHandler {
 				library_id,
 				since_hlc,
 				limit,
+				include_snapshot,
 			} => {
 				debug!(
 					since_hlc = ?since_hlc,
 					limit = limit,
+					include_snapshot = include_snapshot,
 					"Processing SharedChangeRequest"
 				);
 
@@ -320,7 +322,7 @@ impl SyncProtocolHandler {
 					})?;
 
 				// If initial backfill (since_hlc = None), include full current state
-				let current_state = if since_hlc.is_none() {
+				let current_state = if since_hlc.is_none() && include_snapshot {
 					debug!("Initial backfill requested - querying full shared resource state");
 					match peer_sync.get_full_shared_state().await {
 						Ok(state) => {

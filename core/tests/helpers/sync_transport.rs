@@ -179,12 +179,13 @@ impl MockTransport {
 					library_id,
 					since_hlc,
 					limit,
+					include_snapshot,
 				} => {
 					let (entries, has_more) = sync_service
 						.peer_sync()
 						.get_shared_changes(since_hlc, limit)
 						.await?;
-					let current_state = if since_hlc.is_none() {
+					let current_state = if since_hlc.is_none() && include_snapshot {
 						Some(sync_service.peer_sync().get_full_shared_state().await?)
 					} else {
 						None
@@ -742,7 +743,10 @@ impl NetworkTransport for MockTransport {
 				}
 			}
 			SyncMessage::SharedChangeRequest {
-				since_hlc, limit, ..
+				since_hlc,
+				limit,
+				include_snapshot,
+				..
 			} => {
 				// Query actual shared changes from target device
 				let (entries, has_more) = sync_service
@@ -751,7 +755,7 @@ impl NetworkTransport for MockTransport {
 					.await?;
 
 				// Include current state snapshot if initial backfill
-				let current_state = if since_hlc.is_none() {
+				let current_state = if since_hlc.is_none() && *include_snapshot {
 					Some(sync_service.peer_sync().get_full_shared_state().await?)
 				} else {
 					None

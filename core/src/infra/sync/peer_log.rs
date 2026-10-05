@@ -107,6 +107,11 @@ impl PeerLog {
 			.await
 			.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
 
+		// sync_state and peer_catch_up tables (first-backfill and per-peer catch-up markers)
+		super::sync_state::SyncStateStore::init_table(conn)
+			.await
+			.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
+
 		// backfill_checkpoints table (resumable backfill)
 		super::checkpoints::BackfillCheckpointStore::init_table(conn)
 			.await

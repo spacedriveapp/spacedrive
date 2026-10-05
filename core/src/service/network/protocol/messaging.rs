@@ -23,6 +23,13 @@ pub struct MessagingProtocolHandler {
 
 	/// Cached connections to remote nodes (keyed by EndpointId and ALPN)
 	connections: Arc<RwLock<HashMap<(EndpointId, Vec<u8>), Connection>>>,
+
+	/// Event loop handle so connections this handler dials are served too
+	command_sender: Option<
+		tokio::sync::mpsc::UnboundedSender<
+			crate::service::network::core::event_loop::EventLoopCommand,
+		>,
+	>,
 }
 
 /// Basic message types
@@ -68,12 +75,18 @@ impl MessagingProtocolHandler {
 		device_registry: Arc<RwLock<crate::service::network::device::DeviceRegistry>>,
 		endpoint: Option<Endpoint>,
 		active_connections: Arc<RwLock<HashMap<(EndpointId, Vec<u8>), Connection>>>,
+		command_sender: Option<
+			tokio::sync::mpsc::UnboundedSender<
+				crate::service::network::core::event_loop::EventLoopCommand,
+			>,
+		>,
 	) -> Self {
 		Self {
 			context: None,
 			device_registry,
 			endpoint,
 			connections: active_connections,
+			command_sender,
 		}
 	}
 
@@ -158,7 +171,7 @@ impl MessagingProtocolHandler {
 		_from_device: Uuid,
 		library_msg: LibraryMessage,
 	) -> Result<Vec<u8>> {
-		use super::library_messages::{LibraryDiscoveryInfo, LibraryMessage};
+		use super::library_messages::{DeviceRecord, LibraryDiscoveryInfo, LibraryMessage};
 
 		match library_msg {
 			LibraryMessage::DiscoveryRequest { request_id } => {
@@ -243,6 +256,7 @@ impl MessagingProtocolHandler {
 				boot_disk_type,
 				boot_disk_capacity_bytes,
 				swap_total_bytes,
+				needs_initial_state,
 			} => {
 				// Get context
 				let context = self.context.as_ref().ok_or_else(|| {
@@ -272,7 +286,33 @@ impl MessagingProtocolHandler {
 				let mut success = true;
 				let mut error_msg = None;
 
-				for library in libraries {
+				for library in &libraries {
+					// A joiner backfills from whoever accepts it. A copy that has
+					// not finished its own first backfill has nothing to give and
+					// would hand the joiner a half-built snapshot.
+					if needs_initial_state {
+						let pending = match library.sync_service() {
+							Some(sync) => sync.peer_sync().initial_backfill_pending().await,
+							None => Ok(false),
+						};
+						match pending {
+							Ok(true) => {
+								success = false;
+								error_msg = Some(format!(
+									"Library {} on this device is still waiting for its own first backfill; join from a member that holds the library's state",
+									library.id()
+								));
+								break;
+							}
+							Ok(false) => {}
+							Err(e) => {
+								success = false;
+								error_msg = Some(format!("Failed to read sync state: {}", e));
+								break;
+							}
+						}
+					}
+
 					let db = library.db();
 
 					// Check if device already exists
@@ -394,78 +434,6 @@ impl MessagingProtocolHandler {
 								device_id,
 								library.id()
 							);
-
-							// Send RegisterDeviceRequest back to register ourselves with the new device
-							let context_clone = context.clone();
-							let sender_device_id = device_id;
-							tokio::spawn(async move {
-								// Get our device info
-								if let Ok(our_device) = context_clone.device_manager.to_device() {
-									// Get our slug for this library
-									if let Some(lib_id) = library_id {
-										if let Ok(our_slug) =
-											context_clone.device_manager.slug_for_library(lib_id)
-										{
-											// Get networking
-											if let Some(networking) =
-												context_clone.get_networking().await
-											{
-												let our_register_request =
-													LibraryMessage::RegisterDeviceRequest {
-														request_id: Uuid::new_v4(),
-														library_id,
-														device_id: our_device.id,
-														device_name: our_device.name,
-														device_slug: our_slug,
-														os_name: our_device.os.to_string(),
-														os_version: our_device.os_version,
-														hardware_model: our_device.hardware_model,
-														cpu_model: our_device.cpu_model,
-														cpu_architecture: our_device
-															.cpu_architecture,
-														cpu_cores_physical: our_device
-															.cpu_cores_physical,
-														cpu_cores_logical: our_device
-															.cpu_cores_logical,
-														cpu_frequency_mhz: our_device
-															.cpu_frequency_mhz,
-														memory_total_bytes: our_device
-															.memory_total_bytes,
-														form_factor: our_device
-															.form_factor
-															.map(|f| f.to_string()),
-														manufacturer: our_device.manufacturer,
-														gpu_models: our_device.gpu_models,
-														boot_disk_type: our_device.boot_disk_type,
-														boot_disk_capacity_bytes: our_device
-															.boot_disk_capacity_bytes,
-														swap_total_bytes: our_device
-															.swap_total_bytes,
-													};
-
-												// Send to the device that just registered with us
-												if let Err(e) = networking
-													.send_library_request(
-														sender_device_id,
-														our_register_request,
-													)
-													.await
-												{
-													tracing::warn!(
-														"Failed to send bidirectional RegisterDeviceRequest: {}",
-														e
-													);
-												} else {
-													tracing::info!(
-														"Sent RegisterDeviceRequest back to {} for bidirectional registration",
-														sender_device_id
-													);
-												}
-											}
-										}
-									}
-								}
-							});
 						}
 						Err(e) => {
 							success = false;
@@ -475,11 +443,38 @@ impl MessagingProtocolHandler {
 					}
 				}
 
+				// Our own record rides back in the response so the requester's
+				// device table is complete when its command returns. A library
+				// slug only exists for one library; a register-everywhere request
+				// gets the global slug.
+				let device = if success {
+					match context.device_manager.to_device() {
+						Ok(our_device) => {
+							let slug = library_id
+								.and_then(|lib_id| {
+									context.device_manager.slug_for_library(lib_id).ok()
+								})
+								.unwrap_or_else(|| our_device.slug.clone());
+							Some(DeviceRecord::from_device(our_device, slug))
+						}
+						Err(e) => {
+							tracing::warn!(
+								"Failed to describe local device for registration response: {}",
+								e
+							);
+							None
+						}
+					}
+				} else {
+					None
+				};
+
 				// Send response confirming registration
 				let response = Message::Library(LibraryMessage::RegisterDeviceResponse {
 					request_id,
 					success,
 					message: error_msg.clone(),
+					device,
 				});
 
 				serde_json::to_vec(&response).map_err(|e| NetworkingError::Serialization(e))
@@ -688,6 +683,7 @@ impl MessagingProtocolHandler {
 			endpoint,
 			node_id,
 			crate::service::network::core::MESSAGING_ALPN,
+			self.command_sender.as_ref(),
 			&logger,
 		)
 		.await?;

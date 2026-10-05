@@ -9,6 +9,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+fn default_true() -> bool {
+	true
+}
+
 /// Sync protocol messages for leaderless hybrid sync
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SyncMessage {
@@ -72,6 +76,13 @@ pub enum SyncMessage {
 		library_id: Uuid,
 		since_hlc: Option<HLC>,
 		limit: usize,
+		/// Whether the responder should add its full shared-state snapshot
+		/// when `since_hlc` is `None`. Only a device doing its first backfill
+		/// wants the snapshot; a device that already holds state asks for the
+		/// peer's log alone, because applying a snapshot overwrites rows.
+		/// Defaults to true so a peer running an older build behaves as before.
+		#[serde(default = "default_true")]
+		include_snapshot: bool,
 	},
 
 	/// Response with shared changes

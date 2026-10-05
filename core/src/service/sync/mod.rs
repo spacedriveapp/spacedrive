@@ -434,8 +434,11 @@ impl SyncService {
 						}
 
 						DeviceSyncState::Ready => {
-							// Check for connected partners and catch up if watermarks are outdated
-							// FIX: Iterate ALL partners and check per-peer watermarks from sync.db
+							// Catch up once with every connected partner this device has
+							// never caught up with. Later changes arrive as live broadcasts,
+							// and a reconnect's watermark exchange clears the record when
+							// the peer turns out to be ahead, so nothing here re-polls a
+							// peer on a timer.
 							match peer_sync.network().get_connected_sync_partners(
 								peer_sync.library_id(),
 								peer_sync.db(),
@@ -446,41 +449,15 @@ impl SyncService {
 									if peer_sync.is_realtime_active().await {
 										debug!("Skipping catch-up - real-time sync is active (lock mechanism)");
 									} else {
-									// Iterate each partner individually (FIX: was only checking partners[0])
 									for partner_id in partners {
-										// Query per-peer watermarks from sync.db
-										let peer_watermarks = peer_sync
-											.get_all_watermarks_for_peer(partner_id)
-											.await
-											.unwrap_or_default();
-
-										// Determine if we need to sync with this peer
-										let needs_sync = if peer_watermarks.is_empty() {
-											// NEW PEER - never synced with them before
-											info!(peer = %partner_id, "Detected new peer, no watermarks exist - initiating sync");
-											true
-										} else {
-											// EXISTING PEER - check if watermarks are stale
-											let oldest_watermark = peer_watermarks.iter()
-												.map(|(_, ts)| *ts)
-												.min()
-												.unwrap();
-
-											let time_since_sync = chrono::Utc::now().signed_duration_since(oldest_watermark);
-
-											if time_since_sync.num_seconds() > 60 {
-												debug!(
-													peer = %partner_id,
-													time_since_sync_secs = time_since_sync.num_seconds(),
-													"Peer watermarks stale, needs catch-up"
-												);
+										let needs_sync = match peer_sync.peer_caught_up_at(partner_id).await {
+											Ok(Some(_)) => false,
+											Ok(None) => {
+												info!(peer = %partner_id, "Never caught up with this peer - initiating sync");
 												true
-											} else {
-												debug!(
-													peer = %partner_id,
-													time_since_sync_secs = time_since_sync.num_seconds(),
-													"Peer watermarks up to date"
-												);
+											}
+											Err(e) => {
+												warn!(peer = %partner_id, error = %e, "Failed to read peer catch-up record");
 												false
 											}
 										};
@@ -498,31 +475,24 @@ impl SyncService {
 											continue;
 										}
 
-										// Check if we should escalate to full backfill after repeated failures
+										// Repeated failures used to send a Ready device back to
+										// Uninitialized, which pulls a full snapshot over its own
+										// rows. A device that holds state keeps it; the failure
+										// stays visible and the backoff keeps growing.
 										if retry_state.should_escalate() {
-											warn!(
+											error!(
 												failures = retry_state.consecutive_failures,
 												peer = %partner_id,
-												"Too many catch-up failures, escalating to full backfill"
+												"Catch-up keeps failing against this peer; keeping local state, retrying with backoff"
 											);
-											retry_state.record_success(); // Reset retry state
-
-											// Transition to Uninitialized to trigger full backfill
-											let old_state = peer_sync.state().await;
-											let mut state = peer_sync.state.write().await;
-											*state = DeviceSyncState::Uninitialized;
-											info!(
-												from_state = ?old_state,
-												to_state = ?DeviceSyncState::Uninitialized,
-												reason = "too_many_catchup_failures",
-												"Sync state transition"
-											);
-											backfill_attempted = false; // Allow backfill to run again
-											break; // Exit partner loop, will restart as Uninitialized
 										}
 
 										// Get watermarks for this specific peer (oldest across resource types)
-										let state_watermark = peer_watermarks.iter()
+										let state_watermark = peer_sync
+											.get_all_watermarks_for_peer(partner_id)
+											.await
+											.unwrap_or_default()
+											.iter()
 											.map(|(_, ts)| *ts)
 											.min();
 

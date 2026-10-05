@@ -192,12 +192,31 @@ impl PeerSync {
 		// Create watermark store for per-resource tracking
 		let watermark_store = ResourceWatermarkStore::new(device_id);
 
+		// Only a copy that was created from another device's library and has
+		// not yet backfilled starts Uninitialized. Everything else already
+		// holds state and must never adopt a peer's snapshot, so it starts
+		// Ready and only catches up incrementally.
+		let initial_state =
+			if crate::infra::sync::SyncStateStore::initial_backfill_pending(peer_log.conn())
+				.await
+				.map_err(|e| anyhow::anyhow!("Failed to read sync state: {}", e))?
+			{
+				DeviceSyncState::Uninitialized
+			} else {
+				DeviceSyncState::Ready
+			};
+		info!(
+			library_id = %library_id,
+			initial_state = ?initial_state,
+			"Peer sync initial state from sync.db"
+		);
+
 		Ok(Self {
 			library_id,
 			device_id,
 			db: Arc::new(library.db().conn().clone()),
 			network,
-			state: Arc::new(RwLock::new(DeviceSyncState::Uninitialized)),
+			state: Arc::new(RwLock::new(initial_state)),
 			buffer: Arc::new(BufferQueue::new()),
 			last_realtime_activity: Arc::new(RwLock::new(None)),
 			hlc_generator: Arc::new(tokio::sync::Mutex::new(HLCGenerator::new(
@@ -314,6 +333,50 @@ impl PeerSync {
 		);
 
 		Ok(())
+	}
+
+	/// Whether this library copy still waits for its first backfill.
+	pub async fn initial_backfill_pending(&self) -> Result<bool> {
+		crate::infra::sync::SyncStateStore::initial_backfill_pending(self.peer_log.conn())
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to read sync state: {}", e))
+	}
+
+	/// Clear the first-backfill marker after a snapshot has been applied.
+	pub async fn mark_initial_backfill_complete(&self) -> Result<()> {
+		crate::infra::sync::SyncStateStore::mark_initial_backfill_complete(self.peer_log.conn())
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to update sync state: {}", e))
+	}
+
+	/// When this device last finished a catch-up with `peer`, if ever.
+	pub async fn peer_caught_up_at(
+		&self,
+		peer: Uuid,
+	) -> Result<Option<chrono::DateTime<chrono::Utc>>> {
+		crate::infra::sync::SyncStateStore::new(self.device_id)
+			.peer_caught_up_at(self.peer_log.conn(), peer)
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to read peer catch-up: {}", e))
+	}
+
+	/// Record a finished catch-up with `peer`, even one that carried no rows,
+	/// so the loop does not catch up with the same peer again until a
+	/// watermark exchange says it is ahead.
+	pub async fn mark_peer_caught_up(&self, peer: Uuid) -> Result<()> {
+		crate::infra::sync::SyncStateStore::new(self.device_id)
+			.mark_peer_caught_up(self.peer_log.conn(), peer)
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to record peer catch-up: {}", e))
+	}
+
+	/// Forget the catch-up record for `peer` so the next loop iteration
+	/// catches up with it.
+	pub async fn clear_peer_caught_up(&self, peer: Uuid) -> Result<()> {
+		crate::infra::sync::SyncStateStore::new(self.device_id)
+			.clear_peer_caught_up(self.peer_log.conn(), peer)
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to clear peer catch-up: {}", e))
 	}
 
 	/// Get all watermarks for a peer (for diagnostics)
@@ -596,6 +659,7 @@ impl PeerSync {
 				library_id: self.library_id,
 				since_hlc: my_shared_watermark,
 				limit: self.config.batching.backfill_batch_size,
+				include_snapshot: false,
 			};
 
 			self.network

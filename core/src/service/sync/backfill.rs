@@ -256,6 +256,12 @@ impl BackfillManager {
 		)
 		.await?;
 
+		// This copy now holds state. It must start Ready after a restart and
+		// never adopt another snapshot, and it is caught up with the peer it
+		// just copied.
+		self.peer_sync.mark_initial_backfill_complete().await?;
+		self.peer_sync.mark_peer_caught_up(selected_peer).await?;
+
 		// Record metrics
 		self.metrics.record_backfill_session_complete();
 
@@ -287,22 +293,29 @@ impl BackfillManager {
 
 	/// Perform incremental catch-up using watermarks
 	///
-	/// Called when device is Ready and reconnects after offline period.
-	/// Only fetches changes newer than our watermarks.
+	/// Called when device is Ready: once for a peer it has never caught up
+	/// with, and again when a watermark exchange shows the peer is ahead.
+	/// Only fetches changes newer than our watermarks. A Ready device already
+	/// holds state, so the shared request never asks for the peer's snapshot;
+	/// a missing watermark means "never synced with this peer", not "ancient",
+	/// and simply fetches the peer's whole log and device-owned rows.
 	pub async fn catch_up_from_peer(
 		&self,
 		peer: Uuid,
 		state_watermark: Option<chrono::DateTime<chrono::Utc>>,
 		shared_watermark: Option<String>,
 	) -> Result<()> {
-		// Check watermark age - force full sync if too old (tombstones may be pruned)
-		let watermark_age = state_watermark
-			.map(|w| chrono::Utc::now() - w)
-			.unwrap_or(chrono::Duration::max_value());
+		self.metrics.record_backfill_session_start();
 
+		// A watermark older than the tombstone retention cannot be trusted:
+		// deletions since then may already be pruned, so fetch everything.
 		let threshold_days = self.config.retention.force_full_sync_threshold_days;
-		let effective_state_watermark =
-			if watermark_age > chrono::Duration::days(threshold_days as i64) {
+		let effective_state_watermark = match state_watermark {
+			Some(watermark)
+				if chrono::Utc::now() - watermark
+					> chrono::Duration::days(threshold_days as i64) =>
+			{
+				let watermark_age = chrono::Utc::now() - watermark;
 				warn!(
 				"State watermark is {} days old (> {} days), forcing full sync to ensure consistency",
 				watermark_age.num_days(),
@@ -334,10 +347,10 @@ impl BackfillManager {
 					let _ = event_logger.log(event).await;
 				}
 
-				None // Force full sync
-			} else {
-				state_watermark
-			};
+				None
+			}
+			other => other,
+		};
 
 		// Parse shared watermark HLC for incremental sync
 		let since_hlc = shared_watermark
@@ -354,7 +367,7 @@ impl BackfillManager {
 		// Backfill shared resources FIRST (device-owned models depend on them)
 		// Uses parsed HLC watermark for incremental sync
 		let max_shared_hlc = self
-			.backfill_shared_resources_since(peer, since_hlc)
+			.backfill_shared_resources_since(peer, since_hlc, false)
 			.await?;
 
 		// Backfill device-owned state since watermark (after shared dependencies exist)
@@ -366,10 +379,15 @@ impl BackfillManager {
 		self.set_initial_watermarks_after_backfill(peer, final_state_checkpoint, max_shared_hlc)
 			.await?;
 
+		// Record the completion even when nothing arrived. Per-resource
+		// watermarks only move when rows are received, so a peer with no
+		// device-owned rows would otherwise look new on every loop iteration.
+		self.peer_sync.mark_peer_caught_up(peer).await?;
+
 		// Record metrics
 		self.metrics.record_backfill_session_complete();
 
-		info!("Incremental catch-up complete");
+		info!(peer = %peer, "Incremental catch-up complete");
 		Ok(())
 	}
 
@@ -726,7 +744,7 @@ impl BackfillManager {
 		&self,
 		peer: Uuid,
 	) -> Result<Option<crate::infra::sync::HLC>> {
-		self.backfill_shared_resources_since(peer, None).await
+		self.backfill_shared_resources_since(peer, None, true).await
 	}
 
 	/// Backfill shared resources since a specific HLC watermark
@@ -735,12 +753,14 @@ impl BackfillManager {
 		&self,
 		peer: Uuid,
 		since_hlc: Option<crate::infra::sync::HLC>,
+		include_snapshot: bool,
 	) -> Result<Option<crate::infra::sync::HLC>> {
 		if let Some(hlc) = since_hlc {
 			info!("Backfilling shared resources incrementally since {:?}", hlc);
+		} else if include_snapshot {
+			info!("Backfilling all shared resources with state snapshot");
 		} else {
-			// NOTE: we keep hitting this almost always, I don't think I've ever seen the above log. This concerns me greatly.
-			info!("Backfilling all shared resources");
+			info!("Backfilling peer's shared change log without snapshot");
 		}
 
 		// Request shared changes from peer in batches (can be 100k+ records)
@@ -751,7 +771,12 @@ impl BackfillManager {
 
 		loop {
 			let response = self
-				.request_shared_changes(peer, last_hlc, self.config.batching.backfill_batch_size)
+				.request_shared_changes(
+					peer,
+					last_hlc,
+					self.config.batching.backfill_batch_size,
+					include_snapshot && last_hlc.is_none(),
+				)
 				.await?;
 
 			if let SyncMessage::SharedChangeResponse {
@@ -1289,12 +1314,14 @@ impl BackfillManager {
 		peer: Uuid,
 		since_hlc: Option<HLC>,
 		limit: usize,
+		include_snapshot: bool,
 	) -> Result<SyncMessage> {
 		// Create and send request
 		let request = SyncMessage::SharedChangeRequest {
 			library_id: self.library_id,
 			since_hlc,
 			limit,
+			include_snapshot,
 		};
 
 		// Measure RTT for peer latency tracking
