@@ -69,6 +69,25 @@ pub mod jobs {
 	pub enum Relation {}
 
 	impl ActiveModelBehavior for ActiveModel {}
+
+	/// The columns a job listing needs. `state` is left out on purpose: an
+	/// indexer over millions of files persists its seen-path set there, so
+	/// listing a hundred jobs through the full row reads gigabytes.
+	#[derive(Clone, Debug, DerivePartialModel, sea_orm::FromQueryResult)]
+	#[sea_orm(entity = "Entity")]
+	pub struct ListRow {
+		pub id: String,
+		pub name: String,
+		pub status: String,
+		pub progress_data: Option<Vec<u8>>,
+		pub parent_job_id: Option<String>,
+		pub created_at: DateTime<Utc>,
+		pub started_at: Option<DateTime<Utc>>,
+		pub completed_at: Option<DateTime<Utc>>,
+		pub error_message: Option<String>,
+		pub action_context: Option<Vec<u8>>,
+		pub action_type: Option<String>,
+	}
 }
 
 pub mod history {
