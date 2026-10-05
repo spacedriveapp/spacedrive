@@ -18,17 +18,17 @@ pub struct CliConfig {
 /// Update configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateConfig {
-	/// GitHub repository for releases (e.g., "spacedriveapp/spacedrive-cli-releases")
+	/// GitHub repository whose releases carry the sd and sd-daemon binaries
 	pub repo: String,
-	/// Update channel (stable, beta, nightly)
+	/// Update channel: "stable" follows the latest release, "nightly" follows
+	/// the rolling `nightly` prerelease
 	pub channel: String,
 }
 
 impl Default for UpdateConfig {
 	fn default() -> Self {
 		Self {
-			// Placeholder - users should set this to their releases repo
-			repo: "spacedriveapp/spacedrive-cli-releases".to_string(),
+			repo: "spacedriveapp/spacedrive".to_string(),
 			channel: "stable".to_string(),
 		}
 	}

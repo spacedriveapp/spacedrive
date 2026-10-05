@@ -136,7 +136,11 @@ fn reset_spacedrive_v2_data(data_dir: &Path) -> Result<()> {
 }
 
 #[derive(Parser, Debug)]
-#[command(name = "spacedrive", about = "Spacedrive v2 CLI (daemon client)")]
+#[command(
+	name = "spacedrive",
+	about = "Spacedrive v2 CLI (daemon client)",
+	version = update::VERSION_STRING
+)]
 struct Cli {
 	/// Path to spacedrive data directory
 	#[arg(long)]
@@ -259,11 +263,16 @@ enum Commands {
 	},
 	/// Interactive cloud storage setup
 	Cloud,
-	/// Update CLI and daemon to latest version
+	/// Update CLI and daemon to the latest build on the configured channel
 	Update {
-		/// Force update even if already on latest version
+		/// Reinstall even if already on the latest build
 		#[arg(long)]
 		force: bool,
+		/// Do not ask for confirmation (for timers and scripts)
+		#[arg(long, short = 'y')]
+		yes: bool,
+		#[command(subcommand)]
+		timer: Option<update::TimerCmd>,
 	},
 }
 
@@ -484,10 +493,18 @@ async fn main() -> Result<()> {
 			// Daemon management doesn't need the client, handle directly
 			daemon::run(data_dir, instance, cmd).await?;
 		}
-		Commands::Update { force } => {
-			// Update doesn't need the client
-			update::run(data_dir, force).await?;
-		}
+		Commands::Update { force, yes, timer } => match timer {
+			Some(cmd) => update::run_timer(data_dir, instance, cmd).await?,
+			None => {
+				update::run(
+					data_dir,
+					instance,
+					socket_addr,
+					update::UpdateOptions { force, yes },
+				)
+				.await?
+			}
+		},
 		_ => {
 			run_client_command(cli.command, cli.format, data_dir, socket_addr, cli.device).await?;
 		}

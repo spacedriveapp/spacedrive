@@ -72,9 +72,11 @@ daemon key manager.
 
 ## Auto-start and updates
 
-The installed release keeps client and daemon versions together. Update
-replacement is atomic and verifies signed release artifacts before restarting
-the daemon.
+The installed release keeps client and daemon versions together. `sd update`
+replaces both binaries atomically, verifies the published checksums, and
+restarts the daemon. `update.channel` selects the stable release or the
+rolling nightly build, and `sd update install-timer` checks on a schedule; see
+[Releases](/core/releases#nightly-channel).
 
 Platform service integration starts the daemon at login or boot. Its service
 definition passes the same instance and data-directory arguments used during

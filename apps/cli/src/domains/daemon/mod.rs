@@ -72,7 +72,8 @@ async fn install_launchd_service(data_dir: PathBuf, instance: Option<String>) ->
 		program_args.push(inst.clone());
 	}
 
-	// Build the plist XML
+	// launchd starts agents with a 256 file-descriptor limit, which the daemon
+	// warns about; SoftResourceLimits raises it for watchers and stores.
 	let label = if let Some(ref inst) = instance {
 		format!("com.spacedrive.daemon.{}", inst)
 	} else {
@@ -96,6 +97,11 @@ async fn install_launchd_service(data_dir: PathBuf, instance: Option<String>) ->
 	<dict>
 		<key>SuccessfulExit</key>
 		<false/>
+	</dict>
+	<key>SoftResourceLimits</key>
+	<dict>
+		<key>NumberOfFiles</key>
+		<integer>8192</integer>
 	</dict>
 	<key>StandardOutPath</key>
 	<string>{stdout_log}</string>
