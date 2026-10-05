@@ -143,7 +143,9 @@ serves its own sources to peers, and still answers remote operations.
 `sd sources replication resume` continues each partial file where it stopped
 and runs a replication pass against every connected device at once. The
 switch is `replication.paused` in the daemon config, so a paused daemon stays
-paused across a restart. A pause is not a fetch failure: no backoff accrues.
+paused across a restart; `sd config get replication.paused` reads it and
+`sd config set replication.paused true` is the same as the pause command.
+A pause is not a fetch failure: no backoff accrues.
 
 ### Progress
 

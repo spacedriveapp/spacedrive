@@ -8,6 +8,7 @@ use sd_client::CoreClient;
 use sd_core::ops::config::app::{
 	get::AppConfigOutput, GetAppConfigQueryInput, UpdateAppConfigInput, UpdateAppConfigOutput,
 };
+use sd_core::ops::mounts::{MountsReplicationSetPausedInput, MountsReplicationSetPausedOutput};
 
 #[derive(Subcommand, Debug)]
 pub enum ConfigCmd {
@@ -15,13 +16,15 @@ pub enum ConfigCmd {
 	Show,
 	/// Get a configuration value
 	Get {
-		/// Configuration key (e.g., "update.repo", "update.channel",
-		/// "replication.max_bytes_per_sec")
+		/// Configuration key: current_library_id, update.repo,
+		/// update.channel, replication.max_bytes_per_sec, replication.paused
 		key: String,
 	},
 	/// Set a configuration value
 	Set {
-		/// Configuration key
+		/// Configuration key: update.repo, update.channel,
+		/// replication.max_bytes_per_sec (bytes, or K/M/G suffix),
+		/// replication.paused (true/false)
 		key: String,
 		/// Configuration value
 		value: String,
@@ -32,6 +35,7 @@ pub enum ConfigCmd {
 /// change applies to transfers already in flight and lands in
 /// spacedrive.json rather than the CLI's own file.
 const REPLICATION_MAX_BYTES_PER_SEC: &str = "replication.max_bytes_per_sec";
+const REPLICATION_PAUSED: &str = "replication.paused";
 
 async fn daemon_config(socket_addr: &str) -> Result<AppConfigOutput> {
 	let core = CoreClient::new(socket_addr.to_string());
@@ -86,6 +90,10 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 					REPLICATION_MAX_BYTES_PER_SEC,
 					&format_rate(daemon.replication.max_bytes_per_sec),
 				]);
+				table.add_row(vec![
+					REPLICATION_PAUSED,
+					&daemon.replication.paused.to_string(),
+				]);
 			}
 
 			println!("{}", table);
@@ -107,6 +115,11 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 					.await?
 					.replication
 					.max_bytes_per_sec
+					.to_string(),
+				REPLICATION_PAUSED => daemon_config(&socket_addr)
+					.await?
+					.replication
+					.paused
 					.to_string(),
 				_ => return Err(anyhow::anyhow!("Unknown config key: {}", key)),
 			};
@@ -134,6 +147,17 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 					format_rate(rate)
 				);
 			}
+			REPLICATION_PAUSED => {
+				let paused = parse_bool(&value)?;
+				let core = CoreClient::new(socket_addr.clone());
+				let input = MountsReplicationSetPausedInput { paused };
+				let out: MountsReplicationSetPausedOutput = serde_json::from_value(
+					core.action(&input, None)
+						.await
+						.map_err(|e| anyhow::anyhow!("daemon refused the change: {e}"))?,
+				)?;
+				println!("Set {} = {}", REPLICATION_PAUSED, out.paused);
+			}
 			"update.repo" => {
 				config.set_update_repo(value.clone(), &data_dir)?;
 				println!("Set update.repo = {}", value);
@@ -149,6 +173,14 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 	Ok(())
 }
 
+fn parse_bool(value: &str) -> Result<bool> {
+	match value.trim().to_ascii_lowercase().as_str() {
+		"true" | "yes" | "on" | "1" => Ok(true),
+		"false" | "no" | "off" | "0" => Ok(false),
+		_ => Err(anyhow::anyhow!("'{value}' is not a boolean (true/false)")),
+	}
+}
+
 fn format_rate(bytes_per_sec: u64) -> String {
 	if bytes_per_sec == 0 {
 		return "0 (unlimited)".to_string();
@@ -158,7 +190,15 @@ fn format_rate(bytes_per_sec: u64) -> String {
 
 #[cfg(test)]
 mod tests {
-	use super::parse_byte_rate;
+	use super::{parse_bool, parse_byte_rate};
+
+	#[test]
+	fn pause_switch_takes_common_booleans() {
+		assert!(parse_bool("true").unwrap());
+		assert!(parse_bool("ON").unwrap());
+		assert!(!parse_bool("0").unwrap());
+		assert!(parse_bool("maybe").is_err());
+	}
 
 	#[test]
 	fn byte_rates_take_binary_suffixes() {
