@@ -114,16 +114,27 @@ pub async fn run(ctx: &Context, cmd: SourceCmd) -> Result<()> {
 				table.load_preset(UTF8_BORDERS_ONLY);
 				table.set_header(vec!["ID", "Name", "Type", "Records", "Status", "Root"]);
 				for source in sources {
+					let mut status = if source.attached {
+						source.status.clone()
+					} else {
+						format!("{} (detached)", source.status)
+					};
+					if let Some(transfer) = &source.transfer {
+						status = format!(
+							"{status}: fetching {}",
+							crate::util::output::format_transfer(
+								transfer.bytes,
+								transfer.total,
+								transfer.bytes_per_sec
+							)
+						);
+					}
 					table.add_row(vec![
 						source.id.to_string(),
 						source.name.clone(),
 						source.data_type.clone(),
 						source.item_count.to_string(),
-						if source.attached {
-							source.status.clone()
-						} else {
-							format!("{} (detached)", source.status)
-						},
+						status,
 						source.root.clone().unwrap_or_default(),
 					]);
 				}

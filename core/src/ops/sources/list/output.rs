@@ -42,6 +42,11 @@ pub struct SourceInfo {
 	pub device_id: Option<Uuid>,
 	/// The owning device's display name, for a replica.
 	pub device_label: Option<String>,
+	/// The fetch bringing this replica up to date, while one is in flight.
+	/// Present on a replica being refreshed and on a source whose first
+	/// copy has not finished, which has no other row to appear in.
+	#[serde(default)]
+	pub transfer: Option<crate::service::mounts::replication::ReplicaTransferProgress>,
 }
 
 impl SourceInfo {
@@ -88,6 +93,7 @@ impl SourceInfo {
 			last_seen_at,
 			device_id: None,
 			device_label: None,
+			transfer: None,
 		}
 	}
 
@@ -123,6 +129,37 @@ impl SourceInfo {
 			last_seen_at: synced_at,
 			device_id: Some(device_id),
 			device_label: Some(device_label.to_string()),
+			transfer: crate::service::mounts::replication::transfer(entry.info.id),
+		}
+	}
+
+	/// A source whose first replica is still arriving. Nothing else lists it
+	/// yet: there is no share to browse and no manifest entry until the
+	/// artifact validates, but the transfer itself is worth seeing.
+	pub fn from_transfer(
+		transfer: &crate::service::mounts::replication::ReplicaTransferProgress,
+	) -> Self {
+		let name = transfer
+			.root
+			.file_name()
+			.map(|name| name.to_string_lossy().into_owned())
+			.unwrap_or_else(|| transfer.source_id.to_string());
+		Self {
+			id: transfer.source_id,
+			name,
+			data_type: "filesystem".to_string(),
+			adapter_id: None,
+			item_count: 0,
+			last_synced: None,
+			status: "replica_fetching".to_string(),
+			root: Some(transfer.root.to_string_lossy().into_owned()),
+			volume_uuid: None,
+			attached: false,
+			total_bytes: None,
+			last_seen_at: None,
+			device_id: Some(transfer.device_id),
+			device_label: Some(transfer.device_label.clone()),
+			transfer: Some(transfer.clone()),
 		}
 	}
 
@@ -154,6 +191,7 @@ impl SourceInfo {
 			last_seen_at: synced_at,
 			device_id: Some(share.device_id),
 			device_label: Some(share.device_label.clone()),
+			transfer: crate::service::mounts::replication::transfer(share.info.id),
 		}
 	}
 }

@@ -153,6 +153,7 @@ impl CoreQuery for CoreStatusQuery {
 			services,
 			network: network_status,
 			system,
+			replication: crate::service::mounts::replication::status(),
 		})
 	}
 }

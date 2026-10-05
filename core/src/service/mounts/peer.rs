@@ -984,13 +984,14 @@ type ArtifactBody = Box<dyn tokio::io::AsyncRead + Send + Unpin>;
 /// every byte the header declared and matches its checksum.
 async fn transfer_artifact<F, Fut>(
 	replica_dir: &Path,
-	source_id: Uuid,
+	owner: &TransferOwner<'_>,
 	mut open: F,
 ) -> Result<(PathBuf, ArtifactHeader), FetchError>
 where
 	F: FnMut(u64) -> Fut,
 	Fut: std::future::Future<Output = anyhow::Result<(ArtifactHeader, ArtifactBody)>>,
 {
+	let source_id = owner.info.id;
 	let mut part = find_part(replica_dir, source_id).await;
 	let mut opened = match &part {
 		Some(existing) => match open(existing.have).await {
@@ -1034,10 +1035,34 @@ where
 			0,
 		),
 	};
-	receive_artifact(&mut body, &path, offset, header.len, header.checksum)
-		.await
-		.map_err(FetchError::Failed)?;
+	let reporter = super::replication::TransferReporter::start(
+		owner.events.clone(),
+		owner.device_id,
+		owner.device_label,
+		owner.info,
+		offset,
+		header.len,
+	);
+	receive_artifact(
+		&mut body,
+		&path,
+		offset,
+		header.len,
+		header.checksum,
+		&reporter,
+	)
+	.await
+	.map_err(FetchError::Failed)?;
 	Ok((path, header))
+}
+
+/// Who a transfer is from and about, for progress reporting. The event bus
+/// is optional so the transfer logic tests without a core.
+struct TransferOwner<'a> {
+	events: Option<Arc<crate::infra::event::EventBus>>,
+	device_id: Uuid,
+	device_label: &'a str,
+	info: &'a RemoteSourceInfo,
 }
 
 /// Append a stream to a partial artifact from `offset` to `len`, hashing the
@@ -1050,6 +1075,7 @@ async fn receive_artifact<R: tokio::io::AsyncRead + Unpin + ?Sized>(
 	offset: u64,
 	len: u64,
 	expected_checksum: [u8; 32],
+	reporter: &super::replication::TransferReporter,
 ) -> anyhow::Result<()> {
 	use tokio::io::AsyncWriteExt;
 
@@ -1094,6 +1120,7 @@ async fn receive_artifact<R: tokio::io::AsyncRead + Unpin + ?Sized>(
 			hasher.update(&buf[..n]);
 			file.write_all(&buf[..n]).await?;
 			remaining -= n as u64;
+			reporter.advance(n as u64);
 		}
 		anyhow::Ok(())
 	}
@@ -1229,7 +1256,13 @@ async fn fetch_database_and_publish(
 ) -> Result<(), FetchError> {
 	let started = std::time::Instant::now();
 	let source_id = info.id;
-	let (part, header) = transfer_artifact(replica_dir, source_id, |offset| async move {
+	let owner = TransferOwner {
+		events: Some(context.events.clone()),
+		device_id,
+		device_label,
+		info,
+	};
+	let (part, header) = transfer_artifact(replica_dir, &owner, |offset| async move {
 		let req = if offset == 0 {
 			ByteRangeRequest::FetchDatabase { source_id }
 		} else {
@@ -1316,7 +1349,13 @@ async fn fetch_and_publish(
 ) -> Result<(), FetchError> {
 	let started = std::time::Instant::now();
 	let source_id = info.id;
-	let (part, header) = transfer_artifact(replica_dir, source_id, |offset| async move {
+	let owner = TransferOwner {
+		events: Some(context.events.clone()),
+		device_id,
+		device_label,
+		info,
+	};
+	let (part, header) = transfer_artifact(replica_dir, &owner, |offset| async move {
 		let req = if offset == 0 {
 			ByteRangeRequest::FetchSnapshot { source_id }
 		} else {
@@ -2043,6 +2082,15 @@ mod tests {
 		(0..len).map(|i| (i % 251) as u8).collect()
 	}
 
+	fn owner_of(info: &RemoteSourceInfo) -> TransferOwner<'_> {
+		TransferOwner {
+			events: None,
+			device_id: Uuid::nil(),
+			device_label: "owner",
+			info,
+		}
+	}
+
 	/// The pause switch is process-wide, so tests that transfer run one at
 	/// a time; a pause flipped by one must not stop another's stream.
 	static TRANSFER_TESTS: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
@@ -2074,6 +2122,7 @@ mod tests {
 		let _serial = TRANSFER_TESTS.lock().await;
 		let base = tempfile::tempdir().expect("dir");
 		let source_id = Uuid::now_v7();
+		let source = info(source_id, "/mnt/pool/kept", 1);
 		let bytes = scripted_bytes(2_000_000);
 		let header = ArtifactHeader {
 			len: bytes.len() as u64,
@@ -2082,7 +2131,7 @@ mod tests {
 		};
 
 		let paused_at = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-		let stopped = transfer_artifact(base.path(), source_id, |offset| {
+		let stopped = transfer_artifact(base.path(), &owner_of(&source), |offset| {
 			let bytes = bytes.clone();
 			let paused_at = paused_at.clone();
 			async move {
@@ -2110,7 +2159,7 @@ mod tests {
 		);
 
 		super::super::replication::set_paused(false);
-		let (path, delivered) = transfer_artifact(base.path(), source_id, |offset| {
+		let (path, delivered) = transfer_artifact(base.path(), &owner_of(&source), |offset| {
 			let bytes = bytes.clone();
 			let paused_at = paused_at.clone();
 			async move {
@@ -2135,6 +2184,7 @@ mod tests {
 		let _serial = TRANSFER_TESTS.lock().await;
 		let base = tempfile::tempdir().expect("dir");
 		let source_id = Uuid::now_v7();
+		let source = info(source_id, "/mnt/pool/kept", 1);
 		let owner = std::sync::Arc::new(std::sync::Mutex::new(ScriptedOwner {
 			bytes: scripted_bytes(3_000_000),
 			generation: 42,
@@ -2143,7 +2193,7 @@ mod tests {
 		}));
 		let expected = owner.lock().unwrap().header();
 
-		let first = transfer_artifact(base.path(), source_id, |offset| {
+		let first = transfer_artifact(base.path(), &owner_of(&source), |offset| {
 			let owner = owner.clone();
 			async move { owner.lock().unwrap().open(offset) }
 		})
@@ -2159,7 +2209,7 @@ mod tests {
 		assert_eq!(part.generation, 42);
 		assert_eq!(part.prefix[..], expected.checksum[..8]);
 
-		let (path, header) = transfer_artifact(base.path(), source_id, |offset| {
+		let (path, header) = transfer_artifact(base.path(), &owner_of(&source), |offset| {
 			let owner = owner.clone();
 			async move { owner.lock().unwrap().open(offset) }
 		})
@@ -2183,6 +2233,7 @@ mod tests {
 		let _serial = TRANSFER_TESTS.lock().await;
 		let base = tempfile::tempdir().expect("dir");
 		let source_id = Uuid::now_v7();
+		let source = info(source_id, "/mnt/pool/kept", 1);
 		let stale = part_path(base.path(), source_id, 7, &[9u8; 32]);
 		std::fs::write(&stale, scripted_bytes(500)).expect("stale part");
 
@@ -2192,7 +2243,7 @@ mod tests {
 			cuts: std::collections::VecDeque::new(),
 			offsets: Vec::new(),
 		}));
-		let (path, header) = transfer_artifact(base.path(), source_id, |offset| {
+		let (path, header) = transfer_artifact(base.path(), &owner_of(&source), |offset| {
 			let owner = owner.clone();
 			async move { owner.lock().unwrap().open(offset) }
 		})

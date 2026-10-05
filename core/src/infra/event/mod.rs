@@ -288,6 +288,13 @@ pub enum Event {
 		field: String,
 	},
 
+	/// A replica fetch from a paired device moved, about once a second per
+	/// transfer, with a last emission marked `finished` when it leaves the
+	/// active set, complete or stopped.
+	ReplicationProgress {
+		transfer: crate::service::mounts::replication::ReplicaTransferProgress,
+	},
+
 	// Custom events for extensibility
 	Custom {
 		event_type: String,

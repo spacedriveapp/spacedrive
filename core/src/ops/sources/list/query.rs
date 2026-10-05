@@ -130,6 +130,14 @@ impl LibraryQuery for ListSourcesQuery {
 					&entry,
 				));
 			}
+
+			// A first copy still in flight has no share and no manifest
+			// entry; its row is the transfer.
+			for transfer in crate::service::mounts::replication::transfers() {
+				if !sources.iter().any(|source| source.id == transfer.source_id) {
+					sources.push(SourceInfo::from_transfer(&transfer));
+				}
+			}
 		}
 
 		Ok(sources)

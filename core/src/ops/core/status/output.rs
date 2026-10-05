@@ -17,6 +17,9 @@ pub struct CoreStatus {
 	pub services: ServiceStatus,
 	pub network: NetworkStatus,
 	pub system: SystemInfo,
+	/// Replica fetches from paired devices: the pause switch, the cap and
+	/// every transfer in flight.
+	pub replication: crate::service::mounts::replication::ReplicationStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
