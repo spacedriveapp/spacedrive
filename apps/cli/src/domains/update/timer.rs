@@ -212,7 +212,20 @@ fn install(data_dir: PathBuf, instance: Option<String>, interval: u32) -> Result
 	let (dir, name) = unit_paths(instance.as_deref())?;
 	std::fs::create_dir_all(&dir)?;
 
-	let exec_start = update_command(&data_dir, instance.as_deref())?.join(" ");
+	// systemd splits ExecStart on whitespace and expands `%` specifiers, so
+	// each argument is quoted and `%` doubled.
+	let exec_start = update_command(&data_dir, instance.as_deref())?
+		.iter()
+		.map(|arg| {
+			format!(
+				"\"{}\"",
+				arg.replace('\\', "\\\\")
+					.replace('"', "\\\"")
+					.replace('%', "%%")
+			)
+		})
+		.collect::<Vec<_>>()
+		.join(" ");
 	std::fs::write(
 		dir.join(format!("{}.service", name)),
 		format!(

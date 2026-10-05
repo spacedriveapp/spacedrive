@@ -89,8 +89,11 @@ pub async fn run(
 		(short_sha(CURRENT_SHA), short_sha(&remote_sha), same)
 	} else {
 		let latest = release.tag_name.trim_start_matches('v').to_string();
-		let same = latest == CURRENT_VERSION;
-		(CURRENT_VERSION.to_string(), latest, same)
+		(
+			CURRENT_VERSION.to_string(),
+			latest.clone(),
+			!is_newer_version(&latest, CURRENT_VERSION),
+		)
 	};
 
 	println!("Available: {}", available);
@@ -102,7 +105,10 @@ pub async fn run(
 				installed
 			);
 		} else {
-			println!("You are already on the latest version!");
+			println!(
+				"No newer release than {} is published; you are up to date.",
+				installed
+			);
 		}
 		return Ok(());
 	}
@@ -368,6 +374,21 @@ fn find_binary_asset<'a>(
 	})
 }
 
+/// True when `candidate` is a strictly newer semantic version than
+/// `current`. The repository's latest release can predate the installed
+/// build (the v1 desktop releases live under the same repository), so a
+/// mismatch alone is not an update. Tags that do not parse as semver are
+/// treated as newer so a renamed scheme still reaches the user.
+fn is_newer_version(candidate: &str, current: &str) -> bool {
+	match (
+		semver::Version::parse(candidate),
+		semver::Version::parse(current),
+	) {
+		(Ok(candidate), Ok(current)) => candidate > current,
+		_ => candidate != current,
+	}
+}
+
 fn parse_sha256(text: &str) -> Option<String> {
 	let token = text.split_whitespace().next()?;
 	(token.len() == 64 && token.chars().all(|c| c.is_ascii_hexdigit()))
@@ -475,6 +496,15 @@ mod tests {
 		));
 		assert!(!sha_matches("46a54ca", "ebee7ae"));
 		assert!(!sha_matches("unknown", "46a54ca"));
+	}
+
+	#[test]
+	fn older_release_is_not_an_update() {
+		assert!(!is_newer_version("0.4.3", "2.0.0-alpha.2"));
+		assert!(!is_newer_version("2.0.0-alpha.2", "2.0.0-alpha.2"));
+		assert!(is_newer_version("2.0.0-beta.1", "2.0.0-alpha.2"));
+		assert!(is_newer_version("2.0.0", "2.0.0-beta.1"));
+		assert!(is_newer_version("weekly-12", "2.0.0-alpha.2"));
 	}
 
 	#[test]

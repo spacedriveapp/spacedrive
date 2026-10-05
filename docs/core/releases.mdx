@@ -146,11 +146,14 @@ together.
 
 ~~~bash
 sd config set update.channel stable
-sd update --force
+sd update
 ~~~
 
-The stable channel follows the repository's latest release and compares its
-tag to the package version, unchanged from before the nightly channel existed.
+The stable channel follows the repository's latest release and installs it
+only when its tag is a newer semantic version than the installed package
+version. The repository's latest release is still a v1 desktop build, so a
+2.0 nightly on the stable channel reports that it is up to date until the
+first 2.0 release ships standalone `sd` and `sd-daemon` assets.
 
 ## Required gates
 

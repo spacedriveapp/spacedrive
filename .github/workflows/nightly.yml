@@ -142,3 +142,10 @@ jobs:
             --title "Nightly $short" \
             --notes-file notes.md \
             dist/*
+          # GitHub keeps an existing tag's commit over --target, and the
+          # updater keys on this field, so a stale tag must fail the job.
+          actual=$(gh release view "$NIGHTLY_TAG" --json targetCommitish --jq .targetCommitish)
+          if [ "$actual" != "${{ github.sha }}" ]; then
+            echo "nightly release targets $actual, expected ${{ github.sha }}"
+            exit 1
+          fi
