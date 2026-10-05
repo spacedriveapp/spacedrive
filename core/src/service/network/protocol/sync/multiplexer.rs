@@ -6,14 +6,19 @@
 
 use super::{handler::SyncProtocolHandler, messages::SyncMessage};
 use crate::service::{
-	network::{device::DeviceRegistry, protocol::ProtocolEvent, NetworkingError, Result},
+	network::{
+		device::{DeviceRegistry, DeviceState},
+		protocol::ProtocolEvent,
+		NetworkingError, Result,
+	},
 	sync::{peer::PeerSync, BackfillManager},
 };
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tokio::sync::RwLock;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 /// Multiplexes sync messages to the correct library based on library_id
@@ -22,6 +27,12 @@ pub struct SyncMultiplexer {
 	libraries: Arc<RwLock<HashMap<Uuid, Arc<SyncProtocolHandler>>>>,
 	/// Device registry for node_id → device_id mapping
 	device_registry: Arc<RwLock<DeviceRegistry>>,
+	/// Libraries a peer keeps sending for that this device no longer holds,
+	/// keyed by (device, library) with the connection they were last reported
+	/// on. A member that deleted its copy still sits in the other members'
+	/// device table, so every catch-up they run would otherwise log an error
+	/// here; one warning per connection is enough.
+	absent_library_warned: Mutex<HashMap<(Uuid, Uuid), Option<DateTime<Utc>>>>,
 }
 
 impl SyncMultiplexer {
@@ -31,6 +42,7 @@ impl SyncMultiplexer {
 		Self {
 			libraries: Arc::new(RwLock::new(HashMap::new())),
 			device_registry,
+			absent_library_warned: Mutex::new(HashMap::new()),
 		}
 	}
 
@@ -59,6 +71,11 @@ impl SyncMultiplexer {
 	}
 
 	/// Handle sync message by routing to correct library
+	///
+	/// A message for a library this device does not hold is answered with
+	/// `SyncMessage::Error` when the peer waits for a reply, so its catch-up
+	/// fails at once with the reason and backs off instead of waiting on a
+	/// closed stream; a notification for such a library is dropped.
 	async fn handle_sync_message(
 		&self,
 		from_device: Uuid,
@@ -66,17 +83,53 @@ impl SyncMultiplexer {
 	) -> Result<Option<SyncMessage>> {
 		let library_id = message.library_id();
 
-		// Get handler for this library
-		let libraries = self.libraries.read().await;
-		let handler = libraries.get(&library_id).ok_or_else(|| {
-			NetworkingError::Protocol(format!(
-				"No sync handler for library {} (message from device {})",
-				library_id, from_device
-			))
-		})?;
+		let handler = {
+			let libraries = self.libraries.read().await;
+			libraries.get(&library_id).cloned()
+		};
+		let Some(handler) = handler else {
+			self.note_absent_library(from_device, library_id).await;
+			if !message.is_request() {
+				return Ok(None);
+			}
+			return Ok(Some(SyncMessage::Error {
+				library_id,
+				message: format!("library {} not present on this device", library_id),
+			}));
+		};
 
 		// Delegate to the library's sync protocol handler
 		handler.handle_sync_message(from_device, message).await
+	}
+
+	/// Log one warning per connection for a peer that keeps syncing a
+	/// library this device no longer holds; later messages on the same
+	/// connection go to debug.
+	async fn note_absent_library(&self, from_device: Uuid, library_id: Uuid) {
+		let connected_at = {
+			let registry = self.device_registry.read().await;
+			match registry.get_device_state(from_device) {
+				Some(DeviceState::Connected { connected_at, .. }) => Some(*connected_at),
+				_ => None,
+			}
+		};
+		let first_this_connection = {
+			let mut warned = self.absent_library_warned.lock().unwrap();
+			warned.insert((from_device, library_id), connected_at) != Some(connected_at)
+		};
+		if first_this_connection {
+			warn!(
+				library_id = %library_id,
+				from_device = %from_device,
+				"Peer is syncing a library this device does not hold; it still lists this device as a member"
+			);
+		} else {
+			debug!(
+				library_id = %library_id,
+				from_device = %from_device,
+				"Dropping sync message for a library this device does not hold"
+			);
+		}
 	}
 }
 

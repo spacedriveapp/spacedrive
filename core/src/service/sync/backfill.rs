@@ -1322,7 +1322,7 @@ impl BackfillManager {
 		let rtt_ms = start.elapsed().as_millis() as f32;
 		self.metrics.record_peer_rtt(peer, rtt_ms).await;
 
-		Ok(response)
+		Self::reject_peer_error(peer, response)
 	}
 
 	/// Request shared changes from peer
@@ -1358,7 +1358,22 @@ impl BackfillManager {
 		let rtt_ms = start.elapsed().as_millis() as f32;
 		self.metrics.record_peer_rtt(peer, rtt_ms).await;
 
-		Ok(response)
+		Self::reject_peer_error(peer, response)
+	}
+
+	/// A peer answering a request with `SyncMessage::Error` (it no longer
+	/// holds the library, for one) fails the catch-up with that reason, so
+	/// the sync loop records the failure and backs off rather than treating
+	/// the reply as an empty page and marking the peer caught up.
+	fn reject_peer_error(peer: Uuid, response: SyncMessage) -> Result<SyncMessage> {
+		match response {
+			SyncMessage::Error { message, .. } => Err(anyhow::anyhow!(
+				"peer {} refused the sync request: {}",
+				peer,
+				message
+			)),
+			other => Ok(other),
+		}
 	}
 
 	/// Handle peer disconnection during backfill
