@@ -693,6 +693,9 @@ async fn pull_sidecars(
 	};
 	let mut copied = 0;
 	loop {
+		if super::replication::paused() {
+			anyhow::bail!("replication paused after {copied} sidecars");
+		}
 		let (store, rows) =
 			fetch_sidecars(context, device_id, info.id, after, MAX_SIDECAR_PAGE).await?;
 		let count = rows.len();
@@ -1084,6 +1087,9 @@ async fn receive_artifact<R: tokio::io::AsyncRead + Unpin + ?Sized>(
 					"stream ended {remaining} bytes short of the {len} the header declared"
 				);
 			}
+			if super::replication::paused() {
+				anyhow::bail!("replication paused; {remaining} bytes still to fetch");
+			}
 			super::replication::throttle().acquire(n as u64).await;
 			hasher.update(&buf[..n]);
 			file.write_all(&buf[..n]).await?;
@@ -1431,6 +1437,12 @@ pub async fn sync_device(
 				continue;
 			}
 		}
+		// Paused, the pass still refreshed the listing, facts and totals
+		// above; what it does not do is move an artifact.
+		if super::replication::paused() {
+			tracing::debug!(source = %info.id, "replication paused; transfer deferred");
+			continue;
+		}
 		if !fetch_due(info.id) {
 			continue;
 		}
@@ -1462,6 +1474,10 @@ pub async fn sync_device(
 				note_fetch_outcome(info.id, true);
 				synced += 1;
 			}
+			Err(err) if super::replication::paused() => {
+				// A pause is not the owner failing; no backoff accrues.
+				tracing::info!(source = %info.id, %err, "artifact fetch stopped by pause");
+			}
 			Err(err) => {
 				note_fetch_outcome(info.id, false);
 				tracing::warn!(
@@ -1473,8 +1489,10 @@ pub async fn sync_device(
 		}
 	}
 
-	for info in &sources {
-		copy_sidecars(context, device_id, info);
+	if !super::replication::paused() {
+		for info in &sources {
+			copy_sidecars(context, device_id, info);
+		}
 	}
 
 	// Persist the inventory beside its artifacts. A source whose fetch
@@ -2025,11 +2043,96 @@ mod tests {
 		(0..len).map(|i| (i % 251) as u8).collect()
 	}
 
+	/// The pause switch is process-wide, so tests that transfer run one at
+	/// a time; a pause flipped by one must not stop another's stream.
+	static TRANSFER_TESTS: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+	/// A stream that flips the pause switch after a prefix, the way a
+	/// person's `sd sources replication pause` lands mid-transfer.
+	struct PausingBody {
+		inner: std::io::Cursor<Vec<u8>>,
+		pause_after: u64,
+	}
+
+	impl tokio::io::AsyncRead for PausingBody {
+		fn poll_read(
+			mut self: std::pin::Pin<&mut Self>,
+			cx: &mut std::task::Context<'_>,
+			buf: &mut tokio::io::ReadBuf<'_>,
+		) -> std::task::Poll<std::io::Result<()>> {
+			if self.inner.position() >= self.pause_after {
+				super::super::replication::set_paused(true);
+			}
+			std::pin::Pin::new(&mut self.inner).poll_read(cx, buf)
+		}
+	}
+
+	/// A pause stops a transfer at its next chunk and keeps the partial
+	/// file; the resumed transfer continues from it once unpaused.
+	#[tokio::test]
+	async fn a_pause_stops_a_transfer_and_keeps_its_part() {
+		let _serial = TRANSFER_TESTS.lock().await;
+		let base = tempfile::tempdir().expect("dir");
+		let source_id = Uuid::now_v7();
+		let bytes = scripted_bytes(2_000_000);
+		let header = ArtifactHeader {
+			len: bytes.len() as u64,
+			generation: 3,
+			checksum: *blake3::hash(&bytes).as_bytes(),
+		};
+
+		let paused_at = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+		let stopped = transfer_artifact(base.path(), source_id, |offset| {
+			let bytes = bytes.clone();
+			let paused_at = paused_at.clone();
+			async move {
+				paused_at.lock().unwrap().push(offset);
+				let body: ArtifactBody = Box::new(PausingBody {
+					inner: std::io::Cursor::new(bytes[offset as usize..].to_vec()),
+					pause_after: 700_000,
+				});
+				Ok((header, body))
+			}
+		})
+		.await;
+		assert!(super::super::replication::paused());
+		assert!(
+			matches!(stopped, Err(FetchError::Failed(_))),
+			"a pause reads as a failed transfer: {stopped:?}"
+		);
+		let part = find_part(base.path(), source_id)
+			.await
+			.expect("the partial file is kept");
+		assert!(
+			part.have >= 700_000 && part.have < bytes.len() as u64,
+			"the transfer stopped partway: {} bytes",
+			part.have
+		);
+
+		super::super::replication::set_paused(false);
+		let (path, delivered) = transfer_artifact(base.path(), source_id, |offset| {
+			let bytes = bytes.clone();
+			let paused_at = paused_at.clone();
+			async move {
+				paused_at.lock().unwrap().push(offset);
+				let body: ArtifactBody =
+					Box::new(std::io::Cursor::new(bytes[offset as usize..].to_vec()));
+				Ok((header, body))
+			}
+		})
+		.await
+		.expect("resumes");
+		assert_eq!(delivered, header);
+		assert_eq!(paused_at.lock().unwrap().as_slice(), &[0, part.have]);
+		assert_eq!(std::fs::read(path).expect("artifact"), bytes);
+	}
+
 	/// A transfer cut partway leaves its `.part` on disk; the next attempt
 	/// asks for the tail from that length and the finished file matches the
 	/// header's checksum byte for byte.
 	#[tokio::test]
 	async fn an_interrupted_transfer_resumes_from_the_part_length() {
+		let _serial = TRANSFER_TESTS.lock().await;
 		let base = tempfile::tempdir().expect("dir");
 		let source_id = Uuid::now_v7();
 		let owner = std::sync::Arc::new(std::sync::Mutex::new(ScriptedOwner {
@@ -2077,6 +2180,7 @@ mod tests {
 	/// from zero, even though the resumed request was answered.
 	#[tokio::test]
 	async fn a_part_from_another_generation_starts_over() {
+		let _serial = TRANSFER_TESTS.lock().await;
 		let base = tempfile::tempdir().expect("dir");
 		let source_id = Uuid::now_v7();
 		let stale = part_path(base.path(), source_id, 7, &[9u8; 32]);

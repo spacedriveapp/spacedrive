@@ -60,6 +60,11 @@ pub struct ReplicationConfig {
 	/// needs this set before pairing.
 	#[serde(default)]
 	pub max_bytes_per_sec: u64,
+	/// Whether this device fetches replicas at all. Paused, it starts no
+	/// transfer and stops any in flight, keeping the partial file; it still
+	/// serves its own sources to peers.
+	#[serde(default)]
+	pub paused: bool,
 }
 
 /// Settings for sources served as a mounted drive.

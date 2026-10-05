@@ -179,6 +179,21 @@ async fn watch_peers(context: Arc<CoreContext>) {
 	}
 }
 
+/// Run a replication pass against every connected device now, outside the
+/// reconnect debounce. Resuming from a pause calls this so deferred
+/// transfers start without waiting for the next refresh tick.
+pub fn resync_connected(context: Arc<CoreContext>) {
+	tokio::spawn(async move {
+		let Some(networking) = context.networking.read().await.clone() else {
+			return;
+		};
+		for (device_id, label) in connected_devices(&networking).await {
+			peer::allow_next_sync(device_id);
+			spawn_sync(&context, device_id, label);
+		}
+	});
+}
+
 async fn connected_devices(
 	networking: &Arc<crate::service::network::NetworkingService>,
 ) -> Vec<(uuid::Uuid, String)> {

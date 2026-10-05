@@ -89,6 +89,8 @@ pub struct MountsConfigOutput {
 pub struct ReplicationConfigOutput {
 	/// Bytes per second across every replica transfer; zero is unlimited.
 	pub max_bytes_per_sec: u64,
+	/// Whether this device has stopped fetching replicas.
+	pub paused: bool,
 }
 
 /// Logging configuration output
@@ -130,6 +132,7 @@ impl From<&AppConfig> for AppConfigOutput {
 			},
 			replication: ReplicationConfigOutput {
 				max_bytes_per_sec: config.replication.max_bytes_per_sec,
+				paused: config.replication.paused,
 			},
 			services: ServiceConfigOutput {
 				networking_enabled: config.services.networking_enabled,

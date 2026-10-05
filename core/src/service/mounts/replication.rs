@@ -1,10 +1,11 @@
-//! Controls over replica transfers that both ends of a fetch share: the
-//! bandwidth cap. A replica fetch is the one transfer Spacedrive starts on
-//! its own, as soon as a paired device connects, and an initial copy runs
-//! to gigabytes, so on a metered or shared link it needs a ceiling the
-//! person sets once and the daemon keeps.
+//! Controls over replica transfers: the bandwidth cap both ends of a fetch
+//! share, and the pause switch. A replica fetch is the one transfer
+//! Spacedrive starts on its own, as soon as a paired device connects, and
+//! an initial copy runs to gigabytes, so on a metered or shared link it
+//! needs a ceiling the person sets once and the daemon keeps, and a way to
+//! defer it entirely that survives a restart.
 
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
@@ -85,9 +86,26 @@ pub fn throttle() -> &'static Throttle {
 	THROTTLE.get_or_init(|| Throttle::new(0))
 }
 
+static PAUSED: AtomicBool = AtomicBool::new(false);
+
+/// Whether replica fetches are paused. A paused daemon still lists and
+/// refreshes what owners publish, serves what it already holds, and answers
+/// peers' fetches; it starts no transfer of its own, and one in flight stops
+/// at its next chunk with its partial file kept.
+pub fn paused() -> bool {
+	PAUSED.load(Ordering::Relaxed)
+}
+
+/// Flip the pause switch in memory. The persisted value lives in the
+/// daemon config, which the action that calls this writes.
+pub fn set_paused(paused: bool) {
+	PAUSED.store(paused, Ordering::Relaxed);
+}
+
 /// Apply the persisted settings at startup and after a config update.
 pub fn configure(config: &ReplicationConfig) {
 	throttle().set_bytes_per_sec(config.max_bytes_per_sec);
+	set_paused(config.paused);
 }
 
 #[cfg(test)]
