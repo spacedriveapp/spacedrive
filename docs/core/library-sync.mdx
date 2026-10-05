@@ -88,7 +88,8 @@ even when the peer had no rows to send, so the same peer is not caught up again
 while the connection lasts. The record is cleared when the peer disconnects and
 when the sync service starts, so changes a peer made while the two were apart
 are pulled once they reconnect. Live changes travel as broadcasts and do not
-depend on this loop.
+depend on this loop; a record older than ten minutes is refreshed as a net for
+a broadcast whose retries ran out while the connection stayed up.
 
 ## Library totals
 

@@ -51,6 +51,12 @@ const MAX_BACKFILL_ATTEMPTS: u32 = 3;
 /// hammering a peer, short enough that a connectivity blip heals itself.
 const BACKFILL_PAUSE_SECS: u64 = 300;
 
+/// How old a peer's catch-up record may get before the loop catches up with
+/// it again while the connection holds. Live broadcasts carry changes; this
+/// is the net for one whose retries ran out without a disconnect. A catch-up
+/// with nothing new costs two small requests, so ten minutes is cheap.
+const CATCH_UP_REFRESH_SECS: i64 = 600;
+
 /// Retry state for incremental catch-up operations
 ///
 /// Implements exponential backoff to prevent infinite retry loops when catch-up fails.
@@ -325,6 +331,12 @@ impl SyncService {
 
 		let mut backfill_attempted = false;
 		let mut backfill_failures: u32 = 0;
+		// Peers whose backfill failed since the last success. They score below
+		// the others on the next attempt, so a copy that refuses to serve a
+		// snapshot (still pending its own) does not get picked forever while
+		// a member holding state is connected.
+		let mut backfill_failed_peers: std::collections::HashSet<Uuid> =
+			std::collections::HashSet::new();
 		let mut backfill_paused_until: Option<tokio::time::Instant> = None;
 		let mut retry_state = CatchUpRetryState::new();
 
@@ -361,9 +373,12 @@ impl SyncService {
 												device_id,
 												latency_ms,
 												is_online: true,
-												has_complete_state: true,
+												has_complete_state: !backfill_failed_peers.contains(&device_id),
 												active_syncs: 0,
 											});
+										}
+										if peer_info.iter().all(|p| !p.has_complete_state) {
+											backfill_failed_peers.clear();
 										}
 
 										// Start backfill process
@@ -371,9 +386,13 @@ impl SyncService {
 											Ok(()) => {
 												info!("Automatic backfill completed successfully");
 												backfill_failures = 0;
+												backfill_failed_peers.clear();
 											}
 											Err(e) => {
 												backfill_failures += 1;
+												if let DeviceSyncState::Backfilling { peer, .. } = peer_sync.state().await {
+													backfill_failed_peers.insert(peer);
+												}
 												let old_state = peer_sync.state().await;
 												let mut state = peer_sync.state.write().await;
 
@@ -437,7 +456,8 @@ impl SyncService {
 							// Catch up once per connection session with every connected
 							// partner: the record is cleared when the service starts and
 							// when the peer disconnects. Later changes arrive as live
-							// broadcasts, so nothing here re-polls a peer on a timer.
+							// broadcasts; the slow refresh only covers a broadcast whose
+							// retries ran out while the connection stayed up.
 							match peer_sync.network().get_connected_sync_partners(
 								peer_sync.library_id(),
 								peer_sync.db(),
@@ -450,7 +470,13 @@ impl SyncService {
 									} else {
 									for partner_id in partners {
 										let needs_sync = match peer_sync.peer_caught_up_at(partner_id).await {
-											Ok(Some(_)) => false,
+											Ok(Some(at)) => {
+												let age = chrono::Utc::now().signed_duration_since(at).num_seconds();
+												if age >= CATCH_UP_REFRESH_SECS {
+													debug!(peer = %partner_id, age_secs = age, "Catch-up record is stale - refreshing");
+												}
+												age >= CATCH_UP_REFRESH_SECS
+											}
 											Ok(None) => {
 												info!(peer = %partner_id, "Never caught up with this peer - initiating sync");
 												true

@@ -323,9 +323,11 @@ impl SyncProtocolHandler {
 
 				// A copy that has not finished its own first backfill holds a
 				// partial table and must not become anyone's snapshot source.
+				// An unreadable marker refuses too: a wrong refusal delays a
+				// join, a wrong snapshot overwrites the joiner's rows.
 				if since_hlc.is_none()
 					&& include_snapshot
-					&& peer_sync.initial_backfill_pending().await.unwrap_or(false)
+					&& peer_sync.initial_backfill_pending().await.unwrap_or(true)
 				{
 					return Err(NetworkingError::Protocol(
 						"This copy is still waiting for its own first backfill and cannot serve a snapshot".to_string(),
