@@ -13,13 +13,26 @@
 //! verified before anything is written. Replacement goes through a temporary
 //! file and a rename, which keeps a running binary intact if the download or
 //! the write fails part way.
+//!
+//! Downloads land in `<data dir>/updates/<asset>.<build>.part` and resume
+//! from the part's length with a `Range` request, so a timer tick on a link
+//! that drops mid-transfer keeps what it got for the next tick instead of
+//! starting over every hour. Every attempt, however it ends, appends a line
+//! to `<data dir>/logs/update.log` and records itself in
+//! `<data dir>/update-state.json`, which `sd update status` reads back.
+//! After an install the build's commit (or release tag) is written to
+//! `sd-version.txt` beside the binaries, the same marker a local rebuild
+//! script writes.
 
 mod timer;
 
 use anyhow::{Context, Result};
-use serde::Deserialize;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use crate::config::CliConfig;
 
@@ -29,6 +42,12 @@ const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CURRENT_SHA: &str = env!("SD_GIT_SHA");
 const NIGHTLY_CHANNEL: &str = "nightly";
 const NIGHTLY_TAG: &str = "nightly";
+/// Marker beside the binaries naming the build they came from.
+const VERSION_FILE: &str = "sd-version.txt";
+const STATE_FILE: &str = "update-state.json";
+/// A download that moves no bytes for this long is abandoned for this tick;
+/// the part on disk is kept for the next one.
+const DOWNLOAD_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Version string for `sd --version`: package version plus the build commit.
 pub const VERSION_STRING: &str = concat!(env!("CARGO_PKG_VERSION"), " (", env!("SD_GIT_SHA"), ")");
@@ -55,6 +74,48 @@ pub struct UpdateOptions {
 	pub yes: bool,
 }
 
+/// What one `sd update` run ended as, for the log and the state file.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "result")]
+pub enum AttemptResult {
+	UpToDate,
+	Cancelled,
+	Updated,
+	Failed { reason: String },
+}
+
+/// The last `sd update` run, persisted so `sd update status` can show it
+/// without digging through the log.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateState {
+	pub last_attempt: DateTime<Utc>,
+	pub channel: String,
+	pub installed: String,
+	pub available: Option<String>,
+	#[serde(flatten)]
+	pub result: AttemptResult,
+}
+
+impl UpdateState {
+	fn load(data_dir: &Path) -> Option<Self> {
+		let text = std::fs::read_to_string(data_dir.join(STATE_FILE)).ok()?;
+		serde_json::from_str(&text).ok()
+	}
+
+	fn summary(&self) -> String {
+		match &self.result {
+			AttemptResult::UpToDate => format!("up to date ({})", self.installed),
+			AttemptResult::Cancelled => "cancelled at the prompt".to_string(),
+			AttemptResult::Updated => format!(
+				"updated {} -> {}",
+				self.installed,
+				self.available.as_deref().unwrap_or("?")
+			),
+			AttemptResult::Failed { reason } => format!("failed: {}", reason),
+		}
+	}
+}
+
 pub async fn run(
 	data_dir: PathBuf,
 	instance: Option<String>,
@@ -62,6 +123,78 @@ pub async fn run(
 	options: UpdateOptions,
 ) -> Result<()> {
 	let config = CliConfig::load(&data_dir)?;
+	let nightly = config.update.channel == NIGHTLY_CHANNEL;
+	let installed = if nightly {
+		short_sha(CURRENT_SHA)
+	} else {
+		CURRENT_VERSION.to_string()
+	};
+
+	let mut available = None;
+	let outcome = attempt(
+		&data_dir,
+		instance,
+		socket_addr,
+		&config,
+		&options,
+		&mut available,
+	)
+	.await;
+
+	let result = match &outcome {
+		Ok(result) => result.clone(),
+		Err(e) => AttemptResult::Failed {
+			reason: format!("{:#}", e),
+		},
+	};
+	let state = UpdateState {
+		last_attempt: Utc::now(),
+		channel: config.update.channel.clone(),
+		installed,
+		available,
+		result,
+	};
+	if let Err(e) = record_attempt(&data_dir, &state) {
+		eprintln!("Warning: could not record the update attempt: {}", e);
+	}
+
+	outcome.map(|_| ())
+}
+
+/// Appends the attempt to update.log and replaces the state file.
+fn record_attempt(data_dir: &Path, state: &UpdateState) -> Result<()> {
+	let log_dir = data_dir.join("logs");
+	std::fs::create_dir_all(&log_dir)?;
+	let mut log = std::fs::OpenOptions::new()
+		.create(true)
+		.append(true)
+		.open(log_dir.join("update.log"))?;
+	writeln!(
+		log,
+		"{} update channel={} installed={} available={} {}",
+		state
+			.last_attempt
+			.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+		state.channel,
+		state.installed,
+		state.available.as_deref().unwrap_or("-"),
+		state.summary()
+	)?;
+
+	let staged = data_dir.join(format!("{}.tmp", STATE_FILE));
+	std::fs::write(&staged, serde_json::to_vec_pretty(state)?)?;
+	std::fs::rename(&staged, data_dir.join(STATE_FILE))?;
+	Ok(())
+}
+
+async fn attempt(
+	data_dir: &Path,
+	instance: Option<String>,
+	socket_addr: String,
+	config: &CliConfig,
+	options: &UpdateOptions,
+	available_out: &mut Option<String>,
+) -> Result<AttemptResult> {
 	let nightly = config.update.channel == NIGHTLY_CHANNEL;
 
 	println!("Current version: {}", VERSION_STRING);
@@ -97,6 +230,7 @@ pub async fn run(
 	};
 
 	println!("Available: {}", available);
+	*available_out = Some(available.clone());
 
 	if up_to_date && !options.force {
 		if nightly {
@@ -110,7 +244,7 @@ pub async fn run(
 				installed
 			);
 		}
-		return Ok(());
+		return Ok(AttemptResult::UpToDate);
 	}
 
 	if !options.force && !options.yes {
@@ -123,7 +257,7 @@ pub async fn run(
 
 		if !response.trim().eq_ignore_ascii_case("y") {
 			println!("Update cancelled.");
-			return Ok(());
+			return Ok(AttemptResult::Cancelled);
 		}
 	}
 
@@ -138,10 +272,21 @@ pub async fn run(
 			anyhow::anyhow!("Could not find sd-daemon binary for platform: {}", platform)
 		})?;
 
+	// Parts are keyed by the build they belong to, so a tick that finds a
+	// newer nightly does not resume into the previous one's bytes.
+	let build_key = if nightly {
+		short_sha(&release.target_commitish)
+	} else {
+		release.tag_name.trim_start_matches('v').to_string()
+	};
+	let part_dir = data_dir.join("updates");
+	discard_other_parts(&part_dir, &build_key);
+
 	println!("Downloading {}...", sd_asset.name);
-	let sd_data = download_verified(&release.assets, sd_asset).await?;
+	let sd_data = download_verified(&release.assets, sd_asset, &part_dir, &build_key).await?;
 	println!("Downloading {}...", daemon_asset.name);
-	let daemon_data = download_verified(&release.assets, daemon_asset).await?;
+	let daemon_data =
+		download_verified(&release.assets, daemon_asset, &part_dir, &build_key).await?;
 
 	// Replace the file that is actually running (it may be named sd or sd-cli)
 	// and the daemon next to it.
@@ -167,18 +312,99 @@ pub async fn run(
 
 	replace_binary(&current_exe, &sd_data)?;
 	replace_binary(&daemon_path, &daemon_data)?;
+	let _ = std::fs::remove_dir_all(&part_dir);
+
+	let version_marker = if nightly {
+		release.target_commitish.trim().to_string()
+	} else {
+		release.tag_name.clone()
+	};
+	if let Err(e) = std::fs::write(bin_dir.join(VERSION_FILE), format!("{}\n", version_marker)) {
+		println!(
+			"  could not write {}: {}",
+			bin_dir.join(VERSION_FILE).display(),
+			e
+		);
+	}
 
 	println!("Update complete!");
 
 	if daemon_was_running {
 		println!("Starting daemon...");
-		restart_daemon(&client, &daemon_path, &data_dir, instance.as_deref()).await?;
+		restart_daemon(&client, &daemon_path, data_dir, instance.as_deref()).await?;
 	}
 
 	println!();
 	println!("Successfully updated to {}", available);
 
-	Ok(())
+	Ok(AttemptResult::Updated)
+}
+
+/// `sd update status`: the running build, the marker beside the binaries,
+/// the last attempt and any download waiting to resume.
+pub fn status(data_dir: &Path, instance: Option<&str>) -> Result<()> {
+	let config = CliConfig::load(&data_dir.to_path_buf())?;
+	println!("Running binary: {}", VERSION_STRING);
+
+	let current_exe = std::env::current_exe()?;
+	let current_exe = current_exe.canonicalize().unwrap_or(current_exe);
+	if let Some(bin_dir) = current_exe.parent() {
+		let marker = std::fs::read_to_string(bin_dir.join(VERSION_FILE))
+			.map(|s| s.trim().to_string())
+			.unwrap_or_else(|_| "not written".to_string());
+		println!("Installed marker ({}): {}", VERSION_FILE, marker);
+	}
+	println!(
+		"Channel: {} ({})",
+		config.update.channel, config.update.repo
+	);
+
+	match UpdateState::load(data_dir) {
+		Some(state) => {
+			let age = Utc::now().signed_duration_since(state.last_attempt);
+			println!(
+				"Last attempt: {} ({} ago) on {}",
+				state
+					.last_attempt
+					.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+				format_age(age),
+				state.channel
+			);
+			println!("Result: {}", state.summary());
+		}
+		None => println!("Last attempt: none recorded"),
+	}
+
+	let part_dir = data_dir.join("updates");
+	if let Ok(entries) = std::fs::read_dir(&part_dir) {
+		for entry in entries.flatten() {
+			let name = entry.file_name().to_string_lossy().into_owned();
+			if !name.ends_with(".part") {
+				continue;
+			}
+			let len = entry.metadata().map(|m| m.len()).unwrap_or(0);
+			println!("Resumable download: {} ({} bytes so far)", name, len);
+		}
+	}
+	println!(
+		"Log: {}",
+		data_dir.join("logs").join("update.log").display()
+	);
+	println!();
+	timer::print_status(instance)
+}
+
+fn format_age(age: chrono::Duration) -> String {
+	let secs = age.num_seconds().max(0);
+	if secs < 60 {
+		format!("{}s", secs)
+	} else if secs < 3600 {
+		format!("{}m", secs / 60)
+	} else if secs < 86_400 {
+		format!("{}h {}m", secs / 3600, (secs % 3600) / 60)
+	} else {
+		format!("{}d {}h", secs / 86_400, (secs % 86_400) / 3600)
+	}
 }
 
 /// Starts the daemon again after its binary changed.
@@ -246,69 +472,175 @@ async fn fetch_release(repo: &str, selector: &str) -> Result<GitHubRelease> {
 	Ok(release)
 }
 
-/// Downloads an asset and checks it against its `.sha256` sibling when the
-/// release ships one.
-async fn download_verified(assets: &[GitHubAsset], asset: &GitHubAsset) -> Result<Vec<u8>> {
-	let data = download_file(&asset.browser_download_url, asset.size).await?;
-
+/// Downloads an asset into a resumable part file and checks it against its
+/// `.sha256` sibling when the release ships one. Only a verified part is
+/// read back; a mismatch discards the part so the next tick starts clean.
+async fn download_verified(
+	assets: &[GitHubAsset],
+	asset: &GitHubAsset,
+	part_dir: &Path,
+	build_key: &str,
+) -> Result<Vec<u8>> {
 	let checksum_name = format!("{}.sha256", asset.name);
-	let Some(checksum_asset) = assets.iter().find(|a| a.name == checksum_name) else {
-		println!(
-			"  no {} published, skipping checksum verification",
-			checksum_name
-		);
-		return Ok(data);
+	let expected = match assets.iter().find(|a| a.name == checksum_name) {
+		Some(checksum_asset) => {
+			let text = download_small(&checksum_asset.browser_download_url)
+				.await
+				.with_context(|| format!("downloading {}", checksum_name))?;
+			Some(
+				parse_sha256(&String::from_utf8_lossy(&text)).ok_or_else(|| {
+					anyhow::anyhow!("{} does not contain a sha256 digest", checksum_name)
+				})?,
+			)
+		}
+		None => {
+			println!(
+				"  no {} published, skipping checksum verification",
+				checksum_name
+			);
+			None
+		}
 	};
 
-	let checksum_text = download_file(&checksum_asset.browser_download_url, checksum_asset.size)
+	std::fs::create_dir_all(part_dir)?;
+	let part = part_dir.join(format!("{}.{}.part", asset.name, build_key));
+	download_resumable(&asset.browser_download_url, asset.size, &part)
 		.await
-		.with_context(|| format!("downloading {}", checksum_name))?;
-	let expected = parse_sha256(&String::from_utf8_lossy(&checksum_text))
-		.ok_or_else(|| anyhow::anyhow!("{} does not contain a sha256 digest", checksum_name))?;
+		.with_context(|| format!("downloading {}", asset.name))?;
 
-	let actual = Sha256::digest(&data)
-		.iter()
-		.map(|b| format!("{:02x}", b))
-		.collect::<String>();
-
-	if actual != expected {
-		return Err(anyhow::anyhow!(
-			"Checksum mismatch for {}: expected {}, got {}",
-			asset.name,
-			expected,
-			actual
-		));
+	let data = std::fs::read(&part).with_context(|| format!("reading {}", part.display()))?;
+	if let Some(expected) = expected {
+		let actual = Sha256::digest(&data)
+			.iter()
+			.map(|b| format!("{:02x}", b))
+			.collect::<String>();
+		if actual != expected {
+			let _ = std::fs::remove_file(&part);
+			return Err(anyhow::anyhow!(
+				"Checksum mismatch for {}: expected {}, got {}; discarded the download",
+				asset.name,
+				expected,
+				actual
+			));
+		}
+		println!("  sha256 verified");
 	}
-
-	println!("  sha256 verified");
 	Ok(data)
 }
 
-async fn download_file(url: &str, expected_size: u64) -> Result<Vec<u8>> {
-	let client = reqwest::Client::builder()
+fn http_client() -> Result<reqwest::Client> {
+	Ok(reqwest::Client::builder()
 		.user_agent("spacedrive-cli")
-		.build()?;
+		.connect_timeout(Duration::from_secs(30))
+		.build()?)
+}
 
-	let response = client.get(url).send().await?;
-
+async fn download_small(url: &str) -> Result<Vec<u8>> {
+	let response = tokio::time::timeout(DOWNLOAD_IDLE_TIMEOUT, http_client()?.get(url).send())
+		.await
+		.map_err(|_| anyhow::anyhow!("timed out connecting"))??;
 	if !response.status().is_success() {
 		return Err(anyhow::anyhow!(
 			"Failed to download: HTTP {}",
 			response.status()
 		));
 	}
+	Ok(response.bytes().await?.to_vec())
+}
 
-	let bytes = response.bytes().await?;
-
-	if bytes.len() as u64 != expected_size {
-		return Err(anyhow::anyhow!(
-			"Downloaded file size mismatch: expected {}, got {}",
-			expected_size,
-			bytes.len()
-		));
+/// Fetches `url` into `part`, continuing from whatever an earlier attempt
+/// left there. A server that ignores the `Range` header answers 200 and the
+/// part is rewritten from the start. The part survives every failure except
+/// a size overrun, so a dropped link costs only the bytes not yet received.
+async fn download_resumable(url: &str, expected_size: u64, part: &Path) -> Result<()> {
+	let mut have = std::fs::metadata(part).map(|m| m.len()).unwrap_or(0);
+	if have > expected_size {
+		let _ = std::fs::remove_file(part);
+		have = 0;
+	}
+	if have == expected_size && have > 0 {
+		println!("  already downloaded, verifying");
+		return Ok(());
+	}
+	if have > 0 {
+		println!("  resuming from {} of {} bytes", have, expected_size);
 	}
 
-	Ok(bytes.to_vec())
+	let mut request = http_client()?.get(url);
+	if have > 0 {
+		request = request.header(reqwest::header::RANGE, format!("bytes={}-", have));
+	}
+	let mut response = tokio::time::timeout(DOWNLOAD_IDLE_TIMEOUT, request.send())
+		.await
+		.map_err(|_| anyhow::anyhow!("timed out connecting"))??;
+
+	let mut file = match response.status() {
+		reqwest::StatusCode::PARTIAL_CONTENT if have > 0 => {
+			std::fs::OpenOptions::new().append(true).open(part)?
+		}
+		status if status.is_success() => {
+			have = 0;
+			std::fs::File::create(part)?
+		}
+		status => {
+			return Err(anyhow::anyhow!("Failed to download: HTTP {}", status));
+		}
+	};
+
+	loop {
+		let chunk = tokio::time::timeout(DOWNLOAD_IDLE_TIMEOUT, response.chunk())
+			.await
+			.map_err(|_| {
+				anyhow::anyhow!(
+					"no data for {}s after {} of {} bytes; will resume next attempt",
+					DOWNLOAD_IDLE_TIMEOUT.as_secs(),
+					have,
+					expected_size
+				)
+			})?
+			.with_context(|| {
+				format!(
+					"connection dropped after {} of {} bytes; will resume next attempt",
+					have, expected_size
+				)
+			})?;
+		let Some(chunk) = chunk else { break };
+		file.write_all(&chunk)?;
+		have += chunk.len() as u64;
+		if have > expected_size {
+			drop(file);
+			let _ = std::fs::remove_file(part);
+			return Err(anyhow::anyhow!(
+				"Downloaded more than the published size ({} > {}); discarded",
+				have,
+				expected_size
+			));
+		}
+	}
+	file.flush()?;
+
+	if have != expected_size {
+		return Err(anyhow::anyhow!(
+			"Download ended after {} of {} bytes; will resume next attempt",
+			have,
+			expected_size
+		));
+	}
+	Ok(())
+}
+
+/// Removes parts left by a different build so they cannot be resumed into.
+fn discard_other_parts(part_dir: &Path, build_key: &str) {
+	let Ok(entries) = std::fs::read_dir(part_dir) else {
+		return;
+	};
+	let keep = format!(".{}.part", build_key);
+	for entry in entries.flatten() {
+		let name = entry.file_name().to_string_lossy().into_owned();
+		if name.ends_with(".part") && !name.ends_with(&keep) {
+			let _ = std::fs::remove_file(entry.path());
+		}
+	}
 }
 
 /// Replaces `path` atomically: the new bytes land in a sibling temp file that

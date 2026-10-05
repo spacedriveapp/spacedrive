@@ -17,14 +17,21 @@ pub enum TimerCmd {
 	UninstallTimer,
 	/// Show whether the periodic update service is installed
 	TimerStatus,
+	/// Show the running build, the last update attempt and its result
+	Status,
 }
 
 pub async fn run_timer(data_dir: PathBuf, instance: Option<String>, cmd: TimerCmd) -> Result<()> {
 	match cmd {
 		TimerCmd::InstallTimer { interval } => install(data_dir, instance, interval),
 		TimerCmd::UninstallTimer => uninstall(instance),
-		TimerCmd::TimerStatus => status(instance),
+		TimerCmd::TimerStatus => print_status(instance.as_deref()),
+		TimerCmd::Status => super::status(&data_dir, instance.as_deref()),
 	}
+}
+
+pub fn print_status(instance: Option<&str>) -> Result<()> {
+	status(instance.map(str::to_string))
 }
 
 fn label(instance: Option<&str>) -> String {

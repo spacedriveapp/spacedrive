@@ -123,7 +123,25 @@ nightly even when it matches. Both replace the running `sd` binary and the
 `sd-daemon` next to it through a temporary file and a rename, stop the daemon
 first, and start it again afterwards. When `sd daemon install` has launchd
 managing the daemon, the restart goes through `launchctl kickstart` so launchd
-keeps owning the process.
+keeps owning the process. After an install the build's commit (or the release
+tag on the stable channel) is written to `sd-version.txt` beside the binaries.
+
+Downloads go to `updates/<asset>.<build>.part` in the data directory and
+resume from the part's length on the next attempt, so a link that drops
+mid-transfer keeps what it received. A download that moves no bytes for 60
+seconds is abandoned for that run and resumed on the next one; a part from a
+different build is discarded. The checksum is verified on the complete part
+before anything is replaced. Every run, manual or from the timer, appends one
+line to `logs/update.log` in the data directory with the channel, installed
+and available builds and the result, and records the same in
+`update-state.json`.
+
+~~~bash
+sd update status
+~~~
+
+prints the running build, the `sd-version.txt` marker, the last attempt with
+its result, any part waiting to resume, and the timer state.
 
 ### Updating on a schedule
 
@@ -135,9 +153,10 @@ sd update uninstall-timer
 ~~~
 
 On macOS this writes `~/Library/LaunchAgents/com.spacedrive.update.plist` with
-a `StartInterval`, running the installed `sd` with `--data-dir` and, when set,
-`--instance`, followed by `update --yes`. Output goes to `logs/update.log` in
-the data directory. On Linux it writes a systemd user timer and oneshot service
+a `StartInterval` and `RunAtLoad`, running the installed `sd` with
+`--data-dir` and, when set, `--instance`, followed by `update --yes`. launchd
+runs a missed interval when the Mac wakes, and `RunAtLoad` runs a check at
+login. Output goes to `logs/update.log` in the data directory. On Linux it writes a systemd user timer and oneshot service
 named `spacedrive-update`. The service runs the binary at the absolute path of
 the `sd` that installed it, so move the binary and reinstall the timer
 together.
