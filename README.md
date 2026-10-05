@@ -30,13 +30,20 @@
 ---
 
 > [!IMPORTANT]
-> **Spacedrive 2.0 Beta is planned for October 1, 2026.**
+> **Spacedrive 2.0 Beta is planned for November 1, 2026.**
 >
 > Beta commits to Spacedrive's data model and to preserving your library as
 > it evolves. The release makes self-owned storage practical across
 > your devices. It brings portable source indexes, private remote access, mounts, history,
 > extensions, and one API for people and software.
-> [Current builds](https://github.com/spacedriveapp/spacedrive/releases).
+>
+> Nightly CLI and daemon builds are available now from the
+> [nightly release](https://github.com/spacedriveapp/spacedrive/releases/tag/nightly).
+> They are unsigned, move with every push to `main`, and can break, so keep
+> backups of any library you point them at. See
+> [Install a nightly](#install-a-nightly). The beta will appear on the
+> [releases page](https://github.com/spacedriveapp/spacedrive/releases) when
+> it ships.
 
 Spacedrive is open personal data infrastructure. It turns the storage you
 control into one private filesystem across your devices, drives, servers, and
@@ -233,6 +240,35 @@ SQLite gives each source a portable store and FTS5 index.
 Core operations are registered at compile time with type-safe inputs and
 outputs. Specta generates the TypeScript and Swift clients from those Rust
 types, so every interface shares one contract.
+
+## Install a nightly
+
+The [nightly release](https://github.com/spacedriveapp/spacedrive/releases/tag/nightly)
+carries `sd` and `sd-daemon` for macOS ARM64 (`macos-aarch64`) and Linux
+x86-64 (`linux-x86_64`), each with a `.sha256` file. Download both binaries
+for your platform, verify them, and put them in a directory on your `PATH`:
+
+```bash
+shasum -a 256 -c sd-macos-aarch64.sha256 sd-daemon-macos-aarch64.sha256   # sha256sum -c on Linux
+chmod +x sd-macos-aarch64 sd-daemon-macos-aarch64
+mv sd-macos-aarch64 ~/.local/bin/sd
+mv sd-daemon-macos-aarch64 ~/.local/bin/sd-daemon
+sd daemon install
+```
+
+To let `sd` keep itself on the latest nightly:
+
+```bash
+sd config set update.channel nightly
+sd update --yes
+sd update install-timer
+```
+
+The binaries are not signed with a Developer ID. On macOS, a browser download
+carries the quarantine attribute and Gatekeeper refuses to run it until you
+remove it with `xattr -d com.apple.quarantine sd sd-daemon`. Nightly builds
+follow `main` and can break or change schemas without migrations, so keep
+backups of any library you point them at.
 
 ## Build from source
 
