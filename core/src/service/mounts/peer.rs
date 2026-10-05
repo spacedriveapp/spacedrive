@@ -1143,10 +1143,13 @@ async fn receive_artifact<R: tokio::io::AsyncRead + Unpin + ?Sized>(
 					"stream ended {remaining} bytes short of the {len} the header declared"
 				);
 			}
+			// Checked after the cap's wait, so a pause landing during a
+			// throttled sleep drops this chunk instead of writing it late;
+			// the part stays an exact prefix either way.
+			super::replication::throttle().acquire(n as u64).await;
 			if super::replication::paused() {
 				anyhow::bail!("replication paused; {remaining} bytes still to fetch");
 			}
-			super::replication::throttle().acquire(n as u64).await;
 			hasher.update(&buf[..n]);
 			file.write_all(&buf[..n]).await?;
 			remaining -= n as u64;
