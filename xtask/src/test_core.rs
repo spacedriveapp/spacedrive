@@ -156,6 +156,9 @@ pub fn run_tests(verbose: bool, selection: Selection) -> Result<Vec<TestResult>>
 		.filter(|suite| selection.includes(suite))
 		.collect();
 	let total_tests = suites.len();
+	if total_tests == 0 {
+		anyhow::bail!("{selection:?} selects no suite in CORE_TESTS; refusing to report a pass");
+	}
 	let mut results = Vec::new();
 
 	println!();
