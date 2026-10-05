@@ -505,9 +505,10 @@ copy_method: CopyMethod };
 export type CoreStatus = { version: string; built_at: string; library_count: number; device_info: DeviceInfo; libraries: LibraryInfo[]; services: ServiceStatus; network: NetworkStatus; system: SystemInfo; 
 /**
  * Replica fetches from paired devices: the pause switch, the cap and
- * every transfer in flight.
+ * every transfer in flight. Defaulted so a `--device` status query
+ * against an older daemon still deserializes.
  */
-replication: ReplicationStatus };
+replication?: ReplicationStatus };
 
 /**
  * Input for creating a new folder
@@ -3729,6 +3730,9 @@ paused: boolean };
 
 /**
  * The replication picture `core.status` and the CLI summarize.
+ * 
+ * Defaults to no transfers so a newer client can still read the status
+ * payload of a daemon that predates the field.
  */
 export type ReplicationStatus = { paused: boolean; max_bytes_per_sec: number; transfers: ReplicaTransferProgress[] };
 

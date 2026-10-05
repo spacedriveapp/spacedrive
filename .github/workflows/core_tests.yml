@@ -2,9 +2,9 @@ name: Core Tests
 
 on:
   push:
-    branches: ["sources"]
+    branches: ["main", "sources"]
   pull_request:
-    branches: ["sources"]
+    branches: ["main", "sources"]
   workflow_dispatch:
 
 env:

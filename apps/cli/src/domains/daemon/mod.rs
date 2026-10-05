@@ -101,7 +101,7 @@ async fn install_launchd_service(data_dir: PathBuf, instance: Option<String>) ->
 	<key>SoftResourceLimits</key>
 	<dict>
 		<key>NumberOfFiles</key>
-		<integer>8192</integer>
+		<integer>65536</integer>
 	</dict>
 	<key>StandardOutPath</key>
 	<string>{stdout_log}</string>

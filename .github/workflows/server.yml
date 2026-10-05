@@ -14,17 +14,6 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: Maximize build space
-        if: ${{ runner.os == 'Linux' }}
-        uses: easimon/maximize-build-space@master
-        with:
-          remove-codeql: 'true'
-          remove-dotnet: 'true'
-          remove-haskell: 'true'
-          remove-android: 'true'
-          overprovision-lvm: 'true'
-          remove-docker-images: 'true'
-
       - name: Checkout repository
         uses: actions/checkout@v4
 

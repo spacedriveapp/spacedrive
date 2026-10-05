@@ -22,7 +22,7 @@ use crate::{
 use async_trait::async_trait;
 use chrono::Utc;
 use sd_task_system::{TaskDispatcher, TaskHandle, TaskSystem};
-use sea_orm::{ActiveModelTrait, ActiveValue::Set, DatabaseConnection, EntityTrait};
+use sea_orm::{ActiveModelTrait, ActiveValue::Set, DatabaseConnection, EntityTrait, QuerySelect};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::{broadcast, mpsc, watch, Mutex, RwLock};
 use tracing::{debug, error, info, warn};
@@ -1149,6 +1149,7 @@ impl JobManager {
 			} else {
 				// Fall back to database query for persisted jobs
 				match database::jobs::Entity::find_by_id(job_id.0.to_string())
+					.into_partial_model::<database::jobs::ListRow>()
 					.one(self.db.conn())
 					.await?
 				{
@@ -1201,7 +1202,10 @@ impl JobManager {
 			query = query.filter(database::jobs::Column::Status.eq(status.to_string()));
 		}
 
-		let db_jobs = query.all(self.db.conn()).await?;
+		let db_jobs = query
+			.into_partial_model::<database::jobs::ListRow>()
+			.all(self.db.conn())
+			.await?;
 
 		// Add database jobs that aren't in memory
 		for j in db_jobs {

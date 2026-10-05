@@ -238,7 +238,10 @@ pub struct ReplicaTransferProgress {
 }
 
 /// The replication picture `core.status` and the CLI summarize.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+///
+/// Defaults to no transfers so a newer client can still read the status
+/// payload of a daemon that predates the field.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Type)]
 pub struct ReplicationStatus {
 	pub paused: bool,
 	pub max_bytes_per_sec: u64,
