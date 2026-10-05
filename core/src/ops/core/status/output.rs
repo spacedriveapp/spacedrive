@@ -18,7 +18,9 @@ pub struct CoreStatus {
 	pub network: NetworkStatus,
 	pub system: SystemInfo,
 	/// Replica fetches from paired devices: the pause switch, the cap and
-	/// every transfer in flight.
+	/// every transfer in flight. Defaulted so a `--device` status query
+	/// against an older daemon still deserializes.
+	#[serde(default)]
 	pub replication: crate::service::mounts::replication::ReplicationStatus,
 }
 
@@ -62,4 +64,56 @@ pub struct SystemInfo {
 	pub data_directory: String,
 	pub instance_name: Option<String>,
 	pub current_library: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::CoreStatus;
+
+	/// The `core.status` payload as daemons before #3109 sent it, without
+	/// the `replication` block. A newer CLI asking such a daemon over
+	/// `--device` must still read it.
+	#[test]
+	fn status_without_replication_block_deserializes() {
+		let json = serde_json::json!({
+			"version": "2.0.0-alpha.2",
+			"built_at": "2026-10-04T04:34:26Z",
+			"library_count": 1,
+			"device_info": {
+				"id": "a688cd39-b65a-4392-9767-7a08aa8fd68f",
+				"name": "Old Laptop",
+				"slug": "old-laptop",
+				"os": "macos",
+				"hardware_model": null,
+				"created_at": "2026-09-01T00:00:00Z"
+			},
+			"libraries": [],
+			"services": {
+				"location_watcher": { "running": true, "details": null },
+				"networking": { "running": true, "details": null },
+				"volume_monitor": { "running": true, "details": null },
+				"file_sharing": { "running": true, "details": null }
+			},
+			"network": {
+				"running": true,
+				"node_id": "abc",
+				"addresses": [],
+				"paired_devices": 1,
+				"connected_devices": 1,
+				"version": "2.0.0-alpha.2",
+				"relay_url": null
+			},
+			"system": {
+				"uptime": null,
+				"data_directory": "default",
+				"instance_name": null,
+				"current_library": null
+			}
+		});
+
+		let status: CoreStatus = serde_json::from_value(json).unwrap();
+		assert!(!status.replication.paused);
+		assert_eq!(status.replication.max_bytes_per_sec, 0);
+		assert!(status.replication.transfers.is_empty());
+	}
 }
