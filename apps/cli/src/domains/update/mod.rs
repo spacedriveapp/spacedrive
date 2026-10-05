@@ -453,11 +453,9 @@ async fn fetch_release(repo: &str, selector: &str) -> Result<GitHubRelease> {
 		repo, selector
 	);
 
-	let client = reqwest::Client::builder()
-		.user_agent("spacedrive-cli")
-		.build()?;
-
-	let response = client.get(&url).send().await?;
+	let response = tokio::time::timeout(DOWNLOAD_IDLE_TIMEOUT, http_client()?.get(&url).send())
+		.await
+		.map_err(|_| anyhow::anyhow!("timed out reaching {}", url))??;
 
 	if !response.status().is_success() {
 		return Err(anyhow::anyhow!(
@@ -468,7 +466,9 @@ async fn fetch_release(repo: &str, selector: &str) -> Result<GitHubRelease> {
 		));
 	}
 
-	let release: GitHubRelease = response.json().await?;
+	let release: GitHubRelease = tokio::time::timeout(DOWNLOAD_IDLE_TIMEOUT, response.json())
+		.await
+		.map_err(|_| anyhow::anyhow!("timed out reading the release from {}", url))??;
 	Ok(release)
 }
 
@@ -535,6 +535,9 @@ fn http_client() -> Result<reqwest::Client> {
 		.build()?)
 }
 
+/// Fetches a small asset (a checksum file, a release document) whole, with
+/// the same idle bound on the body as on the connection so a stalled proxy
+/// cannot hang a timer run.
 async fn download_small(url: &str) -> Result<Vec<u8>> {
 	let response = tokio::time::timeout(DOWNLOAD_IDLE_TIMEOUT, http_client()?.get(url).send())
 		.await
@@ -545,7 +548,12 @@ async fn download_small(url: &str) -> Result<Vec<u8>> {
 			response.status()
 		));
 	}
-	Ok(response.bytes().await?.to_vec())
+	Ok(
+		tokio::time::timeout(DOWNLOAD_IDLE_TIMEOUT, response.bytes())
+			.await
+			.map_err(|_| anyhow::anyhow!("timed out reading the response"))??
+			.to_vec(),
+	)
 }
 
 /// Fetches `url` into `part`, continuing from whatever an earlier attempt
