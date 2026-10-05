@@ -22,8 +22,9 @@ name: Nightly
 on:
   push:
     branches:
-      # The branch the nightly channel tracks. Change this one line when the
-      # rewrite moves to main.
+      # The branch the nightly channel tracks. `sources` stays for one release
+      # so a stray push there still publishes; drop it after that.
+      - main
       - sources
   workflow_dispatch:
 
