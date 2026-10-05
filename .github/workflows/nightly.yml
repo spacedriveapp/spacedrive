@@ -25,6 +25,7 @@ on:
       # The branch the nightly channel tracks. Change this one line when the
       # rewrite moves to main.
       - sources
+      - nightly-channel
   workflow_dispatch:
 
 env:
