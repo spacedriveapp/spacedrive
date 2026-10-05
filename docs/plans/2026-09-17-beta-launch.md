@@ -4,6 +4,8 @@ Status: release direction agreed with James on September 17, 2026. Beta is the
 target, not a claim that the current build has passed its release gates. The
 existing October 1 target remains subject to those gates.
 
+2026-10-05: target moved to November 1, 2026 (Jamie).
+
 ## The decision
 
 The next public milestone is Spacedrive 2.0 Beta. Keep the 2.0 generation.

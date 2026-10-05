@@ -5,7 +5,7 @@ sidebarTitle: Releases
 ---
 
 <Callout>
-  **Spacedrive 2.0 Beta is planned for October 1, 2026.**
+  **Spacedrive 2.0 Beta is planned for November 1, 2026.**
 
   Release artifacts remain drafts until the cross-platform and destructive
   operation gates on this page pass.
@@ -80,8 +80,8 @@ explicit version tag.
 ## Nightly channel
 
 The nightly channel is a rolling build of the CLI and daemon for people who
-want to track the development branch without compiling. Every push to that
-branch runs `.github/workflows/nightly.yml`, which builds `sd` and `sd-daemon`
+want to track `main` without compiling. Every push to `main` runs
+`.github/workflows/nightly.yml`, which builds `sd` and `sd-daemon`
 in release mode for macOS ARM64 and Linux x86-64 and republishes them on the
 GitHub prerelease tagged `nightly`. The tag moves to the built commit each
 time, so there is one nightly release and it always names the commit it came
