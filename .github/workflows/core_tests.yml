@@ -2,7 +2,7 @@ name: Core Tests
 
 on:
   push:
-    branches: ["sources", "ci/core-tests-on-sources"]
+    branches: ["sources"]
   pull_request:
     branches: ["sources"]
   workflow_dispatch:
@@ -30,10 +30,10 @@ jobs:
             # sd-fs-watcher's lib tests exercise the Linux inotify handler and
             # live outside the sd-core runner, so the unit job runs them too.
             run: |
-              cargo run -p xtask -- test-core --unit
+              cargo run -p xtask -- test-core --unit --verbose
               cargo test -p sd-fs-watcher --lib
           - name: integration
-            run: cargo run -p xtask -- test-core --integration
+            run: cargo run -p xtask -- test-core --integration --verbose
     name: Core Tests (${{ matrix.suite.name }}, ubuntu-24.04)
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 90
