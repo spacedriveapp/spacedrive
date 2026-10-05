@@ -45,8 +45,8 @@ async fn user_visible_volume(core: &Core, name: &str) -> Option<(Volume, Option<
 		return Some((volume, None));
 	}
 
-	if TestVolumeManager::new().check_privileges().await.is_err() {
-		warn!("No user-visible volume and no privileges to create one, skipping test");
+	if let Err(e) = TestVolumeManager::new().check_privileges().await {
+		warn!("No user-visible volume and cannot create one ({e}), skipping test");
 		return None;
 	}
 

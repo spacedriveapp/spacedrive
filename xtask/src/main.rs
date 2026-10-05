@@ -70,7 +70,7 @@ fn main() -> Result<()> {
 		eprintln!("                              the daemon with the ffmpeg and heif features");
 		eprintln!("  build-ios    Build sd-ios-core XCFramework for iOS devices and simulator");
 		eprintln!("  build-mobile Build sd-mobile-core for React Native iOS/Android");
-		eprintln!("  test-core    Run all core integration tests with progress tracking");
+		eprintln!("  test-core    Run all core tests with progress tracking (--unit or --integration to pick a half)");
 		eprintln!("  bump <ver>   Bump version across all packages (e.g. bump 2.0.0-alpha.2)");
 		eprintln!(
 			"  update-contributors  Fetch contributors from GitHub and update contributors.json"
@@ -91,11 +91,16 @@ fn main() -> Result<()> {
 		"build-ios" => build_ios()?,
 		"build-mobile" => build_mobile()?,
 		"test-core" => {
-			let verbose = args
-				.get(2)
-				.map(|s| s == "--verbose" || s == "-v")
-				.unwrap_or(false);
-			test_core_command(verbose)?;
+			let flags = &args[2..];
+			let verbose = flags.iter().any(|s| s == "--verbose" || s == "-v");
+			let selection = if flags.iter().any(|s| s == "--unit") {
+				test_core::Selection::Unit
+			} else if flags.iter().any(|s| s == "--integration") {
+				test_core::Selection::Integration
+			} else {
+				test_core::Selection::All
+			};
+			test_core_command(verbose, selection)?;
 		}
 		"bump" => {
 			let version = args.get(2).cloned().unwrap_or_else(|| {
@@ -779,8 +784,8 @@ fn create_xcframework_info_plist(framework_name: &str) -> String {
 /// This command runs all sd-core integration tests defined in test_core.rs.
 /// Tests are run sequentially with --test-threads=1 to avoid conflicts.
 /// Use --verbose to see full test output.
-fn test_core_command(verbose: bool) -> Result<()> {
-	let results = test_core::run_tests(verbose)?;
+fn test_core_command(verbose: bool, selection: test_core::Selection) -> Result<()> {
+	let results = test_core::run_tests(verbose, selection)?;
 
 	let failed_count = results.iter().filter(|r| !r.passed).count();
 

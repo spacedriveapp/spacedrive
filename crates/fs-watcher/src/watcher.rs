@@ -809,17 +809,20 @@ mod tests {
 		std::fs::remove_file(&test_file).unwrap();
 		println!("Deleted file: {}", test_file.display());
 
-		// Wait for remove event (NOT create!)
-		let delete_event = tokio::time::timeout(Duration::from_secs(5), async {
+		// The write behind the create leaves a buffered Modify that the handler
+		// may flush before or after the delete, so drain the file's events until
+		// the Remove arrives and check that no Create was reported in between.
+		let kinds_after_delete = tokio::time::timeout(Duration::from_secs(5), async {
+			let mut kinds = Vec::new();
 			loop {
 				match rx.recv().await {
 					Ok(event) if event.path == test_file => {
-						println!(
-							"Received event after delete: {:?} for {}",
-							event.kind,
-							event.path.display()
-						);
-						return event;
+						println!("Received event after delete: {:?}", event.kind);
+						let is_remove = matches!(event.kind, crate::event::FsEventKind::Remove);
+						kinds.push(event.kind);
+						if is_remove {
+							return kinds;
+						}
 					}
 					Ok(event) => {
 						println!(
@@ -828,25 +831,21 @@ mod tests {
 							event.path.display()
 						);
 					}
-					Err(e) => {
-						println!("Event recv error after delete: {}", e);
-						break;
-					}
+					Err(e) => panic!("Event recv error after delete: {}", e),
 				}
 			}
-			panic!("No delete event received within timeout");
 		})
 		.await
 		.expect("Timeout waiting for delete event");
 
-		println!("Got delete event: {:?}", delete_event.kind);
-
-		// This is the critical assertion - we should get a Remove event, not a Create event
+		// This is the critical assertion - a deletion must never surface as a Create
 		assert!(
-			matches!(delete_event.kind, crate::event::FsEventKind::Remove),
+			!kinds_after_delete
+				.iter()
+				.any(|kind| matches!(kind, crate::event::FsEventKind::Create)),
 			"BUG: Expected Remove event after file deletion, but got {:?}. \
 			This indicates the watcher is misreporting deletions as creates.",
-			delete_event.kind
+			kinds_after_delete
 		);
 
 		watcher.stop().await.unwrap();
