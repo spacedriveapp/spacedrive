@@ -104,15 +104,27 @@ impl CoreQuery for CoreStatusQuery {
 			},
 		};
 
-		// Get network status and paired devices
+		// Paired and connected counts come from the network trust registry,
+		// the same source `network.status` reads, so the two commands agree.
 		let network_status = if let Some(networking) = context.get_networking().await {
 			let relay_url = networking.get_relay_url().await;
+			let addresses = match networking.get_node_addr() {
+				Ok(Some(addr)) => addr.ip_addrs().map(|a| a.to_string()).collect(),
+				_ => Vec::new(),
+			};
+			let paired_devices = networking
+				.device_registry()
+				.read()
+				.await
+				.get_paired_devices()
+				.len();
+			let connected_devices = networking.get_connected_devices().await.len();
 			NetworkStatus {
 				running: true,
 				node_id: Some(networking.node_id().to_string()),
-				addresses: Vec::new(), // TODO: Get actual addresses
-				paired_devices: 0,     // TODO: Get actual paired device count
-				connected_devices: 0,  // TODO: Get actual connected device count
+				addresses,
+				paired_devices,
+				connected_devices,
 				version: env!("CARGO_PKG_VERSION").to_string(),
 				relay_url,
 			}

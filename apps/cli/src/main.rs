@@ -761,13 +761,13 @@ async fn run_client_command(
 						}
 
 						network_table.add_row(vec![
-							"Connected Devices",
-							&status.network.connected_devices.to_string(),
+							"Paired devices",
+							&status.network.paired_devices.to_string(),
 						]);
 
 						network_table.add_row(vec![
-							"Paired Devices",
-							&status.network.paired_devices.to_string(),
+							"Connected devices",
+							&status.network.connected_devices.to_string(),
 						]);
 
 						if !status.network.addresses.is_empty() {
