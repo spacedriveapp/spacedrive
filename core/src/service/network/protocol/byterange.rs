@@ -8,7 +8,9 @@
 //! carry no session state, and cancelling an in-flight read is dropping the
 //! stream. Framing is `[u32 BE length][rmp_serde message]`; `Read` and
 //! `FetchSnapshot` responses are followed by exactly `len` raw bytes on the
-//! same stream so payloads are never re-encoded through msgpack. `FetchTiles`
+//! same stream so payloads are never re-encoded through msgpack, and the
+//! `From` variants resume an artifact by sending its tail from an offset
+//! behind a header that still names the whole file. `FetchTiles`
 //! is the one request answered by many frames: one `Tile` per ask, each with
 //! its bytes behind it, in the order the owner finishes them.
 
@@ -84,6 +86,16 @@ pub enum ByteRangeRequest {
 		after: u64,
 		limit: u32,
 	},
+	/// `FetchSnapshot` resumed from `offset`: the header still names the
+	/// whole artifact, and the bytes that follow are its tail from `offset`.
+	/// A nonzero offset serves the file as it stands, without the pre-fetch
+	/// save, so an interrupted copy can finish against the same bytes.
+	FetchSnapshotFrom { source_id: Uuid, offset: u64 },
+	/// `FetchDatabase` resumed from `offset`. The export is rebuilt, which
+	/// yields the same bytes while the store's revision has not moved; the
+	/// header's checksum tells the receiver whether its partial copy still
+	/// matches.
+	FetchDatabaseFrom { source_id: Uuid, offset: u64 },
 }
 
 /// One file whose tile a replica wants.
@@ -519,6 +531,119 @@ impl ByteRangeProtocolHandler {
 		Ok(())
 	}
 
+	/// One source's arena snapshot from `offset`. A fresh fetch saves live
+	/// arena state first so the replica does not start a session stale; a
+	/// resumed one must not, since a new save would change the bytes the
+	/// receiver is partway through.
+	async fn serve_snapshot<W: AsyncWrite + Send + Unpin>(
+		&self,
+		source_id: Uuid,
+		offset: u64,
+		send: &mut W,
+	) -> anyhow::Result<()> {
+		let cache = self.context.volume_index();
+		let Some(source) = cache.sources().into_iter().find(|s| s.id == source_id) else {
+			return write_frame(send, &ByteRangeResponse::Error("unknown source".into())).await;
+		};
+		if source.attached && offset == 0 {
+			if let Err(err) = cache.save_snapshot(&source.root).await {
+				tracing::debug!("pre-fetch snapshot save failed: {err}");
+			}
+		}
+		let Some(snapshot_path) = cache.source_snapshot_path(source_id) else {
+			return write_frame(
+				send,
+				&ByteRangeResponse::Error("source has no persistent snapshot".into()),
+			)
+			.await;
+		};
+		let file = match tokio::fs::File::open(&snapshot_path).await {
+			Ok(f) => f,
+			Err(err) => {
+				return write_frame(
+					send,
+					&ByteRangeResponse::Error(format!("snapshot unavailable: {err}")),
+				)
+				.await;
+			}
+		};
+		serve_file_with_identity(send, file, None, false, offset).await
+	}
+
+	/// A consistent export of one source's database from `offset`.
+	async fn serve_database<W: AsyncWrite + Send + Unpin>(
+		&self,
+		source_id: Uuid,
+		offset: u64,
+		send: &mut W,
+	) -> anyhow::Result<()> {
+		let cache = self.context.volume_index();
+		if !cache.sources().into_iter().any(|s| s.id == source_id) {
+			return write_frame(send, &ByteRangeResponse::Error("unknown source".into())).await;
+		}
+		let Some(db) = cache.read_store(source_id).await else {
+			return write_frame(
+				send,
+				&ByteRangeResponse::Error("source has no readable store".into()),
+			)
+			.await;
+		};
+		let Some(dirs) = cache.source_dirs() else {
+			return write_frame(
+				send,
+				&ByteRangeResponse::Error("no persistent source layout".into()),
+			)
+			.await;
+		};
+		let source_dir = dirs.source_dir(source_id);
+
+		// The generation names the store revision this export starts
+		// from, read before the export runs: a write landing mid-export
+		// moves the next listing instead of mislabeling this delivery
+		// as current.
+		let generation = match db.revision().await {
+			Ok(revision) => revision_generation(revision),
+			Err(err) => {
+				return write_frame(
+					send,
+					&ByteRangeResponse::Error(format!("store revision unreadable: {err}")),
+				)
+				.await;
+			}
+		};
+
+		// VACUUM INTO produces a consistent, compact single-file copy
+		// from one read transaction; walkers keep writing meanwhile. The
+		// copy is byte-identical for an unchanged store, which is what
+		// lets a resumed fetch continue against a fresh export.
+		let export_path = source_dir.join(format!("export-{}.db", Uuid::now_v7().simple()));
+		let exported = sqlx::query("VACUUM INTO ?")
+			.bind(export_path.to_string_lossy().into_owned())
+			.execute(db.pool())
+			.await;
+		if let Err(err) = exported {
+			let _ = tokio::fs::remove_file(&export_path).await;
+			return write_frame(
+				send,
+				&ByteRangeResponse::Error(format!("export failed: {err}")),
+			)
+			.await;
+		}
+
+		let served = match tokio::fs::File::open(&export_path).await {
+			Ok(file) => serve_file_with_identity(send, file, Some(generation), true, offset).await,
+			Err(err) => {
+				write_frame(
+					send,
+					&ByteRangeResponse::Error(format!("export unavailable: {err}")),
+				)
+				.await
+			}
+		};
+		let _ = tokio::fs::remove_file(&export_path).await;
+		served
+	}
+
 	async fn respond<W: AsyncWrite + Send + Unpin>(
 		&self,
 		request: ByteRangeRequest,
@@ -676,102 +801,16 @@ impl ByteRangeProtocolHandler {
 				.await
 			}
 			ByteRangeRequest::FetchSnapshot { source_id } => {
-				let cache = self.context.volume_index();
-				let Some(source) = cache.sources().into_iter().find(|s| s.id == source_id) else {
-					return write_frame(send, &ByteRangeResponse::Error("unknown source".into()))
-						.await;
-				};
-				// Persist live arena state first so the replica isn't stale
-				// by a whole session; failure falls back to the on-disk file.
-				if source.attached {
-					if let Err(err) = cache.save_snapshot(&source.root).await {
-						tracing::debug!("pre-fetch snapshot save failed: {err}");
-					}
-				}
-				let Some(snapshot_path) = cache.source_snapshot_path(source_id) else {
-					return write_frame(
-						send,
-						&ByteRangeResponse::Error("source has no persistent snapshot".into()),
-					)
-					.await;
-				};
-				let file = match tokio::fs::File::open(&snapshot_path).await {
-					Ok(f) => f,
-					Err(err) => {
-						return write_frame(
-							send,
-							&ByteRangeResponse::Error(format!("snapshot unavailable: {err}")),
-						)
-						.await;
-					}
-				};
-				serve_file_with_identity(send, file, None, false).await
+				self.serve_snapshot(source_id, 0, send).await
+			}
+			ByteRangeRequest::FetchSnapshotFrom { source_id, offset } => {
+				self.serve_snapshot(source_id, offset, send).await
 			}
 			ByteRangeRequest::FetchDatabase { source_id } => {
-				let cache = self.context.volume_index();
-				if !cache.sources().into_iter().any(|s| s.id == source_id) {
-					return write_frame(send, &ByteRangeResponse::Error("unknown source".into()))
-						.await;
-				}
-				let Some(db) = cache.read_store(source_id).await else {
-					return write_frame(
-						send,
-						&ByteRangeResponse::Error("source has no readable store".into()),
-					)
-					.await;
-				};
-				let Some(dirs) = cache.source_dirs() else {
-					return write_frame(
-						send,
-						&ByteRangeResponse::Error("no persistent source layout".into()),
-					)
-					.await;
-				};
-				let source_dir = dirs.source_dir(source_id);
-
-				// The generation names the store revision this export starts
-				// from, read before the export runs: a write landing mid-export
-				// moves the next listing instead of mislabeling this delivery
-				// as current.
-				let generation = match db.revision().await {
-					Ok(revision) => revision_generation(revision),
-					Err(err) => {
-						return write_frame(
-							send,
-							&ByteRangeResponse::Error(format!("store revision unreadable: {err}")),
-						)
-						.await;
-					}
-				};
-
-				// VACUUM INTO produces a consistent, compact single-file copy
-				// from one read transaction; walkers keep writing meanwhile.
-				let export_path = source_dir.join(format!("export-{}.db", Uuid::now_v7().simple()));
-				let exported = sqlx::query("VACUUM INTO ?")
-					.bind(export_path.to_string_lossy().into_owned())
-					.execute(db.pool())
-					.await;
-				if let Err(err) = exported {
-					let _ = tokio::fs::remove_file(&export_path).await;
-					return write_frame(
-						send,
-						&ByteRangeResponse::Error(format!("export failed: {err}")),
-					)
-					.await;
-				}
-
-				let served = match tokio::fs::File::open(&export_path).await {
-					Ok(file) => serve_file_with_identity(send, file, Some(generation), true).await,
-					Err(err) => {
-						write_frame(
-							send,
-							&ByteRangeResponse::Error(format!("export unavailable: {err}")),
-						)
-						.await
-					}
-				};
-				let _ = tokio::fs::remove_file(&export_path).await;
-				served
+				self.serve_database(source_id, 0, send).await
+			}
+			ByteRangeRequest::FetchDatabaseFrom { source_id, offset } => {
+				self.serve_database(source_id, offset, send).await
 			}
 			ByteRangeRequest::DeviceFacts => {
 				let config = match self.context.device_manager.config() {
@@ -795,16 +834,19 @@ impl ByteRangeProtocolHandler {
 	}
 }
 
-/// Hash an open file, emit its identity header, and stream exactly the bytes
-/// measured. Identity comes from the open handle, not the path: a writer
-/// renaming a new file into place cannot change what this stream carries,
-/// and the header must name what the stream holds rather than what the
-/// listing that prompted the fetch believed.
+/// Hash an open file, emit its identity header, and stream its bytes from
+/// `offset` to the end. Identity comes from the open handle, not the path: a
+/// writer renaming a new file into place cannot change what this stream
+/// carries, and the header must name what the stream holds rather than what
+/// the listing that prompted the fetch believed. The header always describes
+/// the whole file, so a receiver resuming at `offset` validates the same
+/// generation and checksum a fresh fetch would.
 async fn serve_file_with_identity<W: AsyncWrite + Send + Unpin>(
 	send: &mut W,
 	file: tokio::fs::File,
 	generation: Option<u64>,
 	database: bool,
+	offset: u64,
 ) -> anyhow::Result<()> {
 	let meta = file.metadata().await?;
 	let len = meta.len();
@@ -813,6 +855,15 @@ async fn serve_file_with_identity<W: AsyncWrite + Send + Unpin>(
 			send,
 			&ByteRangeResponse::Error(format!(
 				"artifact of {len} bytes exceeds the transfer bound"
+			)),
+		)
+		.await;
+	}
+	if offset > len {
+		return write_frame(
+			send,
+			&ByteRangeResponse::Error(format!(
+				"offset {offset} is past the end of a {len}-byte artifact"
 			)),
 		)
 		.await;
@@ -829,7 +880,7 @@ async fn serve_file_with_identity<W: AsyncWrite + Send + Unpin>(
 			use std::io::{Seek, SeekFrom};
 			let mut hasher = blake3::Hasher::new();
 			std::io::copy(&mut &std_file, &mut hasher)?;
-			(&std_file).seek(SeekFrom::Start(0))?;
+			(&std_file).seek(SeekFrom::Start(offset))?;
 			Ok((std_file, *hasher.finalize().as_bytes()))
 		})
 		.await?;
@@ -861,7 +912,7 @@ async fn serve_file_with_identity<W: AsyncWrite + Send + Unpin>(
 	write_frame(send, &header).await?;
 
 	let mut buf = vec![0u8; 256 * 1024];
-	let mut sent = 0u64;
+	let mut sent = offset;
 	while sent < len {
 		let want = (len - sent).min(buf.len() as u64) as usize;
 		let n = file.read(&mut buf[..want]).await?;
@@ -1117,6 +1168,49 @@ mod tests {
 			"an unreachable owner's volume is not mounted here"
 		);
 		assert_eq!(listed.last_seen_at, observed_at);
+	}
+
+	/// A resumed artifact request answers with the whole file's identity and
+	/// only the bytes from the offset, so a receiver appending to a partial
+	/// copy validates against the same header a fresh fetch would. An offset
+	/// past the end is refused rather than served as an empty success.
+	#[tokio::test]
+	async fn a_resumed_artifact_serves_its_tail_behind_a_whole_file_header() {
+		let dir = tempfile::tempdir().expect("dir");
+		let path = dir.path().join("artifact");
+		let bytes: Vec<u8> = (0..600_000u32).map(|i| (i % 253) as u8).collect();
+		std::fs::write(&path, &bytes).expect("write");
+		let checksum = *blake3::hash(&bytes).as_bytes();
+
+		let mut wire = Vec::new();
+		let file = tokio::fs::File::open(&path).await.expect("open");
+		serve_file_with_identity(&mut wire, file, Some(5), false, 400_000)
+			.await
+			.expect("serve");
+		let mut reader = wire.as_slice();
+		match read_frame(&mut reader).await.expect("header") {
+			ByteRangeResponse::SnapshotHeader {
+				len,
+				generation,
+				checksum: declared,
+			} => {
+				assert_eq!(len, bytes.len() as u64, "the header names the whole file");
+				assert_eq!(generation, 5);
+				assert_eq!(declared, checksum);
+			}
+			other => panic!("unexpected header: {other:?}"),
+		}
+		assert_eq!(reader, &bytes[400_000..], "only the tail follows");
+
+		let mut refused = Vec::new();
+		let file = tokio::fs::File::open(&path).await.expect("open");
+		serve_file_with_identity(&mut refused, file, None, true, 600_001)
+			.await
+			.expect("answered");
+		assert!(matches!(
+			read_frame(&mut refused.as_slice()).await.expect("frame"),
+			ByteRangeResponse::Error(_)
+		));
 	}
 
 	/// Facts cross the frame codec intact, and a classification this build

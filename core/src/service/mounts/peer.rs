@@ -266,6 +266,7 @@ async fn restore_from(base: &std::path::Path) -> (usize, usize) {
 
 	while let Ok(Some(dir)) = dirs.next_entry().await {
 		let replica_dir = dir.path();
+		sweep_legacy_temporaries(&replica_dir).await;
 		let manifest = match tokio::fs::read(manifest_path(&replica_dir)).await {
 			Ok(bytes) => match serde_json::from_slice::<ReplicaManifest>(&bytes) {
 				Ok(manifest) => manifest,
@@ -321,6 +322,20 @@ async fn restore_from(base: &std::path::Path) -> (usize, usize) {
 	}
 
 	(loaded, known)
+}
+
+/// Builds before resumable transfers wrote to `<random>.tmp`, which nothing
+/// can continue; a `.part` file is kept, since the next sync decides from its
+/// name whether the owner still serves those bytes.
+async fn sweep_legacy_temporaries(replica_dir: &Path) {
+	let Ok(mut dir) = tokio::fs::read_dir(replica_dir).await else {
+		return;
+	};
+	while let Ok(Some(entry)) = dir.next_entry().await {
+		if entry.path().extension().is_some_and(|ext| ext == "tmp") {
+			let _ = tokio::fs::remove_file(entry.path()).await;
+		}
+	}
 }
 
 /// Load a replica's artifact into an arena: the snapshot when one exists,
@@ -816,31 +831,271 @@ fn refresh_share_facts(
 	}))
 }
 
-/// Stream a declared number of bytes into a temporary artifact, hashing as
-/// they land. A short stream or a checksum mismatch fails the transfer with
-/// the temporary file still in place for the caller to remove; nothing here
-/// touches the published artifact.
+/// A transfer in progress on disk, named
+/// `<source>.<generation>.<blake3 prefix>.part`. The name carries what the
+/// next header must match for the bytes to be worth keeping, so a restart
+/// decides without the owner and without a sidecar file.
+#[derive(Debug, Clone, PartialEq)]
+struct PartFile {
+	path: PathBuf,
+	generation: u64,
+	prefix: [u8; 8],
+	have: u64,
+}
+
+fn part_path(replica_dir: &Path, source_id: Uuid, generation: u64, checksum: &[u8; 32]) -> PathBuf {
+	replica_dir.join(format!(
+		"{}.{generation}.{}.part",
+		source_id.simple(),
+		hex::encode(&checksum[..8])
+	))
+}
+
+/// The source, generation and checksum prefix a `.part` file name encodes.
+fn parse_part_name(name: &str) -> Option<(Uuid, u64, [u8; 8])> {
+	let rest = name.strip_suffix(".part")?;
+	let (source, rest) = rest.split_once('.')?;
+	let (generation, prefix) = rest.split_once('.')?;
+	let source_id = Uuid::try_parse(source).ok()?;
+	let generation = generation.parse().ok()?;
+	let prefix: [u8; 8] = hex::decode(prefix).ok()?.try_into().ok()?;
+	Some((source_id, generation, prefix))
+}
+
+/// The partial transfer on disk for `source_id`, if any. Two attempts can
+/// only leave two parts when the owner's generation moved between them, so
+/// everything but the most recently written one is removed.
+async fn find_part(replica_dir: &Path, source_id: Uuid) -> Option<PartFile> {
+	let mut dir = tokio::fs::read_dir(replica_dir).await.ok()?;
+	let mut found: Option<(PartFile, SystemTime)> = None;
+	while let Ok(Some(entry)) = dir.next_entry().await {
+		let name = entry.file_name();
+		let Some((id, generation, prefix)) = name.to_str().and_then(parse_part_name) else {
+			continue;
+		};
+		if id != source_id {
+			continue;
+		}
+		let Ok(meta) = entry.metadata().await else {
+			continue;
+		};
+		let part = PartFile {
+			path: entry.path(),
+			generation,
+			prefix,
+			have: meta.len(),
+		};
+		let modified = meta.modified().unwrap_or(UNIX_EPOCH);
+		match &found {
+			Some((_, at)) if *at >= modified => {
+				let _ = tokio::fs::remove_file(&part.path).await;
+			}
+			Some((older, _)) => {
+				let _ = tokio::fs::remove_file(&older.path).await;
+				found = Some((part, modified));
+			}
+			None => found = Some((part, modified)),
+		}
+	}
+	found.map(|(part, _)| part)
+}
+
+/// Drop partial transfers the owner's listing no longer describes: a part
+/// whose source is gone, or whose generation is not the one the owner holds
+/// now, can never complete against the bytes the owner would serve. A part
+/// that still matches stays, however long the owner has been away.
+async fn prune_parts(replica_dir: &Path, sources: &[RemoteSourceInfo]) {
+	let Ok(mut dir) = tokio::fs::read_dir(replica_dir).await else {
+		return;
+	};
+	while let Ok(Some(entry)) = dir.next_entry().await {
+		let name = entry.file_name();
+		let Some((source_id, generation, _)) = name.to_str().and_then(parse_part_name) else {
+			continue;
+		};
+		let current = sources
+			.iter()
+			.find(|info| info.id == source_id)
+			.is_some_and(|info| info.generation == generation);
+		if !current {
+			tracing::debug!(
+				source = %source_id,
+				generation,
+				"partial transfer no longer matches the owner's generation; removed"
+			);
+			let _ = tokio::fs::remove_file(entry.path()).await;
+		}
+	}
+}
+
+/// What an owner answers an artifact request with: the whole artifact's
+/// identity, whatever offset the bytes behind it start at.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct ArtifactHeader {
+	len: u64,
+	generation: u64,
+	checksum: [u8; 32],
+}
+
+impl ArtifactHeader {
+	/// Whether a partial file was cut from these same bytes. An owner that
+	/// predates header identity names nothing, so nothing of its resumes.
+	fn continues(&self, part: &PartFile) -> bool {
+		self.generation != 0
+			&& self.checksum != [0u8; 32]
+			&& part.generation == self.generation
+			&& part.prefix[..] == self.checksum[..8]
+			&& part.have <= self.len
+	}
+}
+
+/// Why a fetch did not publish. A request the owner refused or could not
+/// open moved no bytes, so the caller may try another artifact kind; a
+/// transfer that failed partway has its partial file on disk and should
+/// simply be retried.
+#[derive(Debug)]
+enum FetchError {
+	Unavailable(anyhow::Error),
+	Failed(anyhow::Error),
+}
+
+impl std::fmt::Display for FetchError {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			FetchError::Unavailable(err) | FetchError::Failed(err) => write!(f, "{err}"),
+		}
+	}
+}
+
+type ArtifactBody = Box<dyn tokio::io::AsyncRead + Send + Unpin>;
+
+/// Bring one artifact's bytes onto disk, continuing a `.part` from an
+/// earlier attempt when the owner still serves the same bytes.
+///
+/// `open(offset)` asks the owner for the artifact's tail from `offset`; the
+/// header it returns describes the whole artifact. A part the header does
+/// not continue is discarded and the fetch starts over from zero, as does a
+/// resumed request the owner cannot open, since an owner too old to know the
+/// offset variants still serves a whole artifact. Every other failure leaves
+/// the partial file in place for the next attempt. On success the file holds
+/// every byte the header declared and matches its checksum.
+async fn transfer_artifact<F, Fut>(
+	replica_dir: &Path,
+	source_id: Uuid,
+	mut open: F,
+) -> Result<(PathBuf, ArtifactHeader), FetchError>
+where
+	F: FnMut(u64) -> Fut,
+	Fut: std::future::Future<Output = anyhow::Result<(ArtifactHeader, ArtifactBody)>>,
+{
+	let mut part = find_part(replica_dir, source_id).await;
+	let mut opened = match &part {
+		Some(existing) => match open(existing.have).await {
+			Ok(opened) => Some(opened),
+			Err(err) => {
+				tracing::debug!(source = %source_id, %err, "resumed request refused; starting over");
+				None
+			}
+		},
+		None => None,
+	};
+	if let Some(existing) = part.take() {
+		match &opened {
+			Some((header, _)) if header.continues(&existing) => part = Some(existing),
+			_ => {
+				tracing::info!(
+					source = %source_id,
+					had = existing.have,
+					"partial transfer does not match what the owner serves now; starting over"
+				);
+				let _ = tokio::fs::remove_file(&existing.path).await;
+				opened = None;
+			}
+		}
+	}
+	let (header, mut body) = match opened {
+		Some(opened) => opened,
+		None => open(0).await.map_err(FetchError::Unavailable)?,
+	};
+	if header.len > MAX_SNAPSHOT_LEN {
+		return Err(FetchError::Unavailable(anyhow::anyhow!(
+			"declared artifact of {} bytes exceeds the transfer bound",
+			header.len
+		)));
+	}
+
+	let (path, offset) = match part {
+		Some(part) => (part.path, part.have),
+		None => (
+			part_path(replica_dir, source_id, header.generation, &header.checksum),
+			0,
+		),
+	};
+	receive_artifact(&mut body, &path, offset, header.len, header.checksum)
+		.await
+		.map_err(FetchError::Failed)?;
+	Ok((path, header))
+}
+
+/// Append a stream to a partial artifact from `offset` to `len`, hashing the
+/// bytes already on disk and the new ones alike. A short stream fails the
+/// transfer with the file in place for the next attempt; a checksum
+/// mismatch removes it, since no continuation can mend it.
 async fn receive_artifact<R: tokio::io::AsyncRead + Unpin + ?Sized>(
 	body: &mut R,
-	tmp_path: &std::path::Path,
+	part_path: &Path,
+	offset: u64,
 	len: u64,
 	expected_checksum: [u8; 32],
 ) -> anyhow::Result<()> {
 	use tokio::io::AsyncWriteExt;
-	let mut file = tokio::fs::File::create(tmp_path).await?;
+
 	let mut hasher = blake3::Hasher::new();
-	let mut remaining = len;
-	let mut buf = vec![0u8; 256 * 1024];
-	while remaining > 0 {
-		let want = remaining.min(buf.len() as u64) as usize;
-		let n = body.read(&mut buf[..want]).await?;
-		if n == 0 {
-			anyhow::bail!("stream ended {remaining} bytes short of the {len} the header declared");
+	let mut file = if offset > 0 {
+		let mut file = tokio::fs::OpenOptions::new()
+			.read(true)
+			.append(true)
+			.open(part_path)
+			.await?;
+		let mut hashed = 0u64;
+		let mut buf = vec![0u8; 256 * 1024];
+		while hashed < offset {
+			let want = (offset - hashed).min(buf.len() as u64) as usize;
+			let n = file.read(&mut buf[..want]).await?;
+			if n == 0 {
+				anyhow::bail!("partial artifact is {hashed} bytes, not the {offset} expected");
+			}
+			hasher.update(&buf[..n]);
+			hashed += n as u64;
 		}
-		hasher.update(&buf[..n]);
-		file.write_all(&buf[..n]).await?;
-		remaining -= n as u64;
+		file
+	} else {
+		tokio::fs::File::create(part_path).await?
+	};
+
+	let mut remaining = len - offset;
+	let mut buf = vec![0u8; 256 * 1024];
+	let streamed = async {
+		while remaining > 0 {
+			let want = remaining.min(buf.len() as u64) as usize;
+			let n = body.read(&mut buf[..want]).await?;
+			if n == 0 {
+				anyhow::bail!(
+					"stream ended {remaining} bytes short of the {len} the header declared"
+				);
+			}
+			hasher.update(&buf[..n]);
+			file.write_all(&buf[..n]).await?;
+			remaining -= n as u64;
+		}
+		anyhow::Ok(())
 	}
+	.await;
+	// Whatever landed is kept for the next attempt, so it must reach the
+	// file before the handle goes: a dropped tokio file loses pending writes.
+	let flushed = file.flush().await;
+	streamed?;
+	flushed?;
 	file.sync_all().await?;
 
 	// A zeroed checksum is an owner that predates the field; the parse
@@ -848,6 +1103,7 @@ async fn receive_artifact<R: tokio::io::AsyncRead + Unpin + ?Sized>(
 	if expected_checksum != [0u8; 32] {
 		let received = *hasher.finalize().as_bytes();
 		if received != expected_checksum {
+			let _ = tokio::fs::remove_file(part_path).await;
 			anyhow::bail!("delivered bytes do not match the checksum the header declared");
 		}
 	}
@@ -961,56 +1217,62 @@ async fn fetch_database_and_publish(
 	context: &Arc<CoreContext>,
 	device_id: Uuid,
 	device_label: &str,
-	replica_dir: &std::path::Path,
+	replica_dir: &Path,
 	info: &RemoteSourceInfo,
-) -> anyhow::Result<()> {
+) -> Result<(), FetchError> {
 	let started = std::time::Instant::now();
-	let (response, mut body) = request(
-		context,
-		device_id,
-		&ByteRangeRequest::FetchDatabase { source_id: info.id },
-	)
+	let source_id = info.id;
+	let (part, header) = transfer_artifact(replica_dir, source_id, |offset| async move {
+		let req = if offset == 0 {
+			ByteRangeRequest::FetchDatabase { source_id }
+		} else {
+			ByteRangeRequest::FetchDatabaseFrom { source_id, offset }
+		};
+		let (response, body) = request(context, device_id, &req).await?;
+		match response {
+			ByteRangeResponse::DatabaseHeader {
+				len,
+				generation,
+				checksum,
+			} => Ok((
+				ArtifactHeader {
+					len,
+					generation,
+					checksum,
+				},
+				body,
+			)),
+			other => anyhow::bail!("unexpected response: {other:?}"),
+		}
+	})
 	.await?;
-	let (len, delivered, checksum) = match response {
-		ByteRangeResponse::DatabaseHeader {
-			len,
-			generation,
-			checksum,
-		} => (len, generation, checksum),
-		other => anyhow::bail!("unexpected response: {other:?}"),
-	};
-	if len > MAX_SNAPSHOT_LEN {
-		anyhow::bail!("declared artifact of {len} bytes exceeds the transfer bound");
-	}
 
-	let tmp_path = replica_dir.join(format!("{}.tmp", Uuid::now_v7().simple()));
-	if let Err(err) = receive_artifact(&mut body, &tmp_path, len, checksum).await {
-		let _ = tokio::fs::remove_file(&tmp_path).await;
-		return Err(err);
-	}
-
-	// The parse-and-rebuild is the gate: the temporary database must open
+	// The parse-and-rebuild is the gate: the complete database must open
 	// read-only and yield an arena before it may replace anything.
-	let opened = sd_store::SourceManager::open_file_read_only(&tmp_path).await;
-	let db = match opened {
+	let db = match sd_store::SourceManager::open_file_read_only(&part).await {
 		Ok(db) => db,
 		Err(err) => {
-			let _ = tokio::fs::remove_file(&tmp_path).await;
-			anyhow::bail!("delivered database refused to open: {err}");
+			let _ = tokio::fs::remove_file(&part).await;
+			return Err(FetchError::Failed(anyhow::anyhow!(
+				"delivered database refused to open: {err}"
+			)));
 		}
 	};
 	let index = match arena_from_database(&db, &info.root).await {
 		Ok(index) => index,
 		Err(err) => {
-			let _ = tokio::fs::remove_file(&tmp_path).await;
-			return Err(err);
+			db.pool().close().await;
+			let _ = tokio::fs::remove_file(&part).await;
+			return Err(FetchError::Failed(err));
 		}
 	};
 	// The pool must release its handle before the file moves.
 	db.pool().close().await;
 
 	let db_path = replica_dir.join(format!("{}.db", info.id.simple()));
-	tokio::fs::rename(&tmp_path, &db_path).await?;
+	tokio::fs::rename(&part, &db_path)
+		.await
+		.map_err(|err| FetchError::Failed(err.into()))?;
 	// A database replica supersedes any arena-snapshot artifact the source
 	// had before it was delivered this way.
 	let _ =
@@ -1019,7 +1281,7 @@ async fn fetch_database_and_publish(
 	let share = Arc::new(RemoteShare {
 		device_id,
 		device_label: device_label.to_string(),
-		generation: delivered,
+		generation: header.generation,
 		info: info.clone(),
 		index: Arc::new(TokioRwLock::new(index)),
 		synced_at_secs: now_secs(),
@@ -1027,8 +1289,8 @@ async fn fetch_database_and_publish(
 	shares_map().write().await.insert(info.id, share);
 	tracing::info!(
 		source = %info.id,
-		generation = delivered,
-		bytes = len,
+		generation = header.generation,
+		bytes = header.len,
 		elapsed_ms = started.elapsed().as_millis() as u64,
 		"replica database received and published"
 	);
@@ -1036,44 +1298,46 @@ async fn fetch_database_and_publish(
 }
 
 /// Fetch one source's snapshot into the device's replica directory and
-/// publish it. Every failure path removes its temporary file and leaves the
-/// previously published artifact and share untouched.
+/// publish it. A failed transfer leaves its partial file for the next
+/// attempt and the previously published artifact and share untouched.
 async fn fetch_and_publish(
 	context: &Arc<CoreContext>,
 	device_id: Uuid,
 	device_label: &str,
-	replica_dir: &std::path::Path,
+	replica_dir: &Path,
 	info: &RemoteSourceInfo,
-) -> anyhow::Result<()> {
+) -> Result<(), FetchError> {
 	let started = std::time::Instant::now();
-	let (response, mut body) = request(
-		context,
-		device_id,
-		&ByteRangeRequest::FetchSnapshot { source_id: info.id },
-	)
+	let source_id = info.id;
+	let (part, header) = transfer_artifact(replica_dir, source_id, |offset| async move {
+		let req = if offset == 0 {
+			ByteRangeRequest::FetchSnapshot { source_id }
+		} else {
+			ByteRangeRequest::FetchSnapshotFrom { source_id, offset }
+		};
+		let (response, body) = request(context, device_id, &req).await?;
+		match response {
+			ByteRangeResponse::SnapshotHeader {
+				len,
+				generation,
+				checksum,
+			} => Ok((
+				ArtifactHeader {
+					len,
+					generation,
+					checksum,
+				},
+				body,
+			)),
+			other => anyhow::bail!("unexpected response: {other:?}"),
+		}
+	})
 	.await?;
-	let (len, delivered, checksum) = match response {
-		ByteRangeResponse::SnapshotHeader {
-			len,
-			generation,
-			checksum,
-		} => (len, generation, checksum),
-		other => anyhow::bail!("unexpected response: {other:?}"),
-	};
-	if len > MAX_SNAPSHOT_LEN {
-		anyhow::bail!("declared artifact of {len} bytes exceeds the transfer bound");
-	}
-
-	let tmp_path = replica_dir.join(format!("{}.tmp", Uuid::now_v7().simple()));
-	if let Err(err) = receive_artifact(&mut body, &tmp_path, len, checksum).await {
-		let _ = tokio::fs::remove_file(&tmp_path).await;
-		return Err(err);
-	}
 
 	// An owner that predates header identity sends zero; the listing's
 	// generation is then the only name these bytes have.
-	let generation = if delivered != 0 {
-		delivered
+	let generation = if header.generation != 0 {
+		header.generation
 	} else {
 		info.generation
 	};
@@ -1083,13 +1347,14 @@ async fn fetch_and_publish(
 		device_label,
 		info,
 		generation,
-		&tmp_path,
+		&part,
 	)
-	.await?;
+	.await
+	.map_err(FetchError::Failed)?;
 	tracing::info!(
 		source = %info.id,
 		generation,
-		bytes = len,
+		bytes = header.len,
 		elapsed_ms = started.elapsed().as_millis() as u64,
 		"replica artifact received and published"
 	);
@@ -1147,6 +1412,7 @@ pub async fn sync_device(
 
 	let replica_dir = replica_dir(context, device_id);
 	tokio::fs::create_dir_all(&replica_dir).await?;
+	prune_parts(&replica_dir, &sources).await;
 
 	let mut synced = 0usize;
 	for info in &sources {
@@ -1171,12 +1437,13 @@ pub async fn sync_device(
 		let fetched = if info.nested {
 			// A nested source travels as its own database, which carries
 			// exactly its records. An owner too old to export one still
-			// answers on the snapshot path.
+			// answers on the snapshot path; a transfer that broke partway
+			// is retried as a database, since its partial file is waiting.
 			match fetch_database_and_publish(context, device_id, &device_label, &replica_dir, info)
 				.await
 			{
 				Ok(()) => Ok(()),
-				Err(err) => {
+				Err(FetchError::Unavailable(err)) => {
 					tracing::debug!(
 						source = %info.id,
 						%err,
@@ -1184,6 +1451,7 @@ pub async fn sync_device(
 					);
 					fetch_and_publish(context, device_id, &device_label, &replica_dir, info).await
 				}
+				Err(err) => Err(err),
 			}
 		} else {
 			fetch_and_publish(context, device_id, &device_label, &replica_dir, info).await
@@ -1720,6 +1988,181 @@ mod tests {
 				.any(|volume| volume.id == volume_id && volume.is_mounted),
 			"a connected owner's volume reads as mounted"
 		);
+	}
+
+	/// An owner that answers `transfer_artifact` from a byte buffer, cutting
+	/// the stream after `cut` bytes of each answer when asked to, the way a
+	/// killed daemon or a dropped link does.
+	struct ScriptedOwner {
+		bytes: Vec<u8>,
+		generation: u64,
+		cuts: std::collections::VecDeque<Option<usize>>,
+		offsets: Vec<u64>,
+	}
+
+	impl ScriptedOwner {
+		fn header(&self) -> ArtifactHeader {
+			ArtifactHeader {
+				len: self.bytes.len() as u64,
+				generation: self.generation,
+				checksum: *blake3::hash(&self.bytes).as_bytes(),
+			}
+		}
+
+		fn open(&mut self, offset: u64) -> anyhow::Result<(ArtifactHeader, ArtifactBody)> {
+			self.offsets.push(offset);
+			let cut = self.cuts.pop_front().flatten();
+			let mut tail = self.bytes[offset as usize..].to_vec();
+			if let Some(cut) = cut {
+				tail.truncate(cut);
+			}
+			Ok((self.header(), Box::new(std::io::Cursor::new(tail))))
+		}
+	}
+
+	fn scripted_bytes(len: usize) -> Vec<u8> {
+		(0..len).map(|i| (i % 251) as u8).collect()
+	}
+
+	/// A transfer cut partway leaves its `.part` on disk; the next attempt
+	/// asks for the tail from that length and the finished file matches the
+	/// header's checksum byte for byte.
+	#[tokio::test]
+	async fn an_interrupted_transfer_resumes_from_the_part_length() {
+		let base = tempfile::tempdir().expect("dir");
+		let source_id = Uuid::now_v7();
+		let owner = std::sync::Arc::new(std::sync::Mutex::new(ScriptedOwner {
+			bytes: scripted_bytes(3_000_000),
+			generation: 42,
+			cuts: [Some(1_000_000), None].into_iter().collect(),
+			offsets: Vec::new(),
+		}));
+		let expected = owner.lock().unwrap().header();
+
+		let first = transfer_artifact(base.path(), source_id, |offset| {
+			let owner = owner.clone();
+			async move { owner.lock().unwrap().open(offset) }
+		})
+		.await;
+		assert!(
+			matches!(first, Err(FetchError::Failed(_))),
+			"a cut stream fails the transfer: {first:?}"
+		);
+		let part = find_part(base.path(), source_id)
+			.await
+			.expect("the partial file survives the failure");
+		assert_eq!(part.have, 1_000_000);
+		assert_eq!(part.generation, 42);
+		assert_eq!(part.prefix[..], expected.checksum[..8]);
+
+		let (path, header) = transfer_artifact(base.path(), source_id, |offset| {
+			let owner = owner.clone();
+			async move { owner.lock().unwrap().open(offset) }
+		})
+		.await
+		.expect("the second attempt completes");
+		assert_eq!(header, expected);
+		assert_eq!(
+			owner.lock().unwrap().offsets,
+			vec![0, 1_000_000],
+			"the resumed request starts at the part's length"
+		);
+		let delivered = std::fs::read(&path).expect("complete artifact");
+		assert_eq!(blake3::hash(&delivered).as_bytes(), &expected.checksum);
+		assert_eq!(path, part.path, "the part file is the finished artifact");
+	}
+
+	/// A part cut from an older generation is discarded and the fetch starts
+	/// from zero, even though the resumed request was answered.
+	#[tokio::test]
+	async fn a_part_from_another_generation_starts_over() {
+		let base = tempfile::tempdir().expect("dir");
+		let source_id = Uuid::now_v7();
+		let stale = part_path(base.path(), source_id, 7, &[9u8; 32]);
+		std::fs::write(&stale, scripted_bytes(500)).expect("stale part");
+
+		let owner = std::sync::Arc::new(std::sync::Mutex::new(ScriptedOwner {
+			bytes: scripted_bytes(2_000),
+			generation: 8,
+			cuts: std::collections::VecDeque::new(),
+			offsets: Vec::new(),
+		}));
+		let (path, header) = transfer_artifact(base.path(), source_id, |offset| {
+			let owner = owner.clone();
+			async move { owner.lock().unwrap().open(offset) }
+		})
+		.await
+		.expect("transfer");
+		assert_eq!(owner.lock().unwrap().offsets, vec![500, 0]);
+		assert!(!stale.exists(), "the stale part is removed");
+		assert_eq!(
+			std::fs::read(&path).expect("artifact"),
+			scripted_bytes(2_000)
+		);
+		assert_eq!(header.generation, 8);
+	}
+
+	/// The owner's listing is what retires a part: one whose generation the
+	/// owner still holds stays through any number of syncs, one it has moved
+	/// past goes, and one for a source the owner no longer lists goes too.
+	#[tokio::test]
+	async fn parts_are_pruned_against_the_owners_listing() {
+		let base = tempfile::tempdir().expect("dir");
+		let kept = Uuid::now_v7();
+		let moved = Uuid::now_v7();
+		let gone = Uuid::now_v7();
+		for (id, generation) in [(kept, 7), (moved, 3), (gone, 1)] {
+			std::fs::write(part_path(base.path(), id, generation, &[1u8; 32]), b"x").expect("part");
+		}
+		let mut moved_info = info(moved, "/mnt/pool/moved", 1);
+		moved_info.generation = 4;
+		prune_parts(base.path(), &[info(kept, "/mnt/pool/kept", 1), moved_info]).await;
+		assert!(find_part(base.path(), kept).await.is_some());
+		assert!(find_part(base.path(), moved).await.is_none());
+		assert!(find_part(base.path(), gone).await.is_none());
+	}
+
+	#[test]
+	fn a_part_name_round_trips_its_identity() {
+		let source_id = Uuid::now_v7();
+		let mut checksum = [0u8; 32];
+		checksum[..8].copy_from_slice(&[0xde, 0xad, 0xbe, 0xef, 0, 1, 2, 3]);
+		let path = part_path(Path::new("/r"), source_id, 99, &checksum);
+		let name = path.file_name().and_then(|n| n.to_str()).expect("name");
+		assert_eq!(
+			parse_part_name(name),
+			Some((source_id, 99, [0xde, 0xad, 0xbe, 0xef, 0, 1, 2, 3]))
+		);
+		assert_eq!(parse_part_name("abc.snapshot"), None);
+		assert_eq!(parse_part_name("0195.tmp"), None);
+	}
+
+	/// A resumed database fetch depends on the export being the same bytes
+	/// while the store has not changed; two exports of one store must hash
+	/// identically or no partial copy could ever continue.
+	#[tokio::test]
+	async fn an_unchanged_store_exports_identical_bytes() {
+		let store_dir = tempfile::tempdir().expect("store dir");
+		let manager = sd_store::SourceManager::new(store_dir.path().to_path_buf());
+		let id = Uuid::now_v7().simple().to_string();
+		manager
+			.create(&id, &sd_store::filesystem_schema())
+			.await
+			.expect("create");
+		let db = manager.open(&id).await.expect("open");
+		let out = tempfile::tempdir().expect("out");
+		let mut hashes = Vec::new();
+		for n in 0..2 {
+			let path = out.path().join(format!("export-{n}.db"));
+			sqlx::query("VACUUM INTO ?")
+				.bind(path.to_string_lossy().into_owned())
+				.execute(db.pool())
+				.await
+				.expect("export");
+			hashes.push(blake3::hash(&std::fs::read(&path).expect("read")));
+		}
+		db.pool().close().await;
+		assert_eq!(hashes[0], hashes[1]);
 	}
 
 	/// A manifest without facts restores; the device has none until its
