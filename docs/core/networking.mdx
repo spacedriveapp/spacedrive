@@ -96,6 +96,69 @@ sidecars through one provider boundary. It supports:
 Control messages do not carry large file bodies. This keeps queries responsive
 while previews, mounts, and transfers stream in parallel.
 
+## Source replication
+
+When a paired device connects, this device copies the index of every source
+the peer serves into `mounts-remote/<device>/` and loads it as a read-only
+replica. The copy is an arena snapshot for a source at its volume root, or a
+single-file database export for a nested source. The owner's response header
+names the whole artifact: its length, its generation, and the blake3 hash of
+its bytes. A delivery must match that hash and parse before it replaces the
+replica already published.
+
+### Partial transfers
+
+A transfer lands in `<source>.<generation>.<blake3 prefix>.part` and stays
+there when the stream breaks or the daemon stops. The next attempt asks the
+owner for the artifact's tail from the part's length (`FetchSnapshotFrom` or
+`FetchDatabaseFrom`). The owner answers with the same whole-artifact header
+and streams only the bytes past the offset; a resumed snapshot request skips
+the owner's pre-fetch save so the bytes stay the ones the part was cut from.
+A header whose generation or hash prefix does not match the part discards it
+and starts over. A part is removed only when the owner's listing no longer
+carries its generation, so an owner that is offline for a week leaves the
+part waiting. The finished file is validated against the header hash before
+it replaces the live replica.
+
+Both peers must run a build that knows the `From` requests. An owner that
+does not answers them with an error, and the receiver starts the transfer
+from zero as before.
+
+### Bandwidth cap
+
+`replication.max_bytes_per_sec` in the daemon config bounds replica bytes
+moved per second, serving and receiving combined, through one token bucket
+with a one-second burst. Zero is unlimited. Set it with
+`sd config set replication.max_bytes_per_sec 200K` (bytes, or K, M, G in
+powers of 1024); the change applies to transfers already in flight. An
+initial replica runs to gigabytes and starts as soon as a device connects, so
+set the cap before pairing on a metered or shared link.
+
+### Pause
+
+`sd sources replication pause` stops this device starting replica transfers
+and halts any in flight at its next chunk, keeping the partial file. The
+daemon still refreshes peer listings, owner facts and fleet totals, still
+serves its own sources to peers, and still answers remote operations.
+`sd sources replication resume` continues each partial file where it stopped
+and runs a replication pass against every connected device at once. The
+switch is `replication.paused` in the daemon config, so a paused daemon stays
+paused across a restart. A pause is not a fetch failure: no backoff accrues.
+
+### Progress
+
+Every fetch in flight reports `bytes` on disk (including what an earlier
+attempt left in the part), `total`, a `bytes_per_sec` rate averaged over the
+last few seconds, and `resumed_from`. `sources.list` carries the figures on
+the replica's row, or on a `replica_fetching` row for a first copy that has
+no replica yet. `core.status` and `mounts.replication_status` return the
+pause switch, the cap, and every transfer; `sd status` prints them as one
+line (`Replicating 2 sources, 553.0 MB of 2.9 GB, 212.0 KB/s`), and
+`sd sources list` appends `fetching ...` to the status column. The daemon
+emits `ReplicationProgress { transfer }` about once a second per transfer
+and once more with `finished: true` when the transfer leaves the active set,
+complete or stopped.
+
 ## Sync traffic
 
 Library assertions and source generations use separate streams and watermarks.
