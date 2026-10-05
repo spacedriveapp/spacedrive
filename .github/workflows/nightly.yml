@@ -59,18 +59,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup System and Rust
-        uses: ./.github/actions/setup-system
+      # setup-system is not used here: its `cargo xtask setup` builds a release
+      # sd-daemon for Tauri's bundler check, which the real build below redoes
+      # with sd-cli's feature set, and the generated .cargo/config.toml only
+      # matters with the codec bundle. Static OpenSSL is set below instead so
+      # the Linux binary does not depend on the runner's libssl.
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           target: ${{ matrix.settings.target }}
-          # Save the cargo cache so a warm macOS build does not pay the
-          # 65-minute cold compile on every push.
+          # Save the cargo cache so a warm build does not pay the cold
+          # dependency compile on every push.
           save-cache: 'true'
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: ./scripts/setup.sh
 
       - name: Build sd-cli and sd-daemon
         env:
           SD_GIT_SHA: ${{ github.sha }}
+          OPENSSL_STATIC: '1'
+          OPENSSL_NO_VENDOR: '0'
         run: |
           cargo build --release --locked \
             -p sd-cli -p sd-core --bin sd-cli --bin sd-daemon \
@@ -136,12 +146,22 @@ jobs:
 
           Unsigned, may break, replaced on every push. Opt in with \`sd config set update.channel nightly\` and run \`sd update\`; see docs/core/releases.mdx.
           EOF
-          gh release create "$NIGHTLY_TAG" \
-            --target "${{ github.sha }}" \
-            --prerelease \
-            --title "Nightly $short" \
-            --notes-file notes.md \
-            dist/*
+          # GitHub occasionally answers the create with HTTP 403 right after
+          # the tag was deleted; a short retry rides it out.
+          for attempt in 1 2 3 4 5; do
+            if gh release create "$NIGHTLY_TAG" \
+              --target "${{ github.sha }}" \
+              --prerelease \
+              --title "Nightly $short" \
+              --notes-file notes.md \
+              dist/*; then
+              break
+            fi
+            if [ "$attempt" = 5 ]; then exit 1; fi
+            echo "release create failed (attempt $attempt), retrying in 15s"
+            gh release delete "$NIGHTLY_TAG" --cleanup-tag --yes || true
+            sleep 15
+          done
           # GitHub keeps an existing tag's commit over --target, and the
           # updater keys on this field, so a stale tag must fail the job.
           actual=$(gh release view "$NIGHTLY_TAG" --json targetCommitish --jq .targetCommitish)
