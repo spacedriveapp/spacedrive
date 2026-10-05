@@ -100,6 +100,10 @@ services: ServiceConfigOutput;
  */
 mounts: MountsConfigOutput; 
 /**
+ * Replica transfers with paired devices
+ */
+replication: ReplicationConfigOutput; 
+/**
  * Daemon logging configuration
  */
 logging: LoggingConfigOutput; 
@@ -498,7 +502,12 @@ is_fast_operation: boolean;
  */
 copy_method: CopyMethod };
 
-export type CoreStatus = { version: string; built_at: string; library_count: number; device_info: DeviceInfo; libraries: LibraryInfo[]; services: ServiceStatus; network: NetworkStatus; system: SystemInfo };
+export type CoreStatus = { version: string; built_at: string; library_count: number; device_info: DeviceInfo; libraries: LibraryInfo[]; services: ServiceStatus; network: NetworkStatus; system: SystemInfo; 
+/**
+ * Replica fetches from paired devices: the pause switch, the cap and
+ * every transfer in flight.
+ */
+replication: ReplicationStatus };
 
 /**
  * Input for creating a new folder
@@ -1119,7 +1128,13 @@ resource_type: string;
 /**
  * The deleted resource's ID
  */
-resource_id: string } } | { ConfigChanged: { field: string } } | { Custom: { event_type: string } };
+resource_id: string } } | { ConfigChanged: { field: string } } | 
+/**
+ * A replica fetch from a paired device moved, about once a second per
+ * transfer, with a last emission marked `finished` when it leaves the
+ * active set, complete or stopped.
+ */
+{ ReplicationProgress: { transfer: ReplicaTransferProgress } } | { Custom: { event_type: string } };
 
 /**
  * Event category for grouping related events
@@ -3113,6 +3128,12 @@ rereads: number; p50_micros: number; p95_micros: number; max_micros: number; siz
 
 export type MountsReadTraceInput = Record<string, never>;
 
+export type MountsReplicationSetPausedInput = { paused: boolean };
+
+export type MountsReplicationSetPausedOutput = { paused: boolean; message: string };
+
+export type MountsReplicationStatusInput = Record<string, never>;
+
 export type MountsStatus = { running: boolean; 
 /**
  * WebDAV base, kept as plain interop and as a measurement baseline.
@@ -3669,6 +3690,48 @@ export type ReplaceReason =
  */
 "newer";
 
+/**
+ * One replica fetch as it stands. `bytes` counts what is on disk,
+ * including what an earlier attempt left in the partial file, so a resumed
+ * transfer reports from where it continues rather than from zero.
+ */
+export type ReplicaTransferProgress = { device_id: string; device_label: string; source_id: string; 
+/**
+ * The source's root on its owner, for naming the row.
+ */
+root: string; bytes: number; total: number; 
+/**
+ * Recent transfer rate, averaged over the last few seconds.
+ */
+bytes_per_sec: number; 
+/**
+ * Where this attempt picked up; zero for a fresh transfer.
+ */
+resumed_from: number; 
+/**
+ * The transfer has left the active set: complete when `bytes` reaches
+ * `total`, stopped otherwise with its partial file kept.
+ */
+finished: boolean };
+
+/**
+ * Replication configuration output
+ */
+export type ReplicationConfigOutput = { 
+/**
+ * Bytes per second across every replica transfer; zero is unlimited.
+ */
+max_bytes_per_sec: number; 
+/**
+ * Whether this device has stopped fetching replicas.
+ */
+paused: boolean };
+
+/**
+ * The replication picture `core.status` and the CLI summarize.
+ */
+export type ReplicationStatus = { paused: boolean; max_bytes_per_sec: number; transfers: ReplicaTransferProgress[] };
+
 export type ResetDataInput = { 
 /**
  * Confirmation flag to prevent accidental data loss
@@ -4106,7 +4169,13 @@ device_id: string | null;
 /**
  * The owning device's display name, for a replica.
  */
-device_label: string | null };
+device_label: string | null; 
+/**
+ * The fetch bringing this replica up to date, while one is in flight.
+ * Present on a replica being refreshed and on a source whose first
+ * copy has not finished, which has no other row to appear in.
+ */
+transfer?: ReplicaTransferProgress | null };
 
 export type SourceItem = { id: string; external_id: string; title: string; preview: string | null; subtitle: string | null };
 
@@ -4753,6 +4822,11 @@ language?: string | null;
  */
 mounts_cache_max_bytes?: number | null; 
 /**
+ * Ceiling on replica bytes per second, serving and fetching combined;
+ * zero lifts it. Applies to transfers already in flight.
+ */
+replication_max_bytes_per_sec?: number | null; 
+/**
  * Whether networking is enabled
  */
 networking_enabled?: boolean | null; 
@@ -5380,6 +5454,7 @@ export type CoreAction =
   |  { type: 'models.whisper.delete'; input: DeleteWhisperModelInput; output: DeleteWhisperModelOutput }
   |  { type: 'models.whisper.download'; input: DownloadWhisperModelInput; output: DownloadWhisperModelOutput }
   |  { type: 'mounts.cache_clear'; input: MountsCacheClearInput; output: MountsCacheClearOutput }
+  |  { type: 'mounts.replication_set_paused'; input: MountsReplicationSetPausedInput; output: MountsReplicationSetPausedOutput }
   |  { type: 'mounts.sync_peers'; input: MountsSyncPeersInput; output: MountsSyncPeersOutput }
   |  { type: 'mounts.trace_set'; input: MountsTraceSetInput; output: MountsTraceSetOutput }
   |  { type: 'navigation.set_focus'; input: SetNavigationFocusInput; output: SetNavigationFocusOutput }
@@ -5474,6 +5549,7 @@ export type CoreQuery =
   |  { type: 'models.whisper.list'; input: ListWhisperModelsInput; output: ListWhisperModelsOutput }
   |  { type: 'mounts.cache_status'; input: MountsCacheStatusInput; output: MountsCacheStatus }
   |  { type: 'mounts.read_trace'; input: MountsReadTraceInput; output: MountsReadTrace }
+  |  { type: 'mounts.replication_status'; input: MountsReplicationStatusInput; output: ReplicationStatus }
   |  { type: 'mounts.status'; input: MountsStatusInput; output: MountsStatus }
   |  { type: 'navigation.focus'; input: NavigationFocusInput; output: NavigationFocusOutput }
   |  { type: 'network.devices.list'; input: ListPairedDevicesInput; output: ListPairedDevicesOutput }
@@ -5578,6 +5654,7 @@ export const WIRE_METHODS = {
     'models.whisper.delete': 'action:models.whisper.delete.input',
     'models.whisper.download': 'action:models.whisper.download.input',
     'mounts.cache_clear': 'action:mounts.cache_clear.input',
+    'mounts.replication_set_paused': 'action:mounts.replication_set_paused.input',
     'mounts.sync_peers': 'action:mounts.sync_peers.input',
     'mounts.trace_set': 'action:mounts.trace_set.input',
     'navigation.set_focus': 'action:navigation.set_focus.input',
@@ -5672,6 +5749,7 @@ export const WIRE_METHODS = {
     'models.whisper.list': 'query:models.whisper.list',
     'mounts.cache_status': 'query:mounts.cache_status',
     'mounts.read_trace': 'query:mounts.read_trace',
+    'mounts.replication_status': 'query:mounts.replication_status',
     'mounts.status': 'query:mounts.status',
     'navigation.focus': 'query:navigation.focus',
     'network.devices.list': 'query:network.devices.list',

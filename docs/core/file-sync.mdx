@@ -131,6 +131,13 @@ destination support it. Provider adapters may choose multipart uploads,
 server-side copies, or local streaming, but they report the same operation
 state.
 
+Index replication between paired devices is not file sync, but it is the one
+transfer Spacedrive starts on its own, and it follows the same rules: a
+partial copy survives a restart and resumes from its length, a bandwidth cap
+and a pause switch are persisted daemon settings, and progress is visible in
+`sd status` and `sd sources list`. See
+[Source replication](/core/networking#source-replication).
+
 ## Deletion safety
 
 Deletion propagation is off unless the relationship explicitly enables it.

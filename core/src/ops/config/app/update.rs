@@ -14,7 +14,7 @@ use crate::{
 
 /// Input for updating app configuration
 /// All fields are optional for partial updates
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Type)]
 pub struct UpdateAppConfigInput {
 	/// Whether telemetry is enabled
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -37,6 +37,11 @@ pub struct UpdateAppConfigInput {
 	/// restart, because nothing in it is authoritative.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub mounts_cache_max_bytes: Option<u64>,
+
+	/// Ceiling on replica bytes per second, serving and fetching combined;
+	/// zero lifts it. Applies to transfers already in flight.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub replication_max_bytes_per_sec: Option<u64>,
 
 	/// Whether networking is enabled
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -196,6 +201,14 @@ impl CoreAction for UpdateAppConfigAction {
 				if let Some(cache) = crate::service::mounts::cache::cache() {
 					cache.set_max_bytes(cache_max_bytes).await;
 				}
+			}
+		}
+
+		if let Some(max_bytes_per_sec) = self.input.replication_max_bytes_per_sec {
+			if config.replication.max_bytes_per_sec != max_bytes_per_sec {
+				config.replication.max_bytes_per_sec = max_bytes_per_sec;
+				changes.push("replication_max_bytes_per_sec");
+				crate::service::mounts::replication::configure(&config.replication);
 			}
 		}
 

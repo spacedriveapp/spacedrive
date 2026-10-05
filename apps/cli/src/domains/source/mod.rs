@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use crate::util::prelude::*;
 
 use crate::context::Context;
+use sd_core::ops::mounts::{MountsReplicationSetPausedInput, MountsReplicationSetPausedOutput};
 use sd_core::ops::sources::{
 	freeze::action::{FreezeSourceInput, FreezeSourceOutput},
 	list::{output::SourceInfo, query::ListSourcesInput},
@@ -27,6 +28,18 @@ pub enum SourceCmd {
 	Verify(SourceVerifyArgs),
 	/// Rename a source or change its capture policy
 	Update(SourceUpdateArgs),
+	/// Control how this device copies paired devices' source indexes
+	#[command(subcommand)]
+	Replication(ReplicationCmd),
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ReplicationCmd {
+	/// Stop fetching replicas: no new transfer starts and any in flight
+	/// stops, keeping its partial file. Persists across daemon restarts.
+	Pause,
+	/// Fetch replicas again, continuing partial transfers where they stopped
+	Resume,
 }
 
 #[derive(Args, Debug)]
@@ -101,16 +114,27 @@ pub async fn run(ctx: &Context, cmd: SourceCmd) -> Result<()> {
 				table.load_preset(UTF8_BORDERS_ONLY);
 				table.set_header(vec!["ID", "Name", "Type", "Records", "Status", "Root"]);
 				for source in sources {
+					let mut status = if source.attached {
+						source.status.clone()
+					} else {
+						format!("{} (detached)", source.status)
+					};
+					if let Some(transfer) = &source.transfer {
+						status = format!(
+							"{status}: fetching {}",
+							crate::util::output::format_transfer(
+								transfer.bytes,
+								transfer.total,
+								transfer.bytes_per_sec
+							)
+						);
+					}
 					table.add_row(vec![
 						source.id.to_string(),
 						source.name.clone(),
 						source.data_type.clone(),
 						source.item_count.to_string(),
-						if source.attached {
-							source.status.clone()
-						} else {
-							format!("{} (detached)", source.status)
-						},
+						status,
 						source.root.clone().unwrap_or_default(),
 					]);
 				}
@@ -151,6 +175,15 @@ pub async fn run(ctx: &Context, cmd: SourceCmd) -> Result<()> {
 					"Verifying {} shared-content files (job {})",
 					o.outstanding, o.job_id
 				);
+			});
+		}
+		SourceCmd::Replication(cmd) => {
+			let input = MountsReplicationSetPausedInput {
+				paused: matches!(cmd, ReplicationCmd::Pause),
+			};
+			let out: MountsReplicationSetPausedOutput = execute_core_action!(ctx, input);
+			print_output!(ctx, &out, |o: &MountsReplicationSetPausedOutput| {
+				println!("{}", o.message);
 			});
 		}
 		SourceCmd::Freeze(args) => {

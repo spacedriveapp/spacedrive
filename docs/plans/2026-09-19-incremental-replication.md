@@ -252,6 +252,16 @@ This executes R3's "clean up failed temporary transfers".
 - Both: remove the temporary file on every exit path of a transfer,
   cancellation included, through a guard that deletes on drop.
 
+Superseded on the replica side (2026-10-05): a transfer now lands in
+`<source>.<generation>.<blake3 prefix>.part` and is kept across failures and
+restarts, resuming from its length over `FetchSnapshotFrom` and
+`FetchDatabaseFrom`. A part is removed when the owner's listing no longer
+carries its generation. The owner-side export cleanup stands. This is
+related to but distinct from "A restart must not re-copy what the replica
+already has" above: that item is a complete replica re-fetched because its
+generation is not visible before restore finishes; this is an incomplete
+transfer resumed instead of restarted (SPAC-12, bug 5).
+
 ### Volume-root sources
 
 Volume-root sources replicate as arena snapshots, with a file-metadata

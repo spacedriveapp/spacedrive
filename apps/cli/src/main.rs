@@ -8,22 +8,7 @@ use sd_client::{
 };
 use std::path::Path;
 
-fn format_bytes(bytes: u64) -> String {
-	const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
-	let mut size = bytes as f64;
-	let mut unit_index = 0;
-
-	while size >= 1024.0 && unit_index < UNITS.len() - 1 {
-		size /= 1024.0;
-		unit_index += 1;
-	}
-
-	if unit_index == 0 {
-		format!("{} {}", bytes, UNITS[unit_index])
-	} else {
-		format!("{:.1} {}", size, UNITS[unit_index])
-	}
-}
+use crate::util::output::{format_bytes, format_transfer};
 
 /// Validate instance name to prevent path traversal attacks
 fn validate_instance_name(instance: &str) -> Result<(), String> {
@@ -486,8 +471,9 @@ async fn main() -> Result<()> {
 			}
 		}
 		Commands::Config(cmd) => {
-			// Config management doesn't need the client
-			config_cmd::run(data_dir, cmd).await?;
+			// CLI settings need no client; daemon settings reach the daemon
+			// only for the keys that live there.
+			config_cmd::run(data_dir, socket_addr, cmd).await?;
 		}
 		Commands::Daemon(cmd) => {
 			// Daemon management doesn't need the client, handle directly
@@ -724,6 +710,34 @@ async fn run_client_command(
 						"○ Stopped"
 					};
 					services_table.add_row(vec!["File Sharing", share_status]);
+					let replication = &status.replication;
+					let replication_status = if replication.paused {
+						"○ Paused".to_string()
+					} else if replication.transfers.is_empty() {
+						"● Idle".to_string()
+					} else {
+						format!(
+							"● Replicating {} source{}, {}",
+							replication.transfers.len(),
+							if replication.transfers.len() == 1 {
+								""
+							} else {
+								"s"
+							},
+							format_transfer(
+								replication.bytes(),
+								replication.total(),
+								replication.bytes_per_sec()
+							)
+						)
+					};
+					services_table.add_row(vec!["Replication", &replication_status]);
+					if replication.max_bytes_per_sec > 0 {
+						services_table.add_row(vec![
+							"  Bandwidth cap",
+							&format!("{}/s", format_bytes(replication.max_bytes_per_sec)),
+						]);
+					}
 					println!("{}", services_table);
 					println!();
 

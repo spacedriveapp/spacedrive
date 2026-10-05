@@ -366,6 +366,26 @@ fn summarize_event(event: &Event) -> String {
 		// Config events
 		Event::ConfigChanged { .. } => "Configuration changed".to_string(),
 
+		Event::ReplicationProgress { transfer } => format!(
+			"Replica {} from {}: {}{}",
+			transfer.root.display(),
+			transfer.device_label,
+			crate::util::output::format_transfer(
+				transfer.bytes,
+				transfer.total,
+				transfer.bytes_per_sec
+			),
+			if transfer.finished {
+				if transfer.bytes == transfer.total {
+					" (complete)"
+				} else {
+					" (stopped)"
+				}
+			} else {
+				""
+			}
+		),
+
 		// Custom events
 		Event::Custom { event_type, data } => {
 			format!("Custom event: {} - {:?}", event_type, data)
