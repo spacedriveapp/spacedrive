@@ -42,6 +42,9 @@ pub struct AppConfigOutput {
 	/// Mounted-source behaviour
 	pub mounts: MountsConfigOutput,
 
+	/// Replica transfers with paired devices
+	pub replication: ReplicationConfigOutput,
+
 	/// Daemon logging configuration
 	pub logging: LoggingConfigOutput,
 
@@ -81,6 +84,13 @@ pub struct MountsConfigOutput {
 	pub cache_max_bytes: u64,
 }
 
+/// Replication configuration output
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ReplicationConfigOutput {
+	/// Bytes per second across every replica transfer; zero is unlimited.
+	pub max_bytes_per_sec: u64,
+}
+
 /// Logging configuration output
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LoggingConfigOutput {
@@ -117,6 +127,9 @@ impl From<&AppConfig> for AppConfigOutput {
 			},
 			mounts: MountsConfigOutput {
 				cache_max_bytes: config.mounts.cache_max_bytes,
+			},
+			replication: ReplicationConfigOutput {
+				max_bytes_per_sec: config.replication.max_bytes_per_sec,
 			},
 			services: ServiceConfigOutput {
 				networking_enabled: config.services.networking_enabled,

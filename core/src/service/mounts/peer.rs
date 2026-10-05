@@ -1084,6 +1084,7 @@ async fn receive_artifact<R: tokio::io::AsyncRead + Unpin + ?Sized>(
 					"stream ended {remaining} bytes short of the {len} the header declared"
 				);
 			}
+			super::replication::throttle().acquire(n as u64).await;
 			hasher.update(&buf[..n]);
 			file.write_all(&buf[..n]).await?;
 			remaining -= n as u64;

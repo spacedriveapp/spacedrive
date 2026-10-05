@@ -921,6 +921,9 @@ async fn serve_file_with_identity<W: AsyncWrite + Send + Unpin>(
 			// accounting fails the transfer.
 			break;
 		}
+		crate::service::mounts::replication::throttle()
+			.acquire(n as u64)
+			.await;
 		send.write_all(&buf[..n]).await?;
 		sent += n as u64;
 	}

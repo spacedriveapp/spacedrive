@@ -486,8 +486,9 @@ async fn main() -> Result<()> {
 			}
 		}
 		Commands::Config(cmd) => {
-			// Config management doesn't need the client
-			config_cmd::run(data_dir, cmd).await?;
+			// CLI settings need no client; daemon settings reach the daemon
+			// only for the keys that live there.
+			config_cmd::run(data_dir, socket_addr, cmd).await?;
 		}
 		Commands::Daemon(cmd) => {
 			// Daemon management doesn't need the client, handle directly

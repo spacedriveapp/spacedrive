@@ -45,6 +45,21 @@ pub struct AppConfig {
 	/// Mounted-source behaviour
 	#[serde(default)]
 	pub mounts: MountsConfig,
+
+	/// Replica transfers to and from paired devices
+	#[serde(default)]
+	pub replication: ReplicationConfig,
+}
+
+/// Settings for the source replicas exchanged with paired devices.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct ReplicationConfig {
+	/// Ceiling on replica bytes moved per second, serving and fetching
+	/// combined. Zero is unlimited. An initial replica runs to gigabytes
+	/// and starts on its own when a device connects, so a metered link
+	/// needs this set before pairing.
+	#[serde(default)]
+	pub max_bytes_per_sec: u64,
 }
 
 /// Settings for sources served as a mounted drive.
@@ -268,6 +283,7 @@ impl AppConfig {
 			logging: LoggingConfig::default(),
 			proxy_pairing: ProxyPairingConfig::default(),
 			mounts: MountsConfig::default(),
+			replication: ReplicationConfig::default(),
 		}
 	}
 

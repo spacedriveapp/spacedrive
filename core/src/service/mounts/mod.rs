@@ -16,6 +16,7 @@ pub mod attach;
 pub mod cache;
 pub mod peer;
 pub mod provider;
+pub mod replication;
 pub mod smb;
 pub mod trace;
 mod webdav;

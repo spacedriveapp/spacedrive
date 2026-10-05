@@ -265,6 +265,7 @@ impl Core {
 		}
 
 		// Serve indexed sources as mountable shares.
+		crate::service::mounts::replication::configure(&config.read().await.replication);
 		let cache_max_bytes = config.read().await.mounts.cache_max_bytes;
 		if let Err(e) = crate::service::mounts::start(context.clone(), cache_max_bytes).await {
 			error!("Failed to start mounts share: {}", e);
