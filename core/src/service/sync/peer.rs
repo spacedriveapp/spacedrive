@@ -370,6 +370,16 @@ impl PeerSync {
 			.map_err(|e| anyhow::anyhow!("Failed to record peer catch-up: {}", e))
 	}
 
+	/// Forget every peer's catch-up record. One catch-up per connection
+	/// session is the rule, and a process start begins a new session with
+	/// every peer.
+	pub async fn clear_all_peer_catch_ups(&self) -> Result<()> {
+		crate::infra::sync::SyncStateStore::new(self.device_id)
+			.clear_all_peer_catch_ups(self.peer_log.conn())
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to clear peer catch-ups: {}", e))
+	}
+
 	/// Forget the catch-up record for `peer` so the next loop iteration
 	/// catches up with it.
 	pub async fn clear_peer_caught_up(&self, peer: Uuid) -> Result<()> {
@@ -740,6 +750,10 @@ impl PeerSync {
 		);
 
 		self.is_running.store(true, Ordering::SeqCst);
+
+		// A new process is a new session with every peer: catch up once with
+		// each, then rely on live broadcasts until a disconnect.
+		self.clear_all_peer_catch_ups().await?;
 
 		// Start event listener for TransactionManager events
 		self.start_event_listener();
@@ -1120,6 +1134,21 @@ impl PeerSync {
 										peer_id = %peer_id,
 										error = %e,
 										"Failed to handle peer disconnected event"
+									);
+								}
+
+								// The peer may change things while apart. Dropping its
+								// record makes the Ready loop catch up once when it is
+								// back; this event is deduplicated by the event loop,
+								// unlike ConnectionEstablished, which fires per stream.
+								if let Err(e) = crate::infra::sync::SyncStateStore::new(device_id)
+									.clear_peer_caught_up(peer_log.conn(), peer_id)
+									.await
+								{
+									warn!(
+										peer_id = %peer_id,
+										error = %e,
+										"Failed to clear peer catch-up record"
 									);
 								}
 							}

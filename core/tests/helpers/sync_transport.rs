@@ -783,7 +783,19 @@ impl NetworkTransport for MockTransport {
 		_library_id: Uuid,
 		_db: &sea_orm::DatabaseConnection,
 	) -> anyhow::Result<Vec<Uuid>> {
-		Ok(self.connected_peers.clone())
+		// A peer whose sync service is not registered yet cannot answer a
+		// request, which matches a real device whose library is not open.
+		let services = self.sync_services.lock().await;
+		Ok(self
+			.connected_peers
+			.iter()
+			.copied()
+			.filter(|peer| {
+				services
+					.get(peer)
+					.is_some_and(|weak| weak.strong_count() > 0)
+			})
+			.collect())
 	}
 
 	async fn is_device_reachable(&self, device_uuid: Uuid) -> bool {

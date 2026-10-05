@@ -82,12 +82,13 @@ of claiming success.
 
 ## Catch-up with a peer
 
-A `Ready` device catches up with a connected peer once when it has never synced
-with that peer, and again when a reconnect's watermark exchange shows the peer
-is ahead. After a catch-up completes it records the completion per peer in
-`sync.db`, even when the peer had no rows to send, so the same peer is not
-caught up again until new events arrive. Live changes travel as broadcasts and
-do not depend on this loop.
+A `Ready` device catches up with a connected peer once per connection session.
+After a catch-up completes it records the completion per peer in `sync.db`,
+even when the peer had no rows to send, so the same peer is not caught up again
+while the connection lasts. The record is cleared when the peer disconnects and
+when the sync service starts, so changes a peer made while the two were apart
+are pulled once they reconnect. Live changes travel as broadcasts and do not
+depend on this loop.
 
 ## Library totals
 

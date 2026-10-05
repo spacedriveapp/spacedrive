@@ -111,12 +111,18 @@ impl BackfillManager {
 
 	/// Start complete backfill process
 	pub async fn start_backfill(&self, available_peers: Vec<PeerInfo>) -> Result<()> {
+		self.metrics.record_backfill_session_start();
+		let result = self.start_backfill_inner(available_peers).await;
+		if result.is_err() {
+			self.metrics.record_backfill_session_failed();
+		}
+		result
+	}
+
+	async fn start_backfill_inner(&self, available_peers: Vec<PeerInfo>) -> Result<()> {
 		// Generate session ID for correlation
 		let session_id = Uuid::new_v4();
 		let start_time = Utc::now();
-
-		// Record metrics
-		self.metrics.record_backfill_session_start();
 
 		// Log backfill session started
 		if let Some(event_logger) = self.metrics.event_logger().read().await.as_ref() {
@@ -306,7 +312,21 @@ impl BackfillManager {
 		shared_watermark: Option<String>,
 	) -> Result<()> {
 		self.metrics.record_backfill_session_start();
+		let result = self
+			.catch_up_from_peer_inner(peer, state_watermark, shared_watermark)
+			.await;
+		if result.is_err() {
+			self.metrics.record_backfill_session_failed();
+		}
+		result
+	}
 
+	async fn catch_up_from_peer_inner(
+		&self,
+		peer: Uuid,
+		state_watermark: Option<chrono::DateTime<chrono::Utc>>,
+		shared_watermark: Option<String>,
+	) -> Result<()> {
 		// A watermark older than the tombstone retention cannot be trusted:
 		// deletions since then may already be pruned, so fetch everything.
 		let threshold_days = self.config.retention.force_full_sync_threshold_days;

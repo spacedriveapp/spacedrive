@@ -119,6 +119,35 @@ impl SyncStateStore {
 		Ok(row.is_some())
 	}
 
+	/// Read the first-backfill marker straight from a library's sync.db, for
+	/// callers that run before the library's sync service exists. A sync.db
+	/// that is missing or lacks the table counts as complete, like a missing
+	/// marker.
+	pub async fn initial_backfill_pending_at(
+		library_path: &std::path::Path,
+	) -> Result<bool, WatermarkError> {
+		let sync_db = library_path.join("sync.db");
+		if !sync_db.exists() {
+			return Ok(false);
+		}
+		let conn = sea_orm::Database::connect(format!("sqlite://{}?mode=ro", sync_db.display()))
+			.await
+			.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
+		let exists = conn
+			.query_one(Statement::from_string(
+				DbBackend::Sqlite,
+				"SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'sync_state'"
+					.to_string(),
+			))
+			.await
+			.map_err(|e| WatermarkError::QueryError(e.to_string()))?
+			.is_some();
+		if !exists {
+			return Ok(false);
+		}
+		Self::initial_backfill_pending(&conn).await
+	}
+
 	/// Record that a catch-up with `peer` finished, whether or not it carried
 	/// any rows.
 	pub async fn mark_peer_caught_up<C: ConnectionTrait>(
@@ -177,8 +206,25 @@ impl SyncStateStore {
 		}
 	}
 
+	/// Forget every peer's catch-up record. Called when the sync service
+	/// starts, so each process catches up once with every peer it meets.
+	pub async fn clear_all_peer_catch_ups<C: ConnectionTrait>(
+		&self,
+		conn: &C,
+	) -> Result<(), WatermarkError> {
+		conn.execute(Statement::from_sql_and_values(
+			DbBackend::Sqlite,
+			"DELETE FROM peer_catch_up WHERE device_uuid = ?",
+			vec![self.device_uuid.to_string().into()],
+		))
+		.await
+		.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
+		Ok(())
+	}
+
 	/// Forget a peer's catch-up record so the next loop iteration catches up
-	/// with it again. Used when a watermark exchange shows the peer is ahead.
+	/// with it again. Called when the connection to the peer is lost, so
+	/// changes it made while apart are pulled once it is back.
 	pub async fn clear_peer_caught_up<C: ConnectionTrait>(
 		&self,
 		conn: &C,
@@ -251,6 +297,14 @@ mod tests {
 			.unwrap()
 			.is_some());
 		store.clear_peer_caught_up(&conn, peer).await.unwrap();
+		assert!(store
+			.peer_caught_up_at(&conn, peer)
+			.await
+			.unwrap()
+			.is_none());
+
+		store.mark_peer_caught_up(&conn, peer).await.unwrap();
+		store.clear_all_peer_catch_ups(&conn).await.unwrap();
 		assert!(store
 			.peer_caught_up_at(&conn, peer)
 			.await

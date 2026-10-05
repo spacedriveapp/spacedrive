@@ -434,11 +434,10 @@ impl SyncService {
 						}
 
 						DeviceSyncState::Ready => {
-							// Catch up once with every connected partner this device has
-							// never caught up with. Later changes arrive as live broadcasts,
-							// and a reconnect's watermark exchange clears the record when
-							// the peer turns out to be ahead, so nothing here re-polls a
-							// peer on a timer.
+							// Catch up once per connection session with every connected
+							// partner: the record is cleared when the service starts and
+							// when the peer disconnects. Later changes arrive as live
+							// broadcasts, so nothing here re-polls a peer on a timer.
 							match peer_sync.network().get_connected_sync_partners(
 								peer_sync.library_id(),
 								peer_sync.db(),

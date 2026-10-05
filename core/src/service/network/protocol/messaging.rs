@@ -293,7 +293,13 @@ impl MessagingProtocolHandler {
 					if needs_initial_state {
 						let pending = match library.sync_service() {
 							Some(sync) => sync.peer_sync().initial_backfill_pending().await,
-							None => Ok(false),
+							None => {
+								crate::infra::sync::SyncStateStore::initial_backfill_pending_at(
+									library.path(),
+								)
+								.await
+								.map_err(|e| anyhow::anyhow!("{}", e))
+							}
 						};
 						match pending {
 							Ok(true) => {
