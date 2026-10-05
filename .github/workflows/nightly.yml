@@ -73,9 +73,13 @@ jobs:
           # dependency compile on every push.
           save-cache: 'true'
 
+      # Same workaround as setup-system: the runner's preinstalled libunwind
+      # blocks libgstreamer1.0-dev, which setup.sh installs.
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
-        run: ./scripts/setup.sh
+        run: |
+          sudo apt-get remove libunwind-* || true
+          ./scripts/setup.sh
 
       - name: Build sd-cli and sd-daemon
         env:
