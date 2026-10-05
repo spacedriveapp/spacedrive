@@ -31,11 +31,26 @@ On the joining device:
 sd-cli network pair join "<PAIRING_CODE>"
 ~~~
 
-Confirm the peer identity on both sides, then list the paired devices:
+The joiner prints "Paired with <name>" and both daemons record trust; there is
+no confirmation prompt. The code expires after five minutes.
+
+If the two devices are not on one local network, take the initiator's node ID
+from `sd-cli --format json network pair generate` (field `node_id`) and pass it
+to the joiner:
+
+~~~bash
+sd-cli network pair join "<PAIRING_CODE>" --node-id <NODE_ID>
+~~~
+
+Check the result on either side:
 
 ~~~bash
 sd-cli network devices
+sd-cli network status
 ~~~
+
+Pairing only records network trust. `sd-cli devices list` reads the current
+library's device table and does not show the new peer yet.
 
 ## 3. Inspect libraries
 
@@ -54,24 +69,40 @@ sd-cli library sync-setup discover <REMOTE_DEVICE_ID>
 Discovery follows the remote device's current grants. An undisclosed library is
 not evidence that it does not exist.
 
-## 4. Register or create the relationship
+## 4. Join the remote library
 
-Run the interactive setup:
+On the device that should become a member, join the library the other device
+already holds:
 
 ~~~bash
-sd-cli library sync-setup setup --interactive
+sd-cli library sync-setup setup \
+  --local-library <ANY_LOCAL_LIBRARY_ID> \
+  --remote-device <REMOTE_DEVICE_ID> \
+  --remote-library <REMOTE_LIBRARY_ID> \
+  --action join-remote \
+  --name "<LIBRARY_NAME>"
 ~~~
 
-The flow supports:
+`--local-library` names any library already open on this device; the command
+needs one to address the daemon and does not change it. The join:
 
-- registering an authorized remote library with a local library;
-- creating shared library state between the two devices;
-- selecting the source and operation scopes each device receives.
+1. creates a new local library with the remote library's UUID (the folder name
+   is de-duplicated, for example `My Library 1.sdlibrary`);
+2. registers this device in the remote device's copy of the library and
+   receives the remote device's record in return, so both device tables are
+   complete when the command returns;
+3. marks the new library as waiting for its first backfill, so sync pulls the
+   existing member's state into it. The existing member keeps its data and
+   never adopts the empty joiner's snapshot.
 
-For scripting, inspect exact arguments from the installed release:
+The other direction, `--action share-local`, runs on the device that holds the
+library and creates the copy on the peer. `--interactive` walks through the same
+choices.
+
+Then select the joined library on this device:
 
 ~~~bash
-sd-cli library sync-setup setup --help
+sd-cli library switch --library-id <REMOTE_LIBRARY_ID>
 ~~~
 
 Use stable library and device UUIDs. Do not parse display names as identity.
@@ -79,14 +110,23 @@ Use stable library and device UUIDs. Do not parse display names as identity.
 ## 5. Confirm state
 
 ~~~bash
+sd-cli devices list
 sd-cli library info
 sd-cli network devices --connected
 sd-cli sources list
 sd-cli job list
 ~~~
 
+`devices list` on both devices now shows both members. `library info` reports
+fleet totals: file, content, source, and capacity figures are the sum of every
+library member's own numbers, and the device count is the number of members.
+A joined device that has registered no sources of its own therefore reports the
+same totals as the device that holds the data.
+
 Library sync can complete before every remote source is online. Source
-availability and source-generation replication have their own state.
+availability and source-generation replication have their own state; a peer's
+source replicas start arriving when the devices connect, independent of the
+join.
 
 ## What setup does not do
 
@@ -112,6 +152,11 @@ networking enabled and that the code has not expired.
 
 Review the remote device's library grant. Pairing proves identity but does not
 grant every library.
+
+### `devices list` shows one device after pairing
+
+Pairing does not add the peer to a library. Run the join in step 4; the peer
+appears in `devices list` on both sides when it returns.
 
 ### Metadata appears but files do not open
 
