@@ -619,6 +619,7 @@ pub async fn fetch_sidecars(
 			anyhow::bail!("expected a sidecar");
 		};
 		anyhow::ensure!(len <= MAX_TILE_LEN, "sidecar of {len} bytes exceeds limit");
+		super::replication::throttle().acquire(len).await;
 		let mut webp = vec![0; len as usize];
 		body.read_exact(&mut webp).await?;
 		page.push(SidecarRow {
@@ -977,10 +978,11 @@ type ArtifactBody = Box<dyn tokio::io::AsyncRead + Send + Unpin>;
 ///
 /// `open(offset)` asks the owner for the artifact's tail from `offset`; the
 /// header it returns describes the whole artifact. A part the header does
-/// not continue is discarded and the fetch starts over from zero, as does a
-/// resumed request the owner cannot open, since an owner too old to know the
-/// offset variants still serves a whole artifact. Every other failure leaves
-/// the partial file in place for the next attempt. On success the file holds
+/// not continue is discarded and the fetch starts over from zero. A resumed
+/// request that gets no header at all (a dropped link, or an owner too old
+/// to know the offset variants) also starts over, but keeps the part, since
+/// nothing has said its bytes are wrong. Every other failure leaves the
+/// partial file in place for the next attempt. On success the file holds
 /// every byte the header declared and matches its checksum.
 async fn transfer_artifact<F, Fut>(
 	replica_dir: &Path,
@@ -1006,7 +1008,7 @@ where
 	if let Some(existing) = part.take() {
 		match &opened {
 			Some((header, _)) if header.continues(&existing) => part = Some(existing),
-			_ => {
+			Some(_) => {
 				tracing::info!(
 					source = %source_id,
 					had = existing.have,
@@ -1015,6 +1017,12 @@ where
 				let _ = tokio::fs::remove_file(&existing.path).await;
 				opened = None;
 			}
+			// A refused resume says nothing about the bytes: the link may
+			// have dropped, or the owner may predate the offset requests.
+			// The part stays for the next attempt; this one starts a whole
+			// transfer, which lands on the same name when the header has
+			// not moved and supersedes the old part when it has.
+			None => {}
 		}
 	}
 	let (header, mut body) = match opened {
@@ -2224,6 +2232,60 @@ mod tests {
 		let delivered = std::fs::read(&path).expect("complete artifact");
 		assert_eq!(blake3::hash(&delivered).as_bytes(), &expected.checksum);
 		assert_eq!(path, part.path, "the part file is the finished artifact");
+	}
+
+	/// A resumed request that gets no header keeps the part: a dropped link
+	/// or an owner too old to know the offset variants says nothing about
+	/// the bytes already on disk. The whole transfer that follows lands on
+	/// the same name and completes.
+	#[tokio::test]
+	async fn a_refused_resume_keeps_the_part_and_starts_over() {
+		let _serial = TRANSFER_TESTS.lock().await;
+		let base = tempfile::tempdir().expect("dir");
+		let source_id = Uuid::now_v7();
+		let source = info(source_id, "/mnt/pool/kept", 1);
+		let bytes = scripted_bytes(2_000);
+		let header = ArtifactHeader {
+			len: bytes.len() as u64,
+			generation: 8,
+			checksum: *blake3::hash(&bytes).as_bytes(),
+		};
+		let part = part_path(base.path(), source_id, 8, &header.checksum);
+		std::fs::write(&part, &bytes[..500]).expect("part");
+
+		let offsets = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+		let refused = transfer_artifact(base.path(), &owner_of(&source), |offset| {
+			let offsets = offsets.clone();
+			async move {
+				offsets.lock().unwrap().push(offset);
+				anyhow::bail!("connect failed")
+			}
+		})
+		.await;
+		assert!(matches!(refused, Err(FetchError::Unavailable(_))));
+		assert_eq!(
+			std::fs::read(&part).expect("part kept").len(),
+			500,
+			"a refused resume leaves the part alone"
+		);
+
+		let (path, _) = transfer_artifact(base.path(), &owner_of(&source), |offset| {
+			let bytes = bytes.clone();
+			let offsets = offsets.clone();
+			async move {
+				offsets.lock().unwrap().push(offset);
+				if offset != 0 {
+					anyhow::bail!("owner too old for offsets")
+				}
+				let body: ArtifactBody = Box::new(std::io::Cursor::new(bytes));
+				Ok((header, body))
+			}
+		})
+		.await
+		.expect("the whole transfer completes");
+		assert_eq!(offsets.lock().unwrap().as_slice(), &[500, 0, 500, 0]);
+		assert_eq!(path, part, "the whole transfer lands on the same name");
+		assert_eq!(std::fs::read(&path).expect("artifact"), bytes);
 	}
 
 	/// A part cut from an older generation is discarded and the fetch starts

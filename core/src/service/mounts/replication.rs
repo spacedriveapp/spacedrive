@@ -87,8 +87,10 @@ impl Throttle {
 
 static THROTTLE: OnceLock<Throttle> = OnceLock::new();
 
-/// The daemon's one cap, shared by every artifact served and every artifact
-/// received, so the setting bounds what replication costs the link in total.
+/// The daemon's one cap, shared by every artifact and sidecar page served
+/// or received, so the setting bounds what replication costs the link in
+/// total. Tile fetches for a replica being browsed are not counted; they
+/// are a person's own reads, not replication.
 pub fn throttle() -> &'static Throttle {
 	THROTTLE.get_or_init(|| Throttle::new(0))
 }

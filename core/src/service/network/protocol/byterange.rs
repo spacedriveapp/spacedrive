@@ -526,6 +526,9 @@ impl ByteRangeProtocolHandler {
 				},
 			)
 			.await?;
+			crate::service::mounts::replication::throttle()
+				.acquire(row.tile.webp.len() as u64)
+				.await;
 			send.write_all(&row.tile.webp).await?;
 		}
 		Ok(())

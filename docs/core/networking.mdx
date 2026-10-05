@@ -127,8 +127,8 @@ from zero as before.
 ### Bandwidth cap
 
 `replication.max_bytes_per_sec` in the daemon config bounds replica bytes
-moved per second, serving and receiving combined, through one token bucket
-with a one-second burst. Zero is unlimited. Set it with
+moved per second, artifacts and thumbnail sidecar pages, serving and
+receiving combined, through one token bucket with a one-second burst. Zero is unlimited. Set it with
 `sd config set replication.max_bytes_per_sec 200K` (bytes, or K, M, G in
 powers of 1024); the change applies to transfers already in flight. An
 initial replica runs to gigabytes and starts as soon as a device connects, so
