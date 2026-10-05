@@ -978,8 +978,23 @@ impl LibraryManager {
 		// Run initial migrations
 		db.migrate().await?;
 
+		// This copy was created from another device's library, so it holds
+		// nothing yet and must backfill from a member before it may serve as
+		// a source. The marker lives in sync.db where the sync service reads
+		// it on open; written here so the first open already sees it.
+		let sync_db = sea_orm::Database::connect(format!(
+			"sqlite://{}?mode=rwc",
+			path.join("sync.db").display()
+		))
+		.await
+		.map_err(LibraryError::DatabaseError)?;
+		crate::infra::sync::SyncStateStore::mark_initial_backfill_pending(&sync_db)
+			.await
+			.map_err(|e| LibraryError::Other(format!("Failed to mark backfill pending: {}", e)))?;
+		drop(sync_db);
+
 		info!(
-			"Shared library '{}' initialized at {:?} with ID {}",
+			"Shared library '{}' initialized at {:?} with ID {}, waiting for first backfill",
 			config.name, path, library_id
 		);
 

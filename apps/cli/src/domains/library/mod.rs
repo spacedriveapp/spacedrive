@@ -122,8 +122,8 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
 						.unwrap_or_else(|| "No limit".to_string())
 				);
 				println!();
-				println!("Statistics");
-				println!("----------");
+				println!("Statistics (all library members)");
+				println!("--------------------------------");
 				println!("Total files: {}", info.statistics.total_files);
 				println!("Unique content: {}", info.statistics.unique_content_count);
 				println!("Total size: {} bytes", info.statistics.total_size);

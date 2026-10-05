@@ -223,6 +223,15 @@ impl SyncMetricsCollector {
 			.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 	}
 
+	/// Record a backfill or catch-up session that ended in an error, so the
+	/// active count does not drift.
+	pub fn record_backfill_session_failed(&self) {
+		self.metrics
+			.operations
+			.active_backfill_sessions
+			.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+	}
+
 	/// Record backfill pagination round
 	pub fn record_backfill_pagination_round(&self) {
 		self.metrics

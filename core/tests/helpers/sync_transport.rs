@@ -179,12 +179,13 @@ impl MockTransport {
 					library_id,
 					since_hlc,
 					limit,
+					include_snapshot,
 				} => {
 					let (entries, has_more) = sync_service
 						.peer_sync()
 						.get_shared_changes(since_hlc, limit)
 						.await?;
-					let current_state = if since_hlc.is_none() {
+					let current_state = if since_hlc.is_none() && include_snapshot {
 						Some(sync_service.peer_sync().get_full_shared_state().await?)
 					} else {
 						None
@@ -742,7 +743,10 @@ impl NetworkTransport for MockTransport {
 				}
 			}
 			SyncMessage::SharedChangeRequest {
-				since_hlc, limit, ..
+				since_hlc,
+				limit,
+				include_snapshot,
+				..
 			} => {
 				// Query actual shared changes from target device
 				let (entries, has_more) = sync_service
@@ -751,7 +755,7 @@ impl NetworkTransport for MockTransport {
 					.await?;
 
 				// Include current state snapshot if initial backfill
-				let current_state = if since_hlc.is_none() {
+				let current_state = if since_hlc.is_none() && *include_snapshot {
 					Some(sync_service.peer_sync().get_full_shared_state().await?)
 				} else {
 					None
@@ -779,7 +783,19 @@ impl NetworkTransport for MockTransport {
 		_library_id: Uuid,
 		_db: &sea_orm::DatabaseConnection,
 	) -> anyhow::Result<Vec<Uuid>> {
-		Ok(self.connected_peers.clone())
+		// A peer whose sync service is not registered yet cannot answer a
+		// request, which matches a real device whose library is not open.
+		let services = self.sync_services.lock().await;
+		Ok(self
+			.connected_peers
+			.iter()
+			.copied()
+			.filter(|peer| {
+				services
+					.get(peer)
+					.is_some_and(|weak| weak.strong_count() > 0)
+			})
+			.collect())
 	}
 
 	async fn is_device_reachable(&self, device_uuid: Uuid) -> bool {

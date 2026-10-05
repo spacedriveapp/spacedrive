@@ -5,8 +5,10 @@ sidebarTitle: Device Pairing
 ---
 
 Pairing creates an authenticated relationship between two Spacedrive nodes. A
-person starts the exchange on both devices, verifies a short-lived secret, and
-then chooses what the new device may access.
+person starts the exchange on one device, enters the short-lived secret on the
+other, and the two daemons record trust as soon as the secret is verified.
+Pairing records network trust only. Adding the new device to a library is a
+separate step, described in [Library Sync](/core/library-sync#joining-an-existing-library).
 
 Pairing is not account sign-in. No central Spacedrive service becomes the owner
 of the relationship.
@@ -25,8 +27,18 @@ Spacedrive displays a 12-word code and QR payload. On the second device:
 sd-cli network pair join "<PAIRING_CODE>"
 ~~~
 
-Both devices show the peer identity and ask for confirmation before recording
-trust.
+The joiner reports the peer's name once trust is recorded. There is no
+confirmation prompt on either side: possession of the code is the approval, so
+only read the code to a device you intend to trust. The session expires after
+five minutes.
+
+When the devices are not on the same local network, pass the initiator's node
+ID as well. `sd-cli --format json network pair generate` prints it as
+`node_id`:
+
+~~~bash
+sd-cli network pair join "<PAIRING_CODE>" --node-id <NODE_ID>
+~~~
 
 ## Code formats
 
@@ -47,9 +59,8 @@ The pairing protocol:
 2. Uses the entered secret to bind the join request to that session.
 3. Establishes an encrypted channel between node identities.
 4. Exchanges device descriptions and supported protocol versions.
-5. Shows both sides the identity being approved.
-6. Records the paired device only after confirmation.
-7. Invalidates the pairing secret.
+5. Records the paired device on both sides.
+6. Invalidates the pairing secret.
 
 A failed or cancelled session creates no lasting trust.
 
@@ -80,11 +91,17 @@ or browse a library.
 
 ~~~bash
 sd-cli network pair status
-sd-cli devices list
+sd-cli network devices
+sd-cli network status
 ~~~
 
-Status distinguishes an active pairing session, a paired device, and a current
-network connection. A paired device can be offline without losing its identity.
+`pair status` lists active pairing sessions. `network devices` lists paired
+devices and whether each is connected. A paired device can be offline without
+losing its identity.
+
+`sd-cli devices list` reads the current library's device table, not the pairing
+registry. A freshly paired device appears there only after it joins the library
+with `sd-cli library sync-setup`.
 
 ## Cancel or revoke
 
@@ -115,7 +132,7 @@ Do not copy one device's private identity into several live installations.
 ## Security guidance
 
 - Generate a fresh code for each device.
-- Confirm the displayed peer identity on both screens.
+- Check the peer name the joiner prints against the device you expected.
 - Do not send pairing codes through an untrusted public channel.
 - Cancel sessions you did not complete.
 - Review grants after pairing.

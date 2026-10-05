@@ -1924,6 +1924,7 @@ impl PairingProtocolHandler {
 			endpoint,
 			node_id,
 			crate::service::network::core::PAIRING_ALPN,
+			None,
 			&self.logger,
 		)
 		.await?;

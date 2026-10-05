@@ -107,11 +107,26 @@ operation output is separate from diagnostic logging.
 sd-cli network pair generate
 sd-cli network pair join "<PAIRING_CODE>"
 sd-cli network pair status
-sd-cli devices list
+sd-cli network devices
 ~~~
 
-Pairing establishes device identity. Library, source, subtree, and operation
-grants still control what the peer can access.
+Pairing establishes device identity. Joining the peer to a library is a second
+step, `sd-cli library sync-setup`, described in
+[Library Sync Setup](/cli/library-sync-setup). `sd-cli devices list` shows the
+current library's members, so it lists the peer only after that step.
+
+## Run a command on a paired device
+
+The global `--device` flag sends any command to a paired device and prints its
+answer. Name the device by display name, slug, or id:
+
+~~~bash
+sd-cli --device james-s-mac-studio sources list
+sd-cli --device "James's MacBook Pro" job list
+sd-cli --device <DEVICE_ID> devices list
+~~~
+
+Library commands resolve against the target device's own current library.
 
 ## File and search operations
 

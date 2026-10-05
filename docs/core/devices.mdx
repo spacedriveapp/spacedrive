@@ -40,18 +40,26 @@ do not disappear.
 
 Pairing proves that two instances were approved by a person with the short code
 shown on one of them. The devices exchange identities and record the
-relationship.
+relationship as soon as the code is verified; neither side prompts again.
 
-Pairing does not grant blanket filesystem access. The user selects library,
-source, subtree, and operation scopes afterward.
+Pairing does not grant blanket filesystem access and does not add the device to
+any library. Library membership is a second step.
 
 ~~~bash
 sd-cli network pair generate
 sd-cli network pair join "<PAIRING_CODE>"
+sd-cli network devices
+sd-cli library sync-setup discover <REMOTE_DEVICE_ID>
+sd-cli library sync-setup setup --local-library <LOCAL_LIBRARY_ID> \
+  --remote-device <REMOTE_DEVICE_ID> --remote-library <LIBRARY_ID> \
+  --action join-remote --name "<LIBRARY_NAME>"
 sd-cli devices list
 ~~~
 
-See [Device Pairing](/core/pairing) for the protocol.
+`network devices` shows pairing state. `devices list` shows the current
+library's members and is empty of the peer until the join completes. See
+[Device Pairing](/core/pairing) for the protocol and
+[Library Sync](/core/library-sync#joining-an-existing-library) for the join.
 
 ## What a device can serve
 

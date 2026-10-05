@@ -304,10 +304,12 @@ impl SyncProtocolHandler {
 				library_id,
 				since_hlc,
 				limit,
+				include_snapshot,
 			} => {
 				debug!(
 					since_hlc = ?since_hlc,
 					limit = limit,
+					include_snapshot = include_snapshot,
 					"Processing SharedChangeRequest"
 				);
 
@@ -319,8 +321,21 @@ impl SyncProtocolHandler {
 						NetworkingError::Protocol(format!("Failed to query shared changes: {}", e))
 					})?;
 
+				// A copy that has not finished its own first backfill holds a
+				// partial table and must not become anyone's snapshot source.
+				// An unreadable marker refuses too: a wrong refusal delays a
+				// join, a wrong snapshot overwrites the joiner's rows.
+				if since_hlc.is_none()
+					&& include_snapshot
+					&& peer_sync.initial_backfill_pending().await.unwrap_or(true)
+				{
+					return Err(NetworkingError::Protocol(
+						"This copy is still waiting for its own first backfill and cannot serve a snapshot".to_string(),
+					));
+				}
+
 				// If initial backfill (since_hlc = None), include full current state
-				let current_state = if since_hlc.is_none() {
+				let current_state = if since_hlc.is_none() && include_snapshot {
 					debug!("Initial backfill requested - querying full shared resource state");
 					match peer_sync.get_full_shared_state().await {
 						Ok(state) => {

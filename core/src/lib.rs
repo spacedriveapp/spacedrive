@@ -689,6 +689,7 @@ async fn register_default_protocol_handlers(
 		networking.device_registry(),
 		networking.endpoint().cloned(),
 		networking.active_connections(),
+		networking.command_sender().cloned(),
 	);
 
 	// Inject context for library operations
@@ -761,6 +762,7 @@ async fn register_default_protocol_handlers(
 		networking.active_connections(),
 		context.remote_job_cache.clone(),
 		networking.device_registry(),
+		networking.command_sender().cloned(),
 	));
 	let mut event_subscriber = networking.subscribe_events();
 	let job_activity_registry = networking.device_registry();
