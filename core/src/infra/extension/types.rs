@@ -102,6 +102,9 @@ impl Default for ManifestPermissions {
 /// Loaded plugin instance
 pub struct LoadedPlugin {
 	pub id: String,
+	/// Directory under the plugin directory it was loaded from, which the
+	/// manifest id need not match.
+	pub dir_name: String,
 	pub manifest: ExtensionManifest,
 	pub loaded_at: DateTime<Utc>,
 	pub runtime: Arc<Mutex<super::manager::PluginRuntime>>,

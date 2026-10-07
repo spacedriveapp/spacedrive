@@ -53,7 +53,11 @@ impl WasmJob {
 	async fn handle(&mut self, event: JobEvent, ctx: &JobContext<'_>) {
 		match event {
 			JobEvent::Progress { fraction, message } => {
-				ctx.progress(Progress::percentage(fraction));
+				ctx.progress(Progress::Generic(GenericProgress::new(
+					fraction,
+					self.job_name.clone(),
+					message,
+				)));
 			}
 			JobEvent::Checkpoint { state, saved } => {
 				let result = ctx.save_state(&state).await;
@@ -82,13 +86,11 @@ impl JobHandler for WasmJob {
 			.await
 			.ok_or_else(|| JobError::ExecutionFailed("PluginManager not initialized".into()))?;
 		let runtime = plugin_manager
-			.read()
+			.write()
 			.await
-			.runtime(&self.extension_id)
+			.runtime_for_job(&self.extension_id)
 			.await
-			.ok_or_else(|| {
-				JobError::ExecutionFailed(format!("Extension '{}' not loaded", self.extension_id))
-			})?;
+			.map_err(|e| JobError::ExecutionFailed(e.to_string()))?;
 
 		// A checkpoint outlives a kill; the job row only outlives a pause.
 		if let Some(saved) = ctx.load_state::<String>().await? {

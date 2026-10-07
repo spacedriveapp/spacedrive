@@ -54,6 +54,9 @@ pub struct PluginRuntime {
 	store: Store,
 	instance: Instance,
 	env: FunctionEnv<PluginEnv>,
+	/// Set once a guest call trapped. A panic aborts the guest wherever it
+	/// is, so its heap and locks cannot be trusted by the next call.
+	poisoned: bool,
 }
 
 impl PluginRuntime {
@@ -115,7 +118,10 @@ impl PluginRuntime {
 		let _ = free.call(store, ctx_ptr, ctx_json.len().max(1) as i32);
 		let _ = free.call(store, state_ptr, state_json.len().max(1) as i32);
 
-		result.map_err(|e| PluginError::Trap(e.to_string()))
+		result.map_err(|e| {
+			self.poisoned = true;
+			PluginError::Trap(e.to_string())
+		})
 	}
 }
 
@@ -338,12 +344,14 @@ impl PluginManager {
 			plugin_id.clone(),
 			LoadedPlugin {
 				id: plugin_id.clone(),
+				dir_name: dir_name.to_string(),
 				manifest,
 				loaded_at: Utc::now(),
 				runtime: Arc::new(Mutex::new(PluginRuntime {
 					store,
 					instance,
 					env,
+					poisoned: false,
 				})),
 			},
 		);
@@ -382,7 +390,7 @@ impl PluginManager {
 			.read()
 			.await
 			.get(plugin_id)
-			.map(|_| plugin_id.to_string())
+			.map(|plugin| plugin.dir_name.clone())
 			.ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))?;
 		self.unload_plugin(plugin_id).await?;
 		self.load_plugin(&dir_name).await?;
@@ -410,5 +418,26 @@ impl PluginManager {
 			.await
 			.get(plugin_id)
 			.map(|p| p.runtime.clone())
+	}
+
+	/// The runtime a job should run on: a fresh instance when the last call
+	/// trapped, since an aborted guest may have died holding its allocator.
+	pub async fn runtime_for_job(
+		&mut self,
+		plugin_id: &str,
+	) -> Result<Arc<Mutex<PluginRuntime>>, PluginError> {
+		let runtime = self
+			.runtime(plugin_id)
+			.await
+			.ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))?;
+		let poisoned = runtime.lock().map(|r| r.poisoned).unwrap_or(true);
+		if !poisoned {
+			return Ok(runtime);
+		}
+		tracing::warn!(extension = %plugin_id, "Reloading extension after a trap");
+		self.reload_plugin(plugin_id).await?;
+		self.runtime(plugin_id)
+			.await
+			.ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))
 	}
 }

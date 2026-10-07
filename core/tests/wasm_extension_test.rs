@@ -334,51 +334,62 @@ async fn photos_extension_loads_and_stops_at_the_first_missing_host_function() {
 		]
 	);
 
+	// Twice: the second run lands on a fresh instance, since the first one
+	// aborted mid-call.
 	let library = core.libraries.list().await.into_iter().next().unwrap();
-	guest_log.lock().unwrap().clear();
-	let started = RunExtensionJobAction::from_input(RunExtensionJobInput {
-		job: "com.spacedrive.photos:analyze_photos".into(),
-		state: None,
-	})
-	.unwrap()
-	.execute(library.clone(), core.context.clone())
-	.await
-	.unwrap();
+	for _ in 0..2 {
+		guest_log.lock().unwrap().clear();
+		let started = RunExtensionJobAction::from_input(RunExtensionJobInput {
+			job: "com.spacedrive.photos:analyze_photos".into(),
+			state: None,
+		})
+		.unwrap()
+		.execute(library.clone(), core.context.clone())
+		.await
+		.unwrap();
 
-	let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
-	let info = loop {
-		let info = library
-			.jobs()
-			.get_job_info(started.job_id)
-			.await
-			.unwrap()
-			.unwrap();
-		if info.status == JobStatus::Failed {
-			break info;
-		}
-		assert_ne!(
-			info.status,
-			JobStatus::Completed,
-			"nothing backs this job yet"
-		);
+		let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
+		let info = loop {
+			let info = library
+				.jobs()
+				.get_job_info(started.job_id)
+				.await
+				.unwrap()
+				.unwrap();
+			if info.status == JobStatus::Failed {
+				break info;
+			}
+			assert_ne!(
+				info.status,
+				JobStatus::Completed,
+				"nothing backs this job yet"
+			);
+			assert!(
+				tokio::time::Instant::now() < deadline,
+				"the job never ended"
+			);
+			tokio::time::sleep(Duration::from_millis(20)).await;
+		};
 		assert!(
-			tokio::time::Instant::now() < deadline,
-			"the job never ended"
+			info.error_message
+				.as_deref()
+				.unwrap_or("")
+				.contains("WASM trap"),
+			"{:?}",
+			info.error_message
 		);
-		tokio::time::sleep(Duration::from_millis(20)).await;
-	};
-	assert!(
-		info.error_message
-			.as_deref()
-			.unwrap_or("")
-			.contains("WASM trap"),
-		"{:?}",
-		info.error_message
-	);
-	let guest_log = guest_log.lock().unwrap().clone();
-	assert!(
-		guest_log.contains("guest panic:"),
-		"the guest's panic should reach the host log:\n{guest_log}"
+		let guest_log = guest_log.lock().unwrap().clone();
+		assert!(
+			guest_log.contains("guest panic:"),
+			"the guest's panic should reach the host log:\n{guest_log}"
+		);
+	}
+	assert_eq!(
+		registry
+			.list_jobs_for_extension("com.spacedrive.photos")
+			.len(),
+		4,
+		"the reloaded extension registers its jobs again"
 	);
 
 	core.shutdown().await.unwrap();
