@@ -155,8 +155,15 @@ async fn describe(core: &Core, library: &Library) -> String {
 		.iter()
 		.map(|source| format!("{} attached={}", source.root.display(), source.attached))
 		.collect();
+	let open: Vec<String> = core
+		.libraries
+		.list()
+		.await
+		.iter()
+		.map(|library| format!("{} at {}", library.id(), library.path().display()))
+		.collect();
 	format!(
-		"source rows {sources:?}; volume rows {volumes:?}; index {index:?}; device {}",
+		"source rows {sources:?}; volume rows {volumes:?}; index {index:?}; open libraries {open:?}; device {}",
 		sd_core::device::get_current_device_id()
 	)
 }
