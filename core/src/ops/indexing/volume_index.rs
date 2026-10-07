@@ -128,6 +128,11 @@ struct TrackedVolume {
 	/// knows: live detection when the library attached with it, the stored
 	/// flag otherwise, and the volume monitor's refreshes after that.
 	mounted: bool,
+	/// Whether `mount_point` is where a filesystem mounts, so the directory
+	/// can be checked against the mount table before anything walks it. A
+	/// drive learned from a volume row or from detection is; a directory a
+	/// test tracks as a drive is not.
+	is_mount: bool,
 }
 
 /// What volume detection reports at the moment a library attaches.
@@ -423,6 +428,7 @@ impl VolumeIndex {
 			match volumes.iter_mut().find(|tracked| tracked.uuid == uuid) {
 				Some(tracked) => {
 					tracked.mounted = mounted;
+					tracked.is_mount = true;
 					if mounted {
 						tracked.mount_point = mount_point.to_path_buf();
 					}
@@ -431,6 +437,7 @@ impl VolumeIndex {
 					uuid,
 					mount_point: mount_point.to_path_buf(),
 					mounted: true,
+					is_mount: true,
 				}),
 				None => return,
 			}
@@ -625,7 +632,19 @@ impl VolumeIndex {
 	/// nothing is persisted to a store. What it buys is a partition, a
 	/// snapshot, and a place for every file on the drive to be found.
 	pub fn track_volume(&self, uuid: Uuid, mount_point: PathBuf) {
-		self.track_volume_state(uuid, mount_point, true);
+		let mut volumes = self.volumes.lock();
+		match volumes.iter_mut().find(|tracked| tracked.uuid == uuid) {
+			Some(tracked) => {
+				tracked.mount_point = mount_point;
+				tracked.mounted = true;
+			}
+			None => volumes.push(TrackedVolume {
+				uuid,
+				mount_point,
+				mounted: true,
+				is_mount: false,
+			}),
+		}
 	}
 
 	fn track_volume_state(&self, uuid: Uuid, mount_point: PathBuf, mounted: bool) {
@@ -634,11 +653,13 @@ impl VolumeIndex {
 			Some(tracked) => {
 				tracked.mount_point = mount_point;
 				tracked.mounted = mounted;
+				tracked.is_mount = true;
 			}
 			None => volumes.push(TrackedVolume {
 				uuid,
 				mount_point,
 				mounted,
+				is_mount: true,
 			}),
 		}
 	}
@@ -739,6 +760,59 @@ impl VolumeIndex {
 			}
 		}
 		None
+	}
+
+	/// Why nothing may be dispatched at `path` right now, or `None` when a
+	/// walk, hash or thumbnail job over it is allowed.
+	///
+	/// A detached partition refuses by definition. A partition that reads as
+	/// attached is still refused when its drive's mount point is not a mount
+	/// point: the stored state can lag a lock or an unmount by a refresh
+	/// interval, and the directory left behind must never be walked as the
+	/// drive, whatever the state says.
+	pub fn dispatch_refusal(&self, path: &Path) -> Option<String> {
+		let resolved = self.locate(path)?;
+		let slot = self.slot_for(&resolved);
+		if slot.is_detached() {
+			return Some(format!(
+				"{} is on a volume that is not mounted",
+				resolved.volume_root.display()
+			));
+		}
+		let is_mount = match &resolved.volume {
+			VolumeKey::Id(uuid) => self
+				.volumes
+				.lock()
+				.iter()
+				.any(|tracked| tracked.uuid == *uuid && tracked.is_mount),
+			_ => false,
+		};
+		if is_mount && !crate::volume::utils::is_mount_point(&resolved.volume_root) {
+			return Some(format!(
+				"{} is not a mount point; its volume is not mounted",
+				resolved.volume_root.display()
+			));
+		}
+		None
+	}
+
+	/// The mapped drive whose mount point is `path` while the drive is away,
+	/// by the stored state or by the directory itself.
+	///
+	/// Tracking that directory would register a second source over the
+	/// parent volume, and a listing of it would read as an empty drive.
+	pub fn unmounted_volume_at(&self, path: &Path) -> Option<Uuid> {
+		let known = self
+			.volumes
+			.lock()
+			.iter()
+			.find(|tracked| tracked.is_mount && tracked.mount_point == path)
+			.map(|tracked| (tracked.uuid, tracked.mounted))?;
+		match known {
+			(uuid, false) => Some(uuid),
+			(uuid, true) if !crate::volume::utils::is_mount_point(path) => Some(uuid),
+			_ => None,
+		}
 	}
 
 	/// Whether `path` belongs to a detached source (data may be restorable,

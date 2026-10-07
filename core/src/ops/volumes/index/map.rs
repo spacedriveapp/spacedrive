@@ -89,6 +89,21 @@ pub async fn map_volume(
 
 	let cache = context.volume_index();
 	cache.track_volume(volume.id, volume.mount_point.clone());
+	// Detection can lag an unmount by a refresh interval, and the directory
+	// left behind at the mount point is never walked as the drive.
+	if !crate::volume::utils::is_mount_point(&volume.mount_point) {
+		return Err(ActionError::Internal(format!(
+			"not walking {}: {} is not a mount point; the volume is not mounted",
+			volume.name,
+			volume.mount_point.display()
+		)));
+	}
+	if let Some(reason) = cache.dispatch_refusal(&volume.mount_point) {
+		return Err(ActionError::Internal(format!(
+			"not walking {}: {reason}",
+			volume.name
+		)));
+	}
 
 	// Seed the partition from its snapshot before walking over it: duplicate
 	// paths keep their identities, and a partition that skipped restore would

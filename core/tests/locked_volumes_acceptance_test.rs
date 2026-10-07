@@ -19,9 +19,12 @@ use helpers::TestConfigBuilder;
 use sd_core::{
 	infra::{action::LibraryAction, api::SessionContext, db::entities, query::LibraryQuery},
 	library::Library,
-	ops::sources::{
-		list::query::ListSourcesQuery,
-		track::{TrackSourceAction, TrackSourceInput},
+	ops::{
+		indexing::content_identity::identify_every_source,
+		sources::{
+			list::query::ListSourcesQuery,
+			track::{TrackSourceAction, TrackSourceInput},
+		},
 	},
 	service::volume_monitor::VolumeMonitorService,
 	Core,
@@ -321,6 +324,94 @@ async fn the_monitor_marks_a_vanished_volume_offline() {
 	let cache = core.context.volume_index();
 	assert!(!cache.sources()[0].attached, "and its source detaches");
 	assert!(cache.is_detached(&root));
+
+	drop(library);
+	core.shutdown().await.expect("shutdown");
+}
+
+/// L2: with the mount point left as an empty directory and the stored state
+/// still saying mounted, no walk, hash or thumbnail job runs over the
+/// source, a forced heal refuses instead of sweeping, and tracking the
+/// directory refuses instead of registering a second source.
+#[tokio::test]
+async fn an_empty_mount_point_is_reported_unmounted_not_walked() {
+	let _ = tracing_subscriber::fmt::try_init();
+	if let Some(reason) = skip_reason().await {
+		warn!("Skipping: {reason}");
+		return;
+	}
+
+	let walked = walked_volume("SdLockedL2").await;
+	let root = walked.volume.path().clone();
+	let core = boot(walked.data_dir.path()).await;
+	let library = core
+		.libraries
+		.list()
+		.await
+		.into_iter()
+		.find(|library| library.path() == walked.library_path)
+		.expect("the library reloads");
+	let cache = core.context.volume_index();
+	assert!(cache.sources()[0].attached);
+
+	// The volume goes away between refreshes: detection and the row both
+	// still say mounted, and the directory is empty.
+	unmount(&walked.volume).await;
+	assert_eq!(std::fs::read_dir(&root).unwrap().count(), 0);
+	let refusal = cache
+		.dispatch_refusal(&root)
+		.expect("the mount point check refuses the empty directory");
+	assert!(refusal.contains("not mounted"), "{refusal}");
+
+	// The snapshot is gone, so the heal sees records with no map coverage
+	// and wants a walk; that walk must not run over the empty directory.
+	let snapshot = cache
+		.source_snapshot_path(cache.sources()[0].id)
+		.expect("snapshot path");
+	std::fs::remove_file(&snapshot).expect("drop the snapshot");
+	let jobs_before = job_count(&library).await;
+	sd_core::ops::volumes::index::map_attached_volumes(&library, &core.context, false).await;
+	identify_every_source(&library, &core.context).await;
+	tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+	assert_eq!(
+		job_count(&library).await,
+		jobs_before,
+		"no walk or hash job was dispatched at the empty mount point"
+	);
+	let records = cache
+		.store_for(&root)
+		.await
+		.expect("store")
+		.counts()
+		.await
+		.expect("counts")
+		.records;
+	assert_eq!(records, walked.records, "nothing swept the store");
+
+	let refused = TrackSourceAction::from_input(TrackSourceInput {
+		path: root.clone(),
+		name: None,
+		unfiltered: false,
+	})
+	.unwrap()
+	.execute(library.clone(), core.context.clone())
+	.await;
+	let error = refused.expect_err("tracking an unmounted mount point refuses");
+	assert!(error.to_string().contains("not mounted"), "{error}");
+	assert_eq!(cache.sources().len(), 1, "no second source was registered");
+
+	// Once detection catches up, the listing says unmounted rather than
+	// showing an empty source.
+	core.volumes.refresh_volumes().await.expect("refresh");
+	VolumeMonitorService::reconcile_tracked_volumes(&core.volumes, &library)
+		.await
+		.expect("reconcile");
+	let listed = ListSourcesQuery::all()
+		.execute(core.context.clone(), session(&library))
+		.await
+		.expect("sources.list");
+	assert!(!listed[0].attached, "the source reads as unmounted");
+	assert_eq!(listed[0].item_count as u64, walked.records);
 
 	drop(library);
 	core.shutdown().await.expect("shutdown");

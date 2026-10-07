@@ -410,6 +410,16 @@ impl JobHandler for IndexerJob {
 			self.timer = Some(PhaseTimer::new());
 		}
 
+		// Dispatch sites check this too; a job resumed from a previous
+		// session arrives here without one.
+		if let Some(local_path) = self.config.path.as_local_path() {
+			let cache = ctx.library().core_context().volume_index();
+			if let Some(reason) = cache.dispatch_refusal(local_path) {
+				cache.mark_indexing_failed(local_path);
+				return Err(JobError::execution(reason));
+			}
+		}
+
 		if self.arena.is_none() {
 			// Try to load from snapshot first
 			let cache = ctx.library().core_context().volume_index();

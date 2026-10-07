@@ -114,6 +114,16 @@ pub async fn track_and_index(
 		)));
 	}
 
+	// The directory a drive leaves behind at its mount point belongs to the
+	// parent filesystem. Registering it would make a second source over the
+	// parent volume, and its listing would read as an empty drive.
+	if let Some(volume) = context.volume_index().unmounted_volume_at(&root) {
+		return Err(ActionError::Internal(format!(
+			"{} is the mount point of volume {volume}, which is not mounted",
+			root.display()
+		)));
+	}
+
 	// Anchoring to the volume is what lets the source follow a remount, so it
 	// is worth resolving even though a source without one still works.
 	//
@@ -200,6 +210,13 @@ pub(crate) async fn dispatch_source_walk(
 	whole_volume: bool,
 	announce: bool,
 ) -> Option<uuid::Uuid> {
+	// Whatever the stored state says, the directory left behind by an
+	// unmounted drive is never walked as the drive.
+	if let Some(reason) = context.volume_index().dispatch_refusal(&root) {
+		tracing::warn!(source = %id, %reason, "not walking the source");
+		return None;
+	}
+
 	let unfiltered = context
 		.volume_index()
 		.source_config(id)

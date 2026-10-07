@@ -26,6 +26,8 @@ Status values follow `source-runtime.md`.
 |---|---|---|---|---|
 | 1 | L1 | A volume detection cannot see at startup comes up detached | `core/tests/locked_volumes_acceptance_test.rs` `a_source_whose_volume_is_gone_at_startup_comes_up_detached` (row corrected to offline, `sources.list` shows the source offline, map restored read-only, no watch armed, no walk dispatched, reattaches when the volume returns); `core/src/ops/indexing/volume_index.rs` `a_volume_detection_cannot_see_comes_up_detached_whatever_its_row_says`, `without_detection_the_stored_flag_decides_attachment` | passing |
 | 2 | L1 | The monitor marks a tracked volume offline when detection stops returning it | `core/tests/locked_volumes_acceptance_test.rs` `the_monitor_marks_a_vanished_volume_offline` | passing |
+| 3 | L2 | An empty mount point is never walked, hashed or thumbnailed as a source | `core/tests/locked_volumes_acceptance_test.rs` `an_empty_mount_point_is_reported_unmounted_not_walked` (stored state still says mounted; the mount point check refuses, a forced heal dispatches nothing and sweeps nothing, `sources.track` on the mount point refuses, the listing reports the source unmounted with its counts intact); `core/src/volume/utils.rs` `a_mount_point_differs_from_its_parent_by_device` | passing |
+
 ## Decisions carried
 
 A locked or unmounted source stays browsable from its snapshot and store,
