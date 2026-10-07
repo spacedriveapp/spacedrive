@@ -18,9 +18,16 @@ import { useExplorerFiles } from "../../hooks/useExplorerFiles";
 
 export function MediaView() {
 	const [mediaType, setMediaType] = useState<MediaType>('all');
+	const { setSelectedFiles, setFocusedIndex } = useSelection();
+	const changeMediaType = (value: MediaType) => {
+		if (value === mediaType) return;
+		setSelectedFiles([]);
+		setFocusedIndex(-1);
+		setMediaType(value);
+	};
 	return (
 		<div className="absolute inset-0 flex flex-col">
-			<MediaTypeFilter value={mediaType} onChange={setMediaType} />
+			<MediaTypeFilter value={mediaType} onChange={changeMediaType} />
 			<div className="relative flex-1 min-h-0">
 				<MediaViewContent mediaType={mediaType} />
 			</div>
