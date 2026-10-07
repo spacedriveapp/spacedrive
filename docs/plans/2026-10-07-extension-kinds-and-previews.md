@@ -274,8 +274,7 @@ without the `wasm` feature behaves exactly as today.
 | K5 Photos | Photos' manifest declares `raw` (and `heic` where the built-in table lacks a magic pattern) with `preview.renderer: image`; `ui_manifest.json` `file_viewers` gains `id` and `bundle`, with `raw` pointing at it once a viewer exists | Photos loads with no conflicts on a daemon with the built-in table; `sd-cli op extensions.list` shows its kinds | 0.5 day |
 
 K1 and K2 are core; K3 and K4 are client plus one server route; K5 is
-manifest edits. K3 can start after K1 against the derived kind. Total: eight
-days of focused work, two PRs minimum (K1+K2, K3+K4+K5).
+manifest edits. K3 can start after K1. Eight days, two PRs (K1+K2, K3 to K5).
 
 ## Decisions for Jamie
 
