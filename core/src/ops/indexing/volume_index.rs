@@ -2261,7 +2261,6 @@ mod tests {
 		/// artifact that will not parse is evidence and must stay on disk
 		/// until a validated replacement lands.
 		#[tokio::test]
-		#[ignore = "R8: invalid snapshot fails: snapshot.rs removes an unreadable artifact on load instead of preserving it"]
 		async fn an_invalid_snapshot_is_retained_for_diagnosis() {
 			let data = tempfile::tempdir().unwrap();
 			let library = test_library(data.path()).await;
@@ -2282,8 +2281,23 @@ mod tests {
 				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
 			cache.attach_library(library).await.expect("attach");
 			assert!(!cache.ensure_restored(&root).await);
+			assert!(
+				!snapshot_path.exists(),
+				"the slot is cleared so the next save lands clean"
+			);
+			let name = snapshot_path.file_name().unwrap().to_string_lossy();
+			let retained: Vec<PathBuf> = std::fs::read_dir(snapshot_path.parent().unwrap())
+				.unwrap()
+				.filter_map(|entry| entry.ok().map(|entry| entry.path()))
+				.filter(|path| {
+					path.file_name()
+						.map(|n| n.to_string_lossy().starts_with(&format!("{name}.corrupt-")))
+						.unwrap_or(false)
+				})
+				.collect();
+			assert_eq!(retained.len(), 1, "one retained artifact beside the slot");
 			assert_eq!(
-				std::fs::read(&snapshot_path).ok().as_deref(),
+				std::fs::read(&retained[0]).ok().as_deref(),
 				Some(&b"this is not a snapshot"[..]),
 				"the unreadable artifact is kept for diagnosis"
 			);
