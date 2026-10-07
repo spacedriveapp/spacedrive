@@ -20,6 +20,7 @@
 //! 5. At build time, code generators use type extractors to create clients
 
 pub mod api_types;
+pub mod json_schema;
 pub mod registry;
 #[cfg(test)]
 pub mod test_type_extraction;

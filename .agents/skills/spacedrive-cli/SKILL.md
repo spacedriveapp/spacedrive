@@ -434,6 +434,17 @@ sd op tags.search --library <LIBRARY_ID> --json '{"query":""}'
 sd op indexing.startup --library <LIBRARY_ID> --json '{"force":true}'
 ```
 
+## MCP
+
+`sd-cli mcp` serves the same registry to an agent over stdio as MCP tools, one
+per op, named as `op` names them (`libraries.list`, `sources.track`,
+`files.copy.preview`). Each tool takes `{"input": <the op's input>}` plus
+`library_id` on library ops, which defaults to the selected library. Queries
+are annotated read-only; actions answer with a job id that `jobs.wait` follows
+to a terminal status. Register it as command `sd` with argument `mcp` (global
+flags such as `--data-dir` and `--instance` go before `mcp`). The daemon has to
+be running; `docs/cli/mcp.mdx` has the client configs.
+
 ## Other devices
 
 `--device <name|slug|id>` runs the command on a paired device against that

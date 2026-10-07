@@ -190,8 +190,10 @@ The contract has five rules:
 5. Every durable action has status and logs available to an authorized client.
 
 The Spacedrive skill makes the CLI usable in existing agent environments. The
-MCP server is a thin transport over the same registered operations. Neither
-defines another permission model.
+MCP server (`sd mcp`) is a thin transport over the same registered operations:
+every registered op is a tool, its schema is generated from the op's input
+type, and calls go to the daemon over the CLI's socket. Neither defines another
+permission model.
 
 Spacedrive does not ship a built-in agent product. People choose their agent,
 model, and execution environment. The filesystem runtime supplies safe
