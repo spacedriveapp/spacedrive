@@ -448,7 +448,6 @@ async fn a_file_under_nested_sources_is_one_hit_from_the_arena() -> anyhow::Resu
 /// restart with no snapshot, both nested stores hold the file and a library
 /// search must still report it once with its innermost owner.
 #[tokio::test]
-#[ignore = "R8: same record in multiple representations fails: store-backed library search returns one hit per nested store holding the file"]
 async fn a_file_under_nested_sources_is_one_hit_from_the_stores() -> anyhow::Result<()> {
 	let harness = IndexingHarnessBuilder::new("r8_nested_stores")
 		.disable_watcher()
@@ -581,7 +580,6 @@ async fn listing_status_and_store_agree_on_a_sources_count() -> anyhow::Result<(
 /// A root the OS refuses to watch is not watched. The volume index must
 /// not report it active after the subscription failed.
 #[tokio::test]
-#[ignore = "R8: failed watcher subscription fails: watch_root registers the root before the OS accepts the watch, so a refused watch stays reported active"]
 async fn a_refused_watch_is_not_reported_active() -> anyhow::Result<()> {
 	let harness = IndexingHarnessBuilder::new("r8_watch_refused")
 		.build()
@@ -618,6 +616,29 @@ async fn a_refused_watch_is_not_reported_active() -> anyhow::Result<()> {
 		"a refused subscription must not be reported as an active watch"
 	);
 	assert!(!watcher.watched_paths().await.contains(&root));
+	let status = IndexStatusQuery::from_input(IndexStatusInput::default())?
+		.execute(harness.core.context.clone(), session(&harness))
+		.await?;
+	assert!(
+		!status.watched_paths.contains(&root),
+		"core.index_status does not list the refused root as watched"
+	);
+	let refusal = status
+		.refused_watches
+		.iter()
+		.find(|r| r.path == root)
+		.expect("core.index_status reports the refusal");
+	assert!(!refusal.reason.is_empty(), "the refusal carries its reason");
+
+	// The directory comes back and the retry reconciles the root to active.
+	tokio::fs::create_dir_all(dir.path()).await?;
+	watcher.retry_refused_watches().await;
+	assert!(cache.is_watched(&root), "a successful retry arms the watch");
+	assert!(watcher.watched_paths().await.contains(&root));
+	assert!(
+		cache.refused_watches().is_empty(),
+		"a retried root leaves the refused list"
+	);
 
 	harness.shutdown().await?;
 	Ok(())

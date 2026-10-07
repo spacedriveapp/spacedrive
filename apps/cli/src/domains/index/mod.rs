@@ -316,6 +316,13 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 							watched_table.add_row(vec![format!("● {}", path.display())]);
 						}
 					}
+					for refusal in &status.refused_watches {
+						watched_table.add_row(vec![format!(
+							"○ {} (refused: {})",
+							refusal.path.display(),
+							refusal.reason
+						)]);
+					}
 					println!("{}", watched_table);
 					println!();
 				}

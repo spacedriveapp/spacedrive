@@ -203,6 +203,59 @@ pub(super) fn save_snapshot_impl(
 	Ok(())
 }
 
+/// Move an artifact that will not load to `<name>.corrupt-<unix seconds>`
+/// beside it.
+///
+/// The file is evidence of what went wrong and the only copy of it, so it is
+/// kept rather than deleted; moving it clears the slot so the next save lands
+/// clean and no launch parses it again. One copy is enough evidence: when a
+/// quarantined sibling already exists the slot is deleted instead, since a
+/// recurring failure (two builds alternating snapshot versions, saves that
+/// keep landing torn) would otherwise retain a full artifact per launch. The
+/// oldest copy stays, as the mismatched-root path does. A rename that fails
+/// leaves the file where it is, which costs a parse per launch and loses
+/// nothing.
+fn quarantine(snapshot_path: &Path, reason: &str) {
+	let name = snapshot_path
+		.file_name()
+		.map(|n| n.to_string_lossy().into_owned())
+		.unwrap_or_default();
+	let prefix = format!("{name}.corrupt-");
+	let already_retained = snapshot_path
+		.parent()
+		.and_then(|dir| fs::read_dir(dir).ok())
+		.into_iter()
+		.flatten()
+		.flatten()
+		.any(|entry| entry.file_name().to_string_lossy().starts_with(&prefix));
+	if already_retained {
+		tracing::warn!(
+			snapshot = %snapshot_path.display(),
+			"snapshot {reason}; an earlier copy is already retained, removing this one"
+		);
+		let _ = fs::remove_file(snapshot_path);
+		return;
+	}
+
+	let stamp = std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.map(|d| d.as_secs())
+		.unwrap_or(0);
+	let aside = snapshot_path.with_file_name(format!("{prefix}{stamp}"));
+	match fs::rename(snapshot_path, &aside) {
+		Ok(()) => tracing::warn!(
+			snapshot = %snapshot_path.display(),
+			retained = %aside.display(),
+			"snapshot {reason}; moved aside for diagnosis"
+		),
+		Err(err) => tracing::warn!(
+			snapshot = %snapshot_path.display(),
+			%err,
+			"snapshot {reason}; could not move it aside"
+		),
+	}
+}
+
 /// Internal implementation for loading snapshots (called from index.rs)
 pub(super) fn load_snapshot_impl(
 	snapshot_path: &Path,
@@ -242,48 +295,40 @@ pub(super) fn load_snapshot_impl(
 	let mut bytes = Vec::new();
 	use std::io::Read;
 	if let Err(err) = reader.read_to_end(&mut bytes) {
-		tracing::warn!(
-			"Unreadable snapshot {} ({err}); removing",
-			snapshot_path.display()
-		);
-		let _ = fs::remove_file(snapshot_path);
+		quarantine(snapshot_path, &format!("unreadable: {err}"));
 		return Ok(None);
 	}
 	if bytes.len() as u64 >= bound {
-		tracing::warn!(
-			"Snapshot {} decodes past {} bytes from a {} byte file; removing",
-			snapshot_path.display(),
-			bound - 1,
-			compressed_len
+		quarantine(
+			snapshot_path,
+			&format!(
+				"decodes past {} bytes from a {compressed_len} byte file",
+				bound - 1
+			),
 		);
-		let _ = fs::remove_file(snapshot_path);
 		return Ok(None);
 	}
 
 	// A snapshot from an older format version fails either here (layout
-	// changed) or at the version check below; both cases remove the file so the
-	// source reindexes cleanly instead of retrying a dead artifact on every
-	// launch.
+	// changed) or at the version check below; both cases move the file aside
+	// so the source reindexes cleanly instead of retrying a dead artifact on
+	// every launch.
 	let snapshot: IndexSnapshot = match postcard::from_bytes(&bytes) {
 		Ok(snapshot) => snapshot,
 		Err(err) => {
-			tracing::warn!(
-				"Unreadable snapshot {} ({err}); removing",
-				snapshot_path.display()
-			);
-			let _ = fs::remove_file(snapshot_path);
+			quarantine(snapshot_path, &format!("undecodable: {err}"));
 			return Ok(None);
 		}
 	};
 
 	if snapshot.version != SNAPSHOT_VERSION {
-		tracing::warn!(
-			"Snapshot version mismatch: expected {}, got {}; removing {}",
-			SNAPSHOT_VERSION,
-			snapshot.version,
-			snapshot_path.display()
+		quarantine(
+			snapshot_path,
+			&format!(
+				"version mismatch: expected {SNAPSHOT_VERSION}, got {}",
+				snapshot.version
+			),
 		);
-		let _ = fs::remove_file(snapshot_path);
 		return Ok(None);
 	}
 

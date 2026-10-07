@@ -26,6 +26,14 @@ pub struct IndexSourceInfo {
 	pub thumbs_path: Option<PathBuf>,
 }
 
+/// A root whose OS watch subscription was refused
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct WatchRefusal {
+	pub path: PathBuf,
+	/// What the OS or the volume index said when it refused
+	pub reason: String,
+}
+
 /// Status of the volume index
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct IndexStatus {
@@ -47,6 +55,10 @@ pub struct IndexStatus {
 	/// UI that never updates.
 	#[serde(default)]
 	pub watched_paths: Vec<PathBuf>,
+	/// Roots the watcher wanted and the OS refused, with the reason. These
+	/// are retried; a root moves to `watched_paths` once a retry succeeds.
+	#[serde(default)]
+	pub refused_watches: Vec<WatchRefusal>,
 	/// Registered sources (volumes, drives, explicit roots) with their
 	/// attachment state — detached sources remain browsable from snapshots
 	#[serde(default)]

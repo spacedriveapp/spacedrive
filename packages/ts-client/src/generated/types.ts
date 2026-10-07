@@ -2002,6 +2002,11 @@ paths_in_progress: string[];
  */
 watched_paths?: string[]; 
 /**
+ * Roots the watcher wanted and the OS refused, with the reason. These
+ * are retried; a root moves to `watched_paths` once a retry succeeds.
+ */
+refused_watches?: WatchRefusal[]; 
+/**
  * Registered sources (volumes, drives, explicit roots) with their
  * attachment state — detached sources remain browsable from snapshots
  */
@@ -5436,6 +5441,15 @@ export type VouchingSessionInput = { session_id: string };
 export type VouchingSessionOutput = { session: VouchingSession | null };
 
 export type VouchingSessionState = "Pending" | "InProgress" | "Completed";
+
+/**
+ * A root whose OS watch subscription was refused
+ */
+export type WatchRefusal = { path: string; 
+/**
+ * What the OS or the volume index said when it refused
+ */
+reason: string };
 
 /**
  * Suggestion to track the whole drive instead
