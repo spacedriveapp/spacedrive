@@ -50,16 +50,12 @@ impl TestSuite {
 }
 
 /// A suite in the `sd-core` crate, which is where most of them live.
-///
-/// The whole integration group builds with the `wasm` feature so the
-/// extension suite shares one `sd-core` build with the rest instead of
-/// compiling the crate a second time.
 const fn core(name: &'static str, test_args: &'static [&'static str]) -> TestSuite {
 	TestSuite {
 		name,
 		package: "sd-core",
 		test_args,
-		features: Some("wasm"),
+		features: None,
 		group: Group::Integration,
 	}
 }
@@ -133,7 +129,6 @@ pub const CORE_TESTS: &[TestSuite] = &[
 	core("Sync catch-up test", &["--test", "sync_catchup_test"]),
 	core("Library join test", &["--test", "library_join_test"]),
 	core("Dedupe own hash test", &["--test", "dedupe_own_hash_test"]),
-	core("WASM extension test", &["--test", "wasm_extension_test"]),
 	// R8 source runtime acceptance (docs/core/acceptance/source-runtime.md):
 	// the single-daemon rows, the two-process replication rows, and the
 	// store crate's own suites, which carry the store-level rows.
@@ -186,6 +181,17 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Locked volumes acceptance test",
 		&["--test", "locked_volumes_acceptance_test"],
 	),
+	// The extension runtime. Its own build with the `wasm` feature: wasmer
+	// in sd-core adds minutes to every test binary link, which took the
+	// integration group from 51 to 78 minutes when the whole group carried
+	// the feature.
+	TestSuite {
+		name: "WASM extension test",
+		package: "sd-core",
+		test_args: &["--test", "wasm_extension_test"],
+		features: Some("wasm"),
+		group: Group::Acceptance,
+	},
 	// core("Sync event log test", &["--test", "sync_event_log_test"]),
 	// core("Sync metrics test", &["--test", "sync_metrics_test"]),
 	// core("Sync backfill test", &["--test", "sync_backfill_test"]),
