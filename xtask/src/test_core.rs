@@ -29,7 +29,7 @@ pub enum Group {
 	Unit,
 	/// The original `--test` suites
 	Integration,
-	/// The R8 source runtime acceptance suites
+	/// The acceptance-matrix suites (docs/core/acceptance/)
 	Acceptance,
 }
 
@@ -134,6 +134,36 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		&["--test", "source_replication_test"],
 	),
 	acceptance("sd-store", "Store crate tests", &[]),
+	// FDA entries drop and file operations acceptance
+	// (docs/core/acceptance/entries-drop-and-file-operations.md): the
+	// single-daemon rows, plus the product-behavior suites the matrix cites
+	// that were not yet registered.
+	acceptance(
+		"sd-core",
+		"Entries drop acceptance test",
+		&["--test", "entries_drop_acceptance_test"],
+	),
+	acceptance(
+		"sd-core",
+		"Copy action test",
+		&["--test", "copy_action_test"],
+	),
+	acceptance(
+		"sd-core",
+		"Delete strategy test",
+		&["--test", "delete_strategy_test"],
+	),
+	acceptance("sd-core", "Search test", &["--test", "search_test"]),
+	acceptance(
+		"sd-core",
+		"Folder rename test",
+		&["--test", "folder_rename_test"],
+	),
+	acceptance(
+		"sd-core",
+		"Resource events test",
+		&["--test", "resource_events_test"],
+	),
 	// core("Sync event log test", &["--test", "sync_event_log_test"]),
 	// core("Sync metrics test", &["--test", "sync_metrics_test"]),
 	// core("Sync backfill test", &["--test", "sync_backfill_test"]),

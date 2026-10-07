@@ -1,6 +1,8 @@
 # File Operations on Preflight: Rename, Undo, Mirror, Organize, Archive
 
-> Status: landed 2026-09-23; live acceptance on the Expansion drive next.
+> Status: landed 2026-09-23; the acceptance case runs as CI tests
+> (`docs/core/acceptance/entries-drop-and-file-operations.md`, 2026-10-07),
+> with Linux trash restore failing; the Expansion drive run stays open.
 > Captured: 2026-09-23
 > Owns: the file operations a file manager is expected to have that
 > Spacedrive lacks or has without preflight: delete and duplicate in the

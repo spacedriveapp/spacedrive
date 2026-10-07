@@ -1,5 +1,7 @@
 //! File operations - queries and actions for the File domain
 
+#[cfg(test)]
+mod acceptance;
 pub mod archive;
 pub mod attributes_action;
 pub mod copy;
