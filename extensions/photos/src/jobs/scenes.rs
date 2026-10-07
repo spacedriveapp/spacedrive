@@ -21,8 +21,7 @@ pub async fn analyze_scenes(ctx: &JobContext, state: &mut AnalyzeScenesState) ->
 		let scenes = ctx.run(classify_scene, photo.clone()).await?;
 
 		if let Some(content_uuid) = photo.content_uuid() {
-			ctx.save_sidecar(content_uuid, "scene", "photos", &scenes)
-				.await?;
+			ctx.save_sidecar(content_uuid, "scene", &scenes).await?;
 		}
 
 		for scene in &scenes {

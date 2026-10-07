@@ -119,7 +119,7 @@ impl TaskContext {
 		content_uuid: Uuid,
 		kind: &str,
 	) -> Result<T> {
-		Err(Error::Unsupported("read_sidecar".into()))
+		VdfsContext.read_sidecar(content_uuid, kind).await
 	}
 }
 

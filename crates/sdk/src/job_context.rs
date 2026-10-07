@@ -176,24 +176,40 @@ impl JobContext {
 		}
 	}
 
-	/// Check if sidecar exists
+	/// Whether a sidecar of one of this extension's kinds exists for the
+	/// content.
 	pub fn sidecar_exists(
 		&self,
 		content_uuid: uuid::Uuid,
 		kind: &str,
 	) -> crate::types::Result<bool> {
-		Err(crate::types::Error::Unsupported("sidecar_exists".into()))
+		crate::vdfs::VdfsContext.sidecar_exists(content_uuid, kind)
 	}
 
-	/// Save sidecar
+	/// Write a sidecar of one of this extension's kinds, as JSON, keyed by
+	/// the content it describes. The kind must be in the manifest's
+	/// `write_sidecars`; the host namespaces it by extension, which is why
+	/// no extension id is passed here any more.
 	pub async fn save_sidecar<T: serde::Serialize>(
 		&self,
 		content_uuid: uuid::Uuid,
 		kind: &str,
-		extension_id: &str,
 		data: &T,
 	) -> crate::types::Result<()> {
-		Err(crate::types::Error::Unsupported("save_sidecar".into()))
+		crate::vdfs::VdfsContext
+			.write_sidecar(content_uuid, kind, data)
+			.await
+	}
+
+	/// Read back a sidecar this extension may read.
+	pub async fn read_sidecar<T: serde::de::DeserializeOwned>(
+		&self,
+		content_uuid: uuid::Uuid,
+		kind: &str,
+	) -> crate::types::Result<T> {
+		crate::vdfs::VdfsContext
+			.read_sidecar(content_uuid, kind)
+			.await
 	}
 
 	/// Access agent memory

@@ -16,6 +16,7 @@ use sd_store::FsEntry;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::domain::sidecar::{SidecarFormat, SidecarKind, SidecarVariant};
 use crate::infra::job::prelude::JobContext;
 use crate::library::Library;
 use crate::ops::indexing::store::SourceStore;
@@ -130,6 +131,19 @@ struct RecordQuery {
 const QUERY_CAP: usize = 10_000;
 
 #[derive(Deserialize)]
+struct SidecarRef {
+	content_uuid: Uuid,
+	kind: String,
+}
+
+#[derive(Deserialize)]
+struct SidecarWrite {
+	content_uuid: Uuid,
+	kind: String,
+	data: serde_json::Value,
+}
+
+#[derive(Deserialize)]
 struct TaskBegin {
 	name: String,
 	attempt: u32,
@@ -185,6 +199,9 @@ impl JobOps {
 			"records.get" => self.record_get(parse(payload)?).await,
 			"records.read" => self.record_read(parse(payload)?).await,
 			"records.query" => self.record_query(parse(payload)?).await,
+			"sidecars.exists" => self.sidecar_exists(parse(payload)?).await,
+			"sidecars.read" => self.sidecar_read(parse(payload)?).await,
+			"sidecars.write" => self.sidecar_write(parse(payload)?).await,
 			_ => Err(OpError::new(
 				"unknown_op",
 				format!("unknown operation {op}"),
@@ -355,6 +372,73 @@ impl JobOps {
 			);
 		}
 		json(&records)
+	}
+}
+
+impl JobOps {
+	/// Where a sidecar of one of this extension's kinds lives: the library's
+	/// content-addressed sidecar tree, under the extension's namespace. The
+	/// SDK's sidecars are JSON documents with one variant.
+	fn sidecar_path(
+		&self,
+		content_uuid: Uuid,
+		kind: &str,
+		write: bool,
+	) -> Result<std::path::PathBuf, OpError> {
+		let permissions = &self.manifest.permissions;
+		let granted = if write {
+			permissions.can_write_sidecar(kind)
+		} else {
+			permissions.can_read_sidecar(kind)
+		};
+		if !granted {
+			return Err(OpError::permission_denied(format!(
+				"{} may not {} sidecar kind {kind}",
+				self.extension_id,
+				if write { "write" } else { "read" }
+			)));
+		}
+		let kind =
+			SidecarKind::extension(&self.extension_id, kind).map_err(OpError::invalid_input)?;
+		Ok(self
+			.library
+			.path()
+			.join("sidecars")
+			.join(sd_sidecar_path::relative_path(
+				&content_uuid,
+				&kind.directory(),
+				SidecarVariant::new("default").as_str(),
+				SidecarFormat::Json.extension(),
+			)))
+	}
+
+	async fn sidecar_exists(&self, sidecar: SidecarRef) -> OpResult {
+		let path = self.sidecar_path(sidecar.content_uuid, &sidecar.kind, false)?;
+		json(&tokio::fs::try_exists(&path).await.unwrap_or(false))
+	}
+
+	async fn sidecar_read(&self, sidecar: SidecarRef) -> OpResult {
+		let path = self.sidecar_path(sidecar.content_uuid, &sidecar.kind, false)?;
+		tokio::fs::read(&path).await.map_err(|e| match e.kind() {
+			std::io::ErrorKind::NotFound => OpError::not_found(),
+			_ => OpError::failed(format!("read {}: {e}", path.display())),
+		})
+	}
+
+	/// Written whole and renamed into place, so a reader never sees a
+	/// partial document and a crash leaves either the old one or the new.
+	async fn sidecar_write(&self, sidecar: SidecarWrite) -> OpResult {
+		let path = self.sidecar_path(sidecar.content_uuid, &sidecar.kind, true)?;
+		let bytes =
+			serde_json::to_vec(&sidecar.data).map_err(|e| OpError::failed(e.to_string()))?;
+		let io = |e: std::io::Error| OpError::failed(format!("write {}: {e}", path.display()));
+		if let Some(parent) = path.parent() {
+			tokio::fs::create_dir_all(parent).await.map_err(io)?;
+		}
+		let tmp = path.with_extension("json.tmp");
+		tokio::fs::write(&tmp, &bytes).await.map_err(io)?;
+		tokio::fs::rename(&tmp, &path).await.map_err(io)?;
+		json(&serde_json::Value::Null)
 	}
 }
 

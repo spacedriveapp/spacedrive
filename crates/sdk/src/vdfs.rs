@@ -28,6 +28,43 @@ impl VdfsContext {
 		crate::ffi::op("records.read", &payload)
 	}
 
+	/// Whether a sidecar of one of this extension's kinds exists for the
+	/// content.
+	pub fn sidecar_exists(&self, content_uuid: Uuid, kind: &str) -> Result<bool> {
+		crate::ffi::op_json(
+			"sidecars.exists",
+			&serde_json::json!({ "content_uuid": content_uuid, "kind": kind }),
+		)
+	}
+
+	/// A sidecar this extension may read (`read_sidecars` or its own
+	/// `write_sidecars` kinds), decoded from JSON.
+	pub async fn read_sidecar<T: DeserializeOwned>(
+		&self,
+		content_uuid: Uuid,
+		kind: &str,
+	) -> Result<T> {
+		crate::ffi::op_json(
+			"sidecars.read",
+			&serde_json::json!({ "content_uuid": content_uuid, "kind": kind }),
+		)
+	}
+
+	/// Write a sidecar of one of this extension's `write_sidecars` kinds, as
+	/// JSON, replacing any earlier one for the same content.
+	pub async fn write_sidecar<T: Serialize>(
+		&self,
+		content_uuid: Uuid,
+		kind: &str,
+		data: &T,
+	) -> Result<()> {
+		let _: serde_json::Value = crate::ffi::op_json(
+			"sidecars.write",
+			&serde_json::json!({ "content_uuid": content_uuid, "kind": kind, "data": data }),
+		)?;
+		Ok(())
+	}
+
 	/// Query extension models
 	pub fn query_models<T: ExtensionModel>(&self) -> ModelQuery<T> {
 		ModelQuery {

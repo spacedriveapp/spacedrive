@@ -34,8 +34,7 @@ pub async fn analyze_photos_batch(ctx: &JobContext, state: &mut AnalyzePhotosSta
 		let faces = ctx.run(detect_faces_in_photo, photo.clone()).await?;
 
 		if let Some(content_uuid) = photo.content_uuid() {
-			ctx.save_sidecar(content_uuid, "faces", "photos", &faces)
-				.await?;
+			ctx.save_sidecar(content_uuid, "faces", &faces).await?;
 		}
 
 		ctx.check_interrupt().await?;
