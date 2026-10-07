@@ -28,6 +28,9 @@ pub struct SourceDb {
 	/// Stamped onto every record written through this handle, recording which
 	/// sync run last saw it. Bumped once per run by [`SourceDb::begin_sync`].
 	scan_epoch: std::sync::atomic::AtomicI64,
+	/// The shape this handle reads. A writer is always at
+	/// [`crate::migrate::SCHEMA_VERSION`]; a replica keeps its owner's.
+	schema_version: i64,
 }
 
 /// An item row from the primary record type.
@@ -93,12 +96,23 @@ pub struct TemporalFilter<'a> {
 
 impl SourceDb {
 	/// Create a new SourceDb handle.
-	pub(crate) fn new(pool: sqlx::SqlitePool, schema: DataTypeSchema, scan_epoch: i64) -> Self {
+	pub(crate) fn new(
+		pool: sqlx::SqlitePool,
+		schema: DataTypeSchema,
+		scan_epoch: i64,
+		schema_version: i64,
+	) -> Self {
 		Self {
 			pool,
 			schema,
 			scan_epoch: std::sync::atomic::AtomicI64::new(scan_epoch),
+			schema_version,
 		}
+	}
+
+	/// The schema version this handle reads; see [`crate::migrate`].
+	pub fn schema_version(&self) -> i64 {
+		self.schema_version
 	}
 
 	/// Get the underlying connection pool.
