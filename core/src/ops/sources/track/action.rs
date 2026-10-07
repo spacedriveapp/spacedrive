@@ -67,8 +67,9 @@ pub struct TrackSourceOutput {
 	pub settings: SourceConfig,
 	/// Where the catalog lives on this machine.
 	pub store_path: Option<PathBuf>,
-	/// Whether the store already existed and was reopened rather than
-	/// started empty: the scope was added before and its catalog kept.
+	/// Whether the source kept an identity it already had, either as an
+	/// existing registration or as a catalog adopted through its descriptor,
+	/// rather than starting a fresh one.
 	pub catalog_reused: bool,
 	pub job_id: Option<Uuid>,
 }
@@ -270,9 +271,11 @@ pub async fn track_and_index(
 	let name = context.volume_index().source_name(id).unwrap_or_default();
 
 	let store_path = context.volume_index().store_dir(id);
-	let catalog_reused = store_path
-		.as_ref()
-		.is_some_and(|dir| dir.join("data.db").exists());
+	// Reused means the registration or a descriptor-bound catalog already
+	// carried this identity, not that a file happens to exist: a hashing
+	// job finishing for an enclosing source can open the new store before
+	// this answers.
+	let catalog_reused = existed || adopted.is_some();
 	context
 		.volume_index()
 		.write_descriptor(id, library.id())
