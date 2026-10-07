@@ -9,8 +9,10 @@ use crate::infra::query::{LibraryQuery, QueryError, QueryResult};
 use crate::{
 	context::CoreContext,
 	domain::{addressing::SdPath, file::File, ContentKind},
+	filetype::FileTypeRegistry,
 	ops::indexing::state::EntryKind,
 };
+use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{collections::VecDeque, path::PathBuf, sync::Arc};
@@ -157,7 +159,10 @@ impl LibraryQuery for MediaListingQuery {
 				// recursing into one yields nothing rather than yielding wrong
 				// numbers.
 				let kind = index.get_content_kind(&child);
-				if !wanted.contains(&kind) {
+				if !wanted.contains(&kind)
+					&& !(wanted.contains(&ContentKind::Video)
+						&& FileTypeRegistry::requires_content_check(&child))
+				{
 					continue;
 				}
 
@@ -174,6 +179,24 @@ impl LibraryQuery for MediaListingQuery {
 		}
 		drop(index);
 
+		// Read ambiguous file headers after releasing the arena lock. This also
+		// corrects old snapshots that already labelled TypeScript as video.
+		files = futures::stream::iter(files.into_iter().map(|mut file| async move {
+			if let SdPath::Physical { path, .. } = &file.sd_path {
+				if FileTypeRegistry::requires_content_check(path) {
+					file.content_kind = if file.is_local {
+						verified_ambiguous_kind(path).await
+					} else {
+						ContentKind::Unknown
+					};
+				}
+			}
+			file
+		}))
+		.buffer_unordered(16)
+		.collect()
+		.await;
+		files.retain(|file| wanted.contains(&file.content_kind));
 		sort_media(&mut files, &self.input.sort_by);
 
 		let total_count = files.len() as u32;
@@ -187,6 +210,14 @@ impl LibraryQuery for MediaListingQuery {
 			has_more,
 		})
 	}
+}
+
+async fn verified_ambiguous_kind(path: &std::path::Path) -> ContentKind {
+	FileTypeRegistry::builtin()
+		.identify(path)
+		.await
+		.map(|result| result.file_type.category)
+		.unwrap_or(ContentKind::Unknown)
 }
 
 /// Newest first for every date order, since a camera roll reads backwards.
@@ -206,3 +237,22 @@ fn sort_media(files: &mut [File], sort_by: &MediaSortBy) {
 }
 
 crate::register_library_query!(MediaListingQuery, "files.media_listing");
+
+#[cfg(test)]
+mod classification_tests {
+	use super::*;
+
+	#[tokio::test]
+	async fn stale_video_classification_is_rechecked_and_read_errors_stay_unknown() {
+		let dir = tempfile::tempdir().unwrap();
+		let path = dir.path().join("settings.ts");
+		tokio::fs::write(&path, "export const settings = {};")
+			.await
+			.unwrap();
+		assert_eq!(verified_ambiguous_kind(&path).await, ContentKind::Code);
+		assert_eq!(
+			verified_ambiguous_kind(&dir.path().join("missing.ts")).await,
+			ContentKind::Unknown
+		);
+	}
+}

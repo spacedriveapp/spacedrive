@@ -1,0 +1,68 @@
+{
+  "checks": [
+    {
+      "case": "after",
+      "returned": 1,
+      "total_count": 1,
+      "has_more": false,
+      "seconds": 9.141
+    },
+    {
+      "case": "videos",
+      "returned": 1,
+      "total_count": 1,
+      "has_more": false,
+      "seconds": 0.015
+    },
+    {
+      "case": "images",
+      "returned": 0,
+      "total_count": 0,
+      "has_more": false,
+      "seconds": 0.014
+    },
+    {
+      "case": "direct-only",
+      "returned": 0,
+      "total_count": 0,
+      "has_more": false,
+      "seconds": 0.012
+    },
+    {
+      "case": "compatibility-all",
+      "returned": 5,
+      "total_count": 5,
+      "has_more": false,
+      "seconds": 0.01
+    },
+    {
+      "case": "compatibility-images",
+      "returned": 3,
+      "total_count": 3,
+      "has_more": false,
+      "seconds": 0.011
+    },
+    {
+      "case": "compatibility-videos",
+      "returned": 2,
+      "total_count": 2,
+      "has_more": false,
+      "seconds": 0.01
+    },
+    {
+      "case": "limit",
+      "returned": 1,
+      "total_count": 5,
+      "has_more": true,
+      "seconds": 0.013
+    }
+  ],
+  "same_video_identity": false,
+  "existing_media_retained": true,
+  "fixture_rescan_required": true,
+  "downloads": {
+    "total_media": 588,
+    "ambiguous_suffixes_returned": 0,
+    "rescan_required": false
+  }
+}

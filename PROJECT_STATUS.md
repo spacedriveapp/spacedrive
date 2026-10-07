@@ -36,6 +36,8 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+2026-10-08: Media classification repair checks `.ts` and `.mts` bytes instead of trusting extension priority. The fast index leaves these suffixes unknown. The media listing checks ambiguous local files outside the arena lock, including stale snapshots. Five classification/query tests and cargo formatting passed. The old daemon reproduced both source files as video. The repaired release daemon and bundled sidecar are installed; the app signature passes. Eight fixture runtime cases passed after a fixture-only re-index. Existing Downloads yields 588 media and zero TypeScript entries without a rescan. The installed native Downloads gallery loads image/video entries. Source/collection/search, remote behavior, and playback remain unverified.
+
 File System Intelligence is a flagship priority identified by James (Codex,
 September 18). The product boundary now names persistent file and folder
 understanding as a first-class user benefit, with optional cloud acceleration.
