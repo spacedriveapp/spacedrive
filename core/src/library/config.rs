@@ -3,6 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 
 use crate::ops::indexing::sources::{SourceConfig, StorePlacement};
@@ -166,10 +167,24 @@ impl LibraryConfig {
 	pub async fn save(&self, path: &std::path::Path) -> Result<(), super::error::LibraryError> {
 		let json = serde_json::to_string_pretty(self)?;
 		let staging = path.with_extension(format!("json.{}.tmp", Uuid::now_v7()));
-		tokio::fs::write(&staging, json).await?;
-		if let Err(e) = tokio::fs::rename(&staging, path).await {
+		// The rename only orders metadata; without syncing the data first a
+		// crash can persist the rename while the bytes are still in the page
+		// cache, leaving an empty library.json at the final name.
+		let written = async {
+			let mut file = tokio::fs::File::create(&staging).await?;
+			file.write_all(json.as_bytes()).await?;
+			file.sync_all().await?;
+			tokio::fs::rename(&staging, path).await
+		}
+		.await;
+		if let Err(e) = written {
 			let _ = tokio::fs::remove_file(&staging).await;
 			return Err(e.into());
+		}
+		if let Some(parent) = path.parent() {
+			if let Ok(dir) = tokio::fs::File::open(parent).await {
+				let _ = dir.sync_all().await;
+			}
 		}
 		Ok(())
 	}
