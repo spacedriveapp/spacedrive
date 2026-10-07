@@ -190,8 +190,7 @@ the id scheme leaves. The rule is deterministic and reported, not interactive:
   patterns and the contested patterns for that extension; a lone match on a
   contested kind assigns that kind for that file.
 
-A picker in settings is a later slice if people hit this; the data to drive
-it is already in the list output.
+A settings picker is a later slice; the list output already carries its data.
 
 ### The client renderer registry
 
