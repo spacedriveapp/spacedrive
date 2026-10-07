@@ -38,7 +38,7 @@ impl AiModelRegistry {
 		name: &str,
 		source: AiModelSource,
 	) -> Result<AiModelId> {
-		panic!("WASM host call")
+		Err(Error::Unsupported("register".into()))
 	}
 
 	/// Check if AI model is registered
@@ -93,22 +93,22 @@ impl ModelHandle {
 
 	/// Detect faces in image
 	pub async fn detect_faces(&self, image_data: &[u8]) -> Result<Vec<FaceDetection>> {
-		panic!("WASM host call")
+		Err(Error::Unsupported("detect_faces".into()))
 	}
 
 	/// Classify scene in image
 	pub async fn classify(&self, image_data: &[u8]) -> Result<Vec<SceneTag>> {
-		panic!("WASM host call")
+		Err(Error::Unsupported("classify".into()))
 	}
 
 	/// OCR document
 	pub async fn ocr_document(&self, entry: &Entry) -> Result<String> {
-		panic!("WASM host call")
+		Err(Error::Unsupported("ocr_document".into()))
 	}
 
 	/// Generate text embedding
 	pub async fn embed_text(&self, text: &str) -> Result<Vec<f32>> {
-		panic!("WASM host call")
+		Err(Error::Unsupported("embed_text".into()))
 	}
 }
 
@@ -121,7 +121,7 @@ pub struct PromptBuilder {
 impl PromptBuilder {
 	/// Render template with context
 	pub fn render_with<T: Serialize>(self, context: &T) -> Result<RenderedPrompt> {
-		panic!("Render Jinja template")
+		Err(Error::Unsupported("render_with".into()))
 	}
 }
 
@@ -134,12 +134,12 @@ pub struct RenderedPrompt {
 impl RenderedPrompt {
 	/// Generate text from rendered prompt
 	pub async fn generate_text(self) -> Result<String> {
-		panic!("WASM host call - LLM inference")
+		Err(Error::Unsupported("generate_text".into()))
 	}
 
 	/// Generate JSON from rendered prompt
 	pub async fn generate_json<T: DeserializeOwned>(self) -> Result<T> {
-		panic!("WASM host call - structured output")
+		Err(Error::Unsupported("generate_json".into()))
 	}
 }
 

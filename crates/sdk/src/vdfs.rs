@@ -16,7 +16,7 @@ impl VdfsContext {
 
 	/// Get a specific entry by UUID
 	pub async fn get_entry(&self, uuid: Uuid) -> Result<Entry> {
-		panic!("WASM host call not implemented")
+		Err(Error::Unsupported("get_entry".into()))
 	}
 
 	/// Query extension models
@@ -28,7 +28,7 @@ impl VdfsContext {
 
 	/// Get model scoped to content_identity
 	pub async fn get_model_by_content<T: ExtensionModel>(&self, content_uuid: Uuid) -> Result<T> {
-		panic!("WASM host call")
+		Err(Error::Unsupported("get_model_by_content".into()))
 	}
 
 	/// Create model scoped to content_identity
@@ -37,7 +37,7 @@ impl VdfsContext {
 		content_uuid: Uuid,
 		model: T,
 	) -> Result<()> {
-		panic!("WASM host call")
+		Err(Error::Unsupported("create_model_for_content".into()))
 	}
 
 	/// Update model scoped to content
@@ -49,17 +49,17 @@ impl VdfsContext {
 	where
 		F: FnOnce(T) -> Result<T>,
 	{
-		panic!("WASM host call")
+		Err(Error::Unsupported("update_model_by_content".into()))
 	}
 
 	/// Create standalone model
 	pub async fn create_model<T: ExtensionModel>(&self, model: T) -> Result<()> {
-		panic!("WASM host call")
+		Err(Error::Unsupported("create_model".into()))
 	}
 
 	/// Get standalone model by UUID
 	pub async fn get_model<T: ExtensionModel>(&self, uuid: Uuid) -> Result<T> {
-		panic!("WASM host call")
+		Err(Error::Unsupported("get_model".into()))
 	}
 
 	/// Update standalone model
@@ -67,22 +67,22 @@ impl VdfsContext {
 	where
 		F: FnOnce(T) -> Result<T>,
 	{
-		panic!("WASM host call")
+		Err(Error::Unsupported("update_model".into()))
 	}
 
 	/// Add tag to content (all entries with this content get the tag)
 	pub async fn add_tag_to_content(&self, content_uuid: Uuid, tag: &str) -> Result<()> {
-		panic!("WASM host call")
+		Err(Error::Unsupported("add_tag_to_content".into()))
 	}
 
 	/// Add tag to model
 	pub async fn add_tag_to_model(&self, model_uuid: Uuid, tag: &str) -> Result<()> {
-		panic!("WASM host call")
+		Err(Error::Unsupported("add_tag_to_model".into()))
 	}
 
 	/// Add tag to specific entry
 	pub async fn add_tag(&self, metadata_id: i32, tag: &str) -> Result<()> {
-		panic!("WASM host call")
+		Err(Error::Unsupported("add_tag".into()))
 	}
 
 	/// Update custom field in UserMetadata
@@ -92,7 +92,7 @@ impl VdfsContext {
 		field: &str,
 		value: T,
 	) -> Result<()> {
-		panic!("WASM host call")
+		Err(Error::Unsupported("update_custom_field".into()))
 	}
 
 	/// Check if entry is in user-granted scope
@@ -137,11 +137,11 @@ impl EntryQuery {
 	}
 
 	pub async fn first(self) -> Result<Option<Entry>> {
-		panic!("Execute query")
+		Err(Error::Unsupported("first".into()))
 	}
 
 	pub async fn collect(self) -> Result<Vec<Entry>> {
-		panic!("Execute query")
+		Err(Error::Unsupported("collect".into()))
 	}
 
 	pub fn map<F, T>(self, f: F) -> MappedQuery<T>
@@ -159,7 +159,7 @@ pub struct MappedQuery<T> {
 
 impl<T> MappedQuery<T> {
 	pub async fn collect(self) -> Result<Vec<T>> {
-		panic!("Execute and map")
+		Err(Error::Unsupported("collect".into()))
 	}
 }
 
@@ -182,11 +182,11 @@ impl<T: ExtensionModel> ModelQuery<T> {
 	}
 
 	pub async fn first(self) -> Result<Option<T>> {
-		panic!("Execute query")
+		Err(Error::Unsupported("first".into()))
 	}
 
 	pub async fn collect(self) -> Result<Vec<T>> {
-		panic!("Execute query")
+		Err(Error::Unsupported("collect".into()))
 	}
 }
 

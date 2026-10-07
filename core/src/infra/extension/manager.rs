@@ -13,13 +13,8 @@ use thiserror::Error;
 use tokio::sync::RwLock;
 use wasmer::{imports, Function, FunctionEnv, Instance, Memory, Module, Store, TypedFunction};
 
-use crate::{context::CoreContext, infra::api::ApiDispatcher};
-
-use super::host_functions::{
-	self, host_spacedrive_call, host_spacedrive_log, JobBridge, PluginEnv,
-};
+use super::host_functions::{self, host_spacedrive_log, JobBridge, PluginEnv};
 use super::job_registry::ExtensionJobRegistry;
-use super::permissions::ExtensionPermissions;
 use super::types::{ExtensionManifest, LoadedPlugin};
 
 #[derive(Error, Debug)]
@@ -137,23 +132,15 @@ impl PluginRuntime {
 pub struct PluginManager {
 	plugins: Arc<RwLock<HashMap<String, LoadedPlugin>>>,
 	plugin_dir: PathBuf,
-	core_context: Arc<CoreContext>,
-	api_dispatcher: Arc<ApiDispatcher>,
 	job_registry: Arc<ExtensionJobRegistry>,
 }
 
 impl PluginManager {
 	/// Create new plugin manager
-	pub fn new(
-		plugin_dir: PathBuf,
-		core_context: Arc<CoreContext>,
-		api_dispatcher: Arc<ApiDispatcher>,
-	) -> Self {
+	pub fn new(plugin_dir: PathBuf) -> Self {
 		Self {
 			plugins: Arc::new(RwLock::new(HashMap::new())),
 			plugin_dir,
-			core_context,
-			api_dispatcher,
 			job_registry: Arc::new(ExtensionJobRegistry::new()),
 		}
 	}
@@ -251,9 +238,6 @@ impl PluginManager {
 			PluginError::CompilationFailed(format!("Failed to compile WASM: {}", e))
 		})?;
 
-		let permissions =
-			ExtensionPermissions::from_manifest(manifest.id.clone(), &manifest.permissions);
-
 		// Placeholder memory until the instance exists; host functions only run
 		// after it is swapped for the real export.
 		let temp_memory = Memory::new(&mut store, wasmer::MemoryType::new(1, None, false))
@@ -263,10 +247,8 @@ impl PluginManager {
 
 		let plugin_env = PluginEnv {
 			extension_id: manifest.id.clone(),
-			core_context: self.core_context.clone(),
-			api_dispatcher: self.api_dispatcher.clone(),
-			permissions,
 			memory: temp_memory,
+			alloc: None,
 			job_registry: self.job_registry.clone(),
 			current_job: None,
 		};
@@ -275,11 +257,6 @@ impl PluginManager {
 
 		let import_object = imports! {
 			"spacedrive" => {
-				"spacedrive_call" => Function::new_typed_with_env(
-					&mut store,
-					&env,
-					host_spacedrive_call
-				),
 				"spacedrive_log" => Function::new_typed_with_env(
 					&mut store,
 					&env,
@@ -320,6 +297,11 @@ impl PluginManager {
 					&env,
 					host_functions::host_register_job
 				),
+				"spacedrive_op" => Function::new_typed_with_env(
+					&mut store,
+					&env,
+					host_functions::host_spacedrive_op
+				),
 			}
 		};
 
@@ -331,11 +313,16 @@ impl PluginManager {
 			PluginError::InstantiationFailed(format!("Plugin missing memory export: {}", e))
 		})?;
 		env.as_mut(&mut store).memory = memory.clone();
+		let alloc: TypedFunction<i32, i32> = instance
+			.exports
+			.get_typed_function(&store, "wasm_alloc")
+			.map_err(|e| PluginError::BadExport(format!("wasm_alloc: {e}")))?;
+		env.as_mut(&mut store).alloc = Some(alloc);
 
 		Ok(LoadedPlugin {
 			id: plugin_id,
 			dir_name: dir_name.to_string(),
-			manifest,
+			manifest: Arc::new(manifest),
 			loaded_at: Utc::now(),
 			poisoned: poisoned.clone(),
 			runtime: Arc::new(Mutex::new(PluginRuntime {
@@ -454,7 +441,7 @@ impl PluginManager {
 	}
 
 	/// Get plugin manifest
-	pub async fn get_manifest(&self, plugin_id: &str) -> Option<ExtensionManifest> {
+	pub async fn get_manifest(&self, plugin_id: &str) -> Option<Arc<ExtensionManifest>> {
 		self.plugins
 			.read()
 			.await

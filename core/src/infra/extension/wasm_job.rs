@@ -15,6 +15,7 @@ use tokio::sync::mpsc;
 use crate::infra::job::{error::JobError, prelude::*};
 
 use super::host_functions::{JobBridge, JobEvent};
+use super::ops::JobOps;
 
 /// Generic job for executing WASM extension jobs
 #[derive(Debug, Serialize, Deserialize, Job)]
@@ -50,8 +51,11 @@ impl crate::infra::job::traits::DynJob for WasmJob {
 }
 
 impl WasmJob {
-	async fn handle(&mut self, event: JobEvent, ctx: &JobContext<'_>) {
+	async fn handle(&mut self, event: JobEvent, ctx: &JobContext<'_>, ops: &mut JobOps) {
 		match event {
+			JobEvent::Op { op, payload, reply } => {
+				let _ = reply.send(ops.handle(&op, &payload, ctx).await);
+			}
 			JobEvent::Progress { fraction, message } => {
 				ctx.progress(Progress::Generic(GenericProgress::new(
 					fraction,
@@ -101,14 +105,21 @@ impl JobHandler for WasmJob {
 				.await
 				.map_err(|e| JobError::ExecutionFailed(e.to_string()))?;
 		}
-		let runtime = plugin_manager
-			.read()
-			.await
-			.runtime(&self.extension_id)
-			.await
-			.ok_or_else(|| {
+		let (runtime, manifest) = {
+			let pm = plugin_manager.read().await;
+			let not_loaded = || {
 				JobError::ExecutionFailed(format!("Extension '{}' not loaded", self.extension_id))
-			})?;
+			};
+			(
+				pm.runtime(&self.extension_id)
+					.await
+					.ok_or_else(not_loaded)?,
+				pm.get_manifest(&self.extension_id)
+					.await
+					.ok_or_else(not_loaded)?,
+			)
+		};
+		let mut ops = JobOps::new(self.extension_id.clone(), manifest, ctx.library_arc());
 
 		// A checkpoint outlives a kill; the job row only outlives a pause.
 		if let Some(saved) = ctx.load_state::<String>().await? {
@@ -153,7 +164,7 @@ impl JobHandler for WasmJob {
 				result = &mut guest => break result,
 				event = events_rx.recv() => {
 					if let Some(event) = event {
-						self.handle(event, &ctx).await;
+						self.handle(event, &ctx, &mut ops).await;
 					}
 				}
 				_ = interrupt_poll.tick() => {
@@ -164,7 +175,7 @@ impl JobHandler for WasmJob {
 			}
 		};
 		while let Ok(event) = events_rx.try_recv() {
-			self.handle(event, &ctx).await;
+			self.handle(event, &ctx, &mut ops).await;
 		}
 
 		match exit {

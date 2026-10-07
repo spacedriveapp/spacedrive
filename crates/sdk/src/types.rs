@@ -32,6 +32,36 @@ pub enum Error {
 
 	#[error("Not found")]
 	NotFound,
+
+	/// The host has no provider for what was asked: no model of that kind is
+	/// installed, no tool is present. The call was understood and refused.
+	#[error("Not available: {0}")]
+	NotAvailable(String),
+
+	/// The SDK declares this call but no host function backs it yet.
+	#[error("Unsupported by this host: {0}")]
+	Unsupported(String),
+
+	/// A task ran past the timeout its `#[task]` attribute declares.
+	#[error("Timed out: {0}")]
+	Timeout(String),
+
+	/// The job was asked to pause or cancel.
+	#[error("Interrupted")]
+	Interrupted,
+}
+
+impl Error {
+	/// Whether a task that failed with this error is worth running again.
+	///
+	/// A refusal, a missing provider or an interrupt will come back the same;
+	/// a timeout or a failed operation might not.
+	pub fn is_retryable(&self) -> bool {
+		matches!(
+			self,
+			Error::Timeout(_) | Error::OperationFailed(_) | Error::HostCall(_)
+		)
+	}
 }
 
 /// Result type for SDK operations
@@ -87,12 +117,12 @@ impl Entry {
 
 	/// Read entry data
 	pub async fn read(&self) -> Result<Vec<u8>> {
-		panic!("WASM host call not implemented")
+		Err(Error::Unsupported("read".into()))
 	}
 
 	/// Get custom field from entry's metadata
 	pub fn custom_field<T: serde::de::DeserializeOwned>(&self, field: &str) -> Result<T> {
-		panic!("WASM host call not implemented")
+		Err(Error::Unsupported("custom_field".into()))
 	}
 }
 

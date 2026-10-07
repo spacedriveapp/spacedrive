@@ -1,6 +1,16 @@
 //! Low-level FFI bindings to Spacedrive host functions
 //!
 //! This module is internal - extension developers should use the high-level API.
+//!
+//! Every host function that returns data goes through [`op`]: the guest names
+//! an operation and hands over a payload, the host writes the result into
+//! memory it takes from [`wasm_alloc`] and reports where. One convention for
+//! every operation keeps the import table small and the memory handling in
+//! one place on each side.
+
+use serde::{de::DeserializeOwned, Serialize};
+
+use crate::types::{Error, Result};
 
 // Import Spacedrive host functions
 #[link(wasm_import_module = "spacedrive")]
@@ -12,6 +22,13 @@ extern "C" {
 		export_fn_ptr: *const u8,
 		export_fn_len: u32,
 		resumable: u32,
+	) -> i32;
+	fn spacedrive_op(
+		op_ptr: *const u8,
+		op_len: u32,
+		payload_ptr: *const u8,
+		payload_len: u32,
+		out_ptr: *mut u32,
 	) -> i32;
 }
 
@@ -63,7 +80,7 @@ pub unsafe extern "C" fn wasm_free(ptr: *mut u8, size: i32) {
 /// Register a job with the extension system
 ///
 /// Called automatically by #[extension] macro during plugin_init()
-pub fn register_job_with_host(job_name: &str, export_fn: &str, resumable: bool) -> Result<(), ()> {
+pub fn register_job_with_host(job_name: &str, export_fn: &str, resumable: bool) -> Result<()> {
 	let result = unsafe {
 		register_job(
 			job_name.as_ptr(),
@@ -77,8 +94,63 @@ pub fn register_job_with_host(job_name: &str, export_fn: &str, resumable: bool) 
 	if result == 0 {
 		Ok(())
 	} else {
-		Err(())
+		Err(Error::HostCall(format!("register_job({job_name})")))
 	}
+}
+
+/// The shape of an error the host reports from an operation.
+#[derive(serde::Deserialize)]
+struct HostError {
+	code: String,
+	message: String,
+}
+
+/// Run one host operation and return the bytes it answered with.
+///
+/// The host allocates the answer through `wasm_alloc` and reports pointer and
+/// length through `out`; this copies the bytes into a `Vec` and frees the
+/// host's buffer, so callers never touch raw guest memory. A non-zero status
+/// means the bytes are a JSON error, mapped onto [`Error`] by its code.
+pub fn op(op: &str, payload: &[u8]) -> Result<Vec<u8>> {
+	let mut out = [0u32; 2];
+	let status = unsafe {
+		spacedrive_op(
+			op.as_ptr(),
+			op.len() as u32,
+			payload.as_ptr(),
+			payload.len() as u32,
+			out.as_mut_ptr(),
+		)
+	};
+	let (ptr, len) = (out[0] as *mut u8, out[1] as usize);
+	let bytes = if ptr.is_null() || len == 0 {
+		Vec::new()
+	} else {
+		let bytes = unsafe { std::slice::from_raw_parts(ptr, len) }.to_vec();
+		unsafe { wasm_free(ptr, len.max(1) as i32) };
+		bytes
+	};
+	if status == 0 {
+		return Ok(bytes);
+	}
+	let error: HostError = serde_json::from_slice(&bytes)
+		.map_err(|_| Error::HostCall(format!("{op}: host error {status} was not readable")))?;
+	Err(match error.code.as_str() {
+		"not_found" => Error::NotFound,
+		"permission_denied" => Error::PermissionDenied(error.message),
+		"invalid_input" => Error::InvalidInput(error.message),
+		"not_available" => Error::NotAvailable(error.message),
+		"timeout" => Error::Timeout(error.message),
+		"interrupted" => Error::Interrupted,
+		_ => Error::OperationFailed(format!("{op}: {}", error.message)),
+	})
+}
+
+/// [`op`] with a JSON request and a JSON answer.
+pub fn op_json<I: Serialize, O: DeserializeOwned>(op_name: &str, input: &I) -> Result<O> {
+	let payload = serde_json::to_vec(input).map_err(|e| Error::Serialization(e.to_string()))?;
+	let bytes = op(op_name, &payload)?;
+	serde_json::from_slice(&bytes).map_err(|e| Error::Deserialization(format!("{op_name}: {e}")))
 }
 
 /// Drive a future to completion on the guest's single thread.
