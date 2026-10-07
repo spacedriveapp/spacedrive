@@ -297,6 +297,16 @@ impl PluginManager {
 					&env,
 					host_functions::host_register_job
 				),
+				"spacedrive_random" => Function::new_typed_with_env(
+					&mut store,
+					&env,
+					host_functions::host_spacedrive_random
+				),
+				"spacedrive_now_ms" => Function::new_typed_with_env(
+					&mut store,
+					&env,
+					host_functions::host_spacedrive_now_ms
+				),
 				"spacedrive_op" => Function::new_typed_with_env(
 					&mut store,
 					&env,

@@ -270,6 +270,29 @@ pub fn host_spacedrive_op(
 	status
 }
 
+/// Fill guest memory with entropy.
+///
+/// Every extension gets this without a grant: random ids and the time are
+/// not library data.
+pub fn host_spacedrive_random(mut env: FunctionEnvMut<PluginEnv>, buf_ptr: WasmPtr<u8>, len: u32) {
+	use rand::RngCore;
+
+	let (plugin_env, store) = env.data_and_store_mut();
+	let mut bytes = vec![0u8; len as usize];
+	rand::thread_rng().fill_bytes(&mut bytes);
+	if let Err(e) = buf_ptr
+		.slice(&plugin_env.memory.view(&store), len)
+		.and_then(|slice| slice.write_slice(&bytes))
+	{
+		tracing::error!(extension = %plugin_env.extension_id, "write entropy: {e:?}");
+	}
+}
+
+/// The host's clock, as milliseconds since the Unix epoch.
+pub fn host_spacedrive_now_ms(_env: FunctionEnvMut<PluginEnv>) -> i64 {
+	chrono::Utc::now().timestamp_millis()
+}
+
 /// Check if job should be interrupted
 pub fn host_job_check_interrupt(
 	mut env: FunctionEnvMut<PluginEnv>,

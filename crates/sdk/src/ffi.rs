@@ -23,6 +23,8 @@ extern "C" {
 		export_fn_len: u32,
 		resumable: u32,
 	) -> i32;
+	fn spacedrive_random(buf_ptr: *mut u8, buf_len: u32);
+	fn spacedrive_now_ms() -> i64;
 	fn spacedrive_op(
 		op_ptr: *const u8,
 		op_len: u32,
@@ -96,6 +98,31 @@ pub fn register_job_with_host(job_name: &str, export_fn: &str, resumable: bool) 
 	} else {
 		Err(Error::HostCall(format!("register_job({job_name})")))
 	}
+}
+
+/// Fill a buffer with entropy from the host.
+pub fn random_bytes(buf: &mut [u8]) {
+	unsafe { spacedrive_random(buf.as_mut_ptr(), buf.len() as u32) }
+}
+
+/// The host's clock, as milliseconds since the Unix epoch.
+pub fn now_ms() -> i64 {
+	unsafe { spacedrive_now_ms() }
+}
+
+/// The entropy source behind `getrandom`, and so behind `Uuid::new_v4` and
+/// `rand`, in a guest built with `--cfg getrandom_backend="custom"`.
+///
+/// wasm32-unknown-unknown has no entropy of its own; this routes every
+/// request to the host. The symbol name is getrandom's contract.
+#[no_mangle]
+unsafe extern "Rust" fn __getrandom_v03_custom(
+	dest: *mut u8,
+	len: usize,
+) -> ::core::result::Result<(), getrandom::Error> {
+	let buf = unsafe { std::slice::from_raw_parts_mut(dest, len) };
+	random_bytes(buf);
+	Ok(())
 }
 
 /// The shape of an error the host reports from an operation.

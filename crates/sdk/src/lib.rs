@@ -36,6 +36,7 @@
 pub mod actions;
 pub mod agent;
 pub mod ai;
+pub mod clock;
 pub mod ffi;
 pub mod job_context;
 pub mod models;
@@ -52,6 +53,7 @@ pub use agent::{
 	NotificationBuilder, TemporalMemory, TemporalQuery, WorkingMemory,
 };
 pub use ai::*;
+pub use clock::now;
 pub use job_context::JobContext as SdkJobContext;
 pub use models::*;
 pub use query::*;
@@ -64,6 +66,7 @@ pub mod prelude {
 	pub use crate::actions::*;
 	pub use crate::agent::*;
 	pub use crate::ai::*;
+	pub use crate::clock::now;
 	pub use crate::job_context::{JobContext, JobResult};
 	pub use crate::models::*;
 	pub use crate::query::*;

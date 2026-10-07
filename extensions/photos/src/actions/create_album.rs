@@ -1,6 +1,5 @@
 use spacedrive_sdk::{action, action_execute};
 
-use chrono::Utc;
 use spacedrive_sdk::prelude::*;
 use uuid::Uuid;
 
@@ -22,7 +21,7 @@ pub async fn create_album(
 				name: name.clone(),
 				photo_ids: photo_ids.clone(),
 				cover_photo_id: photo_ids.first().cloned(),
-				created_at: Utc::now(),
+				created_at: spacedrive_sdk::clock::now(),
 				album_type: AlbumType::Manual,
 			})?,
 		}],
