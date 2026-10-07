@@ -167,10 +167,9 @@ match falls through to the parent's renderer and the parent's icon, so a
 `raw` file previews as an image until Photos comes back. Nothing is rewritten
 on unload. When the extension loads again, the same names resolve again.
 
-A kind that is renamed or removed in a later manifest version leaves rows with
-a stale name; they behave exactly like an unloaded extension's rows. A
-rename that wants to carry rows over is a reidentification pass (below), not
-a migration.
+A kind renamed or removed in a later manifest version leaves rows with a stale
+name, which behave like an unloaded extension's rows; carrying them over is a
+reidentification pass (below), not a migration.
 
 ### Conflicts
 
@@ -299,6 +298,5 @@ days of focused work, two PRs minimum (K1+K2, K3+K4+K5).
   file URL. The original URL already supports range requests for video; the
   `ctx` can grow a `range(start, end)` helper when a timeline-shaped viewer
   asks for it.
-- Whether the icon set should accept an extension-shipped icon per kind.
-  `Thumb.tsx` resolves icons by name today; a kind-to-icon map in
-  `ui_manifest.json` is the obvious next field.
+- Whether a kind may ship its own icon. `Thumb.tsx` resolves icons by name
+  today; a kind-to-icon map in `ui_manifest.json` is the next field.
