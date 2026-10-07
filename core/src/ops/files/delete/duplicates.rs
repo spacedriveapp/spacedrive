@@ -241,7 +241,7 @@ async fn keep_these(
 
 	let reaches = match &duplicates.scope {
 		Some(scope) => stores_beneath(context, scope).await,
-		None => every_store(context),
+		None => every_store(context, ctx.library().id()),
 	};
 	let kept: HashSet<PathBuf> = keepers
 		.values()

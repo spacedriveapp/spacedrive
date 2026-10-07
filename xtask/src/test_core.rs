@@ -181,6 +181,13 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Locked volumes acceptance test",
 		&["--test", "locked_volumes_acceptance_test"],
 	),
+	// A daemon with two libraries lists every library's sources, before and
+	// after a restart, whichever order the data directory lists them in.
+	acceptance(
+		"sd-core",
+		"Multi library acceptance test",
+		&["--test", "multi_library_acceptance_test"],
+	),
 	// The extension runtime. Its own build with the `wasm` feature: wasmer
 	// in sd-core adds minutes to every test binary link, which took the
 	// integration group from 51 to 78 minutes when the whole group carried

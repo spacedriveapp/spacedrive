@@ -389,6 +389,16 @@ async fn backup_restores_identically_and_detects_tampering() -> Result<(), Error
 			sleep(Duration::from_millis(1)).await;
 		}
 	});
+	// The drive snapshot covering the replaced sources has to go with them,
+	// or the reopened library restores the arena the restore just replaced.
+	// This daemon has two libraries open (the default and the fixture), so
+	// the snapshot is resolved through the fixture's own registry.
+	let stale_snapshot = core
+		.context
+		.volume_index()
+		.source_snapshot_path(source_a)
+		.ok_or("source a has a snapshot path")?;
+	let stale_snapshot_written = tokio::fs::metadata(&stale_snapshot).await?.modified()?;
 	let replaced = LibraryRestoreAction::from_input(LibraryRestoreInput {
 		source: archive.clone(),
 		mode: RestoreMode::Replace,
@@ -414,6 +424,13 @@ async fn backup_restores_identically_and_detects_tampering() -> Result<(), Error
 		.await
 		.ok_or("replaced library is not open")?;
 	assert_eq!(space_item_count(&reopened).await?, items_before);
+	match tokio::fs::metadata(&stale_snapshot).await {
+		Ok(meta) => assert!(
+			meta.modified()? > stale_snapshot_written,
+			"the pre-restore drive snapshot was removed, not restored from"
+		),
+		Err(error) => assert_eq!(error.kind(), std::io::ErrorKind::NotFound),
+	}
 	assert_eq!(restored_facts(&core, source_a).await?, archive_facts_a);
 	assert_eq!(restored_facts(&core, source_b).await?.tag_assertions, 0);
 	assert_eq!(
@@ -438,7 +455,10 @@ async fn backup_restores_identically_and_detects_tampering() -> Result<(), Error
 	assert!(registered.contains(&source_a) && registered.contains(&source_b));
 
 	// Writes made through the live handle reach the file on disk under
-	// sources/, not the handle's pre-swap inode in the trash.
+	// sources/, not the handle's pre-swap inode in the trash. The file is
+	// under a subdirectory: the swap dropped the drive's arena, and the map
+	// the restore rebuilds from the store is what lets a change below the
+	// root land again.
 	let on_disk_b = data_dir
 		.join("sources")
 		.join(source_b.simple().to_string())

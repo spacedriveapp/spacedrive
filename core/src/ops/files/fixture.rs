@@ -71,7 +71,7 @@ impl Fixture {
 				.map_or(folder, |(_, spelled)| spelled);
 			core.context
 				.volume_index()
-				.register_source(&folder, None)
+				.register_source_in(Some(library.id()), &folder, None)
 				.await
 				.expect("registered");
 			folders.push(folder);

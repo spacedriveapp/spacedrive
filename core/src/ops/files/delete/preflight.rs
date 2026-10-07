@@ -249,7 +249,7 @@ async fn validate_duplicates(
 			}
 			let reaches = match &duplicates.scope {
 				Some(scope) => ctx.reach(scope).await,
-				None => every_store_in(ctx.index()),
+				None => every_store_in(ctx.index(), ctx.library().id()),
 			};
 			let hashes: Vec<String> = kept
 				.iter()
@@ -366,7 +366,7 @@ async fn preview(input: &FileDeleteInput, ctx: &PreviewContext) -> Result<FsPlan
 		DeleteTargets::Duplicates { duplicates } => {
 			let reaches = match &duplicates.scope {
 				Some(scope) => ctx.reach(scope).await,
-				None => every_store_in(ctx.index()),
+				None => every_store_in(ctx.index(), ctx.library().id()),
 			};
 			if reaches.is_empty() {
 				return Err(ActionError::InvalidInput(
@@ -514,7 +514,7 @@ pub(crate) async fn last_copies(ctx: &PreviewContext, hashes: Vec<String>) -> Ha
 		return HashSet::new();
 	}
 	let mut holders: HashMap<String, i64> = HashMap::new();
-	for reach in every_store_in(ctx.index()) {
+	for reach in every_store_in(ctx.index(), ctx.library().id()) {
 		let Some(db) = ctx.index().read_store(reach.source.id).await else {
 			continue;
 		};

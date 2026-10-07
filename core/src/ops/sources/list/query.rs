@@ -87,7 +87,7 @@ impl LibraryQuery for ListSourcesQuery {
 
 		let live_sources: std::collections::HashMap<uuid::Uuid, _> = context
 			.volume_index()
-			.sources()
+			.sources_of(library.id())
 			.into_iter()
 			.map(|source| (source.id, source))
 			.collect();

@@ -608,7 +608,7 @@ impl LibraryManager {
 		};
 		match context
 			.volume_index()
-			.attach_library_with(library.db().clone(), Some(device_id), live)
+			.attach_library_with(config.id, library.db().clone(), Some(device_id), live)
 			.await
 		{
 			Ok(adopted) => debug!("Adopted {adopted} sources for library {}", config.id),
@@ -701,6 +701,10 @@ impl LibraryManager {
 			if let Err(e) = library.shutdown().await {
 				error!("Error during library shutdown: {}", e);
 				// Continue with close even if shutdown has errors
+			}
+
+			if let Some(context) = self.context.read().await.as_ref() {
+				context.volume_index().detach_library(id);
 			}
 
 			// Emit event
@@ -1408,6 +1412,9 @@ impl LibraryManager {
 		//remove from library manager
 		let mut libraries = self.libraries.write().await;
 		libraries.remove(&id);
+		if let Some(context) = self.context.read().await.as_ref() {
+			context.volume_index().detach_library(id);
+		}
 
 		let deleted_data_flag = if delete_data {
 			library.delete().await?;
