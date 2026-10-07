@@ -55,29 +55,54 @@ pub struct Subject {
 	pub size: u64,
 	pub mtime_ms: i64,
 	pub is_dir: bool,
+	/// Creation time, where the filesystem reports one. A directory's mtime
+	/// moves with every child written into it, so this is what tells a
+	/// job's folder from one that later took its place.
+	#[serde(default)]
+	pub created_ms: Option<i64>,
 }
 
 impl Subject {
 	pub fn of(meta: &std::fs::Metadata) -> Self {
 		Self {
 			size: if meta.is_dir() { 0 } else { meta.len() },
-			mtime_ms: meta
-				.modified()
-				.ok()
-				.and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
-				.map(|elapsed| elapsed.as_millis() as i64)
-				.unwrap_or(0),
+			mtime_ms: meta.modified().ok().map(millis).unwrap_or(0),
 			is_dir: meta.is_dir(),
+			created_ms: meta.created().ok().map(millis),
 		}
 	}
 
 	/// Whether the path holds what the subject recorded.
+	///
+	/// A file is matched on its kind, size and mtime. A job that creates a
+	/// folder journals it before filling it, and each child moves the
+	/// folder's mtime, so a directory is matched on its kind and its
+	/// creation time instead. A journal row with no creation time (a row
+	/// from before the field existed, or a filesystem that keeps none) has
+	/// nothing to compare there, so an upgrade does not refuse every
+	/// standing undo.
 	pub async fn still_holds(&self, path: &Path) -> bool {
-		match tokio::fs::symlink_metadata(path).await {
-			Ok(meta) => Self::of(&meta) == *self,
-			Err(_) => false,
+		let Ok(meta) = tokio::fs::symlink_metadata(path).await else {
+			return false;
+		};
+		let now = Self::of(&meta);
+		if now.is_dir != self.is_dir {
+			return false;
+		}
+		if !self.is_dir {
+			return now.size == self.size && now.mtime_ms == self.mtime_ms;
+		}
+		match (self.created_ms, now.created_ms) {
+			(Some(recorded), Some(now)) => recorded == now,
+			_ => true,
 		}
 	}
+}
+
+fn millis(time: std::time::SystemTime) -> i64 {
+	time.duration_since(std::time::UNIX_EPOCH)
+		.map(|elapsed| elapsed.as_millis() as i64)
+		.unwrap_or(0)
 }
 
 /// What an attribute change sets.
@@ -166,4 +191,46 @@ pub struct Recorded {
 pub struct JournalSummary {
 	pub effects: u64,
 	pub reversible: u64,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// A folder journaled before it is filled still holds: its mtime moved
+	/// with the child, its kind did not.
+	#[tokio::test]
+	async fn a_directory_still_holds_after_a_child_lands_in_it() {
+		let dir = tempfile::tempdir().expect("tempdir");
+		let folder = dir.path().join("made");
+		std::fs::create_dir(&folder).expect("folder");
+		let subject = Subject::of(&std::fs::metadata(&folder).expect("meta"));
+		std::thread::sleep(std::time::Duration::from_millis(20));
+		std::fs::write(folder.join("child.txt"), b"c").expect("child");
+		assert!(subject.still_holds(&folder).await);
+		assert!(!subject.still_holds(&folder.join("child.txt")).await);
+
+		// A folder that took the journaled one's place is not it, where the
+		// filesystem keeps a creation time to tell them apart by.
+		if subject.created_ms.is_some() {
+			std::fs::remove_dir_all(&folder).expect("remove");
+			std::thread::sleep(std::time::Duration::from_millis(20));
+			std::fs::create_dir(&folder).expect("replacement");
+			assert!(!subject.still_holds(&folder).await);
+		}
+
+		let file = dir.path().join("f.txt");
+		std::fs::write(&file, b"abc").expect("file");
+		let subject = Subject::of(&std::fs::metadata(&file).expect("meta"));
+		assert!(subject.still_holds(&file).await);
+		// A row from before creation times were recorded still matches.
+		let older = Subject {
+			created_ms: None,
+			..subject
+		};
+		assert!(older.still_holds(&file).await);
+		std::fs::write(&file, b"abcd").expect("rewrite");
+		assert!(!subject.still_holds(&file).await);
+		assert!(!older.still_holds(&file).await);
+	}
 }

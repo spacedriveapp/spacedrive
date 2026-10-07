@@ -178,11 +178,16 @@ first 2.0 release ships standalone `sd` and `sd-daemon` assets.
 
 ### Repository
 
-- Formatting, linting, and tests pass.
-- Generated TypeScript and platform schemas match Rust types.
-- Fumadocs type-checks and builds.
-- No retired product route or accidental secret ships.
-- License and third-party notices are current.
+- Formatting, linting, and tests pass. Enforced by `ci.yml` jobs Rust
+  Formatting, Clippy, and TypeScript, and by `core_tests.yml`.
+- Generated TypeScript and platform schemas match Rust types. Enforced by
+  `ci.yml` job Generated types.
+- Fumadocs type-checks and builds. Enforced by `ci.yml` job Docs.
+- No retired product route or accidental secret ships. Secrets enforced by
+  `ci.yml` job Secrets scan (gitleaks, allowlist in `.gitleaks.toml`); retired
+  routes remain a review check.
+- License and third-party notices are current. Enforced by `ci.yml` job
+  License and notices.
 
 ### Data safety
 

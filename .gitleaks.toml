@@ -1,0 +1,28 @@
+# Gitleaks runs on every pull request (ci.yml, "Secrets scan") over the PR's
+# commits and the checked-out tree. Extend this file rather than the workflow
+# when a known non-secret trips a rule.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Dependency lockfiles: crate names such as crypto_secretbox match generic-api-key"
+paths = ['''(^|/)Cargo\.lock$''']
+
+[[allowlists]]
+description = "Vendored action bundle that embeds Azurite's public storage emulator key"
+paths = ['''^\.github/actions/publish-artifacts/dist/''']
+
+[[allowlists]]
+description = "AWS documentation example credentials used by the cloud_credentials tests"
+regexes = [
+	'''AKIAIOSFODNN7EXAMPLE''',
+	'''wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY''',
+]
+
+[[allowlists]]
+description = "Placeholders in docs and workflow cache keys"
+regexes = [
+	'''admin:yourpassword''',
+	'''libclang-15-win64''',
+]
