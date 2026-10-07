@@ -1,56 +1,17 @@
 ---
-title: Unified Addressing
-description: Locators for physical paths, providers, content, and sidecars
+title: Addressing
+description: What SdPath names today, how it resolves, and the model it is moving to
 sidebarTitle: Addressing
 ---
 
-Spacedrive operations accept a common path value for local files, cloud
-objects, content identity, and derived sidecars. An address tells an operation
-what to resolve now. Durable source and record identity remain separate.
-
-## Address forms
-
-### Physical
-
-~~~text
-local://jamies-macbook/Users/james/Documents/report.pdf
-~~~
-
-A physical address names a device and operating-system path. It is useful for a
-direct local or remote operation, but mount paths can change.
-
-### Cloud
-
-~~~text
-s3://my-bucket/photos/2026/vacation.jpg
-~~~
-
-A cloud address names a provider scheme, provider identifier, and native path.
-Credentials and account selection come from the authorized source, not from the
-URI.
-
-### Content
-
-~~~text
-content://550e8400-e29b-41d4-a716-446655440000
-~~~
-
-A content address asks Spacedrive to resolve an instance of known bytes. The
-resolver considers confirmation strength, availability, permissions, and
-policy. It does not promise which physical copy will answer.
-
-### Sidecar
-
-~~~text
-sidecar://550e8400-e29b-41d4-a716-446655440000/thumbs/grid@2x.webp
-~~~
-
-A sidecar address names a deterministic derivative by content, kind, variant,
-and format.
+Spacedrive operations take an `SdPath`. This page describes what that value
+names and how it resolves in the code as it stands. The last section marks the
+target model, which is planned and not yet built. The plan that owns the change
+is [`docs/plans/2026-09-25-addressing.md`](https://github.com/spacedriveapp/spacedrive/blob/main/docs/plans/2026-09-25-addressing.md).
 
 ## SdPath
 
-The Rust wire type represents these forms:
+`core/src/domain/addressing.rs` defines one enum with four variants:
 
 ~~~rust
 pub enum SdPath {
@@ -66,63 +27,172 @@ pub enum SdPath {
 }
 ~~~
 
-Plain operating-system paths parse as physical paths on the current device.
-Clients should preserve the structured value when possible instead of
-round-tripping through display text.
+Every operation accepts all four. Two of them are locators. `Physical` names a
+file on a device, and `Cloud` names an object in a cloud volume. `Content`
+names any copy of some bytes. `Sidecar` names a derived file in a
+content-keyed tree that nothing writes yet. Nothing outside tests constructs
+`Content` or `Sidecar`; the frontend only formats `Content` for display.
 
-## Durable references
+### Physical
 
-A path is not durable identity. Persisted relationships use:
+~~~text
+local://jamies-macbook//Users/james/Documents/report.pdf
+~~~
 
-- source UUID;
-- record UUID;
-- source-relative path as a resolvable hint;
-- content UUID for byte equality;
-- sidecar key for a derivative.
+A physical address names a device by its slug and a path on that device. The
+slug is generated from the device name and is unique within one `library.db`.
+`SdPath::local` fills in the slug of the process this code runs in, read once
+at startup from `device.json`. Editing the slug through `device.update` takes
+effect at the next restart, and persisted addresses carrying the old slug then
+read as another device's.
 
-This distinction lets a drive remount elsewhere, a file move, or a source
-authority transfer without breaking tags and provenance.
+`is_current_device` accepts three spellings of this device: the string
+`"local"`, the slug, and the device UUID as a string. The CLI sends `"local"`
+for every file command, and so do the Add Storage modal and the analyzer. The
+derived `Eq` and `Hash` treat the three spellings as different values, and
+several places compare slugs with `!=` rather than through `same_device`.
+Directory listing, search and thumbstrips refuse a spelling that is not the
+process-wide slug, copy routing treats two spellings as two devices, and a
+move keeps its source when the spellings differ.
+
+`path` is a `PathBuf`, so the reading machine's path rules apply to another
+device's path. On a Mac, a Windows path has no parent and `join` inserts `/`.
+
+The Rust `display()` form is `local://<slug>/<path>`, where an absolute Unix
+path contributes its own leading `/`. The TypeScript `sdPathToUri` writes a
+single `/`. Neither percent-encodes. `from_uri` parses `content`, `local`,
+`sidecar` and the cloud schemes; a string with no scheme is taken as a local
+path on this device.
+
+### Cloud
+
+~~~text
+s3://my-bucket/photos/2026/vacation.jpg
+~~~
+
+A cloud address carries a service, an identifier (the bucket, container or
+root) and a native path. It carries no account and no endpoint. Resolution is
+a string lookup on the volume manager that every library shares. Two accounts
+with the same bucket name, or one bucket name on two S3-compatible endpoints,
+share a fingerprint, and the second add replaces the first's volume and
+credential.
+
+### Content
+
+~~~text
+content://550e8400-e29b-41d4-a716-446655440000
+~~~
+
+A content address names bytes by the uuid of a `content` row. The uuid is
+`v5(CONTENT_NAMESPACE, hash)` over the strongest hash the row holds, so two
+installs that have never communicated derive the same id for the same bytes.
+
+A row is a candidate or confirmed. A candidate row has a sampled hash and no
+integrity hash, one per sampled hash; a confirmed row has an integrity hash,
+unique in the table, with the sampled hash and its uuid kept beside it as
+`candidate_uuid`. A record whose bytes have only been sampled points at the
+candidate row. When its bytes are read in full it moves to the confirmed row
+for that hash, so `record.content_id` changes once and the content id a
+client saw before verification changes with it. Lookups by content uuid match
+`uuid` or `candidate_uuid`, so the earlier id still finds every copy. A record
+on a confirmed row had its own bytes read in full; nothing binds a record to a
+confirmed row on the strength of a sampled hash. The same bytes sampled by two
+installs give the same candidate uuid, and read in full the same confirmed
+uuid.
+
+### Sidecar
+
+~~~text
+sidecar://550e8400-e29b-41d4-a716-446655440000/thumbs/grid@2x.webp
+~~~
+
+A sidecar address names a derivative by content, kind, variant and format.
+No producer writes the tree it describes. Thumbnails are keyed by record, and
+`resolve_in_job` returns not found for every sidecar address.
 
 ## Resolution
 
-Resolution is explicit and fallible:
+`SdPath::resolve_in_job` is the only resolver in use. `PathResolver` in
+`core/src/ops/addressing.rs` exists but has no callers.
 
-1. Authenticate the request context.
-2. Resolve device, source, provider, or content identity.
-3. Check current availability and granted scope.
-4. Validate version evidence where a mutation is planned.
-5. Select a byte provider or writable origin.
+`resolve_in_job` returns `Physical` and `Cloud` values unchanged. For
+`Content` it asks every local store for copies of the content uuid and returns
+the first copy whose path exists on this machine, as a `Physical` address with
+this device's slug. It does not weigh confirmation strength, availability on
+other devices, permissions or policy. For `Sidecar` it returns
+`NoOnlineInstancesFound`.
 
-An address can therefore be valid but unavailable. Clients should distinguish
-not found, offline, denied, stale, and ambiguous.
+Each operation then checks `as_local_path()` itself, which returns a path only
+when the slug is one of the three spellings of this device. A path on another
+device fails validation with the operation's own `*.remote_root` code. There
+are seven of these: archive, attributes, delete, link, merge, organize and
+rename. Clients cannot tell denied, stale or ambiguous apart, because
+`PathResolutionError` has no such variants.
 
-## Content selection
+## Trust boundary
 
-Several records can share one content identity. A content-addressed read chooses
-an instance that:
+Pairing is the trust boundary. A remote operation is served when the calling
+node is in the device registry's node map and refused with "device not paired"
+otherwise. A device enters that map when pairing starts, so a device whose
+pairing has not completed is already in the admitted set. An admitted call
+runs as this daemon's own session, whose permissions are `admin_all()`. There
+is no scope narrower than a device.
 
-- has confirmed evidence when policy requires it;
-- is online or cached;
-- is permitted for the caller;
-- satisfies requested range and format capabilities;
-- avoids unnecessary network or provider cost.
+## Durable references
 
-Destructive operations still target exact source records. A content URI alone
-is too broad for deletion.
+A `Physical` address is not durable identity. The record uuid is: it is
+assigned by the store when a file is first seen and survives rescans and
+watched renames. Sources anchor to a volume uuid and a relative root, and
+store rows are source-relative.
+
+What persists an address today:
+
+- Space items store `SdPath` JSON, slug included, and sync it verbatim. One
+  item that fails to parse fails the whole layout.
+- Tags take bare record uuids. The daemon finds the owning store by scanning
+  every local store, then every replica.
+- Adapter records have no address, and the UI renders them with no actions.
+
+Nothing persists a `(source, relative path)` pair. A source's root is derived
+from its volume's mount point when the registry loads it. Nothing re-anchors a
+source while the daemon runs: `SourceRegistry::remount` has no caller.
 
 ## Batches
 
-File actions accept batches of addresses for copy, move, delete, and share
+File actions accept batches of addresses for copy, move, delete and share
 workflows. Validation reports errors per item so one unavailable path does not
 hide the rest of the plan.
 
 ## Display
 
-The interface may show a friendly path, source name, or device label. Copying an
-address should retain an unambiguous machine-readable form.
+The interface may show a friendly path, source name or device label. Copying
+an address should keep an unambiguous machine-readable form. Never expose
+provider credentials, bearer tokens or signed download URLs as durable
+addresses.
 
-Never expose provider credentials, bearer tokens, or signed download URLs as
-durable Spacedrive addresses.
+## Planned model
+
+The target model below is planned. It lands through the phases in
+[`docs/plans/2026-09-25-addressing.md`](https://github.com/spacedriveapp/spacedrive/blob/main/docs/plans/2026-09-25-addressing.md),
+and decisions D1 to D6 there are still open.
+
+~~~rust
+pub enum SdPath {
+    Physical { device_id: Uuid, path: String },
+    Cloud { volume_id: Uuid, key: String },
+}
+
+pub struct ContentRef { pub content_id: Uuid }
+pub struct SourcePath { pub source_id: Uuid, pub path: String }
+pub struct RecordRef { pub source_id: Uuid, pub record_id: Uuid }
+~~~
+
+Under that model `SdPath` holds locators only and names a device or a cloud
+volume by uuid. Content gets its own reference type, accepted by reads that can
+use any copy. Anything persisted names a source and a relative path, or a
+source and a record. One resolver in the source layer turns every address into
+something an operation can act on and fails as not found, offline, denied,
+stale or ambiguous.
 
 See [Data Model](/core/data-model) for identity and [File Copy
 Operations](/core/file-copy-operations) for resolution during mutation.

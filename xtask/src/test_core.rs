@@ -119,6 +119,7 @@ pub const CORE_TESTS: &[TestSuite] = &[
 	core("Sync backfill test", &["--test", "sync_backfill_test"]),
 	core("Sync catch-up test", &["--test", "sync_catchup_test"]),
 	core("Library join test", &["--test", "library_join_test"]),
+	core("Dedupe own hash test", &["--test", "dedupe_own_hash_test"]),
 	// R8 source runtime acceptance (docs/core/acceptance/source-runtime.md):
 	// the single-daemon rows, the two-process replication rows, and the
 	// store crate's own suites, which carry the store-level rows.

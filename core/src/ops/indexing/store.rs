@@ -355,7 +355,7 @@ impl SourceStore {
 	/// Absolute paths, for the same reason [`Self::duplicates`] gives them:
 	/// a caller is going to show them to someone or open them.
 	pub async fn copies_of_content(&self, content_uuid: Uuid) -> Vec<DuplicateCopy> {
-		match sd_store::copies_of_content(self.db.pool(), content_uuid).await {
+		match sd_store::copies_of_content(&self.db, content_uuid).await {
 			Ok(copies) => copies
 				.into_iter()
 				.map(|copy| DuplicateCopy {
@@ -1586,18 +1586,23 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 				.expect("count"),
 			0
 		);
-		let (confirmed_uuid, rows): (Uuid, i64) = sqlx::query_as(
-			"SELECT uuid, (SELECT COUNT(*) FROM content) FROM content WHERE sampled_hash = 'shared-hash'",
+		let (confirmed_uuid, kept_candidate, rows): (Uuid, Uuid, i64) = sqlx::query_as(
+			"SELECT uuid, candidate_uuid, (SELECT COUNT(*) FROM content)
+			 FROM content WHERE sampled_hash = 'shared-hash'",
 		)
 		.fetch_one(fixture.store.db().pool())
 		.await
 		.expect("confirmed row");
 		assert_eq!(
 			rows, 2,
-			"the verdict upgraded a row rather than minting one"
+			"both verdicts landed on one confirmed row and the empty candidate row went"
 		);
 		assert_eq!(confirmed_uuid, sd_store::uuid_for("integrity-hash"));
 		assert_ne!(confirmed_uuid, candidate_uuid);
+		assert_eq!(
+			kept_candidate, candidate_uuid,
+			"the confirmed row keeps the candidate uuid the copies were known by"
+		);
 	}
 
 	/// A freeze survives what happens to the live store afterwards. That is
