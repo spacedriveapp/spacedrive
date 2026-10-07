@@ -173,6 +173,9 @@ impl LibraryConfig {
 		let written = async {
 			let mut file = tokio::fs::File::create(&staging).await?;
 			file.write_all(json.as_bytes()).await?;
+			// tokio's File reports a failed write at flush, and sync_all
+			// swallows that result; without this a short write is renamed in.
+			file.flush().await?;
 			file.sync_all().await?;
 			tokio::fs::rename(&staging, path).await
 		}
