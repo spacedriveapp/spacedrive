@@ -281,13 +281,15 @@ impl KeyManager {
 	/// Close the database and release file locks
 	/// This should be called before dropping KeyManager to ensure clean shutdown
 	pub async fn close(&self) -> Result<(), KeyManagerError> {
-		// Get a write lock and replace with an in-memory database to force file close
+		// Replacing the handle is what releases the file lock. A path named
+		// `:memory:` is a real file in the working directory to redb, and one
+		// process can hold it open only once, so a second core closing in the
+		// same process (a restart, or two daemons in one test binary) failed
+		// here and left its secrets file locked for the next open.
 		let mut db_guard = self.db.write().await;
-		// Drop the old database and replace with a dummy in-memory one
-		drop(std::mem::replace(
-			&mut *db_guard,
-			Database::create(":memory:")?,
-		));
+		let placeholder =
+			Database::builder().create_with_backend(redb::backends::InMemoryBackend::new())?;
+		drop(std::mem::replace(&mut *db_guard, placeholder));
 		Ok(())
 	}
 

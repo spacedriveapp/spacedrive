@@ -85,6 +85,13 @@ impl LibraryQuery for ListSourcesQuery {
 				})
 				.collect();
 
+		let live_sources: std::collections::HashMap<uuid::Uuid, _> = context
+			.volume_index()
+			.sources()
+			.into_iter()
+			.map(|source| (source.id, source))
+			.collect();
+
 		let rows = registry::all(library.db().conn())
 			.await
 			.map_err(|e| QueryError::Internal(format!("Failed to list sources: {e}")))?;
@@ -101,7 +108,14 @@ impl LibraryQuery for ListSourcesQuery {
 				let mount = row
 					.volume_uuid
 					.and_then(|uuid| attached_mounts.get(&uuid).cloned());
-				SourceInfo::from_row(row, mount.as_deref())
+				let mut info = SourceInfo::from_row(row, mount.as_deref());
+				// The volume index knows whether the drive is mounted, which
+				// the row's flag and the root's existence cannot tell apart
+				// from a mount point left behind as an empty directory.
+				if let Some(live) = live_sources.get(&info.id) {
+					info.attached = live.attached;
+				}
+				info
 			})
 			.collect();
 

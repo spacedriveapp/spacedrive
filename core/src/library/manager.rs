@@ -19,6 +19,7 @@ use crate::{
 		event::{Event, EventBus, LibraryCreationSource},
 		job::manager::JobManager,
 	},
+	ops::indexing::volume_index::LiveVolumes,
 	service::session::SessionStateService,
 	volume::VolumeManager,
 };
@@ -598,10 +599,16 @@ impl LibraryManager {
 
 		// Adopt this library's source registrations. Absolute roots resolve
 		// against wherever each anchoring volume is mounted now, so a drive
-		// that came back at a different mount point needs no repair.
+		// that came back at a different mount point needs no repair, and a
+		// drive detection cannot see comes up detached whatever its row says.
+		let live = self.volume_manager.live_volumes().await;
+		let live = match &live {
+			Some(volumes) => LiveVolumes::Detected(volumes),
+			None => LiveVolumes::Unavailable,
+		};
 		match context
 			.volume_index()
-			.attach_library(library.db().clone())
+			.attach_library_with(library.db().clone(), live)
 			.await
 		{
 			Ok(adopted) => debug!("Adopted {adopted} sources for library {}", config.id),
