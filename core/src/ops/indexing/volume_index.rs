@@ -135,6 +135,16 @@ struct TrackedVolume {
 	is_mount: bool,
 }
 
+/// Whether a volume root is a service prefix rather than a filesystem path.
+///
+/// A cloud volume mounts at `s3://bucket` or `gdrive://id`: nothing on this
+/// machine's mount table, nothing `Path::exists` can answer for, and never
+/// something an unmount leaves a directory behind for. It is reachable as
+/// long as its row says so.
+fn is_cloud_root(root: &Path) -> bool {
+	root.to_string_lossy().contains("://")
+}
+
 /// What volume detection reports at the moment a library attaches.
 ///
 /// `attach_library` resolves every anchored source against this rather than
@@ -356,6 +366,13 @@ impl VolumeIndex {
 				continue;
 			};
 			mounts.insert(row.uuid, mount_point.clone());
+			// Detection lists filesystems; a cloud volume is restored from
+			// its row by the volume manager and is not away for being
+			// absent here.
+			if is_cloud_root(&mount_point) {
+				self.track_volume(row.uuid, mount_point);
+				continue;
+			}
 			self.track_volume_state(row.uuid, mount_point, mounted);
 
 			if row.is_online != mounted {
@@ -401,6 +418,9 @@ impl VolumeIndex {
 	/// treating that directory as the drive is how an index of a locked
 	/// dataset came to be walked as an empty source.
 	fn root_attached(&self, volume: &VolumeKey, root: &Path) -> bool {
+		if is_cloud_root(root) {
+			return true;
+		}
 		let mounted = match volume {
 			VolumeKey::Id(uuid) => self.volume_mounted(*uuid).unwrap_or(true),
 			_ => true,
@@ -437,7 +457,7 @@ impl VolumeIndex {
 			match volumes.iter_mut().find(|tracked| tracked.uuid == uuid) {
 				Some(tracked) => {
 					tracked.mounted = mounted;
-					tracked.is_mount = true;
+					tracked.is_mount = !is_cloud_root(&tracked.mount_point);
 					if mounted {
 						tracked.mount_point = mount_point.to_path_buf();
 					}
@@ -446,7 +466,7 @@ impl VolumeIndex {
 					uuid,
 					mount_point: mount_point.to_path_buf(),
 					mounted: true,
-					is_mount: true,
+					is_mount: !is_cloud_root(mount_point),
 				}),
 				None => return,
 			}
@@ -668,18 +688,19 @@ impl VolumeIndex {
 	}
 
 	fn track_volume_state(&self, uuid: Uuid, mount_point: PathBuf, mounted: bool) {
+		let is_mount = !is_cloud_root(&mount_point);
 		let mut volumes = self.volumes.lock();
 		match volumes.iter_mut().find(|tracked| tracked.uuid == uuid) {
 			Some(tracked) => {
 				tracked.mount_point = mount_point;
 				tracked.mounted = mounted;
-				tracked.is_mount = true;
+				tracked.is_mount = is_mount;
 			}
 			None => volumes.push(TrackedVolume {
 				uuid,
 				mount_point,
 				mounted,
-				is_mount: true,
+				is_mount,
 			}),
 		}
 	}
@@ -793,6 +814,9 @@ impl VolumeIndex {
 	/// drive, whatever the state says.
 	pub fn dispatch_refusal(&self, path: &Path) -> Option<String> {
 		let resolved = self.locate(path)?;
+		if is_cloud_root(&resolved.volume_root) {
+			return None;
+		}
 		let slot = self.slot_for(&resolved);
 		if slot.is_detached() {
 			return Some(format!(
@@ -3264,6 +3288,29 @@ mod tests {
 		let fixture = tempfile::tempdir().unwrap();
 		cache.track_volume(Uuid::now_v7(), fixture.path().to_path_buf());
 		assert!(cache.dispatch_refusal(fixture.path()).is_none());
+	}
+
+	/// A cloud volume's root is a service prefix, not a directory: detection
+	/// never lists it, nothing exists at it, and it is never away for that.
+	#[tokio::test]
+	async fn a_cloud_root_is_never_refused_for_not_being_mounted() {
+		let cache_dir = tempfile::tempdir().unwrap();
+		let library = test_library(cache_dir.path()).await;
+		let bucket = PathBuf::from("s3://bucket");
+		let anchor = tracked_volume(&library, &bucket).await;
+
+		let cache =
+			VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
+		cache
+			.attach_library_with(library.clone(), None, LiveVolumes::Detected(&[]))
+			.await
+			.expect("attach");
+		assert_eq!(cache.volume_mounted(anchor.uuid), Some(true));
+		assert!(!cache.resolve(&bucket.join("photos")).is_detached());
+		assert!(cache.dispatch_refusal(&bucket).is_none());
+
+		cache.track_detected_volume(anchor.uuid, bucket.clone(), true);
+		assert!(cache.dispatch_refusal(&bucket).is_none());
 	}
 
 	/// With detection off there is nothing live to consult, and the row's
