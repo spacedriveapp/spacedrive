@@ -1,7 +1,7 @@
 # Project Status
 
-> Last updated: 2026-10-06
-> Code baseline: `5bc474e`
+> Last updated: 2026-10-07
+> Code baseline: `c81e3d6`
 > Branch of record: `main` (fast-forwarded from `sources` on 2026-10-05)
 > Purpose: short-term working context across development sessions while
 > `.tasks/` is frozen.
