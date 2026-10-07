@@ -224,11 +224,10 @@ async fn apply(ctx: &JobContext<'_>, step: Step) -> std::io::Result<Vec<Effect>>
 	}
 }
 
-/// A rename where both sit on one volume, and the trash's restore where
-/// the item is in the platform's trash.
+/// The trash's restore, which is a rename where the item sits at its
+/// recorded location and the platform's restore where it has only an id,
+/// and which maps a location journaled as a `.trashinfo` path to its item
+/// and takes the companion with it.
 async fn move_back(from: &PathBuf, to: &PathBuf) -> std::io::Result<()> {
-	match tokio::fs::rename(from, to).await {
-		Ok(()) => Ok(()),
-		Err(_) => trash::restore(from, to).await,
-	}
+	trash::restore(from, to).await
 }

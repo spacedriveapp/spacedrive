@@ -4476,7 +4476,13 @@ url: string };
  * The state of an effect's result when it was recorded: what undo checks
  * against before touching it.
  */
-export type Subject = { size: number; mtime_ms: number; is_dir: boolean };
+export type Subject = { size: number; mtime_ms: number; is_dir: boolean; 
+/**
+ * Creation time, where the filesystem reports one. A directory's mtime
+ * moves with every child written into it, so this is what tells a
+ * job's folder from one that later took its place.
+ */
+created_ms?: number | null };
 
 /**
  * Sync activity types for detailed sync monitoring

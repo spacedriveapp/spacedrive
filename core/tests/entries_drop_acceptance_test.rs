@@ -791,22 +791,9 @@ async fn layout_is_empty(harness: &IndexingHarness, space: Uuid) -> bool {
 /// directory is opened again.
 ///
 /// Built on a bare `Core` rather than the harness, so the library handle
-/// can be dropped before the restart and its lock released, and run in a
-/// child process with its own working directory: `KeyManager::close` swaps
-/// the secrets database for a redb file literally named `:memory:` in the
-/// working directory, which every other shut-down core holds a lock on, so
-/// in a shared process the first core keeps `secrets.redb` open and the
-/// restart fails with "Database already open".
+/// can be dropped before the restart and its lock released.
 #[tokio::test]
 async fn a_pin_survives_a_restart() -> anyhow::Result<()> {
-	in_child("pin_restart_child").await?;
-	Ok(())
-}
-
-/// The restart behind `a_pin_survives_a_restart`.
-#[tokio::test]
-#[ignore = "run by a_pin_survives_a_restart in a child process"]
-async fn pin_restart_child() -> anyhow::Result<()> {
 	let temp = tempfile::tempdir()?;
 	let data_dir = temp.path().join("data");
 	let files = temp.path().join("pinned");
@@ -934,13 +921,11 @@ async fn a_non_utf8_name_is_retained_lossily_and_reported() -> anyhow::Result<()
 }
 
 /// Run one ignored test of this binary in a child process with warnings
-/// on, and answer with everything it printed. The harness's fmt layer
-/// writes to stdout; the child's own panics go to stderr.
+/// on, and answer with everything it printed. The tracing subscriber is
+/// process-global, so the only way to read what one walk logged is to give
+/// it a process. The harness's fmt layer writes to stdout; the child's own
+/// panics go to stderr.
 async fn in_child(test: &str) -> anyhow::Result<String> {
-	// Its own working directory: `KeyManager::close` creates a redb file
-	// named `:memory:` there, and redb's lock on it is per file, so a child
-	// sharing the parent's directory cannot shut its core down cleanly.
-	let cwd = tempfile::tempdir()?;
 	let output = tokio::process::Command::new(std::env::current_exe()?)
 		.args([
 			test,
@@ -950,7 +935,6 @@ async fn in_child(test: &str) -> anyhow::Result<String> {
 			"--test-threads=1",
 		])
 		.env("RUST_LOG", "sd_core=warn")
-		.current_dir(cwd.path())
 		.output()
 		.await?;
 	let printed = format!(
@@ -1002,12 +986,11 @@ async fn non_utf8_child_walk() -> anyhow::Result<()> {
 	Ok(())
 }
 
-/// The known limit "A rename over an existing file inside a source fails to
-/// land in the store on `UNIQUE(parent_uuid, title)`": after `a.txt` is
+/// A rename over an existing file inside a source lands as one row under
+/// `UNIQUE(parent_uuid, title)`: after `a.txt` is
 /// renamed over `b.txt` on disk and the store is told, the way the watcher
 /// tells it, the store should hold one file named `b.txt` and no `a.txt`.
 #[tokio::test]
-#[ignore = "FDA: rename over an existing file: the overwritten file's row is never removed, so two rows share one title under one parent"]
 async fn a_rename_over_an_existing_file_lands_as_one_row() -> anyhow::Result<()> {
 	let harness = IndexingHarnessBuilder::new("fda_rename_over")
 		.disable_watcher()
@@ -1016,6 +999,8 @@ async fn a_rename_over_an_existing_file_lands_as_one_row() -> anyhow::Result<()>
 	let dir = harness.create_test_dir("renames").await?;
 	dir.write_file("a.txt", "aaaa").await?;
 	dir.write_file("b.txt", "bb").await?;
+	dir.write_file("src/inner.txt", "i").await?;
+	tokio::fs::create_dir(dir.path().join("empty")).await?;
 	let tracked = TrackSourceAction::from_input(TrackSourceInput {
 		path: dir.path().to_path_buf(),
 		name: None,
@@ -1044,29 +1029,21 @@ async fn a_rename_over_an_existing_file_lands_as_one_row() -> anyhow::Result<()>
 	store.flush().await?;
 	let a = store.db().resolve_path("a.txt").await?.expect("a");
 	assert!(store.db().resolve_path("b.txt").await?.is_some());
+	let src = store.db().resolve_path("src").await?.expect("src");
+	assert!(store.db().resolve_path("empty").await?.is_some());
 
 	let (from, to) = (tracked.root.join("a.txt"), tracked.root.join("b.txt"));
 	tokio::fs::rename(&from, &to).await?;
 	let metadata = std::fs::metadata(&to)?;
-	store
-		.renamed(
-			&from,
-			&sd_core::ops::indexing::metadata::EntryMetadata {
-				path: to.clone(),
-				kind: sd_core::ops::indexing::state::EntryKind::File,
-				size: metadata.len(),
-				modified: metadata.modified().ok(),
-				accessed: None,
-				created: None,
-				inode: None,
-				permissions: None,
-				uid: None,
-				gid: None,
-				link_target: None,
-				is_hidden: false,
-			},
-		)
-		.await;
+	store.renamed(&from, &observed(to.clone(), &metadata)).await;
+	store.flush().await?;
+
+	// The directory form: POSIX lets a directory be renamed over an empty
+	// one, and the overwritten row holds the path in `directory_path`.
+	let (from, to) = (tracked.root.join("src"), tracked.root.join("empty"));
+	tokio::fs::rename(&from, &to).await?;
+	let metadata = std::fs::metadata(&to)?;
+	store.renamed(&from, &observed(to.clone(), &metadata)).await;
 	store.flush().await?;
 
 	assert_eq!(
@@ -1082,10 +1059,50 @@ async fn a_rename_over_an_existing_file_lands_as_one_row() -> anyhow::Result<()>
 			.await?;
 	assert_eq!(
 		titles,
-		vec![("b.txt".to_string(),)],
-		"one row for the one file left on disk"
+		vec![("b.txt".to_string(),), ("inner.txt".to_string(),)],
+		"one row per file left on disk"
 	);
+	assert_eq!(store.db().resolve_path("src").await?, None);
+	assert_eq!(
+		store.db().resolve_path("empty").await?,
+		Some(src),
+		"the moved directory keeps its identity at its new path"
+	);
+	let title: (String,) = sqlx::query_as("SELECT title FROM record WHERE uuid = ?")
+		.bind(src)
+		.fetch_one(store.db().pool())
+		.await?;
+	assert_eq!(title.0, "empty", "the moved directory carries its new name");
+	assert!(store.db().resolve_path("empty/inner.txt").await?.is_some());
+	let paths: Vec<(String,)> = sqlx::query_as("SELECT path FROM directory_path ORDER BY path")
+		.fetch_all(store.db().pool())
+		.await?;
+	assert_eq!(paths, vec![("empty".to_string(),)]);
 
 	harness.shutdown().await?;
 	Ok(())
+}
+
+fn observed(
+	path: std::path::PathBuf,
+	metadata: &std::fs::Metadata,
+) -> sd_core::ops::indexing::metadata::EntryMetadata {
+	sd_core::ops::indexing::metadata::EntryMetadata {
+		path,
+		kind: if metadata.is_dir() {
+			sd_core::ops::indexing::state::EntryKind::Directory
+		} else {
+			sd_core::ops::indexing::state::EntryKind::File
+		},
+		size: metadata.len(),
+		modified: metadata.modified().ok(),
+		accessed: None,
+		created: None,
+		inode: None,
+		permissions: None,
+		uid: None,
+		gid: None,
+		link_target: None,
+		is_hidden: false,
+	}
 }
