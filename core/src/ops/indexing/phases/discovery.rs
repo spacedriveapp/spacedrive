@@ -697,10 +697,10 @@ async fn read_directory_with_backend(
 				path.join(&raw.name)
 			};
 
-			// The daemon's own data dir is never indexed, whatever the
-			// rules say: its journals churn fast enough to poison batches,
-			// and a map that contains its own map is not information.
-			if crate::config::is_own_data(&full_path) {
+			// Spacedrive's own directories are never indexed, whatever the
+			// rules say: a store's journals churn fast enough to poison
+			// batches, and a map that contains its own map is not information.
+			if crate::config::is_managed(&full_path) {
 				return None;
 			}
 

@@ -169,11 +169,11 @@ impl FsEventHandler {
 			while is_running.load(Ordering::SeqCst) {
 				match rx.recv().await {
 					Ok(event) => {
-						// The daemon's own writes are not changes to index or
-						// hash. Without this the store's SQLite journals dirty
+						// Spacedrive's own writes are not changes to index or
+						// hash. Without this a store's SQLite journals dirty
 						// the source, the nudged hashing job writes the store,
 						// and the loop feeds itself every interval.
-						if crate::config::is_own_data(&event.path) {
+						if crate::config::is_managed(&event.path) {
 							continue;
 						}
 						if let Err(e) = Self::handle_event(&context, &event, rule_toggles).await {

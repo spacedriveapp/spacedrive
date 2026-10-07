@@ -87,6 +87,36 @@ pub fn is_own_data(path: &Path) -> bool {
 		.is_some_and(|own| own.iter().any(|dir| path.starts_with(dir)))
 }
 
+/// The directory a source root keeps Spacedrive's managed state in: stores
+/// placed on the source, and anything else that must travel with it.
+pub const MANAGED_DIR: &str = ".spacedrive";
+
+/// The marker file the volume manager writes at a drive's root to give it a
+/// stable identity across machines.
+pub const VOLUME_ID_FILE: &str = ".spacedrive-volume-id";
+
+/// Whether a path is Spacedrive's own, so no walk, watcher or writer records it.
+///
+/// Three things qualify: the daemon's data directory under every spelling,
+/// which holds every library and every in-library store; any `.spacedrive`
+/// directory and what is under it, which is where an on-source store lives,
+/// whether or not this library registered it; and the volume identity marker.
+/// The check is by path component rather than by registry, so it holds for an
+/// unfiltered source, for an enclosing source that was never told about the
+/// inner store, for a store found on a drive nobody here tracks, and across
+/// remounts and aliases. Without it a store written inside its own scope
+/// indexes its journals, the watcher sees those writes, and the hashing job it
+/// nudges writes the store again.
+pub fn is_managed(path: &Path) -> bool {
+	if is_own_data(path) {
+		return true;
+	}
+	path.components().any(|component| {
+		let name = component.as_os_str();
+		name == MANAGED_DIR || name == VOLUME_ID_FILE
+	})
+}
+
 /// User preferences
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Preferences {
@@ -106,6 +136,26 @@ impl Default for Preferences {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	/// A store placed on its source sits inside the scope being walked. The
+	/// refusal has to hold without any registry consulted: an unfiltered
+	/// source disables every rule, an enclosing source was never told about
+	/// the inner store, and a drive from another machine carries one nobody
+	/// here registered.
+	#[test]
+	fn managed_directories_are_refused_by_component() {
+		assert!(is_managed(Path::new(
+			"/Volumes/Archive/.spacedrive/sources/abc/data.db"
+		)));
+		assert!(is_managed(Path::new("/Volumes/Archive/Photos/.spacedrive")));
+		assert!(is_managed(Path::new(
+			"/Volumes/Archive/.spacedrive-volume-id"
+		)));
+		assert!(!is_managed(Path::new("/Volumes/Archive/Photos/2024/a.jpg")));
+		assert!(!is_managed(Path::new(
+			"/Volumes/Archive/spacedrive-notes.txt"
+		)));
+	}
 
 	/// The data directory must be recognized under every firmlink spelling.
 	/// Watcher events arrive under `/System/Volumes/Data` while the
