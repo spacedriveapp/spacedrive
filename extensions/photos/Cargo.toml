@@ -10,13 +10,13 @@ crate-type = ["cdylib"]
 # Empty workspace to exclude from parent
 
 [dependencies]
-chrono         = { version = "0.4", features = ["serde"] }
+chrono         = { version = "0.4", default-features = false, features = ["alloc", "clock", "serde"] }
 serde          = { version = "1.0", features = ["derive"] }
 serde_json     = "1.0"
 spacedrive-sdk = { path = "../../crates/sdk" }
 thiserror      = "1.0"
 tracing        = "0.1"
-uuid           = { version = "1.0", features = ["js", "serde", "v4"] }
+uuid           = { version = "1.0", default-features = false, features = ["rng-rand", "serde", "v4"] }
 
 [profile.release]
 codegen-units = 1

@@ -291,3 +291,95 @@ async fn extension_job_resumes_after_restart() {
 
 	core.shutdown().await.unwrap();
 }
+
+/// The photos extension (`extensions/photos`, fixture `photos.wasm`) loads
+/// beside the test extension and registers its jobs. Its jobs stop at the
+/// first SDK call with no host function behind it; the guest's panic reaches
+/// the host log and the job fails instead of hanging.
+#[tokio::test(flavor = "multi_thread")]
+async fn photos_extension_loads_and_stops_at_the_first_missing_host_function() {
+	let guest_log = guest_log();
+	let temp_dir = TempDir::new().unwrap();
+	install_test_extension(temp_dir.path());
+	let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+		.parent()
+		.unwrap()
+		.join("extensions/photos");
+	let target = temp_dir.path().join("extensions/photos");
+	std::fs::create_dir_all(&target).unwrap();
+	for file in ["manifest.json", "photos.wasm"] {
+		std::fs::copy(source.join(file), target.join(file)).unwrap();
+	}
+
+	let core = Core::new(temp_dir.path().to_path_buf()).await.unwrap();
+	let pm = core.plugin_manager.as_ref().expect("plugin manager");
+	let mut loaded = pm.read().await.list_plugins().await;
+	loaded.sort();
+	assert_eq!(loaded, vec!["com.spacedrive.photos", "test-extension"]);
+
+	let registry = pm.read().await.job_registry();
+	let mut jobs: Vec<String> = registry
+		.list_jobs_for_extension("com.spacedrive.photos")
+		.into_iter()
+		.map(|job| job.job_name)
+		.collect();
+	jobs.sort();
+	assert_eq!(
+		jobs,
+		[
+			"analyze_photos",
+			"analyze_scenes",
+			"create_moments",
+			"identify_places"
+		]
+	);
+
+	let library = core.libraries.list().await.into_iter().next().unwrap();
+	guest_log.lock().unwrap().clear();
+	let started = RunExtensionJobAction::from_input(RunExtensionJobInput {
+		job: "com.spacedrive.photos:analyze_photos".into(),
+		state: None,
+	})
+	.unwrap()
+	.execute(library.clone(), core.context.clone())
+	.await
+	.unwrap();
+
+	let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
+	let info = loop {
+		let info = library
+			.jobs()
+			.get_job_info(started.job_id)
+			.await
+			.unwrap()
+			.unwrap();
+		if info.status == JobStatus::Failed {
+			break info;
+		}
+		assert_ne!(
+			info.status,
+			JobStatus::Completed,
+			"nothing backs this job yet"
+		);
+		assert!(
+			tokio::time::Instant::now() < deadline,
+			"the job never ended"
+		);
+		tokio::time::sleep(Duration::from_millis(20)).await;
+	};
+	assert!(
+		info.error_message
+			.as_deref()
+			.unwrap_or("")
+			.contains("WASM trap"),
+		"{:?}",
+		info.error_message
+	);
+	let guest_log = guest_log.lock().unwrap().clone();
+	assert!(
+		guest_log.contains("guest panic:"),
+		"the guest's panic should reach the host log:\n{guest_log}"
+	);
+
+	core.shutdown().await.unwrap();
+}

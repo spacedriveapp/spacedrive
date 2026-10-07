@@ -4,7 +4,7 @@ use spacedrive_sdk::prelude::*;
 use spacedrive_sdk::tasks::TaskContext;
 use uuid::Uuid;
 
-use crate::models::*;
+use crate::models::{FaceDetection, *};
 use crate::utils::*;
 
 #[task(retries = 1, timeout_ms = 60000)]

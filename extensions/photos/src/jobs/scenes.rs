@@ -13,7 +13,7 @@ pub struct AnalyzeScenesState {
 	pub photo_ids: Vec<Uuid>,
 }
 
-#[job]
+#[job(name = "analyze_scenes")]
 pub async fn analyze_scenes(ctx: &JobContext, state: &mut AnalyzeScenesState) -> JobResult<()> {
 	for photo_id in &state.photo_ids {
 		let photo = ctx.vdfs().get_entry(*photo_id).await?;

@@ -1,0 +1,7 @@
+[build]
+target = "wasm32-unknown-unknown"
+
+# The guest has no entropy source yet: the SDK exposes no host function for
+# it, so a random id fails at runtime instead of failing the build.
+[target.wasm32-unknown-unknown]
+rustflags = ["--cfg", "getrandom_backend=\"unsupported\""]
