@@ -472,7 +472,7 @@ async fn a_file_under_nested_sources_is_one_hit_from_the_stores() -> anyhow::Res
 		.collect();
 	let targets = cache.quiesce_targets(&ids);
 	cache.detach_library(harness.library.id());
-	let (hold, _) = cache.quiesce_stores(&ids, targets).await;
+	let (hold, _) = cache.quiesce_stores(&ids, &targets).await;
 	drop(hold);
 	cache
 		.attach_library(harness.library.id(), harness.library.db().clone())

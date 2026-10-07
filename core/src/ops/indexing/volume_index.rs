@@ -1320,7 +1320,7 @@ impl VolumeIndex {
 	pub async fn quiesce_stores(
 		&self,
 		ids: &[Uuid],
-		targets: QuiesceTargets,
+		targets: &QuiesceTargets,
 	) -> (StoreHold, Vec<PathBuf>) {
 		// One gate per source; locking the same gate twice would wait on
 		// itself.
@@ -1386,9 +1386,9 @@ impl VolumeIndex {
 			}
 		}
 		let mut removed = Vec::new();
-		for path in targets.snapshots {
-			match tokio::fs::remove_file(&path).await {
-				Ok(()) => removed.push(path),
+		for path in &targets.snapshots {
+			match tokio::fs::remove_file(path).await {
+				Ok(()) => removed.push(path.clone()),
 				Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
 				Err(error) => {
 					tracing::warn!(path = %path.display(), %error, "stale drive snapshot was not removed");
@@ -1705,6 +1705,35 @@ impl VolumeIndex {
 		slot.restored.store(true, Ordering::Release);
 		self.announce_restored(&root);
 		Some(loaded)
+	}
+
+	/// Rebuild the map of every attached source whose drive partition a
+	/// restore dropped, whichever library holds it.
+	///
+	/// A partition is the drive's, so quiescing one library's sources takes
+	/// the arena away from every other open library's sources on that
+	/// drive too; they get theirs back from their own stores here. Returns
+	/// how many sources were rebuilt.
+	pub async fn rebuild_quiesced(&self, targets: &QuiesceTargets) -> usize {
+		let mut rebuilt = 0usize;
+		for (_, located) in self.all_sources() {
+			if !targets.partitions.contains(&located.volume)
+				|| !self.root_attached(&located.volume, &located.record.root)
+			{
+				continue;
+			}
+			match self.rebuild_from_store(located.record.id).await {
+				Some(loaded) => {
+					rebuilt += 1;
+					tracing::debug!(source = %located.record.id, loaded, "map rebuilt from its store");
+				}
+				None => tracing::warn!(
+					source = %located.record.id,
+					"source has no readable store; its map stays empty until walked"
+				),
+			}
+		}
+		rebuilt
 	}
 
 	/// Restore every drive this machine maps, and every source registered over

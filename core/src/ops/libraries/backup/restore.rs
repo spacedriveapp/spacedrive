@@ -260,7 +260,7 @@ impl LibraryRestoreAction {
 		// that is about to be moved to the trash.
 		let (hold, snapshots_removed) = context
 			.volume_index()
-			.quiesce_stores(&quiesced, quiesce_targets)
+			.quiesce_stores(&quiesced, &quiesce_targets)
 			.await;
 		let sidecar_hold = context.thumbs.hold_sidecars(&quiesced).await;
 
@@ -304,25 +304,15 @@ impl LibraryRestoreAction {
 		// The swap dropped the drive arenas these sources lived in and the
 		// snapshots that would refill them, so a change under a source root
 		// has nowhere to land until its map is rebuilt: the handler files an
-		// event only where the arena holds the parent. Each restored source
-		// gets its map back from its own store, which also re-arms the
-		// watch over it, without a walk re-hashing what the store knows.
-		for source in context.volume_index().sources_of(library.id()) {
-			if !source.attached {
-				continue;
-			}
-			match context.volume_index().rebuild_from_store(source.id).await {
-				Some(loaded) => tracing::debug!(
-					source = %source.id,
-					loaded,
-					"map rebuilt from the restored store"
-				),
-				None => tracing::warn!(
-					source = %source.id,
-					"restored source has no readable store; its map stays empty until walked"
-				),
-			}
-		}
+		// event only where the arena holds the parent. Every source on those
+		// drives gets its map back from its own store, another open
+		// library's included, which also re-arms the watch over it, without
+		// a walk re-hashing what the store knows.
+		let rebuilt = context
+			.volume_index()
+			.rebuild_quiesced(&quiesce_targets)
+			.await;
+		tracing::debug!(rebuilt, "maps rebuilt from their stores after the swap");
 
 		let output = LibraryRestoreOutput {
 			library_id: library.id(),

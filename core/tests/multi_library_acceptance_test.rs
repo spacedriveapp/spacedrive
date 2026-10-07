@@ -14,22 +14,30 @@ use std::{path::Path, sync::Arc};
 
 use helpers::TestConfigBuilder;
 use sd_core::{
+	infra::action::CoreAction,
 	infra::{action::LibraryAction, api::SessionContext, query::LibraryQuery},
 	library::Library,
-	ops::sources::{
-		list::query::ListSourcesQuery,
-		track::{TrackSourceAction, TrackSourceInput},
+	ops::{
+		libraries::backup::{
+			LibraryBackupAction, LibraryBackupInput, LibraryRestoreAction, LibraryRestoreInput,
+			RestoreMode,
+		},
+		sources::{
+			list::query::ListSourcesQuery,
+			track::{TrackSourceAction, TrackSourceInput},
+		},
 	},
 	Core,
 };
 use uuid::Uuid;
 
-/// A daemon over `data_dir`: detection on, networking off.
+/// A daemon over `data_dir`: detection on, watcher on, networking off.
 async fn boot(data_dir: &Path) -> Arc<Core> {
 	let mut config = TestConfigBuilder::new(data_dir.to_path_buf())
 		.build()
 		.expect("config");
 	config.services.volume_monitoring_enabled = true;
+	config.services.fs_watcher_enabled = true;
 	config.save().expect("save config");
 	Arc::new(Core::new(data_dir.to_path_buf()).await.expect("core"))
 }
@@ -206,6 +214,56 @@ async fn two_libraries_list_their_own_sources_across_a_restart() {
 		"the index holds both libraries' sources"
 	);
 	check(&core, first.clone(), second.clone(), "after restart").await;
+
+	// Restoring one library drops the drive partitions its sources share
+	// with the other library; every source on those drives gets its map
+	// back from its store, so a change below the second library's root
+	// still reaches its store afterwards.
+	let backup_dir = data_dir.path().join("first-backup");
+	LibraryBackupAction::from_input(LibraryBackupInput {
+		library_id: first_id,
+		destination: backup_dir.clone(),
+		include_sidecars: false,
+		include_replicas: false,
+	})
+	.expect("backup input")
+	.execute(first.clone(), core.context.clone())
+	.await
+	.expect("backup");
+	drop(first);
+	LibraryRestoreAction::from_input(LibraryRestoreInput {
+		source: backup_dir,
+		mode: RestoreMode::Replace,
+		library_id: None,
+		force: false,
+	})
+	.expect("restore input")
+	.execute(core.context.clone())
+	.await
+	.expect("restore");
+	let first = open_library(&core, first_id).await;
+	check(&core, first.clone(), second.clone(), "after restore").await;
+	let second_store = core
+		.context
+		.volume_index()
+		.store_for(second_root.path())
+		.await
+		.expect("the second library's store");
+	let before = second_store.db().revision().await.expect("revision").value;
+	std::fs::create_dir_all(second_root.path().join("deeper")).expect("mkdir");
+	std::fs::write(second_root.path().join("deeper/after-restore.txt"), "after").expect("write");
+	let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+	loop {
+		second_store.flush().await.expect("flush");
+		if second_store.db().revision().await.expect("revision").value > before {
+			break;
+		}
+		assert!(
+			std::time::Instant::now() < deadline,
+			"a change below the second library's root reaches its store after the first's restore"
+		);
+		tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+	}
 
 	// Closing one library takes only its sources with it.
 	drop(first);
