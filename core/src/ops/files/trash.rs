@@ -4,7 +4,10 @@
 //! location it lands at is recorded so it can be put back. On macOS that is
 //! `NSFileManager`'s trash call, which answers with the resulting URL; on
 //! Windows and Linux the `trash` crate lists the trash afterward and the item
-//! is found by its original path. A volume with no trash of its own, a
+//! is found by its original path. On Linux the location is the item itself
+//! under the freedesktop `Trash/files` directory, and its `Trash/info`
+//! companion is derived from that and goes when the item is restored or
+//! purged. A volume with no trash of its own, a
 //! network mount among them, gets a Spacedrive trash directory at its root,
 //! `.spacedrive/trash/<job>/`, reached by a rename on the same volume.
 //!
@@ -55,7 +58,8 @@ pub async fn restore(location: &Path, original: &Path) -> io::Result<()> {
 		tokio::fs::create_dir_all(parent).await?;
 	}
 	if tokio::fs::symlink_metadata(location).await.is_ok() {
-		return tokio::fs::rename(location, original).await;
+		tokio::fs::rename(location, original).await?;
+		return remove_trash_info(location).await;
 	}
 	let (location, original) = (location.to_path_buf(), original.to_path_buf());
 	tokio::task::spawn_blocking(move || restore_os(&location, &original))
@@ -66,8 +70,14 @@ pub async fn restore(location: &Path, original: &Path) -> io::Result<()> {
 /// Remove a trashed item for good.
 pub async fn purge(location: &Path) -> io::Result<()> {
 	match tokio::fs::symlink_metadata(location).await {
-		Ok(meta) if meta.is_dir() => tokio::fs::remove_dir_all(location).await,
-		Ok(_) => tokio::fs::remove_file(location).await,
+		Ok(meta) => {
+			if meta.is_dir() {
+				tokio::fs::remove_dir_all(location).await?;
+			} else {
+				tokio::fs::remove_file(location).await?;
+			}
+			remove_trash_info(location).await
+		}
 		Err(_) => {
 			let location = location.to_path_buf();
 			tokio::task::spawn_blocking(move || purge_os(&location))
@@ -201,7 +211,7 @@ fn trash_os(path: &Path) -> io::Result<Option<PathBuf>> {
 		.into_iter()
 		.filter(|item| item.original_path() == path)
 		.max_by_key(|item| item.time_deleted)
-		.map(|item| PathBuf::from(item.id)))
+		.map(|item| item_location(&item)))
 }
 
 #[cfg(any(target_os = "windows", target_os = "linux"))]
@@ -209,13 +219,64 @@ fn trashed_item(location: &Path) -> io::Result<trash::TrashItem> {
 	trash::os_limited::list()
 		.map_err(|error| io::Error::other(error.to_string()))?
 		.into_iter()
-		.find(|item| Path::new(&item.id) == location)
+		.find(|item| item_location(item) == location)
 		.ok_or_else(|| {
 			io::Error::new(
 				io::ErrorKind::NotFound,
 				format!("{} is no longer in the trash", location.display()),
 			)
 		})
+}
+
+/// Where a trashed item sits.
+///
+/// The `trash` crate's item id on Linux is the `.trashinfo` path, not the
+/// item; the freedesktop layout puts the item at `files/<name>` beside
+/// `info/<name>.trashinfo`, so the location is derived the way the crate
+/// derives it for its own restore.
+#[cfg(target_os = "linux")]
+fn item_location(item: &trash::TrashItem) -> PathBuf {
+	let info = Path::new(&item.id);
+	match (info.parent().and_then(Path::parent), info.file_stem()) {
+		(Some(trash_dir), Some(name)) => trash_dir.join("files").join(name),
+		_ => info.to_path_buf(),
+	}
+}
+
+#[cfg(target_os = "windows")]
+fn item_location(item: &trash::TrashItem) -> PathBuf {
+	PathBuf::from(&item.id)
+}
+
+/// Remove the `.trashinfo` companion of an item that left `Trash/files` by
+/// a rename or a removal, so the trash does not list a ghost.
+#[cfg(target_os = "linux")]
+async fn remove_trash_info(location: &Path) -> io::Result<()> {
+	let Some(info) = trash_info_path(location) else {
+		return Ok(());
+	};
+	match tokio::fs::remove_file(&info).await {
+		Err(error) if error.kind() != io::ErrorKind::NotFound => Err(error),
+		_ => Ok(()),
+	}
+}
+
+#[cfg(not(target_os = "linux"))]
+async fn remove_trash_info(_location: &Path) -> io::Result<()> {
+	Ok(())
+}
+
+/// The `info/<name>.trashinfo` companion of a `files/<name>` location, or
+/// none when the location is not in a freedesktop trash.
+#[cfg(target_os = "linux")]
+fn trash_info_path(location: &Path) -> Option<PathBuf> {
+	let files = location.parent()?;
+	if files.file_name()? != "files" {
+		return None;
+	}
+	let mut name = location.file_name()?.to_os_string();
+	name.push(".trashinfo");
+	Some(files.parent()?.join("info").join(name))
 }
 
 #[cfg(any(target_os = "windows", target_os = "linux"))]
@@ -280,9 +341,9 @@ mod tests {
 		assert!(!is_spacedrive_trash(Path::new("/Users/me/.Trash/file.txt")));
 	}
 
-	/// The macOS trash call reports where the item went, and the item comes
-	/// back from there.
-	#[cfg(target_os = "macos")]
+	/// The trash reports where the item went, and the item comes back from
+	/// there with its bytes.
+	#[cfg(any(target_os = "macos", target_os = "linux"))]
 	#[tokio::test]
 	async fn the_trash_reports_where_an_item_went_and_gives_it_back() {
 		let dir = tempfile::tempdir().expect("tempdir");
@@ -296,5 +357,50 @@ mod tests {
 		assert!(location.exists(), "{}", location.display());
 		restore(&location, &file).await.expect("restored");
 		assert_eq!(std::fs::read(&file).expect("back"), b"bytes");
+		assert!(!location.exists(), "{} left the trash", location.display());
+	}
+
+	/// On Linux the location is the item under `Trash/files`, not its
+	/// `.trashinfo`, and restoring it takes the `.trashinfo` with it so the
+	/// trash no longer lists the item.
+	#[cfg(target_os = "linux")]
+	#[tokio::test]
+	async fn a_linux_location_is_the_item_and_its_trashinfo_goes_with_it() {
+		let dir = tempfile::tempdir().expect("tempdir");
+		let file = dir.path().join("gone.txt");
+		std::fs::write(&file, b"bytes").expect("file");
+		let location = trash(&file, None, JobId::new())
+			.await
+			.expect("trashed")
+			.expect("a location");
+		assert_eq!(
+			location.parent().and_then(Path::file_name),
+			Some(std::ffi::OsStr::new("files")),
+			"{}",
+			location.display()
+		);
+		let info = trash_info_path(&location).expect("a trashinfo path");
+		assert!(info.exists(), "{}", info.display());
+		assert!(trash::os_limited::list()
+			.expect("listed")
+			.iter()
+			.any(|item| item_location(item) == location));
+
+		restore(&location, &file).await.expect("restored");
+		assert_eq!(std::fs::read(&file).expect("back"), b"bytes");
+		assert!(!info.exists(), "{} went with the item", info.display());
+		assert!(!trash::os_limited::list()
+			.expect("listed")
+			.iter()
+			.any(|item| item_location(item) == location));
+
+		let location = trash(&file, None, JobId::new())
+			.await
+			.expect("trashed again")
+			.expect("a location");
+		let info = trash_info_path(&location).expect("a trashinfo path");
+		purge(&location).await.expect("purged");
+		assert!(!location.exists());
+		assert!(!info.exists(), "{} went with the purge", info.display());
 	}
 }

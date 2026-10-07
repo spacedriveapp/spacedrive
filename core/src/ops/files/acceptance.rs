@@ -731,13 +731,13 @@ async fn a_merge_changes_no_destination_file_the_plan_did_not_name() {
 /// item went, the trash view lists it there as present, and undo brings
 /// the bytes back.
 ///
-/// Passes on macOS, where `NSFileManager` answers with the item's location.
-/// On Linux and Windows the `trash` crate's item id is the `.trashinfo`
-/// path, which `trash::restore` treats as the item itself and renames onto
-/// the original path, so the restored file holds the trashinfo text.
+/// On macOS `NSFileManager` answers with the item's location; on Linux it
+/// is the item under the freedesktop `Trash/files` directory. On Windows
+/// the `trash` crate's item id is a shell parsing name rather than a path,
+/// which the trash view cannot stat.
 #[cfg_attr(
-	not(target_os = "macos"),
-	ignore = "FDA: trash restore on Linux and Windows: the journaled location is the .trashinfo file and undo renames it over the original, so the restored bytes are the trashinfo text"
+	target_os = "windows",
+	ignore = "FDA: the Windows trash location is a shell parsing name, not a path the trash view can stat"
 )]
 #[tokio::test]
 async fn a_trashed_file_is_listed_with_its_location_and_comes_back() {
@@ -930,8 +930,8 @@ async fn a_batch_rename_preview_over_a_thousand_files_answers_within_the_ceiling
 /// Rests on trash restore, so it is ignored where
 /// `a_trashed_file_is_listed_with_its_location_and_comes_back` is.
 #[cfg_attr(
-	not(target_os = "macos"),
-	ignore = "FDA: undo of a mirror on Linux and Windows: restoring the trashed extras renames their .trashinfo files over the originals"
+	target_os = "windows",
+	ignore = "FDA: undo of a mirror on Windows rests on trash restore, which the trash view cannot stat there"
 )]
 #[tokio::test]
 async fn undoing_a_mirror_restores_the_extras_and_the_replaced_bytes() {
