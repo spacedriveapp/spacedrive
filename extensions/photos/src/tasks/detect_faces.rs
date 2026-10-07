@@ -7,7 +7,7 @@ use crate::models::{BoundingBox, FaceDetection};
 #[task(retries = 2, timeout_ms = 30000, requires_capability = "gpu_optional")]
 pub async fn detect_faces_in_photo(
 	ctx: TaskContext,
-	photo: Entry,
+	photo: Record,
 ) -> TaskResult<Vec<FaceDetection>> {
 	let image_bytes = photo.read().await?;
 

@@ -1,13 +1,30 @@
 # Spacedrive SDK API Reference
 
-**Status:** Stubs for type-checking (implementations are `todo!()`)
-**Purpose:** Full API surface from `docs/sdk/sdk.md` - allows extensions to compile
+**Status:** Records, sidecars, models, tasks, entropy, clock and config have a host side behind `spacedrive_op`; inference answers `Error::NotAvailable`; tags, custom fields, agents and actions remain stubs.
+**Purpose:** The API surface extensions compile against, and what each part does at runtime.
 
 ---
 
 ## Overview
 
-The SDK now includes **all APIs** documented in the specification as type-checked stubs.
+Every method that returns data from the host goes through one import,
+`spacedrive_op(name, payload)`. The host checks the manifest's `permissions`
+block and answers JSON, or an error with a stable code the SDK maps onto
+`Error` (`NotFound`, `PermissionDenied`, `InvalidInput`, `NotAvailable`,
+`OperationFailed`).
+
+### Renames since the stub phase
+
+| Was | Now | Why |
+|-----|-----|-----|
+| `Entry`, `EntryKind` | `Record`, `RecordKind` | The entry table is gone; files are records in a source store. |
+| `vdfs().get_entry(uuid)` | `vdfs().get_record(uuid)` | |
+| `vdfs().query_entries()` | `vdfs().query_records()` | Filters by source, path, extension and type. `with_tag` and `where_metadata` are refused by the host. |
+| new | `vdfs().read_record(uuid)`, `Record::read()` | The bytes of a record, read from its source. |
+| `save_sidecar(content_uuid, kind, extension_id, data)` | `save_sidecar(content_uuid, kind, data)` | The host keys the sidecar by the calling extension. |
+| `add_tag(metadata_id, tag)` | `add_tag(record_uuid, tag)` | Tags attach to records; no host side yet. |
+| new | `spacedrive_sdk::clock::now()` | Wall-clock time; `SystemTime::now` panics on wasm32-unknown-unknown. |
+| new | `#[model]` emits a definition the host registers | Models live in an extension-owned store under `<library>/extensions/<id>/`. |
 
 ### Modules
 
@@ -38,9 +55,9 @@ pub type QueryResult<T> = std::result::Result<T, Error>;
 pub type TaskResult<T> = std::result::Result<T, Error>;
 
 // Core entities
-pub struct Entry { id, uuid, name, kind, ... }
+pub struct Record { uuid, source, path, name, kind, extension, size, content_uuid, ... }
 pub struct Tag { id, name, color, icon }
-pub enum EntryKind { File, Directory, Symlink, Virtual }
+pub enum RecordKind { File, Directory, Symlink }
 pub enum Priority { Low, Normal, High }
 pub enum Capability { GPU, CPU }
 pub enum Progress { Indeterminate, Simple, Complete }
@@ -56,9 +73,15 @@ pub struct Pdf;
 
 ```rust
 impl VdfsContext {
-    // Entry queries
-    fn query_entries() -> EntryQuery
-    async fn get_entry(uuid) -> Result<Entry>
+    // Record queries (read_records grant)
+    fn query_records() -> RecordQuery
+    async fn get_record(uuid) -> Result<Record>
+    async fn read_record(uuid) -> Result<Vec<u8>>
+
+    // Sidecars (read_sidecars / write_sidecars grants), one JSON document per kind
+    fn sidecar_exists(content_uuid, kind) -> Result<bool>
+    async fn read_sidecar<T>(content_uuid, kind) -> Result<T>
+    async fn write_sidecar<T>(content_uuid, kind, data) -> Result<()>
 
     // Model operations (content-scoped)
     async fn create_model_for_content<T>(content_uuid, model) -> Result<()>
@@ -70,29 +93,29 @@ impl VdfsContext {
     async fn get_model<T>(uuid) -> Result<T>
     fn query_models<T>() -> ModelQuery<T>
 
-    // Tagging
+    // Tagging (no host side yet, returns Error::NotAvailable)
     async fn add_tag_to_content(content_uuid, tag) -> Result<()>
     async fn add_tag_to_model(model_uuid, tag) -> Result<()>
-    async fn add_tag(metadata_id, tag) -> Result<()>
+    async fn add_tag(record_uuid, tag) -> Result<()>
 
-    // Custom fields
-    async fn update_custom_field<T>(entry_uuid, field, value) -> Result<()>
+    // Custom fields (no host side yet)
+    async fn update_custom_field<T>(record_uuid, field, value) -> Result<()>
 
     // Permissions
     fn in_granted_scope(path) -> bool
 }
 
-// Entry query builder
-impl EntryQuery {
+// Record query builder
+impl RecordQuery {
+    fn in_source(source_uuid) -> Self
     fn in_location(path) -> Self
+    fn with_extensions(extensions) -> Self
     fn of_type<T>() -> Self
-    fn where_content_id(content_uuid) -> Self
-    fn on_this_device() -> Self
-    fn with_tag(tag) -> Self
-    fn with_sidecar(kind) -> Self
-    async fn first() -> Result<Option<Entry>>
-    async fn collect() -> Result<Vec<Entry>>
-    fn map<F, T>(f) -> MappedQuery<T>
+    fn with_tag(tag) -> Self          // refused by the host today
+    fn where_metadata(field, predicate) -> Self  // refused by the host today
+    fn limit(n) -> Self
+    async fn first() -> Result<Option<Record>>
+    async fn collect() -> Result<Vec<Record>>
 }
 
 // Model query builder
@@ -125,7 +148,7 @@ impl ModelHandle {
     fn prompt_template(template_name: &str) -> PromptBuilder
     async fn detect_faces(image_data: &[u8]) -> Result<Vec<FaceDetection>>
     async fn classify(image_data: &[u8]) -> Result<Vec<SceneTag>>
-    async fn ocr_document(entry: &Entry) -> Result<String>
+    async fn ocr_document(record: &Record) -> Result<String>
     async fn embed_text(text: &str) -> Result<Vec<f32>>
 }
 
@@ -244,7 +267,8 @@ impl JobContext {
     fn progress(progress: Progress)
     async fn check_interrupt() -> Result<()>  // Async version
     fn sidecar_exists(content_uuid, kind) -> Result<bool>
-    async fn save_sidecar<T>(content_uuid, kind, extension_id, data) -> Result<()>
+    async fn save_sidecar<T>(content_uuid, kind, data) -> Result<()>
+    async fn read_sidecar<T>(content_uuid, kind) -> Result<T>
     fn memory() -> MemoryHandle<()>
     fn config<C>() -> &C
     fn notify() -> NotificationBuilder
@@ -286,7 +310,7 @@ pub enum Change {
     UpdateCustomField { entry_id, field, value },
     AddTag { target, tag },
     CreateDirectory { name, parent },
-    MoveEntry { entry, destination },
+    MoveRecord { record, destination },
 }
 
 pub struct ExecutionResult {
@@ -354,36 +378,30 @@ All macros are currently pass-through stubs:
 
 ## Usage Examples
 
-### Photos Extension (Now Type-Checks!)
+### Photos Extension
+
+`extensions/photos/src/jobs/analyze.rs` is the worked example: it reads each
+photo through `get_record` and `Record::read`, runs face detection as a
+`#[task]` with a retry policy, handles `Error::NotAvailable` with one warning
+and a skip, and writes a `faces` sidecar when a detector answers.
 
 ```rust
-#[model(scope = "content")]
-struct PhotoAnalysis {
-    detected_faces: Vec<FaceDetection>,
-    // ... compiles!
-}
-
-#[job]
-async fn analyze_photos(ctx: &JobContext, content_uuids: Vec<Uuid>) -> JobResult<()> {
-    for content_uuid in content_uuids {
-        let entry = ctx.vdfs()  // Type-checks
-            .query_entries()
-            .where_content_id(content_uuid)
-            .first()
-            .await?;
-
-        let faces = ctx.ai()  // Type-checks
-            .from_registered("face_detection")
-            .detect_faces(&image_data)
-            .await?;
-
-        ctx.vdfs().create_model_for_content(content_uuid, analysis).await?;  // Type-checks
+#[job(name = "analyze_photos_batch")]
+async fn analyze_photos(ctx: &JobContext, state: &mut AnalyzePhotosState) -> JobResult<()> {
+    for photo_id in &state.photo_ids {
+        let record = ctx.vdfs().get_record(*photo_id).await?;
+        let Some(content_uuid) = record.content_uuid() else { continue };
+        match ctx.run(detect_faces_in_photo, record).await {
+            Ok(faces) => ctx.save_sidecar(content_uuid, "faces", &faces).await?,
+            Err(Error::NotAvailable(_)) => { ctx.add_warning("no face detector"); break }
+            Err(e) => return Err(e),
+        }
     }
     Ok(())
 }
 ```
 
-### Test Extension (Still Works!)
+### Test Extension
 
 ```rust
 #[job(name = "counter")]
@@ -400,98 +418,32 @@ fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
 
 | Module | Status | Notes |
 |--------|--------|-------|
-| `ffi.rs` | Implemented | Low-level WASM imports |
-| `job_context.rs` | Expanded | New methods added, existing preserved |
-| `types.rs` | Expanded | All common types added |
-| `vdfs.rs` | Stubs | Type-checks, `todo!()` for host calls |
-| `ai.rs` | Stubs | Type-checks, `todo!()` for inference |
-| `agent.rs` | Stubs | Type-checks, memory system defined |
-| `models.rs` | Stubs | Type-checks, registration stubs |
-| `actions.rs` | Stubs | Type-checks, preview/execute defined |
-| `tasks.rs` | Stubs | Type-checks, task context defined |
-| `query.rs` | Stubs | Type-checks, query context defined |
-
-**Macros:** All defined as pass-through (no codegen yet)
+| `ffi.rs` | Implemented | `spacedrive_log`, `register_job`, `register_model`, `spacedrive_random`, `spacedrive_now_ms`, `spacedrive_op` |
+| `job_context.rs` | Implemented | Progress, checkpoints, interrupts, sidecars, `run` for tasks |
+| `types.rs` | Implemented | `Record`, `RecordKind`, `Error` with host codes |
+| `vdfs.rs` | Partly | Records, sidecars and models work; tags and custom fields return `NotAvailable` |
+| `clock.rs` | Implemented | `now()` over `spacedrive_now_ms` |
+| `tasks.rs` | Implemented | `#[task]` with retry policy and deadline; the host logs each attempt |
+| `models.rs` | Implemented | `#[model]` defines, `#[extension(models = [...])]` registers; rows in the extension's store |
+| `ai.rs` | Not available | `infer` checks the `use_models` grant on the host, then returns `Error::NotAvailable` |
+| `config.rs` | Implemented | `config.json` beside the manifest |
+| `agent.rs` | Stubs | Memory and notifications have no host side |
+| `actions.rs` | Stubs | Preview and execute have no host side |
+| `query.rs` | Stubs | No host side |
 
 ---
 
 ## What Works
 
-**Type-checking:** Photos extension compiles and type-checks
-**Test extension:** Existing test-extension still works
-**API surface:** Complete API from specification available
-**Documentation:** IntelliSense/rust-analyzer autocomplete works
+**Runtime:** The photos extension's `analyze_photos` runs end to end under the daemon's `wasm` feature; `core/tests/wasm_extension_test.rs` is the acceptance test.
+**Randomness:** `getrandom` is backed by `spacedrive_random`, so `Uuid::new_v4()` and `rand` work in the guest (each extension's `.cargo/config.toml` sets `--cfg getrandom_backend="custom"`).
 
 ## What Doesn't Work Yet
 
-**Runtime:** All new methods are `todo!()` - will panic if called
-**Host functions:** WASM imports not implemented in Core
-**Macro codegen:** Macros don't generate code yet
-**Memory persistence:** No storage backend
-
----
-
-## Next Steps for Implementation
-
-### Phase 1: Core Host Functions
-
-Implement in `core/src/infra/extension/host_functions.rs`:
-```rust
-#[no_mangle]
-pub extern "C" fn vdfs_query_entries(...) -> u32;
-#[no_mangle]
-pub extern "C" fn model_create(...) -> u32;
-#[no_mangle]
-pub extern "C" fn model_get_by_content(...) -> u32;
-#[no_mangle]
-pub extern "C" fn add_tag_to_content(...) -> u32;
-#[no_mangle]
-pub extern "C" fn model_register(...) -> u32;
-#[no_mangle]
-pub extern "C" fn ai_infer(...) -> u32;
-```
-
-### Phase 2: SDK Implementation
-
-Replace `todo!()` with actual WASM host calls:
-```rust
-pub async fn get_model_by_content<T>(content_uuid: Uuid) -> Result<T> {
-    // Serialize request
-    let request = ModelRequest { content_uuid, model_type: T::MODEL_TYPE };
-    let req_bytes = serde_json::to_vec(&request)?;
-
-    // Call host function
-    let result_ptr = unsafe {
-        model_get_by_content(req_bytes.as_ptr(), req_bytes.len())
-    };
-
-    // Deserialize response
-    let response_bytes = unsafe { read_host_memory(result_ptr) };
-    let model: T = serde_json::from_slice(&response_bytes)?;
-
-    Ok(model)
-}
-```
-
-### Phase 3: Macro Code Generation
-
-Implement real macros:
-```rust
-#[model(scope = "content")]
-struct PhotoAnalysis { ... }
-
-// Generates:
-impl ExtensionModel for PhotoAnalysis {
-    const MODEL_TYPE: &'static str = "PhotoAnalysis";
-    fn uuid(&self) -> Uuid { self.id }
-}
-
-impl PhotoAnalysis {
-    pub async fn save_for_content(ctx: &VdfsContext, content_uuid: Uuid, self) -> Result<()> {
-        ctx.create_model_for_content(content_uuid, self).await
-    }
-}
-```
+**Inference:** The core has no provider for face detection, scene classification, embeddings or language models, so every `ai().infer` answers `NotAvailable`; photos' scenes, places and moments jobs have nothing to run on.
+**Tags, custom fields, dispatching jobs:** no host side.
+**Agents, actions, queries:** no host side.
+**File kinds and previews:** not registered by extensions.
 
 ---
 
@@ -525,7 +477,7 @@ cargo build --target wasm32-unknown-unknown --release
 
 ## Breaking Changes
 
-**None!** The existing test-extension API is preserved:
+See the renames table in the overview. The original test-extension API is preserved:
 - `ctx.log()` 
 - `ctx.checkpoint()` 
 - `ctx.check_interrupt()` 
@@ -537,5 +489,5 @@ New methods are additive only.
 
 ---
 
-**The SDK is now complete for type-checking. Extensions can be written and will compile. Runtime implementation is the next phase.** 
+**Extensions compile and the record, sidecar, model and task paths run. Inference is the next host side to build.**
 

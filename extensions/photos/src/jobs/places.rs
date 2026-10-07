@@ -22,7 +22,7 @@ pub async fn identify_places_in_location(
 
 	let photos = ctx
 		.vdfs()
-		.query_entries()
+		.query_records()
 		.in_location(location)
 		.of_type::<Image>()
 		.where_metadata("exif.gps", is_not_null())
@@ -50,7 +50,7 @@ pub async fn identify_places_in_location(
 				.await?;
 
 			ctx.vdfs()
-				.add_tag(photo.metadata_id(), &format!("#place:{}", place.name))
+				.add_tag(photo.id(), &format!("#place:{}", place.name))
 				.await?;
 		}
 	}

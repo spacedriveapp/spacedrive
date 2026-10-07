@@ -116,16 +116,14 @@ User can search "#person:alice" or "photos from beach"
           └── resnet50.onnx (95MB)
 
 .sdlibrary/
-  └── sidecars/
-      ├── content/{uuid}/
-      │   └── extensions/photos/
-      │       ├── faces.json       # Face detection results
-      │       ├── scene.json        # Scene classification
-      │       └── aesthetics.json  # Quality score
-      └── extension/photos/
-          └── memory/
-              ├── history.db        # Photo analysis events
-              └── knowledge.vss     # Face/place graph
+  ├── sidecars/
+  │   └── content/{ab}/{cd}/{uuid}/
+  │       └── extensions/com.spacedrive.photos/
+  │           ├── faces/default.json       # Face detection results
+  │           ├── scene/default.json       # Scene classification
+  │           └── aesthetics/default.json  # Quality score
+  └── extensions/com.spacedrive.photos/
+      └── data.db                           # Person, Place, Moment, Album, Photo rows
 ```
 
 ## SDK Features Demonstrated
@@ -147,9 +145,24 @@ User can search "#person:alice" or "photos from beach"
 - Tag generation from sidecars
 - Custom memory query methods
 
-### SDK Features Used (Not Yet Implemented in Core)
+### What runs today
 
-Most features here are aspirational - the SDK is still being built. This serves as a comprehensive reference implementation.
+Under a daemon built with `--features wasm`, `analyze_photos` runs end to end
+over a library: it reads each photo through its record, asks for face
+detection, and because the core has no inference provider the host answers
+`not_available`; the job warns once, skips, and completes, so a later run with
+a detector picks the photos up. `core/tests/wasm_extension_test.rs` proves
+this against a fixture library.
+
+### Not yet backed by the core
+
+- Inference. There is no provider for face detection, scene classification,
+  embeddings or language models, so `analyze_scenes`, `identify_places` and
+  `create_moments` have nothing to run on.
+- Tags, custom fields and `dispatch_jobs`.
+- Agents, actions and queries.
+- Model downloads named in `manifest.json`.
+- File-kind and preview registration.
 
 ## Capabilities Compared
 

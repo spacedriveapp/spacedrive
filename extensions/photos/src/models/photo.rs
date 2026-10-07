@@ -13,7 +13,7 @@ pub struct Photo {
 	pub id: Uuid,
 
 	#[entry(filter = "*.{jpg,jpeg,png,heic,heif,raw,cr2,nef,dng}")]
-	pub file: Entry,
+	pub file: Record,
 
 	#[metadata]
 	pub exif: Option<ExifData>,
@@ -47,10 +47,10 @@ pub struct Photo {
 }
 
 impl Photo {
-	pub fn from_entry(entry: Entry) -> Self {
+	pub fn from_record(record: Record) -> Self {
 		Self {
-			id: entry.id(),
-			file: entry.clone(),
+			id: record.id(),
+			file: record.clone(),
 			exif: None,
 			detected_faces: None,
 			scene_tags: None,

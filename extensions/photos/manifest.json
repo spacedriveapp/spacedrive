@@ -12,7 +12,7 @@
 		"semantic_search"
 	],
 	"permissions": {
-		"read_entries": {
+		"read_records": {
 			"glob": "**/*.{jpg,jpeg,png,heic,heif,raw,cr2,nef,dng,webp}"
 		},
 		"read_sidecars": [

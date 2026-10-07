@@ -4,29 +4,16 @@
 //!
 //! # Example
 //!
-//! This sketches the intended API. `ExtensionContext`, `CreateEntry` and
-//! `OcrOptions` do not exist yet, so the example is not compiled.
-//!
 //! ```ignore
-//! use spacedrive_sdk::{ExtensionContext, prelude::*};
+//! use spacedrive_sdk::prelude::*;
 //!
-//! #[spacedrive_extension]
-//! fn init(ctx: &mut ExtensionContext) -> Result<()> {
-//!     ctx.log("Finance extension starting...");
-//!
-//!     // Create entry
-//!     let entry = ctx.vdfs().create_entry(CreateEntry {
-//!         name: "Receipt: Starbucks".into(),
-//!         path: "receipts/1.eml".into(),
-//!         entry_type: "FinancialDocument".into(),
-//!     })?;
-//!
-//!     // Run OCR
-//!     let ocr_result = ctx.ai().ocr(&pdf_data, OcrOptions::default())?;
-//!
-//!     // Store sidecar
-//!     ctx.vdfs().write_sidecar(entry.id, "ocr.txt", ocr_result.text.as_bytes())?;
-//!
+//! #[job(name = "sizes")]
+//! async fn sizes(ctx: &JobContext, state: &mut SizesState) -> Result<()> {
+//!     let photos = ctx.vdfs().query_records().of_type::<Image>().collect().await?;
+//!     for photo in photos {
+//!         let bytes = photo.read().await?;
+//!         ctx.log(&format!("{} is {} bytes", photo.name(), bytes.len()));
+//!     }
 //!     Ok(())
 //! }
 //! ```
@@ -36,6 +23,8 @@
 pub mod actions;
 pub mod agent;
 pub mod ai;
+pub mod clock;
+pub mod config;
 pub mod ffi;
 pub mod job_context;
 pub mod models;
@@ -52,6 +41,7 @@ pub use agent::{
 	NotificationBuilder, TemporalMemory, TemporalQuery, WorkingMemory,
 };
 pub use ai::*;
+pub use clock::now;
 pub use job_context::JobContext as SdkJobContext;
 pub use models::*;
 pub use query::*;
@@ -64,6 +54,7 @@ pub mod prelude {
 	pub use crate::actions::*;
 	pub use crate::agent::*;
 	pub use crate::ai::*;
+	pub use crate::clock::now;
 	pub use crate::job_context::{JobContext, JobResult};
 	pub use crate::models::*;
 	pub use crate::query::*;

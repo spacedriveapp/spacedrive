@@ -49,8 +49,8 @@ pub enum Change {
 		name: String,
 		parent: uuid::Uuid,
 	},
-	MoveEntry {
-		entry: Entry,
+	MoveRecord {
+		record: Record,
 		destination: String,
 	},
 }

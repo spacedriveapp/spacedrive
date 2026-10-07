@@ -1,0 +1,4 @@
+# The SDK supplies getrandom's custom backend from the host; a guest that
+# links it builds with the same cfg (see each extension's .cargo/config.toml).
+[target.wasm32-unknown-unknown]
+rustflags = ["--cfg", "getrandom_backend=\"custom\""]

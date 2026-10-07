@@ -97,7 +97,7 @@ impl JobContext {
 	/// Check for interruption (async version)
 	pub async fn check_interrupt(&self) -> crate::types::Result<()> {
 		if self.check_interrupt_sync() {
-			Err(crate::types::Error::OperationFailed("Interrupted".into()))
+			Err(crate::types::Error::Interrupted)
 		} else {
 			Ok(())
 		}
@@ -144,13 +144,21 @@ impl JobContext {
 		self.ai_models()
 	}
 
-	/// Run a task (for job composition)
-	pub async fn run<F, A, R, Fut>(&self, _task: F, _args: A) -> crate::types::Result<R>
+	/// Run a task, retrying and timing out as its `#[task]` attribute says.
+	///
+	/// The host enforces the timeout: once an attempt's deadline passes, every
+	/// host operation the task makes fails with `Error::Timeout`, and the next
+	/// attempt starts if the policy allows one. Each attempt is written to the
+	/// job log.
+	pub async fn run<T: crate::tasks::Task>(
+		&self,
+		_task: T,
+		args: T::Args,
+	) -> crate::types::Result<T::Output>
 	where
-		F: Fn(crate::tasks::TaskContext, A) -> Fut,
-		Fut: std::future::Future<Output = crate::tasks::TaskResult<R>>,
+		T::Args: Clone,
 	{
-		panic!("Execute task with checkpoint")
+		crate::tasks::run::<T>(args).await
 	}
 
 	/// Report progress
@@ -168,24 +176,40 @@ impl JobContext {
 		}
 	}
 
-	/// Check if sidecar exists
+	/// Whether a sidecar of one of this extension's kinds exists for the
+	/// content.
 	pub fn sidecar_exists(
 		&self,
 		content_uuid: uuid::Uuid,
 		kind: &str,
 	) -> crate::types::Result<bool> {
-		panic!("WASM host call")
+		crate::vdfs::VdfsContext.sidecar_exists(content_uuid, kind)
 	}
 
-	/// Save sidecar
+	/// Write a sidecar of one of this extension's kinds, as JSON, keyed by
+	/// the content it describes. The kind must be in the manifest's
+	/// `write_sidecars`; the host namespaces it by extension, which is why
+	/// no extension id is passed here any more.
 	pub async fn save_sidecar<T: serde::Serialize>(
 		&self,
 		content_uuid: uuid::Uuid,
 		kind: &str,
-		extension_id: &str,
 		data: &T,
 	) -> crate::types::Result<()> {
-		panic!("WASM host call")
+		crate::vdfs::VdfsContext
+			.write_sidecar(content_uuid, kind, data)
+			.await
+	}
+
+	/// Read back a sidecar this extension may read.
+	pub async fn read_sidecar<T: serde::de::DeserializeOwned>(
+		&self,
+		content_uuid: uuid::Uuid,
+		kind: &str,
+	) -> crate::types::Result<T> {
+		crate::vdfs::VdfsContext
+			.read_sidecar(content_uuid, kind)
+			.await
 	}
 
 	/// Access agent memory
@@ -193,9 +217,12 @@ impl JobContext {
 		panic!("Access agent memory")
 	}
 
-	/// Access extension config
-	pub fn config<C>(&self) -> &C {
-		panic!("Access config")
+	/// The extension's configuration: `config.json` beside its manifest,
+	/// or `{}` when there is none, so a config type with serde defaults
+	/// always loads. A config that does not deserialize is a panic, since
+	/// the job cannot do anything sensible without it.
+	pub fn config<C: serde::de::DeserializeOwned + 'static>(&self) -> &C {
+		crate::config::load()
 	}
 
 	/// Send notification
