@@ -49,7 +49,10 @@ call answers "Spacedrive daemon is not reachable" until it is.
 Tool names are the registered op names: `libraries.list`, `sources.track`,
 `files.copy`, `jobs.info`. An action's preflight methods are
 `<name>.validate` and `<name>.preview`. The list is the registry at the time
-the binary was built; `tools/list` is the authoritative catalog.
+the binary was built; `tools/list` is the authoritative catalog. The dots are
+deliberate: the MCP specification allows them in tool names, and keeping the
+op name intact means a tool name is also an `sd op` name. If a client refuses
+dotted names, say so in an issue.
 
 Every tool takes one object:
 
