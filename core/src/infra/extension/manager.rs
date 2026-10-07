@@ -384,8 +384,8 @@ impl PluginManager {
 		Ok(plugin_id)
 	}
 
-	/// Unload a plugin
-	pub async fn unload_plugin(&mut self, plugin_id: &str) -> Result<(), PluginError> {
+	/// Unload a plugin, returning it so a caller can put it back.
+	pub async fn unload_plugin(&mut self, plugin_id: &str) -> Result<LoadedPlugin, PluginError> {
 		tracing::info!("Unloading plugin: {}", plugin_id);
 
 		let plugin = self
@@ -399,19 +399,18 @@ impl PluginManager {
 		// A trapped guest cannot be trusted to run cleanup, and a guest still
 		// running a job keeps its instance alive until that job returns; the
 		// instance is dropped with the last Arc either way.
-		if plugin.poisoned.load(Ordering::SeqCst) {
-			return Ok(());
-		}
-		if let Ok(mut runtime) = plugin.runtime.try_lock() {
-			if let Ok(cleanup) = runtime.instance.exports.get_function("plugin_cleanup") {
-				let cleanup = cleanup.clone();
-				if let Err(e) = cleanup.call(&mut runtime.store, &[]) {
-					tracing::warn!(extension = %plugin_id, "plugin_cleanup() failed: {e}");
+		if !plugin.poisoned.load(Ordering::SeqCst) {
+			if let Ok(mut runtime) = plugin.runtime.try_lock() {
+				if let Ok(cleanup) = runtime.instance.exports.get_function("plugin_cleanup") {
+					let cleanup = cleanup.clone();
+					if let Err(e) = cleanup.call(&mut runtime.store, &[]) {
+						tracing::warn!(extension = %plugin_id, "plugin_cleanup() failed: {e}");
+					}
 				}
 			}
 		}
 
-		Ok(())
+		Ok(plugin)
 	}
 
 	/// Reload a plugin from its directory, for development and after a trap.
@@ -427,8 +426,25 @@ impl PluginManager {
 			.map(|plugin| plugin.dir_name.clone())
 			.ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))?;
 		let fresh = self.instantiate(&dir_name).await?;
-		self.unload_plugin(plugin_id).await?;
-		self.activate(fresh).await?;
+		let previous_jobs = self.job_registry.list_jobs_for_extension(plugin_id);
+		let previous = self.unload_plugin(plugin_id).await?;
+		if let Err(e) = self.activate(fresh).await {
+			// The replacement's plugin_init failed; put the old plugin back so
+			// one bad reload is one error, not a missing extension.
+			for job in previous_jobs {
+				let _ = self.job_registry.register(
+					job.extension_id,
+					job.job_name,
+					job.export_fn,
+					job.resumable,
+				);
+			}
+			self.plugins
+				.write()
+				.await
+				.insert(plugin_id.to_string(), previous);
+			return Err(e);
+		}
 		Ok(())
 	}
 
@@ -462,7 +478,15 @@ impl PluginManager {
 			.read()
 			.await
 			.get(plugin_id)
-			.map(|p| p.poisoned.load(Ordering::SeqCst))
+			.map(|p| {
+				// A panic that unwound out of a guest call poisons the mutex
+				// without reaching the flag; both mean the instance is done.
+				p.poisoned.load(Ordering::SeqCst)
+					|| matches!(
+						p.runtime.try_lock(),
+						Err(std::sync::TryLockError::Poisoned(_))
+					)
+			})
 			.unwrap_or(false)
 	}
 }
