@@ -663,8 +663,11 @@ impl SourceDb {
 
 		// Removals land before writes, so a record renamed over another in
 		// this batch takes its name without colliding on `(parent_uuid,
-		// title)`. Facet rows and edges cascade. Assertions do not, by
-		// design: the row keeps its evidence and waits for a rebind.
+		// title)`. A removal still wins over a write staged in the same
+		// batch: the write is skipped below rather than resurrecting the
+		// row. Facet rows and edges cascade. Assertions do not, by design:
+		// the row keeps its evidence and waits for a rebind.
+		let removed: HashSet<Uuid> = removals.iter().copied().collect();
 		for uuid in removals {
 			sqlx::query("DELETE FROM record WHERE uuid = ?")
 				.bind(uuid)
@@ -674,7 +677,7 @@ impl SourceDb {
 
 		for index in parents_first(writes) {
 			let write = &writes[index];
-			if !write.resolution.is_dirty() {
+			if !write.resolution.is_dirty() || removed.contains(&write.uuid()) {
 				continue;
 			}
 

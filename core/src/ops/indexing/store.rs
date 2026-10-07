@@ -736,13 +736,13 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 			}
 			Ingest::Rename { from, observation } => {
 				// A rename over an existing file replaces it. The overwritten
-				// record goes in the same batch, ahead of the move, or the
+				// record goes in the same batch, where a removal lands ahead
+				// of the move and wins over any write staged for it, or the
 				// moved row collides with it on `(parent_uuid, title)`. Its
 				// content row stays: the bytes may still sit behind another
 				// record, and a hash is evidence worth keeping either way.
 				if from != observation.external_id && ledger.uuid_of(&from).is_some() {
 					if let Some(overwritten) = ledger.forget(&observation.external_id) {
-						writes.retain(|write| write.uuid() != overwritten);
 						removals.push(overwritten);
 					}
 				}
@@ -1260,6 +1260,27 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		.await
 		.expect("count");
 		assert_eq!(unparented, 0, "only the top level has no parent");
+	}
+
+	/// A file created and deleted inside one batch leaves no row: the
+	/// removal wins over the write staged ahead of it, in the file and the
+	/// subtree forms both, and the flush reports nothing failed.
+	#[tokio::test]
+	async fn a_removal_wins_over_a_write_staged_in_the_same_batch() {
+		let mut fixture = Fixture::new().await;
+		fixture.create("keep.txt", b"k").await;
+		let gone = fixture.create("gone.txt", b"g").await;
+		std::fs::remove_file(&gone).expect("remove");
+		fixture.store.lost(&gone, false).await;
+
+		let inner = fixture.create("dir/inner.txt", b"i").await;
+		let dir = fixture.root.path().join("dir");
+		std::fs::remove_dir_all(&dir).expect("remove dir");
+		fixture.store.lost(&dir, true).await;
+		let _ = inner;
+
+		fixture.store.flush().await.expect("nothing failed to land");
+		assert_eq!(fixture.paths().await, vec!["keep.txt"]);
 	}
 
 	#[tokio::test]
