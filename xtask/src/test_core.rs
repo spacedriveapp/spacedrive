@@ -16,6 +16,9 @@ pub struct TestSuite {
 	pub package: &'static str,
 	/// Specific args that go between the common prefix and suffix
 	pub test_args: &'static [&'static str],
+	/// Cargo features the suite's build turns on, or `None` for the default
+	/// set.
+	pub features: Option<&'static str>,
 	/// Which CI job runs it.
 	pub group: Group,
 }
@@ -37,6 +40,9 @@ impl TestSuite {
 	/// Build complete cargo test command arguments
 	pub fn build_args(&self) -> Vec<&str> {
 		let mut args = vec!["test", "-p", self.package];
+		if let Some(features) = self.features {
+			args.extend_from_slice(&["--features", features]);
+		}
 		args.extend_from_slice(self.test_args);
 		args.extend_from_slice(&["--", "--test-threads=1", "--nocapture"]);
 		args
@@ -49,6 +55,7 @@ const fn core(name: &'static str, test_args: &'static [&'static str]) -> TestSui
 		name,
 		package: "sd-core",
 		test_args,
+		features: None,
 		group: Group::Integration,
 	}
 }
@@ -63,6 +70,7 @@ const fn acceptance(
 		name,
 		package,
 		test_args,
+		features: None,
 		group: Group::Acceptance,
 	}
 }
@@ -77,6 +85,7 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		name: "All core unit tests",
 		package: "sd-core",
 		test_args: &["--lib"],
+		features: None,
 		group: Group::Unit,
 	},
 	core(
@@ -179,6 +188,17 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Multi library acceptance test",
 		&["--test", "multi_library_acceptance_test"],
 	),
+	// The extension runtime. Its own build with the `wasm` feature: wasmer
+	// in sd-core adds minutes to every test binary link, which took the
+	// integration group from 51 to 78 minutes when the whole group carried
+	// the feature.
+	TestSuite {
+		name: "WASM extension test",
+		package: "sd-core",
+		test_args: &["--test", "wasm_extension_test"],
+		features: Some("wasm"),
+		group: Group::Acceptance,
+	},
 	// core("Sync event log test", &["--test", "sync_event_log_test"]),
 	// core("Sync metrics test", &["--test", "sync_metrics_test"]),
 	// core("Sync backfill test", &["--test", "sync_backfill_test"]),

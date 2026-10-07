@@ -174,6 +174,31 @@ impl Core {
 		// Create the shared context
 		let context = Arc::new(context_inner);
 
+		// Initialize API dispatcher
+		let api_dispatcher = ApiDispatcher::new(context.clone());
+
+		// Extensions load before libraries so a job resumed at library load
+		// finds its extension.
+		#[cfg(feature = "wasm")]
+		let plugin_manager = {
+			let plugin_dir = data_dir.join("extensions");
+			if let Err(e) = tokio::fs::create_dir_all(&plugin_dir).await {
+				warn!("Could not create extensions directory: {e}");
+			}
+
+			let mut pm = crate::infra::extension::PluginManager::new(
+				plugin_dir,
+				context.clone(),
+				Arc::new(api_dispatcher.clone()),
+			);
+			let loaded = pm.load_all().await;
+			info!("Loaded {} extension(s): {:?}", loaded.len(), loaded);
+
+			let pm = Arc::new(RwLock::new(pm));
+			context.set_plugin_manager(pm.clone()).await;
+			pm
+		};
+
 		// Initialize library manager with libraries directory and context
 		let libraries_dir = config.read().await.libraries_dir();
 		let libraries = Arc::new(LibraryManager::new_with_dir(
@@ -413,26 +438,6 @@ impl Core {
 
 		// Set up log event emitter (no-op, actual setup happens in daemon bootstrap)
 		// The LogEventLayer is added as a tracing subscriber layer in bootstrap.rs
-
-		// Initialize API dispatcher
-		let api_dispatcher = ApiDispatcher::new(context.clone());
-
-		// Initialize plugin manager (WASM extensions)
-		#[cfg(feature = "wasm")]
-		let plugin_manager = {
-			let plugin_dir = data_dir.join("extensions");
-			let _ = std::fs::create_dir_all(&plugin_dir); // Ensure directory exists
-
-			let pm = Arc::new(RwLock::new(crate::infra::extension::PluginManager::new(
-				plugin_dir,
-				context.clone(),
-				Arc::new(api_dispatcher.clone()),
-			)));
-
-			// Set in context so jobs can access it
-			context.set_plugin_manager(pm.clone()).await;
-			pm
-		};
 
 		events.emit(Event::CoreStarted);
 

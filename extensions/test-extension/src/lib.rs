@@ -41,7 +41,7 @@ fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
 
 	while state.current < state.target {
 		// Check for interruption signals
-		if ctx.check_interrupt() {
+		if ctx.check_interrupt_sync() {
 			ctx.log("Interrupted, saving state...");
 			ctx.checkpoint(state)?;
 			return Err(Error::OperationFailed("Interrupted".into()));

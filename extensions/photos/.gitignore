@@ -1,4 +1,2 @@
 target/
-*.wasm
 Cargo.lock
-

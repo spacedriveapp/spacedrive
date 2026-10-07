@@ -104,6 +104,7 @@ impl ExtensionJobRegistry {
 
 		Ok(WasmJob {
 			extension_id: registration.extension_id,
+			job_name: registration.job_name,
 			export_fn: registration.export_fn,
 			state_json,
 			is_resuming: false,

@@ -3,7 +3,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use uuid::Uuid;
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex};
 
 /// Extension manifest (manifest.json)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11,14 +12,18 @@ pub struct ExtensionManifest {
 	pub id: String,
 	pub name: String,
 	pub version: String,
+	#[serde(default)]
 	pub description: String,
+	#[serde(default)]
 	pub author: String,
+	#[serde(default)]
 	pub homepage: Option<String>,
 
 	/// WASM file path (relative to manifest)
 	pub wasm_file: PathBuf,
 
 	/// Permissions required by this extension
+	#[serde(default)]
 	pub permissions: ManifestPermissions,
 
 	/// Configuration schema (JSON Schema)
@@ -30,7 +35,9 @@ pub struct ExtensionManifest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ManifestPermissions {
 	/// Wire methods this extension can call (prefix matching)
-	/// e.g., ["vdfs.", "ai.ocr", "credentials.store"]
+	/// e.g., ["vdfs.", "ai.ocr", "credentials.store"]. A manifest that
+	/// declares none can still register and run jobs.
+	#[serde(default)]
 	pub methods: Vec<String>,
 
 	/// Libraries this extension can access
@@ -94,11 +101,16 @@ impl Default for ManifestPermissions {
 }
 
 /// Loaded plugin instance
-#[derive(Debug)]
 pub struct LoadedPlugin {
 	pub id: String,
+	/// Directory under the plugin directory it was loaded from, which the
+	/// manifest id need not match.
+	pub dir_name: String,
 	pub manifest: ExtensionManifest,
 	pub loaded_at: DateTime<Utc>,
+	/// Set by the runtime when a guest call trapped; see `PluginRuntime`.
+	pub poisoned: Arc<AtomicBool>,
+	pub runtime: Arc<Mutex<super::manager::PluginRuntime>>,
 }
 
 /// Alias for consistency with other code

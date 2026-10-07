@@ -13,7 +13,7 @@ serde                 = { version = "1.0", default-features = false, features = 
 serde_json            = { version = "1.0", default-features = false, features = ["alloc"] }
 spacedrive-sdk-macros = { path = "../sdk-macros" }
 thiserror             = { version = "1.0", default-features = false }
-uuid                  = { version = "1.0", default-features = false, features = ["serde", "v4"] }
+uuid                  = { version = "1.0", default-features = false, features = ["serde"] }
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["macros", "rt"] }
