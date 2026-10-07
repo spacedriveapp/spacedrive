@@ -1,0 +1,149 @@
+{
+  "date": "2026-10-08",
+  "beforeSource": "f69c1fe",
+  "fixCommit": "e0a556fe55a6bc0062836f9f6a6fb0ebcfcda8fc",
+  "method": "Browser control of the actual exported ViewSettingsPanel with app CSS and local state. This is an isolated component preview.",
+  "themes": [
+    {
+      "theme": "default",
+      "views": 4,
+      "minimumLabelContrast": 6.48,
+      "passed": true
+    },
+    {
+      "theme": "light",
+      "views": 4,
+      "minimumLabelContrast": 5.8,
+      "passed": true
+    },
+    {
+      "theme": "midnight",
+      "views": 4,
+      "minimumLabelContrast": 6.72,
+      "passed": true
+    },
+    {
+      "theme": "noir",
+      "views": 4,
+      "minimumLabelContrast": 8.79,
+      "passed": true
+    },
+    {
+      "theme": "slate",
+      "views": 4,
+      "minimumLabelContrast": 6.53,
+      "passed": true
+    },
+    {
+      "theme": "nord",
+      "views": 4,
+      "minimumLabelContrast": 6.82,
+      "passed": true
+    },
+    {
+      "theme": "mocha",
+      "views": 4,
+      "minimumLabelContrast": 6.37,
+      "passed": true
+    }
+  ],
+  "controls": [
+    {
+      "slider": 0,
+      "low": {
+        "min": "80",
+        "value": "80"
+      },
+      "high": {
+        "max": "400",
+        "value": "400"
+      },
+      "passed": true
+    },
+    {
+      "slider": 1,
+      "low": {
+        "min": "1",
+        "value": "1"
+      },
+      "high": {
+        "max": "32",
+        "value": "32"
+      },
+      "passed": true
+    },
+    {
+      "slider": 2,
+      "low": {
+        "min": "80",
+        "value": "80"
+      },
+      "high": {
+        "max": "400",
+        "value": "400"
+      },
+      "passed": true
+    },
+    {
+      "slider": 3,
+      "low": {
+        "min": "200",
+        "value": "200"
+      },
+      "high": {
+        "max": "400",
+        "value": "400"
+      },
+      "passed": true
+    },
+    {
+      "slider": 4,
+      "low": {
+        "min": "50",
+        "value": "50"
+      },
+      "high": {
+        "max": "800",
+        "value": "800"
+      },
+      "passed": true
+    },
+    {
+      "switch": 0,
+      "passed": true
+    },
+    {
+      "switch": 1,
+      "passed": true
+    },
+    {
+      "switch": 2,
+      "passed": true
+    },
+    {
+      "switch": 3,
+      "passed": true
+    },
+    {
+      "switch": 4,
+      "passed": true
+    },
+    {
+      "switch": 5,
+      "passed": true
+    },
+    {
+      "switch": 6,
+      "passed": true
+    },
+    {
+      "switch": 7,
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "Native window screenshot unavailable",
+    "No daemon or indexing stability claim",
+    "No automated CI checks reported for the PR"
+  ]
+}

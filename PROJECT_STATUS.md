@@ -38,8 +38,10 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 View Settings contrast fix (2026-10-08): replace the old sidebar text utilities
 with the current ink and ink-dull theme utilities for panel labels and values.
-Desktop build passed. The actual React panel was checked in dark and light
-themes in a browser preview, including a slider change. Native screen capture
+Desktop build passed. The actual React panel was checked in four views across seven
+themes in a browser preview. Five slider limits and eight switches passed.
+Before and after screenshots and check results are in
+`docs/verification/view-settings-contrast/`. Native screen capture
 was unavailable, so native window appearance remains unverified. No control
 behavior changes.
 
