@@ -232,6 +232,11 @@ struct ThumbstripWork {
 	identity: TileIdentity,
 }
 
+/// Keeps every sidecar file closed; see [`ThumbService::hold_sidecars`].
+pub struct SidecarHold<'a> {
+	_open: tokio::sync::MutexGuard<'a, HashMap<PathBuf, Arc<SidecarStore>>>,
+}
+
 pub struct ThumbService {
 	/// Per-source directory layout; `None` means no persistence, so no cache.
 	dirs: Option<SourceDirs>,
@@ -714,18 +719,20 @@ impl ThumbService {
 		}
 	}
 
-	/// Close the open handles on these sources' sidecar files so a restore can
-	/// replace them; the next tile request reopens whatever is on disk.
-	pub async fn release_sidecars(&self, sources: &[Uuid]) {
-		let Some(dirs) = self.dirs.as_ref() else {
-			return;
-		};
+	/// Close the open handles on these sources' sidecar files and keep every
+	/// sidecar closed until the returned guard drops, so a restore can replace
+	/// the files without a tile write reopening the old one mid-swap. The
+	/// next tile request after the guard drops reopens whatever is on disk.
+	pub async fn hold_sidecars(&self, sources: &[Uuid]) -> SidecarHold<'_> {
 		let mut open = self.sidecars.lock().await;
-		for source in sources {
-			if let Some(store) = open.remove(&dirs.sidecars_file(*source)) {
-				store.close().await;
+		if let Some(dirs) = self.dirs.as_ref() {
+			for source in sources {
+				if let Some(store) = open.remove(&dirs.sidecars_file(*source)) {
+					store.close().await;
+				}
 			}
 		}
+		SidecarHold { _open: open }
 	}
 
 	/// A source's sidecar store and how far it has written, as its listing

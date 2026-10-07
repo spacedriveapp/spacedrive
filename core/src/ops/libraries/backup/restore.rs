@@ -25,7 +25,7 @@ use crate::{
 		action::{error::ActionError, CoreAction},
 		db::entities::device,
 	},
-	library::LIBRARY_DB_FILENAME,
+	library::{LibraryConfig, LIBRARY_DB_FILENAME},
 };
 use sea_orm::EntityTrait;
 use serde::{Deserialize, Serialize};
@@ -210,16 +210,16 @@ impl LibraryRestoreAction {
 		};
 
 		// The hash gate proves the copy is what was written; this proves
-		// what was written is a config the reopen will accept.
+		// what was written is a config the reopen will accept, by loading it
+		// the way the reopen does.
 		let config_path = stage.join("library").join("library.json");
-		let bytes = tokio::fs::read(&config_path)
+		let mut config = LibraryConfig::load(&config_path)
 			.await
-			.map_err(|e| ActionError::Internal(format!("read staged config: {e}")))?;
-		let mut config: serde_json::Value = serde_json::from_slice(&bytes)
-			.map_err(|e| refuse(format!("backup library.json is not valid: {e}")))?;
+			.map_err(|e| refuse(format!("backup library.json will not load: {e}")))?;
 		if target_id != manifest.library.id {
-			config["id"] = serde_json::Value::String(target_id.to_string());
-			tokio::fs::write(&config_path, serde_json::to_vec_pretty(&config)?)
+			config.id = target_id;
+			let json = serde_json::to_vec_pretty(&config)?;
+			tokio::fs::write(&config_path, json)
 				.await
 				.map_err(|e| ActionError::Internal(format!("write staged config: {e}")))?;
 		}
@@ -253,7 +253,7 @@ impl LibraryRestoreAction {
 		// watcher event arriving mid-swap cannot reopen and cache the file
 		// that is about to be moved to the trash.
 		let (hold, snapshots_removed) = context.volume_index().quiesce_stores(&quiesced).await;
-		context.thumbs.release_sidecars(&quiesced).await;
+		let sidecar_hold = context.thumbs.hold_sidecars(&quiesced).await;
 
 		let swapped = swap_into_place(
 			context,
@@ -265,6 +265,7 @@ impl LibraryRestoreAction {
 			&trash,
 		)
 		.await;
+		drop(sidecar_hold);
 		drop(hold);
 		let (sources, replaced) = swapped.map_err(|(error, displaced)| {
 			ActionError::Internal(if displaced {
