@@ -4234,7 +4234,13 @@ version: number; created_at: string; updated_at: string };
  */
 export type SidecarFormat = "webp" | "mp_4" | "json" | "message_pack" | "text" | "ply";
 
-export type SidecarKind = "thumb" | "thumbstrip" | "proxy" | "embeddings" | "ocr" | "transcript" | "gaussian_splat";
+/**
+ * What a sidecar holds. The core kinds are closed; an extension declares
+ * its own in its manifest (`write_sidecars`) and they live under the
+ * extension's namespace, so two extensions' `faces` never collide and no
+ * extension can write a core kind.
+ */
+export type SidecarKind = "thumb" | "thumbstrip" | "proxy" | "embeddings" | "ocr" | "transcript" | "gaussian_splat" | { extension: { extension_id: string; kind: string } };
 
 export type SidecarVariant = string;
 
@@ -4416,7 +4422,12 @@ placement?: StorePlacement | null;
 /**
  * The catalog's directory on this machine, when this machine has it.
  */
-store_path?: string | null };
+store_path?: string | null; 
+/**
+ * The settings the source was saved with, so a re-add can show what it
+ * keeps. Absent for an adapter source and a replica, like `placement`.
+ */
+settings?: SourceConfig | null };
 
 export type SourceItem = { id: string; external_id: string; title: string; preview: string | null; subtitle: string | null };
 
@@ -5668,7 +5679,13 @@ name: string;
 /**
  * Whether the volume is currently online
  */
-is_online: boolean };
+is_online: boolean; 
+/**
+ * The source set up over the whole drive, with the settings it was
+ * saved with and where its catalog lives. Absent when the volume is
+ * offline, since a source needs a mount point to walk.
+ */
+source: TrackSourceOutput | null };
 
 /**
  * Volume type classification

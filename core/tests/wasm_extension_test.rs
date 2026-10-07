@@ -19,7 +19,10 @@ use sd_core::{
 		action::LibraryAction,
 		job::{database::checkpoint, types::JobStatus},
 	},
-	ops::extensions::{RunExtensionJobAction, RunExtensionJobInput},
+	ops::{
+		extensions::{RunExtensionJobAction, RunExtensionJobInput},
+		sources::track::{TrackSourceAction, TrackSourceInput},
+	},
 	Core,
 };
 use sea_orm::EntityTrait;
@@ -35,16 +38,135 @@ struct CounterState {
 	processed: Vec<String>,
 }
 
-fn install_test_extension(data_dir: &Path) {
+fn install_extension(data_dir: &Path, dir: &str, wasm: &str) {
 	let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 		.parent()
 		.unwrap()
-		.join("extensions/test-extension");
-	let target = data_dir.join("extensions/test-extension");
+		.join("extensions")
+		.join(dir);
+	let target = data_dir.join("extensions").join(dir);
 	std::fs::create_dir_all(&target).unwrap();
-	for file in ["manifest.json", "test_extension.wasm"] {
+	for file in ["manifest.json", wasm] {
 		std::fs::copy(source.join(file), target.join(file)).unwrap();
 	}
+}
+
+fn install_test_extension(data_dir: &Path) {
+	install_extension(data_dir, "test-extension", "test_extension.wasm");
+}
+
+/// Start an extension job and wait for it to end, whichever way.
+async fn run_to_end(
+	core: &Core,
+	library: &Arc<sd_core::library::Library>,
+	job: &str,
+	state: serde_json::Value,
+) -> sd_core::infra::job::JobInfo {
+	let started = RunExtensionJobAction::from_input(RunExtensionJobInput {
+		job: job.into(),
+		state: Some(state),
+	})
+	.unwrap()
+	.execute(library.clone(), core.context.clone())
+	.await
+	.unwrap();
+	let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+	loop {
+		let info = library
+			.jobs()
+			.get_job_info(started.job_id)
+			.await
+			.unwrap()
+			.unwrap();
+		if matches!(
+			info.status,
+			JobStatus::Completed | JobStatus::Failed | JobStatus::Cancelled
+		) {
+			return info;
+		}
+		assert!(
+			tokio::time::Instant::now() < deadline,
+			"job {job} never ended"
+		);
+		tokio::time::sleep(Duration::from_millis(20)).await;
+	}
+}
+
+/// A library with one tracked source holding a dozen JPEGs (distinct bytes,
+/// JPEG magic first) and two text files, hashed through, so every record
+/// has a content identity.
+async fn fixture_library(
+	core: &Core,
+	root: &Path,
+) -> (Arc<sd_core::library::Library>, Vec<sd_store::FsEntry>) {
+	let library = core
+		.libraries
+		.create_library("Photos", None, core.context.clone())
+		.await
+		.unwrap();
+	let source_dir = root.join("photos");
+	std::fs::create_dir_all(source_dir.join("trip")).unwrap();
+	for i in 0..12u8 {
+		let mut bytes = vec![0xFF, 0xD8, 0xFF, 0xE0, i];
+		bytes.extend(std::iter::repeat_n(i, 1000 + i as usize * 7));
+		let dir = if i % 2 == 0 { "" } else { "trip/" };
+		std::fs::write(source_dir.join(format!("{dir}IMG_{i:04}.JPG")), bytes).unwrap();
+	}
+	std::fs::write(source_dir.join("notes.txt"), b"not a photo").unwrap();
+	std::fs::write(source_dir.join("trip/itinerary.txt"), b"day one").unwrap();
+
+	let tracked = TrackSourceAction::from_input(TrackSourceInput {
+		path: source_dir,
+		name: None,
+		overrides: Default::default(),
+	})
+	.unwrap()
+	.execute(library.clone(), core.context.clone())
+	.await
+	.unwrap();
+	let store = core
+		.context
+		.volume_index()
+		.store_for(&tracked.root)
+		.await
+		.expect("the tracked source has a store");
+	let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+	loop {
+		let contents = store.counts().await.map_or(0, |counts| counts.contents);
+		if contents == 14 {
+			break;
+		}
+		assert!(
+			tokio::time::Instant::now() < deadline,
+			"{contents} of 14 files were hashed"
+		);
+		tokio::time::sleep(Duration::from_millis(50)).await;
+	}
+	let mut files = sd_store::read::files_beneath(
+		store.db().pool(),
+		"",
+		sd_store::read::Start::First,
+		None,
+		false,
+		100,
+	)
+	.await
+	.unwrap();
+	files.sort_by(|a, b| a.name.cmp(&b.name));
+	assert_eq!(files.len(), 14);
+	(library, files)
+}
+
+fn digest_sidecar(library: &sd_core::library::Library, content_uuid: Uuid) -> PathBuf {
+	library
+		.path()
+		.join("sidecars")
+		.join(sd_sidecar_path::relative_path(
+			&content_uuid,
+			&sd_sidecar_path::extension_kind_directory("test-extension", "digest"),
+			"default",
+			"json",
+		))
 }
 
 async fn wait_for_status(
@@ -158,7 +280,9 @@ async fn daemon_discovers_the_extension_and_runs_its_job() {
 
 /// A paused extension job survives a daemon restart and continues from the
 /// state the guest last checkpointed.
-/// Collects every log line a guest emits through `spacedrive_log`.
+/// Collects every log line a guest emits through `spacedrive_log`, and every
+/// line the job context logs on the guest's behalf (task attempts, host
+/// operations).
 struct GuestLog(Arc<Mutex<String>>);
 
 impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for GuestLog {
@@ -167,7 +291,8 @@ impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for GuestLog {
 		event: &tracing::Event<'_>,
 		_ctx: tracing_subscriber::layer::Context<'_, S>,
 	) {
-		if !event.metadata().target().ends_with("host_functions") {
+		let target = event.metadata().target();
+		if !target.ends_with("host_functions") && !target.ends_with("job::context") {
 			return;
 		}
 		let mut line = String::new();
@@ -292,26 +417,142 @@ async fn extension_job_resumes_after_restart() {
 	core.shutdown().await.unwrap();
 }
 
-/// The photos extension (`extensions/photos`, fixture `photos.wasm`) loads
-/// beside the test extension and registers its jobs. Its jobs stop at the
-/// first SDK call with no host function behind it; the guest's panic reaches
-/// the host log and the job fails instead of hanging.
+/// The test extension's `catalog` job reads records and their bytes through
+/// the library's source stores, writes one sidecar per content and one model
+/// per file into the extension's own store, and leaves digested files alone
+/// on a second run.
 #[tokio::test(flavor = "multi_thread")]
-async fn photos_extension_loads_and_stops_at_the_first_missing_host_function() {
+async fn extension_job_reads_records_and_writes_sidecars_and_models() {
 	let guest_log = guest_log();
 	let temp_dir = TempDir::new().unwrap();
-	install_test_extension(temp_dir.path());
-	let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-		.parent()
-		.unwrap()
-		.join("extensions/photos");
-	let target = temp_dir.path().join("extensions/photos");
-	std::fs::create_dir_all(&target).unwrap();
-	for file in ["manifest.json", "photos.wasm"] {
-		std::fs::copy(source.join(file), target.join(file)).unwrap();
+	install_test_extension(temp_dir.path().join("core").as_path());
+	let core = Core::new(temp_dir.path().join("core")).await.unwrap();
+	let (library, files) = fixture_library(&core, temp_dir.path()).await;
+	let jpegs: Vec<&sd_store::FsEntry> = files
+		.iter()
+		.filter(|f| f.extension.as_deref() == Some("JPG"))
+		.collect();
+	assert_eq!(jpegs.len(), 12);
+
+	guest_log.lock().unwrap().clear();
+	let info = run_to_end(
+		&core,
+		&library,
+		"test-extension:catalog",
+		serde_json::json!({ "extensions": ["jpg"] }),
+	)
+	.await;
+	assert_eq!(
+		info.status,
+		JobStatus::Completed,
+		"{:?}",
+		info.error_message
+	);
+
+	// One digest sidecar per photo, holding what the guest read
+	for jpeg in &jpegs {
+		let content_uuid = jpeg.content_uuid.expect("hashed");
+		let path = digest_sidecar(&library, content_uuid);
+		let digest: serde_json::Value =
+			serde_json::from_slice(&std::fs::read(&path).unwrap_or_else(|e| {
+				panic!("digest sidecar for {}: {e} ({})", jpeg.name, path.display())
+			}))
+			.unwrap();
+		assert_eq!(digest["size"], jpeg.size.unwrap());
+		assert_eq!(
+			digest["first_bytes"],
+			serde_json::json!([0xFF, 0xD8, 0xFF, 0xE0])
+		);
+		assert_eq!(digest["record_name"], jpeg.name);
+	}
+	// The text files were outside the query and got no sidecar
+	for other in files
+		.iter()
+		.filter(|f| f.extension.as_deref() == Some("txt"))
+	{
+		assert!(!digest_sidecar(&library, other.content_uuid.unwrap()).exists());
 	}
 
-	let core = Core::new(temp_dir.path().to_path_buf()).await.unwrap();
+	// One CatalogEntry model per photo in the extension's store, read back
+	// with its field types: the update after create landed too
+	let store = sd_store::SourceManager::open_file_read_only(
+		&library.path().join("extensions/test-extension/data.db"),
+	)
+	.await
+	.unwrap();
+	let mut entries = store.facet_rows("CatalogEntry", None, 100).await.unwrap();
+	entries.sort_by_key(|e| e["name"].as_str().unwrap().to_string());
+	assert_eq!(entries.len(), 12);
+	for (entry, jpeg) in entries.iter().zip(&jpegs) {
+		assert_eq!(entry["name"], jpeg.name);
+		assert_eq!(entry["record"], jpeg.uuid.to_string());
+		assert_eq!(entry["size"], jpeg.size.unwrap());
+		assert_eq!(entry["seen_twice"], true);
+		assert_eq!(
+			entry["first_bytes"],
+			serde_json::json!([0xFF, 0xD8, 0xFF, 0xE0])
+		);
+		Uuid::parse_str(entry["id"].as_str().unwrap()).expect("a v4 uuid from host entropy");
+		chrono::DateTime::parse_from_rfc3339(entry["catalogued_at"].as_str().unwrap())
+			.expect("a timestamp from the host clock");
+	}
+	let log = guest_log.lock().unwrap().clone();
+	assert!(
+		log.contains("Catalog holds 12 entries, 12 digested this run, 0 skipped"),
+		"{log}"
+	);
+
+	// A second run finds every photo digested and writes nothing new
+	guest_log.lock().unwrap().clear();
+	let info = run_to_end(
+		&core,
+		&library,
+		"test-extension:catalog",
+		serde_json::json!({ "extensions": ["jpg"] }),
+	)
+	.await;
+	assert_eq!(
+		info.status,
+		JobStatus::Completed,
+		"{:?}",
+		info.error_message
+	);
+	let log = guest_log.lock().unwrap().clone();
+	assert_eq!(log.matches("already digested").count(), 12, "{log}");
+	assert!(
+		log.contains("Catalog holds 12 entries, 0 digested this run, 12 skipped"),
+		"{log}"
+	);
+	assert_eq!(
+		store
+			.facet_rows("CatalogEntry", None, 100)
+			.await
+			.unwrap()
+			.len(),
+		12
+	);
+	store.pool().close().await;
+
+	core.shutdown().await.unwrap();
+}
+
+/// The photos extension's `analyze_photos` runs end to end over the fixture:
+/// every photo is read through its record, the host answers face detection
+/// with not_available, the job warns once and completes with no faces
+/// sidecar, so a later run with a detector picks the photos up. A record
+/// outside the manifest's read_records glob is refused.
+#[tokio::test(flavor = "multi_thread")]
+async fn photos_analyze_photos_runs_end_to_end_without_a_detector() {
+	let guest_log = guest_log();
+	let temp_dir = TempDir::new().unwrap();
+	install_test_extension(temp_dir.path().join("core").as_path());
+	install_extension(
+		temp_dir.path().join("core").as_path(),
+		"photos",
+		"photos.wasm",
+	);
+
+	let core = Core::new(temp_dir.path().join("core")).await.unwrap();
 	let pm = core.plugin_manager.as_ref().expect("plugin manager");
 	let mut loaded = pm.read().await.list_plugins().await;
 	loaded.sort();
@@ -333,64 +574,100 @@ async fn photos_extension_loads_and_stops_at_the_first_missing_host_function() {
 			"identify_places"
 		]
 	);
+	let models = pm.read().await.model_registry();
+	let schema = models
+		.schema_for("com.spacedrive.photos")
+		.expect("photos declared its models");
+	let mut declared: Vec<&String> = schema.models.keys().collect();
+	declared.sort();
+	assert_eq!(declared, ["Album", "Moment", "Person", "Photo", "Place"]);
 
-	// Twice: the second run lands on a fresh instance, since the first one
-	// aborted mid-call.
-	let library = core.libraries.list().await.into_iter().next().unwrap();
-	for _ in 0..2 {
-		guest_log.lock().unwrap().clear();
-		let started = RunExtensionJobAction::from_input(RunExtensionJobInput {
-			job: "com.spacedrive.photos:analyze_photos".into(),
-			state: None,
-		})
-		.unwrap()
-		.execute(library.clone(), core.context.clone())
-		.await
-		.unwrap();
+	let (library, files) = fixture_library(&core, temp_dir.path()).await;
+	let photo_ids: Vec<Uuid> = files
+		.iter()
+		.filter(|f| f.extension.as_deref() == Some("JPG"))
+		.map(|f| f.uuid)
+		.collect();
 
-		let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
-		let info = loop {
-			let info = library
-				.jobs()
-				.get_job_info(started.job_id)
-				.await
-				.unwrap()
-				.unwrap();
-			if info.status == JobStatus::Failed {
-				break info;
-			}
-			assert_ne!(
-				info.status,
-				JobStatus::Completed,
-				"nothing backs this job yet"
-			);
-			assert!(
-				tokio::time::Instant::now() < deadline,
-				"the job never ended"
-			);
-			tokio::time::sleep(Duration::from_millis(20)).await;
-		};
-		assert!(
-			info.error_message
-				.as_deref()
-				.unwrap_or("")
-				.contains("WASM trap"),
-			"{:?}",
-			info.error_message
-		);
-		let guest_log = guest_log.lock().unwrap().clone();
-		assert!(
-			guest_log.contains("guest panic:"),
-			"the guest's panic should reach the host log:\n{guest_log}"
-		);
-	}
+	guest_log.lock().unwrap().clear();
+	let info = run_to_end(
+		&core,
+		&library,
+		"com.spacedrive.photos:analyze_photos",
+		serde_json::json!({ "photo_ids": photo_ids }),
+	)
+	.await;
 	assert_eq!(
-		registry
-			.list_jobs_for_extension("com.spacedrive.photos")
-			.len(),
-		4,
-		"the reloaded extension registers its jobs again"
+		info.status,
+		JobStatus::Completed,
+		"{:?}",
+		info.error_message
+	);
+	let log = guest_log.lock().unwrap().clone();
+	assert!(
+		log.contains("Job analyze_photos_batch completed successfully"),
+		"{log}"
+	);
+	assert!(!log.contains("guest panic"), "{log}");
+	// No detector, so no faces sidecar anywhere under photos' namespace
+	let photos_sidecars = walk(&library.path().join("sidecars"))
+		.into_iter()
+		.filter(|p| p.to_string_lossy().contains("com.spacedrive.photos"))
+		.count();
+	assert_eq!(photos_sidecars, 0);
+
+	// The host logged each task attempt, and the detector's absence was the
+	// reason the detection task failed; the policy did not retry a refusal
+	assert_eq!(
+		log.matches("task detect_faces_in_photo attempt 1/3 started")
+			.count(),
+		12,
+		"{log}"
+	);
+	assert!(
+		log.contains("attempt 1 failed after")
+			&& log.contains("no face_detection provider is installed"),
+		"{log}"
+	);
+	assert!(!log.contains("attempt 2/3"), "{log}");
+	assert!(
+		log.contains("task cluster_faces_into_people attempt 1/2 started")
+			&& log.contains("task generate_face_tags attempt 1/1 started"),
+		"{log}"
 	);
 
+	// A text file is outside photos' read_records glob
+	let text = files
+		.iter()
+		.find(|f| f.extension.as_deref() == Some("txt"))
+		.unwrap();
+	guest_log.lock().unwrap().clear();
+	let info = run_to_end(
+		&core,
+		&library,
+		"com.spacedrive.photos:analyze_photos",
+		serde_json::json!({ "photo_ids": [text.uuid] }),
+	)
+	.await;
+	assert_eq!(info.status, JobStatus::Failed);
+	let log = guest_log.lock().unwrap().clone();
+	assert!(log.contains("Permission denied"), "{log}");
+
 	core.shutdown().await.unwrap();
+}
+
+fn walk(dir: &Path) -> Vec<PathBuf> {
+	let mut out = Vec::new();
+	let Ok(entries) = std::fs::read_dir(dir) else {
+		return out;
+	};
+	for entry in entries.flatten() {
+		let path = entry.path();
+		if path.is_dir() {
+			out.extend(walk(&path));
+		} else {
+			out.push(path);
+		}
+	}
+	out
 }

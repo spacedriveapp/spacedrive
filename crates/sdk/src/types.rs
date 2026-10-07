@@ -32,6 +32,36 @@ pub enum Error {
 
 	#[error("Not found")]
 	NotFound,
+
+	/// The host has no provider for what was asked: no model of that kind is
+	/// installed, no tool is present. The call was understood and refused.
+	#[error("Not available: {0}")]
+	NotAvailable(String),
+
+	/// The SDK declares this call but no host function backs it yet.
+	#[error("Unsupported by this host: {0}")]
+	Unsupported(String),
+
+	/// A task ran past the timeout its `#[task]` attribute declares.
+	#[error("Timed out: {0}")]
+	Timeout(String),
+
+	/// The job was asked to pause or cancel.
+	#[error("Interrupted")]
+	Interrupted,
+}
+
+impl Error {
+	/// Whether a task that failed with this error is worth running again.
+	///
+	/// A refusal, a missing provider or an interrupt will come back the same;
+	/// a timeout or a failed operation might not.
+	pub fn is_retryable(&self) -> bool {
+		matches!(
+			self,
+			Error::Timeout(_) | Error::OperationFailed(_) | Error::HostCall(_)
+		)
+	}
 }
 
 /// Result type for SDK operations
@@ -46,63 +76,72 @@ pub type JobResult<T> = std::result::Result<T, Error>;
 /// Query result type
 pub type QueryResult<T> = std::result::Result<T, Error>;
 
-/// Entry in VDFS (file, directory, or virtual)
+/// A record in a source store: a file, directory or symlink an ingest saw.
+///
+/// This is the SDK's view of `sd_store::Record` with its filesystem facet.
+/// Records replace the old `Entry`: a record's identity survives a move, its
+/// bytes are identified by `content_uuid` once hashing has reached them, and
+/// its path is relative to the source that holds it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Entry {
-	pub id: Uuid,
-	pub uuid: Option<Uuid>,
+pub struct Record {
+	pub uuid: Uuid,
+	/// The source whose store holds this record.
+	pub source_id: Uuid,
 	pub name: String,
-	pub kind: EntryKind,
+	pub kind: RecordKind,
+	/// Lowercase, without the dot.
 	pub extension: Option<String>,
-	pub metadata_id: Option<i32>,
-	pub content_id: Option<i32>,
-	pub size: i64,
+	/// Relative to the source root, `/`-separated.
+	pub relative_path: String,
+	pub size: Option<u64>,
+	/// Unix milliseconds.
+	pub modified_ms: Option<i64>,
+	/// The identity of the bytes, once the hash job has reached them.
+	pub content_uuid: Option<Uuid>,
 }
 
-impl Entry {
-	/// Get entry UUID
+impl Record {
+	/// The record uuid.
 	pub fn id(&self) -> Uuid {
-		self.uuid.unwrap_or(self.id)
+		self.uuid
 	}
 
-	/// Get content UUID (for content-scoped operations)
+	/// The identity of the bytes, for content-scoped sidecars and models.
+	/// `None` means the file has not been hashed yet.
 	pub fn content_uuid(&self) -> Option<Uuid> {
-		panic!("WASM host call not implemented")
+		self.content_uuid
 	}
 
-	/// Get metadata ID
-	pub fn metadata_id(&self) -> i32 {
-		self.metadata_id.unwrap_or(0)
-	}
-
-	/// Get entry name
 	pub fn name(&self) -> &str {
 		&self.name
 	}
 
-	/// Get entry path
-	pub fn path(&self) -> String {
-		panic!("WASM host call not implemented")
+	/// The source-relative path.
+	pub fn path(&self) -> &str {
+		&self.relative_path
 	}
 
-	/// Read entry data
+	/// The record's bytes, read through the source's resolved path.
+	///
+	/// Needs the `read_records` grant for this record's extension; fails
+	/// with `NotFound` when the source is detached.
 	pub async fn read(&self) -> Result<Vec<u8>> {
-		panic!("WASM host call not implemented")
+		crate::vdfs::VdfsContext.read_record(self.uuid).await
 	}
 
-	/// Get custom field from entry's metadata
+	/// Get custom field from the record's metadata
 	pub fn custom_field<T: serde::de::DeserializeOwned>(&self, field: &str) -> Result<T> {
-		panic!("WASM host call not implemented")
+		Err(Error::Unsupported("custom_field".into()))
 	}
 }
 
-/// Entry kind
+/// What the ingest found at the record's path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum EntryKind {
-	File = 0,
-	Directory = 1,
-	Symlink = 2,
-	Virtual = 3,
+#[serde(rename_all = "lowercase")]
+pub enum RecordKind {
+	File,
+	Directory,
+	Symlink,
 }
 
 /// Tag

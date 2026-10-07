@@ -70,6 +70,7 @@ impl crate::infra::action::LibraryAction for VolumeTrackAction {
 		// Indexing is what makes a tracked drive useful, so it starts here
 		// rather than waiting for a second gesture. An unmounted drive has
 		// nothing to walk; its map arrives when it returns.
+		let mut source = None;
 		if tracked_volume.is_online {
 			if let Some(mount_point) = tracked_volume.mount_point.clone() {
 				// An external drive is usually being archived, where
@@ -82,19 +83,21 @@ impl crate::infra::action::LibraryAction for VolumeTrackAction {
 				{
 					overrides.unfiltered = Some(true);
 				}
-				crate::ops::sources::track::track_and_index(
-					&library,
-					&context,
-					std::path::PathBuf::from(mount_point),
-					self.input.display_name.clone(),
-					&overrides,
-				)
-				.await
-				.map_err(|e| {
-					ActionError::Internal(format!(
-						"tracked the volume but could not set up its source: {e}"
-					))
-				})?;
+				source = Some(
+					crate::ops::sources::track::track_and_index(
+						&library,
+						&context,
+						std::path::PathBuf::from(mount_point),
+						self.input.display_name.clone(),
+						&overrides,
+					)
+					.await
+					.map_err(|e| {
+						ActionError::Internal(format!(
+							"tracked the volume but could not set up its source: {e}"
+						))
+					})?,
+				);
 			}
 		}
 
@@ -114,6 +117,7 @@ impl crate::infra::action::LibraryAction for VolumeTrackAction {
 				.display_name
 				.unwrap_or_else(|| "Unnamed".to_string()),
 			is_online: tracked_volume.is_online,
+			source,
 		})
 	}
 

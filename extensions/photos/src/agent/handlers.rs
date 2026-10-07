@@ -21,10 +21,10 @@ impl crate::Photos {
 
 	#[on_event(EntryCreated)]
 	#[filter(".extension().is_image()")]
-	pub async fn on_new_photo(entry: Entry, ctx: &AgentContext<PhotosMind>) -> AgentResult<()> {
-		ctx.trace(format!("New photo detected: {}", entry.name()));
+	pub async fn on_new_photo(record: Record, ctx: &AgentContext<PhotosMind>) -> AgentResult<()> {
+		ctx.trace(format!("New photo detected: {}", record.name()));
 
-		if !ctx.in_granted_scope(&entry.path()) {
+		if !ctx.in_granted_scope(record.path()) {
 			ctx.trace("Photo not in granted scope - skipping");
 			return Ok(());
 		}
@@ -33,7 +33,7 @@ impl crate::Photos {
 		memory
 			.plan
 			.update(|mut plan| {
-				plan.photos_needing_faces.push(entry.id());
+				plan.photos_needing_faces.push(record.id());
 				Ok(plan)
 			})
 			.await?;

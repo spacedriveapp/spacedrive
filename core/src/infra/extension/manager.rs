@@ -13,13 +13,9 @@ use thiserror::Error;
 use tokio::sync::RwLock;
 use wasmer::{imports, Function, FunctionEnv, Instance, Memory, Module, Store, TypedFunction};
 
-use crate::{context::CoreContext, infra::api::ApiDispatcher};
-
-use super::host_functions::{
-	self, host_spacedrive_call, host_spacedrive_log, JobBridge, PluginEnv,
-};
+use super::host_functions::{self, host_spacedrive_log, JobBridge, PluginEnv};
 use super::job_registry::ExtensionJobRegistry;
-use super::permissions::ExtensionPermissions;
+use super::model_registry::ExtensionModelRegistry;
 use super::types::{ExtensionManifest, LoadedPlugin};
 
 #[derive(Error, Debug)]
@@ -137,30 +133,29 @@ impl PluginRuntime {
 pub struct PluginManager {
 	plugins: Arc<RwLock<HashMap<String, LoadedPlugin>>>,
 	plugin_dir: PathBuf,
-	core_context: Arc<CoreContext>,
-	api_dispatcher: Arc<ApiDispatcher>,
 	job_registry: Arc<ExtensionJobRegistry>,
+	model_registry: Arc<ExtensionModelRegistry>,
 }
 
 impl PluginManager {
 	/// Create new plugin manager
-	pub fn new(
-		plugin_dir: PathBuf,
-		core_context: Arc<CoreContext>,
-		api_dispatcher: Arc<ApiDispatcher>,
-	) -> Self {
+	pub fn new(plugin_dir: PathBuf) -> Self {
 		Self {
 			plugins: Arc::new(RwLock::new(HashMap::new())),
 			plugin_dir,
-			core_context,
-			api_dispatcher,
 			job_registry: Arc::new(ExtensionJobRegistry::new()),
+			model_registry: Arc::new(ExtensionModelRegistry::new()),
 		}
 	}
 
 	/// Get the job registry for extension jobs
 	pub fn job_registry(&self) -> Arc<ExtensionJobRegistry> {
 		self.job_registry.clone()
+	}
+
+	/// The data models extensions declared
+	pub fn model_registry(&self) -> Arc<ExtensionModelRegistry> {
+		self.model_registry.clone()
 	}
 
 	/// The directory extensions are installed under: `<data dir>/extensions`.
@@ -231,6 +226,9 @@ impl PluginManager {
 				PluginError::ManifestLoadFailed(format!("Failed to parse manifest: {}", e))
 			})?
 		};
+		manifest
+			.validate()
+			.map_err(PluginError::ManifestLoadFailed)?;
 		let plugin_id = manifest.id.clone();
 
 		tracing::info!(
@@ -251,9 +249,6 @@ impl PluginManager {
 			PluginError::CompilationFailed(format!("Failed to compile WASM: {}", e))
 		})?;
 
-		let permissions =
-			ExtensionPermissions::from_manifest(manifest.id.clone(), &manifest.permissions);
-
 		// Placeholder memory until the instance exists; host functions only run
 		// after it is swapped for the real export.
 		let temp_memory = Memory::new(&mut store, wasmer::MemoryType::new(1, None, false))
@@ -263,11 +258,10 @@ impl PluginManager {
 
 		let plugin_env = PluginEnv {
 			extension_id: manifest.id.clone(),
-			core_context: self.core_context.clone(),
-			api_dispatcher: self.api_dispatcher.clone(),
-			permissions,
 			memory: temp_memory,
+			alloc: None,
 			job_registry: self.job_registry.clone(),
+			model_registry: self.model_registry.clone(),
 			current_job: None,
 		};
 
@@ -275,11 +269,6 @@ impl PluginManager {
 
 		let import_object = imports! {
 			"spacedrive" => {
-				"spacedrive_call" => Function::new_typed_with_env(
-					&mut store,
-					&env,
-					host_spacedrive_call
-				),
 				"spacedrive_log" => Function::new_typed_with_env(
 					&mut store,
 					&env,
@@ -320,6 +309,26 @@ impl PluginManager {
 					&env,
 					host_functions::host_register_job
 				),
+				"register_model" => Function::new_typed_with_env(
+					&mut store,
+					&env,
+					host_functions::host_register_model
+				),
+				"spacedrive_random" => Function::new_typed_with_env(
+					&mut store,
+					&env,
+					host_functions::host_spacedrive_random
+				),
+				"spacedrive_now_ms" => Function::new_typed_with_env(
+					&mut store,
+					&env,
+					host_functions::host_spacedrive_now_ms
+				),
+				"spacedrive_op" => Function::new_typed_with_env(
+					&mut store,
+					&env,
+					host_functions::host_spacedrive_op
+				),
 			}
 		};
 
@@ -331,11 +340,16 @@ impl PluginManager {
 			PluginError::InstantiationFailed(format!("Plugin missing memory export: {}", e))
 		})?;
 		env.as_mut(&mut store).memory = memory.clone();
+		let alloc: TypedFunction<i32, i32> = instance
+			.exports
+			.get_typed_function(&store, "wasm_alloc")
+			.map_err(|e| PluginError::BadExport(format!("wasm_alloc: {e}")))?;
+		env.as_mut(&mut store).alloc = Some(alloc);
 
 		Ok(LoadedPlugin {
 			id: plugin_id,
 			dir_name: dir_name.to_string(),
-			manifest,
+			manifest: Arc::new(manifest),
 			loaded_at: Utc::now(),
 			poisoned: poisoned.clone(),
 			runtime: Arc::new(Mutex::new(PluginRuntime {
@@ -361,6 +375,7 @@ impl PluginManager {
 				Ok(init_fn) => {
 					if let Err(e) = init_fn.call(&mut runtime.store, &[]) {
 						self.job_registry.unregister_extension_jobs(&plugin_id);
+						self.model_registry.unregister_extension(&plugin_id);
 						return Err(PluginError::InstantiationFailed(format!(
 							"plugin_init() failed: {}",
 							e
@@ -395,6 +410,7 @@ impl PluginManager {
 			.remove(plugin_id)
 			.ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))?;
 		self.job_registry.unregister_extension_jobs(plugin_id);
+		self.model_registry.unregister_extension(plugin_id);
 
 		// A trapped guest cannot be trusted to run cleanup, and a guest still
 		// running a job keeps its instance alive until that job returns; the
@@ -427,6 +443,7 @@ impl PluginManager {
 			.ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))?;
 		let fresh = self.instantiate(&dir_name).await?;
 		let previous_jobs = self.job_registry.list_jobs_for_extension(plugin_id);
+		let previous_schema = self.model_registry.schema_for(plugin_id);
 		let previous = self.unload_plugin(plugin_id).await?;
 		if let Err(e) = self.activate(fresh).await {
 			// The replacement's plugin_init failed; put the old plugin back so
@@ -437,6 +454,15 @@ impl PluginManager {
 					job.job_name,
 					job.export_fn,
 					job.resumable,
+				);
+			}
+			for (name, def) in previous_schema.map(|s| s.models).unwrap_or_default() {
+				let _ = self.model_registry.register(
+					plugin_id,
+					super::model_registry::ModelDefinition {
+						name,
+						fields: def.fields,
+					},
 				);
 			}
 			self.plugins
@@ -454,12 +480,21 @@ impl PluginManager {
 	}
 
 	/// Get plugin manifest
-	pub async fn get_manifest(&self, plugin_id: &str) -> Option<ExtensionManifest> {
+	pub async fn get_manifest(&self, plugin_id: &str) -> Option<Arc<ExtensionManifest>> {
 		self.plugins
 			.read()
 			.await
 			.get(plugin_id)
 			.map(|p| p.manifest.clone())
+	}
+
+	/// The directory a loaded plugin was installed from.
+	pub async fn plugin_path(&self, plugin_id: &str) -> Option<PathBuf> {
+		self.plugins
+			.read()
+			.await
+			.get(plugin_id)
+			.map(|p| self.plugin_dir.join(&p.dir_name))
 	}
 
 	/// The runtime of a loaded plugin, for running one of its jobs.

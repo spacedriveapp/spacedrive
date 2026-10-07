@@ -82,8 +82,8 @@ impl CoreQuery for ListExtensionsQuery {
 				jobs.sort_by(|a, b| a.name.cmp(&b.name));
 				extensions.push(ExtensionInfo {
 					id,
-					name: manifest.name,
-					version: manifest.version,
+					name: manifest.name.clone(),
+					version: manifest.version.clone(),
 					jobs,
 				});
 			}

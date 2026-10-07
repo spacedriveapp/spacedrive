@@ -3,6 +3,7 @@ import { Slider } from "@spacedrive/primitives";
 import {
 	Section,
 	SectionRows,
+	SelectSettingItem,
 	SettingItem,
 	SettingsEmptyState,
 	SettingsPageContent,
@@ -10,6 +11,7 @@ import {
 	ToggleSettingItem,
 } from "../Layout";
 import { useLibraryConfig } from "../useConfig";
+import { libraryDefaults } from "../../routes/explorer/components/addToLibrary";
 
 function ThumbnailQualityItem({
 	value,
@@ -67,6 +69,8 @@ export function LibrarySettings() {
 
 	if (isLoading || !config) return <SettingsSkeleton />;
 
+	const adding = libraryDefaults(config.adding);
+
 	return (
 		<SettingsPageContent>
 			<Section
@@ -109,6 +113,42 @@ export function LibrarySettings() {
 						description="Encrypt library data at rest"
 						value={config.encryption_enabled}
 						onChange={(encryption_enabled) => update({ encryption_enabled })}
+					/>
+				</SectionRows>
+			</Section>
+
+			<Section
+				title="Adding content"
+				description="What Add to Library starts from. Each add can change these for itself; changing them here never moves an existing catalog."
+			>
+				<SectionRows>
+					<SelectSettingItem
+						label="Store catalog"
+						description="In the library keeps it under the Spacedrive data folder; on source writes it beside the files, in .spacedrive, so it travels with the drive."
+						value={adding.placement}
+						onChange={(placement) => update({ adding: { placement } })}
+						options={[
+							{ value: "in_library", label: "In library" },
+							{ value: "on_source", label: "On source" },
+						]}
+					/>
+					<ToggleSettingItem
+						label="Keep an Offline Copy"
+						description="For an on-source catalog, keep a replica in the library so it answers while the drive is unplugged"
+						value={adding.keep_offline_copy}
+						onChange={(keep_offline_copy) => update({ adding: { keep_offline_copy } })}
+					/>
+					<ToggleSettingItem
+						label="Capture Everything"
+						description="Record system files, .git and dev directories instead of skipping them"
+						value={adding.unfiltered}
+						onChange={(unfiltered) => update({ adding: { unfiltered } })}
+					/>
+					<ToggleSettingItem
+						label="Identify Content"
+						description="Hash each file once a walk lands, for duplicates and integrity checks"
+						value={adding.identify_content}
+						onChange={(identify_content) => update({ adding: { identify_content } })}
 					/>
 				</SectionRows>
 			</Section>

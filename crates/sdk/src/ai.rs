@@ -3,7 +3,12 @@
 //! This handles ML models (face_detection, llm, ocr, embeddings).
 //! NOT to be confused with data models (Person, Album) - those are in models.rs
 //!
-//! Stubs for type-checking. Implementation will call WASM host functions.
+//! Inference goes to the host as `ai.infer`, which checks the manifest's
+//! `use_models` grant and hands the input to whatever provider the core has
+//! for the model's category. The core has no face detection, scene
+//! classification, embedding or language model provider today, so those
+//! calls return [`Error::NotAvailable`], which a job handles rather than
+//! fails on.
 
 use crate::types::*;
 use serde::{de::DeserializeOwned, Serialize};
@@ -38,7 +43,7 @@ impl AiModelRegistry {
 		name: &str,
 		source: AiModelSource,
 	) -> Result<AiModelId> {
-		panic!("WASM host call")
+		Err(Error::Unsupported("register".into()))
 	}
 
 	/// Check if AI model is registered
@@ -91,24 +96,32 @@ impl ModelHandle {
 		}
 	}
 
+	fn infer<O: DeserializeOwned>(&self, task: &str, input: &[u8]) -> Result<O> {
+		crate::ffi::op_framed(
+			"ai.infer",
+			&serde_json::json!({ "model": self.model_id, "task": task }),
+			input,
+		)
+	}
+
 	/// Detect faces in image
 	pub async fn detect_faces(&self, image_data: &[u8]) -> Result<Vec<FaceDetection>> {
-		panic!("WASM host call")
+		self.infer("detect_faces", image_data)
 	}
 
 	/// Classify scene in image
 	pub async fn classify(&self, image_data: &[u8]) -> Result<Vec<SceneTag>> {
-		panic!("WASM host call")
+		self.infer("classify", image_data)
 	}
 
 	/// OCR document
-	pub async fn ocr_document(&self, entry: &Entry) -> Result<String> {
-		panic!("WASM host call")
+	pub async fn ocr_document(&self, record: &Record) -> Result<String> {
+		Err(Error::Unsupported("ocr_document".into()))
 	}
 
 	/// Generate text embedding
 	pub async fn embed_text(&self, text: &str) -> Result<Vec<f32>> {
-		panic!("WASM host call")
+		self.infer("embed_text", text.as_bytes())
 	}
 }
 
@@ -121,7 +134,7 @@ pub struct PromptBuilder {
 impl PromptBuilder {
 	/// Render template with context
 	pub fn render_with<T: Serialize>(self, context: &T) -> Result<RenderedPrompt> {
-		panic!("Render Jinja template")
+		Err(Error::Unsupported("render_with".into()))
 	}
 }
 
@@ -134,12 +147,12 @@ pub struct RenderedPrompt {
 impl RenderedPrompt {
 	/// Generate text from rendered prompt
 	pub async fn generate_text(self) -> Result<String> {
-		panic!("WASM host call - LLM inference")
+		Err(Error::Unsupported("generate_text".into()))
 	}
 
 	/// Generate JSON from rendered prompt
 	pub async fn generate_json<T: DeserializeOwned>(self) -> Result<T> {
-		panic!("WASM host call - structured output")
+		Err(Error::Unsupported("generate_json".into()))
 	}
 }
 

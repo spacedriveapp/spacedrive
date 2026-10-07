@@ -9,6 +9,10 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::fmt;
 
+/// What a sidecar holds. The core kinds are closed; an extension declares
+/// its own in its manifest (`write_sidecars`) and they live under the
+/// extension's namespace, so two extensions' `faces` never collide and no
+/// extension can write a core kind.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum SidecarKind {
@@ -19,10 +23,31 @@ pub enum SidecarKind {
 	Ocr,
 	Transcript,
 	GaussianSplat,
+	Extension { extension_id: String, kind: String },
 }
 
 impl SidecarKind {
-	pub fn as_str(&self) -> &'static str {
+	/// A kind an extension declared. Both parts must be single path
+	/// segments of `[A-Za-z0-9._-]`, since they become directory names.
+	pub fn extension(extension_id: &str, kind: &str) -> Result<Self, String> {
+		for (what, value) in [("extension id", extension_id), ("kind", kind)] {
+			let safe = !value.is_empty()
+				&& value != "."
+				&& value != ".."
+				&& value
+					.chars()
+					.all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'));
+			if !safe {
+				return Err(format!("Invalid sidecar {what}: {value:?}"));
+			}
+		}
+		Ok(Self::Extension {
+			extension_id: extension_id.to_string(),
+			kind: kind.to_string(),
+		})
+	}
+
+	pub fn as_str(&self) -> &str {
 		match self {
 			Self::Thumb => "thumb",
 			Self::Thumbstrip => "thumbstrip",
@@ -31,14 +56,23 @@ impl SidecarKind {
 			Self::Ocr => "ocr",
 			Self::Transcript => "transcript",
 			Self::GaussianSplat => "gaussian_splat",
+			Self::Extension { kind, .. } => kind,
 		}
 	}
 
-	pub fn directory(&self) -> &'static str {
+	/// The directory under a content's sidecar directory, relative to the
+	/// `sidecars` tree root.
+	pub fn directory(&self) -> String {
 		// The layout crate owns the mapping so out-of-process readers resolve
-		// the same directories; every enum variant is a known kind string.
-		sd_sidecar_path::kind_directory(self.as_str())
-			.expect("every SidecarKind maps to a directory")
+		// the same directories; every core variant is a known kind string.
+		match self {
+			Self::Extension { extension_id, kind } => {
+				sd_sidecar_path::extension_kind_directory(extension_id, kind)
+			}
+			core => sd_sidecar_path::kind_directory(core.as_str())
+				.expect("every core SidecarKind maps to a directory")
+				.to_string(),
+		}
 	}
 }
 

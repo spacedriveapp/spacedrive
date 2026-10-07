@@ -29,6 +29,12 @@ pub fn kind_directory(kind: &str) -> Option<&'static str> {
 	}
 }
 
+/// Directory for a kind an extension declared: under `extensions/<id>/` so
+/// an extension's kinds never collide with the core's or another's.
+pub fn extension_kind_directory(extension_id: &str, kind: &str) -> String {
+	format!("extensions/{extension_id}/{kind}")
+}
+
 /// Shard directories for a content UUID: the first two byte-pairs of the
 /// lowercase hex representation with hyphens removed.
 pub fn compute_shards(content_uuid: &Uuid) -> (String, String) {
@@ -69,6 +75,22 @@ mod tests {
 		assert_eq!(
 			relative_path(&uuid, "thumbs", "grid@2x", "webp"),
 			PathBuf::from("content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/thumbs/grid@2x.webp")
+		);
+	}
+
+	#[test]
+	fn extension_kinds_sit_under_their_extension() {
+		let uuid = Uuid::parse_str("abcd1234-5678-90ab-cdef-123456789012").unwrap();
+		assert_eq!(
+			relative_path(
+				&uuid,
+				&extension_kind_directory("com.spacedrive.photos", "faces"),
+				"default",
+				"json"
+			),
+			PathBuf::from(
+				"content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/extensions/com.spacedrive.photos/faces/default.json"
+			)
 		);
 	}
 
