@@ -116,7 +116,7 @@ commit when ownership or status changes.
 | FD3 Remove legacy row sync | done 2026-09-18 | Fable | Fourteen retired models unregistered with their Syncable impls and apply paths deleted; entry hierarchy sorting, self-referential FK resolution, closure and directory-path rebuilds, and the directory-path sync payloads are gone; survivors are device, volume, space, space_group, space_item, audit_log, and a registry test now refuses any retired model re-registering; live audit passed: replicas listed, remote ops answered, replica listings served, remote jobs endpoint responsive |
 | FD4 Replace the library schema | done 2026-09-18 | Fable | Fresh, legacy, and live libraries all converge on the same 14-table schema; the Mac library upgraded live with a pre-drop backup; titan's library upgraded 2026-09-18 after a backup |
 | FD5 Retire compatibility surface | done 2026-09-18 | Opus | Tests, examples, generated types, docs, and names describe one index model: the ephemeral qualifier is retired, entry-era tests and examples are deleted or repointed, and the persistent-era search, event, status, and error surface is gone; recorded below with what still fails and why |
-| FDA Acceptance | ready | unowned | Full matrix below passes |
+| FDA Acceptance | matrix landed 2026-10-07 | Fable | `docs/core/acceptance/entries-drop-and-file-operations.md`: every row below is a CI test; failing at HEAD and kept ignored: the rename-over-existing-file known limit and Linux trash restore; not automatable on the runner: a pin following a remount, remote job watch and logs (live in SPAC-12), the `wasm` and `sd-native` check lines |
 
 ## FD0: Baseline and ownership
 
