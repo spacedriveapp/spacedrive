@@ -55,7 +55,7 @@ async fn track(core: &Arc<Core>, library: &Arc<Library>, root: &Path) {
 	let output = TrackSourceAction::from_input(TrackSourceInput {
 		path: root.to_path_buf(),
 		name: None,
-		unfiltered: false,
+		overrides: Default::default(),
 	})
 	.expect("input")
 	.execute(library.clone(), core.context.clone())
@@ -181,7 +181,7 @@ async fn two_libraries_list_their_own_sources_across_a_restart() {
 		let refused = TrackSourceAction::from_input(TrackSourceInput {
 			path: overlap.clone(),
 			name: None,
-			unfiltered: false,
+			overrides: Default::default(),
 		})
 		.expect("input")
 		.execute(second.clone(), core.context.clone())

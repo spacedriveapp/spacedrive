@@ -27,7 +27,6 @@ use sd_store::{
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
 
-use crate::infra::source_dirs::SourceDirs;
 use crate::ops::indexing::metadata::EntryMetadata;
 use crate::ops::indexing::state::EntryKind;
 
@@ -121,8 +120,13 @@ impl std::fmt::Debug for SourceStore {
 impl SourceStore {
 	/// Open a source's store, creating it on first attach, and start its
 	/// writer with the ledger already loaded.
-	pub async fn open(dirs: &SourceDirs, id: Uuid, root: PathBuf) -> Result<Arc<Self>> {
-		let manager = SourceManager::new(dirs.root().to_path_buf());
+	///
+	/// `stores_dir` is the directory the store's own directory sits in, as
+	/// the source layer resolved it from the source's placement: the data
+	/// directory's `sources/` for an in-library store, the root's
+	/// `.spacedrive/sources/` for one placed on the source.
+	pub async fn open(stores_dir: &Path, id: Uuid, root: PathBuf) -> Result<Arc<Self>> {
+		let manager = SourceManager::new(stores_dir.to_path_buf());
 		let db = manager
 			.ensure(&id.simple().to_string(), &filesystem_schema())
 			.await
@@ -905,6 +909,7 @@ async fn commit(
 mod tests {
 	use super::*;
 	use crate::infra::event::EventBus;
+	use crate::infra::source_dirs::SourceDirs;
 	use crate::ops::indexing::change_detection::handler::ChangeHandler;
 	use crate::ops::indexing::state::DirEntry;
 	use crate::ops::indexing::{Arena, ArenaWriter};
@@ -927,7 +932,7 @@ mod tests {
 			let root = TempDir::new().expect("source root");
 			let dirs = SourceDirs::new(data.path().join("sources")).expect("layout");
 
-			let store = SourceStore::open(&dirs, Uuid::now_v7(), root.path().to_path_buf())
+			let store = SourceStore::open(dirs.root(), Uuid::now_v7(), root.path().to_path_buf())
 				.await
 				.expect("store opens");
 
@@ -2200,7 +2205,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 
 		// The daemon restarts: a fresh writer over the same store, and the
 		// walk re-observes the file with the identity the arena kept.
-		let store = SourceStore::open(&dirs, id, root.to_path_buf())
+		let store = SourceStore::open(dirs.root(), id, root.to_path_buf())
 			.await
 			.expect("reopen");
 		let recovered = store

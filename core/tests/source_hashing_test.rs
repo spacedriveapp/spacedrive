@@ -40,7 +40,7 @@ async fn tracking_hashes_every_file_the_walk_records(
 	let tracked = TrackSourceAction::from_input(TrackSourceInput {
 		path: source_dir,
 		name: None,
-		unfiltered: false,
+		overrides: Default::default(),
 	})?
 	.execute(library.clone(), core.context.clone())
 	.await?;

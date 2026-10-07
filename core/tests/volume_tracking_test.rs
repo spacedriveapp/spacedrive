@@ -5,6 +5,8 @@ use helpers::test_volumes::{TestVolume, TestVolumeBuilder, TestVolumeManager};
 
 use sd_core::{
 	domain::volume::Volume,
+	infra::action::LibraryAction,
+	ops::sources::delete::action::{DeleteSourceAction, DeleteSourceInput},
 	ops::volumes::{
 		speed_test::action::{VolumeSpeedTestAction, VolumeSpeedTestInput},
 		track::{VolumeTrackAction, VolumeTrackInput},
@@ -160,6 +162,7 @@ async fn test_volume_tracking_lifecycle() {
 		let track_action = VolumeTrackAction::new(VolumeTrackInput {
 			fingerprint: fingerprint.to_string(),
 			display_name: Some("My Test Volume".to_string()),
+			overrides: Default::default(),
 		});
 
 		let result = action_manager
@@ -203,6 +206,7 @@ async fn test_volume_tracking_lifecycle() {
 		let track_action = VolumeTrackAction::new(VolumeTrackInput {
 			fingerprint: fingerprint.to_string(),
 			display_name: Some("Another Name".to_string()),
+			overrides: Default::default(),
 		});
 
 		let result = action_manager
@@ -373,6 +377,7 @@ async fn test_volume_tracking_multiple_libraries() {
 		let track_action = VolumeTrackAction::new(VolumeTrackInput {
 			fingerprint: fingerprint.to_string(),
 			display_name: Some("Library 1 Volume".to_string()),
+			overrides: Default::default(),
 		});
 
 		let result = action_manager
@@ -406,24 +411,28 @@ async fn test_volume_tracking_multiple_libraries() {
 			.expect("Failed to untrack from library 2");
 	}
 
-	// Track same volume in library 2 (should succeed)
-	info!("Tracking same volume in library 2...");
+	// A path is kept by one library on this device, so tracking the volume
+	// that library 1 holds is refused while library 1 holds it.
+	info!("Tracking same volume in library 2 while library 1 holds it...");
 	{
 		let track_action = VolumeTrackAction::new(VolumeTrackInput {
 			fingerprint: fingerprint.to_string(),
 			display_name: Some("Library 2 Volume".to_string()),
+			overrides: Default::default(),
 		});
 
 		let result = action_manager
 			.dispatch_library(Some(library2_id), track_action)
 			.await;
+		let err = result
+			.err()
+			.expect("A volume library 1 holds must not be tracked by library 2");
 		assert!(
-			result.is_ok(),
-			"Should be able to track volume in different library"
+			err.to_string().contains("kept by one library"),
+			"unexpected refusal: {err}"
 		);
 	}
 
-	// Verify both libraries have the volume tracked
 	let lib1_volumes = volume_manager
 		.get_tracked_volumes(&library1)
 		.await
@@ -436,20 +445,6 @@ async fn test_volume_tracking_multiple_libraries() {
 	assert_eq!(
 		lib1_our_volume.display_name,
 		Some("Library 1 Volume".to_string())
-	);
-
-	let lib2_volumes = volume_manager
-		.get_tracked_volumes(&library2)
-		.await
-		.expect("Failed to get library 2 volumes");
-
-	let lib2_our_volume = lib2_volumes
-		.iter()
-		.find(|v| v.fingerprint == fingerprint)
-		.expect("Our volume should be in library 2");
-	assert_eq!(
-		lib2_our_volume.display_name,
-		Some("Library 2 Volume".to_string())
 	);
 
 	// Untrack from library 1
@@ -465,16 +460,66 @@ async fn test_volume_tracking_multiple_libraries() {
 		assert!(result.is_ok(), "Failed to untrack from library 1");
 	}
 
-	// Verify library 2 still has it tracked
+	// Untracking the drive keeps its source and catalog in library 1, and
+	// the source is what holds the path. Removing it hands the drive over.
+	for source in core
+		.context
+		.volume_index()
+		.sources_of(library1_id)
+		.into_iter()
+		.filter(|source| source.volume_uuid == Some(lib1_our_volume.uuid))
+	{
+		let delete = DeleteSourceAction::from_input(DeleteSourceInput {
+			source_id: source.id.to_string(),
+			delete_catalog: false,
+		})
+		.expect("delete input");
+		action_manager
+			.dispatch_library(Some(library1_id), delete)
+			.await
+			.expect("Failed to remove library 1's source for the volume");
+	}
+
+	// Once library 1 lets go, library 2 can take the volume.
+	info!("Tracking volume in library 2...");
+	{
+		let track_action = VolumeTrackAction::new(VolumeTrackInput {
+			fingerprint: fingerprint.to_string(),
+			display_name: Some("Library 2 Volume".to_string()),
+			overrides: Default::default(),
+		});
+
+		let result = action_manager
+			.dispatch_library(Some(library2_id), track_action)
+			.await;
+		assert!(
+			result.is_ok(),
+			"Library 2 should track the volume once library 1 untracked it: {:?}",
+			result.err()
+		);
+	}
+
+	let lib1_volumes = volume_manager
+		.get_tracked_volumes(&library1)
+		.await
+		.expect("Failed to get library 1 volumes");
+	assert!(
+		!lib1_volumes.iter().any(|v| v.fingerprint == fingerprint),
+		"Library 1 should no longer have the volume tracked"
+	);
+
 	let lib2_volumes = volume_manager
 		.get_tracked_volumes(&library2)
 		.await
 		.expect("Failed to get library 2 volumes");
 
-	let lib2_still_has_volume = lib2_volumes.iter().any(|v| v.fingerprint == fingerprint);
-	assert!(
-		lib2_still_has_volume,
-		"Library 2 should still have volume tracked"
+	let lib2_our_volume = lib2_volumes
+		.iter()
+		.find(|v| v.fingerprint == fingerprint)
+		.expect("Our volume should be in library 2");
+	assert_eq!(
+		lib2_our_volume.display_name,
+		Some("Library 2 Volume".to_string())
 	);
 
 	info!("Multiple library volume tracking test completed successfully");
@@ -1102,6 +1147,7 @@ async fn test_volume_tracking_edge_cases() {
 		let track_action = VolumeTrackAction::new(VolumeTrackInput {
 			fingerprint: fingerprint.to_string(),
 			display_name: Some("".to_string()),
+			overrides: Default::default(),
 		});
 
 		let result = action_manager
@@ -1128,6 +1174,7 @@ async fn test_volume_tracking_edge_cases() {
 		let track_action = VolumeTrackAction::new(VolumeTrackInput {
 			fingerprint: fingerprint.to_string(),
 			display_name: None,
+			overrides: Default::default(),
 		});
 
 		let result = action_manager

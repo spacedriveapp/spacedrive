@@ -41,7 +41,7 @@ impl ScenarioBase {
 				// recipe's relative path has to be made absolute first
 				path: std::path::absolute(&loc.path)?,
 				name: Some(format!("bench:{}", recipe.name)),
-				unfiltered: false,
+				overrides: Default::default(),
 			})
 			.map_err(|e| anyhow!(e))?
 			.execute(library.clone(), context.clone())

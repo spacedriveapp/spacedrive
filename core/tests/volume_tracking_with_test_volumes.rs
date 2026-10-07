@@ -94,6 +94,7 @@ async fn test_real_volume_tracking_lifecycle() {
 	let track_action = VolumeTrackAction::new(VolumeTrackInput {
 		fingerprint: fingerprint.to_string(),
 		display_name: Some("My Custom Test Volume".to_string()),
+		overrides: Default::default(),
 	});
 
 	let result = action_manager

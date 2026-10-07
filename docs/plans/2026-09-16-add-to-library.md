@@ -1,8 +1,15 @@
 # Add to Library and source storage
 
-Status: UX direction agreed with James on September 16, 2026. Defaults,
-offline-copy behavior and implementation details below are proposals for review.
-This document changes the plan, not runtime code or the running library.
+Status: UX direction agreed with James on September 16, 2026. The core half
+landed on 2026-10-07 (SPAC-27): library defaults under Adding content with
+per-add overrides on `sources.track` and `volumes.track`, store placement
+resolved per library and recorded in the registration, volume registration
+on every add, the `source.json` descriptor with identity adoption on re-add,
+unconditional managed-directory exclusions, and removal that keeps the
+catalog unless asked to delete it. Acceptance:
+`docs/core/acceptance/add-to-library.md`. The modal, offline copies,
+remount of on-source stores, relocation and consolidation remain open; the
+defaults built are the proposals below and remain James's to change.
 
 ## Agreed user flow
 

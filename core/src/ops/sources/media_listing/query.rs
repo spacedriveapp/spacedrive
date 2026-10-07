@@ -86,18 +86,34 @@ impl LibraryQuery for SourceMediaListingQuery {
 			.map_err(|e| QueryError::Internal(format!("{e}")))?;
 
 		let limit = (self.input.limit as usize).min(2000);
-		let records = source_manager
-			.list_records_full(&store_id, limit, self.input.offset as usize)
+		let offset = self.input.offset as usize;
+		let (records, file_root) = match registry::filesystem_store(&context, &self.input.source_id)
 			.await
-			.map_err(QueryError::Internal)?;
+			.map_err(|e| QueryError::Internal(format!("{e:#}")))?
+		{
+			Some(db) => (
+				db.list_records_full(limit, offset)
+					.await
+					.map_err(|e| QueryError::Internal(e.to_string()))?,
+				db.get_cursor(sd_store::db::FILE_ROOT_CURSOR)
+					.await
+					.map_err(|e| QueryError::Internal(e.to_string()))?
+					.map(PathBuf::from),
+			),
+			None => (
+				source_manager
+					.list_records_full(&store_id, limit, offset)
+					.await
+					.map_err(QueryError::Internal)?,
+				source_manager
+					.file_root(&store_id)
+					.await
+					.map_err(QueryError::Internal)?,
+			),
+		};
 
 		let has_more = records.len() >= limit;
 		let device_slug = crate::device::get_current_device_slug();
-
-		let file_root = source_manager
-			.file_root(&store_id)
-			.await
-			.map_err(QueryError::Internal)?;
 
 		let files = match &file_root {
 			Some(root) => bind_to_filesystem(&context, &records, root, &device_slug).await,

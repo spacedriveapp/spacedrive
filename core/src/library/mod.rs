@@ -10,7 +10,7 @@ mod lock;
 mod manager;
 mod sync_helpers;
 
-pub use config::{LibraryConfig, LibrarySettings, LibraryStatistics};
+pub use config::{AddDefaults, AddOverrides, LibraryConfig, LibrarySettings, LibraryStatistics};
 pub use error::{LibraryError, Result};
 pub use lock::LibraryLock;
 pub(crate) use manager::{sanitize_filename, CreationGuard};

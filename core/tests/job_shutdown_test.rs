@@ -41,7 +41,7 @@ async fn test_jobs_paused_on_shutdown() -> Result<(), Box<dyn std::error::Error 
 	let tracked = TrackSourceAction::from_input(TrackSourceInput {
 		path: source_dir.clone(),
 		name: Some("Test Source".to_string()),
-		unfiltered: false,
+		overrides: Default::default(),
 	})?
 	.execute(library.clone(), core.context.clone())
 	.await?;

@@ -53,7 +53,7 @@ async fn main() -> Result<()> {
 	let tracked = TrackSourceAction::from_input(TrackSourceInput {
 		path: desktop_path.clone(),
 		name: Some("Desktop".to_string()),
-		unfiltered: false,
+		overrides: Default::default(),
 	})
 	.map_err(|e| anyhow::anyhow!(e))?
 	.execute(library.clone(), core.context.clone())

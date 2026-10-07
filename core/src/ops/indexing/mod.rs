@@ -13,6 +13,7 @@ pub mod arena;
 pub mod change_detection;
 pub mod collections;
 pub mod content_identity;
+pub mod descriptor;
 pub mod handlers;
 pub mod input;
 pub mod job;

@@ -166,7 +166,15 @@ async fn add_home_to_library(library: &Arc<Library>, context: &Arc<CoreContext>)
 		return;
 	}
 
-	match crate::ops::sources::track::track_and_index(library, context, home.clone(), false).await {
+	match crate::ops::sources::track::track_and_index(
+		library,
+		context,
+		home.clone(),
+		None,
+		&crate::library::AddOverrides::default(),
+	)
+	.await
+	{
 		Ok(output) => info!(
 			root = %output.root.display(),
 			library = %library.id(),

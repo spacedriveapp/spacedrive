@@ -188,6 +188,14 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Multi library acceptance test",
 		&["--test", "multi_library_acceptance_test"],
 	),
+	// Add to Library core half (docs/core/acceptance/add-to-library.md):
+	// defaults and overrides, volume registration, placement, managed
+	// directory exclusion, and removal that keeps the catalog.
+	acceptance(
+		"sd-core",
+		"Add to Library acceptance test",
+		&["--test", "add_to_library_acceptance_test"],
+	),
 	// The extension runtime. Its own build with the `wasm` feature: wasmer
 	// in sd-core adds minutes to every test binary link, which took the
 	// integration group from 51 to 78 minutes when the whole group carried

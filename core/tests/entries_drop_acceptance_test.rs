@@ -811,7 +811,7 @@ async fn a_pin_survives_a_restart() -> anyhow::Result<()> {
 	let tracked = TrackSourceAction::from_input(TrackSourceInput {
 		path: files.clone(),
 		name: None,
-		unfiltered: false,
+		overrides: Default::default(),
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(library.clone(), core.context.clone())
@@ -1004,7 +1004,10 @@ async fn a_rename_over_an_existing_file_lands_as_one_row() -> anyhow::Result<()>
 	let tracked = TrackSourceAction::from_input(TrackSourceInput {
 		path: dir.path().to_path_buf(),
 		name: None,
-		unfiltered: true,
+		overrides: sd_core::library::AddOverrides {
+			unfiltered: Some(true),
+			..Default::default()
+		},
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())

@@ -3,6 +3,7 @@
 use crate::{
 	context::CoreContext,
 	infra::action::{error::ActionError, LibraryAction},
+	library::AddOverrides,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -68,6 +69,12 @@ pub struct UpdateLibraryConfigInput {
 	/// Only index images
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub only_images: Option<bool>,
+
+	// Add to Library defaults
+	/// Each named field replaces that default for later adds; existing
+	/// sources keep their stores and settings where they are.
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub adding: Option<AddOverrides>,
 }
 
 /// Output for update library configuration action
@@ -199,6 +206,33 @@ impl LibraryAction for UpdateLibraryConfigAction {
 					if settings.indexer.only_images != only_images {
 						settings.indexer.only_images = only_images;
 						changes.push("only_images");
+					}
+				}
+
+				if let Some(adding) = &self.input.adding {
+					if let Some(placement) = adding.placement {
+						if settings.adding.placement != placement {
+							settings.adding.placement = placement;
+							changes.push("adding.placement");
+						}
+					}
+					if let Some(keep) = adding.keep_offline_copy {
+						if settings.adding.keep_offline_copy != keep {
+							settings.adding.keep_offline_copy = keep;
+							changes.push("adding.keep_offline_copy");
+						}
+					}
+					if let Some(unfiltered) = adding.unfiltered {
+						if settings.adding.unfiltered != unfiltered {
+							settings.adding.unfiltered = unfiltered;
+							changes.push("adding.unfiltered");
+						}
+					}
+					if let Some(identify) = adding.identify_content {
+						if settings.adding.identify_content != identify {
+							settings.adding.identify_content = identify;
+							changes.push("adding.identify_content");
+						}
 					}
 				}
 			})

@@ -25,10 +25,11 @@ use crate::{
 	context::CoreContext,
 	domain::addressing::SdPath,
 	infra::action::{error::ActionError, LibraryAction},
-	library::Library,
+	library::{config::AddOverrides, Library},
 	ops::indexing::{
 		job::{IndexScope, IndexerJob},
 		rules::RuleToggles,
+		sources::{SourceConfig, StorePlacement},
 		VolumeAnchor,
 	},
 };
@@ -44,22 +45,32 @@ pub struct TrackSourceInput {
 	pub path: PathBuf,
 	/// Display name, or the directory's own name.
 	pub name: Option<String>,
-	/// Record everything readable, rather than applying the default rules that
-	/// hide system files, `.git` and dev directories. Archival drives want
-	/// this; a working directory usually does not.
+	/// What this add changes from the library's defaults under Library
+	/// Settings > Adding content. Absent fields take the default; nothing
+	/// here writes back to the defaults.
 	#[serde(default)]
-	pub unfiltered: bool,
+	pub overrides: AddOverrides,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct TrackSourceOutput {
 	pub id: Uuid,
 	pub root: PathBuf,
+	pub name: String,
 	/// The medium underneath, when Spacedrive tracks one. A source with no
 	/// volume still works; it just cannot follow a remount.
 	pub volume_uuid: Option<Uuid>,
 	/// Whether this root is the whole volume rather than a subtree of one.
 	pub whole_volume: bool,
+	/// The settings the source was saved with: the library's defaults with
+	/// this add's overrides applied.
+	pub settings: SourceConfig,
+	/// Where the catalog lives on this machine.
+	pub store_path: Option<PathBuf>,
+	/// Whether the source kept an identity it already had, either as an
+	/// existing registration or as a catalog adopted through its descriptor,
+	/// rather than starting a fresh one.
+	pub catalog_reused: bool,
 	pub job_id: Option<Uuid>,
 }
 
@@ -84,7 +95,14 @@ impl LibraryAction for TrackSourceAction {
 		library: Arc<Library>,
 		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		track_and_index(&library, &context, self.input.path, self.input.unfiltered).await
+		track_and_index(
+			&library,
+			&context,
+			self.input.path,
+			self.input.name,
+			&self.input.overrides,
+		)
+		.await
 	}
 
 	fn action_kind(&self) -> &'static str {
@@ -99,13 +117,19 @@ crate::register_library_action!(TrackSourceAction, "sources.track");
 /// Shared by `sources.track` and `volumes.track`, because tracking a drive and
 /// tracking a folder on one differ only in how the caller arrived at the path.
 /// Keeping one body is what stops the two from drifting on the steps that are
-/// easy to forget: seeding from the snapshot, and clearing what the new pass
-/// will not revisit.
+/// easy to forget: registering the volume, resolving the effective settings,
+/// seeding from the snapshot, and clearing what the new pass will not revisit.
+///
+/// Every step that saves state either lands or fails the add. A registration
+/// whose volume row, settings or name did not persist is reported as the
+/// failure it is rather than as a tracked source, so a retry reuses the same
+/// identities instead of repairing a half-saved one.
 pub async fn track_and_index(
 	library: &Arc<Library>,
 	context: &Arc<CoreContext>,
 	root: PathBuf,
-	unfiltered: bool,
+	name: Option<String>,
+	overrides: &AddOverrides,
 ) -> Result<TrackSourceOutput, ActionError> {
 	if !root.is_dir() {
 		return Err(ActionError::Internal(format!(
@@ -162,52 +186,129 @@ pub async fn track_and_index(
 		)));
 	}
 
-	// The source's anchor is only as durable as the volume row it points at.
-	// Persisting the volume here is what lets the registry resolve this
-	// source's absolute root on every later boot; without the row, the next
-	// process knows the source only by its relative path.
-	if let Some(volume) = &volume {
-		if let Err(e) = context
-			.volume_manager
-			.ensure_volume_in_db(volume, library)
-			.await
-		{
-			tracing::warn!(%e, volume = %volume.name, "could not persist the source's volume");
+	let settings = library.config().await.settings.adding.resolve(overrides);
+
+	// A store opens in WAL mode, which SQLite does not support over a
+	// network filesystem, so a share cannot host its own catalog; its
+	// serving daemon keeps it in the library instead.
+	if settings.placement == StorePlacement::OnSource {
+		let on_network = volume.as_ref().is_some_and(|volume| {
+			matches!(volume.mount_type, crate::domain::volume::MountType::Network)
+				|| volume.parse_cloud_identity().is_some()
+		});
+		if on_network {
+			return Err(ActionError::Internal(format!(
+				"{} is on a network volume, which cannot hold its own store; add it with the store in the library",
+				root.display()
+			)));
 		}
 	}
 
-	let id = context
+	// A source always has its volume: the anchor is only as durable as the
+	// volume row it points at, and the row is what lets the registry resolve
+	// this source's absolute root on every later boot. Adding a path inside
+	// a volume therefore tracks that volume in the library, once, and a
+	// second folder on the same drive finds the row already there. The
+	// index maps the drive too, so its mount point check and detached flag
+	// apply to this source from now on.
+	if let Some(volume) = &volume {
+		context
+			.volume_manager
+			.ensure_volume_in_db(volume, library)
+			.await
+			.map_err(|e| {
+				ActionError::Internal(format!(
+					"could not track volume {} for {}: {e}",
+					volume.name,
+					root.display()
+				))
+			})?;
+		context.volume_index().track_detected_volume(
+			volume.id,
+			volume.mount_point.clone(),
+			volume.is_mounted,
+		);
+	}
+
+	// A store this library already wrote for this scope carries its identity
+	// with it. Reopening it is what makes removing and re-adding a folder,
+	// or plugging in a drive with its catalog on it, continue where the
+	// catalog left off instead of starting over beside it. The catalog is
+	// reopened where it is, whatever placement the add asked for.
+	let adopted = context
 		.volume_index()
-		.register_source_in(Some(library.id()), &root, anchor)
+		.portable_identity(&root, anchor.as_ref(), settings.placement, library.id())
+		.await;
+
+	let (id, existed) = context
+		.volume_index()
+		.register_source_with(Some(library.id()), &root, anchor, adopted.map(|(id, _)| id))
 		.await
 		.map_err(|e| ActionError::Internal(format!("Failed to register source: {e}")))?;
 
-	// The capture policy is the source's, not the caller's moment: the
-	// watcher reads it for every later event, so it has to survive with the
-	// registration. Tracking may widen it and never narrows it, so a plain
-	// re-track cannot silently demote an archival source; narrowing is
-	// `sources.update`'s explicit job.
-	let unfiltered = unfiltered
-		|| context
-			.volume_index()
-			.source_config(id)
-			.is_some_and(|config| config.unfiltered);
+	// The settings are the source's, not the caller's moment: the watcher
+	// reads the capture policy for every later event, so they have to
+	// survive with the registration. A re-track changes only what the add
+	// names: capture may widen and never narrows, so a plain re-track cannot
+	// silently demote an archival source (narrowing is `sources.update`'s
+	// explicit job), and placement never changes, because moving a store is
+	// relocation, not an add. An adopted catalog keeps the placement it was
+	// found under.
+	let settings = match context.volume_index().source_config(id) {
+		Some(previous) if existed => SourceConfig {
+			unfiltered: previous.unfiltered || overrides.unfiltered == Some(true),
+			placement: previous.placement,
+			keep_offline_copy: overrides
+				.keep_offline_copy
+				.unwrap_or(previous.keep_offline_copy),
+			identify_content: overrides
+				.identify_content
+				.unwrap_or(previous.identify_content),
+		},
+		_ => SourceConfig {
+			placement: adopted
+				.map(|(_, placement)| placement)
+				.unwrap_or(settings.placement),
+			..settings
+		},
+	};
 	context
 		.volume_index()
-		.set_source_config(
-			id,
-			crate::ops::indexing::sources::SourceConfig { unfiltered },
-		)
-		.await;
+		.set_source_config(id, settings.clone())
+		.await
+		.map_err(|e| ActionError::Internal(format!("could not save the source's settings: {e}")))?;
+	if let Some(name) = name.filter(|name| !name.trim().is_empty()) {
+		context
+			.volume_index()
+			.set_source_name(id, name)
+			.await
+			.map_err(|e| ActionError::Internal(format!("could not save the source's name: {e}")))?;
+	}
+	let name = context.volume_index().source_name(id).unwrap_or_default();
 
-	let job_id =
-		dispatch_source_walk(&library, &context, id, root.clone(), whole_volume, true).await;
+	let store_path = context.volume_index().store_dir(id);
+	// Reused means the registration or a descriptor-bound catalog already
+	// carried this identity, not that a file happens to exist: a hashing
+	// job finishing for an enclosing source can open the new store before
+	// this answers.
+	let catalog_reused = existed || adopted.is_some();
+	context
+		.volume_index()
+		.write_descriptor(id, library.id())
+		.await
+		.map_err(|e| ActionError::Internal(e.to_string()))?;
+
+	let job_id = dispatch_source_walk(library, context, id, root.clone(), whole_volume, true).await;
 
 	Ok(TrackSourceOutput {
 		id,
 		root,
+		name,
 		volume_uuid: volume.map(|volume| volume.id),
 		whole_volume,
+		settings,
+		store_path,
+		catalog_reused,
 		job_id,
 	})
 }
@@ -233,10 +334,8 @@ pub(crate) async fn dispatch_source_walk(
 		return None;
 	}
 
-	let unfiltered = context
-		.volume_index()
-		.source_config(id)
-		.is_some_and(|config| config.unfiltered);
+	let source_config = context.volume_index().source_config(id).unwrap_or_default();
+	let unfiltered = source_config.unfiltered;
 
 	// Seed the partition from its snapshot before walking over it. A partition
 	// that skipped restore is barred from saving over an existing snapshot, so
@@ -290,7 +389,11 @@ pub(crate) async fn dispatch_source_walk(
 	// Hashing reads the records the walk writes, so it starts when the walk
 	// completes. The job queue runs a LOW job as soon as a worker is free, and
 	// one dispatched beside the walk finds an empty store and finishes. A walk
-	// that fails or is cancelled leaves hashing to the next track.
+	// that fails or is cancelled leaves hashing to the next track. A source
+	// added without content identification gets its walk and nothing after.
+	if !source_config.identify_content {
+		return Some(job_id);
+	}
 	let library = library.clone();
 	tokio::spawn(async move {
 		if handle.wait().await.is_err() {
@@ -320,8 +423,25 @@ mod tests {
 		TrackSourceInput {
 			path: PathBuf::from(path),
 			name: None,
-			unfiltered: false,
+			overrides: AddOverrides::default(),
 		}
+	}
+
+	/// The wire shape stays what the CLI and the modal send today: a path
+	/// and an optional name, with every override optional on top.
+	#[test]
+	fn an_input_without_overrides_takes_the_defaults() {
+		let input: TrackSourceInput =
+			serde_json::from_str(r#"{"path":"/Volumes/Archive","name":null}"#).unwrap();
+		assert_eq!(input.overrides, AddOverrides::default());
+
+		let input: TrackSourceInput = serde_json::from_str(
+			r#"{"path":"/Volumes/Archive","name":"Archive","overrides":{"placement":"on_source","unfiltered":true}}"#,
+		)
+		.unwrap();
+		assert_eq!(input.overrides.placement, Some(StorePlacement::OnSource));
+		assert_eq!(input.overrides.unfiltered, Some(true));
+		assert_eq!(input.overrides.keep_offline_copy, None);
 	}
 
 	#[test]

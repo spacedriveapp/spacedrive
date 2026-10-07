@@ -11,4 +11,10 @@ pub struct VolumeTrackInput {
 
 	/// Optional custom display name
 	pub display_name: Option<String>,
+
+	/// What this add changes from the library's defaults for the source it
+	/// sets up over the whole drive. An external drive captures unfiltered
+	/// unless this says otherwise.
+	#[serde(default)]
+	pub overrides: crate::library::AddOverrides,
 }

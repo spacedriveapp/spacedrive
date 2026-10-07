@@ -73,20 +73,28 @@ impl crate::infra::action::LibraryAction for VolumeTrackAction {
 		if tracked_volume.is_online {
 			if let Some(mount_point) = tracked_volume.mount_point.clone() {
 				// An external drive is usually being archived, where
-				// completeness is the point, so it records everything readable
-				// rather than applying rules that hide files by default.
-				let unfiltered =
-					volume_to_track.mount_type == crate::domain::volume::MountType::External;
-				if let Err(e) = crate::ops::sources::track::track_and_index(
+				// completeness is the point, so this entry point overrides
+				// the library's capture default to record everything
+				// readable. Every other setting follows the defaults.
+				let mut overrides = self.input.overrides.clone();
+				if volume_to_track.mount_type == crate::domain::volume::MountType::External
+					&& overrides.unfiltered.is_none()
+				{
+					overrides.unfiltered = Some(true);
+				}
+				crate::ops::sources::track::track_and_index(
 					&library,
 					&context,
 					std::path::PathBuf::from(mount_point),
-					unfiltered,
+					self.input.display_name.clone(),
+					&overrides,
 				)
 				.await
-				{
-					tracing::error!(%e, "tracked the volume but could not start indexing it");
-				}
+				.map_err(|e| {
+					ActionError::Internal(format!(
+						"tracked the volume but could not set up its source: {e}"
+					))
+				})?;
 			}
 		}
 

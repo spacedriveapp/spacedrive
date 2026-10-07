@@ -169,7 +169,7 @@ async fn capture_event_fixtures_for_typescript(
 	let track_output = TrackSourceAction::from_input(TrackSourceInput {
 		path: test_dir.clone(),
 		name: Some("Test Source".to_string()),
-		unfiltered: false,
+		overrides: Default::default(),
 	})
 	.map_err(|e| format!("Failed to create action: {}", e))?
 	.execute(library.clone(), core.context.clone())

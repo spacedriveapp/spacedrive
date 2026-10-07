@@ -73,14 +73,21 @@ impl LibraryQuery for ListSourceItemsQuery {
 		let store_id = registry::parse_store_id(&self.input.source_id)
 			.map_err(|e| QueryError::Internal(format!("{e}")))?;
 
-		let items = source_manager
-			.list_items(
-				&store_id,
-				self.input.limit as usize,
-				self.input.offset as usize,
-			)
+		let limit = self.input.limit as usize;
+		let offset = self.input.offset as usize;
+		let items = match registry::filesystem_store(&context, &self.input.source_id)
 			.await
-			.map_err(|e| QueryError::Internal(e))?;
+			.map_err(|e| QueryError::Internal(format!("{e:#}")))?
+		{
+			Some(db) => db
+				.list_items(limit, offset)
+				.await
+				.map_err(|e| QueryError::Internal(e.to_string()))?,
+			None => source_manager
+				.list_items(&store_id, limit, offset)
+				.await
+				.map_err(QueryError::Internal)?,
+		};
 
 		Ok(items
 			.into_iter()

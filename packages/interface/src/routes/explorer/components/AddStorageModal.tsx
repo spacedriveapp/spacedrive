@@ -499,7 +499,6 @@ function AddStorageDialog(props: {
 			const result = await trackSource.mutateAsync({
 				path: data.path,
 				name: data.name || null,
-				unfiltered: false,
 			});
 			dialog.state.open = false;
 

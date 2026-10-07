@@ -76,10 +76,29 @@ pub struct LibraryRestoreOutput {
 	pub path: PathBuf,
 	pub files: u32,
 	pub bytes: u64,
+	/// Stores put back where their sources read them.
 	pub sources: u32,
+	/// Catalogs the archive held for sources placed on their drive. A restore
+	/// lays them in the library's layout, where an on-source registration
+	/// does not read, so they are named here with where they were left
+	/// rather than counted as restored. Moving one back onto its drive is
+	/// relocation.
+	#[serde(default)]
+	pub on_source_catalogs: Vec<UnplacedCatalog>,
 	/// Where the state the restore replaced was moved, so a bad restore can
 	/// be undone by hand. Absent for a new library.
 	pub replaced_state: Option<PathBuf>,
+}
+
+/// A restored catalog that is not where its source reads it.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct UnplacedCatalog {
+	pub source_id: Uuid,
+	pub name: String,
+	/// The source's root within its volume, as the registration stores it.
+	pub root: Option<String>,
+	/// Where the restore left the catalog.
+	pub path: PathBuf,
 }
 
 impl ActionOutputTrait for LibraryRestoreOutput {

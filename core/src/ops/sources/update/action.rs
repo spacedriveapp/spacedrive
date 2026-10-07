@@ -9,7 +9,7 @@
 use crate::{
 	context::CoreContext,
 	infra::action::{error::ActionError, LibraryAction},
-	library::Library,
+	library::{config::AddOverrides, Library},
 	ops::indexing::SourceConfig,
 };
 use serde::{Deserialize, Serialize};
@@ -76,15 +76,25 @@ impl LibraryAction for UpdateSourceAction {
 		})?;
 
 		if let Some(name) = self.input.name.clone() {
-			cache.set_source_name(source_id, name).await;
+			cache
+				.set_source_name(source_id, name)
+				.await
+				.map_err(|e| ActionError::Internal(format!("could not save the name: {e}")))?;
 		}
 
 		let unfiltered = self.input.unfiltered.unwrap_or(previous.unfiltered);
 		let mut rewalk_job = None;
 		if self.input.unfiltered.is_some() {
 			cache
-				.set_source_config(source_id, SourceConfig { unfiltered })
-				.await;
+				.set_source_config(
+					source_id,
+					SourceConfig {
+						unfiltered,
+						..previous.clone()
+					},
+				)
+				.await
+				.map_err(|e| ActionError::Internal(format!("could not save the settings: {e}")))?;
 
 			// Widening capture means the store lacks what the rules skipped,
 			// and only a walk can supply it. Narrowing removes nothing: the
@@ -94,12 +104,25 @@ impl LibraryAction for UpdateSourceAction {
 					ActionError::Internal("source has no root on this machine".to_string())
 				})?;
 				let output = crate::ops::sources::track::action::track_and_index(
-					&library, &context, root, true,
+					&library,
+					&context,
+					root,
+					None,
+					&AddOverrides {
+						unfiltered: Some(true),
+						..AddOverrides::default()
+					},
 				)
 				.await?;
 				rewalk_job = output.job_id;
 			}
 		}
+
+		// The store's own statement of what it is follows the registration.
+		cache
+			.write_descriptor(source_id, library.id())
+			.await
+			.map_err(|e| ActionError::Internal(e.to_string()))?;
 
 		let name = cache.source_name(source_id).unwrap_or_default();
 

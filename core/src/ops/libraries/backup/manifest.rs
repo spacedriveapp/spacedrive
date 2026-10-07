@@ -58,6 +58,12 @@ pub struct SourceEntry {
 	/// registration is in the library, the generation lives elsewhere.
 	pub store: Option<StoreEntry>,
 	pub has_sidecars: bool,
+	/// Where the source keeps its store. A store placed on the source is
+	/// archived from the drive, and a restore cannot put it back there, so
+	/// the restore names it instead of counting it. Archives written before
+	/// placement existed hold in-library stores.
+	#[serde(default)]
+	pub placement: crate::ops::indexing::sources::StorePlacement,
 }
 
 /// How a store's copy identifies itself; see `sd_store::revision`.

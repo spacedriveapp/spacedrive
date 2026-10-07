@@ -73,9 +73,15 @@ async fn alice_replication_scenario() {
 		.unwrap();
 
 	println!("Alice: tracking the source");
-	let tracked = track_and_index(&library, &core.context, source_root.clone(), false)
-		.await
-		.unwrap();
+	let tracked = track_and_index(
+		&library,
+		&core.context,
+		source_root.clone(),
+		None,
+		&Default::default(),
+	)
+	.await
+	.unwrap();
 	wait_for_walk(&library, tracked.job_id).await;
 	std::fs::write(marker("alice_source_id.txt"), tracked.id.to_string()).unwrap();
 
@@ -116,9 +122,15 @@ async fn alice_replication_scenario() {
 	for name in LATER {
 		std::fs::write(source_root.join(name), name).unwrap();
 	}
-	let rewalk = track_and_index(&library, &core.context, source_root.clone(), false)
-		.await
-		.unwrap();
+	let rewalk = track_and_index(
+		&library,
+		&core.context,
+		source_root.clone(),
+		None,
+		&Default::default(),
+	)
+	.await
+	.unwrap();
 	wait_for_walk(&library, rewalk.job_id).await;
 	std::fs::write(marker("alice_wrote.txt"), "wrote").unwrap();
 

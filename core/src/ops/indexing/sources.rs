@@ -37,15 +37,47 @@ use crate::infra::db::entities::source;
 /// filtering belongs to lenses over a store that captured everything. Serde
 /// defaults keep every field optional in the stored JSON, so rows written
 /// before a field existed parse as the default.
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct SourceConfig {
 	/// Record everything readable, skipping the default rules. The walk and
 	/// the watcher both follow this.
 	#[serde(default)]
 	pub unfiltered: bool,
+	/// Where the source's store lives. Placement is intent that travels with
+	/// the registration; the serving device resolves it to a directory.
+	#[serde(default)]
+	pub placement: StorePlacement,
+	/// For an on-source store, whether the library keeps a replica so the
+	/// catalog answers while the source is disconnected. Recorded intent: the
+	/// copy itself is the offline-copy phase of the Add to Library plan.
+	#[serde(default = "SourceConfig::default_true")]
+	pub keep_offline_copy: bool,
+	/// Identify the bytes behind each record once a walk lands, so duplicates
+	/// and integrity evidence exist without a separate gesture. The one
+	/// processing job a source can opt out of today; the path-policy system
+	/// owns finer-grained processing when it lands.
+	#[serde(default = "SourceConfig::default_true")]
+	pub identify_content: bool,
+}
+
+/// Written by hand so `Default` and the serde defaults agree: a row with no
+/// config and a record with no settings yet are the same source.
+impl Default for SourceConfig {
+	fn default() -> Self {
+		Self {
+			unfiltered: false,
+			placement: StorePlacement::InLibrary,
+			keep_offline_copy: true,
+			identify_content: true,
+		}
+	}
 }
 
 impl SourceConfig {
+	fn default_true() -> bool {
+		true
+	}
+
 	pub fn from_json(json: &str) -> Self {
 		serde_json::from_str(json).unwrap_or_default()
 	}
@@ -53,6 +85,48 @@ impl SourceConfig {
 	pub fn to_json(&self) -> String {
 		serde_json::to_string(self).unwrap_or_else(|_| "{}".to_string())
 	}
+}
+
+/// Where a source's catalog lives.
+///
+/// Both placements hold one store format under the same ingest, query and
+/// durability rules. Placement selects the store's home and nothing else: a
+/// source placed on its origin is still registered in the library.
+#[derive(
+	Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum StorePlacement {
+	/// Under the daemon's data directory, in `sources/<id>/`.
+	#[default]
+	InLibrary,
+	/// Beneath the source root, in `.spacedrive/sources/<id>/`, so the
+	/// catalog travels with the drive.
+	OnSource,
+}
+
+/// The directory a source's store lives in, resolved for this machine.
+///
+/// `root` is the source's absolute root as mounted now, so an on-source
+/// store follows its volume across remounts. `None` when the placement needs
+/// a root this machine does not have: an on-source store of a drive that is
+/// away has no directory here.
+pub fn store_dir(
+	placement: StorePlacement,
+	in_library: &crate::infra::source_dirs::SourceDirs,
+	id: Uuid,
+	root: &Path,
+) -> Option<PathBuf> {
+	match placement {
+		StorePlacement::InLibrary => Some(in_library.source_dir(id)),
+		StorePlacement::OnSource if root.as_os_str().is_empty() => None,
+		StorePlacement::OnSource => Some(on_source_stores_dir(root).join(id.simple().to_string())),
+	}
+}
+
+/// Where a source root keeps the stores placed on it.
+pub fn on_source_stores_dir(root: &Path) -> PathBuf {
+	root.join(crate::config::MANAGED_DIR).join("sources")
 }
 
 /// The drive a source is being registered against.
@@ -261,20 +335,41 @@ impl SourceRegistry {
 	/// is the same volume and the same path within it, whatever the mount point
 	/// happens to be today. An unanchored source matches on its absolute root.
 	pub fn register(&mut self, root: &Path, volume: Option<&VolumeAnchor>) -> SourceRecord {
-		let now = Utc::now();
+		self.register_with(root, volume, None).0
+	}
 
+	/// The durable key a root registers under: its path within the anchoring
+	/// volume, or its absolute path when the anchor cannot produce it. The
+	/// anchor returned is the one that applies: a root that is not under the
+	/// mount point it claims to be on is a caller error, and anchoring it
+	/// anyway would bind the source to a volume that cannot produce its path,
+	/// so it falls back to unanchored.
+	pub fn key_for<'a>(
+		root: &Path,
+		volume: Option<&'a VolumeAnchor>,
+	) -> (String, Option<&'a VolumeAnchor>) {
 		let relative_root = match volume {
-			// A root that is not under the mount point it claims to be on is a
-			// caller error, and anchoring it anyway would bind the source to a
-			// volume that cannot produce its path. Fall back to unanchored.
 			Some(anchor) => relative_to(&anchor.mount_point, root),
 			None => None,
 		};
-
 		let anchor = relative_root.as_ref().and(volume);
-		let key = relative_root
-			.clone()
-			.unwrap_or_else(|| root.to_string_lossy().into_owned());
+		let key = relative_root.unwrap_or_else(|| root.to_string_lossy().into_owned());
+		(key, anchor)
+	}
+
+	/// [`Self::register`], minting the new record under `adopt` when a store
+	/// already carries that identity for this root. An existing registration
+	/// still wins: the id a library already holds is the one its policies
+	/// and bookmarks point at. The flag says whether the record was already
+	/// registered, so the caller can tell a refresh from a first add.
+	pub fn register_with(
+		&mut self,
+		root: &Path,
+		volume: Option<&VolumeAnchor>,
+		adopt: Option<Uuid>,
+	) -> (SourceRecord, bool) {
+		let now = Utc::now();
+		let (key, anchor) = Self::key_for(root, volume);
 
 		let existing = self.sources.iter_mut().find(|source| {
 			source.volume_uuid == anchor.map(|a| a.uuid) && source.relative_root == key
@@ -283,11 +378,11 @@ impl SourceRegistry {
 		if let Some(record) = existing {
 			record.root = root.to_path_buf();
 			record.last_seen_at = now;
-			return record.clone();
+			return (record.clone(), true);
 		}
 
 		let record = SourceRecord {
-			id: Uuid::now_v7(),
+			id: adopt.unwrap_or_else(Uuid::now_v7),
 			name: display_name(root),
 			root: root.to_path_buf(),
 			relative_root: key,
@@ -302,7 +397,7 @@ impl SourceRegistry {
 			config: SourceConfig::default(),
 		};
 		self.sources.push(record.clone());
-		record
+		(record, false)
 	}
 
 	/// The drive a source sits on, and where it begins.
@@ -447,8 +542,22 @@ mod tests {
 		assert!(!SourceConfig::from_json("not json").unfiltered);
 		assert!(SourceConfig::from_json(r#"{"unfiltered":true,"later_field":1}"#).unfiltered);
 
-		let config = SourceConfig { unfiltered: true };
+		let config = SourceConfig {
+			unfiltered: true,
+			..SourceConfig::default()
+		};
 		assert!(SourceConfig::from_json(&config.to_json()).unfiltered);
+
+		// Rows written before placement existed are in-library stores that
+		// keep an offline copy and identify content, which is what every
+		// source did until the fields existed.
+		let old = SourceConfig::from_json(r#"{"unfiltered":false}"#);
+		assert_eq!(old.placement, StorePlacement::InLibrary);
+		assert!(old.keep_offline_copy);
+		assert!(old.identify_content);
+		assert_eq!(old, SourceConfig::default(), "one notion of unset");
+		let placed = SourceConfig::from_json(r#"{"placement":"on_source"}"#);
+		assert_eq!(placed.placement, StorePlacement::OnSource);
 	}
 
 	/// An anchored source's volume begins at the anchor's mount, in every
