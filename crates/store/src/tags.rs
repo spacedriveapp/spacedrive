@@ -30,6 +30,7 @@ use uuid::Uuid;
 
 use crate::db::{SourceDb, Stamp};
 use crate::error::{Error, Result};
+use crate::file::candidate_column;
 
 /// Namespace for tag slugs. Fixed forever: the slug of a path must come out
 /// identical on every device that ever computes it.
@@ -223,8 +224,9 @@ impl SourceDb {
 				Some(content) => {
 					sqlx::query_as(
 						"SELECT r.uuid FROM record r JOIN content c ON c.id = r.content_id
-							 WHERE c.uuid = ? LIMIT 1",
+							 WHERE c.uuid = ? OR c.candidate_uuid = ? LIMIT 1",
 					)
+					.bind(content)
 					.bind(content)
 					.fetch_optional(self.pool())
 					.await?
@@ -280,12 +282,12 @@ impl SourceDb {
 		&self,
 		record_uuids: &[Uuid],
 	) -> Result<HashMap<Uuid, Vec<AppliedTag>>> {
-		tag_state_for_records(self.pool(), record_uuids).await
+		tag_state_for_records(self, record_uuids).await
 	}
 
 	/// Records currently carrying a tag. See [`records_for_tag`].
 	pub async fn records_with_tag(&self, tag_uuid: Uuid) -> Result<Vec<Uuid>> {
-		records_for_tag(self.pool(), tag_uuid).await
+		records_for_tag(self, tag_uuid).await
 	}
 
 	/// Definitions this store carries, ordered by path.
@@ -295,35 +297,65 @@ impl SourceDb {
 }
 
 /// Applied tags for a batch of records, content collapse included: a row
-/// keyed by content reaches every copy of those bytes in this store. For
-/// each record and tag, the latest assertion by HLC decides, whichever key
-/// it arrived on, so a record-scoped removal can beat an earlier
-/// content-scoped apply for that one copy.
+/// keyed by content reaches every copy of those bytes in this store, whether
+/// the key is the row's confirmed uuid or the candidate uuid it was minted
+/// under before verification. For each record and tag, the latest assertion
+/// by HLC decides, whichever key it arrived on, so a record-scoped removal
+/// can beat an earlier content-scoped apply for that one copy.
 pub async fn tag_state_for_records(
-	pool: &SqlitePool,
+	db: &SourceDb,
 	record_uuids: &[Uuid],
 ) -> Result<HashMap<Uuid, Vec<AppliedTag>>> {
 	if record_uuids.is_empty() {
 		return Ok(HashMap::new());
 	}
+	let pool = db.pool();
 
 	// Content identities for the batch, so content-keyed rows can fan out to
 	// the records sharing the bytes.
 	let record_ph = vec!["?"; record_uuids.len()].join(", ");
 	let sql = format!(
-		"SELECT r.uuid, c.uuid FROM record r JOIN content c ON c.id = r.content_id
-			 WHERE r.uuid IN ({record_ph})"
+		"SELECT r.uuid, c.uuid, {} FROM record r JOIN content c ON c.id = r.content_id
+			 WHERE r.uuid IN ({record_ph})",
+		candidate_column(db.schema_version())
 	);
-	let mut query = sqlx::query_as::<_, (Uuid, Uuid)>(&sql);
+	let mut query = sqlx::query_as::<_, (Uuid, Uuid, Option<Uuid>)>(&sql);
 	for id in record_uuids {
 		query = query.bind(*id);
 	}
-	let mut records_of_content: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
-	for (record, content) in query.fetch_all(pool).await? {
-		records_of_content.entry(content).or_default().push(record);
+	let held = query.fetch_all(pool).await?;
+
+	// A row keyed by a confirmed uuid still reaches a batch record that only
+	// samples alike, so the confirmed uuids over the batch's candidates are
+	// keys too, reaching the records on their candidate.
+	let mut records_of_content = reach(held.clone());
+	let mut keys: HashSet<Uuid> = records_of_content.keys().copied().collect();
+	if db.schema_version() >= 1 && !keys.is_empty() {
+		let key_ph = vec!["?"; keys.len()].join(", ");
+		let sql = format!(
+			"SELECT uuid, candidate_uuid FROM content
+			 WHERE candidate_uuid IN ({key_ph}) AND integrity_hash IS NOT NULL"
+		);
+		let mut query = sqlx::query_as::<_, (Uuid, Uuid)>(&sql);
+		for key in keys.clone() {
+			query = query.bind(key);
+		}
+		for (confirmed, candidate) in query.fetch_all(pool).await? {
+			let sharing = records_of_content
+				.get(&candidate)
+				.cloned()
+				.unwrap_or_default();
+			let reached = records_of_content.entry(confirmed).or_default();
+			for record in sharing {
+				if !reached.contains(&record) {
+					reached.push(record);
+				}
+			}
+			keys.insert(confirmed);
+		}
 	}
 
-	let content_ids: Vec<Uuid> = records_of_content.keys().copied().collect();
+	let content_ids: Vec<Uuid> = keys.into_iter().collect();
 	let rows: Vec<(Uuid, Uuid, Option<Uuid>, bool, String, Uuid)> = if content_ids.is_empty() {
 		let sql = format!(
 			"SELECT tag_uuid, record_uuid, content_uuid, asserted, hlc, device_uuid
@@ -374,7 +406,8 @@ pub async fn tag_state_for_records(
 /// Records whose current state carries the tag, content collapse included.
 /// Orphaned assertions wait for [`SourceDb::rebind_tag_assertions`] rather
 /// than surfacing a record uuid nothing can resolve.
-pub async fn records_for_tag(pool: &SqlitePool, tag_uuid: Uuid) -> Result<Vec<Uuid>> {
+pub async fn records_for_tag(db: &SourceDb, tag_uuid: Uuid) -> Result<Vec<Uuid>> {
+	let pool = db.pool();
 	let rows: Vec<(Uuid, Option<Uuid>, bool, String, Uuid)> = sqlx::query_as(
 		"SELECT record_uuid, content_uuid, asserted, hlc, device_uuid
 			 FROM tag_assertion WHERE tag_uuid = ?",
@@ -396,18 +429,19 @@ pub async fn records_for_tag(pool: &SqlitePool, tag_uuid: Uuid) -> Result<Vec<Uu
 		.collect();
 	let mut records_of_content: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
 	if !content_ids.is_empty() {
+		let candidate = candidate_column(db.schema_version());
 		let content_ph = vec!["?"; content_ids.len()].join(", ");
 		let sql = format!(
-			"SELECT r.uuid, c.uuid FROM record r JOIN content c ON c.id = r.content_id
-				 WHERE c.uuid IN ({content_ph})"
+			"SELECT r.uuid, c.uuid, {candidate} FROM record r JOIN content c ON c.id = r.content_id
+				 WHERE c.uuid IN ({content_ph}) OR {candidate} IN ({content_ph})
+				 OR {candidate} IN (SELECT c2.candidate_uuid FROM content c2
+					 WHERE c2.uuid IN ({content_ph}) AND c2.candidate_uuid IS NOT NULL)"
 		);
-		let mut query = sqlx::query_as::<_, (Uuid, Uuid)>(&sql);
-		for id in &content_ids {
+		let mut query = sqlx::query_as::<_, (Uuid, Uuid, Option<Uuid>)>(&sql);
+		for id in content_ids.iter().chain(&content_ids).chain(&content_ids) {
 			query = query.bind(*id);
 		}
-		for (record, content) in query.fetch_all(pool).await? {
-			records_of_content.entry(content).or_default().push(record);
-		}
+		records_of_content = reach(query.fetch_all(pool).await?);
 	}
 
 	let mut winners: HashMap<(Uuid, Uuid), (String, Uuid, bool)> = HashMap::new();
@@ -445,6 +479,43 @@ pub async fn records_for_tag(pool: &SqlitePool, tag_uuid: Uuid) -> Result<Vec<Uu
 		.into_iter()
 		.map(|(uuid,)| uuid)
 		.collect())
+}
+
+/// The records each content key reaches, from `(record, uuid, candidate
+/// uuid)` rows. A key reaches the records on rows carrying it as either
+/// uuid, and a confirmed uuid also reaches the records still sitting on its
+/// candidate: a tag on bytes read in full reaches the copy that merely
+/// samples alike, as it did before the copy's row split from the original's.
+fn reach(held: Vec<(Uuid, Uuid, Option<Uuid>)>) -> HashMap<Uuid, Vec<Uuid>> {
+	let mut records_of_content: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
+	for (record, content, candidate) in &held {
+		records_of_content
+			.entry(*content)
+			.or_default()
+			.push(*record);
+		if let Some(candidate) = candidate.filter(|candidate| candidate != content) {
+			records_of_content
+				.entry(candidate)
+				.or_default()
+				.push(*record);
+		}
+	}
+	for (_, content, candidate) in &held {
+		let Some(candidate) = candidate.filter(|candidate| candidate != content) else {
+			continue;
+		};
+		let sharing = records_of_content
+			.get(&candidate)
+			.cloned()
+			.unwrap_or_default();
+		let confirmed = records_of_content.entry(*content).or_default();
+		for record in sharing {
+			if !confirmed.contains(&record) {
+				confirmed.push(record);
+			}
+		}
+	}
+	records_of_content
 }
 
 /// Definitions a store carries, ordered by path.

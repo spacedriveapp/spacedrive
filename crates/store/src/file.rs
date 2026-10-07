@@ -292,14 +292,17 @@ impl Ledger {
 	/// |---|---|
 	/// | path hit, size and mtime unchanged | the same record, nothing written |
 	/// | path hit, either changed | the same record, facet stale |
-	/// | path miss, inode hit, size **or** mtime agrees | the file moved |
-	/// | path miss, inode hit, both disagree | a new record |
+	/// | path miss, inode hit, size **and** mtime agree | the file moved |
+	/// | path miss, inode hit, either disagrees | a new record |
 	/// | path miss, inode miss | a new record |
 	///
-	/// Two factors are the minimum for a move, because an inode alone is not
-	/// evidence: inode numbers are reused, and a wrong rebind silently moves
-	/// one person's assertions onto an unrelated file. A missed rebind costs a
-	/// re-tag, so the asymmetry decides the tie.
+	/// Three factors are the minimum for a move, because an inode alone is
+	/// not evidence: inode numbers are reused, and a wrong rebind silently
+	/// moves one person's assertions onto an unrelated file. A move also
+	/// keeps the record's content row, whose integrity hash then stands for
+	/// the bytes at the new path, so the bytes have to look untouched on both
+	/// counts. A missed rebind costs a re-tag and a re-hash, so the asymmetry
+	/// decides the tie.
 	///
 	/// A rename the watcher actually saw needs none of this, since it carries
 	/// old and new together. Resolution is for the gap: the daemon was off, the
@@ -333,7 +336,7 @@ impl Ledger {
 		if let Some(uuid) = observation.inode.and_then(|i| self.by_inode.get(&i)) {
 			let binding = &self.bindings[uuid];
 			let corroborated =
-				binding.size == observation.size || binding.mtime == observation.mtime;
+				binding.size == observation.size && binding.mtime == observation.mtime;
 			if corroborated {
 				return Resolution::Moved(*uuid);
 			}
@@ -808,20 +811,24 @@ pub async fn files_needing_content(
 ///
 /// The sampled tier says two files are probably the same; acting on that
 /// (keeping one copy of two) needs the integrity tier, and only for the
-/// files whose content is actually shared. One clause, same as
-/// [`PENDING_CONTENT`], so the count and the batch cannot disagree.
+/// files whose content is actually shared. A file on a candidate row is
+/// claimed when any other record, confirmed or not, carries the same
+/// sampled hash, so the second copy is still read after the first one
+/// confirms. One clause, same as [`PENDING_CONTENT`], so the count and the
+/// batch cannot disagree.
 const PENDING_VERIFICATION: &str = "\
 	FROM record r \
 	JOIN content c ON c.id = r.content_id \
 	JOIN facet_file f ON f.record_uuid = r.uuid \
 	LEFT JOIN directory_path d ON d.record_uuid = r.parent_uuid \
 	WHERE c.integrity_hash IS NULL AND f.content_error IS NULL \
-	AND r.content_id IN (SELECT content_id FROM record \
-		WHERE content_id IS NOT NULL GROUP BY content_id HAVING COUNT(*) > 1)";
+	AND c.sampled_hash IN (SELECT c2.sampled_hash FROM record r2 \
+		JOIN content c2 ON c2.id = r2.content_id \
+		WHERE c2.sampled_hash IS NOT NULL GROUP BY c2.sampled_hash HAVING COUNT(*) > 1)";
 
 /// A copy whose bytes want reading in full: where it is, and the sampled
-/// hash its content row is currently keyed by, so the verdict lands on the
-/// same row instead of minting a second one.
+/// hash its candidate row is keyed by, so the confirmed row the verdict
+/// lands on keeps it and candidate lookups still reach it.
 #[derive(Debug, Clone)]
 pub struct PendingVerification {
 	pub uuid: Uuid,
@@ -906,10 +913,13 @@ pub struct ContentCopy {
 
 /// Files this source holds more than one copy of, largest first.
 ///
-/// Grouped by content rather than by name or size, so a file renamed on the way
-/// to its second home is still the same bytes. What this cannot see is the copy
-/// that exists once here and once on another drive: each store only knows its
-/// own, and finding those means an index of content uuids across all of them.
+/// Grouped by content row rather than by name or size, so a file renamed on
+/// the way to its second home is still the same bytes. A row is one sampled
+/// hash, split by integrity hash where its members carry one, so two files
+/// that only sample alike stop being a pair once both are read in full. What
+/// this cannot see is the copy that exists once here and once on another
+/// drive: each store only knows its own, and finding those means an index of
+/// content uuids across all of them.
 pub async fn duplicate_copies(
 	pool: &sqlx::SqlitePool,
 	min_size: i64,
@@ -972,21 +982,24 @@ pub async fn content_of(pool: &sqlx::SqlitePool, record_uuid: Uuid) -> Result<Op
 /// Keyed by content rather than by record, so a caller can ask each source the
 /// same question and get every copy on the machine. A copy under a different
 /// name in a different directory is still found, because the identity is the
-/// bytes.
+/// bytes. A candidate uuid reaches confirmed rows too, so a reference minted
+/// before verification keeps finding every copy afterwards.
 pub async fn copies_of_content(
-	pool: &sqlx::SqlitePool,
+	db: &crate::db::SourceDb,
 	content_uuid: Uuid,
 ) -> Result<Vec<ContentCopy>> {
-	let rows: Vec<ContentCopyRow> = sqlx::query_as(
+	let rows: Vec<ContentCopyRow> = sqlx::query_as(&format!(
 		"SELECT c.uuid, c.size, r.uuid, r.parent_uuid, d.path, r.title
 			 FROM content c
 			 JOIN record r ON r.content_id = c.id
 			 LEFT JOIN directory_path d ON d.record_uuid = r.parent_uuid
-			 WHERE c.uuid = ?
+			 WHERE c.uuid = ? OR {} = ?
 			 ORDER BY r.title",
-	)
+		candidate_column(db.schema_version())
+	))
 	.bind(content_uuid)
-	.fetch_all(pool)
+	.bind(content_uuid)
+	.fetch_all(db.pool())
 	.await?;
 
 	Ok(rows
@@ -1002,6 +1015,18 @@ pub async fn copies_of_content(
 			},
 		)
 		.collect())
+}
+
+/// The column a candidate content uuid is matched against, for the shape a
+/// handle reads. A store below schema version 1 has no `candidate_uuid`, and
+/// a replica keeps its owner's version, so a reader of one matches `uuid`
+/// twice rather than naming a column the table does not have.
+pub(crate) fn candidate_column(schema_version: i64) -> &'static str {
+	if schema_version >= 1 {
+		"c.candidate_uuid"
+	} else {
+		"c.uuid"
+	}
 }
 
 /// A record's path, rebuilt from its parent and its name.

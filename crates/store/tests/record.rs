@@ -595,7 +595,7 @@ async fn one_set_of_bytes_is_one_content_row() {
 }
 
 #[tokio::test]
-async fn the_integrity_tier_renames_the_content_without_moving_the_row() {
+async fn the_integrity_tier_moves_the_record_to_a_confirmed_row() {
 	let fixture = Fixture::new().await;
 	let db = fixture.open().await;
 	db.begin_sync().await.expect("epoch");
@@ -628,17 +628,33 @@ async fn the_integrity_tier_renames_the_content_without_moving_the_row() {
 		.await
 		.expect("confirmed");
 
-	assert_eq!(
+	assert_ne!(
 		candidate, confirmed,
-		"the row the record points at is stable"
+		"a full read lands on a confirmed row, not on the shared candidate row"
 	);
 
-	let stored: Uuid = sqlx::query_scalar("SELECT uuid FROM content WHERE id = ?")
-		.bind(confirmed)
+	let (stored, candidate_uuid, sampled, rows): (Uuid, Uuid, String, i64) = sqlx::query_as(
+		"SELECT uuid, candidate_uuid, sampled_hash, (SELECT COUNT(*) FROM content)
+		 FROM content WHERE id = ?",
+	)
+	.bind(confirmed)
+	.fetch_one(db.pool())
+	.await
+	.expect("confirmed row");
+	assert_eq!(stored, uuid_for("integrity-1"));
+	assert_eq!(
+		candidate_uuid,
+		uuid_for("sampled-1"),
+		"the candidate uuid stays reachable on the confirmed row"
+	);
+	assert_eq!(sampled, "sampled-1");
+	assert_eq!(rows, 1, "the candidate row nothing points at is dropped");
+	let pointed: i64 = sqlx::query_scalar("SELECT content_id FROM record WHERE uuid = ?")
+		.bind(note)
 		.fetch_one(db.pool())
 		.await
-		.expect("uuid");
-	assert_eq!(stored, uuid_for("integrity-1"));
+		.expect("content_id");
+	assert_eq!(pointed, confirmed);
 
 	// A later write carrying only the cheap hash must not walk the identity
 	// back down to a guess.
@@ -652,10 +668,13 @@ async fn the_integrity_tier_renames_the_content_without_moving_the_row() {
 	.await
 	.expect("re-sampled");
 
-	let after: Uuid = sqlx::query_scalar("SELECT uuid FROM content WHERE id = ?")
-		.bind(confirmed)
-		.fetch_one(db.pool())
-		.await
-		.expect("uuid");
+	let (after, pointed): (Uuid, i64) = sqlx::query_as(
+		"SELECT c.uuid, c.id FROM record r JOIN content c ON c.id = r.content_id WHERE r.uuid = ?",
+	)
+	.bind(note)
+	.fetch_one(db.pool())
+	.await
+	.expect("row");
 	assert_eq!(after, uuid_for("integrity-1"));
+	assert_eq!(pointed, confirmed);
 }

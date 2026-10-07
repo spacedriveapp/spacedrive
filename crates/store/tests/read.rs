@@ -396,7 +396,7 @@ async fn contents_beneath_a_directory_answer_by_scope() {
 		HashSet::from(["a".to_string(), "b".to_string()])
 	);
 	assert!(
-		in_2019.values().all(Option::is_none),
+		in_2019.values().flatten().all(Option::is_none),
 		"nothing has been read in full"
 	);
 

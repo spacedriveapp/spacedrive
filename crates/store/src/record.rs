@@ -50,6 +50,21 @@ use uuid::Uuid;
 /// distinct in SQLite, so an adapter record with no parent is unconstrained by
 /// it, and `UNIQUE (type, external_id)` still catches two records claiming one
 /// key.
+///
+/// ## How content is keyed
+///
+/// A `content` row is either a candidate or confirmed. A candidate row has a
+/// sampled hash and no integrity hash, and there is one per sampled hash
+/// (`idx_content_candidate`). A confirmed row has an integrity hash, unique
+/// across the table, and keeps the sampled hash beside it. A record on a
+/// confirmed row had its own bytes read in full; a sampled-only write never
+/// binds a record to a confirmed row. That is what lets a deletion trust the
+/// integrity hash on the row of the file it is about to remove.
+///
+/// `uuid` derives from the strongest hash the row holds and `candidate_uuid`
+/// from the sampled hash, so a content reference minted before verification
+/// still finds every copy afterwards. Schema version 1 rebuilt the table into
+/// this shape; see [`crate::migrate`].
 pub const RECORD_SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS record (
     uuid BLOB PRIMARY KEY,
@@ -76,14 +91,18 @@ CREATE TABLE IF NOT EXISTS directory_path (
 CREATE TABLE IF NOT EXISTS content (
     id INTEGER PRIMARY KEY,
     uuid BLOB NOT NULL,
-    sampled_hash TEXT UNIQUE,
-    integrity_hash TEXT,
+    candidate_uuid BLOB,
+    sampled_hash TEXT,
+    integrity_hash TEXT UNIQUE,
     size INTEGER,
     kind INTEGER
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_content_candidate ON content(sampled_hash)
+    WHERE integrity_hash IS NULL;
+CREATE INDEX IF NOT EXISTS idx_content_sampled ON content(sampled_hash);
 CREATE INDEX IF NOT EXISTS idx_content_uuid ON content(uuid);
+CREATE INDEX IF NOT EXISTS idx_content_candidate_uuid ON content(candidate_uuid);
 CREATE INDEX IF NOT EXISTS idx_record_content ON record(content_id);
-CREATE INDEX IF NOT EXISTS idx_content_integrity ON content(integrity_hash);
 
 CREATE TABLE IF NOT EXISTS edge (
     src_uuid BLOB NOT NULL REFERENCES record(uuid) ON DELETE CASCADE,
@@ -210,7 +229,8 @@ pub struct Record {
 /// A row in the `content` table: the identity of the bytes a record points at.
 /// The stored `uuid` is derived from whichever hash is present
 /// ([`crate::content`]), so it is the same on every machine that sees the same
-/// bytes.
+/// bytes. An integrity hash here must have been computed from the bytes of the
+/// record it is written for, never copied from another file.
 #[derive(Debug, Clone, Default)]
 pub struct ContentIdentity {
 	/// Cheap tier — hash over sampled regions.

@@ -355,7 +355,7 @@ impl SourceStore {
 	/// Absolute paths, for the same reason [`Self::duplicates`] gives them:
 	/// a caller is going to show them to someone or open them.
 	pub async fn copies_of_content(&self, content_uuid: Uuid) -> Vec<DuplicateCopy> {
-		match sd_store::copies_of_content(self.db.pool(), content_uuid).await {
+		match sd_store::copies_of_content(&self.db, content_uuid).await {
 			Ok(copies) => copies
 				.into_iter()
 				.map(|copy| DuplicateCopy {
