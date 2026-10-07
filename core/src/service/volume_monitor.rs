@@ -55,6 +55,74 @@ impl VolumeMonitorService {
 		}
 	}
 
+	/// Bring a library's tracked volume rows in line with what detection
+	/// returns right now.
+	///
+	/// A tracked volume detection still returns follows its mount state. One
+	/// detection no longer returns is marked offline: a drive in a drawer or a
+	/// dataset whose key is not loaded does not stay online because its row
+	/// said so at the last refresh. Every change is also told to the volume
+	/// index, so the sources on that drive detach or attach without waiting
+	/// for a restart.
+	pub async fn reconcile_tracked_volumes(
+		volume_manager: &VolumeManager,
+		library: &Arc<crate::library::Library>,
+	) -> Result<()> {
+		let volume_index = library.core_context().volume_index();
+		let tracked_volumes = volume_manager.get_tracked_volumes(library).await?;
+		// The table holds every device's rows; a peer's drive is not mounted
+		// here and its row is not this device's to write.
+		for tracked in tracked_volumes
+			.into_iter()
+			.filter(|tracked| tracked.device_id == volume_manager.device_id)
+		{
+			let current = volume_manager.get_volume(&tracked.fingerprint).await;
+			let mounted = current.as_ref().is_some_and(|volume| volume.is_mounted);
+			if tracked.is_online == mounted {
+				continue;
+			}
+
+			// One row that cannot be written must not keep the others from
+			// their transition, so each failure is logged and the pass goes on.
+			let written = match &current {
+				Some(volume) => {
+					volume_manager
+						.update_tracked_volume_state(library, &tracked.fingerprint, volume)
+						.await
+				}
+				None => {
+					volume_manager
+						.mark_tracked_volume_offline(library, &tracked.fingerprint)
+						.await
+				}
+			};
+			if let Err(e) = written {
+				error!(
+					"Failed to update tracked volume {} in library {}: {}",
+					tracked.fingerprint,
+					library.id(),
+					e
+				);
+				continue;
+			}
+
+			let mount_point = current
+				.as_ref()
+				.map(|volume| volume.mount_point.clone())
+				.unwrap_or_else(|| {
+					std::path::PathBuf::from(tracked.mount_point.as_deref().unwrap_or_default())
+				});
+			volume_index.set_volume_mounted(tracked.uuid, &mount_point, mounted);
+			info!(
+				"Tracked volume {} in library {} is now {}",
+				tracked.fingerprint,
+				library.id(),
+				if mounted { "online" } else { "offline" }
+			);
+		}
+		Ok(())
+	}
+
 	/// Monitor volumes and update tracked volumes in libraries
 	async fn monitor_loop(
 		volume_manager: Arc<VolumeManager>,
@@ -82,57 +150,14 @@ impl VolumeMonitorService {
 					let libraries = lib_manager.get_open_libraries().await;
 
 					for library in &libraries {
-						// Get tracked volumes for this library
-						match volume_manager.get_tracked_volumes(&library).await {
-							Ok(tracked_volumes) => {
-								for tracked in tracked_volumes {
-									// Check if volume is still present
-									if let Some(current_volume) =
-										volume_manager.get_volume(&tracked.fingerprint).await
-									{
-										// Update volume state if changed
-										if tracked.is_online != current_volume.is_mounted {
-											if let Err(e) = volume_manager
-												.update_tracked_volume_state(
-													&library,
-													&tracked.fingerprint,
-													&current_volume,
-												)
-												.await
-											{
-												error!(
-                                                    "Failed to update tracked volume {} in library {}: {}",
-                                                    tracked.fingerprint,
-                                                    library.id(),
-                                                    e
-                                                );
-											} else {
-												debug!(
-                                                    "Updated tracked volume {} in library {} (online: {} -> {})",
-                                                    tracked.fingerprint,
-                                                    library.id(),
-                                                    tracked.is_online,
-                                                    current_volume.is_mounted
-                                                );
-											}
-										}
-									} else {
-										// Volume no longer detected but still tracked
-										debug!(
-											"Tracked volume {} not detected in library {}",
-											tracked.fingerprint,
-											library.id()
-										);
-									}
-								}
-							}
-							Err(e) => {
-								error!(
-									"Failed to get tracked volumes for library {}: {}",
-									library.id(),
-									e
-								);
-							}
+						if let Err(e) =
+							Self::reconcile_tracked_volumes(&volume_manager, library).await
+						{
+							error!(
+								"Failed to reconcile tracked volumes for library {}: {}",
+								library.id(),
+								e
+							);
 						}
 					}
 

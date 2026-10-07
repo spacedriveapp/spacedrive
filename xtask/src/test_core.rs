@@ -164,6 +164,14 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Resource events test",
 		&["--test", "resource_events_test"],
 	),
+	// Locked volumes L1 and L2 (docs/core/acceptance/volumes.md): loop-mounted
+	// volumes unmounted with their mount points left behind. Skips with a
+	// reason where there is no sudo or no loop device.
+	acceptance(
+		"sd-core",
+		"Locked volumes acceptance test",
+		&["--test", "locked_volumes_acceptance_test"],
+	),
 	// core("Sync event log test", &["--test", "sync_event_log_test"]),
 	// core("Sync metrics test", &["--test", "sync_metrics_test"]),
 	// core("Sync backfill test", &["--test", "sync_backfill_test"]),

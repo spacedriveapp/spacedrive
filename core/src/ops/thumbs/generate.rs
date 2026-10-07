@@ -177,6 +177,9 @@ impl JobHandler for ThumbnailGenerateJob {
 				"Thumbnail scope no longer resolves to its original volume",
 			));
 		}
+		if let Some(reason) = cache.dispatch_refusal(&scope) {
+			return Err(JobError::execution(reason));
+		}
 		let metadata = tokio::fs::symlink_metadata(&scope)
 			.await
 			.map_err(|error| JobError::execution(error.to_string()))?;

@@ -471,3 +471,49 @@ mod tests {
 		)));
 	}
 }
+
+/// Whether `path` is where a filesystem is mounted right now.
+///
+/// An unmounted drive leaves its mount point behind as an empty directory on
+/// the parent filesystem, and that directory passes every existence check.
+/// What tells the two apart is the device: a mount point's device differs
+/// from its parent's, or it is the filesystem root. Platforms without device
+/// numbers answer by existence, which is the check this replaces.
+pub fn is_mount_point(path: &Path) -> bool {
+	#[cfg(unix)]
+	{
+		use std::os::unix::fs::MetadataExt;
+		let Ok(meta) = std::fs::metadata(path) else {
+			return false;
+		};
+		let Some(parent) = path.parent() else {
+			return true;
+		};
+		match std::fs::metadata(parent) {
+			Ok(parent_meta) => parent_meta.dev() != meta.dev(),
+			Err(_) => true,
+		}
+	}
+	#[cfg(not(unix))]
+	{
+		path.exists()
+	}
+}
+
+#[cfg(all(test, unix))]
+mod mount_point_tests {
+	use super::is_mount_point;
+	use std::path::Path;
+
+	/// The filesystem root is a mount point, a directory on the same device as
+	/// its parent is not, and a missing path is not.
+	#[test]
+	fn a_mount_point_differs_from_its_parent_by_device() {
+		assert!(is_mount_point(Path::new("/")));
+		let dir = tempfile::tempdir().unwrap();
+		let left_behind = dir.path().join("mount");
+		std::fs::create_dir(&left_behind).unwrap();
+		assert!(!is_mount_point(&left_behind));
+		assert!(!is_mount_point(&dir.path().join("missing")));
+	}
+}

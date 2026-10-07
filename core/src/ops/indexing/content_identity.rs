@@ -106,6 +106,18 @@ impl JobHandler for ContentIdentityJob {
 	type Output = ContentIdentityOutput;
 
 	async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
+		// A file read through an unmounted drive's mount point fails and is
+		// recorded as unreadable, which takes it out of the pending set for
+		// good; refusing the whole pass keeps those files pending for when
+		// the drive returns.
+		if let Some(reason) = ctx
+			.library()
+			.core_context()
+			.volume_index()
+			.dispatch_refusal(&self.root)
+		{
+			return Err(JobError::execution(reason));
+		}
 		let Some(store) = ctx
 			.library()
 			.core_context()
@@ -275,6 +287,10 @@ pub async fn identify_every_source(
 ) {
 	for source in context.volume_index().sources() {
 		if !source.attached {
+			continue;
+		}
+		if let Some(reason) = context.volume_index().dispatch_refusal(&source.root) {
+			tracing::warn!(source = %source.id, %reason, "not identifying the source");
 			continue;
 		}
 

@@ -600,6 +600,14 @@ impl Core {
 		// Stop volume monitoring
 		self.volumes.stop_monitoring().await;
 
+		// The library directory watcher auto-opens a library whose lock
+		// file changes, and closing a library removes its lock file. Stopped
+		// first, or a core restarting in this process finds the library
+		// reopened by the instance that just shut down.
+		if let Err(e) = self.libraries.stop_watching().await {
+			warn!("Failed to stop the library watcher: {}", e);
+		}
+
 		// Close all libraries
 		self.libraries.close_all().await?;
 

@@ -90,6 +90,10 @@ pub struct VolumeManager {
 
 	/// Weak reference to library manager for database operations
 	library_manager: Arc<RwLock<Option<Weak<LibraryManager>>>>,
+
+	/// Set once the first detection pass has run, so callers can tell an
+	/// empty volume list from detection that never happened.
+	detected: std::sync::atomic::AtomicBool,
 }
 
 impl VolumeManager {
@@ -109,7 +113,24 @@ impl VolumeManager {
 			is_monitoring: Arc::new(RwLock::new(false)),
 			volume_watcher: Arc::new(RwLock::new(None)),
 			library_manager: Arc::new(RwLock::new(None)),
+			detected: std::sync::atomic::AtomicBool::new(false),
 		}
+	}
+
+	/// Whether detection has run at least once.
+	///
+	/// With volume monitoring disabled nothing is ever detected, and an
+	/// empty list then means "unknown" rather than "no volumes".
+	pub fn has_detected(&self) -> bool {
+		self.detected.load(std::sync::atomic::Ordering::Acquire)
+	}
+
+	/// What `attach_library` should resolve volume rows against.
+	pub async fn live_volumes(&self) -> Option<Vec<Volume>> {
+		if !self.has_detected() {
+			return None;
+		}
+		Some(self.get_all_volumes().await)
 	}
 
 	/// Set the library manager reference
@@ -124,6 +145,8 @@ impl VolumeManager {
 
 		// Perform initial volume detection (for local volumes)
 		self.refresh_volumes().await?;
+		self.detected
+			.store(true, std::sync::atomic::Ordering::Release);
 
 		// Start monitoring if configured
 		if self.config.refresh_interval_secs > 0 {
@@ -1815,6 +1838,38 @@ impl VolumeManager {
 		active_model.is_online = Set(volume.is_mounted);
 		active_model.total_capacity = Set(Some(volume.total_capacity as i64));
 		active_model.available_capacity = Set(Some(volume.available_space as i64));
+
+		active_model
+			.update(db)
+			.await
+			.map_err(|e| VolumeError::Database(e.to_string()))?;
+
+		Ok(())
+	}
+
+	/// Mark a tracked volume offline because detection no longer returns it.
+	///
+	/// `update_tracked_volume_state` needs the live volume for its capacity
+	/// figures; a volume that vanished has none, so only the flag and the
+	/// timestamp move. Scoped to this device's row, since a portable
+	/// external fingerprint can be tracked by several devices.
+	pub async fn mark_tracked_volume_offline(
+		&self,
+		library: &crate::library::Library,
+		fingerprint: &VolumeFingerprint,
+	) -> VolumeResult<()> {
+		let db = library.db().conn();
+
+		let mut active_model: entities::volume::ActiveModel = entities::volume::Entity::find()
+			.filter(entities::volume::Column::DeviceId.eq(self.device_id))
+			.filter(entities::volume::Column::Fingerprint.eq(fingerprint.0.clone()))
+			.one(db)
+			.await
+			.map_err(|e| VolumeError::Database(e.to_string()))?
+			.ok_or_else(|| VolumeError::NotTracked(fingerprint.to_string()))?
+			.into();
+
+		active_model.is_online = Set(false);
 
 		active_model
 			.update(db)
