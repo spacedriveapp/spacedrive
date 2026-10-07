@@ -102,10 +102,10 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 		if (usesExplorerFiles) {
 			// Hook-driven modes: filter to media (collections are already
 			// media-only; search results may not be)
-			return [...explorerFiles.filter(file => matchesMediaType(file, mediaType))].reverse();
+			return [...explorerFiles.filter((file: File) => matchesMediaType(file, mediaType))].reverse();
 		}
 		// Normal mode: use media_listing query
-		return [...(mediaQuery.data?.files || []).filter(file => matchesMediaType(file, mediaType))].reverse();
+		return [...(mediaQuery.data?.files || []).filter((file: File) => matchesMediaType(file, mediaType))].reverse();
 	}, [usesExplorerFiles, explorerFiles, mediaQuery.data?.files, mediaType]);
 	const hasFiles = files.length > 0;
 	const listingKey = `${mediaType}:${sortBy}:${JSON.stringify(
