@@ -1533,6 +1533,7 @@ impl VolumeIndex {
 			cleared += indexed.len() + in_progress.len();
 			indexed.clear();
 			in_progress.clear();
+			self.refused_watches.lock().clear();
 			watched.clear();
 		}
 		{

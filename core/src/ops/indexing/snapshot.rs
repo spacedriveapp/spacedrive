@@ -208,18 +208,40 @@ pub(super) fn save_snapshot_impl(
 ///
 /// The file is evidence of what went wrong and the only copy of it, so it is
 /// kept rather than deleted; moving it clears the slot so the next save lands
-/// clean and no launch parses it again. A rename that fails leaves the file
-/// where it is, which costs a parse per launch and loses nothing.
+/// clean and no launch parses it again. One copy is enough evidence: when a
+/// quarantined sibling already exists the slot is deleted instead, since a
+/// recurring failure (two builds alternating snapshot versions, saves that
+/// keep landing torn) would otherwise retain a full artifact per launch. The
+/// oldest copy stays, as the mismatched-root path does. A rename that fails
+/// leaves the file where it is, which costs a parse per launch and loses
+/// nothing.
 fn quarantine(snapshot_path: &Path, reason: &str) {
-	let stamp = std::time::SystemTime::now()
-		.duration_since(std::time::UNIX_EPOCH)
-		.map(|d| d.as_secs())
-		.unwrap_or(0);
 	let name = snapshot_path
 		.file_name()
 		.map(|n| n.to_string_lossy().into_owned())
 		.unwrap_or_default();
-	let aside = snapshot_path.with_file_name(format!("{name}.corrupt-{stamp}"));
+	let prefix = format!("{name}.corrupt-");
+	let already_retained = snapshot_path
+		.parent()
+		.and_then(|dir| fs::read_dir(dir).ok())
+		.into_iter()
+		.flatten()
+		.flatten()
+		.any(|entry| entry.file_name().to_string_lossy().starts_with(&prefix));
+	if already_retained {
+		tracing::warn!(
+			snapshot = %snapshot_path.display(),
+			"snapshot {reason}; an earlier copy is already retained, removing this one"
+		);
+		let _ = fs::remove_file(snapshot_path);
+		return;
+	}
+
+	let stamp = std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.map(|d| d.as_secs())
+		.unwrap_or(0);
+	let aside = snapshot_path.with_file_name(format!("{prefix}{stamp}"));
 	match fs::rename(snapshot_path, &aside) {
 		Ok(()) => tracing::warn!(
 			snapshot = %snapshot_path.display(),

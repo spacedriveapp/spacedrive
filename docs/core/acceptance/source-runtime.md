@@ -110,7 +110,9 @@ Fix: `load_snapshot_impl` moves an artifact it cannot read, decode, or
 accept the version of to `<name>.corrupt-<unix seconds>` beside the slot
 and logs a WARN naming both paths. The slot is clear for the next save and
 no launch parses the artifact again; the test asserts the bytes survive at
-the aside path.
+the aside path. One retained copy is enough: when a `.corrupt-*` sibling
+already exists, a later unreadable artifact in the slot is removed instead,
+so a recurring failure cannot fill the disk.
 
 ### F3. Row 11: a refused watch was reported active (fixed)
 
@@ -151,10 +153,11 @@ loaded case was one hit because both registrations share one arena.
 
 Fix: the store loop in `search_every_index` (arena_search.rs) reads sources
 innermost first and keeps a set of local paths already answered, seeded
-with the arena hits, so a file an inner store (its owner) returned is
-dropped from the outer store's partition before it is counted. The total
-stays exact because the de-duplication runs on each store's full match set
-ahead of the page window.
+with every arena's full match set (collected before the page window
+narrows it), so a file an inner store (its owner) returned is dropped from
+the outer store's partition before it is counted. The total stays exact
+because the de-duplication runs on each store's full match set ahead of the
+page window.
 
 ## Not in the plan's table but covered on the way
 

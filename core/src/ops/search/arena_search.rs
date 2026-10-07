@@ -250,6 +250,11 @@ pub async fn search_every_index(
 	let mut facets = SearchFacets::default();
 	let mut approximate = false;
 	let window = pipeline::window(pagination);
+	// Every local path some partition has already answered for, taken from
+	// each arena's full match set before it is narrowed to the page window,
+	// so the store loop below can drop a hit a nested store would repeat
+	// without undercounting what fell outside the page.
+	let mut seen: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
 	let local_slug = crate::device::get_current_device_slug();
 	let tag_scope =
 		crate::ops::search::tag_scope::TagScope::resolve_if_active(cache, filters.tags.as_ref())
@@ -275,6 +280,11 @@ pub async fn search_every_index(
 		.await?;
 		total += partition.len() as u64;
 		facets.absorb(&partition);
+		seen.extend(
+			partition
+				.iter()
+				.filter_map(|result| result.file.sd_path.as_local_path().map(Path::to_path_buf)),
+		);
 		pipeline::narrow(&mut partition, sort, window);
 		candidates.extend(partition);
 	}
@@ -324,12 +334,9 @@ pub async fn search_every_index(
 	// is committed to both. The innermost source is its owner, so stores
 	// are read innermost first and a file an earlier store already answered
 	// for is dropped from the outer one, before it is counted, so the total
-	// stays the number of distinct files. Paths from the arenas above are
-	// seeded so a nested store never repeats a hit its drive's arena gave.
-	let mut seen: std::collections::HashSet<PathBuf> = candidates
-		.iter()
-		.filter_map(|result| result.file.sd_path.as_local_path().map(Path::to_path_buf))
-		.collect();
+	// stays the number of distinct files. `seen` also carries the arenas'
+	// hits, for a source nested across a volume boundary whose outer arena
+	// holds paths under the inner root.
 	let mut sources = cache.sources();
 	sources.sort_by_key(|source| std::cmp::Reverse(source.root.components().count()));
 	for source in sources {
