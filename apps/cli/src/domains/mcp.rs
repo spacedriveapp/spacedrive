@@ -226,11 +226,23 @@ impl McpServer {
 			return Ok(explicit);
 		}
 		let ids = self.library_ids().await?;
-		let selected = CliConfig::load(&self.data_dir)
+		Ok(self.pick_library(ids).await.into_iter().next())
+	}
+
+	/// The daemon's libraries with the CLI's selection first, when the
+	/// daemon still has it.
+	async fn pick_library(&self, mut ids: Vec<Uuid>) -> Vec<Uuid> {
+		let selected = tokio::fs::read_to_string(CliConfig::config_path(&self.data_dir))
+			.await
 			.ok()
+			.and_then(|json| serde_json::from_str::<CliConfig>(&json).ok())
 			.and_then(|c| c.current_library_id)
 			.filter(|id| ids.contains(id));
-		Ok(selected.or_else(|| ids.first().copied()))
+		if let Some(selected) = selected {
+			ids.retain(|id| *id != selected);
+			ids.insert(0, selected);
+		}
+		ids
 	}
 
 	/// One request to the daemon, answered as JSON or as the daemon's own
@@ -282,23 +294,13 @@ impl McpServer {
 			.await
 	}
 
-	/// A job's `jobs.info` record from the library that owns it. Jobs are
+	/// A job's `jobs.info` record and the library that answered. Jobs are
 	/// per library and an action may have run in any of them, so without an
 	/// explicit library the job is looked for in every library the daemon
-	/// lists, the selected one first.
-	async fn find_job(&self, job_id: Uuid, library_id: Option<Uuid>) -> Result<Value, String> {
-		let candidates = match library_id {
-			Some(id) => vec![id],
-			None => {
-				let mut ids = self.library_ids().await?;
-				if let Some(selected) = self.resolve_library(None).await? {
-					ids.retain(|id| *id != selected);
-					ids.insert(0, selected);
-				}
-				ids
-			}
-		};
-		for library in candidates {
+	/// lists, the selected one first. A library that does not own the job
+	/// answers null, which is what keeps the search going.
+	async fn find_job(&self, job_id: Uuid, candidates: &[Uuid]) -> Result<(Uuid, Value), String> {
+		for &library in candidates {
 			let info = self
 				.send(
 					Kind::Query,
@@ -308,7 +310,7 @@ impl McpServer {
 				)
 				.await?;
 			if !info.is_null() {
-				return Ok(info);
+				return Ok((library, info));
 			}
 		}
 		Err(format!("job {job_id} not found in any library"))
@@ -324,11 +326,16 @@ impl McpServer {
 			.get("timeout_seconds")
 			.and_then(Value::as_u64)
 			.unwrap_or(300);
-		let library_id = parse_library_id(arguments)?;
+		// Resolved once; after the first hit only the owning library is polled.
+		let mut candidates = match parse_library_id(arguments)? {
+			Some(id) => vec![id],
+			None => self.pick_library(self.library_ids().await?).await,
+		};
 		let deadline = tokio::time::Instant::now() + Duration::from_secs(timeout);
 
 		loop {
-			let info = self.find_job(job_id, library_id).await?;
+			let (library, info) = self.find_job(job_id, &candidates).await?;
+			candidates = vec![library];
 			let status = info.get("status").and_then(Value::as_str).unwrap_or("");
 			if matches!(status, "completed" | "failed" | "cancelled") {
 				return Ok(info);
