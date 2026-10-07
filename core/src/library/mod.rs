@@ -432,7 +432,23 @@ impl Library {
 	}
 
 	/// Shutdown the library, gracefully stopping all jobs
+	///
+	/// The lock file goes whatever happens on the way: a job manager that
+	/// could not pause a running job in time used to return early here and
+	/// leave the lock behind, so the next process in the same hour refused
+	/// the library as in use by a process that had already finished with it.
 	pub async fn shutdown(&self) -> Result<()> {
+		let result = self.shutdown_inner().await;
+		if let Ok(mut lock_guard) = self._lock.lock() {
+			if let Some(mut lock) = lock_guard.take() {
+				lock.release();
+				debug!("Library lock explicitly released during shutdown");
+			}
+		}
+		result
+	}
+
+	async fn shutdown_inner(&self) -> Result<()> {
 		debug!("Shutting down library {}", self.id());
 
 		// Stop sync service
@@ -479,15 +495,6 @@ impl Library {
 		// Clear device cache from DeviceManager
 		if let Err(e) = self.core_context.device_manager.clear_paired_device_cache() {
 			warn!("Failed to clear paired device cache: {}", e);
-		}
-
-		// Explicitly release the lock to ensure the lock file is removed
-		// even if there are lingering Arc references to the Library
-		if let Ok(mut lock_guard) = self._lock.lock() {
-			if let Some(mut lock) = lock_guard.take() {
-				lock.release();
-				debug!("Library lock explicitly released during shutdown");
-			}
 		}
 
 		Ok(())
