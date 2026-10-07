@@ -644,8 +644,23 @@ impl SourceDb {
 		let epoch = self.scan_epoch();
 		let mut applied = 0;
 
-		// Before the batch, so a directory written into the subtree by the same
-		// batch lands at its new address rather than being moved twice.
+		// Removals land first, so a record renamed over another in this
+		// batch takes its name without colliding on `(parent_uuid, title)`
+		// or, for a directory, on `directory_path.path`. A removal still
+		// wins over a write staged in the same batch: the write is skipped
+		// below rather than resurrecting the row. Facet rows and edges
+		// cascade. Assertions do not, by design: the row keeps its evidence
+		// and waits for a rebind.
+		let removed: HashSet<Uuid> = removals.iter().copied().collect();
+		for uuid in removals {
+			sqlx::query("DELETE FROM record WHERE uuid = ?")
+				.bind(uuid)
+				.execute(&mut *tx)
+				.await?;
+		}
+
+		// Before the writes, so a directory written into the subtree by the
+		// same batch lands at its new address rather than being moved twice.
 		for rename in renames {
 			sqlx::query(
 				"UPDATE directory_path
@@ -659,20 +674,6 @@ impl SourceDb {
 			.bind(format!("{}0", rename.from))
 			.execute(&mut *tx)
 			.await?;
-		}
-
-		// Removals land before writes, so a record renamed over another in
-		// this batch takes its name without colliding on `(parent_uuid,
-		// title)`. A removal still wins over a write staged in the same
-		// batch: the write is skipped below rather than resurrecting the
-		// row. Facet rows and edges cascade. Assertions do not, by design:
-		// the row keeps its evidence and waits for a rebind.
-		let removed: HashSet<Uuid> = removals.iter().copied().collect();
-		for uuid in removals {
-			sqlx::query("DELETE FROM record WHERE uuid = ?")
-				.bind(uuid)
-				.execute(&mut *tx)
-				.await?;
 		}
 
 		for index in parents_first(writes) {

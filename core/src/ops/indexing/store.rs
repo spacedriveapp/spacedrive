@@ -735,17 +735,25 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 				let _ = identities.send(resolved);
 			}
 			Ingest::Rename { from, observation } => {
-				// A rename over an existing file replaces it. The overwritten
-				// record goes in the same batch, where a removal lands ahead
-				// of the move and wins over any write staged for it, or the
-				// moved row collides with it on `(parent_uuid, title)`. Its
-				// content row stays: the bytes may still sit behind another
-				// record, and a hash is evidence worth keeping either way.
+				// A rename over an existing entry replaces it. The overwritten
+				// record, and anything still bound under it, goes in the same
+				// batch, where removals land ahead of the move and win over
+				// any write staged for them, or the moved row collides on
+				// `(parent_uuid, title)` or `directory_path.path`. Content
+				// rows stay: the bytes may still sit behind another record,
+				// and a hash is evidence worth keeping either way.
 				if from != observation.external_id && ledger.uuid_of(&from).is_some() {
-					if let Some(overwritten) = ledger.forget(&observation.external_id) {
-						removals.push(overwritten);
-					}
+					removals.extend(ledger.forget_tree(&observation.external_id));
 				}
+
+				// The mover rebinds first, at its old key: a directory's
+				// subtree is re-keyed next and would take that key with it,
+				// leaving the record to resolve as unchanged under its old
+				// title.
+				ensure_ancestors(&mut ledger, &observation.external_id, &mut writes);
+				let resolution = ledger
+					.rebind(&from, &observation)
+					.unwrap_or_else(|| ledger.resolve(&observation));
 
 				// A directory takes its subtree's addresses with it. Its own
 				// record moves; everything under it keeps its parent and its
@@ -760,10 +768,6 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 					});
 				}
 
-				ensure_ancestors(&mut ledger, &observation.external_id, &mut writes);
-				let resolution = ledger
-					.rebind(&from, &observation)
-					.unwrap_or_else(|| ledger.resolve(&observation));
 				if resolution.is_dirty() {
 					writes.push(FileWrite {
 						resolution,
@@ -866,7 +870,12 @@ async fn commit(
 				tracing::error!(%error, "removals and renames failed to land");
 				failed += (removals.len() + renames.len()) as u64;
 			}
-			for write in writes.iter() {
+			// A removal wins over a write staged for the same record, here
+			// as in the whole batch, or the salvage resurrects the row.
+			for write in writes
+				.iter()
+				.filter(|write| !removals.contains(&write.uuid()))
+			{
 				if let Err(error) = db
 					.apply_files(std::slice::from_ref(write), &[], &[], None)
 					.await
@@ -2055,6 +2064,32 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 			vec!["docs", "docs/fine.txt", "docs/good.txt"],
 			"the siblings survive the bad row"
 		);
+	}
+
+	/// A batch salvaged row by row keeps the removals-win rule: a record
+	/// created and lost in the batch that a bad sibling broke is not
+	/// re-inserted by the salvage.
+	#[tokio::test]
+	async fn a_salvaged_batch_does_not_resurrect_a_removed_record() {
+		let mut fixture = Fixture::new().await;
+		reject_title(fixture.store.db(), "bad.txt").await;
+
+		fixture.create("docs/good.txt", b"good").await;
+		fixture.create("docs/bad.txt", b"bad").await;
+		let gone = fixture.create("docs/gone.txt", b"gone").await;
+		std::fs::remove_file(&gone).expect("remove");
+		fixture.store.lost(&gone, false).await;
+
+		let error = fixture
+			.store
+			.flush()
+			.await
+			.expect_err("the bad row still fails the flush");
+		assert!(
+			error.to_string().contains("1 write(s) failed"),
+			"only the bad row is counted: {error}"
+		);
+		assert_eq!(fixture.paths().await, vec!["docs", "docs/good.txt"]);
 	}
 
 	/// R1 proof, R8 "One failed row and successful siblings" continued: an
