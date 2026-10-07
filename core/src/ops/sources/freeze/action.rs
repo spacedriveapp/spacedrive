@@ -64,10 +64,10 @@ impl LibraryAction for FreezeSourceAction {
 			ActionError::Internal(format!("no store open for {}", root.display()))
 		})?;
 
+		// Freezes sit beside the store they copy, wherever placement put it.
 		let dir = cache
-			.source_dirs()
-			.ok_or_else(|| ActionError::Internal("no sources directory".to_string()))?
-			.source_dir(source_id)
+			.store_dir(source_id)
+			.ok_or_else(|| ActionError::Internal("the source has no store directory".to_string()))?
 			.join("freezes");
 
 		let path = store

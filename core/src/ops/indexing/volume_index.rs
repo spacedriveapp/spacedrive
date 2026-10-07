@@ -510,7 +510,23 @@ impl VolumeIndex {
 		root: &Path,
 		volume: Option<VolumeAnchor>,
 	) -> anyhow::Result<Uuid> {
-		let record = self.registry.lock().register(root, volume.as_ref());
+		Ok(self.register_source_with(root, volume, None).await?.0)
+	}
+
+	/// [`Self::register_source`], adopting `adopt` as the new source's id when
+	/// a store on disk already carries that identity for this root. See
+	/// [`Self::portable_identity`]. The flag says whether the source was
+	/// already registered.
+	pub async fn register_source_with(
+		&self,
+		root: &Path,
+		volume: Option<VolumeAnchor>,
+		adopt: Option<Uuid>,
+	) -> anyhow::Result<(Uuid, bool)> {
+		let (record, existed) = self
+			.registry
+			.lock()
+			.register_with(root, volume.as_ref(), adopt);
 		self.persist(&record).await?;
 
 		// The partition belongs to the drive, so registering a source over an
@@ -523,7 +539,7 @@ impl VolumeIndex {
 		});
 		*slot.root.write() = Some(volume_root.clone());
 		slot.set_detached(!self.root_attached(&slot.volume, &volume_root));
-		Ok(record.id)
+		Ok((record.id, existed))
 	}
 
 	/// Write a record to the open library, if one is open.
@@ -597,6 +613,93 @@ impl VolumeIndex {
 		Ok(())
 	}
 
+	/// The directory a source's store lives in on this machine, resolved
+	/// from its placement and its current root. `None` for a source this
+	/// machine does not register, a cache with no persistence, or an
+	/// on-source store whose drive is away.
+	pub fn store_dir(&self, id: Uuid) -> Option<PathBuf> {
+		let record = self.registry.lock().by_id(id).cloned()?;
+		self.store_dir_of(&record)
+	}
+
+	fn store_dir_of(&self, record: &SourceRecord) -> Option<PathBuf> {
+		let dirs = self.dirs.as_ref()?;
+		super::sources::store_dir(record.config.placement, dirs, record.id, &record.root)
+	}
+
+	/// The identity a store already on disk holds for `root` under
+	/// `placement`, when one was written by `library_id` for the same volume
+	/// and path. Re-adding a scope then reopens its catalog rather than
+	/// starting an empty one beside it. `None` when no store binds, which
+	/// includes a store from another library or another drive.
+	pub async fn portable_identity(
+		&self,
+		root: &Path,
+		volume: Option<&VolumeAnchor>,
+		placement: super::sources::StorePlacement,
+		library_id: Uuid,
+	) -> Option<Uuid> {
+		let dirs = self.dirs.as_ref()?;
+		let (key, anchor) = SourceRegistry::key_for(root, volume);
+		let stores_dir = match placement {
+			super::sources::StorePlacement::InLibrary => dirs.root().to_path_buf(),
+			super::sources::StorePlacement::OnSource => super::sources::on_source_stores_dir(root),
+		};
+		let (id, _) = super::descriptor::SourceDescriptor::find_bound(
+			&stores_dir,
+			library_id,
+			anchor.map(|a| a.uuid),
+			&key,
+		)
+		.await?;
+		Some(id)
+	}
+
+	/// Write the source's descriptor beside its store, so the store can say
+	/// what it is wherever it ends up. Called after every registration and
+	/// settings change by the operation that knows which library it acts for.
+	pub async fn write_descriptor(&self, id: Uuid, library_id: Uuid) -> anyhow::Result<()> {
+		let record = self
+			.registry
+			.lock()
+			.by_id(id)
+			.cloned()
+			.ok_or_else(|| anyhow::anyhow!("source {id} is not registered"))?;
+		let Some(dir) = self.store_dir_of(&record) else {
+			return Ok(());
+		};
+		super::descriptor::SourceDescriptor::for_record(&record, library_id)
+			.write(&dir)
+			.await
+			.map_err(|e| anyhow::anyhow!("write descriptor for {id}: {e}"))
+	}
+
+	/// Drop a source's registration and retire its store handles, answering
+	/// with the record and the store directory it resolved to.
+	///
+	/// The store itself stays on disk: removal from the library is not
+	/// deletion of the catalog, and the caller decides whether anything is
+	/// deleted. The handles go because a writer left open over a directory
+	/// the caller may delete, or a later add may reopen under a new
+	/// registration, would keep writing into a file nothing reads.
+	pub async fn forget_source(&self, id: Uuid) -> Option<(SourceRecord, Option<PathBuf>)> {
+		let record = self.registry.lock().remove(id)?;
+		let dir = self.store_dir_of(&record);
+		let store = self.stores.write().remove(&id);
+		let reader = self.read_stores.write().remove(&id);
+		self.store_open_gates.lock().remove(&id);
+		if let Some(store) = store {
+			if let Err(error) = store.flush().await {
+				tracing::warn!(source = %id, %error, "store released without a clean flush");
+			}
+			store.db().pool().close().await;
+		}
+		if let Some(reader) = reader {
+			reader.pool().close().await;
+		}
+		Some((record, dir))
+	}
+
 	/// All registered sources with their live state.
 	pub fn sources(&self) -> Vec<SourceStatus> {
 		let (records, volumes): (Vec<SourceRecord>, Vec<VolumeKey>) = {
@@ -619,7 +722,7 @@ impl VolumeIndex {
 					restored: slot
 						.map(|s| s.restored.load(Ordering::Acquire))
 						.unwrap_or(false),
-					directory: self.dirs.as_ref().map(|d| d.source_dir(record.id)),
+					directory: self.store_dir_of(&record),
 					// The hot tier belongs to the map, so it is the drive's.
 					thumbs_path: self.dirs.as_ref().map(|d| d.thumbs_file(volume.id())),
 					id: record.id,
@@ -905,23 +1008,23 @@ impl VolumeIndex {
 			.map(|record| record.config.clone())
 	}
 
-	/// Update a source's capture policy, persisting the change.
-	pub async fn set_source_config(&self, id: Uuid, config: SourceConfig) {
+	/// Update a source's settings, persisting the change. An error means the
+	/// row did not take the change; the in-memory record did, so the caller
+	/// reports the add or update as failed rather than as saved.
+	pub async fn set_source_config(&self, id: Uuid, config: SourceConfig) -> anyhow::Result<()> {
 		let updated = self.registry.lock().set_config(id, config);
-		if let Some(updated) = updated {
-			if let Err(err) = self.persist(&updated).await {
-				tracing::error!(source = %id, %err, "could not persist capture policy");
-			}
+		match updated {
+			Some(updated) => self.persist(&updated).await,
+			None => anyhow::bail!("source {id} is not registered"),
 		}
 	}
 
 	/// Rename a source, persisting the change.
-	pub async fn set_source_name(&self, id: Uuid, name: String) {
+	pub async fn set_source_name(&self, id: Uuid, name: String) -> anyhow::Result<()> {
 		let updated = self.registry.lock().set_name(id, name);
-		if let Some(updated) = updated {
-			if let Err(err) = self.persist(&updated).await {
-				tracing::error!(source = %id, %err, "could not persist the rename");
-			}
+		match updated {
+			Some(updated) => self.persist(&updated).await,
+			None => anyhow::bail!("source {id} is not registered"),
 		}
 	}
 
@@ -963,7 +1066,8 @@ impl VolumeIndex {
 	/// arena the read path and the store an addition to it.
 	pub async fn store_for(&self, path: &Path) -> Option<Arc<SourceStore>> {
 		let record = self.registry.lock().resolve(path).cloned()?;
-		let dirs = self.dirs.as_ref()?;
+		let store_dir = self.store_dir_of(&record)?;
+		let stores_dir = store_dir.parent()?.to_path_buf();
 
 		if let Some(store) = self.stores.read().get(&record.id) {
 			return Some(store.clone());
@@ -986,7 +1090,7 @@ impl VolumeIndex {
 			return Some(store.clone());
 		}
 
-		let store = match SourceStore::open(dirs, record.id, record.root.clone()).await {
+		let store = match SourceStore::open(&stores_dir, record.id, record.root.clone()).await {
 			Ok(store) => store,
 			Err(error) => {
 				tracing::error!(source = %record.id, %error, "source store unavailable");
@@ -1023,7 +1127,18 @@ impl VolumeIndex {
 			return Some(db.clone());
 		}
 
-		let manager = sd_store::SourceManager::new(dirs.root().to_path_buf());
+		// A registered source reads from wherever its placement put the
+		// store; one this machine does not register, a replica being
+		// inspected by id, reads from the in-library layout.
+		let stores_dir = self
+			.registry
+			.lock()
+			.by_id(source_id)
+			.cloned()
+			.and_then(|record| self.store_dir_of(&record))
+			.and_then(|dir| dir.parent().map(Path::to_path_buf))
+			.unwrap_or_else(|| dirs.root().to_path_buf());
+		let manager = sd_store::SourceManager::new(stores_dir);
 		match manager
 			.open_read_only(&source_id.simple().to_string())
 			.await
@@ -3688,5 +3803,149 @@ mod tests {
 				"the displaced drive kept its own identity"
 			);
 		}
+	}
+
+	/// Add to Library placement: an on-source store resolves beneath the
+	/// root under `.spacedrive/sources/<id>`, opens there, and is reported
+	/// there, while an in-library store stays under the data directory. The
+	/// placement travels in the registration, so a fresh session resolves
+	/// the same directory from the row.
+	#[tokio::test]
+	async fn placement_resolves_the_store_directory() {
+		use crate::ops::indexing::sources::{SourceConfig, StorePlacement};
+
+		let cache_dir = tempfile::tempdir().unwrap();
+		let library = test_library(cache_dir.path()).await;
+		let drive_dir = tempfile::tempdir().unwrap();
+		let root = drive_dir.path().to_path_buf();
+		let anchor = tracked_volume(&library, &root).await;
+
+		let cache =
+			VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
+		cache.attach_library(library.clone()).await.expect("attach");
+		let id = cache
+			.register_source(&root, Some(anchor.clone()))
+			.await
+			.unwrap();
+		assert_eq!(
+			cache.store_dir(id),
+			Some(cache_dir.path().join(id.simple().to_string())),
+			"the default placement is the data directory"
+		);
+
+		cache
+			.set_source_config(
+				id,
+				SourceConfig {
+					placement: StorePlacement::OnSource,
+					..SourceConfig::default()
+				},
+			)
+			.await
+			.unwrap();
+		let expected = root
+			.join(".spacedrive")
+			.join("sources")
+			.join(id.simple().to_string());
+		assert_eq!(cache.store_dir(id), Some(expected.clone()));
+
+		let store = cache.store_for(&root.join("a.txt")).await.expect("store");
+		assert_eq!(store.id(), id);
+		assert!(
+			expected.join("data.db").exists(),
+			"the store was created beneath the source root"
+		);
+		assert!(
+			!cache_dir.path().join(id.simple().to_string()).exists(),
+			"nothing was created in the library for an on-source store"
+		);
+		let status = cache
+			.sources()
+			.into_iter()
+			.find(|status| status.id == id)
+			.unwrap();
+		assert_eq!(status.directory, Some(expected.clone()));
+
+		// A restarted daemon resolves the same directory from the row.
+		drop(store);
+		let cache =
+			VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
+		cache.attach_library(library).await.expect("attach");
+		assert_eq!(cache.store_dir(id), Some(expected));
+		assert!(
+			cache.read_store(id).await.is_some(),
+			"the on-source store reads back from where placement put it"
+		);
+	}
+
+	/// Removing a source retires its handles and leaves its catalog on
+	/// disk; adding the same scope again finds the catalog through its
+	/// descriptor and registers under the identity the store carries, so
+	/// the records and assertions it holds are the new registration's.
+	#[tokio::test]
+	async fn a_removed_source_is_readopted_from_its_descriptor() {
+		use crate::ops::indexing::sources::StorePlacement;
+
+		let cache_dir = tempfile::tempdir().unwrap();
+		let library = test_library(cache_dir.path()).await;
+		let library_id = Uuid::now_v7();
+		let drive_dir = tempfile::tempdir().unwrap();
+		let root = drive_dir.path().to_path_buf();
+		let anchor = tracked_volume(&library, &root).await;
+
+		let cache =
+			VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
+		cache.attach_library(library.clone()).await.expect("attach");
+		let id = cache
+			.register_source(&root, Some(anchor.clone()))
+			.await
+			.unwrap();
+		cache.write_descriptor(id, library_id).await.unwrap();
+		let store = cache.store_for(&root).await.expect("store");
+		let dir = cache.store_dir(id).unwrap();
+		assert!(dir.join("source.json").exists());
+		drop(store);
+
+		let (record, forgotten) = cache.forget_source(id).await.expect("registered");
+		assert_eq!(record.id, id);
+		assert_eq!(forgotten, Some(dir.clone()));
+		assert!(dir.join("data.db").exists(), "removal keeps the catalog");
+		assert!(cache.source_root(id).is_none(), "the registration is gone");
+		assert!(cache.store_for(&root).await.is_none());
+
+		// The same scope, the same library: the store's identity is adopted.
+		let found = cache
+			.portable_identity(&root, Some(&anchor), StorePlacement::InLibrary, library_id)
+			.await;
+		assert_eq!(found, Some(id));
+		let (again, existed) = cache
+			.register_source_with(&root, Some(anchor.clone()), found)
+			.await
+			.unwrap();
+		assert_eq!(again, id);
+		assert!(!existed);
+
+		// Another library, another drive, or another placement: not adopted.
+		assert!(cache
+			.portable_identity(
+				&root,
+				Some(&anchor),
+				StorePlacement::InLibrary,
+				Uuid::now_v7()
+			)
+			.await
+			.is_none());
+		let other = VolumeAnchor {
+			uuid: Uuid::now_v7(),
+			mount_point: root.clone(),
+		};
+		assert!(cache
+			.portable_identity(&root, Some(&other), StorePlacement::InLibrary, library_id)
+			.await
+			.is_none());
+		assert!(cache
+			.portable_identity(&root, Some(&anchor), StorePlacement::OnSource, library_id)
+			.await
+			.is_none());
 	}
 }

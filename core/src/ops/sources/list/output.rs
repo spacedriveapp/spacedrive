@@ -47,6 +47,13 @@ pub struct SourceInfo {
 	/// copy has not finished, which has no other row to appear in.
 	#[serde(default)]
 	pub transfer: Option<crate::service::mounts::replication::ReplicaTransferProgress>,
+	/// Where the catalog lives. Absent for an adapter source and a replica,
+	/// whose stores sit in their own layouts.
+	#[serde(default)]
+	pub placement: Option<crate::ops::indexing::sources::StorePlacement>,
+	/// The catalog's directory on this machine, when this machine has it.
+	#[serde(default)]
+	pub store_path: Option<String>,
 }
 
 impl SourceInfo {
@@ -68,6 +75,7 @@ impl SourceInfo {
 		let item_count = row.record_count.unwrap_or(0);
 		let total_bytes = row.total_bytes;
 		let record = SourceRecord::from_row(row, mount_point);
+		let placement = adapter_id.is_none().then_some(record.config.placement);
 
 		// An adapter's origin is a network service rather than a drive, so it
 		// is attached in the only sense the word has here.
@@ -94,6 +102,8 @@ impl SourceInfo {
 			device_id: None,
 			device_label: None,
 			transfer: None,
+			placement,
+			store_path: None,
 		}
 	}
 
@@ -130,6 +140,8 @@ impl SourceInfo {
 			device_id: Some(device_id),
 			device_label: Some(device_label.to_string()),
 			transfer: crate::service::mounts::replication::transfer(entry.info.id),
+			placement: None,
+			store_path: None,
 		}
 	}
 
@@ -160,6 +172,8 @@ impl SourceInfo {
 			device_id: Some(transfer.device_id),
 			device_label: Some(transfer.device_label.clone()),
 			transfer: Some(transfer.clone()),
+			placement: None,
+			store_path: None,
 		}
 	}
 
@@ -192,6 +206,8 @@ impl SourceInfo {
 			device_id: Some(share.device_id),
 			device_label: Some(share.device_label.clone()),
 			transfer: crate::service::mounts::replication::transfer(share.info.id),
+			placement: None,
+			store_path: None,
 		}
 	}
 }
