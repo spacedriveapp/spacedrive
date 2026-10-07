@@ -43,8 +43,10 @@ How the suites run:
   re-invoked on one ignored test) because the tracing subscriber and
   `KeyManager::close`'s redb file are process-global.
 - `crates/store/tests` run as the "Store crate tests" suite.
-- `core/tests/dedupe_own_hash_test.rs` is SPAC-19's P1a test on the
-  `addressing-p0-p1a` branch (#3112); it is cited, not duplicated.
+- `core/tests/dedupe_own_hash_test.rs` is SPAC-19's P1a test (#3112,
+  merged); it is cited, not duplicated.
+- In `xtask test-core` the new suites sit in the `acceptance` group, which
+  `core_tests.yml` runs as its own job beside `unit` and `integration`.
 
 Run an ignored row by name, for example:
 
@@ -68,7 +70,7 @@ cargo test -p sd-core --lib acceptance::a_trashed_file_is_listed_with_its_locati
 | D1 | Tag definitions, applications, removals, HLCs and device identities live in source stores under the new model | `crates/store/tests/tags.rs` (whole file; the tags plan's acceptance), `core/tests/source_runtime_acceptance_test.rs` `a_store_only_filter_narrows_before_pagination` (a tag filter answered from the store) | passing |
 | D2 | Reindexing or evicting a source leaves its assertion tables unchanged (release gate "source reindex preserves assertions") | `entries_drop_acceptance_test.rs` `tags_survive_a_source_reindex` (arena cleared, source walked again; `tag_assertion` rows identical, record keeps its uuid, tag still reaches it); `crates/store/tests/tags.rs` `assertions_survive_generation_loss_and_rebind`; `crates/store/tests/files.rs` `a_moved_file_carries_its_assertions_with_it`, `a_removal_takes_the_facet_and_leaves_the_assertion` | passing |
 | D3 | A source store moved to a clean library remains self-describing | `entries_drop_acceptance_test.rs` `a_frozen_store_describes_itself_and_is_not_written_by_a_reader` (a frozen copy opened from another directory with no registry row answers its schema, records and tags) | passing |
-| D4 | Frozen copies are byte-for-byte untouched; live stores change only through tested migrations | same test (blake3 of the freeze and of the moved copy unchanged after reading); `crates/store/tests/migrate.rs` on `addressing-p0-p1a` (#3112) for the migration half | passing |
+| D4 | Frozen copies are byte-for-byte untouched; live stores change only through tested migrations | same test (blake3 of the freeze and of the moved copy unchanged after reading); `crates/store/tests/migrate.rs` (#3112) for the migration half | passing |
 | D5 | An upgraded library keeps every user assertion and converges on the 14-table schema | `entries_drop_acceptance_test.rs` `a_pre_drop_library_upgrades_to_the_fourteen_table_schema` (the pre-drop chain applied, rows in `spaces`/`space_items` including a Location item, then the drop: fourteen tables, pin intact, Location item deleted, `integrity_check` ok, re-running the chain is a no-op) | passing |
 
 ## FDA: product behavior
@@ -100,7 +102,7 @@ confirmed integrity hashes, measure preview time, confirm no write.
 | V1 | Validate and record the findings; preview and check the summary against a sample | `core/src/ops/files/merge/tests.rs` `a_plan_sorts_every_kind_of_leaf`, `validation_refuses_what_cannot_run_and_previews_a_detached_source`, `a_full_disk_is_a_warning_with_numbers` | passing |
 | V2 | Consuming merge with `Skip`: the source retains exactly the conflicts and policy skips | `merge/tests.rs` `policies_apply_and_a_consuming_merge_prunes_the_source`, `the_job_settles_every_leaf_against_the_live_tree` | passing |
 | V3 | No destination file changed without a `Replace` or `KeepBoth` entry | `core/src/ops/files/acceptance.rs` `a_merge_changes_no_destination_file_the_plan_did_not_name` (every changed byte has a `Replace` row; unnamed files hold their bytes) | passing |
-| V4 | Skipped duplicates carry confirmed integrity hashes (release gate "candidate content does not authorize deletion") | `merge/tests.rs` `a_plan_sorts_every_kind_of_leaf` (candidate vs confirmed skip tiers); `acceptance.rs` `dedupe_keeps_a_copy_whose_bytes_differ_from_its_keeper`; `core/tests/dedupe_own_hash_test.rs` on #3112 (store-side: a sampled write never lands on a confirmed row) | passing |
+| V4 | Skipped duplicates carry confirmed integrity hashes (release gate "candidate content does not authorize deletion") | `merge/tests.rs` `a_plan_sorts_every_kind_of_leaf` (candidate vs confirmed skip tiers); `acceptance.rs` `dedupe_keeps_a_copy_whose_bytes_differ_from_its_keeper`; `core/tests/dedupe_own_hash_test.rs` (#3112; store-side: a sampled write never lands on a confirmed row) | passing |
 | V5 | Preflight copy, move, merge, delete and dedupe previews match what the jobs do on the fixture | `acceptance.rs` `preview_rows_match_execution_for_copy_move_merge_and_delete` (the plan's projection of each root equals the files the job leaves there) | passing |
 | V6 | Measure preview time from the index on the largest source | `acceptance.rs` `a_batch_rename_preview_over_a_thousand_files_answers_within_the_ceiling` (CI-sized stand-in: 1,000 files validate and preview under 10 s); the merge-preview measurement itself is live only | passing (stand-in) / live only (measurement) |
 | V7 | Neither method made a filesystem write | `acceptance.rs` `preflight_makes_no_filesystem_write_and_moves_no_revision` (every byte on disk and every store revision unchanged after validate and preview of six operations) | passing |

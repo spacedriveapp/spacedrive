@@ -44,10 +44,12 @@ pub struct FsEntry {
 	pub gid: Option<i64>,
 	pub content_uuid: Option<Uuid>,
 	/// The two rungs of the content's hash ladder: the sampled hash every
-	/// store keys the content by, and the integrity hash once every byte has
-	/// been read. Two stores agree on the sampled hash for the same bytes
-	/// whatever rung each has reached, which the uuid does not promise, as it
-	/// re-derives from the integrity hash when that lands.
+	/// store keys the content by, and the integrity hash once every byte of
+	/// this file has been read. The integrity hash is this file's own, never
+	/// one inherited from another copy, so a deletion may trust it. Two
+	/// stores agree on the sampled hash for the same bytes whatever rung each
+	/// has reached, which the uuid does not promise, as it re-derives from
+	/// the integrity hash when that lands.
 	pub sampled_hash: Option<String>,
 	pub integrity_hash: Option<String>,
 	pub content_kind: Option<i64>,
@@ -364,16 +366,18 @@ async fn beneath(
 }
 
 /// Which of `contents`, by sampled hash, some file beneath the directory at
-/// `scope` holds, "" for the whole source, each with the integrity hash its
-/// content row carries once every byte has been read. Answered from the
-/// content and record indexes a chunk at a time, so asking about a page of
-/// files costs a page of lookups rather than a read of the store.
+/// `scope` holds, "" for the whole source, each with the integrity hashes
+/// the content rows for that sampled hash carry: `None` for the candidate
+/// row, whose files have not been read in full, one entry per confirmed row.
+/// Answered from the content and record indexes a chunk at a time, so asking
+/// about a page of files costs a page of lookups rather than a read of the
+/// store.
 pub async fn contents_beneath(
 	pool: &SqlitePool,
 	contents: &[String],
 	scope: &str,
-) -> Result<HashMap<String, Option<String>>> {
-	let mut present = HashMap::new();
+) -> Result<HashMap<String, Vec<Option<String>>>> {
+	let mut present: HashMap<String, Vec<Option<String>>> = HashMap::new();
 	for chunk in contents.chunks(LOOKUP_CHUNK) {
 		let statement = contents_statement(chunk.len(), scope);
 		let mut query = sqlx::query_as::<_, (String, Option<String>)>(&statement.sql);
@@ -383,15 +387,18 @@ pub async fn contents_beneath(
 		for value in &statement.binds {
 			query = query.bind(value);
 		}
-		present.extend(query.fetch_all(pool).await?);
+		for (sampled, integrity) in query.fetch_all(pool).await? {
+			present.entry(sampled).or_default().push(integrity);
+		}
 	}
 	Ok(present)
 }
 
-/// One file beneath the directory at `scope` for each of `contents`, by
-/// sampled hash, that some file there holds. A store keys a content by its
-/// sampled hash, so every file holding one is believed to hold the same
-/// bytes, and reading one of them in full settles the content for all.
+/// One file beneath the directory at `scope` for each content row among
+/// `contents`, by sampled hash, that some file there holds. Every file on a
+/// row is believed to hold the same bytes, so reading one of them in full
+/// speaks for the row; a sampled hash with a candidate row and a confirmed
+/// row answers with one file from each.
 pub async fn holders_beneath(
 	pool: &SqlitePool,
 	contents: &[String],
@@ -444,7 +451,10 @@ pub async fn content_holders(
 
 /// The sampled hashes of contents that more than one file beneath the
 /// directory at `scope` holds, "" for the whole source, of at least
-/// `min_size` bytes. One pass over the content and record indexes.
+/// `min_size` bytes. Grouped by sampled hash across candidate and confirmed
+/// rows, so a verified copy and an unverified one of the same bytes count as
+/// a pair; whoever acts on the pair reads the unverified side before trusting
+/// it. One pass over the content and record indexes.
 pub async fn duplicated_contents_beneath(
 	pool: &SqlitePool,
 	scope: &str,
@@ -457,7 +467,7 @@ pub async fn duplicated_contents_beneath(
 		"SELECT c.sampled_hash FROM content c \
 		 JOIN record r ON r.content_id = c.id \
 		 LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid \
-		 WHERE {} GROUP BY c.id HAVING COUNT(*) > 1",
+		 WHERE {} GROUP BY c.sampled_hash HAVING COUNT(*) > 1",
 		conditions.join(" AND ")
 	);
 	let mut query = sqlx::query_scalar::<_, String>(&sql).bind(min_size);

@@ -159,7 +159,7 @@ pub async fn resolve(
 					else {
 						continue;
 					};
-					let copies = sd_store::copies_of_content(db.pool(), content).await;
+					let copies = sd_store::copies_of_content(&db, content).await;
 					db.pool().close().await;
 					let copies = match copies {
 						Ok(copies) => copies,

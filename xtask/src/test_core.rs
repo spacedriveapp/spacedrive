@@ -16,6 +16,21 @@ pub struct TestSuite {
 	pub package: &'static str,
 	/// Specific args that go between the common prefix and suffix
 	pub test_args: &'static [&'static str],
+	/// Which CI job runs it.
+	pub group: Group,
+}
+
+/// The CI job a suite belongs to. Each group is one runner, so the split is
+/// about wall time: the integration group sits near the hour and anything
+/// new goes in its own job rather than on top of it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Group {
+	/// The `--lib` suite
+	Unit,
+	/// The original `--test` suites
+	Integration,
+	/// The acceptance-matrix suites (docs/core/acceptance/)
+	Acceptance,
 }
 
 impl TestSuite {
@@ -34,6 +49,21 @@ const fn core(name: &'static str, test_args: &'static [&'static str]) -> TestSui
 		name,
 		package: "sd-core",
 		test_args,
+		group: Group::Integration,
+	}
+}
+
+/// A suite in the acceptance group.
+const fn acceptance(
+	package: &'static str,
+	name: &'static str,
+	test_args: &'static [&'static str],
+) -> TestSuite {
+	TestSuite {
+		name,
+		package,
+		test_args,
+		group: Group::Acceptance,
 	}
 }
 
@@ -43,7 +73,12 @@ const fn core(name: &'static str, test_args: &'static [&'static str]) -> TestSui
 /// Add or remove tests here and they'll automatically apply to both
 /// CI workflows and local test scripts.
 pub const CORE_TESTS: &[TestSuite] = &[
-	core("All core unit tests", &["--lib"]),
+	TestSuite {
+		name: "All core unit tests",
+		package: "sd-core",
+		test_args: &["--lib"],
+		group: Group::Unit,
+	},
 	core(
 		"Database migration test",
 		&["--test", "database_migration_test"],
@@ -84,35 +119,51 @@ pub const CORE_TESTS: &[TestSuite] = &[
 	core("Sync backfill test", &["--test", "sync_backfill_test"]),
 	core("Sync catch-up test", &["--test", "sync_catchup_test"]),
 	core("Library join test", &["--test", "library_join_test"]),
+	core("Dedupe own hash test", &["--test", "dedupe_own_hash_test"]),
 	// R8 source runtime acceptance (docs/core/acceptance/source-runtime.md):
 	// the single-daemon rows, the two-process replication rows, and the
 	// store crate's own suites, which carry the store-level rows.
-	core(
+	acceptance(
+		"sd-core",
 		"Source runtime acceptance test",
 		&["--test", "source_runtime_acceptance_test"],
 	),
-	core(
+	acceptance(
+		"sd-core",
 		"Source replication test",
 		&["--test", "source_replication_test"],
 	),
-	TestSuite {
-		name: "Store crate tests",
-		package: "sd-store",
-		test_args: &[],
-	},
+	acceptance("sd-store", "Store crate tests", &[]),
 	// FDA entries drop and file operations acceptance
 	// (docs/core/acceptance/entries-drop-and-file-operations.md): the
 	// single-daemon rows, plus the product-behavior suites the matrix cites
 	// that were not yet registered.
-	core(
+	acceptance(
+		"sd-core",
 		"Entries drop acceptance test",
 		&["--test", "entries_drop_acceptance_test"],
 	),
-	core("Copy action test", &["--test", "copy_action_test"]),
-	core("Delete strategy test", &["--test", "delete_strategy_test"]),
-	core("Search test", &["--test", "search_test"]),
-	core("Folder rename test", &["--test", "folder_rename_test"]),
-	core("Resource events test", &["--test", "resource_events_test"]),
+	acceptance(
+		"sd-core",
+		"Copy action test",
+		&["--test", "copy_action_test"],
+	),
+	acceptance(
+		"sd-core",
+		"Delete strategy test",
+		&["--test", "delete_strategy_test"],
+	),
+	acceptance("sd-core", "Search test", &["--test", "search_test"]),
+	acceptance(
+		"sd-core",
+		"Folder rename test",
+		&["--test", "folder_rename_test"],
+	),
+	acceptance(
+		"sd-core",
+		"Resource events test",
+		&["--test", "resource_events_test"],
+	),
 	// core("Sync event log test", &["--test", "sync_event_log_test"]),
 	// core("Sync metrics test", &["--test", "sync_metrics_test"]),
 	// core("Sync backfill test", &["--test", "sync_backfill_test"]),
@@ -120,24 +171,19 @@ pub const CORE_TESTS: &[TestSuite] = &[
 
 /// Which part of `CORE_TESTS` to run
 ///
-/// CI runs the unit tests and the integration suites as two jobs so they
-/// compile and run in parallel; locally the default runs everything.
+/// CI runs each group as its own job so they compile and run in parallel;
+/// locally the default runs everything.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Selection {
 	All,
-	/// Only the `--lib` suite
-	Unit,
-	/// Every `--test` suite
-	Integration,
+	Group(Group),
 }
 
 impl Selection {
 	fn includes(self, suite: &TestSuite) -> bool {
-		let is_unit = suite.test_args.first() == Some(&"--lib");
 		match self {
 			Selection::All => true,
-			Selection::Unit => is_unit,
-			Selection::Integration => !is_unit,
+			Selection::Group(group) => suite.group == group,
 		}
 	}
 }

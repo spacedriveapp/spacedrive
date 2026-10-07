@@ -34,6 +34,11 @@ jobs:
               cargo test -p sd-fs-watcher --lib
           - name: integration
             run: cargo run -p xtask -- test-core --integration --verbose
+          # The R8 source runtime acceptance suites (docs/core/acceptance/
+          # source-runtime.md). Their own job because the integration job
+          # already sits at the hour on a cold cache.
+          - name: acceptance
+            run: cargo run -p xtask -- test-core --acceptance --verbose
     name: Core Tests (${{ matrix.suite.name }}, ubuntu-24.04)
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 90

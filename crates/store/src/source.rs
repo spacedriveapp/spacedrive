@@ -93,9 +93,12 @@ impl SourceManager {
 		Ok(())
 	}
 
-	/// Apply the record table and the data type's facet DDL. Idempotent.
+	/// Bring the store to the current schema version, then apply the record
+	/// table and the data type's facet DDL. The DDL is idempotent; the
+	/// migrations run once each and only on a writer.
 	async fn apply_schema(pool: &SqlitePool, schema: &DataTypeSchema) -> Result<()> {
 		Self::refuse_unaddressable_generation(pool).await?;
+		crate::migrate::run(pool).await?;
 		sqlx::raw_sql(RECORD_SCHEMA).execute(pool).await?;
 		for sql in &generate_ddl(schema) {
 			sqlx::query(sql).execute(pool).await?;
@@ -168,7 +171,7 @@ impl SourceManager {
 		Self::apply_schema(&pool, &schema).await?;
 
 		let epoch = crate::record::next_scan_epoch(&pool).await? - 1;
-		let db = SourceDb::new(pool, schema, epoch.max(0));
+		let db = SourceDb::new(pool, schema, epoch.max(0), crate::migrate::SCHEMA_VERSION);
 		db.ensure_facet_columns().await?;
 		crate::revision::install(db.pool(), db.schema()).await?;
 
@@ -182,8 +185,22 @@ impl SourceManager {
 	/// effect a walk or a watcher could observe. The generation check still
 	/// applies: an unaddressable store is refused intact rather than read
 	/// through a shape it does not have.
+	///
+	/// A local store below the current schema version is opened as a writer
+	/// first, which migrates it, so a reader of this machine's own stores
+	/// never has to handle an old shape. A replica is not local and goes
+	/// through [`Self::open_file_read_only`] instead.
 	pub async fn open_read_only(&self, source_id: &str) -> Result<SourceDb> {
-		Self::open_file_read_only(&self.sources_dir.join(source_id).join("data.db")).await
+		let db_path = self.sources_dir.join(source_id).join("data.db");
+		let db = Self::open_file_read_only(&db_path).await?;
+		if db.schema_version() >= crate::migrate::SCHEMA_VERSION {
+			return Ok(db);
+		}
+
+		db.pool().close().await;
+		let writer = self.open(source_id).await?;
+		writer.pool().close().await;
+		Self::open_file_read_only(&db_path).await
 	}
 
 	/// The same read-only open against a database file wherever it lives.
@@ -197,9 +214,16 @@ impl SourceManager {
 		let pool = open_pool_read_only(db_path).await?;
 		Self::refuse_unaddressable_generation(&pool).await?;
 		let schema = Self::load_schema(&pool).await?;
+		let version = crate::migrate::version(&pool).await?;
+		if version > crate::migrate::SCHEMA_VERSION {
+			return Err(Error::UnsupportedGeneration(format!(
+				"store schema version {version} is newer than this build's {}",
+				crate::migrate::SCHEMA_VERSION
+			)));
+		}
 
 		// The epoch only stamps writes, which this handle cannot make.
-		Ok(SourceDb::new(pool, schema, 0))
+		Ok(SourceDb::new(pool, schema, 0, version))
 	}
 
 	/// Open a source index, applying any safe schema migrations first.
@@ -225,7 +249,12 @@ impl SourceManager {
 		}
 
 		let epoch = crate::record::next_scan_epoch(&pool).await? - 1;
-		let db = SourceDb::new(pool, current_schema.clone(), epoch.max(0));
+		let db = SourceDb::new(
+			pool,
+			current_schema.clone(),
+			epoch.max(0),
+			crate::migrate::SCHEMA_VERSION,
+		);
 		db.ensure_facet_columns().await?;
 		crate::revision::install(db.pool(), db.schema()).await?;
 

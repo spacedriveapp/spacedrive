@@ -20,12 +20,13 @@ How the suites run:
 
 - Colocated tests (`core/src/...`) run in the `--lib` suite of
   `cargo xtask test-core --unit`.
-- `crates/store/tests` run as the "Store crate tests" suite of
-  `cargo xtask test-core --integration`.
-- `core/tests/source_runtime_acceptance_test.rs` is one `Core` over
-  temporary directories (the single-daemon rows).
-- `core/tests/source_replication_test.rs` is two daemons in separate
-  processes paired over loopback (the peer rows).
+- The other three run as `cargo xtask test-core --acceptance`, the
+  `acceptance` job of `core_tests.yml`:
+  `crates/store/tests` ("Store crate tests");
+  `core/tests/source_runtime_acceptance_test.rs`, one `Core` over temporary
+  directories (the single-daemon rows);
+  `core/tests/source_replication_test.rs`, two daemons in separate processes
+  paired over loopback (the peer rows).
 
 Run an ignored row by name, for example:
 
