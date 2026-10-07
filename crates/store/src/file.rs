@@ -931,7 +931,11 @@ type DuplicateRow = (
 /// group with the still-unread copies, and two files proven to hold
 /// different bytes are never listed together. The `content_uuid` reported
 /// is the confirmed uuid for a group anchored on a confirmed row and the
-/// candidate uuid otherwise. What this cannot see is the copy that exists
+/// candidate uuid otherwise. The store reads the `group_limit` largest
+/// sampled-hash groups, so a sampled hash whose members all split apart
+/// counts against the limit without producing a group; the caller asked
+/// for at most that many and gets at most that many. What this cannot see
+/// is the copy that exists
 /// once here and once on another drive: each store only knows its own, and
 /// finding those means an index of content uuids across all of them.
 pub async fn duplicate_copies(
@@ -947,6 +951,8 @@ pub async fn duplicate_copies(
 				WHERE c.sampled_hash IS NOT NULL AND COALESCE(c.size, 0) >= ?
 				GROUP BY c.sampled_hash
 				HAVING COUNT(*) > 1
+				ORDER BY size DESC
+				LIMIT ?
 			)
 			SELECT c.sampled_hash, c.uuid, c.integrity_hash, c.size,
 			       r.uuid, r.parent_uuid, d.path, r.title
@@ -957,6 +963,7 @@ pub async fn duplicate_copies(
 			ORDER BY duplicated.size DESC, c.sampled_hash, r.title",
 	)
 	.bind(min_size)
+	.bind(group_limit as i64)
 	.fetch_all(pool)
 	.await?;
 
