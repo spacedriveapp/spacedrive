@@ -628,7 +628,7 @@ async fn a_frozen_store_describes_itself_and_is_not_written_by_a_reader() -> any
 		Some("todo.md".to_string())
 	);
 	assert_eq!(
-		sd_store::tags::records_for_tag(reader.pool(), tag).await?,
+		sd_store::tags::records_for_tag(&reader, tag).await?,
 		vec![record]
 	);
 	assert_eq!(
