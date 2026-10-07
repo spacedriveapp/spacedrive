@@ -324,6 +324,92 @@ async fn late_binding_fills_the_content_key() {
 	assert_eq!(with_tag, both);
 }
 
+/// A tag applied while the bytes were only a guess keeps reaching every copy
+/// after each copy is read in full, whether the copies confirm together or
+/// one of them confirms first and the other stays a candidate.
+#[tokio::test]
+async fn a_content_tag_applied_before_verification_reaches_every_copy_afterwards() {
+	let fixture = Fixture::new().await;
+	let db = fixture.create("src-1").await;
+	let device = Uuid::new_v4();
+
+	let original = db
+		.upsert("note", "note-1", &json!({ "title": "Photo" }))
+		.await
+		.expect("upsert");
+	let copy = db
+		.upsert("note", "note-2", &json!({ "title": "Photo copy" }))
+		.await
+		.expect("upsert");
+	let guess = ContentIdentity {
+		sampled_hash: Some("abc123".to_string()),
+		integrity_hash: None,
+		size: Some(42),
+		kind: None,
+	};
+	db.set_content_identity(original, &guess)
+		.await
+		.expect("content");
+	db.set_content_identity(copy, &guess)
+		.await
+		.expect("content");
+
+	let tag = definition("Photos/Best", 100, device);
+	db.upsert_tag_definitions(std::slice::from_ref(&tag))
+		.await
+		.expect("definition");
+	let mut on_bytes = apply(&tag, original, 110, device);
+	on_bytes.content_uuid = Some(uuid_for("abc123"));
+	db.append_tag_assertions(&[on_bytes]).await.expect("append");
+
+	let mut both = vec![original, copy];
+	both.sort();
+	async fn with_tag(db: &sd_store::db::SourceDb, tag: Uuid) -> Vec<Uuid> {
+		let mut with_tag = db.records_with_tag(tag).await.expect("read");
+		with_tag.sort();
+		with_tag
+	}
+
+	// The original confirms; the copy is still a candidate.
+	let read_in_full = ContentIdentity {
+		integrity_hash: Some("full-abc".to_string()),
+		..guess.clone()
+	};
+	db.set_content_identity(original, &read_in_full)
+		.await
+		.expect("confirm original");
+	assert_eq!(with_tag(&db, tag.uuid).await, both);
+	let state = db.tags_for_records(&[original, copy]).await.expect("state");
+	assert_eq!(state[&original][0].path, "Photos/Best");
+	assert_eq!(state[&copy][0].path, "Photos/Best");
+
+	// The anchored assertion now carries the confirmed uuid, and the copy
+	// confirms onto the same row.
+	let key: Uuid =
+		sqlx::query_scalar("SELECT content_uuid FROM tag_assertion WHERE record_uuid = ?")
+			.bind(original)
+			.fetch_one(db.pool())
+			.await
+			.expect("key");
+	assert_eq!(key, uuid_for("full-abc"));
+	db.set_content_identity(copy, &read_in_full)
+		.await
+		.expect("confirm copy");
+	assert_eq!(with_tag(&db, tag.uuid).await, both);
+
+	// A third copy that only samples alike is reached by the candidate uuid
+	// the tag was applied under, through the confirmed row's candidate key.
+	let third = db
+		.upsert("note", "note-3", &json!({ "title": "Lookalike" }))
+		.await
+		.expect("upsert");
+	db.set_content_identity(third, &guess)
+		.await
+		.expect("content");
+	let state = db.tags_for_records(&[third]).await.expect("state");
+	assert_eq!(state[&third][0].path, "Photos/Best");
+}
+
 #[tokio::test]
 async fn assertions_survive_generation_loss_and_rebind() {
 	let fixture = Fixture::new().await;

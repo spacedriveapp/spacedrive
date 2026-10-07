@@ -1,7 +1,7 @@
 # Addressing: Stable Names and One Resolver
 
-> Status: proposed 2026-09-25. P0 and P1 are ready to start; D1 to D6 are
-> James's.
+> Status: proposed 2026-09-25. P0 and P1a landed 2026-10-06; P1b and P1c are
+> ready to start; D1 to D6 are James's.
 > Captured: 2026-09-25, measured against `66b4a0c14`
 > Owns: what an address names and how it resolves: device and cloud identity
 > in `SdPath`, the content reference, the durable source-relative target and

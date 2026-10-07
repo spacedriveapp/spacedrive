@@ -112,6 +112,10 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		name: "Library join test",
 		test_args: &["--test", "library_join_test"],
 	},
+	TestSuite {
+		name: "Dedupe own hash test",
+		test_args: &["--test", "dedupe_own_hash_test"],
+	},
 	// TestSuite {
 	// 	name: "Sync event log test",
 	// 	test_args: &["--test", "sync_event_log_test"],

@@ -497,15 +497,20 @@ fn same_bytes(a: &FsEntry, b: &FsEntry) -> bool {
 }
 
 /// Whether the other side holds a file's bytes, from what it answered about
-/// the file's batch: `None` for a file with nothing to ask by. Where both
-/// sides have read the bytes in full the integrity hashes decide; otherwise
-/// the sampled match stands.
-fn holds(held: &HashMap<String, Option<String>>, entry: &FsEntry) -> Option<bool> {
+/// the file's batch: `None` for a file with nothing to ask by. Where this
+/// file and a copy over there have both been read in full the integrity
+/// hashes decide; a copy over there that has not been read in full, or a
+/// file here that has not, lets the sampled match stand.
+fn holds(held: &HashMap<String, Vec<Option<String>>>, entry: &FsEntry) -> Option<bool> {
 	let sampled = entry.sampled_hash.as_deref()?;
-	Some(match (held.get(sampled), entry.integrity_hash.as_deref()) {
-		(None, _) => false,
-		(Some(Some(theirs)), Some(ours)) => theirs == ours,
-		(Some(_), None) | (Some(None), _) => true,
+	let Some(theirs) = held.get(sampled) else {
+		return Some(false);
+	};
+	Some(match entry.integrity_hash.as_deref() {
+		Some(ours) => theirs
+			.iter()
+			.any(|hash| hash.as_deref().is_none_or(|hash| hash == ours)),
+		None => true,
 	})
 }
 
@@ -757,21 +762,20 @@ impl Folder {
 	}
 
 	/// Which of `contents`, by sampled hash, some file beneath this side's
-	/// folder holds, with the content's integrity hash where the store
-	/// holding it has read the bytes in full.
-	async fn holding(&self, contents: &[String]) -> QueryResult<HashMap<String, Option<String>>> {
-		let mut held: HashMap<String, Option<String>> = HashMap::new();
+	/// folder holds, with the integrity hash of every content row holding
+	/// it: `None` for a row whose files have not been read in full, one per
+	/// row whose files have.
+	async fn holding(
+		&self,
+		contents: &[String],
+	) -> QueryResult<HashMap<String, Vec<Option<String>>>> {
+		let mut held: HashMap<String, Vec<Option<String>>> = HashMap::new();
 		for stream in &self.streams {
 			let found = sd_store::read::contents_beneath(stream.db.pool(), contents, &stream.scope)
 				.await
 				.map_err(read_failed)?;
-			// Of the stores holding a content, one that has read it in full
-			// answers for it.
 			for (sampled, integrity) in found {
-				let known = held.entry(sampled).or_insert(None);
-				if known.is_none() {
-					*known = integrity;
-				}
+				held.entry(sampled).or_default().extend(integrity);
 			}
 		}
 		Ok(held)

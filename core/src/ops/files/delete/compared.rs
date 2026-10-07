@@ -197,9 +197,9 @@ async fn settle(
 	}
 
 	// The copies in B, settled once each: by path the file at the same
-	// place, by content one holder per content, which stands for every file
-	// in B holding it.
-	let mut theirs: Vec<Option<Result<String, String>>> = Vec::with_capacity(files.len());
+	// place, by content one holder per content row, which stands for every
+	// file in B on that row.
+	let mut theirs: Vec<Option<Vec<Result<String, String>>>> = Vec::with_capacity(files.len());
 	match by {
 		CompareBy::Path => {
 			let mut settled = futures::stream::iter(copies)
@@ -213,7 +213,7 @@ async fn settle(
 			while let Some(copy) = settled.next().await {
 				theirs.push(copy.map(|(hash, learnt)| {
 					learned.extend(learnt);
-					hash
+					vec![hash]
 				}));
 			}
 		}
@@ -222,8 +222,11 @@ async fn settle(
 				.iter()
 				.filter_map(|file| file.entry.sampled_hash.clone())
 				.collect();
+			// B may hold a sampled hash on more than one content row, one
+			// per set of bytes read in full plus one for the unread copies,
+			// so every holder is read and a file in A matches any of them.
 			let holders = matcher.holders(&contents).await.map_err(failed)?;
-			let mut held: HashMap<String, Result<String, String>> = HashMap::new();
+			let mut held: HashMap<String, Vec<Result<String, String>>> = HashMap::new();
 			let mut settled = futures::stream::iter(holders)
 				.map(|holder| async move {
 					let (hash, learnt) = integrity(&holder).await;
@@ -233,7 +236,7 @@ async fn settle(
 			while let Some((sampled, hash, learnt)) = settled.next().await {
 				learned.extend(learnt);
 				if let Some(sampled) = sampled {
-					held.insert(sampled, hash);
+					held.entry(sampled).or_default().push(hash);
 				}
 			}
 			theirs.extend(files.iter().map(|file| {
@@ -254,11 +257,20 @@ async fn settle(
 	let mut removable = Vec::new();
 	let mut theirs = theirs.into_iter();
 	while let Some((file, hash, learnt)) = files.next().await {
+		// A copy in B matches when the bytes of some file there, read in
+		// full, hash the same as this file's own bytes, read in full.
 		let verdict = match (theirs.next().flatten(), hash) {
 			(None, _) => Err(SkipReason::NoCopy),
-			(Some(Ok(theirs)), Ok(ours)) if theirs == ours => Ok(()),
-			(Some(Ok(_)), Ok(_)) => Err(SkipReason::Differs),
-			(Some(Err(error)), _) | (_, Err(error)) => Err(SkipReason::Unreadable(error)),
+			(_, Err(error)) => Err(SkipReason::Unreadable(error)),
+			(Some(theirs), Ok(ours)) => {
+				if theirs.iter().any(|hash| hash.as_ref() == Ok(&ours)) {
+					Ok(())
+				} else if let Some(Err(error)) = theirs.iter().find(|hash| hash.is_err()) {
+					Err(SkipReason::Unreadable(error.clone()))
+				} else {
+					Err(SkipReason::Differs)
+				}
+			}
 		};
 		match verdict {
 			Ok(()) => removable.push(file),
@@ -272,8 +284,14 @@ async fn settle(
 	Ok((removable, learned))
 }
 
-/// A file's integrity hash: the store's where it has read the file in full,
+/// A file's integrity hash: the store's where it has read this file in full,
 /// else read now, with the identity the store should learn.
+///
+/// The stored hash is trusted because the store only binds a record to a
+/// confirmed content row when that record's own bytes produced the hash
+/// (`sd_store::db::SourceDb::set_content_identity`). A copy that merely
+/// samples alike sits on a candidate row with no integrity hash and is read
+/// here before any decision rests on it.
 pub(super) async fn integrity(file: &Keyed) -> (Result<String, String>, Option<Learned>) {
 	if let Some(hash) = &file.entry.integrity_hash {
 		return (Ok(hash.clone()), None);
@@ -282,8 +300,9 @@ pub(super) async fn integrity(file: &Keyed) -> (Result<String, String>, Option<L
 		Ok(hash) => hash,
 		Err(error) => return (Err(error.to_string()), None),
 	};
-	// The content row is keyed by the sampled hash, so the verdict carries
-	// it, computed here for a file the sampled tier has not reached.
+	// The confirmed row keeps the sampled hash so candidate lookups reach it,
+	// so the verdict carries it, computed here for a file the sampled tier
+	// has not reached.
 	let sampled = match &file.entry.sampled_hash {
 		Some(hash) => hash.clone(),
 		None => match ContentHashGenerator::generate_content_hash(&file.path).await {

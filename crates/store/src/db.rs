@@ -28,6 +28,9 @@ pub struct SourceDb {
 	/// Stamped onto every record written through this handle, recording which
 	/// sync run last saw it. Bumped once per run by [`SourceDb::begin_sync`].
 	scan_epoch: std::sync::atomic::AtomicI64,
+	/// The shape this handle reads. A writer is always at
+	/// [`crate::migrate::SCHEMA_VERSION`]; a replica keeps its owner's.
+	schema_version: i64,
 }
 
 /// An item row from the primary record type.
@@ -93,12 +96,23 @@ pub struct TemporalFilter<'a> {
 
 impl SourceDb {
 	/// Create a new SourceDb handle.
-	pub(crate) fn new(pool: sqlx::SqlitePool, schema: DataTypeSchema, scan_epoch: i64) -> Self {
+	pub(crate) fn new(
+		pool: sqlx::SqlitePool,
+		schema: DataTypeSchema,
+		scan_epoch: i64,
+		schema_version: i64,
+	) -> Self {
 		Self {
 			pool,
 			schema,
 			scan_epoch: std::sync::atomic::AtomicI64::new(scan_epoch),
+			schema_version,
 		}
+	}
+
+	/// The schema version this handle reads; see [`crate::migrate`].
+	pub fn schema_version(&self) -> i64 {
+		self.schema_version
 	}
 
 	/// Get the underlying connection pool.
@@ -480,11 +494,12 @@ impl SourceDb {
 
 	/// Record the identity of a record's underlying bytes.
 	///
-	/// One set of bytes is one row: the sampled hash is the key, so two copies
-	/// of a file inside one source share a content row rather than each minting
-	/// their own. The stored uuid is derived from the strongest hash present, so
-	/// it is re-derived when the integrity tier lands while the record's
-	/// `content_id` stays put.
+	/// One set of bytes is one row: copies of a file inside one source share a
+	/// content row rather than each minting their own. Which row depends on
+	/// how far the hash ladder has reached for this record: a sampled hash
+	/// lands on the candidate row for that hash, an integrity hash on the
+	/// confirmed row for that hash. The record's `content_id` moves when it
+	/// climbs, and the row's uuid names the strongest hash the row holds.
 	pub async fn set_content_identity(
 		&self,
 		uuid: Uuid,
@@ -777,8 +792,9 @@ impl SourceDb {
 				Some(content) => {
 					sqlx::query_as(
 						"SELECT r.uuid FROM record r JOIN content c ON c.id = r.content_id
-							 WHERE c.uuid = ? LIMIT 1",
+							 WHERE c.uuid = ? OR c.candidate_uuid = ? LIMIT 1",
 					)
+					.bind(content)
 					.bind(content)
 					.fetch_optional(&self.pool)
 					.await?
@@ -1148,6 +1164,17 @@ impl NeighborRow {
 
 /// The content write itself, against whatever connection the caller holds: a
 /// pooled one for a single file, a transaction for a batch.
+///
+/// With an integrity hash, the record binds to the confirmed row for that
+/// hash, created if this is the first file read in full to produce it. With a
+/// sampled hash alone, it binds to the candidate row for that hash and never
+/// touches a confirmed row, so a confirmed row only ever holds records whose
+/// own bytes were read. The candidate row keeps the size and kind it learns;
+/// a confirmed row keeps its sampled hash so candidate lookups still reach it.
+///
+/// When the record leaves a candidate row for a confirmed one, assertions
+/// anchored on it and keyed by the candidate uuid take the confirmed uuid, and
+/// a candidate row no record points at any more is dropped.
 async fn bind_content(
 	conn: &mut sqlx::SqliteConnection,
 	uuid: Uuid,
@@ -1159,40 +1186,62 @@ async fn bind_content(
 	)
 	.map(|id| id.uuid())
 	.ok_or_else(|| Error::Other("content identity carries no hash".to_string()))?;
+	let candidate_uuid = identity
+		.sampled_hash
+		.as_deref()
+		.map(crate::content::uuid_for);
 
-	let content_id: i64 = match identity.sampled_hash.as_deref() {
-		Some(sampled) => {
-			sqlx::query_scalar(
-				"INSERT INTO content (uuid, sampled_hash, integrity_hash, size, kind)
-					 VALUES (?, ?, ?, ?, ?)
-					 ON CONFLICT (sampled_hash) DO UPDATE SET
-						uuid = CASE WHEN excluded.integrity_hash IS NOT NULL
-							THEN excluded.uuid ELSE content.uuid END,
-						integrity_hash = COALESCE(excluded.integrity_hash, content.integrity_hash),
+	let previous: Option<(i64, Uuid, Option<String>, Option<String>)> = sqlx::query_as(
+		"SELECT c.id, c.uuid, c.sampled_hash, c.integrity_hash
+		 FROM record r JOIN content c ON c.id = r.content_id WHERE r.uuid = ?",
+	)
+	.bind(uuid)
+	.fetch_optional(&mut *conn)
+	.await?;
+
+	// A sampled-only write says nothing against a full read of the same
+	// bytes, so a record already confirmed under this sampled hash stays
+	// where it is rather than walking back down to a guess.
+	if let Some((old_id, _, old_sampled, Some(_))) = &previous {
+		if identity.integrity_hash.is_none() && *old_sampled == identity.sampled_hash {
+			return Ok(*old_id);
+		}
+	}
+
+	let content_id: i64 = match identity.integrity_hash.as_deref() {
+		Some(integrity) => sqlx::query_scalar(
+			"INSERT INTO content (uuid, candidate_uuid, sampled_hash, integrity_hash, size, kind)
+					 VALUES (?, ?, ?, ?, ?, ?)
+					 ON CONFLICT (integrity_hash) DO UPDATE SET
+						candidate_uuid = COALESCE(content.candidate_uuid, excluded.candidate_uuid),
+						sampled_hash = COALESCE(content.sampled_hash, excluded.sampled_hash),
 						size = COALESCE(excluded.size, content.size),
 						kind = COALESCE(excluded.kind, content.kind)
 					 RETURNING id",
-			)
-			.bind(content_uuid)
-			.bind(sampled)
-			.bind(&identity.integrity_hash)
-			.bind(identity.size)
-			.bind(identity.kind)
-			.fetch_one(&mut *conn)
-			.await?
-		}
-		None => {
-			sqlx::query_scalar(
-				"INSERT INTO content (uuid, sampled_hash, integrity_hash, size, kind)
-					 VALUES (?, NULL, ?, ?, ?) RETURNING id",
-			)
-			.bind(content_uuid)
-			.bind(&identity.integrity_hash)
-			.bind(identity.size)
-			.bind(identity.kind)
-			.fetch_one(&mut *conn)
-			.await?
-		}
+		)
+		.bind(content_uuid)
+		.bind(candidate_uuid)
+		.bind(&identity.sampled_hash)
+		.bind(integrity)
+		.bind(identity.size)
+		.bind(identity.kind)
+		.fetch_one(&mut *conn)
+		.await?,
+		None => sqlx::query_scalar(
+			"INSERT INTO content (uuid, candidate_uuid, sampled_hash, integrity_hash, size, kind)
+					 VALUES (?, ?, ?, NULL, ?, ?)
+					 ON CONFLICT (sampled_hash) WHERE integrity_hash IS NULL DO UPDATE SET
+						size = COALESCE(excluded.size, content.size),
+						kind = COALESCE(excluded.kind, content.kind)
+					 RETURNING id",
+		)
+		.bind(content_uuid)
+		.bind(candidate_uuid)
+		.bind(&identity.sampled_hash)
+		.bind(identity.size)
+		.bind(identity.kind)
+		.fetch_one(&mut *conn)
+		.await?,
 	};
 
 	sqlx::query("UPDATE record SET content_id = ? WHERE uuid = ?")
@@ -1200,6 +1249,35 @@ async fn bind_content(
 		.bind(uuid)
 		.execute(&mut *conn)
 		.await?;
+
+	let Some((old_id, old_uuid, _, old_integrity)) = previous else {
+		return Ok(content_id);
+	};
+	if old_id == content_id {
+		return Ok(content_id);
+	}
+
+	if old_integrity.is_none() && identity.integrity_hash.is_some() {
+		for table in ["tag_assertion", "record_overlay"] {
+			sqlx::query(&format!(
+				"UPDATE {table} SET content_uuid = ? WHERE record_uuid = ? AND content_uuid = ?"
+			))
+			.bind(content_uuid)
+			.bind(uuid)
+			.bind(old_uuid)
+			.execute(&mut *conn)
+			.await?;
+		}
+	}
+
+	sqlx::query(
+		"DELETE FROM content WHERE id = ? AND integrity_hash IS NULL
+		 AND NOT EXISTS (SELECT 1 FROM record WHERE content_id = ?)",
+	)
+	.bind(old_id)
+	.bind(old_id)
+	.execute(&mut *conn)
+	.await?;
 
 	Ok(content_id)
 }

@@ -46,6 +46,7 @@ pub mod db;
 pub mod error;
 pub mod file;
 pub mod fts;
+pub mod migrate;
 pub mod read;
 pub mod record;
 pub mod revision;
@@ -64,6 +65,7 @@ pub use file::{
 	mark_content_unreadable, ContentCopy, FileKind, FileWrite, Ledger, Observation, PendingContent,
 	PendingVerification, Resolution, SubtreeRename, Watermark,
 };
+pub use migrate::SCHEMA_VERSION;
 pub use read::{FsEntry, TitleMatches};
 pub use record::{ContentIdentity, Record, RECORD_SCHEMA};
 pub use revision::Revision;
