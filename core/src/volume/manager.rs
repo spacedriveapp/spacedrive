@@ -1671,11 +1671,26 @@ impl VolumeManager {
 			.map_err(|e| VolumeError::Database(e.to_string()))?;
 
 		info!(
-			"Auto-tracked volume '{}' (id={}) during indexing for library '{}'",
+			"Tracked volume '{}' (id={}) for a source in library '{}'",
 			volume.name,
 			model.id,
 			library.name().await
 		);
+
+		// The row is the same registration `track_volume` writes, so peers
+		// and the UI learn of it the same way. Sync is best-effort here: the
+		// source being added is not held hostage by a peer delivery.
+		if let Err(e) = library.sync_model(&model, ChangeType::Insert).await {
+			warn!(volume = %volume.name, %e, "could not sync the tracked volume");
+		}
+		self.events.emit(Event::Custom {
+			event_type: "VolumeTracked".to_string(),
+			data: serde_json::json!({
+				"library_id": library.id(),
+				"volume_fingerprint": volume.fingerprint.to_string(),
+				"display_name": model.display_name,
+			}),
+		});
 
 		Ok(model.id)
 	}
