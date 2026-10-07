@@ -237,4 +237,12 @@ describe("containing volume", () => {
 		expect(containingVolume("/Volumes/Archive/Photos/x", volumes)?.id).toBe("archive");
 		expect(containingVolume("/Users/me", volumes)?.id).toBe("root");
 	});
+
+	test("ranks by the mount entry that matched, not the primary one", () => {
+		const volumes = [
+			volume({ id: "data", mount_point: "/", mount_points: ["/mnt/data"] }),
+			volume({ id: "mnt", mount_point: "/mnt" }),
+		];
+		expect(containingVolume("/mnt/data/file", volumes)?.id).toBe("data");
+	});
 });

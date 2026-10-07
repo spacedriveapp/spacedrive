@@ -80,16 +80,15 @@ export function containingVolume(
 	path: string,
 	volumes: readonly Volume[],
 ): Volume | undefined {
-	let best: Volume | undefined;
+	let best: { volume: Volume; depth: number } | undefined;
 	for (const volume of volumes) {
 		if (!volume.is_mounted) continue;
-		const mounts = [volume.mount_point, ...volume.mount_points];
-		if (!mounts.some((mount) => mount && isUnder(path, mount))) continue;
-		if (!best || volume.mount_point.length > best.mount_point.length) {
-			best = volume;
+		for (const mount of [volume.mount_point, ...volume.mount_points]) {
+			if (!mount || !isUnder(path, mount)) continue;
+			if (!best || mount.length > best.depth) best = { volume, depth: mount.length };
 		}
 	}
-	return best;
+	return best?.volume;
 }
 
 /** How the library already covers the path, before anything is added. */
@@ -271,7 +270,3 @@ export function buildPayload(
 	};
 }
 
-/** What saving the chosen settings as the library's defaults sends. */
-export function defaultsPatch(chosen: AddSettings): AddOverrides {
-	return { ...chosen };
-}

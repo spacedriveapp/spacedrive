@@ -35,7 +35,6 @@ import {
 	buildPayload,
 	changedKeys,
 	containingVolume,
-	defaultsPatch,
 	effectiveDefaults,
 	inclusionOf,
 	libraryDefaults,
@@ -414,10 +413,14 @@ function SetupDialog({
 		setFailure(null);
 		setPending(true);
 		try {
-			if (saveAsDefaults) {
-				await updateConfig.mutateAsync({ adding: defaultsPatch(chosen) });
+			// Only the user's own changes become defaults: what the scope
+			// forced (an external drive's capture, a placement the drive
+			// cannot hold) is this add's circumstance, not a library choice.
+			const overrides = overridesFrom(defaults, chosen);
+			if (saveAsDefaults && changed.length > 0) {
+				await updateConfig.mutateAsync({ adding: overrides });
 			}
-			const payload = buildPayload(target, name, overridesFrom(defaults, chosen));
+			const payload = buildPayload(target, name, overrides);
 			if (payload.type === "volumes.track") {
 				const output = await trackVolume.mutateAsync(payload.input);
 				onAdded(output.source);
@@ -598,7 +601,7 @@ function SetupDialog({
 					<RadixCheckbox
 						checked={saveAsDefaults}
 						onCheckedChange={(value) => setSaveAsDefaults(value === true)}
-						label="Use these settings as the library's defaults for later adds"
+						label="Use these changes as the library's defaults for later adds"
 						labelClassName="text-xs text-ink-dull"
 					/>
 				)}

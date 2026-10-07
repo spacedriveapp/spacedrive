@@ -170,7 +170,13 @@ export function FolderPicker({ onPick }: { onPick: (path: string) => void }) {
 							<button
 								key={folder.path}
 								type="button"
-								onClick={() => onPick(folder.path)}
+								onClick={() =>
+									onPick(
+										"Physical" in folder.sd_path
+											? folder.sd_path.Physical.path
+											: folder.path,
+									)
+								}
 								className={clsx(
 									"flex w-full items-center gap-3 rounded-lg border p-2.5 text-left",
 									"border-app-line bg-app-box hover:border-accent/50 hover:bg-app-hover",
