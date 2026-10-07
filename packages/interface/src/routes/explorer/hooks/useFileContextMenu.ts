@@ -32,6 +32,7 @@ import {useBatchRenameDialog} from '../../../components/modals/RenameModal';
 import {useFlattenDialog, useOrganizeDialog} from '../../../components/modals/RearrangeModal';
 import {isArchiveName, useArchiveDialog, useExtractDialog} from '../../../components/modals/ArchiveModal';
 import {useAttributesDialog} from '../../../components/modals/AttributesModal';
+import {useAddToLibraryDialog} from '../components/AddToLibraryModal';
 import {usePlatform} from '../../../contexts/PlatformContext';
 import {useLibraryMutation} from '../../../contexts/SpacedriveContext';
 import {useClipboard} from '../../../hooks/useClipboard';
@@ -66,7 +67,7 @@ export function useFileContextMenu({
 		onSuccess: refetchTagQueries
 	});
 	const createFolder = useLibraryMutation('files.createFolder');
-	const addToLibrary = useLibraryMutation('sources.track');
+	const openAddToLibrary = useAddToLibraryDialog();
 	const generateThumbnails = useLibraryMutation('thumbs.generate');
 
 	const clipboard = useClipboard();
@@ -263,19 +264,11 @@ export function useFileContextMenu({
 				// is what a walk cannot rebuild: tags and notes that stay put,
 				// files still listed when the drive is unplugged, and sync to
 				// another device.
-				onClick: async () => {
+				onClick: () => {
 					if (!file || !('Physical' in file.sd_path)) return;
-					const path = file.sd_path.Physical.path;
-					try {
-						await addToLibrary.mutateAsync({
-							path,
-							name: null
-						});
-						toast.success(`Added ${file.name} to your library`);
-					} catch (err) {
-						console.error('Failed to add to library:', err);
-						toast.error(`Could not add ${file.name}: ${err}`);
-					}
+					openAddToLibrary({
+						target: {kind: 'path', path: file.sd_path.Physical.path}
+					});
 				},
 				condition: () =>
 					!!file &&
