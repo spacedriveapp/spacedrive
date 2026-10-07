@@ -2636,7 +2636,19 @@ library_id?: string | null;
  */
 force?: boolean };
 
-export type LibraryRestoreOutput = { library_id: string; library_name: string; path: string; files: number; bytes: number; sources: number; 
+export type LibraryRestoreOutput = { library_id: string; library_name: string; path: string; files: number; bytes: number; 
+/**
+ * Stores put back where their sources read them.
+ */
+sources: number; 
+/**
+ * Catalogs the archive held for sources placed on their drive. A restore
+ * lays them in the library's layout, where an on-source registration
+ * does not read, so they are named here with where they were left
+ * rather than counted as restored. Moving one back onto its drive is
+ * relocation.
+ */
+on_source_catalogs?: UnplacedCatalog[]; 
 /**
  * Where the state the restore replaced was moved, so a bad restore can
  * be undone by hand. Absent for a new library.
@@ -5023,6 +5035,19 @@ idle_seconds: number;
  * Detailed memory breakdown (optional, expensive to compute)
  */
 memory_breakdown?: MemoryBreakdownStats | null };
+
+/**
+ * A restored catalog that is not where its source reads it.
+ */
+export type UnplacedCatalog = { source_id: string; name: string; 
+/**
+ * The source's root within its volume, as the registration stores it.
+ */
+root: string | null; 
+/**
+ * Where the restore left the catalog.
+ */
+path: string };
 
 export type UpdateAdapterInput = { adapter_id: string };
 

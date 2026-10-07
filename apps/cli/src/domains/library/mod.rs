@@ -321,6 +321,14 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
 					"{} files, {} bytes, {} source stores",
 					o.files, o.bytes, o.sources
 				);
+				for catalog in &o.on_source_catalogs {
+					println!(
+						"Catalog of '{}' ({}) belongs on its drive and was left at {}; it is not read from there",
+						catalog.name,
+						catalog.source_id,
+						catalog.path.display()
+					);
+				}
 				if let Some(trash) = &o.replaced_state {
 					println!("Replaced state kept at {}", trash.display());
 				}

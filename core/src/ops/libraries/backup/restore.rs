@@ -16,9 +16,10 @@
 
 use super::input::{LibraryRestoreInput, RestoreMode};
 use super::manifest::BackupManifest;
-use super::output::LibraryRestoreOutput;
+use super::output::{LibraryRestoreOutput, UnplacedCatalog};
 use super::snapshot;
 use super::verify::OpenedBackup;
+use crate::ops::indexing::sources::StorePlacement;
 use crate::{
 	context::CoreContext,
 	infra::{
@@ -267,7 +268,7 @@ impl LibraryRestoreAction {
 		.await;
 		drop(sidecar_hold);
 		drop(hold);
-		let (sources, replaced) = swapped.map_err(|(error, displaced)| {
+		let (sources, on_source_catalogs, replaced) = swapped.map_err(|(error, displaced)| {
 			ActionError::Internal(if displaced {
 				format!(
 					"{error}; the data directory is partly swapped and the displaced state is under {}",
@@ -299,6 +300,7 @@ impl LibraryRestoreAction {
 			files: manifest.files.len() as u32,
 			bytes: manifest.total_bytes(),
 			sources,
+			on_source_catalogs,
 			replaced_state: replaced.then_some(trash),
 		};
 		tracing::info!(
@@ -324,7 +326,7 @@ async fn swap_into_place(
 	final_path: &Path,
 	source_dirs: &crate::infra::source_dirs::SourceDirs,
 	trash: &Path,
-) -> Result<(u32, bool), (String, bool)> {
+) -> Result<(u32, Vec<UnplacedCatalog>, bool), (String, bool)> {
 	let mut replaced = false;
 	if let Some(old_path) = existing_path {
 		snapshot::move_path(old_path, &trash.join("library"))
@@ -337,6 +339,7 @@ async fn swap_into_place(
 		.map_err(|e| (e, replaced))?;
 
 	let mut sources = 0u32;
+	let mut unplaced = Vec::new();
 	for source in &manifest.sources {
 		let staged_dir = stage.join("sources").join(source.id.simple().to_string());
 		let dest_dir = source_dirs
@@ -347,7 +350,18 @@ async fn swap_into_place(
 			replaced |= swap_db(&staged_dir, &dest_dir, &trash_dir, "data.db")
 				.await
 				.map_err(|e| (e, replaced))?;
-			sources += 1;
+			// An on-source registration reads from its drive, not from here.
+			// The copy is kept where relocation can pick it up and named in
+			// the output rather than counted as a restored store.
+			match source.placement {
+				StorePlacement::InLibrary => sources += 1,
+				StorePlacement::OnSource => unplaced.push(UnplacedCatalog {
+					source_id: source.id,
+					name: source.name.clone(),
+					root: source.root.clone(),
+					path: dest_dir.join("data.db"),
+				}),
+			}
 		}
 		if source.has_sidecars {
 			replaced |= swap_db(&staged_dir, &dest_dir, &trash_dir, "sidecars.db")
@@ -378,7 +392,7 @@ async fn swap_into_place(
 				.map_err(|e| (e, replaced))?;
 		}
 	}
-	Ok((sources, replaced))
+	Ok((sources, unplaced, replaced))
 }
 
 /// Move `name` from the staged source directory into place, parking the

@@ -49,11 +49,12 @@ A store's identity is adopted only by the library that wrote it, for the
 same volume and the same path within it. A descriptor from another library
 or another drive is evidence to inspect, and a new source starts beside it.
 
-A restored backup lays every store in the in-library layout. An on-source
-store is backed up from the drive, so the archive holds its assertions, but
-a restore does not put it back on the drive; the registration still says
-on source and resolves there. Relocation (plan step 5) is where that copy
-would move.
+An on-source store is backed up from the drive, so the archive holds its
+assertions. A restore cannot put it back on the drive: it leaves the copy in
+the in-library layout, does not count it as a restored store, and names it in
+`LibraryRestoreOutput.on_source_catalogs` with where it was left. The
+registration still says on source and resolves to the drive. Relocation (plan
+step 5) is where that copy would move.
 
 Removing a source never deletes its volume row. The plan asks for an
 explicit containing-volume retention rule; the rule built is that the row

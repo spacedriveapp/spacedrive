@@ -244,6 +244,8 @@ impl LibraryBackupAction {
 				root: row.root.clone(),
 				store: None,
 				has_sidecars,
+				placement: crate::ops::indexing::sources::SourceConfig::from_json(&row.config)
+					.placement,
 			});
 		}
 
