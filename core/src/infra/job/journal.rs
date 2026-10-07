@@ -74,21 +74,25 @@ impl Subject {
 
 	/// Whether the path holds what the subject recorded.
 	///
-	/// A job that creates a folder journals it before filling it, and each
-	/// child moves the folder's mtime, so a directory is matched on its kind
-	/// and its creation time instead. A journal row with no creation time
-	/// (an older row, or a filesystem that keeps none) matches on kind.
+	/// A file is matched on its kind, size and mtime. A job that creates a
+	/// folder journals it before filling it, and each child moves the
+	/// folder's mtime, so a directory is matched on its kind and its
+	/// creation time instead. A journal row with no creation time (a row
+	/// from before the field existed, or a filesystem that keeps none) has
+	/// nothing to compare there, so an upgrade does not refuse every
+	/// standing undo.
 	pub async fn still_holds(&self, path: &Path) -> bool {
 		let Ok(meta) = tokio::fs::symlink_metadata(path).await else {
 			return false;
 		};
-		if !self.is_dir {
-			return Self::of(&meta) == *self;
-		}
-		if !meta.is_dir() {
+		let now = Self::of(&meta);
+		if now.is_dir != self.is_dir {
 			return false;
 		}
-		match (self.created_ms, meta.created().ok().map(millis)) {
+		if !self.is_dir {
+			return now.size == self.size && now.mtime_ms == self.mtime_ms;
+		}
+		match (self.created_ms, now.created_ms) {
 			(Some(recorded), Some(now)) => recorded == now,
 			_ => true,
 		}
@@ -219,7 +223,14 @@ mod tests {
 		std::fs::write(&file, b"abc").expect("file");
 		let subject = Subject::of(&std::fs::metadata(&file).expect("meta"));
 		assert!(subject.still_holds(&file).await);
+		// A row from before creation times were recorded still matches.
+		let older = Subject {
+			created_ms: None,
+			..subject
+		};
+		assert!(older.still_holds(&file).await);
 		std::fs::write(&file, b"abcd").expect("rewrite");
 		assert!(!subject.still_holds(&file).await);
+		assert!(!older.still_holds(&file).await);
 	}
 }
