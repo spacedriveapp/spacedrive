@@ -59,15 +59,48 @@ sd-cli library switch --library-id <LIBRARY_ID>
 sd-cli library info
 ~~~
 
-## Portability and backup
+## Backup and restore
 
-Back up the library state and every source store that contains assertions or
-the last observation of an origin. A source freeze creates a dated,
-self-contained store copy, but it does not copy original file bytes.
+A backup is the library's state plus every source store this device holds
+for it, written while the daemon runs. Each SQLite file is copied with
+`VACUUM INTO`, so the copy is one consistent transaction and the daemon's
+writers are never held longer than that copy's read. The copy carries no
+original file bytes; those stay at their origins.
 
-Before moving a library between machines, stop mutations, copy state, verify
-the copy, then reopen it through the daemon. Do not copy a live WAL database and
-assume it is consistent.
+~~~bash
+sd-cli library backup --to ~/backups/library-2026-10-07
+sd-cli library backup --to ~/backups/library-2026-10-07.tar.zst
+sd-cli library backup verify --from ~/backups/library-2026-10-07
+sd-cli library restore --from ~/backups/library-2026-10-07 --as-new
+sd-cli library restore --from ~/backups/library-2026-10-07.tar.zst --replace
+~~~
+
+The backup holds `library/` (`library.json`, `library.db`, `sync.db`),
+`sources/<id>/data.db` and `sources/<id>/sidecars.db` for every registered
+source with a store on this device, and `manifest.json`: the device and build
+that wrote it, the library's applied migrations, each source with its store
+id, revision and schema hash, and the byte length and blake3 hash of every
+file. `--no-sidecars` leaves thumbnails out; `--include-replicas` adds this
+device's copies of other devices' sources from `mounts-remote/`.
+
+`verify` hashes every file against the manifest without touching the data
+directory and exits non-zero on a mismatch. `restore` runs the same check
+first, refuses a backup whose library applied a migration this build does
+not know, stages the files under the data directory, and renames them into
+place. `--as-new` creates the library and refuses to overwrite anything;
+`--replace` closes the open library, moves its current state and the
+displaced store files to `restore-trash/<library>-<time>/`, swaps the backup
+in, and reopens it. Pass `--library-id` to restore under a different id.
+
+A library that other devices are members of is not replaced without
+`--force`. Their device rows and the sync watermarks recording what each
+peer was sent live in the library; an older copy rewinds both, so peers
+would hold changes the library no longer remembers sending and would never
+be offered what changed since the backup. After a forced restore, expect to
+re-run sync setup with those devices.
+
+Restoring from the release candidate is a required gate; see
+[Releases](/core/releases).
 
 ## Sync
 

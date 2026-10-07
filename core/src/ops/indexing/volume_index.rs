@@ -742,6 +742,33 @@ impl VolumeIndex {
 		}
 	}
 
+	/// Close the open handles on these sources' stores so their files can be
+	/// replaced on disk.
+	///
+	/// A restore swaps `data.db` underneath a running daemon. A pool still
+	/// open on the old inode would keep writing to a file nothing reads any
+	/// more, so every handle is flushed, dropped from the maps and closed
+	/// first; the next touch reopens the file that is there now.
+	pub async fn release_stores(&self, ids: &[Uuid]) {
+		let writers: Vec<Arc<SourceStore>> = {
+			let mut stores = self.stores.write();
+			ids.iter().filter_map(|id| stores.remove(id)).collect()
+		};
+		let readers: Vec<Arc<sd_store::SourceDb>> = {
+			let mut stores = self.read_stores.write();
+			ids.iter().filter_map(|id| stores.remove(id)).collect()
+		};
+		for store in writers {
+			if let Err(error) = store.flush().await {
+				tracing::warn!(source = %store.id(), %error, "store released without a clean flush");
+			}
+			store.db().pool().close().await;
+		}
+		for db in readers {
+			db.pool().close().await;
+		}
+	}
+
 	/// The mount point of the volume a path resolves to. A source whose root
 	/// differs from this is nested inside its volume, which is what decides
 	/// whether its replica travels as its own database or as the volume's

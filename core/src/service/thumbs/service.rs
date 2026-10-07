@@ -714,6 +714,20 @@ impl ThumbService {
 		}
 	}
 
+	/// Close the open handles on these sources' sidecar files so a restore can
+	/// replace them; the next tile request reopens whatever is on disk.
+	pub async fn release_sidecars(&self, sources: &[Uuid]) {
+		let Some(dirs) = self.dirs.as_ref() else {
+			return;
+		};
+		let mut open = self.sidecars.lock().await;
+		for source in sources {
+			if let Some(store) = open.remove(&dirs.sidecars_file(*source)) {
+				store.close().await;
+			}
+		}
+	}
+
 	/// A source's sidecar store and how far it has written, as its listing
 	/// advertises them. Nil and zero while it has none; a listing never
 	/// creates one.

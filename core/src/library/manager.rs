@@ -81,7 +81,7 @@ pub struct LibraryManager {
 }
 
 /// Marks a library path as being created until dropped.
-struct CreationGuard {
+pub(crate) struct CreationGuard {
 	creating: Arc<Mutex<HashSet<PathBuf>>>,
 	path: PathBuf,
 }
@@ -390,7 +390,9 @@ impl LibraryManager {
 		Ok(library)
 	}
 
-	async fn mark_creating(&self, path: PathBuf) -> CreationGuard {
+	/// Keep the watcher off `path` until the guard drops: the caller is
+	/// assembling or replacing that library and opens it itself.
+	pub(crate) async fn mark_creating(&self, path: PathBuf) -> CreationGuard {
 		let path = creation_key(&path).await;
 		self.creating
 			.lock()
@@ -813,6 +815,11 @@ impl LibraryManager {
 		}
 
 		Ok(())
+	}
+
+	/// The directory new libraries are written to.
+	pub fn libraries_dir(&self) -> Option<&Path> {
+		self.search_paths.first().map(PathBuf::as_path)
 	}
 
 	/// Scan search paths for libraries
@@ -1690,7 +1697,7 @@ fn is_library_directory(path: &Path) -> bool {
 }
 
 /// Sanitize a filename for safe filesystem usage
-fn sanitize_filename(name: &str) -> String {
+pub(crate) fn sanitize_filename(name: &str) -> String {
 	// Replace problematic characters
 	name.chars()
 		.map(|c| match c {

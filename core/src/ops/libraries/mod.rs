@@ -1,5 +1,6 @@
 //! Library operations
 
+pub mod backup;
 pub mod create;
 pub mod delete;
 pub mod export;
@@ -8,6 +9,7 @@ pub mod list;
 pub mod open;
 pub mod rename;
 
+pub use backup::*;
 pub use create::*;
 pub use delete::*;
 pub use export::*;

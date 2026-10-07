@@ -2382,6 +2382,59 @@ settings: LibrarySettings;
 statistics: LibraryStatistics };
 
 /**
+ * Back up one library and the source stores this device holds for it.
+ */
+export type LibraryBackupInput = { library_id: string; 
+/**
+ * A directory that does not exist yet, or a `.tar.zst` file to write.
+ */
+destination: string; 
+/**
+ * Thumbnail sidecars are derived from file bytes but expensive to bake
+ * again, so they come along by default.
+ */
+include_sidecars?: boolean; 
+/**
+ * Replicas of other devices' sources are fetched again on demand, so
+ * they stay out unless asked for.
+ */
+include_replicas?: boolean };
+
+export type LibraryBackupOutput = { library_id: string; 
+/**
+ * The backup directory or archive written.
+ */
+destination: string; 
+/**
+ * The manifest inside it; for an archive, its path once unpacked.
+ */
+manifest_path: string; files: number; bytes: number; duration_ms: number; 
+/**
+ * Sources the library registers but this device holds no store for.
+ */
+sources_without_store: string[] };
+
+/**
+ * Check a backup against its manifest without restoring it.
+ */
+export type LibraryBackupVerifyInput = { 
+/**
+ * A backup directory, its `manifest.json`, or a `.tar.zst` archive.
+ */
+source: string };
+
+export type LibraryBackupVerifyOutput = { library_id: string; library_name: string; created_at: string; build_sha: string; files: number; bytes: number; sources: number; 
+/**
+ * Files that are missing or differ from the manifest, with the reason.
+ */
+failures: VerifyFailure[]; 
+/**
+ * Migrations the backup applied that this build does not know; a
+ * restore here would be refused.
+ */
+unknown_migrations: string[] };
+
+/**
  * Input for creating a new library
  */
 export type LibraryCreateInput = { 
@@ -2511,6 +2564,31 @@ replication_score: number };
 export type LibraryRenameInput = { library_id: string; new_name: string };
 
 export type LibraryRenameOutput = { library_id: string; old_name: string; new_name: string };
+
+export type LibraryRestoreInput = { 
+/**
+ * A backup directory, its `manifest.json`, or a `.tar.zst` archive.
+ */
+source: string; mode: RestoreMode; 
+/**
+ * The library to replace, or the id the new library takes. Defaults to
+ * the id the backup was taken from.
+ */
+library_id?: string | null; 
+/**
+ * Replace a library that other devices are members of. Their device
+ * rows and sync watermarks live in the library being replaced, so after
+ * a forced restore they disagree with what those peers believe was
+ * delivered.
+ */
+force?: boolean };
+
+export type LibraryRestoreOutput = { library_id: string; library_name: string; path: string; files: number; bytes: number; sources: number; 
+/**
+ * Where the state the restore replaced was moved, so a bad restore can
+ * be undone by hand. Absent for a new library.
+ */
+replaced_state: string | null };
 
 /**
  * Library-specific settings
@@ -3768,6 +3846,16 @@ alternate_ids: string[];
  * Paths affected by this resource event (for path-scoped filtering)
  */
 affected_paths?: SdPath[] };
+
+export type RestoreMode = 
+/**
+ * Replace an existing library's state with the backup's.
+ */
+"replace" | 
+/**
+ * Create a library from the backup. Refuses to overwrite anything.
+ */
+"new";
 
 /**
  * Risk level for adding a path as a source
@@ -5046,6 +5134,8 @@ export type Validation = { findings: Finding[]; facts: ExecutionFacts };
  */
 export type ValidationWarning = { message: string; suggestion: string | null };
 
+export type VerifyFailure = { path: string; reason: string };
+
 export type VerifySourceInput = { source_id: string };
 
 export type VerifySourceOutput = { job_id: string; 
@@ -5455,6 +5545,7 @@ export type CoreAction =
   |  { type: 'libraries.create'; input: LibraryCreateInput; output: LibraryCreateOutput }
   |  { type: 'libraries.delete'; input: LibraryDeleteInput; output: LibraryDeleteOutput }
   |  { type: 'libraries.open'; input: LibraryOpenInput; output: LibraryOpenOutput }
+  |  { type: 'libraries.restore'; input: LibraryRestoreInput; output: LibraryRestoreOutput }
   |  { type: 'models.whisper.delete'; input: DeleteWhisperModelInput; output: DeleteWhisperModelOutput }
   |  { type: 'models.whisper.download'; input: DownloadWhisperModelInput; output: DownloadWhisperModelOutput }
   |  { type: 'mounts.cache_clear'; input: MountsCacheClearInput; output: MountsCacheClearOutput }
@@ -5502,6 +5593,7 @@ export type LibraryAction =
   |  { type: 'jobs.cancel'; input: JobCancelInput; output: JobCancelOutput }
   |  { type: 'jobs.pause'; input: JobPauseInput; output: JobPauseOutput }
   |  { type: 'jobs.resume'; input: JobResumeInput; output: JobResumeOutput }
+  |  { type: 'libraries.backup'; input: LibraryBackupInput; output: LibraryBackupOutput }
   |  { type: 'libraries.export'; input: LibraryExportInput; output: LibraryExportOutput }
   |  { type: 'libraries.rename'; input: LibraryRenameInput; output: LibraryRenameOutput }
   |  { type: 'sources.assertions.merge'; input: MergeAssertionsInput; output: MergeAssertionsOutput }
@@ -5549,6 +5641,7 @@ export type CoreQuery =
   |  { type: 'files.stream_url'; input: StreamUrlInput; output: StreamUrlOutput }
   |  { type: 'jobs.remote.all_devices'; input: RemoteJobsAllDevicesInput; output: RemoteJobsAllDevicesOutput }
   |  { type: 'jobs.remote.for_device'; input: RemoteJobsForDeviceInput; output: RemoteJobsForDeviceOutput }
+  |  { type: 'libraries.backup.verify'; input: LibraryBackupVerifyInput; output: LibraryBackupVerifyOutput }
   |  { type: 'libraries.list'; input: ListLibrariesInput; output: [LibraryInfo] }
   |  { type: 'models.whisper.list'; input: ListWhisperModelsInput; output: ListWhisperModelsOutput }
   |  { type: 'mounts.cache_status'; input: MountsCacheStatusInput; output: MountsCacheStatus }
@@ -5655,6 +5748,7 @@ export const WIRE_METHODS = {
     'libraries.create': 'action:libraries.create.input',
     'libraries.delete': 'action:libraries.delete.input',
     'libraries.open': 'action:libraries.open.input',
+    'libraries.restore': 'action:libraries.restore.input',
     'models.whisper.delete': 'action:models.whisper.delete.input',
     'models.whisper.download': 'action:models.whisper.download.input',
     'mounts.cache_clear': 'action:mounts.cache_clear.input',
@@ -5702,6 +5796,7 @@ export const WIRE_METHODS = {
     'jobs.cancel': 'action:jobs.cancel.input',
     'jobs.pause': 'action:jobs.pause.input',
     'jobs.resume': 'action:jobs.resume.input',
+    'libraries.backup': 'action:libraries.backup.input',
     'libraries.export': 'action:libraries.export.input',
     'libraries.rename': 'action:libraries.rename.input',
     'sources.assertions.merge': 'action:sources.assertions.merge.input',
@@ -5749,6 +5844,7 @@ export const WIRE_METHODS = {
     'files.stream_url': 'query:files.stream_url',
     'jobs.remote.all_devices': 'query:jobs.remote.all_devices',
     'jobs.remote.for_device': 'query:jobs.remote.for_device',
+    'libraries.backup.verify': 'query:libraries.backup.verify',
     'libraries.list': 'query:libraries.list',
     'models.whisper.list': 'query:models.whisper.list',
     'mounts.cache_status': 'query:mounts.cache_status',

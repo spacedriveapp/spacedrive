@@ -222,7 +222,10 @@ Before publishing:
 4. Interrupt jobs and daemons during writes.
 5. Pair devices across local and relayed paths.
 6. Exercise remote queries, ranges, mounts, and mutations.
-7. Restore the library and source stores from backup.
+7. Restore the library and source stores from backup: `sd-cli library backup
+   --to <dir>`, `sd-cli library backup verify --from <dir>`, then `sd-cli
+   library restore --from <dir> --as-new` on a fresh data directory and
+   `--replace` over the original, comparing counts against `library info`.
 8. Verify update signatures and rollback.
 9. Review the generated release notes and checksums.
 

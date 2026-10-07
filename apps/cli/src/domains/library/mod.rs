@@ -7,6 +7,10 @@ use crate::util::prelude::*;
 
 use crate::context::Context;
 use sd_core::ops::libraries::{
+	backup::{
+		input::{LibraryBackupInput, LibraryBackupVerifyInput, LibraryRestoreInput, RestoreMode},
+		output::{LibraryBackupOutput, LibraryBackupVerifyOutput, LibraryRestoreOutput},
+	},
 	create::{input::LibraryCreateInput, output::LibraryCreateOutput},
 	delete::output::LibraryDeleteOutput,
 	info::{output::LibraryInfoOutput, query::LibraryInfoQuery},
@@ -32,6 +36,10 @@ pub enum LibraryCmd {
 	Switch(LibrarySwitchArgs),
 	/// Delete a library
 	Delete(LibraryDeleteArgs),
+	/// Back up a library and its source stores while the daemon runs
+	Backup(LibraryBackupArgs),
+	/// Restore a library and its source stores from a backup
+	Restore(LibraryRestoreArgs),
 	/// Library sync setup commands
 	#[command(subcommand)]
 	SyncSetup(SyncSetupCmd),
@@ -189,6 +197,118 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
 			let out: LibraryDeleteOutput = execute_action!(ctx, input);
 			print_output!(ctx, &out, |o: &LibraryDeleteOutput| {
 				println!("Deleted library {}", o.library_id);
+			});
+		}
+		LibraryCmd::Backup(args) => match args.cmd {
+			Some(BackupCmd::Verify(verify)) => {
+				let input = LibraryBackupVerifyInput {
+					source: absolute(&verify.from)?,
+				};
+				let out: LibraryBackupVerifyOutput = execute_core_query!(ctx, input);
+				print_output!(ctx, &out, |o: &LibraryBackupVerifyOutput| {
+					println!(
+						"Backup of library '{}' ({}) taken {} by build {}",
+						o.library_name,
+						o.library_id,
+						o.created_at.format("%Y-%m-%d %H:%M:%S UTC"),
+						o.build_sha
+					);
+					println!(
+						"{} files, {} bytes, {} sources",
+						o.files, o.bytes, o.sources
+					);
+					for failure in &o.failures {
+						println!("MISMATCH {}: {}", failure.path, failure.reason);
+					}
+					if !o.unknown_migrations.is_empty() {
+						println!(
+							"Written by a newer build: unknown migrations {}",
+							o.unknown_migrations.join(", ")
+						);
+					}
+					println!(
+						"{}",
+						if o.failures.is_empty() {
+							"OK: every file matches the manifest"
+						} else {
+							"FAILED: backup does not match its manifest"
+						}
+					);
+				});
+				if !out.failures.is_empty() {
+					std::process::exit(1);
+				}
+			}
+			None => {
+				let library_id = args.library_id.or(ctx.library_id).ok_or_else(|| {
+					anyhow::anyhow!("No library specified and no current library set")
+				})?;
+				let to = args.to.ok_or_else(|| anyhow::anyhow!("--to is required"))?;
+				let input = LibraryBackupInput {
+					library_id,
+					destination: absolute(&to)?,
+					include_sidecars: !args.no_sidecars,
+					include_replicas: args.include_replicas,
+				};
+				let json = ctx
+					.core
+					.action(&input, Some(library_id))
+					.await
+					.map_err(|e| crate::util::error::improve_core_error(e.to_string()))?;
+				let out: LibraryBackupOutput = serde_json::from_value(json)?;
+				print_output!(ctx, &out, |o: &LibraryBackupOutput| {
+					println!(
+						"Backed up library {} to {}",
+						o.library_id,
+						o.destination.display()
+					);
+					println!("{} files, {} bytes, {} ms", o.files, o.bytes, o.duration_ms);
+					if !o.sources_without_store.is_empty() {
+						println!(
+							"Sources registered without a store on this device: {}",
+							o.sources_without_store
+								.iter()
+								.map(|id| id.to_string())
+								.collect::<Vec<_>>()
+								.join(", ")
+						);
+					}
+				});
+			}
+		},
+		LibraryCmd::Restore(args) => {
+			let mode = if args.as_new {
+				RestoreMode::New
+			} else {
+				RestoreMode::Replace
+			};
+			if mode == RestoreMode::Replace {
+				confirm_or_abort(
+					"This replaces the library's current state with the backup. Continue?",
+					args.yes,
+				)?;
+			}
+			let input = LibraryRestoreInput {
+				source: absolute(&args.from)?,
+				mode,
+				library_id: args.library_id,
+				force: args.force,
+			};
+			let out: LibraryRestoreOutput = execute_core_action!(ctx, input);
+			print_output!(ctx, &out, |o: &LibraryRestoreOutput| {
+				println!(
+					"Restored library '{}' ({}) at {}",
+					o.library_name,
+					o.library_id,
+					o.path.display()
+				);
+				println!(
+					"{} files, {} bytes, {} source stores",
+					o.files, o.bytes, o.sources
+				);
+				if let Some(trash) = &o.replaced_state {
+					println!("Replaced state kept at {}", trash.display());
+				}
 			});
 		}
 		LibraryCmd::SyncSetup(cmd) => match cmd {

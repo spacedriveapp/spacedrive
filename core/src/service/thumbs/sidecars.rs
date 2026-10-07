@@ -85,6 +85,12 @@ pub struct SidecarStore {
 }
 
 impl SidecarStore {
+	/// Close the pool. Every later call on this store fails, which is the
+	/// point: the file is about to be replaced underneath it.
+	pub async fn close(&self) {
+		self.pool.close().await;
+	}
+
 	/// Open a sidecar file, creating it and its directory when missing.
 	pub async fn open(path: &Path) -> anyhow::Result<Self> {
 		if let Some(parent) = path.parent() {
