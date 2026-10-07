@@ -70,7 +70,7 @@ fn main() -> Result<()> {
 		eprintln!("                              the daemon with the ffmpeg and heif features");
 		eprintln!("  build-ios    Build sd-ios-core XCFramework for iOS devices and simulator");
 		eprintln!("  build-mobile Build sd-mobile-core for React Native iOS/Android");
-		eprintln!("  test-core    Run all core tests with progress tracking (--unit or --integration to pick a half)");
+		eprintln!("  test-core    Run all core tests with progress tracking (--unit, --integration or --acceptance to pick a group)");
 		eprintln!("  bump <ver>   Bump version across all packages (e.g. bump 2.0.0-alpha.2)");
 		eprintln!(
 			"  update-contributors  Fetch contributors from GitHub and update contributors.json"
@@ -94,9 +94,11 @@ fn main() -> Result<()> {
 			let flags = &args[2..];
 			let verbose = flags.iter().any(|s| s == "--verbose" || s == "-v");
 			let selection = if flags.iter().any(|s| s == "--unit") {
-				test_core::Selection::Unit
+				test_core::Selection::Group(test_core::Group::Unit)
 			} else if flags.iter().any(|s| s == "--integration") {
-				test_core::Selection::Integration
+				test_core::Selection::Group(test_core::Group::Integration)
+			} else if flags.iter().any(|s| s == "--acceptance") {
+				test_core::Selection::Group(test_core::Group::Acceptance)
 			} else {
 				test_core::Selection::All
 			};
