@@ -90,7 +90,7 @@ async fn track(
 	let tracked = TrackSourceAction::from_input(TrackSourceInput {
 		path: root,
 		name: None,
-		unfiltered: false,
+		overrides: Default::default(),
 	})?
 	.execute(library.clone(), core.context.clone())
 	.await?;
@@ -222,7 +222,7 @@ async fn backup_restores_identically_and_detects_tampering() -> Result<(), Error
 	let tracking = TrackSourceAction::from_input(TrackSourceInput {
 		path: root_c.clone(),
 		name: None,
-		unfiltered: false,
+		overrides: Default::default(),
 	})?
 	.execute(library.clone(), core.context.clone())
 	.await?;

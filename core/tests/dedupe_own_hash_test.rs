@@ -46,7 +46,7 @@ async fn dedupe_keeps_a_file_whose_own_bytes_were_never_read_in_full(
 	let tracked = TrackSourceAction::from_input(TrackSourceInput {
 		path: source_dir.clone(),
 		name: None,
-		unfiltered: false,
+		overrides: Default::default(),
 	})?
 	.execute(library.clone(), core.context.clone())
 	.await?;

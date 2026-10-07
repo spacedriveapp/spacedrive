@@ -559,8 +559,7 @@ function PathStatusButton({path}: {path: SdPath}) {
 														return;
 													reindexSource.mutate({
 														path: sourceRoot,
-														name: null,
-														unfiltered: false
+														name: null
 													});
 												}}
 											/>

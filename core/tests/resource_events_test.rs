@@ -232,7 +232,7 @@ async fn test_resource_events_during_indexing(
 	TrackSourceAction::from_input(TrackSourceInput {
 		path: source_path.clone(),
 		name: Some("Resource Events Test Source".to_string()),
-		unfiltered: false,
+		overrides: Default::default(),
 	})?
 	.execute(library.clone(), core.context.clone())
 	.await?;

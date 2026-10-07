@@ -160,6 +160,7 @@ async fn test_volume_tracking_lifecycle() {
 		let track_action = VolumeTrackAction::new(VolumeTrackInput {
 			fingerprint: fingerprint.to_string(),
 			display_name: Some("My Test Volume".to_string()),
+			overrides: Default::default(),
 		});
 
 		let result = action_manager
@@ -203,6 +204,7 @@ async fn test_volume_tracking_lifecycle() {
 		let track_action = VolumeTrackAction::new(VolumeTrackInput {
 			fingerprint: fingerprint.to_string(),
 			display_name: Some("Another Name".to_string()),
+			overrides: Default::default(),
 		});
 
 		let result = action_manager
@@ -373,6 +375,7 @@ async fn test_volume_tracking_multiple_libraries() {
 		let track_action = VolumeTrackAction::new(VolumeTrackInput {
 			fingerprint: fingerprint.to_string(),
 			display_name: Some("Library 1 Volume".to_string()),
+			overrides: Default::default(),
 		});
 
 		let result = action_manager
@@ -412,6 +415,7 @@ async fn test_volume_tracking_multiple_libraries() {
 		let track_action = VolumeTrackAction::new(VolumeTrackInput {
 			fingerprint: fingerprint.to_string(),
 			display_name: Some("Library 2 Volume".to_string()),
+			overrides: Default::default(),
 		});
 
 		let result = action_manager
@@ -1102,6 +1106,7 @@ async fn test_volume_tracking_edge_cases() {
 		let track_action = VolumeTrackAction::new(VolumeTrackInput {
 			fingerprint: fingerprint.to_string(),
 			display_name: Some("".to_string()),
+			overrides: Default::default(),
 		});
 
 		let result = action_manager
@@ -1128,6 +1133,7 @@ async fn test_volume_tracking_edge_cases() {
 		let track_action = VolumeTrackAction::new(VolumeTrackInput {
 			fingerprint: fingerprint.to_string(),
 			display_name: None,
+			overrides: Default::default(),
 		});
 
 		let result = action_manager

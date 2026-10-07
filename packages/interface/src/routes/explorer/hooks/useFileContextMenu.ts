@@ -269,8 +269,7 @@ export function useFileContextMenu({
 					try {
 						await addToLibrary.mutateAsync({
 							path,
-							name: null,
-							unfiltered: false
+							name: null
 						});
 						toast.success(`Added ${file.name} to your library`);
 					} catch (err) {

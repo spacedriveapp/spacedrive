@@ -18,6 +18,35 @@ export type AdapterConfigField = { key: string; name: string; description: strin
 
 export type AdapterInfo = { id: string; name: string; description: string; version: string; author: string; data_type: string; icon_svg: string | null; update_available: boolean };
 
+/**
+ * Defaults for Add to Library, under Library Settings > Adding content.
+ * 
+ * Every entry point resolves the same effective settings from these plus the
+ * add's own overrides, so a folder, a whole volume and a remote path do not
+ * each carry their own notion of what a source starts as. A one-off override
+ * never writes back here; changing these initializes later sources and
+ * policies and moves no existing store.
+ */
+export type AddDefaults = { 
+/**
+ * Where a new source's catalog lives.
+ */
+placement?: StorePlacement; 
+/**
+ * For an on-source store, keep a replica in the library so the catalog
+ * answers while the source is disconnected.
+ */
+keep_offline_copy?: boolean; 
+/**
+ * Record everything readable instead of applying the rules that hide
+ * system files, `.git` and dev directories.
+ */
+unfiltered?: boolean; 
+/**
+ * Identify the bytes behind each record once the walk lands.
+ */
+identify_content?: boolean };
+
 export type AddGroupInput = { space_id: string; name: string; group_type: GroupType };
 
 export type AddGroupOutput = { group: SpaceGroup };
@@ -25,6 +54,12 @@ export type AddGroupOutput = { group: SpaceGroup };
 export type AddItemInput = { space_id: string; group_id: string | null; item_type: ItemType };
 
 export type AddItemOutput = { item: SpaceItem };
+
+/**
+ * What one add changes from the library's defaults. Every field absent
+ * means the default; the add itself is the only thing an override touches.
+ */
+export type AddOverrides = { placement?: StorePlacement | null; keep_offline_copy?: boolean | null; unfiltered?: boolean | null; identify_content?: boolean | null };
 
 /**
  * Input for alternate instances query
@@ -614,9 +649,22 @@ export type DeleteItemInput = { item_id: string };
 
 export type DeleteItemOutput = { success: boolean };
 
-export type DeleteSourceInput = { source_id: string };
+export type DeleteSourceInput = { source_id: string; 
+/**
+ * Also delete the source's store, assertions included. Off by default:
+ * removing a source from the library keeps its catalog.
+ */
+delete_catalog?: boolean };
 
-export type DeleteSourceOutput = { deleted: boolean };
+export type DeleteSourceOutput = { deleted: boolean; 
+/**
+ * Where the catalog remains, when it was kept and this machine had it.
+ */
+catalog_path: string | null; 
+/**
+ * Whether the catalog was deleted along with the registration.
+ */
+catalog_deleted: boolean };
 
 export type DeleteTagInput = { tag_id: string };
 
@@ -2638,7 +2686,11 @@ auto_track_external_volumes: boolean;
 /**
  * Indexer settings (rule toggles and related)
  */
-indexer?: IndexerSettings };
+indexer?: IndexerSettings; 
+/**
+ * What a new source starts with when nothing on the add overrides it.
+ */
+adding?: AddDefaults };
 
 /**
  * Library settings output
@@ -2675,7 +2727,11 @@ auto_track_external_volumes: boolean;
 /**
  * Indexer settings
  */
-indexer: IndexerSettingsOutput };
+indexer: IndexerSettingsOutput; 
+/**
+ * Defaults for Add to Library.
+ */
+adding: AddDefaults };
 
 /**
  * Library statistics
@@ -4219,6 +4275,40 @@ export type SortField = "Relevance" | "Name" | "Size" | "ModifiedAt" | "CreatedA
 export type SortOptions = { field: SortField; direction: SortDirection };
 
 /**
+ * A source's capture policy: what its walk and its watcher record.
+ * 
+ * This is the write-time policy and the only one. A filesystem source applies
+ * it to both its walk and watcher. Navigation lives in Space items, and display
+ * filtering belongs to lenses over a store that captured everything. Serde
+ * defaults keep every field optional in the stored JSON, so rows written
+ * before a field existed parse as the default.
+ */
+export type SourceConfig = { 
+/**
+ * Record everything readable, skipping the default rules. The walk and
+ * the watcher both follow this.
+ */
+unfiltered?: boolean; 
+/**
+ * Where the source's store lives. Placement is intent that travels with
+ * the registration; the serving device resolves it to a directory.
+ */
+placement?: StorePlacement; 
+/**
+ * For an on-source store, whether the library keeps a replica so the
+ * catalog answers while the source is disconnected. Recorded intent: the
+ * copy itself is the offline-copy phase of the Add to Library plan.
+ */
+keep_offline_copy?: boolean; 
+/**
+ * Identify the bytes behind each record once a walk lands, so duplicates
+ * and integrity evidence exist without a separate gesture. The one
+ * processing job a source can opt out of today; the path-policy system
+ * owns finer-grained processing when it lands.
+ */
+identify_content?: boolean };
+
+/**
  * A registered source of either kind.
  * 
  * `data_type` is what forks them: `filesystem` for a walked root, the
@@ -4272,7 +4362,16 @@ device_label: string | null;
  * Present on a replica being refreshed and on a source whose first
  * copy has not finished, which has no other row to appear in.
  */
-transfer?: ReplicaTransferProgress | null };
+transfer?: ReplicaTransferProgress | null; 
+/**
+ * Where the catalog lives. Absent for an adapter source and a replica,
+ * whose stores sit in their own layouts.
+ */
+placement?: StorePlacement | null; 
+/**
+ * The catalog's directory on this machine, when this machine has it.
+ */
+store_path?: string | null };
 
 export type SourceItem = { id: string; external_id: string; title: string; preview: string | null; subtitle: string | null };
 
@@ -4461,6 +4560,24 @@ export type StartupIndexingOutput = { disposition: StartupIndexingDisposition };
  * State transition event
  */
 export type StateTransition = { from: DeviceSyncState; to: DeviceSyncState; timestamp: string; reason: string | null };
+
+/**
+ * Where a source's catalog lives.
+ * 
+ * Both placements hold one store format under the same ingest, query and
+ * durability rules. Placement selects the store's home and nothing else: a
+ * source placed on its origin is still registered in the library.
+ */
+export type StorePlacement = 
+/**
+ * Under the daemon's data directory, in `sources/<id>/`.
+ */
+"in_library" | 
+/**
+ * Beneath the source root, in `.spacedrive/sources/<id>/`, so the
+ * catalog travels with the drive.
+ */
+"on_source";
 
 export type StoreRevision = { source: string; revision: number };
 
@@ -4774,13 +4891,13 @@ path: string;
  */
 name: string | null; 
 /**
- * Record everything readable, rather than applying the default rules that
- * hide system files, `.git` and dev directories. Archival drives want
- * this; a working directory usually does not.
+ * What this add changes from the library's defaults under Library
+ * Settings > Adding content. Absent fields take the default; nothing
+ * here writes back to the defaults.
  */
-unfiltered?: boolean };
+overrides?: AddOverrides };
 
-export type TrackSourceOutput = { id: string; root: string; 
+export type TrackSourceOutput = { id: string; root: string; name: string; 
 /**
  * The medium underneath, when Spacedrive tracks one. A source with no
  * volume still works; it just cannot follow a remount.
@@ -4789,7 +4906,21 @@ volume_uuid: string | null;
 /**
  * Whether this root is the whole volume rather than a subtree of one.
  */
-whole_volume: boolean; job_id: string | null };
+whole_volume: boolean; 
+/**
+ * The settings the source was saved with: the library's defaults with
+ * this add's overrides applied.
+ */
+settings: SourceConfig; 
+/**
+ * Where the catalog lives on this machine.
+ */
+store_path: string | null; 
+/**
+ * Whether the store already existed and was reopened rather than
+ * started empty: the scope was added before and its catalog kept.
+ */
+catalog_reused: boolean; job_id: string | null };
 
 export type TrashEmptyOutput = { 
 /**
@@ -5077,7 +5208,12 @@ gitignore?: boolean | null;
 /**
  * Only index images
  */
-only_images?: boolean | null };
+only_images?: boolean | null; 
+/**
+ * Each named field replaces that default for later adds; existing
+ * sources keep their stores and settings where they are.
+ */
+adding?: AddOverrides | null };
 
 /**
  * Output for update library configuration action
@@ -5449,7 +5585,13 @@ fingerprint: string;
 /**
  * Optional custom display name
  */
-display_name: string | null };
+display_name: string | null; 
+/**
+ * What this add changes from the library's defaults for the source it
+ * sets up over the whole drive. An external drive captures unfiltered
+ * unless this says otherwise.
+ */
+overrides?: AddOverrides };
 
 export type VolumeTrackOutput = { 
 /**

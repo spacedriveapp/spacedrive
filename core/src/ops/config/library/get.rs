@@ -3,7 +3,7 @@
 use crate::{
 	context::CoreContext,
 	infra::query::{LibraryQuery, QueryError, QueryResult},
-	library::config::{IndexerSettings, LibrarySettings},
+	library::config::{AddDefaults, IndexerSettings, LibrarySettings},
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -39,6 +39,9 @@ pub struct LibrarySettingsOutput {
 
 	/// Indexer settings
 	pub indexer: IndexerSettingsOutput,
+
+	/// Defaults for Add to Library.
+	pub adding: AddDefaults,
 }
 
 /// Indexer settings output
@@ -74,6 +77,7 @@ impl From<&LibrarySettings> for LibrarySettingsOutput {
 			auto_track_system_volumes: settings.auto_track_system_volumes,
 			auto_track_external_volumes: settings.auto_track_external_volumes,
 			indexer: IndexerSettingsOutput::from(&settings.indexer),
+			adding: settings.adding.clone(),
 		}
 	}
 }

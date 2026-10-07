@@ -45,7 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	let tracked = TrackSourceAction::from_input(TrackSourceInput {
 		path: test_source.clone(),
 		name: Some("Demo Source".to_string()),
-		unfiltered: false,
+		overrides: Default::default(),
 	})?
 	.execute(library.clone(), core.context.clone())
 	.await?;

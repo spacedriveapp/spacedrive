@@ -6,8 +6,11 @@ use std::path::PathBuf;
 use crate::util::prelude::*;
 
 use crate::context::Context;
+use sd_core::library::AddOverrides;
+use sd_core::ops::indexing::sources::StorePlacement;
 use sd_core::ops::mounts::{MountsReplicationSetPausedInput, MountsReplicationSetPausedOutput};
 use sd_core::ops::sources::{
+	delete::action::{DeleteSourceInput, DeleteSourceOutput},
 	freeze::action::{FreezeSourceInput, FreezeSourceOutput},
 	list::{output::SourceInfo, query::ListSourcesInput},
 	track::action::{TrackSourceInput, TrackSourceOutput},
@@ -28,6 +31,8 @@ pub enum SourceCmd {
 	Verify(SourceVerifyArgs),
 	/// Rename a source or change its capture policy
 	Update(SourceUpdateArgs),
+	/// Remove a source from the library, keeping its catalog unless asked
+	Untrack(SourceUntrackArgs),
 	/// Control how this device copies paired devices' source indexes
 	#[command(subcommand)]
 	Replication(ReplicationCmd),
@@ -54,6 +59,19 @@ pub struct SourceTrackArgs {
 	/// files, .git and dev directories. Archival drives want this.
 	#[arg(long)]
 	pub unfiltered: bool,
+	/// Keep the catalog on the source itself, under .spacedrive, instead of
+	/// in the library's data directory
+	#[arg(long, conflicts_with = "in_library")]
+	pub on_source: bool,
+	/// Keep the catalog in the library's data directory
+	#[arg(long)]
+	pub in_library: bool,
+	/// For an on-source catalog, whether the library keeps an offline copy
+	#[arg(long)]
+	pub keep_offline_copy: Option<bool>,
+	/// Skip content identification after the walk
+	#[arg(long)]
+	pub no_identify: bool,
 }
 
 #[derive(Args, Debug)]
@@ -66,6 +84,15 @@ pub struct SourceFreezeArgs {
 pub struct SourceVerifyArgs {
 	/// The source's id, from `sources list`
 	pub source_id: String,
+}
+
+#[derive(Args, Debug)]
+pub struct SourceUntrackArgs {
+	/// The source's id, from `sources list`
+	pub source_id: String,
+	/// Also delete the catalog: records, content evidence and assertions
+	#[arg(long)]
+	pub delete_catalog: bool,
 }
 
 #[derive(Args, Debug)]
@@ -92,12 +119,34 @@ pub async fn run(ctx: &Context, cmd: SourceCmd) -> Result<()> {
 			let input = TrackSourceInput {
 				path,
 				name: args.name,
-				unfiltered: args.unfiltered,
+				overrides: AddOverrides {
+					placement: if args.on_source {
+						Some(StorePlacement::OnSource)
+					} else if args.in_library {
+						Some(StorePlacement::InLibrary)
+					} else {
+						None
+					},
+					keep_offline_copy: args.keep_offline_copy,
+					unfiltered: args.unfiltered.then_some(true),
+					identify_content: args.no_identify.then_some(false),
+				},
 			};
 
 			let out: TrackSourceOutput = execute_action!(ctx, input);
 			print_output!(ctx, &out, |o: &TrackSourceOutput| {
 				println!("Tracking {} as source {}", o.root.display(), o.id);
+				if let Some(store) = &o.store_path {
+					println!(
+						"Catalog {} at {}",
+						if o.catalog_reused {
+							"reopened"
+						} else {
+							"started"
+						},
+						store.display()
+					);
+				}
 				if let Some(job) = o.job_id {
 					println!("Indexing started (job {job})");
 				}
@@ -184,6 +233,26 @@ pub async fn run(ctx: &Context, cmd: SourceCmd) -> Result<()> {
 			let out: MountsReplicationSetPausedOutput = execute_core_action!(ctx, input);
 			print_output!(ctx, &out, |o: &MountsReplicationSetPausedOutput| {
 				println!("{}", o.message);
+			});
+		}
+		SourceCmd::Untrack(args) => {
+			let input = DeleteSourceInput {
+				source_id: args.source_id,
+				delete_catalog: args.delete_catalog,
+			};
+
+			let out: DeleteSourceOutput = execute_action!(ctx, input);
+			print_output!(ctx, &out, |o: &DeleteSourceOutput| {
+				if o.catalog_deleted {
+					println!("Removed the source and deleted its catalog");
+				} else if let Some(path) = &o.catalog_path {
+					println!(
+						"Removed the source; its catalog stays at {} and is reopened by tracking the same path again",
+						path.display()
+					);
+				} else {
+					println!("Removed the source");
+				}
 			});
 		}
 		SourceCmd::Freeze(args) => {

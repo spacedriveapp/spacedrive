@@ -97,7 +97,7 @@ async fn track(core: &Arc<Core>, library: &Arc<Library>, root: &Path) -> anyhow:
 	let output = TrackSourceAction::from_input(TrackSourceInput {
 		path: root.to_path_buf(),
 		name: None,
-		unfiltered: false,
+		overrides: Default::default(),
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(library.clone(), core.context.clone())
@@ -483,7 +483,7 @@ async fn an_empty_mount_point_is_reported_unmounted_not_walked() {
 	let refused = TrackSourceAction::from_input(TrackSourceInput {
 		path: root.clone(),
 		name: None,
-		unfiltered: false,
+		overrides: Default::default(),
 	})
 	.unwrap()
 	.execute(library.clone(), core.context.clone())

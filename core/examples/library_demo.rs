@@ -68,7 +68,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let tracked = TrackSourceAction::from_input(TrackSourceInput {
 			path: std::env::current_dir()?,
 			name: Some("Current Directory".to_string()),
-			unfiltered: false,
+			overrides: Default::default(),
 		})?
 		.execute(library.clone(), core.context.clone())
 		.await?;

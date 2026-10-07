@@ -267,7 +267,7 @@ impl<'a> TestDir<'a> {
 		let output = TrackSourceAction::from_input(TrackSourceInput {
 			path: self.path.clone(),
 			name: None,
-			unfiltered: false,
+			overrides: Default::default(),
 		})
 		.map_err(anyhow::Error::msg)?
 		.execute(

@@ -498,7 +498,8 @@ async fn track_nested(harness: &IndexingHarness, root: PathBuf) -> anyhow::Resul
 		&harness.library,
 		&harness.core.context,
 		root,
-		false,
+		None,
+		&Default::default(),
 	)
 	.await
 	.map_err(|e| anyhow::anyhow!("{e}"))?;
