@@ -937,9 +937,9 @@ impl SourceDb {
 		let sql = format!(
 			"SELECT r.uuid, {pairs} FROM record r \
 			 LEFT JOIN \"{table}\" f ON f.record_uuid = r.uuid \
-			 WHERE r.type = ? AND (?2 IS NULL OR r.external_id = ?2) \
+			 WHERE r.type = ?1 AND (?2 IS NULL OR r.external_id = ?2) \
 			 ORDER BY COALESCE(r.modified_at, r.created_at) DESC, r.rowid DESC \
-			 LIMIT ?"
+			 LIMIT ?3"
 		);
 		let rows = sqlx::query_as::<_, (Uuid, Option<String>)>(&sql)
 			.bind(model)

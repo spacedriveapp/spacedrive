@@ -5,5 +5,11 @@
 	"description": "Minimal extension demonstrating beautiful SDK API",
 	"author": "Spacedrive Team",
 	"homepage": "https://spacedrive.com",
-	"wasm_file": "test_extension.wasm"
+	"wasm_file": "test_extension.wasm",
+	"permissions": {
+		"read_records": {},
+		"write_sidecars": [
+			"digest"
+		]
+	}
 }

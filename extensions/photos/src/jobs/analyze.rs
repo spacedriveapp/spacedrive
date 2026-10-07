@@ -8,15 +8,14 @@ use crate::jobs::clustering::{cluster_faces_into_people, generate_face_tags};
 use crate::tasks::*;
 
 #[derive(Serialize, Deserialize, Default)]
+#[serde(default)]
 pub struct AnalyzePhotosState {
 	pub photo_ids: Vec<Uuid>,
 	pub current_index: usize,
 	/// Photos whose faces sidecar was written by this run.
-	#[serde(default)]
 	pub analyzed: usize,
 	/// Photos skipped because they have no content identity yet or the face
 	/// detector is not available on this device.
-	#[serde(default)]
 	pub skipped: usize,
 }
 
