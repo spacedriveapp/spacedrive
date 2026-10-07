@@ -3,6 +3,7 @@ import { useState } from "react";
 import clsx from "clsx";
 import type { JobListItem } from "../types";
 import { getJobDisplayName, formatDuration, timeAgo } from "../types";
+import { JobProgressSummary } from "../components/JobProgressSummary";
 import { JobStatusIndicator } from "../components/JobStatusIndicator";
 
 interface JobRowProps {
@@ -37,9 +38,6 @@ export function JobRow({ job, onPause, onResume, onCancel }: JobRowProps) {
 			onCancel(job.id);
 		}
 	};
-
-	// Format progress percentage
-	const progressPercent = Math.round(job.progress * 100);
 
 	// Get phase and message
 	const phase = job.current_phase;
@@ -90,20 +88,9 @@ export function JobRow({ job, onPause, onResume, onCancel }: JobRowProps) {
 				</div>
 
 				{/* Progress / Duration column */}
-				<div className="flex-shrink-0 w-32">
+				<div className="flex-shrink-0 w-44">
 					{job.status === "running" || job.status === "paused" ? (
-						// Show progress bar for active jobs
-						<div className="flex items-center gap-2">
-							<div className="flex-1 h-1.5 bg-app-line/30 rounded-full overflow-hidden">
-								<div
-									className="h-full bg-accent transition-all duration-300"
-									style={{ width: `${progressPercent}%` }}
-								/>
-							</div>
-							<span className="text-xs font-medium text-ink-dull w-8 text-right">
-								{progressPercent}%
-							</span>
-						</div>
+						<JobProgressSummary job={job} />
 					) : job.status === "completed" ? (
 						// Show duration for completed jobs
 						<span className="text-xs text-ink-dull">

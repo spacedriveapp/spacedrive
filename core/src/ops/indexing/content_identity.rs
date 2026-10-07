@@ -151,13 +151,11 @@ impl JobHandler for ContentIdentityJob {
 
 		// Say what the job is doing before the first byte is read. A card
 		// that shows a type name and a bare percentage is not progress.
-		if outstanding > 0 {
-			ctx.progress(Progress::generic(GenericProgress::new(
-				0.0,
-				"Identifying",
-				format!("{label} — 0 of {outstanding} files"),
-			)));
-		}
+		ctx.progress(Progress::generic(GenericProgress::new(
+			0.0,
+			"Identifying",
+			format!("{label} — preparing file queue"),
+		)));
 
 		// Progress moves within a claim, not only between claims: a claim of
 		// large files hashes for a while, and a bar that only advances per
@@ -166,6 +164,10 @@ impl JobHandler for ContentIdentityJob {
 
 		let mut identified = 0u64;
 		let mut unreadable = 0u64;
+		let estimator = indicatif::ProgressBar::hidden();
+		let mut expected_total = outstanding;
+		let mut queue_known = false;
+		let mut last_progress = std::time::Instant::now();
 
 		loop {
 			ctx.check_interrupt().await?;
@@ -174,9 +176,41 @@ impl JobHandler for ContentIdentityJob {
 				.files_needing_content(BATCH_SIZE)
 				.await
 				.map_err(|e| e.to_string())?;
+			let discovering = ctx
+				.library()
+				.core_context()
+				.volume_index()
+				.is_indexing(&self.root);
 			if batch.is_empty() {
+				if discovering {
+					ctx.progress(Progress::generic(
+						GenericProgress::new(
+							0.0,
+							"Identifying",
+							format!(
+								"{label} — {} files checked; waiting for discovery",
+								identified + unreadable
+							),
+						)
+						.with_completion(identified + unreadable, 0)
+						.with_performance(0.0, None, Some(estimator.elapsed())),
+					));
+					tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+					continue;
+				}
 				break;
 			}
+			let done = identified + unreadable;
+			if !discovering && (!queue_known || done >= expected_total) {
+				expected_total = done
+					+ store
+						.files_needing_content_count()
+						.await
+						.map_err(|e| e.to_string())?;
+				queue_known = true;
+			}
+			expected_total = expected_total.max(done + batch.len() as u64);
+			estimator.set_length(expected_total);
 
 			for chunk in batch.chunks(PROGRESS_CHUNK) {
 				ctx.check_interrupt().await?;
@@ -191,15 +225,25 @@ impl JobHandler for ContentIdentityJob {
 				store.content_unreadable(failures).await;
 
 				let done = identified + unreadable;
-				ctx.progress(Progress::generic(GenericProgress::new(
-					if outstanding > 0 {
-						(done as f32 / outstanding as f32).min(1.0)
+				if last_progress.elapsed() >= std::time::Duration::from_millis(250) {
+					last_progress = std::time::Instant::now();
+					estimator.set_position(done);
+					let rate = estimator.per_sec() as f32;
+					let elapsed = estimator.elapsed();
+					let eta = (!discovering && elapsed.as_secs() >= 10 && rate > 0.0)
+						.then(|| estimator.eta());
+					let total = if discovering { 0 } else { expected_total };
+					let message = if discovering {
+						format!("{label} — {done} files checked; discovery still running")
 					} else {
-						1.0
-					},
-					"Identifying",
-					format!("{label} — {done} of {outstanding} files"),
-				)));
+						format!("{label} — {done} of {total} files checked")
+					};
+					let mut progress = GenericProgress::new(0.0, "Identifying", message)
+						.with_completion(done, total)
+						.with_performance(rate, eta, Some(elapsed));
+					progress.percentage = running_percentage(done, total);
+					ctx.progress(Progress::generic(progress));
+				}
 			}
 
 			// Wait for this claim to land before taking the next. The pending
@@ -220,6 +264,27 @@ impl JobHandler for ContentIdentityJob {
 			identified,
 			unreadable,
 		})
+	}
+}
+
+fn running_percentage(done: u64, total: u64) -> f32 {
+	if total == 0 {
+		0.0
+	} else {
+		(done as f32 / total as f32).min(0.99)
+	}
+}
+
+#[cfg(test)]
+mod progress_tests {
+	use super::running_percentage;
+	#[test]
+	fn unknown_and_growing_queues_never_report_completion() {
+		assert_eq!(running_percentage(0, 0), 0.0);
+		assert_eq!(running_percentage(100, 0), 0.0);
+		assert_eq!(running_percentage(100, 100), 0.99);
+		assert_eq!(running_percentage(200, 100), 0.99);
+		assert_eq!(running_percentage(25, 100), 0.25);
 	}
 }
 
