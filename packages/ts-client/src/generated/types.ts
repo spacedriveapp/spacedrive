@@ -4929,8 +4929,9 @@ settings: SourceConfig;
  */
 store_path: string | null; 
 /**
- * Whether the store already existed and was reopened rather than
- * started empty: the scope was added before and its catalog kept.
+ * Whether the source kept an identity it already had, either as an
+ * existing registration or as a catalog adopted through its descriptor,
+ * rather than starting a fresh one.
  */
 catalog_reused: boolean; job_id: string | null };
 
