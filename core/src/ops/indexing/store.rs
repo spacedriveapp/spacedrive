@@ -688,15 +688,15 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 				Ok(next) => next,
 				Err(_) => {
 					failed_since_flush +=
-						commit(&db, &mut writes, &mut removals, &mut renames).await;
+						commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
 					continue;
 				}
 			}
 		};
 
 		let Some(ingest) = next else {
-			let failed =
-				failed_since_flush + commit(&db, &mut writes, &mut removals, &mut renames).await;
+			let failed = failed_since_flush
+				+ commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
 			if failed > 0 {
 				tracing::error!(
 					failed,
@@ -774,18 +774,21 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 			Ingest::BeginSweep => {
 				// A sweep's verdict is "everything this walk did not see", so
 				// anything still pending has to count as seen before it opens.
-				failed_since_flush += commit(&db, &mut writes, &mut removals, &mut renames).await;
+				failed_since_flush +=
+					commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
 				ledger.begin_sweep();
 			}
 			Ingest::FinishSweep { unreachable } => {
 				removals.extend(ledger.finish_sweep(&unreachable));
-				failed_since_flush += commit(&db, &mut writes, &mut removals, &mut renames).await;
+				failed_since_flush +=
+					commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
 			}
 			Ingest::Identified(identities) => {
 				// Ordered behind whatever is staged: a record has to exist
 				// before its content can point at it, and the batch that
 				// created it may still be sitting here.
-				failed_since_flush += commit(&db, &mut writes, &mut removals, &mut renames).await;
+				failed_since_flush +=
+					commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
 				if let Err(error) = db.set_content_identities(&identities).await {
 					tracing::error!(%error, "content identities failed to land");
 					failed_since_flush += identities.len() as u64;
@@ -799,21 +802,24 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 				}
 			}
 			Ingest::Unreadable(failures) => {
-				failed_since_flush += commit(&db, &mut writes, &mut removals, &mut renames).await;
+				failed_since_flush +=
+					commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
 				if let Err(error) = sd_store::mark_content_unreadable(db.pool(), &failures).await {
 					tracing::error!(%error, "content errors failed to land");
 					failed_since_flush += failures.len() as u64;
 				}
 			}
 			Ingest::Flush(done) => {
-				failed_since_flush += commit(&db, &mut writes, &mut removals, &mut renames).await;
+				failed_since_flush +=
+					commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
 				let _ = done.send(failed_since_flush);
 				failed_since_flush = 0;
 			}
 		}
 
 		if writes.len() >= BATCH_SIZE {
-			failed_since_flush += commit(&db, &mut writes, &mut removals, &mut renames).await;
+			failed_since_flush +=
+				commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
 		}
 	}
 }
@@ -821,12 +827,13 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 /// Commit a batch, and drain it either way. Returns how many writes failed
 /// to land, so the flush barrier can refuse to call the pass durable.
 ///
-/// A failed batch is dropped rather than retried: the ledger has already bound
-/// what it held, so replaying it would write rows the next walk resolves as
-/// unchanged and never repairs. Losing it instead leaves the store behind the
-/// filesystem, which is the state every walk is built to correct.
+/// A failed batch is dropped rather than retried. Each row it loses is
+/// unsettled in the ledger, which keeps the identity the arena may already
+/// hold but makes the next observation of that path resolve `Changed`, so a
+/// later walk repairs the hole once the storage recovers.
 async fn commit(
 	db: &SourceDb,
+	ledger: &mut Ledger,
 	writes: &mut Vec<FileWrite>,
 	removals: &mut Vec<Uuid>,
 	renames: &mut Vec<SubtreeRename>,
@@ -839,11 +846,9 @@ async fn commit(
 	match db.apply_files(writes, removals, renames, None).await {
 		Ok(applied) => tracing::trace!(applied, removed = removals.len(), "source store batch"),
 		Err(error) => {
-			// One bad row must not take the batch with it. The ledger has
-			// already bound everything here, so a row silently dropped now is
-			// a permanent hole: the walk resolves it as unchanged forever
-			// after. Salvage row by row, and name the row that actually
-			// failed, because a batch-sized error message hides the bug.
+			// One bad row must not take the batch with it. Salvage row by
+			// row, and name the row that actually failed, because a
+			// batch-sized error message hides the bug.
 			tracing::error!(%error, rows = writes.len(), "source store batch failed; salvaging row by row");
 			if let Err(error) = db.apply_files(&[], removals, renames, None).await {
 				tracing::error!(%error, "removals and renames failed to land");
@@ -862,6 +867,7 @@ async fn commit(
 						%error,
 						"row failed to land"
 					);
+					ledger.unsettle(write.uuid());
 					failed += 1;
 				}
 			}
@@ -2022,7 +2028,6 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 	/// unchanged second observation must repair the write that failed, so the
 	/// store converges once the storage recovers.
 	#[tokio::test]
-	#[ignore = "R8: one failed row fails: the ledger binds the failed row, so a repeat observation resolves unchanged and never rewrites it"]
 	async fn a_repeat_observation_repairs_a_failed_write() {
 		let mut fixture = Fixture::new().await;
 		reject_title(fixture.store.db(), "bad.txt").await;

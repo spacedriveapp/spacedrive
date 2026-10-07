@@ -27,6 +27,8 @@ pub struct FsWatcherServiceConfig {
 	pub tick_interval: Duration,
 	/// Enable debug logging
 	pub debug_mode: bool,
+	/// How often a refused watch is retried
+	pub watch_retry_interval: Duration,
 }
 
 impl Default for FsWatcherServiceConfig {
@@ -35,6 +37,7 @@ impl Default for FsWatcherServiceConfig {
 			event_buffer_size: 100_000,
 			tick_interval: Duration::from_millis(100),
 			debug_mode: false,
+			watch_retry_interval: Duration::from_secs(30),
 		}
 	}
 }
@@ -108,6 +111,45 @@ impl FsWatcherService {
 		// announced below can be missed.
 		self.clone().arm_restored_sources();
 		self.clone().restore_registered_sources();
+		self.clone().retry_refused_watches_periodically();
+	}
+
+	/// Retry every refused watch on a fixed interval while the service runs.
+	///
+	/// A refusal is usually transient: the directory was being replaced, the
+	/// drive had not finished mounting, the inotify limit was hit by another
+	/// process. Nothing announces when that clears, so the service polls.
+	/// Holding the service weakly lets a stopped core drop it.
+	fn retry_refused_watches_periodically(self: Arc<Self>) {
+		let interval = self.config.watch_retry_interval;
+		let service = Arc::downgrade(&self);
+		drop(self);
+		tokio::spawn(async move {
+			loop {
+				tokio::time::sleep(interval).await;
+				let Some(service) = service.upgrade() else {
+					return;
+				};
+				if service.is_running() {
+					service.retry_refused_watches().await;
+				}
+			}
+		});
+	}
+
+	/// Retry each refused watch once. A root the OS now accepts becomes an
+	/// active watch; one it still refuses keeps its refusal with the latest
+	/// reason.
+	pub async fn retry_refused_watches(&self) {
+		for (root, reason) in self.context.volume_index().refused_watches() {
+			match self.watch_root(root.clone()).await {
+				Ok(()) => info!(
+					"Watching {} after an earlier refusal ({reason})",
+					root.display()
+				),
+				Err(e) => debug!("Watch of {} still refused: {e}", root.display()),
+			}
+		}
 	}
 
 	/// Watch every source whose index arrives from a snapshot.
@@ -231,28 +273,17 @@ impl FsWatcherService {
 
 	/// Watch a root the volume index has walked
 	///
-	/// Registers the root with the volume index and starts OS-level watching.
+	/// Subscribes at the OS first and registers the root with the volume
+	/// index only once the OS accepted, so a refused subscription is never
+	/// reported as an active watch. A refusal is recorded with its reason
+	/// and retried by [`Self::retry_refused_watches`].
 	pub async fn watch_root(&self, path: impl Into<PathBuf>) -> Result<()> {
 		let path = path.into();
 		debug!("Watching root: {}", path.display());
 
-		if self.context.volume_index().is_watched(&path) {
+		let cache = self.context.volume_index();
+		if cache.is_watched(&path) {
 			return Ok(());
-		}
-
-		// Register with the volume index so the handler knows to process events.
-		// Without this the OS watch still fires and `FsEventHandler`
-		// drops every event as unmatched, which looks exactly like a watcher
-		// that is running and a UI that never updates.
-		if !self
-			.context
-			.volume_index()
-			.register_for_watching(path.clone())
-		{
-			return Err(anyhow::anyhow!(
-				"cannot watch {}: not indexed, or its source is detached",
-				path.display()
-			));
 		}
 
 		// Recursive, because the index under this root is. A source is walked
@@ -261,9 +292,25 @@ impl FsWatcherService {
 		// parent. macOS has no non-recursive subscription anyway, so a shallow
 		// config here was only ever honoured on other platforms, where it made
 		// every change below the first level invisible.
-		self.watcher
+		if let Err(e) = self
+			.watcher
 			.watch_path(&path, WatchConfig::recursive())
-			.await?;
+			.await
+		{
+			cache.record_watch_refusal(path.clone(), e.to_string());
+			return Err(anyhow::anyhow!("cannot watch {}: {e}", path.display()));
+		}
+
+		// Register with the volume index so the handler knows to process events.
+		// Without this the OS watch still fires and `FsEventHandler`
+		// drops every event as unmatched, which looks exactly like a watcher
+		// that is running and a UI that never updates.
+		if !cache.register_for_watching(path.clone()) {
+			let reason = "not indexed, or its source is detached";
+			let _ = self.watcher.unwatch(&path).await;
+			cache.record_watch_refusal(path.clone(), reason.to_string());
+			return Err(anyhow::anyhow!("cannot watch {}: {reason}", path.display()));
+		}
 
 		Ok(())
 	}
@@ -272,7 +319,8 @@ impl FsWatcherService {
 	pub async fn unwatch_root(&self, path: &Path) -> Result<()> {
 		debug!("Unwatching root: {}", path.display());
 
-		// Unregister from the volume index
+		// Unregister from the volume index, which also forgets any refusal
+		// so nothing keeps retrying a root nobody wants watched.
 		self.context.volume_index().unregister_from_watching(path);
 
 		// Stop OS-level watching

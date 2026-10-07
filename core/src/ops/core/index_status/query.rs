@@ -154,6 +154,15 @@ impl CoreQuery for IndexStatusQuery {
 		}
 		watched_paths.sort();
 
+		let mut refused_watches: Vec<super::output::WatchRefusal> = cache
+			.refused_watches()
+			.into_iter()
+			.map(|(path, reason)| super::output::WatchRefusal { path, reason })
+			.collect();
+		if let Some(ref filter) = self.input.path_filter {
+			refused_watches.retain(|r| r.path.to_string_lossy().contains(filter));
+		}
+
 		let sources = cache
 			.sources()
 			.into_iter()
@@ -178,6 +187,7 @@ impl CoreQuery for IndexStatusQuery {
 			indexed_paths,
 			paths_in_progress: filtered_in_progress,
 			watched_paths,
+			refused_watches,
 			sources,
 		})
 	}

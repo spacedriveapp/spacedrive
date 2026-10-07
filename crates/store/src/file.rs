@@ -505,6 +505,23 @@ impl Ledger {
 		}
 		Some(uuid)
 	}
+
+	/// Keep a record's identity at its path but forget that a row landed for
+	/// it, so the next observation of that path resolves `Changed` and writes
+	/// the whole row again.
+	///
+	/// The writer calls this for a write the database refused. The binding
+	/// was made before the commit, so left alone it answers `Unchanged` to
+	/// every later walk and the row stays missing for as long as the file's
+	/// size and mtime hold. Dropping the binding outright would mint a second
+	/// identity for the same file instead; keeping the uuid is what lets the
+	/// arena's answer and the store's row converge once the storage recovers.
+	pub fn unsettle(&mut self, uuid: Uuid) {
+		if let Some(binding) = self.bindings.get_mut(&uuid) {
+			binding.size = -1;
+			binding.mtime = -1;
+		}
+	}
 }
 
 /// A resolved observation, ready to write.
