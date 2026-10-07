@@ -3,6 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 
 /// Extension manifest (manifest.json)
@@ -107,6 +108,8 @@ pub struct LoadedPlugin {
 	pub dir_name: String,
 	pub manifest: ExtensionManifest,
 	pub loaded_at: DateTime<Utc>,
+	/// Set by the runtime when a guest call trapped; see `PluginRuntime`.
+	pub poisoned: Arc<AtomicBool>,
 	pub runtime: Arc<Mutex<super::manager::PluginRuntime>>,
 }
 

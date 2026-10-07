@@ -5,6 +5,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use chrono::Utc;
@@ -55,8 +56,10 @@ pub struct PluginRuntime {
 	instance: Instance,
 	env: FunctionEnv<PluginEnv>,
 	/// Set once a guest call trapped. A panic aborts the guest wherever it
-	/// is, so its heap and locks cannot be trusted by the next call.
-	poisoned: bool,
+	/// is, so its heap and locks cannot be trusted by the next call. Shared
+	/// with `LoadedPlugin` so the manager can read it without taking the
+	/// mutex a running job holds.
+	poisoned: Arc<AtomicBool>,
 }
 
 impl PluginRuntime {
@@ -73,6 +76,11 @@ impl PluginRuntime {
 		state_json: &str,
 		bridge: JobBridge,
 	) -> Result<i32, PluginError> {
+		if self.poisoned.load(Ordering::SeqCst) {
+			return Err(PluginError::Trap(
+				"instance trapped earlier and is waiting to be reloaded".into(),
+			));
+		}
 		let store = &mut self.store;
 		let exports = &self.instance.exports;
 		let alloc: TypedFunction<i32, i32> = exports
@@ -119,7 +127,7 @@ impl PluginRuntime {
 		let _ = free.call(store, state_ptr, state_json.len().max(1) as i32);
 
 		result.map_err(|e| {
-			self.poisoned = true;
+			self.poisoned.store(true, Ordering::SeqCst);
 			PluginError::Trap(e.to_string())
 		})
 	}
@@ -200,6 +208,16 @@ impl PluginManager {
 	/// The plugin is keyed by the id in its manifest, which may differ from the
 	/// directory name. Returns that id.
 	pub async fn load_plugin(&mut self, dir_name: &str) -> Result<String, PluginError> {
+		let plugin = self.instantiate(dir_name).await?;
+		if self.plugins.read().await.contains_key(&plugin.id) {
+			return Err(PluginError::AlreadyLoaded(plugin.id));
+		}
+		self.activate(plugin).await
+	}
+
+	/// Read, compile and instantiate a plugin without touching the registry
+	/// or the loaded set, so a failure here changes nothing.
+	async fn instantiate(&self, dir_name: &str) -> Result<LoadedPlugin, PluginError> {
 		let plugin_path = self.plugin_dir.join(dir_name);
 		let manifest_path = plugin_path.join("manifest.json");
 		let manifest: ExtensionManifest = {
@@ -215,10 +233,6 @@ impl PluginManager {
 		};
 		let plugin_id = manifest.id.clone();
 
-		if self.plugins.read().await.contains_key(&plugin_id) {
-			return Err(PluginError::AlreadyLoaded(plugin_id));
-		}
-
 		tracing::info!(
 			extension = %plugin_id,
 			"Loading extension {} v{}",
@@ -232,6 +246,7 @@ impl PluginManager {
 		// Each plugin owns a store so one plugin's job never holds another's
 		// instance.
 		let mut store = Store::default();
+		let poisoned = Arc::new(AtomicBool::new(false));
 		let module = Module::new(&store, wasm_bytes).map_err(|e| {
 			PluginError::CompilationFailed(format!("Failed to compile WASM: {}", e))
 		})?;
@@ -317,19 +332,44 @@ impl PluginManager {
 		})?;
 		env.as_mut(&mut store).memory = memory.clone();
 
-		// plugin_init registers the plugin's jobs through host_register_job.
-		match instance.exports.get_function("plugin_init") {
-			Ok(init_fn) => {
-				if let Err(e) = init_fn.call(&mut store, &[]) {
-					self.job_registry.unregister_extension_jobs(&plugin_id);
-					return Err(PluginError::InstantiationFailed(format!(
-						"plugin_init() failed: {}",
-						e
-					)));
+		Ok(LoadedPlugin {
+			id: plugin_id,
+			dir_name: dir_name.to_string(),
+			manifest,
+			loaded_at: Utc::now(),
+			poisoned: poisoned.clone(),
+			runtime: Arc::new(Mutex::new(PluginRuntime {
+				store,
+				instance,
+				env,
+				poisoned,
+			})),
+		})
+	}
+
+	/// Run `plugin_init`, which registers the plugin's jobs, and record the
+	/// plugin as loaded.
+	async fn activate(&mut self, plugin: LoadedPlugin) -> Result<String, PluginError> {
+		let plugin_id = plugin.id.clone();
+		{
+			let mut runtime = plugin
+				.runtime
+				.lock()
+				.map_err(|_| PluginError::InstantiationFailed("runtime lock poisoned".into()))?;
+			let runtime = &mut *runtime;
+			match runtime.instance.exports.get_function("plugin_init") {
+				Ok(init_fn) => {
+					if let Err(e) = init_fn.call(&mut runtime.store, &[]) {
+						self.job_registry.unregister_extension_jobs(&plugin_id);
+						return Err(PluginError::InstantiationFailed(format!(
+							"plugin_init() failed: {}",
+							e
+						)));
+					}
 				}
-			}
-			Err(_) => {
-				tracing::warn!(extension = %plugin_id, "Plugin has no plugin_init() function")
+				Err(_) => {
+					tracing::warn!(extension = %plugin_id, "Plugin has no plugin_init() function")
+				}
 			}
 		}
 
@@ -340,22 +380,7 @@ impl PluginManager {
 			"Extension loaded"
 		);
 
-		self.plugins.write().await.insert(
-			plugin_id.clone(),
-			LoadedPlugin {
-				id: plugin_id.clone(),
-				dir_name: dir_name.to_string(),
-				manifest,
-				loaded_at: Utc::now(),
-				runtime: Arc::new(Mutex::new(PluginRuntime {
-					store,
-					instance,
-					env,
-					poisoned: false,
-				})),
-			},
-		);
-
+		self.plugins.write().await.insert(plugin_id.clone(), plugin);
 		Ok(plugin_id)
 	}
 
@@ -371,7 +396,13 @@ impl PluginManager {
 			.ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))?;
 		self.job_registry.unregister_extension_jobs(plugin_id);
 
-		if let Ok(mut runtime) = plugin.runtime.lock() {
+		// A trapped guest cannot be trusted to run cleanup, and a guest still
+		// running a job keeps its instance alive until that job returns; the
+		// instance is dropped with the last Arc either way.
+		if plugin.poisoned.load(Ordering::SeqCst) {
+			return Ok(());
+		}
+		if let Ok(mut runtime) = plugin.runtime.try_lock() {
 			if let Ok(cleanup) = runtime.instance.exports.get_function("plugin_cleanup") {
 				let cleanup = cleanup.clone();
 				if let Err(e) = cleanup.call(&mut runtime.store, &[]) {
@@ -383,7 +414,10 @@ impl PluginManager {
 		Ok(())
 	}
 
-	/// Reload a plugin from its directory, for development.
+	/// Reload a plugin from its directory, for development and after a trap.
+	///
+	/// The new instance is read, compiled and instantiated before the old one
+	/// goes, so a reload that fails leaves the loaded plugin as it was.
 	pub async fn reload_plugin(&mut self, plugin_id: &str) -> Result<(), PluginError> {
 		let dir_name = self
 			.plugins
@@ -392,8 +426,9 @@ impl PluginManager {
 			.get(plugin_id)
 			.map(|plugin| plugin.dir_name.clone())
 			.ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))?;
+		let fresh = self.instantiate(&dir_name).await?;
 		self.unload_plugin(plugin_id).await?;
-		self.load_plugin(&dir_name).await?;
+		self.activate(fresh).await?;
 		Ok(())
 	}
 
@@ -420,24 +455,14 @@ impl PluginManager {
 			.map(|p| p.runtime.clone())
 	}
 
-	/// The runtime a job should run on: a fresh instance when the last call
-	/// trapped, since an aborted guest may have died holding its allocator.
-	pub async fn runtime_for_job(
-		&mut self,
-		plugin_id: &str,
-	) -> Result<Arc<Mutex<PluginRuntime>>, PluginError> {
-		let runtime = self
-			.runtime(plugin_id)
+	/// Whether the plugin's last guest call trapped, read without touching
+	/// the mutex a running job holds.
+	pub async fn is_poisoned(&self, plugin_id: &str) -> bool {
+		self.plugins
+			.read()
 			.await
-			.ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))?;
-		let poisoned = runtime.lock().map(|r| r.poisoned).unwrap_or(true);
-		if !poisoned {
-			return Ok(runtime);
-		}
-		tracing::warn!(extension = %plugin_id, "Reloading extension after a trap");
-		self.reload_plugin(plugin_id).await?;
-		self.runtime(plugin_id)
-			.await
-			.ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))
+			.get(plugin_id)
+			.map(|p| p.poisoned.load(Ordering::SeqCst))
+			.unwrap_or(false)
 	}
 }

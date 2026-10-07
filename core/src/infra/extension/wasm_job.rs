@@ -85,12 +85,30 @@ impl JobHandler for WasmJob {
 			.get_plugin_manager()
 			.await
 			.ok_or_else(|| JobError::ExecutionFailed("PluginManager not initialized".into()))?;
+		// A trapped instance is replaced before the next job; the write lock
+		// is taken only for that reload, never while a guest runs.
+		if plugin_manager
+			.read()
+			.await
+			.is_poisoned(&self.extension_id)
+			.await
+		{
+			tracing::warn!(extension = %self.extension_id, "Reloading extension after a trap");
+			plugin_manager
+				.write()
+				.await
+				.reload_plugin(&self.extension_id)
+				.await
+				.map_err(|e| JobError::ExecutionFailed(e.to_string()))?;
+		}
 		let runtime = plugin_manager
-			.write()
+			.read()
 			.await
-			.runtime_for_job(&self.extension_id)
+			.runtime(&self.extension_id)
 			.await
-			.map_err(|e| JobError::ExecutionFailed(e.to_string()))?;
+			.ok_or_else(|| {
+				JobError::ExecutionFailed(format!("Extension '{}' not loaded", self.extension_id))
+			})?;
 
 		// A checkpoint outlives a kill; the job row only outlives a pause.
 		if let Some(saved) = ctx.load_state::<String>().await? {
