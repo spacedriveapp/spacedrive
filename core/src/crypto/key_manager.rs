@@ -11,7 +11,7 @@ use chacha20poly1305::{
 };
 use keyring::{Entry, Error as KeyringError};
 use rand::RngCore;
-use redb::{Database, ReadableTable, TableDefinition};
+use redb::{backends::InMemoryBackend, Database, ReadableTable, TableDefinition};
 use std::path::PathBuf;
 use std::sync::Arc;
 use thiserror::Error;
@@ -278,15 +278,18 @@ impl KeyManager {
 		Ok(())
 	}
 
-	/// Close the database and release file locks
-	/// This should be called before dropping KeyManager to ensure clean shutdown
+	/// Close the database and release its file lock, ahead of dropping the
+	/// manager.
+	///
+	/// The stand-in is a redb database on an in-memory backend. redb has no
+	/// `:memory:` path convention, so a path by that name would be a real
+	/// file in the working directory that every closed manager in the
+	/// process contends on.
 	pub async fn close(&self) -> Result<(), KeyManagerError> {
-		// Get a write lock and replace with an in-memory database to force file close
 		let mut db_guard = self.db.write().await;
-		// Drop the old database and replace with a dummy in-memory one
 		drop(std::mem::replace(
 			&mut *db_guard,
-			Database::create(":memory:")?,
+			Database::builder().create_with_backend(InMemoryBackend::new())?,
 		));
 		Ok(())
 	}
@@ -372,6 +375,41 @@ mod tests {
 		let key2 = manager2.get_device_key().await.unwrap();
 
 		assert_eq!(key1, key2);
+	}
+
+	/// Closing leaves no file behind: the stand-in database is in memory,
+	/// not a file named `:memory:` in the working directory.
+	#[tokio::test]
+	async fn closing_leaves_the_working_directory_alone() {
+		let temp_dir = TempDir::new().unwrap();
+		let manager = KeyManager::new_with_fallback(
+			temp_dir.path().to_path_buf(),
+			Some(temp_dir.path().join("device_key.txt")),
+		)
+		.unwrap();
+		manager.get_device_key().await.unwrap();
+
+		let listing = |dir: &std::path::Path| -> Vec<std::ffi::OsString> {
+			let mut names: Vec<_> = std::fs::read_dir(dir)
+				.unwrap()
+				.map(|entry| entry.unwrap().file_name())
+				.collect();
+			names.sort();
+			names
+		};
+		let cwd = std::env::current_dir().unwrap();
+		let cwd_before = listing(&cwd);
+		let data_before = listing(temp_dir.path());
+
+		manager.close().await.unwrap();
+
+		assert!(!cwd.join(":memory:").exists());
+		assert_eq!(listing(&cwd), cwd_before);
+		assert_eq!(listing(temp_dir.path()), data_before);
+		assert!(
+			manager.get_secret("anything").await.is_err(),
+			"a closed manager holds nothing"
+		);
 	}
 
 	#[tokio::test]

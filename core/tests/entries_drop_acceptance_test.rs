@@ -791,22 +791,9 @@ async fn layout_is_empty(harness: &IndexingHarness, space: Uuid) -> bool {
 /// directory is opened again.
 ///
 /// Built on a bare `Core` rather than the harness, so the library handle
-/// can be dropped before the restart and its lock released, and run in a
-/// child process with its own working directory: `KeyManager::close` swaps
-/// the secrets database for a redb file literally named `:memory:` in the
-/// working directory, which every other shut-down core holds a lock on, so
-/// in a shared process the first core keeps `secrets.redb` open and the
-/// restart fails with "Database already open".
+/// can be dropped before the restart and its lock released.
 #[tokio::test]
 async fn a_pin_survives_a_restart() -> anyhow::Result<()> {
-	in_child("pin_restart_child").await?;
-	Ok(())
-}
-
-/// The restart behind `a_pin_survives_a_restart`.
-#[tokio::test]
-#[ignore = "run by a_pin_survives_a_restart in a child process"]
-async fn pin_restart_child() -> anyhow::Result<()> {
 	let temp = tempfile::tempdir()?;
 	let data_dir = temp.path().join("data");
 	let files = temp.path().join("pinned");
@@ -934,13 +921,11 @@ async fn a_non_utf8_name_is_retained_lossily_and_reported() -> anyhow::Result<()
 }
 
 /// Run one ignored test of this binary in a child process with warnings
-/// on, and answer with everything it printed. The harness's fmt layer
-/// writes to stdout; the child's own panics go to stderr.
+/// on, and answer with everything it printed. The tracing subscriber is
+/// process-global, so the only way to read what one walk logged is to give
+/// it a process. The harness's fmt layer writes to stdout; the child's own
+/// panics go to stderr.
 async fn in_child(test: &str) -> anyhow::Result<String> {
-	// Its own working directory: `KeyManager::close` creates a redb file
-	// named `:memory:` there, and redb's lock on it is per file, so a child
-	// sharing the parent's directory cannot shut its core down cleanly.
-	let cwd = tempfile::tempdir()?;
 	let output = tokio::process::Command::new(std::env::current_exe()?)
 		.args([
 			test,
@@ -950,7 +935,6 @@ async fn in_child(test: &str) -> anyhow::Result<String> {
 			"--test-threads=1",
 		])
 		.env("RUST_LOG", "sd_core=warn")
-		.current_dir(cwd.path())
 		.output()
 		.await?;
 	let printed = format!(

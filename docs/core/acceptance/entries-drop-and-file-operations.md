@@ -121,33 +121,40 @@ for.
 |---|---|---|---|
 | F1 | Batch rename to a dated sequence, and undo | `acceptance.rs` `a_dated_batch_rename_runs_as_previewed_and_undoes` (`{date:%Y-%m-%d}_{n:03}` plus lowercase extension; preview names every new name, the job produces exactly those, undo restores the originals); `core/src/ops/files/rename/preflight.rs` `a_batch_previews_collisions_and_renames_chains_and_cycles` | passing |
 | F2 | Mirror with extras removed; the plan's deletes match `file compare` reversed | `acceptance.rs` `a_mirrors_deletes_are_the_reversed_comparison` (planned `Delete` rows equal the path comparison's only-in-destination set; after the job the destination's file set equals the source's); `merge/tests.rs` `a_mirror_removes_what_no_source_holds` | passing |
-| F3 | Undo the mirror | `acceptance.rs` `undoing_a_mirror_restores_the_extras_and_the_replaced_bytes` | failing on Linux and Windows (see F-a); passing on macOS |
+| F3 | Undo the mirror | `acceptance.rs` `undoing_a_mirror_restores_the_extras_and_the_replaced_bytes` | passing on Linux and macOS; ignored on Windows (see F-a) |
 | F4 | Flatten a downloads folder with known collisions | `core/src/ops/files/organize/tests.rs` `flattening_numbers_collisions_and_prunes_emptied_folders`, `organizing_by_month_previews_folders_and_moves_and_keeps_identity` | passing |
-| F5 | Trash a file and restore it from the trash view, with its location recorded | `acceptance.rs` `a_trashed_file_is_listed_with_its_location_and_comes_back` (journal holds the location, `files.trash_list` lists it present, undo restores the bytes); `core/src/ops/files/undo/tests.rs` `undoing_a_delete_restores_from_the_trash` (macOS) | failing on Linux and Windows (see F-a); passing on macOS |
+| F5 | Trash a file and restore it from the trash view, with its location recorded | `acceptance.rs` `a_trashed_file_is_listed_with_its_location_and_comes_back` (journal holds the location, `files.trash_list` lists it present, undo restores the bytes); `core/src/ops/files/undo/tests.rs` `undoing_a_delete_restores_from_the_trash` (macOS); `core/src/ops/files/trash.rs` `a_linux_location_is_the_item_and_its_trashinfo_goes_with_it` | passing on Linux and macOS; ignored on Windows (see F-a) |
 | F6 | Trash on a network mount (a volume with no OS trash: the Spacedrive trash directory) | `core/src/ops/files/trash.rs` `a_spacedrive_trash_location_is_told_apart`; no test drives `spacedrive_trash` end to end, since it needs a volume the OS trash refuses | passing (recognition) / not automatable (the fallback needs a mount the `trash` crate refuses, which a temp directory on the runner is not) |
 | F7 | Measure preview time for a batch rename over the largest folder | `acceptance.rs` `a_batch_rename_preview_over_a_thousand_files_answers_within_the_ceiling` | passing (stand-in) / live only (measurement) |
 | F8 | No operation left a file the journal does not account for | `acceptance.rs` `every_file_a_job_touched_is_in_its_journal` (copy, rename, permanent delete: every path that appeared or vanished is, or sits under, a journaled effect) | passing |
 | F9 | Archive and extract round trip | `core/src/ops/files/archive/tests.rs` `a_zip_round_trips_with_a_collision_and_a_replacement`, `a_tar_zstd_round_trips_with_a_collision_and_a_replacement`, `an_escaping_entry_is_refused_and_components_strip`, `a_resumed_extract_continues_at_its_entry` | passing |
-| F10 | Trash restore on Windows and Linux, "written against the crate and not yet run there" (F3's exit proof) | F3 and F5 above are that run | failing (see F-a) |
+| F10 | Trash restore on Windows and Linux, "written against the crate and not yet run there" (F3's exit proof) | F3 and F5 above are that run | passing on Linux; not run on Windows (see F-a) |
 
 ## Known limits and release gates with no plan row
 
 | # | Row | Test | Status |
 |---|---|---|---|
-| K1 | A rename over an existing file inside a source fails to land in the store on `UNIQUE(parent_uuid, title)` (PROJECT_STATUS.md known limit) | `entries_drop_acceptance_test.rs` `a_rename_over_an_existing_file_lands_as_one_row` | failing (see F-b) |
+| K1 | A rename over an existing file inside a source lands as one row under `UNIQUE(parent_uuid, title)` (a PROJECT_STATUS.md known limit until F-b) | `entries_drop_acceptance_test.rs` `a_rename_over_an_existing_file_lands_as_one_row` | passing |
 | K2 | Non-UTF-8 names are retained lossily and reported (known limit; release gate "unrepresentable names fail visibly") | `entries_drop_acceptance_test.rs` `a_non_utf8_name_is_retained_lossily_and_reported` (a `\xFF` name is a record under U+FFFD and the walk warns `file name is not valid UTF-8; recorded lossily`, read from a child process's output) | passing |
 
-Totals: 33 rows. 23 pass on the Linux runner outright; 4 fail there and
-are ignored tests (F3, F5 and F10 are one cause, F-a; K1 is F-b); 6 have a
-passing automated half and a half that is live only or not automatable
-(P3, P4, B1, F6 and the two measurements V6 and F7). Three ignored tests
-carry the failing rows; five counting `non_utf8_child_walk` and
-`pin_restart_child`, which are ignored only so their parent tests can run
-them in a child process.
+Totals: 33 rows. 27 pass on the Linux runner outright; none fail there; 6
+have a passing automated half and a half that is live only or not
+automatable (P3, P4, B1, F6 and the two measurements V6 and F7). The one
+ignored test in the binary is `non_utf8_child_walk`, ignored only so
+`a_non_utf8_name_is_retained_lossily_and_reported` can run it in a child
+process and read what it logged. F3 and F5 stay ignored on Windows alone.
 
-## Failing rows
+## Fixed rows
 
-### F-a. Rows F3, F5, F10: trash restore on Linux renames the `.trashinfo` file over the original
+Both failing rows were fixed in the follow-up to #3116, which also
+removed the second reason the pin restart row needed a child process:
+`KeyManager::close` swapped the secrets database for a redb file literally
+named `:memory:` in the working directory, so every shut-down core in one
+process contended on it. The stand-in is now redb's in-memory backend, and
+`closing_leaves_the_working_directory_alone` in `key_manager.rs` holds
+it there.
+
+### F-a. Rows F3, F5, F10: trash restore on Linux renamed the `.trashinfo` file over the original
 
 `core/src/ops/files/acceptance.rs`
 `a_trashed_file_is_listed_with_its_location_and_comes_back`,
@@ -162,14 +169,16 @@ original path ends up holding the trashinfo text (`[Trash Info]\nPath=...`),
 and the real bytes stay in `Trash/files/`. The trash view reports the item
 as present for the same reason.
 
-Fix: on Linux and Windows either record the restorable file path
-(`restorable_file_in_trash_from_info_file` is private in the crate, but the
-`files/<stem>` path is derivable from the info path), or make `restore` go
-through `restore_os` whenever the location is not a Spacedrive trash
-directory instead of branching on `symlink_metadata`. `purge` has the same
-branch. Half a day, with these two tests as the proof.
+Fixed: on Linux `trash_os` records the item under `Trash/files/<name>`,
+derived from the `.trashinfo` path the way the crate derives it, and
+`restore` and `purge` remove the `info/<name>.trashinfo` companion after
+the rename or the removal, so the trash does not list a ghost.
+`a_linux_location_is_the_item_and_its_trashinfo_goes_with_it` proves the
+layout. On Windows the crate's item id is a shell parsing name, not a path
+the trash view can stat, so F3 and F5 stay ignored there and the restore
+goes through the crate.
 
-### F-b. Row K1: a rename over an existing file leaves two rows with one title
+### F-b. Row K1: a rename over an existing file left two rows with one title
 
 `core/tests/entries_drop_acceptance_test.rs`
 `a_rename_over_an_existing_file_lands_as_one_row`.
@@ -183,4 +192,11 @@ end state is worse: `a.txt` still resolves, since nothing in the walk sweeps
 a single vanished file inside a source that is otherwise intact. Fix: the rename ingest should treat an existing row at the
 destination key as replaced (remove it, or fold its facets into the mover)
 before writing the move, and the sweep should reconcile a title collision
-under one parent. Half a day.
+under one parent.
+
+Fixed: the rename ingest forgets the record bound at the destination key
+and removes it in the same batch as the move, and `apply_files` lands
+removals before writes so the mover takes the title without colliding. The
+overwritten record's content row stays: the bytes may still sit behind
+another record, and the hash is evidence either way. A collision reached
+through a re-walk rather than the rename event is not covered here.
