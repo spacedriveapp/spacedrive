@@ -60,9 +60,8 @@ Read from the code on 2026-10-07.
 - The daemon's HTTP server (`apps/server/src/main.rs:567`) serves sidecars
   and hot thumbnails by URL; `ServerContext.buildSidecarUrl` builds them.
 
-So the kind is a derived fact today, computed from the file name every time a
-row is read, and nothing is stored. That makes the migration small and the
-persistence a new requirement, not a change to an existing one.
+So the kind is a derived fact today, computed from the file name on every
+read, and nothing is stored. Persistence is a new requirement, not a change.
 
 ## Design
 
@@ -168,8 +167,9 @@ match falls through to the parent's renderer and the parent's icon, so a
 on unload. When the extension loads again, the same names resolve again.
 
 A kind renamed or removed in a later manifest version leaves rows with a stale
-name, which behave like an unloaded extension's rows; carrying them over is a
-reidentification pass (below), not a migration.
+name, which behave like an unloaded extension's rows. Nothing rewrites them in
+this slice; a rename that carries rows over needs an old-to-new name map in
+the manifest, a later field.
 
 ### Conflicts
 
@@ -252,16 +252,18 @@ today and kinds are derived at read time. Store schema version 2 adds
   extension table as soon as Photos loads, without a write.
 - Loading an extension with kinds for the first time, or with a changed
   extension table, runs one reidentification pass per open store: one
-  `UPDATE content SET kind_name = ?, kind = ? WHERE kind_name IS NULL AND id
-  IN (SELECT r.content_id FROM record r JOIN facet_file f ON f.record_uuid =
-  r.uuid WHERE f.extension IN (...))`. The extension lives in
+  transaction with one statement per declared kind, each binding that kind's
+  name, parent and extension list: `UPDATE content SET kind_name = ?, kind =
+  ? WHERE kind_name IS NULL AND id IN (SELECT r.content_id FROM record r JOIN
+  facet_file f ON f.record_uuid = r.uuid WHERE f.extension IN (...))`. The
+  extension lives in
   `facet_file.extension` (`crates/store/src/file.rs:563`), which has no
   index, so schema v2 adds `idx_facet_file_extension` with the column.
   Magic-only claims wait for the next content identity pass over those
   files. The pass is idempotent and logged; it is not a job.
 
-The built-in TOML definitions and `ContentKind` are untouched, so a daemon
-without the `wasm` feature behaves exactly as today.
+The built-in TOML definitions and `ContentKind` are untouched; a daemon
+without the `wasm` feature behaves as today.
 
 ## Phases
 
@@ -290,9 +292,8 @@ manifest edits. K3 can start after K1. Eight days, two PRs (K1+K2, K3 to K5).
 ## Open
 
 - Whether `content.kind` should also be written for built-in kinds at the
-  content identity phase, ending the read-time derivation. It is cheap once
-  K2 writes the column anyway, and it would make kind stats come from the
-  store instead of the name. Not needed for this slice.
+  content identity phase, ending the read-time derivation. Cheap once K2
+  writes the column; kind stats would then come from the store, not the name.
 - Whether a bundle preview should receive byte ranges rather than a whole
   file URL. The original URL already answers range requests; `ctx` can grow
   a `range(start, end)` helper when a timeline-shaped viewer asks for it.
