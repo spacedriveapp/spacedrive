@@ -186,5 +186,17 @@ know to model.
 - Avoid sleeps when an event or state query can prove readiness.
 - Add every production data-loss bug as a regression test.
 
+## Acceptance matrices
+
+A plan that ends in an acceptance table gets a matrix file under
+`docs/core/acceptance/`, one row per scenario, each naming the test that
+proves it and its status on the CI runner. A row no Linux test can prove says
+why. A row whose test fails at the current commit keeps the test, marked
+`#[ignore = "R8: <row> fails: <reason>"]`, and the matrix records the observed
+behavior so the fix has a target.
+
+- [Source runtime](https://github.com/spacedriveapp/spacedrive/blob/main/docs/core/acceptance/source-runtime.md):
+  the R8 table of the source runtime reliability plan.
+
 See [Jobs](/core/jobs), [Indexing](/core/indexing), and [Releases](/core/releases)
 for the contracts these tests enforce.

@@ -12,17 +12,58 @@ use std::time::Instant;
 #[derive(Debug, Clone)]
 pub struct TestSuite {
 	pub name: &'static str,
+	/// The crate the suite lives in: `sd-core` unless a suite says otherwise.
+	pub package: &'static str,
 	/// Specific args that go between the common prefix and suffix
 	pub test_args: &'static [&'static str],
+	/// Which CI job runs it.
+	pub group: Group,
+}
+
+/// The CI job a suite belongs to. Each group is one runner, so the split is
+/// about wall time: the integration group sits near the hour and anything
+/// new goes in its own job rather than on top of it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Group {
+	/// The `--lib` suite
+	Unit,
+	/// The original `--test` suites
+	Integration,
+	/// The R8 source runtime acceptance suites
+	Acceptance,
 }
 
 impl TestSuite {
 	/// Build complete cargo test command arguments
 	pub fn build_args(&self) -> Vec<&str> {
-		let mut args = vec!["test", "-p", "sd-core"];
+		let mut args = vec!["test", "-p", self.package];
 		args.extend_from_slice(self.test_args);
 		args.extend_from_slice(&["--", "--test-threads=1", "--nocapture"]);
 		args
+	}
+}
+
+/// A suite in the `sd-core` crate, which is where most of them live.
+const fn core(name: &'static str, test_args: &'static [&'static str]) -> TestSuite {
+	TestSuite {
+		name,
+		package: "sd-core",
+		test_args,
+		group: Group::Integration,
+	}
+}
+
+/// A suite in the acceptance group.
+const fn acceptance(
+	package: &'static str,
+	name: &'static str,
+	test_args: &'static [&'static str],
+) -> TestSuite {
+	TestSuite {
+		name,
+		package,
+		test_args,
+		group: Group::Acceptance,
 	}
 }
 
@@ -34,122 +75,85 @@ impl TestSuite {
 pub const CORE_TESTS: &[TestSuite] = &[
 	TestSuite {
 		name: "All core unit tests",
+		package: "sd-core",
 		test_args: &["--lib"],
+		group: Group::Unit,
 	},
-	TestSuite {
-		name: "Database migration test",
-		test_args: &["--test", "database_migration_test"],
-	},
-	TestSuite {
-		name: "Library test",
-		test_args: &["--test", "library_test"],
-	},
-	TestSuite {
-		name: "Indexing rules test",
-		test_args: &["--test", "indexing_rules_test"],
-	},
-	TestSuite {
-		name: "Watcher test",
-		test_args: &["--test", "watcher_test"],
-	},
-	TestSuite {
-		name: "File move test",
-		test_args: &["--test", "file_move_test"],
-	},
-	TestSuite {
-		name: "Volume detection test",
-		test_args: &["--test", "volume_detection_test"],
-	},
-	TestSuite {
-		name: "Volume tracking test",
-		test_args: &["--test", "volume_tracking_test"],
-	},
-	TestSuite {
-		name: "Typescript bridge test",
-		test_args: &["--test", "typescript_bridge_test"],
-	},
-	TestSuite {
-		name: "Typescript search bridge test",
-		test_args: &["--test", "typescript_search_bridge_test"],
-	},
-	TestSuite {
-		name: "Normalized cache fixtures test",
-		test_args: &["--test", "normalized_cache_fixtures_test"],
-	},
-	TestSuite {
-		name: "Device pairing test",
-		test_args: &["--test", "device_pairing_test"],
-	},
-	TestSuite {
-		name: "File copy pull test",
-		test_args: &["--test", "file_copy_pull_test"],
-	},
-	TestSuite {
-		name: "File transfer test",
-		test_args: &["--test", "file_transfer_test"],
-	},
-	TestSuite {
-		name: "File transfer with restart test",
-		test_args: &["--test", "file_transfer_with_restart_test"],
-	},
-	TestSuite {
-		name: "Cross device copy test",
-		test_args: &["--test", "cross_device_copy_test"],
-	},
-	TestSuite {
-		name: "Sync setup test",
-		test_args: &["--test", "sync_setup_test"],
-	},
-	TestSuite {
-		name: "Sync backfill test",
-		test_args: &["--test", "sync_backfill_test"],
-	},
-	TestSuite {
-		name: "Sync catch-up test",
-		test_args: &["--test", "sync_catchup_test"],
-	},
-	TestSuite {
-		name: "Library join test",
-		test_args: &["--test", "library_join_test"],
-	},
-	TestSuite {
-		name: "Dedupe own hash test",
-		test_args: &["--test", "dedupe_own_hash_test"],
-	},
-	// TestSuite {
-	// 	name: "Sync event log test",
-	// 	test_args: &["--test", "sync_event_log_test"],
-	// },
-	// TestSuite {
-	// 	name: "Sync metrics test",
-	// 	test_args: &["--test", "sync_metrics_test"],
-	// },
-	// TestSuite {
-	// 	name: "Sync backfill test",
-	// 	test_args: &["--test", "sync_backfill_test"],
-	// },
+	core(
+		"Database migration test",
+		&["--test", "database_migration_test"],
+	),
+	core("Library test", &["--test", "library_test"]),
+	core("Indexing rules test", &["--test", "indexing_rules_test"]),
+	core("Watcher test", &["--test", "watcher_test"]),
+	core("File move test", &["--test", "file_move_test"]),
+	core(
+		"Volume detection test",
+		&["--test", "volume_detection_test"],
+	),
+	core("Volume tracking test", &["--test", "volume_tracking_test"]),
+	core(
+		"Typescript bridge test",
+		&["--test", "typescript_bridge_test"],
+	),
+	core(
+		"Typescript search bridge test",
+		&["--test", "typescript_search_bridge_test"],
+	),
+	core(
+		"Normalized cache fixtures test",
+		&["--test", "normalized_cache_fixtures_test"],
+	),
+	core("Device pairing test", &["--test", "device_pairing_test"]),
+	core("File copy pull test", &["--test", "file_copy_pull_test"]),
+	core("File transfer test", &["--test", "file_transfer_test"]),
+	core(
+		"File transfer with restart test",
+		&["--test", "file_transfer_with_restart_test"],
+	),
+	core(
+		"Cross device copy test",
+		&["--test", "cross_device_copy_test"],
+	),
+	core("Sync setup test", &["--test", "sync_setup_test"]),
+	core("Sync backfill test", &["--test", "sync_backfill_test"]),
+	core("Sync catch-up test", &["--test", "sync_catchup_test"]),
+	core("Library join test", &["--test", "library_join_test"]),
+	core("Dedupe own hash test", &["--test", "dedupe_own_hash_test"]),
+	// R8 source runtime acceptance (docs/core/acceptance/source-runtime.md):
+	// the single-daemon rows, the two-process replication rows, and the
+	// store crate's own suites, which carry the store-level rows.
+	acceptance(
+		"sd-core",
+		"Source runtime acceptance test",
+		&["--test", "source_runtime_acceptance_test"],
+	),
+	acceptance(
+		"sd-core",
+		"Source replication test",
+		&["--test", "source_replication_test"],
+	),
+	acceptance("sd-store", "Store crate tests", &[]),
+	// core("Sync event log test", &["--test", "sync_event_log_test"]),
+	// core("Sync metrics test", &["--test", "sync_metrics_test"]),
+	// core("Sync backfill test", &["--test", "sync_backfill_test"]),
 ];
 
 /// Which part of `CORE_TESTS` to run
 ///
-/// CI runs the unit tests and the integration suites as two jobs so they
-/// compile and run in parallel; locally the default runs everything.
+/// CI runs each group as its own job so they compile and run in parallel;
+/// locally the default runs everything.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Selection {
 	All,
-	/// Only the `--lib` suite
-	Unit,
-	/// Every `--test` suite
-	Integration,
+	Group(Group),
 }
 
 impl Selection {
 	fn includes(self, suite: &TestSuite) -> bool {
-		let is_unit = suite.test_args.first() == Some(&"--lib");
 		match self {
 			Selection::All => true,
-			Selection::Unit => is_unit,
-			Selection::Integration => !is_unit,
+			Selection::Group(group) => suite.group == group,
 		}
 	}
 }

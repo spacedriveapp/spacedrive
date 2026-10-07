@@ -484,6 +484,41 @@ mod tests {
 		assert_eq!(mount, PathBuf::from("/System/Volumes/Data"));
 	}
 
+	/// R8 "Same volume, nested roots, reversed registration order".
+	///
+	/// The deeper root registered first changes nothing either: the volume
+	/// boundary is the anchor's mount, whichever registration came first, so
+	/// the two sources share one map and one snapshot slot.
+	#[test]
+	fn reversed_registration_order_keeps_one_volume_boundary() {
+		let mut registry = SourceRegistry::default();
+		let drive = anchor("/System/Volumes/Data");
+
+		let deeper = registry.register(
+			Path::new("/System/Volumes/Data/Users/someone/Downloads"),
+			Some(&drive),
+		);
+		let (deeper_key, deeper_mount) = registry.volume_of(&deeper);
+		assert_eq!(deeper_key, VolumeKey::Id(drive.uuid));
+		assert_eq!(deeper_mount, PathBuf::from("/System/Volumes/Data"));
+
+		let outer = registry.register(
+			Path::new("/System/Volumes/Data/Users/someone"),
+			Some(&drive),
+		);
+		assert_ne!(outer.id, deeper.id, "two roots, two registrations");
+		let (outer_key, outer_mount) = registry.volume_of(&outer);
+		assert_eq!(outer_key, deeper_key, "one drive, one key");
+		assert_eq!(outer_mount, deeper_mount);
+		assert_eq!(
+			registry.volume_of(&deeper).1,
+			deeper_mount,
+			"the earlier registration keeps its boundary once the outer root arrives"
+		);
+		assert_eq!(deeper.relative_root, "Users/someone/Downloads");
+		assert_eq!(outer.relative_root, "Users/someone");
+	}
+
 	#[test]
 	fn a_remount_keeps_the_source() {
 		let mut registry = SourceRegistry::default();

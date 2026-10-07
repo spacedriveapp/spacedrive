@@ -1935,6 +1935,218 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		);
 	}
 
+	/// R8 "Shallow browse inside an empty retained source".
+	///
+	/// A browse of one directory deep inside a source whose store has never
+	/// seen a record must persist the ancestry it implies, so the records it
+	/// writes are addressable and nothing lands at the root by accident.
+	#[tokio::test]
+	async fn a_shallow_browse_in_an_empty_store_persists_its_ancestry() {
+		let fixture = Fixture::new().await;
+		let root = fixture.root.path();
+		std::fs::create_dir_all(root.join("a/b/c")).expect("dirs");
+		std::fs::write(root.join("a/b/c/leaf.txt"), b"leaf").expect("file");
+		std::fs::write(root.join("a/b/c/twig.txt"), b"twig").expect("file");
+
+		// The browse observes only the directory's immediate children.
+		let batch: Vec<EntryMetadata> = ["a/b/c/leaf.txt", "a/b/c/twig.txt"]
+			.iter()
+			.map(|r| EntryMetadata::from(dir_entry(&root.join(r))))
+			.collect();
+		let identities = fixture.store.identify(&batch, &[None, None]).await;
+		assert!(identities.iter().all(Option::is_some));
+		fixture.store.flush().await.expect("flush");
+
+		assert_eq!(
+			fixture.paths().await,
+			vec!["a", "a/b", "a/b/c", "a/b/c/leaf.txt", "a/b/c/twig.txt"]
+		);
+		let db = fixture.store.db();
+		let top = db.resolve_path("a").await.expect("query").expect("a");
+		let unparented: i64 = sqlx::query_scalar(
+			"SELECT COUNT(*) FROM record WHERE parent_uuid IS NULL AND uuid <> ?",
+		)
+		.bind(top)
+		.fetch_one(db.pool())
+		.await
+		.expect("count");
+		assert_eq!(unparented, 0, "nothing but the top level sits at the root");
+	}
+
+	/// Reject one named row at the database so a batch fails partway, the
+	/// way a constraint or a corrupt page does for a real store.
+	async fn reject_title(db: &SourceDb, title: &str) {
+		sqlx::raw_sql(&format!(
+			"CREATE TRIGGER reject_row BEFORE INSERT ON record \
+			 WHEN NEW.title = '{title}' BEGIN SELECT RAISE(ABORT, 'rejected row'); END;"
+		))
+		.execute(db.pool())
+		.await
+		.expect("trigger");
+	}
+
+	async fn accept_everything(db: &SourceDb) {
+		sqlx::raw_sql("DROP TRIGGER reject_row")
+			.execute(db.pool())
+			.await
+			.expect("drop trigger");
+	}
+
+	/// R8 "One failed row and successful siblings".
+	///
+	/// A batch with one bad row is salvaged row by row: the siblings land,
+	/// and the flush barrier refuses so no job can call the pass complete.
+	#[tokio::test]
+	async fn one_failed_row_keeps_its_siblings_and_fails_the_flush() {
+		let mut fixture = Fixture::new().await;
+		reject_title(fixture.store.db(), "bad.txt").await;
+
+		fixture.create("docs/good.txt", b"good").await;
+		fixture.create("docs/bad.txt", b"bad").await;
+		fixture.create("docs/fine.txt", b"fine").await;
+
+		let flush = fixture.store.flush().await;
+		let error = flush.expect_err("a lost row cannot be a clean flush");
+		assert!(
+			error.to_string().contains("1 write(s) failed"),
+			"the failure names how many rows did not land: {error}"
+		);
+		assert_eq!(
+			fixture.paths().await,
+			vec!["docs", "docs/fine.txt", "docs/good.txt"],
+			"the siblings survive the bad row"
+		);
+	}
+
+	/// R1 proof, R8 "One failed row and successful siblings" continued: an
+	/// unchanged second observation must repair the write that failed, so the
+	/// store converges once the storage recovers.
+	#[tokio::test]
+	#[ignore = "R8: one failed row fails: the ledger binds the failed row, so a repeat observation resolves unchanged and never rewrites it"]
+	async fn a_repeat_observation_repairs_a_failed_write() {
+		let mut fixture = Fixture::new().await;
+		reject_title(fixture.store.db(), "bad.txt").await;
+		fixture.create("docs/bad.txt", b"bad").await;
+		assert!(fixture.store.flush().await.is_err());
+
+		// The storage recovers and the next walk sees the same file again,
+		// byte for byte and stamp for stamp.
+		accept_everything(fixture.store.db()).await;
+		let path = fixture.root.path().join("docs/bad.txt");
+		fixture
+			.adapter
+			.create(&dir_entry(&path), fixture.root.path())
+			.await
+			.expect("re-observe");
+		fixture.store.flush().await.expect("a clean flush");
+
+		assert_eq!(
+			fixture.paths().await,
+			vec!["docs", "docs/bad.txt"],
+			"the repeat observation lands the row the first pass lost"
+		);
+	}
+
+	/// R8 "Writer dies or pending query fails", writer half.
+	///
+	/// With the writer gone, identification cannot resolve and the flush
+	/// barrier must say so; the pending-query half is
+	/// `a_failed_commit_surfaces_at_the_flush_barrier`.
+	#[tokio::test]
+	async fn a_dead_writer_is_a_typed_failure_not_an_empty_queue() {
+		let fixture = Fixture::new().await;
+		let root = fixture.root.path();
+		std::fs::write(root.join("late.txt"), b"late").expect("file");
+
+		// A store whose writer task has already exited.
+		let (tx, rx) = mpsc::channel(1);
+		drop(rx);
+		let orphaned = SourceStore {
+			id: fixture.store.id(),
+			root: root.to_path_buf(),
+			db: Arc::new(
+				SourceManager::new(fixture._data.path().join("sources"))
+					.open(&fixture.store.id().simple().to_string())
+					.await
+					.expect("open"),
+			),
+			tx,
+		};
+
+		let metadata = EntryMetadata::from(dir_entry(&root.join("late.txt")));
+		assert_eq!(
+			orphaned.identify_one(&metadata, None).await,
+			None,
+			"no identity is handed out for a write that can never land"
+		);
+		let error = orphaned
+			.flush()
+			.await
+			.expect_err("a flush with no writer is not durable");
+		assert!(
+			error.to_string().contains("writer is gone"),
+			"the failure says what is wrong: {error}"
+		);
+	}
+
+	/// R8 "Restart between identity assignment and commit".
+	///
+	/// The arena hands out the identity the store assigned before the commit
+	/// failed; after the daemon comes back the same observation, carrying
+	/// that identity, must land under it rather than minting a second one.
+	#[tokio::test]
+	async fn a_restart_after_assignment_keeps_the_identity_and_lands_the_write() {
+		let fixture = Fixture::new().await;
+		let root = fixture.root.path();
+		let data = fixture._data.path().join("sources");
+		let dirs = SourceDirs::new(data).expect("layout");
+		std::fs::create_dir_all(root.join("docs")).expect("dirs");
+		std::fs::write(root.join("docs/held.txt"), b"held").expect("file");
+		let metadata = EntryMetadata::from(dir_entry(&root.join("docs/held.txt")));
+
+		reject_title(fixture.store.db(), "held.txt").await;
+		let assigned = fixture
+			.store
+			.identify_one(&metadata, None)
+			.await
+			.expect("assigned");
+		assert!(fixture.store.flush().await.is_err(), "the commit failed");
+		assert_eq!(
+			fixture
+				.store
+				.db()
+				.resolve_path("docs/held.txt")
+				.await
+				.expect("query"),
+			None,
+			"nothing landed before the restart"
+		);
+		accept_everything(fixture.store.db()).await;
+		let id = fixture.store.id();
+		drop(fixture.store);
+
+		// The daemon restarts: a fresh writer over the same store, and the
+		// walk re-observes the file with the identity the arena kept.
+		let store = SourceStore::open(&dirs, id, root.to_path_buf())
+			.await
+			.expect("reopen");
+		let recovered = store
+			.identify_one(&metadata, Some(assigned))
+			.await
+			.expect("resolved");
+		assert_eq!(recovered, assigned, "the identity survives the restart");
+		store.flush().await.expect("the missing write lands");
+		assert_eq!(
+			store
+				.db()
+				.resolve_path("docs/held.txt")
+				.await
+				.expect("query"),
+			Some(assigned),
+			"the record carries the identity assigned before the crash"
+		);
+	}
+
 	#[tokio::test]
 	async fn a_partition_with_no_store_still_browses() {
 		let root = TempDir::new().expect("root");
