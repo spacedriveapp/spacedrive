@@ -118,7 +118,7 @@ async fn fixture_library(
 	let tracked = TrackSourceAction::from_input(TrackSourceInput {
 		path: source_dir,
 		name: None,
-		unfiltered: false,
+		overrides: Default::default(),
 	})
 	.unwrap()
 	.execute(library.clone(), core.context.clone())

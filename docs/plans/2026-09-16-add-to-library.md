@@ -7,9 +7,16 @@ resolved per library and recorded in the registration, volume registration
 on every add, the `source.json` descriptor with identity adoption on re-add,
 unconditional managed-directory exclusions, and removal that keeps the
 catalog unless asked to delete it. Acceptance:
-`docs/core/acceptance/add-to-library.md`. The modal, offline copies,
-remount of on-source stores, relocation and consolidation remain open; the
-defaults built are the proposals below and remain James's to change.
+`docs/core/acceptance/add-to-library.md`. The interface half followed
+(SPAC-32): one Add to Library modal replaces the storage modal for folders
+and whole drives, opened from the Explorer, the path bar, Home and a volume's
+menu. It shows the library defaults resolved for the scope, takes per-add
+overrides with unavailable placements explained, offers Use these settings
+as defaults, shows existing inclusion, and reports what the core saved with
+a link to the walk. Library Settings > Adding content edits the defaults.
+Offline copies, remount of on-source stores, relocation and consolidation
+remain open; the defaults built are the proposals below and remain James's
+to change.
 
 ## Agreed user flow
 

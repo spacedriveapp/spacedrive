@@ -38,7 +38,7 @@ import {useNavigate} from 'react-router-dom';
 import {isPathItem, useSpaceLayout, useSpaces} from '../../../components/SpacesSidebar/hooks';
 import {useExplorer} from '../context';
 import {sdPathToUri} from '../utils';
-import {useAddStorageDialog} from './AddStorageModal';
+import {useAddToLibraryDialog} from './AddToLibraryModal';
 
 interface PathBarProps {
 	path: SdPath;
@@ -265,9 +265,13 @@ function PathStatusButton({path}: {path: SdPath}) {
 			popover.setOpen(false);
 		}
 	};
+	const openAddToLibrary = useAddToLibraryDialog();
 	const addSource = () => {
 		if ('Physical' in path) {
-			useAddStorageDialog(undefined, path.Physical.path);
+			openAddToLibrary({
+				target: {kind: 'path', path: path.Physical.path},
+				onAdded: refresh
+			});
 			popover.setOpen(false);
 		}
 	};

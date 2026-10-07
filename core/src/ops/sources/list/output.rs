@@ -54,6 +54,10 @@ pub struct SourceInfo {
 	/// The catalog's directory on this machine, when this machine has it.
 	#[serde(default)]
 	pub store_path: Option<String>,
+	/// The settings the source was saved with, so a re-add can show what it
+	/// keeps. Absent for an adapter source and a replica, like `placement`.
+	#[serde(default)]
+	pub settings: Option<crate::ops::indexing::sources::SourceConfig>,
 }
 
 impl SourceInfo {
@@ -76,6 +80,7 @@ impl SourceInfo {
 		let total_bytes = row.total_bytes;
 		let record = SourceRecord::from_row(row, mount_point);
 		let placement = adapter_id.is_none().then_some(record.config.placement);
+		let settings = adapter_id.is_none().then(|| record.config.clone());
 
 		// An adapter's origin is a network service rather than a drive, so it
 		// is attached in the only sense the word has here.
@@ -104,6 +109,7 @@ impl SourceInfo {
 			transfer: None,
 			placement,
 			store_path: None,
+			settings,
 		}
 	}
 
@@ -142,6 +148,7 @@ impl SourceInfo {
 			transfer: crate::service::mounts::replication::transfer(entry.info.id),
 			placement: None,
 			store_path: None,
+			settings: None,
 		}
 	}
 
@@ -174,6 +181,7 @@ impl SourceInfo {
 			transfer: Some(transfer.clone()),
 			placement: None,
 			store_path: None,
+			settings: None,
 		}
 	}
 
@@ -208,6 +216,7 @@ impl SourceInfo {
 			transfer: crate::service::mounts::replication::transfer(share.info.id),
 			placement: None,
 			store_path: None,
+			settings: None,
 		}
 	}
 }

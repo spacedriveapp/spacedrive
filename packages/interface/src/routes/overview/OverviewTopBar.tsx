@@ -2,7 +2,7 @@ import {Plus} from '@phosphor-icons/react';
 import {CircleButton} from '@spacedrive/primitives';
 import {useNavigate} from 'react-router-dom';
 import {TopBarItem, TopBarPortal} from '../../TopBar';
-import {useAddStorageDialog} from '../explorer/components/AddStorageModal';
+import {useAddToLibraryDialog} from '../explorer/components/AddToLibraryModal';
 
 interface OverviewTopBarProps {
 	libraryName?: string;
@@ -11,12 +11,15 @@ interface OverviewTopBarProps {
 /** Home owns the first storage action; library scope lives in the sidebar. */
 export function OverviewTopBar(_props: OverviewTopBarProps) {
 	const navigate = useNavigate();
+	const openAddToLibrary = useAddToLibraryDialog();
 
 	const addStorage = () => {
-		useAddStorageDialog((path) => {
-			navigate(
-				`/explorer?path=${encodeURIComponent(JSON.stringify(path))}`
-			);
+		openAddToLibrary({
+			onAdded: (path) => {
+				navigate(
+					`/explorer?path=${encodeURIComponent(JSON.stringify(path))}`
+				);
+			}
 		});
 	};
 
