@@ -413,3 +413,61 @@ async fn a_replica_below_the_current_version_is_read_in_its_own_shape() {
 	let tags = replica.tags_for_records(&[a]).await.expect("tags read");
 	assert!(tags.is_empty());
 }
+
+/// Migration 1 on a store the size of a laptop's home folder: one million
+/// records, half on shared both-hash rows and half on their own. Run with
+/// `cargo test -p sd-store --test migrate -- --ignored migration_1_timing
+/// --nocapture`; the elapsed time is printed.
+#[tokio::test]
+#[ignore]
+async fn migration_1_timing_on_a_million_records() {
+	let fixture = Fixture::new().await;
+	let pool = downgrade_to_v0(&fixture.db_path()).await;
+	let rows: i64 = std::env::var("SD_MIGRATE_ROWS")
+		.ok()
+		.and_then(|v| v.parse().ok())
+		.unwrap_or(1_000_000);
+	let mut tx = pool.begin().await.expect("tx");
+	for id in 1..=rows {
+		let sampled = format!("s{id}");
+		let integrity = if id % 2 == 0 {
+			Some(format!("i{id}"))
+		} else {
+			None
+		};
+		let uuid = uuid_for(integrity.as_deref().unwrap_or(&sampled));
+		sqlx::query("INSERT INTO content (id, uuid, sampled_hash, integrity_hash, size) VALUES (?, ?, ?, ?, 10)")
+			.bind(id).bind(uuid).bind(&sampled).bind(&integrity)
+			.execute(&mut *tx).await.expect("content");
+		sqlx::query("INSERT INTO record (uuid, type, title, content_id, scan_epoch) VALUES (?, 'file', ?, ?, 1)")
+			.bind(Uuid::now_v7()).bind(format!("f{id}.bin")).bind(id)
+			.execute(&mut *tx).await.expect("record");
+		if id % 1000 == 0 {
+			let record: Uuid = sqlx::query_scalar("SELECT uuid FROM record WHERE content_id = ?")
+				.bind(id)
+				.fetch_one(&mut *tx)
+				.await
+				.expect("record");
+			sqlx::query("INSERT INTO tag_assertion (tag_uuid, record_uuid, content_uuid, asserted, hlc, device_uuid) VALUES (?, ?, ?, 1, ?, ?)")
+				.bind(Uuid::nil()).bind(record).bind(uuid).bind(id.to_string()).bind(Uuid::nil())
+				.execute(&mut *tx).await.expect("assertion");
+		}
+	}
+	tx.commit().await.expect("commit");
+	pool.close().await;
+
+	let started = std::time::Instant::now();
+	let db = fixture
+		.manager
+		.open("source-1")
+		.await
+		.expect("open migrates");
+	let elapsed = started.elapsed();
+	assert_eq!(db.schema_version(), SCHEMA_VERSION);
+	let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM content")
+		.fetch_one(db.pool())
+		.await
+		.expect("count");
+	assert_eq!(count, rows);
+	println!("migration 1 over {rows} content rows and records: {elapsed:?}");
+}

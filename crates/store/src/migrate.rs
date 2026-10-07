@@ -136,6 +136,42 @@ async fn content_rows_own_their_hash(pool: &SqlitePool) -> Result<()> {
 	outcome
 }
 
+/// Rows per insert statement: seven binds each, well under SQLite's limit.
+const INSERT_BATCH: usize = 1000;
+
+struct NewContent {
+	id: i64,
+	uuid: Uuid,
+	candidate_uuid: Option<Uuid>,
+	sampled_hash: Option<String>,
+	integrity_hash: Option<String>,
+	size: Option<i64>,
+	kind: Option<i64>,
+}
+
+async fn insert_batch(tx: &mut sqlx::SqliteConnection, batch: &[NewContent]) -> Result<()> {
+	if batch.is_empty() {
+		return Ok(());
+	}
+	let sql = format!(
+		"INSERT INTO content_new (id, uuid, candidate_uuid, sampled_hash, integrity_hash, size, kind) VALUES {}",
+		vec!["(?, ?, ?, ?, ?, ?, ?)"; batch.len()].join(", ")
+	);
+	let mut query = sqlx::query(&sql);
+	for row in batch {
+		query = query
+			.bind(row.id)
+			.bind(row.uuid)
+			.bind(row.candidate_uuid)
+			.bind(&row.sampled_hash)
+			.bind(&row.integrity_hash)
+			.bind(row.size)
+			.bind(row.kind);
+	}
+	query.execute(tx).await?;
+	Ok(())
+}
+
 #[derive(sqlx::FromRow)]
 struct OldContent {
 	id: i64,
@@ -173,7 +209,11 @@ async fn rebuild_content(conn: &mut sqlx::SqliteConnection) -> Result<()> {
 		.execute(&mut *tx)
 		.await?;
 
+	// Rows are rewritten in batches of multi-row inserts: one statement per
+	// row made a million-record store take about a minute, batched it takes
+	// seconds. Merges and hashless rows are rare and handled one at a time.
 	let mut confirmed: HashMap<String, i64> = HashMap::new();
+	let mut batch: Vec<NewContent> = Vec::with_capacity(INSERT_BATCH);
 	let mut kept = 0usize;
 	let mut demoted = 0usize;
 	let mut merged = 0usize;
@@ -192,7 +232,7 @@ async fn rebuild_content(conn: &mut sqlx::SqliteConnection) -> Result<()> {
 						continue;
 					}
 					confirmed.insert(integrity.to_string(), row.id);
-					(uuid_for(integrity), None, Some(integrity))
+					(uuid_for(integrity), None, Some(integrity.to_string()))
 				}
 				(None, None) => {
 					sqlx::query("UPDATE record SET content_id = NULL WHERE content_id = ?")
@@ -202,36 +242,42 @@ async fn rebuild_content(conn: &mut sqlx::SqliteConnection) -> Result<()> {
 					continue;
 				}
 			};
-
-		sqlx::query(
-			"INSERT INTO content_new (id, uuid, candidate_uuid, sampled_hash, integrity_hash, size, kind)
-			 VALUES (?, ?, ?, ?, ?, ?, ?)",
-		)
-		.bind(row.id)
-		.bind(uuid)
-		.bind(candidate_uuid)
-		.bind(&row.sampled_hash)
-		.bind(integrity_hash)
-		.bind(row.size)
-		.bind(row.kind)
-		.execute(&mut *tx)
-		.await?;
 		kept += 1;
-
 		if uuid != row.uuid {
 			demoted += 1;
-			for table in ["tag_assertion", "record_overlay"] {
-				sqlx::query(&format!(
-					"UPDATE {table} SET content_uuid = ? WHERE content_uuid = ?
-					 AND record_uuid IN (SELECT uuid FROM record WHERE content_id = ?)"
-				))
-				.bind(uuid)
-				.bind(row.uuid)
-				.bind(row.id)
-				.execute(&mut *tx)
-				.await?;
-			}
 		}
+		batch.push(NewContent {
+			id: row.id,
+			uuid,
+			candidate_uuid,
+			sampled_hash: row.sampled_hash.clone(),
+			integrity_hash,
+			size: row.size,
+			kind: row.kind,
+		});
+		if batch.len() == INSERT_BATCH {
+			insert_batch(&mut tx, &batch).await?;
+			batch.clear();
+		}
+	}
+	insert_batch(&mut tx, &batch).await?;
+
+	// Assertions keyed by a uuid their record's row no longer carries take
+	// the row's new uuid. Rows keep their ids, so old and new join on id.
+	for table in ["tag_assertion", "record_overlay"] {
+		sqlx::query(&format!(
+			"UPDATE {table} SET content_uuid = (
+				 SELECT cn.uuid FROM record r JOIN content_new cn ON cn.id = r.content_id
+				 WHERE r.uuid = {table}.record_uuid)
+			 WHERE content_uuid IS NOT NULL AND EXISTS (
+				 SELECT 1 FROM record r
+				 JOIN content c ON c.id = r.content_id
+				 JOIN content_new cn ON cn.id = c.id
+				 WHERE r.uuid = {table}.record_uuid
+				 AND c.uuid = {table}.content_uuid AND cn.uuid IS NOT c.uuid)"
+		))
+		.execute(&mut *tx)
+		.await?;
 	}
 
 	sqlx::query("DROP TABLE content").execute(&mut *tx).await?;
