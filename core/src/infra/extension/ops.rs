@@ -11,10 +11,14 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use sd_store::read::Start;
+use sd_store::FsEntry;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::infra::job::prelude::JobContext;
 use crate::library::Library;
+use crate::ops::indexing::store::SourceStore;
 
 use super::types::ExtensionManifest;
 
@@ -78,6 +82,53 @@ pub struct JobOps {
 	task: Option<ActiveTask>,
 }
 
+/// A record as the SDK's `Record` deserializes it.
+#[derive(Serialize)]
+struct RecordOut {
+	uuid: Uuid,
+	source_id: Uuid,
+	name: String,
+	kind: &'static str,
+	extension: Option<String>,
+	relative_path: String,
+	size: Option<u64>,
+	modified_ms: Option<i64>,
+	content_uuid: Option<Uuid>,
+}
+
+impl RecordOut {
+	fn new(source_id: Uuid, entry: FsEntry) -> Self {
+		Self {
+			uuid: entry.uuid,
+			source_id,
+			name: entry.name,
+			kind: entry.kind.as_str(),
+			extension: entry.extension.map(|e| e.to_lowercase()),
+			relative_path: entry.relative_path,
+			size: entry.size.and_then(|s| u64::try_from(s).ok()),
+			modified_ms: entry.mtime_ms,
+			content_uuid: entry.content_uuid,
+		}
+	}
+}
+
+#[derive(Deserialize)]
+struct RecordRef {
+	uuid: Uuid,
+}
+
+#[derive(Deserialize)]
+struct RecordQuery {
+	source: Option<Uuid>,
+	scope: Option<String>,
+	extensions: Option<Vec<String>>,
+	tag: Option<String>,
+	limit: Option<usize>,
+}
+
+/// The most records one query answers with.
+const QUERY_CAP: usize = 10_000;
+
 #[derive(Deserialize)]
 struct TaskBegin {
 	name: String,
@@ -131,6 +182,9 @@ impl JobOps {
 		match op {
 			"task.begin" => self.task_begin(parse(payload)?, ctx),
 			"task.end" => self.task_end(parse(payload)?, ctx),
+			"records.get" => self.record_get(parse(payload)?).await,
+			"records.read" => self.record_read(parse(payload)?).await,
+			"records.query" => self.record_query(parse(payload)?).await,
 			_ => Err(OpError::new(
 				"unknown_op",
 				format!("unknown operation {op}"),
@@ -183,6 +237,124 @@ impl JobOps {
 			)),
 		}
 		json(&serde_json::Value::Null)
+	}
+}
+
+impl JobOps {
+	/// The stores of this library's sources, detached ones included: their
+	/// records are still true even when their bytes are out of reach.
+	async fn stores(&self) -> Vec<Arc<SourceStore>> {
+		let index = self.library.core_context().volume_index();
+		let mut stores = Vec::new();
+		for source in index.sources_of(self.library.id()) {
+			if let Some(store) = index.store_for(&source.root).await {
+				stores.push(store);
+			}
+		}
+		stores
+	}
+
+	/// The store holding a record, with the entry.
+	async fn locate(&self, uuid: Uuid) -> Result<(Arc<SourceStore>, FsEntry), OpError> {
+		for store in self.stores().await {
+			match store.db().entry_by_uuid(uuid).await {
+				Ok(Some(entry)) => return Ok((store, entry)),
+				Ok(None) => {}
+				Err(error) => {
+					tracing::warn!(source = %store.id(), %error, "record lookup failed")
+				}
+			}
+		}
+		Err(OpError::not_found())
+	}
+
+	fn check_read(&self, entry: &FsEntry) -> Result<(), OpError> {
+		let extension = entry.extension.as_deref().map(str::to_lowercase);
+		if self
+			.manifest
+			.permissions
+			.can_read_record(extension.as_deref())
+		{
+			return Ok(());
+		}
+		Err(OpError::permission_denied(format!(
+			"{} may not read {}",
+			self.extension_id, entry.relative_path
+		)))
+	}
+
+	async fn record_get(&self, record: RecordRef) -> OpResult {
+		let (store, entry) = self.locate(record.uuid).await?;
+		self.check_read(&entry)?;
+		json(&RecordOut::new(store.id(), entry))
+	}
+
+	/// A record's bytes, through the path its source resolves. A detached
+	/// source answers not found: the record is still known, the bytes are
+	/// not here.
+	async fn record_read(&self, record: RecordRef) -> OpResult {
+		let (store, entry) = self.locate(record.uuid).await?;
+		self.check_read(&entry)?;
+		let path = store.root().join(&entry.relative_path);
+		tokio::fs::read(&path).await.map_err(|e| match e.kind() {
+			std::io::ErrorKind::NotFound => OpError::not_found(),
+			_ => OpError::failed(format!("read {}: {e}", path.display())),
+		})
+	}
+
+	/// Files across the library's stores, narrowed by the query and by the
+	/// grant: a glob grant restricts the extensions a query without its own
+	/// list gets back.
+	async fn record_query(&self, query: RecordQuery) -> OpResult {
+		if query.tag.is_some() {
+			return Err(OpError::invalid_input(
+				"record queries cannot filter by tag yet",
+			));
+		}
+		let permissions = &self.manifest.permissions;
+		if permissions.read_records.is_none() {
+			return Err(OpError::permission_denied(format!(
+				"{} has no read_records grant",
+				self.extension_id
+			)));
+		}
+		let extensions: Option<Vec<String>> = match query.extensions {
+			Some(asked) => Some(
+				asked
+					.into_iter()
+					.filter(|e| permissions.can_read_record(Some(e)))
+					.collect(),
+			),
+			None => permissions.granted_extensions(),
+		};
+		let limit = query.limit.unwrap_or(QUERY_CAP).min(QUERY_CAP);
+		let scope = query.scope.unwrap_or_default();
+
+		let mut records = Vec::new();
+		for store in self.stores().await {
+			if query.source.is_some_and(|source| source != store.id()) {
+				continue;
+			}
+			if records.len() >= limit {
+				break;
+			}
+			let entries = sd_store::read::files_beneath(
+				store.db().pool(),
+				&scope,
+				Start::First,
+				extensions.as_deref(),
+				false,
+				limit - records.len(),
+			)
+			.await
+			.map_err(|e| OpError::failed(e.to_string()))?;
+			records.extend(
+				entries
+					.into_iter()
+					.map(|entry| RecordOut::new(store.id(), entry)),
+			);
+		}
+		json(&records)
 	}
 }
 

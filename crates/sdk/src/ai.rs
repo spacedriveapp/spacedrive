@@ -102,7 +102,7 @@ impl ModelHandle {
 	}
 
 	/// OCR document
-	pub async fn ocr_document(&self, entry: &Entry) -> Result<String> {
+	pub async fn ocr_document(&self, record: &Record) -> Result<String> {
 		Err(Error::Unsupported("ocr_document".into()))
 	}
 

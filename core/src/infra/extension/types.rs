@@ -81,6 +81,15 @@ impl ManifestPermissions {
 		self.write_sidecars.iter().any(|k| k == kind)
 	}
 
+	/// The extensions a glob grant names, lowercase; `None` when the grant is
+	/// unrestricted or absent.
+	pub fn granted_extensions(&self) -> Option<Vec<String>> {
+		self.read_records
+			.as_ref()
+			.and_then(|r| r.glob.as_deref())
+			.and_then(glob_extensions)
+	}
+
 	/// Whether a record with this extension (lowercase, no dot) is readable.
 	pub fn can_read_record(&self, extension: Option<&str>) -> bool {
 		match &self.read_records {

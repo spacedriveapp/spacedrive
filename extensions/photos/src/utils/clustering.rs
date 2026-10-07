@@ -8,7 +8,7 @@ pub fn dbscan_clustering(faces: &[(Uuid, FaceDetection)], threshold: f32) -> Vec
 	todo!("Implement DBSCAN clustering")
 }
 
-pub fn cluster_by_location(photos: &[Entry], radius_meters: f32) -> Vec<PlaceCluster> {
+pub fn cluster_by_location(photos: &[Record], radius_meters: f32) -> Vec<PlaceCluster> {
 	todo!("Implement geographic clustering")
 }
 
@@ -22,6 +22,6 @@ pub struct FaceCluster {
 }
 
 pub struct PlaceCluster {
-	pub photos: Vec<Entry>,
+	pub photos: Vec<Record>,
 	pub center: GpsCoordinates,
 }

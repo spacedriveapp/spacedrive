@@ -12,7 +12,7 @@ pub async fn cluster_faces_into_people(ctx: TaskContext, photo_ids: Vec<Uuid>) -
 	let mut all_faces: Vec<(Uuid, FaceDetection)> = Vec::new();
 
 	for photo_id in &photo_ids {
-		let photo = ctx.vdfs().get_entry(*photo_id).await?;
+		let photo = ctx.vdfs().get_record(*photo_id).await?;
 		if let Some(content_uuid) = photo.content_uuid() {
 			if let Ok(faces) = ctx
 				.read_sidecar::<Vec<FaceDetection>>(content_uuid, "faces")
@@ -47,14 +47,14 @@ pub async fn cluster_faces_into_people(ctx: TaskContext, photo_ids: Vec<Uuid>) -
 #[task]
 pub async fn generate_face_tags(ctx: TaskContext, photo_ids: Vec<Uuid>) -> TaskResult<()> {
 	for photo_id in &photo_ids {
-		let photo = ctx.vdfs().get_entry(*photo_id).await?;
+		let photo = ctx.vdfs().get_record(*photo_id).await?;
 
 		if let Ok(people) = photo.custom_field::<Vec<PersonId>>("identified_people") {
 			for person_id in people {
 				if let Ok(person) = ctx.vdfs().get_model::<Person>(person_id).await {
 					if let Some(name) = person.name {
 						ctx.vdfs()
-							.add_tag(photo.metadata_id(), &format!("#person:{}", name))
+							.add_tag(photo.id(), &format!("#person:{}", name))
 							.await?;
 					}
 				}

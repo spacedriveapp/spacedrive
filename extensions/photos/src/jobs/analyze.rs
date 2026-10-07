@@ -21,7 +21,7 @@ pub async fn analyze_photos_batch(ctx: &JobContext, state: &mut AnalyzePhotosSta
 	let total = photo_ids.len();
 
 	for (idx, photo_id) in photo_ids.iter().enumerate() {
-		let photo = ctx.vdfs().get_entry(*photo_id).await?;
+		let photo = ctx.vdfs().get_record(*photo_id).await?;
 
 		if let Some(content_uuid) = photo.content_uuid() {
 			if ctx.sidecar_exists(content_uuid, "faces")? {
