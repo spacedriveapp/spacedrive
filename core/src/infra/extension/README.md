@@ -13,17 +13,29 @@ reports `supported: false` and `extensions.run_job` is refused.
   keeps each plugin's store and instance for its lifetime. `PluginRuntime`
   runs one job export on the calling thread.
 - `host_functions.rs`: the functions a guest imports from the `spacedrive`
-  module. `spacedrive_log` and `register_job` serve `plugin_init`; the `job_*`
-  functions report into the job that is running through a `JobBridge`.
+  module. `spacedrive_log`, `register_job` and `register_model` serve
+  `plugin_init`; the `job_*` functions report into the running job through a
+  `JobBridge`; `spacedrive_random` and `spacedrive_now_ms` give the guest
+  entropy and wall-clock time; `spacedrive_op` carries every request that
+  returns data.
+- `ops.rs`: the operations behind `spacedrive_op`, named by a string and
+  carried as bytes. `JobOps` holds the library, the manifest and the open
+  extension store for the job's duration and answers one request at a time,
+  because the guest blocks on each. Permission is checked here against the
+  manifest, never in the guest.
 - `job_registry.rs`: the jobs extensions registered, keyed
   `<extension id>:<job name>`.
+- `model_registry.rs`: the models each extension declared through
+  `register_model`. The registry turns them into one `DataTypeSchema` and opens
+  an sd-store database at `<library>/extensions/<extension id>/data.db` the first
+  time a job touches a model.
 - `wasm_job.rs`: the one core job type that runs every extension job. It
   holds the guest's state as a JSON string and persists it through the normal
   checkpoint table, so a kill or a pause resumes from the guest's last
   checkpoint.
-- `permissions.rs`, `types.rs`: the manifest and the capability model for
-  `spacedrive_call`, which routes a Wire method through the operation
-  registry. The SDK does not import it yet.
+- `types.rs`: the manifest. Both the manifest and its `permissions` block
+  reject unknown fields, so a typo in a grant fails at load instead of
+  silently granting nothing.
 
 ## Running a job
 
@@ -37,18 +49,43 @@ reports `supported: false` and `extensions.run_job` is refused.
    interrupts the job. Exit code 0 completes, 1 is interrupted, anything else
    fails.
 
+## Operations
+
+A guest sends `spacedrive_op(name, payload)` and gets back bytes it allocated
+through `wasm_alloc`: JSON for a result, or an `OpError` with a stable `code`
+(`not_found`, `permission_denied`, `invalid_input`, `not_available`, `failed`)
+that the SDK maps onto its own error type.
+
+| Operation | Grant | What it does |
+| --- | --- | --- |
+| `task.begin`, `task.end` | none | Bracket one `#[task]` attempt. The host writes an attempt line to the job log and refuses a task that outlives the SDK's deadline. |
+| `records.get`, `records.query` | `read_records` | A record by uuid, or the records of the library's sources filtered by kind and extension. The optional `glob` on the grant is checked by the SDK against the record's path. Tag filters are refused. |
+| `records.read` | `read_records` | The bytes of a record, read from its source store's root. |
+| `sidecars.exists`, `sidecars.read` | `read_sidecars` | One JSON document under `<library>/sidecars/`, keyed by content uuid and `SidecarKind::Extension { extension_id, kind }`. |
+| `sidecars.write` | `write_sidecars` (per kind) | Writes that document. |
+| `models.put`, `models.get`, `models.list` | none, models are the extension's own | A row in the extension's store, keyed by the model's uuid or `content:<uuid>` for a content-scoped model. |
+| `ai.infer` | `use_models` (per category) | Checks the grant, then answers `not_available`: the core has no inference provider yet. |
+| `config.get` | none | `config.json` beside the manifest, or `null`. |
+
 ## What the SDK can call today
 
-`spacedrive_log`, `register_job`, `job_report_progress`, `job_checkpoint`,
-`job_check_interrupt`, `job_add_warning`, `job_increment_items`,
-`job_increment_bytes`. Everything else in `crates/sdk` (VDFS entries, sidecars,
-AI, models, tags, tasks, agents, entropy, clock) has no host function and
-panics in the guest; the panic reaches the host log and the job fails.
+Everything in the table above, plus `spacedrive_log`, `register_job`,
+`register_model`, `spacedrive_random`, `spacedrive_now_ms` and the `job_*`
+functions (`job_report_progress`, `job_checkpoint`, `job_check_interrupt`,
+`job_add_warning`, `job_increment_items`, `job_increment_bytes`). Tags, custom
+fields, dispatching jobs, agents and file-kind or preview registration have no
+host side; the SDK returns an error or panics in the guest, and the panic
+reaches the host log and fails the job.
 
 ## Testing
 
 `core/tests/wasm_extension_test.rs` loads the committed fixtures
 `extensions/test-extension/test_extension.wasm` and
-`extensions/photos/photos.wasm`. Rebuild a fixture from its crate with
-`cargo build --release` (each crate's `.cargo/config.toml` selects
-wasm32-unknown-unknown) and copy the artifact next to its manifest.
+`extensions/photos/photos.wasm` against a library with twelve JPEG-magic
+files and two text files. The test extension's `catalog` job exercises
+records, sidecars, models and tasks; the photos extension's `analyze_photos`
+runs end to end and takes the `not_available` path for face detection.
+Rebuild a fixture from its crate with `cargo build --release` (each crate's
+`.cargo/config.toml` selects wasm32-unknown-unknown) and copy the artifact
+next to its manifest. The suite is its own xtask acceptance entry with the
+`wasm` feature, because linking wasmer into every test binary is slow.
