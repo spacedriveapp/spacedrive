@@ -43,6 +43,7 @@ import {targetToUrl, useExplorer} from '../context';
 import {useSelection} from '../SelectionContext';
 import {useDuplicateFiles} from './useDuplicateFiles';
 import {useMakeLink} from './useMakeLink';
+import {createCopyMenuItems} from './copyMenu';
 
 interface UseFileContextMenuProps {
 	file?: File | null;
@@ -362,25 +363,25 @@ export function useFileContextMenu({
 			{type: 'separator'},
 			{
 				icon: Copy,
-				label:
-					selected && selectedFiles.length > 1
-						? `Copy ${selectedFiles.length} items`
-						: 'Copy',
-				onClick: () => {
-					const targets = getTargetFiles();
-					if (targets.length === 0) {
-						console.warn('Cannot copy virtual files');
-						return;
-					}
-					const sdPaths = targets.map((f) => f.sd_path);
-					clipboard.copyFiles(
-						sdPaths,
-						currentPath,
-						targets.every((f) => f.kind === 'Directory')
-					);
-				},
-				keybindId: 'explorer.copy',
-				condition: () => !hasVirtualFiles
+				label: 'Copy',
+				type: 'submenu',
+				submenu: createCopyMenuItems(getTargetFiles(), {
+					copyFiles: () => {
+						const targets = getTargetFiles();
+						clipboard.copyFiles(
+							targets.map((target) => target.sd_path),
+							currentPath,
+							targets.every((target) => target.kind === 'Directory')
+						);
+					},
+					writeText: (text) => platform.writeClipboardText
+						? platform.writeClipboardText(text)
+						: navigator.clipboard.writeText(text),
+					writeImage: platform.writeClipboardImage,
+					clearFiles: clipboard.clearClipboard,
+					onError: (error) => toast.error(`Failed to copy: ${error}`)
+				}),
+				condition: () => !hasVirtualFiles && getTargetFiles().length > 0
 			},
 			{
 				icon: Scissors,
