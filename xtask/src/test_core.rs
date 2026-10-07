@@ -172,6 +172,14 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Locked volumes acceptance test",
 		&["--test", "locked_volumes_acceptance_test"],
 	),
+	// Add to Library core half (docs/core/acceptance/add-to-library.md):
+	// defaults and overrides, volume registration, placement, managed
+	// directory exclusion, and removal that keeps the catalog.
+	acceptance(
+		"sd-core",
+		"Add to Library acceptance test",
+		&["--test", "add_to_library_acceptance_test"],
+	),
 	// core("Sync event log test", &["--test", "sync_event_log_test"]),
 	// core("Sync metrics test", &["--test", "sync_metrics_test"]),
 	// core("Sync backfill test", &["--test", "sync_backfill_test"]),
