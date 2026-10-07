@@ -1,7 +1,7 @@
 import {
+	Books,
 	Database,
 	EyeSlash,
-	Eye,
 	Gauge,
 	EjectSimple
 } from '@phosphor-icons/react';
@@ -12,6 +12,7 @@ import {
 	type ContextMenuResult
 } from '../../../hooks/useContextMenu';
 import { useLibraryMutation } from '../../../contexts/SpacedriveContext';
+import { useAddToLibraryDialog } from '../../../routes/explorer/components/AddToLibraryModal';
 
 interface UseVolumeContextMenuOptions {
 	volume: Volume;
@@ -21,7 +22,7 @@ interface UseVolumeContextMenuOptions {
  * Provides context menu functionality for volume items.
  *
  * Menu items include:
- * - Track Volume: Add the volume to the library and index it
+ * - Add to Library: open the setup modal with the whole drive as its scope
  * - Untrack Volume: Remove volume from library tracking
  * - Speed Test: Test read/write performance
  * - Index Volume: Trigger full volume indexing
@@ -30,7 +31,7 @@ interface UseVolumeContextMenuOptions {
 export function useVolumeContextMenu({
 	volume
 }: UseVolumeContextMenuOptions): ContextMenuResult {
-	const trackVolume = useLibraryMutation('volumes.track');
+	const openAddToLibrary = useAddToLibraryDialog();
 	const untrackVolume = useLibraryMutation('volumes.untrack');
 	const speedTestVolume = useLibraryMutation('volumes.speed_test');
 	const indexVolume = useLibraryMutation('volumes.index');
@@ -40,19 +41,12 @@ export function useVolumeContextMenu({
 
 	const items: ContextMenuItem[] = [
 		{
-			icon: Eye,
-			label: 'Track Volume',
-			onClick: async () => {
-				try {
-					await trackVolume.mutateAsync({
-						fingerprint: volume.fingerprint,
-						display_name: null
-					});
-				} catch (err) {
-					console.error('Failed to track volume:', err);
-				}
+			icon: Books,
+			label: 'Add to Library',
+			onClick: () => {
+				openAddToLibrary({ target: { kind: 'volume', volume } });
 			},
-			condition: () => !volume.is_tracked
+			condition: () => !volume.is_tracked && volume.is_mounted
 		},
 		{
 			icon: EyeSlash,

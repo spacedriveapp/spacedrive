@@ -13,6 +13,7 @@
 	},
 	"scripts": {
 		"lint": "eslint src --cache",
+		"test": "bun test src",
 		"typecheck": "tsc -b"
 	},
 	"dependencies": {

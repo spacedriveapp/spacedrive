@@ -4416,7 +4416,12 @@ placement?: StorePlacement | null;
 /**
  * The catalog's directory on this machine, when this machine has it.
  */
-store_path?: string | null };
+store_path?: string | null; 
+/**
+ * The settings the source was saved with, so a re-add can show what it
+ * keeps. Absent for an adapter source and a replica, like `placement`.
+ */
+settings?: SourceConfig | null };
 
 export type SourceItem = { id: string; external_id: string; title: string; preview: string | null; subtitle: string | null };
 
@@ -5668,7 +5673,13 @@ name: string;
 /**
  * Whether the volume is currently online
  */
-is_online: boolean };
+is_online: boolean; 
+/**
+ * The source set up over the whole drive, with the settings it was
+ * saved with and where its catalog lives. Absent when the volume is
+ * offline, since a source needs a mount point to walk.
+ */
+source: TrackSourceOutput | null };
 
 /**
  * Volume type classification
