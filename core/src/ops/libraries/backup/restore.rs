@@ -291,15 +291,7 @@ impl LibraryRestoreAction {
 			"drive snapshots removed so the arena rebuilds from the restored stores"
 		);
 
-		let library = libraries
-			.open_library(&final_path, context.clone())
-			.await
-			.map_err(|e| {
-				ActionError::Internal(format!(
-					"open restored library: {e}; the displaced state is under {}",
-					trash.display()
-				))
-			})?;
+		let opened = libraries.open_library(&final_path, context.clone()).await;
 
 		// The swap dropped the drive arenas these sources lived in and the
 		// snapshots that would refill them, so a change under a source root
@@ -307,12 +299,21 @@ impl LibraryRestoreAction {
 		// event only where the arena holds the parent. Every source on those
 		// drives gets its map back from its own store, another open
 		// library's included, which also re-arms the watch over it, without
-		// a walk re-hashing what the store knows.
+		// a walk re-hashing what the store knows. This runs whether or not
+		// the reopen succeeded: the other libraries on the drive were never
+		// part of the restore and must not lose their maps to its failure.
 		let rebuilt = context
 			.volume_index()
 			.rebuild_quiesced(&quiesce_targets)
 			.await;
 		tracing::debug!(rebuilt, "maps rebuilt from their stores after the swap");
+
+		let library = opened.map_err(|e| {
+			ActionError::Internal(format!(
+				"open restored library: {e}; the displaced state is under {}",
+				trash.display()
+			))
+		})?;
 
 		let output = LibraryRestoreOutput {
 			library_id: library.id(),
