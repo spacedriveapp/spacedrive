@@ -430,6 +430,10 @@ fn no_production_source_names_the_entry_substrate() {
 		});
 	}
 	assert!(
+		visited > 1000,
+		"the walk visited only {visited} files, which is not the tree"
+	);
+	assert!(
 		hits.is_empty(),
 		"production references remain:\n{}",
 		hits.join("\n")
