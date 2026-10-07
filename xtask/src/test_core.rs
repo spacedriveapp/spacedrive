@@ -172,6 +172,13 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Locked volumes acceptance test",
 		&["--test", "locked_volumes_acceptance_test"],
 	),
+	// A daemon with two libraries lists every library's sources, before and
+	// after a restart, whichever order the data directory lists them in.
+	acceptance(
+		"sd-core",
+		"Multi library acceptance test",
+		&["--test", "multi_library_acceptance_test"],
+	),
 	// Add to Library core half (docs/core/acceptance/add-to-library.md):
 	// defaults and overrides, volume registration, placement, managed
 	// directory exclusion, and removal that keeps the catalog.

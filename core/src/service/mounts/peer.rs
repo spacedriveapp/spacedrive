@@ -1230,49 +1230,8 @@ async fn arena_from_database(
 	db: &sd_store::SourceDb,
 	share_root: &std::path::Path,
 ) -> anyhow::Result<Arena> {
-	use crate::ops::indexing::metadata::EntryMetadata;
-	use crate::ops::indexing::state::EntryKind;
-
 	let mut index = Arena::new()?;
-	let mut after_rowid = 0i64;
-	loop {
-		let (entries, last) = sd_store::read::all_entries_page(db.pool(), after_rowid, 2_000)
-			.await
-			.map_err(|e| anyhow::anyhow!("database page failed: {e}"))?;
-		let done = entries.len() < 2_000;
-		after_rowid = last;
-
-		for entry in entries {
-			let path = share_root.join(&entry.relative_path);
-			let from_ms = |ms: Option<i64>| {
-				ms.and_then(|ms| u64::try_from(ms).ok())
-					.map(|ms| UNIX_EPOCH + Duration::from_millis(ms))
-			};
-			let metadata = EntryMetadata {
-				path: path.clone(),
-				kind: match entry.kind {
-					sd_store::FileKind::File => EntryKind::File,
-					sd_store::FileKind::Directory => EntryKind::Directory,
-					sd_store::FileKind::Symlink => EntryKind::Symlink,
-				},
-				size: entry.size.unwrap_or(0).max(0) as u64,
-				modified: from_ms(entry.mtime_ms),
-				accessed: from_ms(entry.atime_ms),
-				created: from_ms(entry.created_ms),
-				inode: entry.inode.and_then(|inode| u64::try_from(inode).ok()),
-				permissions: entry.mode.and_then(|mode| u32::try_from(mode).ok()),
-				uid: entry.uid.and_then(|uid| u32::try_from(uid).ok()),
-				gid: entry.gid.and_then(|gid| u32::try_from(gid).ok()),
-				link_target: entry.link_target.clone(),
-				is_hidden: entry.is_hidden,
-			};
-			index.add_entry(path, entry.uuid, metadata)?;
-		}
-
-		if done {
-			break;
-		}
-	}
+	crate::ops::indexing::volume_index::fill_arena_from_store(&mut index, db, share_root).await?;
 	Ok(index)
 }
 

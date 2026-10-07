@@ -151,7 +151,7 @@ crate::register_library_action!(StartupIndexingAction, "indexing.startup");
 async fn add_home_to_library(library: &Arc<Library>, context: &Arc<CoreContext>) {
 	if context
 		.volume_index()
-		.sources()
+		.sources_of(library.id())
 		.iter()
 		.any(|source| source.attached)
 	{

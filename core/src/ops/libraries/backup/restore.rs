@@ -242,6 +242,12 @@ impl LibraryRestoreAction {
 					.await
 					.unwrap_or_default(),
 			);
+		}
+		// Resolved while the library is still open: closing it takes its
+		// registrations out of the index, and the partitions and snapshots
+		// to clear are found through them.
+		let quiesce_targets = context.volume_index().quiesce_targets(&quiesced);
+		if existing_path.is_some() {
 			if open.is_some() {
 				libraries
 					.close_library(target_id)
@@ -253,7 +259,10 @@ impl LibraryRestoreAction {
 		// The hold keeps every store closed until the renames are done, so a
 		// watcher event arriving mid-swap cannot reopen and cache the file
 		// that is about to be moved to the trash.
-		let (hold, snapshots_removed) = context.volume_index().quiesce_stores(&quiesced).await;
+		let (hold, snapshots_removed) = context
+			.volume_index()
+			.quiesce_stores(&quiesced, &quiesce_targets)
+			.await;
 		let sidecar_hold = context.thumbs.hold_sidecars(&quiesced).await;
 
 		let swapped = swap_into_place(
@@ -283,15 +292,29 @@ impl LibraryRestoreAction {
 			"drive snapshots removed so the arena rebuilds from the restored stores"
 		);
 
-		let library = libraries
-			.open_library(&final_path, context.clone())
-			.await
-			.map_err(|e| {
-				ActionError::Internal(format!(
-					"open restored library: {e}; the displaced state is under {}",
-					trash.display()
-				))
-			})?;
+		let opened = libraries.open_library(&final_path, context.clone()).await;
+
+		// The swap dropped the drive arenas these sources lived in and the
+		// snapshots that would refill them, so a change under a source root
+		// has nowhere to land until its map is rebuilt: the handler files an
+		// event only where the arena holds the parent. Every source on those
+		// drives gets its map back from its own store, another open
+		// library's included, which also re-arms the watch over it, without
+		// a walk re-hashing what the store knows. This runs whether or not
+		// the reopen succeeded: the other libraries on the drive were never
+		// part of the restore and must not lose their maps to its failure.
+		let rebuilt = context
+			.volume_index()
+			.rebuild_quiesced(&quiesce_targets)
+			.await;
+		tracing::debug!(rebuilt, "maps rebuilt from their stores after the swap");
+
+		let library = opened.map_err(|e| {
+			ActionError::Internal(format!(
+				"open restored library: {e}; the displaced state is under {}",
+				trash.display()
+			))
+		})?;
 
 		let output = LibraryRestoreOutput {
 			library_id: library.id(),

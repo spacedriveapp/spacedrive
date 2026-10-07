@@ -208,9 +208,8 @@ async fn walked_volume(name: &str) -> Walked {
 
 	let data_dir = tempfile::tempdir().expect("data dir");
 	let core = boot(data_dir.path()).await;
-	// The core's volume index serves the library opened last, and library
-	// load order follows the data directory listing, so the fixture keeps
-	// the one library the daemon created rather than adding a second.
+	// The one library the daemon created is enough for a volume fixture;
+	// `multi_library_acceptance_test` is where a second library matters.
 	let library = core
 		.libraries
 		.list()

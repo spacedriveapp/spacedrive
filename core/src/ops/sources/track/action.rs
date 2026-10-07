@@ -170,6 +170,22 @@ pub async fn track_and_index(
 		mount_point: volume.mount_point.clone(),
 	});
 
+	// A path is kept by one library on this machine. The index resolves a
+	// path to one source whatever library asks, so a root another open
+	// library already covers, above or below, would walk into that
+	// library's store and read its capture policy.
+	if let Some(other) = context
+		.volume_index()
+		.overlapping_source_of_another_library(library.id(), &root)
+	{
+		return Err(ActionError::Internal(format!(
+			"{} overlaps {}, a source of library {}; a path is kept by one library on this device",
+			root.display(),
+			other.root.display(),
+			other.library.unwrap_or_default()
+		)));
+	}
+
 	let settings = library.config().await.settings.adding.resolve(overrides);
 
 	// A store opens in WAL mode, which SQLite does not support over a
@@ -226,7 +242,7 @@ pub async fn track_and_index(
 
 	let (id, existed) = context
 		.volume_index()
-		.register_source_with(&root, anchor, adopted.map(|(id, _)| id))
+		.register_source_with(Some(library.id()), &root, anchor, adopted.map(|(id, _)| id))
 		.await
 		.map_err(|e| ActionError::Internal(format!("Failed to register source: {e}")))?;
 
