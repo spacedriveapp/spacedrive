@@ -135,6 +135,65 @@ struct TrackedVolume {
 	is_mount: bool,
 }
 
+/// Add every filesystem row of a store to an arena, rooted at `root`.
+///
+/// Ancestors are synthesized by the arena itself and content kinds derive
+/// from extensions the way a fresh walk derives them, which is what makes a
+/// database browsable and searchable through the same paths an arena
+/// snapshot is. Returns how many entries were added.
+pub(crate) async fn fill_arena_from_store(
+	index: &mut Arena,
+	db: &sd_store::SourceDb,
+	root: &Path,
+) -> anyhow::Result<usize> {
+	use crate::ops::indexing::metadata::EntryMetadata;
+	use crate::ops::indexing::state::EntryKind;
+	use std::time::{Duration, UNIX_EPOCH};
+
+	let mut added = 0usize;
+	let mut after_rowid = 0i64;
+	loop {
+		let (entries, last) = sd_store::read::all_entries_page(db.pool(), after_rowid, 2_000)
+			.await
+			.map_err(|e| anyhow::anyhow!("database page failed: {e}"))?;
+		let done = entries.len() < 2_000;
+		after_rowid = last;
+
+		for entry in entries {
+			let path = root.join(&entry.relative_path);
+			let from_ms = |ms: Option<i64>| {
+				ms.and_then(|ms| u64::try_from(ms).ok())
+					.map(|ms| UNIX_EPOCH + Duration::from_millis(ms))
+			};
+			let metadata = EntryMetadata {
+				path: path.clone(),
+				kind: match entry.kind {
+					sd_store::FileKind::File => EntryKind::File,
+					sd_store::FileKind::Directory => EntryKind::Directory,
+					sd_store::FileKind::Symlink => EntryKind::Symlink,
+				},
+				size: entry.size.unwrap_or(0).max(0) as u64,
+				modified: from_ms(entry.mtime_ms),
+				accessed: from_ms(entry.atime_ms),
+				created: from_ms(entry.created_ms),
+				inode: entry.inode.and_then(|inode| u64::try_from(inode).ok()),
+				permissions: entry.mode.and_then(|mode| u32::try_from(mode).ok()),
+				uid: entry.uid.and_then(|uid| u32::try_from(uid).ok()),
+				gid: entry.gid.and_then(|gid| u32::try_from(gid).ok()),
+				link_target: entry.link_target.clone(),
+				is_hidden: entry.is_hidden,
+			};
+			index.add_entry(path, entry.uuid, metadata)?;
+			added += 1;
+		}
+
+		if done {
+			break;
+		}
+	}
+	Ok(added)
+}
+
 /// Whether a volume root is a service prefix rather than a filesystem path.
 ///
 /// A cloud volume mounts at `s3://bucket` or `gdrive://id`: nothing on this
@@ -820,9 +879,12 @@ impl VolumeIndex {
 		library: Uuid,
 		root: &Path,
 	) -> Option<SourceStatus> {
+		// A source whose drive is away has an empty root, and every path
+		// starts with the empty path.
 		self.sources().into_iter().find(|source| {
 			source.library != Some(library)
 				&& source.library.is_some()
+				&& !source.root.as_os_str().is_empty()
 				&& (root.starts_with(&source.root) || source.root.starts_with(root))
 		})
 	}
@@ -1219,9 +1281,6 @@ impl VolumeIndex {
 	/// its registry away, so a restore asks this before it closes the
 	/// library and hands the answer to [`Self::quiesce_stores`] after.
 	pub fn quiesce_targets(&self, ids: &[Uuid]) -> QuiesceTargets {
-		let Some(dirs) = self.dirs.as_ref() else {
-			return QuiesceTargets::default();
-		};
 		let mut partitions: Vec<VolumeKey> = ids
 			.iter()
 			.filter_map(|id| self.find_source(*id))
@@ -1229,9 +1288,10 @@ impl VolumeIndex {
 			.collect();
 		partitions.sort_by_key(|key| key.id());
 		partitions.dedup();
-		let mut snapshots: Vec<PathBuf> = partitions
+		let mut snapshots: Vec<PathBuf> = self
+			.dirs
 			.iter()
-			.map(|key| dirs.snapshot_file(key.id()))
+			.flat_map(|dirs| partitions.iter().map(|key| dirs.snapshot_file(key.id())))
 			.collect();
 		snapshots.sort();
 		snapshots.dedup();
@@ -1304,7 +1364,9 @@ impl VolumeIndex {
 		// The partition goes so nothing restores the replaced arena from
 		// memory; its watch registrations stay, because the OS watch the
 		// service armed over each root survives the swap and the handler
-		// drops every event from a root the index no longer lists.
+		// drops every event from a root the index no longer lists. The
+		// fresh arena is empty until the restore re-walks the sources, which
+		// is what fills it under the watched roots again.
 		{
 			let mut slots = self.slots.write();
 			for key in &targets.partitions {
@@ -1614,6 +1676,35 @@ impl VolumeIndex {
 		}
 
 		restored || !slot.indexed_paths.read().is_empty()
+	}
+
+	/// Rebuild a source's map from its store, without walking the disk.
+	///
+	/// A restore drops the drive partition and the snapshot that would
+	/// refill it, and a walk would re-hash what the store already knows. The
+	/// store holds exactly the source's records, so they are read back into
+	/// the arena, the root is marked indexed and announced the way a snapshot
+	/// restore announces it, which is what arms the watch over it again.
+	/// Returns how many entries were loaded, or `None` when the source has
+	/// no readable store.
+	pub async fn rebuild_from_store(&self, source_id: Uuid) -> Option<usize> {
+		let root = self.source_root(source_id)?;
+		let db = self.read_store(source_id).await?;
+		let slot = self.resolve(&root);
+		let loaded = {
+			let mut index = slot.index.write().await;
+			match fill_arena_from_store(&mut index, &db, &root).await {
+				Ok(loaded) => loaded,
+				Err(error) => {
+					tracing::warn!(source = %source_id, %error, "could not rebuild the map from the store");
+					return None;
+				}
+			}
+		};
+		slot.indexed_paths.write().insert(root.clone());
+		slot.restored.store(true, Ordering::Release);
+		self.announce_restored(&root);
+		Some(loaded)
 	}
 
 	/// Restore every drive this machine maps, and every source registered over

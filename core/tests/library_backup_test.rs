@@ -455,17 +455,16 @@ async fn backup_restores_identically_and_detects_tampering() -> Result<(), Error
 	assert!(registered.contains(&source_a) && registered.contains(&source_b));
 
 	// Writes made through the live handle reach the file on disk under
-	// sources/, not the handle's pre-swap inode in the trash. The file
-	// lands at the source root: the swap dropped the drive's arena, and
-	// until something rebuilds it the handler files a change only where
-	// the arena holds the parent, which an empty arena does for the
-	// watched root alone.
+	// sources/, not the handle's pre-swap inode in the trash. The file is
+	// under a subdirectory: the swap dropped the drive's arena, and the map
+	// the restore rebuilds from the store is what lets a change below the
+	// root land again.
 	let on_disk_b = data_dir
 		.join("sources")
 		.join(source_b.simple().to_string())
 		.join("data.db");
 	let before = facts_b.revision;
-	tokio::fs::write(root_b.join("after_restore.txt"), "after").await?;
+	tokio::fs::write(root_b.join("dir_1/after_restore.txt"), "after").await?;
 	let deadline = Instant::now() + Duration::from_secs(30);
 	loop {
 		live_b.flush().await?;
