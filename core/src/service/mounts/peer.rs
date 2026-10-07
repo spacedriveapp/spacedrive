@@ -1720,6 +1720,82 @@ mod tests {
 		);
 	}
 
+	/// R8 "One failing source among nine".
+	///
+	/// Nine registrations from one owner, eight with a current artifact and
+	/// one whose fetch never landed. After an offline restart all nine are
+	/// listed: eight browse at their generation and the ninth is reported
+	/// unavailable with its last known facts, rather than disappearing.
+	#[tokio::test]
+	async fn one_failing_source_among_nine_stays_listed_as_unavailable() {
+		let base = tempfile::tempdir().expect("dir");
+		let device_id = Uuid::now_v7();
+		let replica_dir = base.path().join(device_id.simple().to_string());
+		std::fs::create_dir_all(&replica_dir).expect("replica dir");
+
+		let mut entries = Vec::new();
+		let mut fresh = Vec::new();
+		for n in 0..8 {
+			let id = Uuid::now_v7();
+			let root = format!("/mnt/pool/source-{n}");
+			snapshot_bytes_for(
+				id,
+				&root,
+				&replica_dir.join(format!("{}.snapshot", id.simple())),
+			);
+			entries.push(ReplicaEntry {
+				info: info(id, &root, 2),
+				generation: 10 + n,
+				synced_at_secs: 100,
+			});
+			fresh.push((id, 10 + n));
+		}
+		let failing = Uuid::now_v7();
+		entries.push(ReplicaEntry {
+			info: info(failing, "/mnt/pool/source-failing", 9),
+			generation: 3,
+			synced_at_secs: 50,
+		});
+
+		let manifest = ReplicaManifest {
+			device_id,
+			device_label: "nine-owner".to_string(),
+			sources: entries,
+			facts: None,
+		};
+		std::fs::write(
+			manifest_path(&replica_dir),
+			serde_json::to_vec(&manifest).expect("serialize"),
+		)
+		.expect("manifest");
+
+		let (loaded, known) = restore_from(base.path()).await;
+		assert_eq!((loaded, known), (8, 9));
+
+		for (id, generation) in fresh {
+			let share = remote_share(id).await.expect("fresh share restored");
+			assert_eq!(share.generation, generation);
+			assert_eq!(share.index.read().await.find_by_name("file.txt").len(), 1);
+		}
+
+		assert!(remote_share(failing).await.is_none());
+		let (_, label, entry) = known_unloaded()
+			.await
+			.into_iter()
+			.find(|(device, _, entry)| *device == device_id && entry.info.id == failing)
+			.expect("the ninth stays known");
+		let listed = crate::ops::sources::list::output::SourceInfo::from_replica_manifest(
+			device_id, &label, &entry,
+		);
+		assert_eq!(listed.status, "replica_unavailable");
+		assert!(!listed.attached);
+		assert_eq!(
+			listed.item_count, 9,
+			"the owner's last known count survives"
+		);
+		assert_eq!(listed.device_label.as_deref(), Some("nine-owner"));
+	}
+
 	fn snapshot_bytes_for(source_id: Uuid, root: &str, at: &std::path::Path) {
 		let mut index = Arena::new().expect("index");
 		let file = PathBuf::from(root).join("file.txt");

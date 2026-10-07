@@ -2138,6 +2138,192 @@ mod tests {
 			);
 		}
 
+		/// R8 "Same volume, nested roots, reversed registration order", the
+		/// map half: with the inner source registered first, both still share
+		/// the drive's one arena, and a file's identity is the same whether it
+		/// is reached through the map or the innermost store.
+		#[tokio::test]
+		async fn nested_sources_registered_inner_first_share_one_map_and_identity() {
+			let data = tempfile::tempdir().unwrap();
+			let library = test_library(data.path()).await;
+			let root_dir = tempfile::tempdir().unwrap();
+			let root = root_dir.path().to_path_buf();
+			let inner = root.join("Photos");
+			std::fs::create_dir_all(&inner).unwrap();
+			std::fs::write(inner.join("a.jpg"), b"jpeg").unwrap();
+
+			let cache =
+				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
+			cache.attach_library(library.clone()).await.expect("attach");
+			let anchor = tracked_volume(&library, &root).await;
+
+			let photos = cache
+				.register_source(&inner, Some(anchor.clone()))
+				.await
+				.expect("photos");
+			let drive = cache
+				.register_source(&root, Some(anchor))
+				.await
+				.expect("drive");
+			assert_ne!(drive, photos);
+
+			let outside = cache.resolve(&root.join("notes.txt"));
+			let inside = cache.resolve(&inner.join("a.jpg"));
+			assert!(
+				Arc::ptr_eq(&outside, &inside),
+				"registration order forked the drive's map"
+			);
+			assert_eq!(
+				inside.root(),
+				Some(root.clone()),
+				"the volume root is the mount, not the first registered source"
+			);
+
+			// The map hands out the identity; both stores adopt it.
+			let path = inner.join("a.jpg");
+			let mapped = Uuid::now_v7();
+			inside
+				.index()
+				.write()
+				.await
+				.add_entry(path.clone(), mapped, entry(&path))
+				.expect("map");
+			let store = cache.store_for(&path).await.expect("innermost store");
+			assert_eq!(store.id(), photos, "the innermost source keeps the file");
+			let identified = store
+				.identify_one(&entry(&path), Some(mapped))
+				.await
+				.expect("identified");
+			assert_eq!(identified, mapped, "one file, one identity");
+			store.flush().await.expect("flush");
+			assert_eq!(
+				store.db().resolve_path("a.jpg").await.expect("query"),
+				Some(mapped)
+			);
+		}
+
+		/// R8 "Missing or invalid restart snapshot".
+		///
+		/// A snapshot that will not parse restores nothing, but the source it
+		/// belonged to stays registered and listed, its store still answers,
+		/// and the unreadable artifact stays on disk for diagnosis.
+		#[tokio::test]
+		async fn an_invalid_snapshot_leaves_the_source_visible_and_its_store_readable() {
+			let data = tempfile::tempdir().unwrap();
+			let library = test_library(data.path()).await;
+			let root_dir = tempfile::tempdir().unwrap();
+			let root = root_dir.path().to_path_buf();
+			std::fs::write(root.join("kept.txt"), b"kept").unwrap();
+
+			let (id, snapshot_path) = {
+				let cache =
+					VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
+				cache.attach_library(library.clone()).await.expect("attach");
+				let anchor = tracked_volume(&library, &root).await;
+				let id = indexed_source(&cache, &root, anchor, 4).await;
+				let store = cache
+					.store_for(&root.join("kept.txt"))
+					.await
+					.expect("store");
+				store
+					.identify_one(&entry(&root.join("kept.txt")), None)
+					.await
+					.expect("identified");
+				store.flush().await.expect("flush");
+				(id, cache.snapshot_path_for(&root).expect("snapshot path"))
+			};
+			assert!(snapshot_path.exists());
+			std::fs::write(&snapshot_path, b"this is not a snapshot").unwrap();
+
+			let cache =
+				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
+			cache.attach_library(library).await.expect("attach");
+			assert!(
+				!cache.ensure_restored(&root).await,
+				"junk must not restore as an index"
+			);
+			assert!(
+				cache.sources().iter().any(|s| s.id == id),
+				"the source stays registered without its cache"
+			);
+			let db = cache.read_store(id).await.expect("the store still opens");
+			assert!(
+				db.resolve_path("kept.txt").await.expect("query").is_some(),
+				"retained records answer without the arena"
+			);
+			assert!(
+				!cache.arena_answers(&root),
+				"a query over this source routes to the store, not an empty arena"
+			);
+		}
+
+		/// R8 "Missing or invalid restart snapshot", the diagnosis half: an
+		/// artifact that will not parse is evidence and must stay on disk
+		/// until a validated replacement lands.
+		#[tokio::test]
+		#[ignore = "R8: invalid snapshot fails: snapshot.rs removes an unreadable artifact on load instead of preserving it"]
+		async fn an_invalid_snapshot_is_retained_for_diagnosis() {
+			let data = tempfile::tempdir().unwrap();
+			let library = test_library(data.path()).await;
+			let root_dir = tempfile::tempdir().unwrap();
+			let root = root_dir.path().to_path_buf();
+
+			let snapshot_path = {
+				let cache =
+					VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
+				cache.attach_library(library.clone()).await.expect("attach");
+				let anchor = tracked_volume(&library, &root).await;
+				indexed_source(&cache, &root, anchor, 4).await;
+				cache.snapshot_path_for(&root).expect("snapshot path")
+			};
+			std::fs::write(&snapshot_path, b"this is not a snapshot").unwrap();
+
+			let cache =
+				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
+			cache.attach_library(library).await.expect("attach");
+			assert!(!cache.ensure_restored(&root).await);
+			assert_eq!(
+				std::fs::read(&snapshot_path).ok().as_deref(),
+				Some(&b"this is not a snapshot"[..]),
+				"the unreadable artifact is kept for diagnosis"
+			);
+		}
+
+		/// R8 "Mapped volume with no source", the watcher half: a walked
+		/// tracked drive is watchable without being registered as a source.
+		/// The browse and snapshot halves are
+		/// `a_tracked_drive_maps_without_appearing_as_a_source`.
+		#[tokio::test]
+		async fn a_mapped_drive_without_a_source_is_watchable() {
+			let data = tempfile::tempdir().unwrap();
+			let library = test_library(data.path()).await;
+			let root_dir = tempfile::tempdir().unwrap();
+			let root = root_dir.path().to_path_buf();
+
+			let cache =
+				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
+			cache.attach_library(library).await.expect("attach");
+			cache.track_volume(Uuid::now_v7(), root.clone());
+
+			assert!(
+				!cache.register_for_watching(root.clone()),
+				"an unwalked drive has nothing to watch yet"
+			);
+			let index = cache.create_for_indexing(root.clone());
+			let path = root.join("a.txt");
+			index
+				.write()
+				.await
+				.add_entry(path.clone(), Uuid::now_v7(), entry(&path))
+				.expect("add");
+			cache.mark_indexing_complete(&root);
+
+			assert!(cache.register_for_watching(root.clone()));
+			assert!(cache.is_watched(&root));
+			assert_eq!(cache.find_watched_root(&path), Some(root));
+			assert!(cache.sources().is_empty(), "still not a source");
+		}
+
 		/// A change deep inside a watched source has to route to that source.
 		///
 		/// A source rooted at the whole drive registers exactly one watched

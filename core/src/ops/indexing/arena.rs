@@ -1554,6 +1554,73 @@ mod rollup_tests {
 		assert!(index.arena.len() >= before);
 	}
 
+	/// R8 "Repeated subtree clear and refill".
+	///
+	/// A hundred clear-and-refill cycles over one branch leave the same live
+	/// tree, so the allocation behind it must stay bounded by that tree and
+	/// a snapshot must carry live nodes rather than historical slots. Entries
+	/// outside the churn keep their identities throughout.
+	#[test]
+	#[ignore = "R8: repeated subtree clear and refill fails: NodeArena::vacate keeps the slot, so allocation and the snapshot grow with history (R4 compaction unlanded)"]
+	fn repeated_clear_and_refill_keeps_allocation_bounded() {
+		let mut index = Arena::new().unwrap();
+		let root = PathBuf::from("/vol");
+		let branch = root.join("branch");
+		let kept = root.join("kept.bin");
+		let kept_uuid = Uuid::now_v7();
+		index
+			.add_entry(kept.clone(), kept_uuid, meta(&kept, EntryKind::File, 8))
+			.unwrap();
+
+		let fill = |index: &mut Arena| {
+			for i in 0..50 {
+				let path = branch.join(format!("file-{i}.bin"));
+				index
+					.add_entry(
+						path.clone(),
+						Uuid::now_v7(),
+						meta(&path, EntryKind::File, 1),
+					)
+					.unwrap();
+			}
+		};
+		fill(&mut index);
+		let live = index.path_index_count();
+		let allocated_after_one_fill = index.len();
+
+		for _ in 0..100 {
+			index.remove_directory_tree(&branch);
+			fill(&mut index);
+		}
+
+		assert_eq!(index.path_index_count(), live, "the live tree is unchanged");
+		assert_eq!(
+			index.get_entry_uuid(&kept),
+			Some(kept_uuid),
+			"an entry outside the churn keeps its identity"
+		);
+		assert_eq!(index.find_by_name("file-7.bin").len(), 1);
+		assert!(
+			index.len() <= allocated_after_one_fill * 2,
+			"allocation follows the live tree, not its history: {} slots for {} live paths",
+			index.len(),
+			live
+		);
+
+		let dir = tempfile::tempdir().unwrap();
+		let snapshot = dir.path().join("arena.snapshot");
+		index
+			.save_snapshot(&snapshot, Uuid::now_v7(), &root)
+			.unwrap();
+		let (restored, _) = Arena::load_snapshot(&snapshot).unwrap().expect("snapshot");
+		assert_eq!(restored.path_index_count(), live);
+		assert!(
+			restored.len() <= allocated_after_one_fill * 2,
+			"the snapshot reconstructs live nodes, not every slot ever allocated: {}",
+			restored.len()
+		);
+	}
+
 	#[test]
 	fn removal_clears_the_name_registry() {
 		let mut index = Arena::new().unwrap();
