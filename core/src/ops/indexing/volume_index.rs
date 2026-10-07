@@ -214,6 +214,12 @@ pub struct VolumeIndex {
 	/// adjusted from it either. What the change does say is that the count is
 	/// now wrong, which is enough: the directory is recounted.
 	dirty_stubs: Mutex<HashSet<PathBuf>>,
+	/// Roots whose OS watch subscription was refused, with the reason.
+	///
+	/// A root is either here or in a partition's `watched_paths`, never
+	/// both: an active watch is one the OS accepted, and a refusal is what
+	/// the status surface shows instead until a retry succeeds.
+	refused_watches: Mutex<HashMap<PathBuf, String>>,
 	created_at: Instant,
 }
 
@@ -247,6 +253,7 @@ impl VolumeIndex {
 			store_open_gates: Mutex::new(HashMap::new()),
 			restored_roots: RwLock::new(None),
 			dirty_stubs: Mutex::new(HashSet::new()),
+			refused_watches: Mutex::new(HashMap::new()),
 			created_at: Instant::now(),
 		})
 	}
@@ -1431,12 +1438,34 @@ impl VolumeIndex {
 		if !indexed && !registered {
 			return false;
 		}
+		self.refused_watches.lock().remove(&path);
 		slot.watched_paths.write().insert(path);
 		true
 	}
 
 	pub fn unregister_from_watching(&self, path: &Path) {
 		self.resolve(path).watched_paths.write().remove(path);
+		self.refused_watches.lock().remove(path);
+	}
+
+	/// Record that the OS refused to watch a root, so status reports the
+	/// failure instead of an active watch and the watcher knows what to
+	/// retry.
+	pub fn record_watch_refusal(&self, path: PathBuf, reason: String) {
+		self.resolve(&path).watched_paths.write().remove(&path);
+		self.refused_watches.lock().insert(path, reason);
+	}
+
+	/// Roots whose watch was refused, with the reason, sorted by path.
+	pub fn refused_watches(&self) -> Vec<(PathBuf, String)> {
+		let mut refused: Vec<(PathBuf, String)> = self
+			.refused_watches
+			.lock()
+			.iter()
+			.map(|(path, reason)| (path.clone(), reason.clone()))
+			.collect();
+		refused.sort();
+		refused
 	}
 
 	pub fn is_watched(&self, path: &Path) -> bool {
