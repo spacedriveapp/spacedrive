@@ -41,6 +41,8 @@ pub struct LibraryBackupAction {
 struct Planned {
 	relative: String,
 	from: PathBuf,
+	/// Replica manifests are plain JSON the peer sync writes atomically;
+	/// everything else is SQLite and needs a consistent copy.
 	sqlite: bool,
 }
 
@@ -174,16 +176,32 @@ impl LibraryBackupAction {
 			}
 		}
 
-		let mut plan = vec![Planned {
-			relative: "library/library.json".to_string(),
-			from: library_path.join("library.json"),
-			sqlite: false,
+		// The daemon rewrites library.json in place whenever statistics
+		// change, so a byte copy can read a truncated file. The open
+		// library's config is the authoritative state; serialize that.
+		let config_copy = staging.join("library").join("library.json");
+		tokio::fs::create_dir_all(staging.join("library"))
+			.await
+			.map_err(|e| format!("create staging library dir: {e}"))?;
+		let config = library.config().await;
+		tokio::fs::write(
+			&config_copy,
+			serde_json::to_vec_pretty(&config).map_err(|e| format!("serialize config: {e}"))?,
+		)
+		.await
+		.map_err(|e| format!("write {}: {e}", config_copy.display()))?;
+		let (bytes, blake3) = snapshot::hash_file(&config_copy).await?;
+		let mut files = vec![FileEntry {
+			path: "library/library.json".to_string(),
+			bytes,
+			blake3,
 		}];
-		plan.push(Planned {
+
+		let mut plan = vec![Planned {
 			relative: "library/library.db".to_string(),
 			from: library_path.join(crate::library::LIBRARY_DB_FILENAME),
 			sqlite: true,
-		});
+		}];
 		let has_sync_db = library_path.join("sync.db").exists();
 		if has_sync_db {
 			plan.push(Planned {
@@ -239,15 +257,14 @@ impl LibraryBackupAction {
 						.join("/");
 					plan.push(Planned {
 						relative: format!("replicas/{relative_str}"),
-						sqlite: name.ends_with(".db"),
 						from: replicas.join(&relative),
+						sqlite: name.ends_with(".db"),
 					});
 				}
 			}
 		}
 
-		let total = plan.len() as u32;
-		let mut files = Vec::with_capacity(plan.len());
+		let total = plan.len() as u32 + 1;
 		for (index, planned) in plan.iter().enumerate() {
 			context.events.emit(Event::Custom {
 				event_type: "library.backup.progress".to_string(),
@@ -255,7 +272,7 @@ impl LibraryBackupAction {
 					"library_id": library_id,
 					"phase": "copy",
 					"file": planned.relative,
-					"done": index as u32,
+					"done": index as u32 + 1,
 					"total": total,
 					"elapsed_ms": started.elapsed().as_millis() as u64,
 				}),

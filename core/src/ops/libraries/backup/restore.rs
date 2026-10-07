@@ -209,12 +209,15 @@ impl LibraryRestoreAction {
 			}
 		};
 
+		// The hash gate proves the copy is what was written; this proves
+		// what was written is a config the reopen will accept.
+		let config_path = stage.join("library").join("library.json");
+		let bytes = tokio::fs::read(&config_path)
+			.await
+			.map_err(|e| ActionError::Internal(format!("read staged config: {e}")))?;
+		let mut config: serde_json::Value = serde_json::from_slice(&bytes)
+			.map_err(|e| refuse(format!("backup library.json is not valid: {e}")))?;
 		if target_id != manifest.library.id {
-			let config_path = stage.join("library").join("library.json");
-			let bytes = tokio::fs::read(&config_path)
-				.await
-				.map_err(|e| ActionError::Internal(format!("read staged config: {e}")))?;
-			let mut config: serde_json::Value = serde_json::from_slice(&bytes)?;
 			config["id"] = serde_json::Value::String(target_id.to_string());
 			tokio::fs::write(&config_path, serde_json::to_vec_pretty(&config)?)
 				.await
@@ -230,77 +233,63 @@ impl LibraryRestoreAction {
 			target_id.simple(),
 			chrono::Utc::now().format("%Y%m%dT%H%M%SZ")
 		));
-		let mut replaced = false;
 
+		let mut quiesced: Vec<Uuid> = restored_sources.clone();
 		if let Some(old_path) = &existing_path {
-			let mut old_sources = snapshot::source_ids_of(&old_path.join(LIBRARY_DB_FILENAME))
-				.await
-				.unwrap_or_default();
+			quiesced.extend(
+				snapshot::source_ids_of(&old_path.join(LIBRARY_DB_FILENAME))
+					.await
+					.unwrap_or_default(),
+			);
 			if open.is_some() {
 				libraries
 					.close_library(target_id)
 					.await
 					.map_err(|e| ActionError::Internal(format!("close library: {e}")))?;
 			}
-			old_sources.extend(restored_sources.iter().copied());
-			context.volume_index().release_stores(&old_sources).await;
-			context.thumbs.release_sidecars(&old_sources).await;
-			snapshot::move_path(old_path, &trash.join("library"))
-				.await
-				.map_err(ActionError::Internal)?;
-			replaced = true;
 		}
 		drop(open);
+		// The hold keeps every store closed until the renames are done, so a
+		// watcher event arriving mid-swap cannot reopen and cache the file
+		// that is about to be moved to the trash.
+		let (hold, snapshots_removed) = context.volume_index().quiesce_stores(&quiesced).await;
+		context.thumbs.release_sidecars(&quiesced).await;
 
-		snapshot::move_path(&stage.join("library"), &final_path)
-			.await
-			.map_err(ActionError::Internal)?;
-
-		let mut sources = 0u32;
-		for source in &manifest.sources {
-			let staged_dir = stage.join("sources").join(source.id.simple().to_string());
-			let dest_dir = source_dirs
-				.create_source_dir(source.id)
-				.map_err(|e| ActionError::Internal(e.to_string()))?;
-			let trash_dir = trash.join("sources").join(source.id.simple().to_string());
-			if source.store.is_some() {
-				replaced |= swap_db(&staged_dir, &dest_dir, &trash_dir, "data.db").await?;
-				sources += 1;
-			}
-			if source.has_sidecars {
-				replaced |= swap_db(&staged_dir, &dest_dir, &trash_dir, "sidecars.db").await?;
-			}
-		}
-
-		let staged_replicas = stage.join("replicas");
-		if staged_replicas.is_dir() {
-			let replicas = context.data_dir.join("mounts-remote");
-			for relative in
-				snapshot::files_under(&staged_replicas).map_err(ActionError::Internal)?
-			{
-				let dest = replicas.join(&relative);
-				if dest.exists() {
-					snapshot::move_path(&dest, &trash.join("replicas").join(&relative))
-						.await
-						.map_err(ActionError::Internal)?;
-					replaced = true;
-				}
-				for suffix in ["-wal", "-shm"] {
-					let journal = sidecar_of(&dest, suffix);
-					if journal.exists() {
-						let _ = tokio::fs::remove_file(journal).await;
-					}
-				}
-				snapshot::move_path(&staged_replicas.join(&relative), &dest)
-					.await
-					.map_err(ActionError::Internal)?;
-			}
-		}
+		let swapped = swap_into_place(
+			context,
+			manifest,
+			stage,
+			existing_path.as_deref(),
+			&final_path,
+			&source_dirs,
+			&trash,
+		)
+		.await;
+		drop(hold);
+		let (sources, replaced) = swapped.map_err(|(error, displaced)| {
+			ActionError::Internal(if displaced {
+				format!(
+					"{error}; the data directory is partly swapped and the displaced state is under {}",
+					trash.display()
+				)
+			} else {
+				error
+			})
+		})?;
+		tracing::debug!(
+			snapshots = ?snapshots_removed,
+			"drive snapshots removed so the arena rebuilds from the restored stores"
+		);
 
 		let library = libraries
 			.open_library(&final_path, context.clone())
 			.await
-			.map_err(|e| ActionError::Internal(format!("open restored library: {e}")))?;
+			.map_err(|e| {
+				ActionError::Internal(format!(
+					"open restored library: {e}; the displaced state is under {}",
+					trash.display()
+				))
+			})?;
 
 		let output = LibraryRestoreOutput {
 			library_id: library.id(),
@@ -322,6 +311,75 @@ impl LibraryRestoreAction {
 	}
 }
 
+/// Every rename of the swap, in order: the old library out, the staged
+/// library in, then each store, sidecar and replica file. Returns the
+/// number of stores restored and whether anything was displaced; on error,
+/// whether anything had been displaced by then.
+async fn swap_into_place(
+	context: &Arc<CoreContext>,
+	manifest: &BackupManifest,
+	stage: &Path,
+	existing_path: Option<&Path>,
+	final_path: &Path,
+	source_dirs: &crate::infra::source_dirs::SourceDirs,
+	trash: &Path,
+) -> Result<(u32, bool), (String, bool)> {
+	let mut replaced = false;
+	if let Some(old_path) = existing_path {
+		snapshot::move_path(old_path, &trash.join("library"))
+			.await
+			.map_err(|e| (e, false))?;
+		replaced = true;
+	}
+	snapshot::move_path(&stage.join("library"), final_path)
+		.await
+		.map_err(|e| (e, replaced))?;
+
+	let mut sources = 0u32;
+	for source in &manifest.sources {
+		let staged_dir = stage.join("sources").join(source.id.simple().to_string());
+		let dest_dir = source_dirs
+			.create_source_dir(source.id)
+			.map_err(|e| (e.to_string(), replaced))?;
+		let trash_dir = trash.join("sources").join(source.id.simple().to_string());
+		if source.store.is_some() {
+			replaced |= swap_db(&staged_dir, &dest_dir, &trash_dir, "data.db")
+				.await
+				.map_err(|e| (e, replaced))?;
+			sources += 1;
+		}
+		if source.has_sidecars {
+			replaced |= swap_db(&staged_dir, &dest_dir, &trash_dir, "sidecars.db")
+				.await
+				.map_err(|e| (e, replaced))?;
+		}
+	}
+
+	let staged_replicas = stage.join("replicas");
+	if staged_replicas.is_dir() {
+		let replicas = context.data_dir.join("mounts-remote");
+		for relative in snapshot::files_under(&staged_replicas).map_err(|e| (e, replaced))? {
+			let dest = replicas.join(&relative);
+			if dest.exists() {
+				snapshot::move_path(&dest, &trash.join("replicas").join(&relative))
+					.await
+					.map_err(|e| (e, replaced))?;
+				replaced = true;
+			}
+			for suffix in ["-wal", "-shm"] {
+				let journal = sidecar_of(&dest, suffix);
+				if journal.exists() {
+					let _ = tokio::fs::remove_file(journal).await;
+				}
+			}
+			snapshot::move_path(&staged_replicas.join(&relative), &dest)
+				.await
+				.map_err(|e| (e, replaced))?;
+		}
+	}
+	Ok((sources, replaced))
+}
+
 /// Move `name` from the staged source directory into place, parking the
 /// file it displaces (and dropping its journal) in the trash directory.
 /// Returns whether anything was displaced.
@@ -330,13 +388,11 @@ async fn swap_db(
 	dest_dir: &Path,
 	trash_dir: &Path,
 	name: &str,
-) -> Result<bool, ActionError> {
+) -> Result<bool, String> {
 	let dest = dest_dir.join(name);
 	let mut replaced = false;
 	if dest.exists() {
-		snapshot::move_path(&dest, &trash_dir.join(name))
-			.await
-			.map_err(ActionError::Internal)?;
+		snapshot::move_path(&dest, &trash_dir.join(name)).await?;
 		replaced = true;
 	}
 	// A journal left beside a replaced database would be replayed into the
@@ -346,12 +402,10 @@ async fn swap_db(
 		if journal.exists() {
 			tokio::fs::remove_file(&journal)
 				.await
-				.map_err(|e| ActionError::Internal(format!("remove {}: {e}", journal.display())))?;
+				.map_err(|e| format!("remove {}: {e}", journal.display()))?;
 		}
 	}
-	snapshot::move_path(&staged_dir.join(name), &dest)
-		.await
-		.map_err(ActionError::Internal)?;
+	snapshot::move_path(&staged_dir.join(name), &dest).await?;
 	Ok(replaced)
 }
 

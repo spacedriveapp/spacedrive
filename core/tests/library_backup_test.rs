@@ -376,6 +376,19 @@ async fn backup_restores_identically_and_detects_tampering() -> Result<(), Error
 	store_b.flush().await?;
 	assert_ne!(store_facts(store_b.db()).await?.tag_assertions, 0);
 
+	// Source b's watcher is live and fed while the swap runs, so a store
+	// reopened by an event mid-swap would land on the trashed file.
+	let churn_root = root_b.clone();
+	let churn = tokio::spawn(async move {
+		for i in 0..400 {
+			let _ = tokio::fs::write(
+				churn_root.join(format!("dir_0/swap_{i}.txt")),
+				format!("swap {i}"),
+			)
+			.await;
+			sleep(Duration::from_millis(1)).await;
+		}
+	});
 	let replaced = LibraryRestoreAction::from_input(LibraryRestoreInput {
 		source: archive.clone(),
 		mode: RestoreMode::Replace,
@@ -384,6 +397,7 @@ async fn backup_restores_identically_and_detects_tampering() -> Result<(), Error
 	})?
 	.execute(core.context.clone())
 	.await?;
+	churn.abort();
 	let trash = replaced
 		.replaced_state
 		.clone()
@@ -414,6 +428,36 @@ async fn backup_restores_identically_and_detects_tampering() -> Result<(), Error
 		.await
 		.ok_or("source b has no store after restore")?;
 	assert_eq!(store_facts(live_b.db()).await?.store_id, facts_b.store_id);
+	let registered: Vec<Uuid> = core
+		.context
+		.volume_index()
+		.sources()
+		.into_iter()
+		.map(|status| status.id)
+		.collect();
+	assert!(registered.contains(&source_a) && registered.contains(&source_b));
+
+	// Writes made through the live handle reach the file on disk under
+	// sources/, not the handle's pre-swap inode in the trash.
+	let on_disk_b = data_dir
+		.join("sources")
+		.join(source_b.simple().to_string())
+		.join("data.db");
+	let before = facts_b.revision;
+	tokio::fs::write(root_b.join("dir_1/after_restore.txt"), "after").await?;
+	let deadline = Instant::now() + Duration::from_secs(30);
+	loop {
+		live_b.flush().await?;
+		let now = sd_store::SourceManager::open_file_read_only(&on_disk_b).await?;
+		if store_facts(&now).await?.revision > before {
+			break;
+		}
+		assert!(
+			Instant::now() < deadline,
+			"the restored store on disk never saw the post-restore write"
+		);
+		sleep(Duration::from_millis(100)).await;
+	}
 
 	// Tampering with one byte of a store copy is caught by verify and
 	// refused by restore before anything is touched.
