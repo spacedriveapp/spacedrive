@@ -17,7 +17,9 @@ export function JobProgressSummary({job, compact = false}: {job: JobListItem; co
 	const eta = now - receivedAt <= 30000 ? generic?.performance.estimated_remaining : null;
 	const rate = generic?.performance.rate ?? 0;
 	const start = job.started_at ?? job.created_at;
-	const elapsed = start ? Math.max(0, (job.completed_at ? Date.parse(job.completed_at) : now) - Date.parse(start)) : 0;
+	const clockElapsed = start ? Math.max(0, (job.completed_at ? Date.parse(job.completed_at) : now) - Date.parse(start)) : 0;
+	const reportedElapsed = generic?.performance.elapsed;
+	const elapsed = reportedElapsed ? reportedElapsed.secs * 1000 + reportedElapsed.nanos / 1e6 + (job.status === 'running' ? Math.max(0, now - receivedAt) : 0) : clockElapsed;
 	const contentJob = job.name === 'content_identity';
 	const percent = job.status === 'completed' ? 100 : Math.min(99, Math.max(0, Math.floor(job.progress * 100)));
 	const compactCount = new Intl.NumberFormat(undefined, {notation: 'compact', maximumFractionDigits: 1});

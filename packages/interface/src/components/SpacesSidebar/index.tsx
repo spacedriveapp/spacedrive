@@ -182,7 +182,9 @@ export function SpacesSidebar({
 	);
 	const [isPairingOpen, setIsPairingOpen] = useState(false);
 	const {activeJobCount, hasRunningJobs, jobs} = useJobsContext();
-	const activeJob = jobs.find(job => job.status === "running");
+	const activeJob = jobs.find(job => job.status === "running" && job.generic_progress?.completion.completed)
+		?? jobs.find(job => job.status === "running" && job.generic_progress)
+		?? jobs.find(job => job.status === "running");
 	const {isSyncing} = useSyncCount();
 	const {currentSpaceId, setCurrentSpace} = useSidebarStore();
 	const {data: spacesData} = useSpaces();
