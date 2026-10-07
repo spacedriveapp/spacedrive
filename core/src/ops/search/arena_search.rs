@@ -17,7 +17,7 @@ use crate::ops::indexing::VolumeIndex;
 use crate::ops::search::input::{DateField, PaginationOptions, SearchFilters, SortOptions};
 use crate::ops::search::output::{FileSearchResult, ScoreBreakdown, SearchFacets};
 use crate::ops::search::pipeline;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 /// One page of search results with the whole match set's accounting: the
@@ -319,7 +319,20 @@ pub async fn search_every_index(
 	// Registered sources no arena answered for read from their stores, one
 	// backend per source. A source whose arena contributed above is not
 	// re-queried; an empty store answer is final the same way.
-	for source in cache.sources() {
+	//
+	// Nested sources' stores overlap by design: a file under the inner root
+	// is committed to both. The innermost source is its owner, so stores
+	// are read innermost first and a file an earlier store already answered
+	// for is dropped from the outer one, before it is counted, so the total
+	// stays the number of distinct files. Paths from the arenas above are
+	// seeded so a nested store never repeats a hit its drive's arena gave.
+	let mut seen: std::collections::HashSet<PathBuf> = candidates
+		.iter()
+		.filter_map(|result| result.file.sd_path.as_local_path().map(Path::to_path_buf))
+		.collect();
+	let mut sources = cache.sources();
+	sources.sort_by_key(|source| std::cmp::Reverse(source.root.components().count()));
+	for source in sources {
 		if cache.arena_answers(&source.root) {
 			continue;
 		}
@@ -339,6 +352,10 @@ pub async fn search_every_index(
 		.await?;
 		let mut partition = store_partition.results;
 		retain_tagged(&mut partition, tag_scope.as_ref());
+		partition.retain(|result| match result.file.sd_path.as_local_path() {
+			Some(path) => seen.insert(path.to_path_buf()),
+			None => true,
+		});
 		approximate |= store_partition.truncated;
 
 		total += partition.len() as u64;

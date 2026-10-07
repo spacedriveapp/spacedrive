@@ -448,7 +448,6 @@ async fn a_file_under_nested_sources_is_one_hit_from_the_arena() -> anyhow::Resu
 /// restart with no snapshot, both nested stores hold the file and a library
 /// search must still report it once with its innermost owner.
 #[tokio::test]
-#[ignore = "R8: same record in multiple representations fails: store-backed library search returns one hit per nested store holding the file"]
 async fn a_file_under_nested_sources_is_one_hit_from_the_stores() -> anyhow::Result<()> {
 	let harness = IndexingHarnessBuilder::new("r8_nested_stores")
 		.disable_watcher()
