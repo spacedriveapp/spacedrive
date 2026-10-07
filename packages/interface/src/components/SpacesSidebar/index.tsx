@@ -1,3 +1,4 @@
+import {JobProgressSummary} from "../JobManager/components/JobProgressSummary";
 import {
 	Camera,
 	CircleNotch,
@@ -186,7 +187,8 @@ export function SpacesSidebar({
 		() => client.getCurrentLibraryId()
 	);
 	const [isPairingOpen, setIsPairingOpen] = useState(false);
-	const {activeJobCount, hasRunningJobs} = useJobsContext();
+	const {activeJobCount, hasRunningJobs, jobs} = useJobsContext();
+	const activeJob = jobs.find(job => job.status === "running");
 	const {isSyncing} = useSyncCount();
 	const {currentSpaceId, setCurrentSpace} = useSidebarStore();
 	const {data: spacesData} = useSpaces();
@@ -595,6 +597,7 @@ export function SpacesSidebar({
 								</span>
 							)}
 						</div>
+						{activeJob && <div className="flex-1 min-w-0 px-2"><JobProgressSummary job={activeJob} compact /></div>}
 						<CircleButton
 							id="sidebar-item-settings"
 							type="button"

@@ -1,0 +1,19 @@
+{
+  "rust": "3 content identity tests passed, release build",
+  "frontend": "production build and TypeScript passed",
+  "browser": {
+    "known_queue": "400 / 1,000 checked, About 30s left",
+    "unknown_queue": "400 files checked, Estimating",
+    "missing_progress": "Waiting for progress",
+    "stale_eta_after_30_seconds": {
+      "remaining_eta_labels": 0,
+      "estimating_labels": 5
+    },
+    "activity_control": "actual progress component beside primitives CircleButton"
+  },
+  "limits": [
+    "fixture data, not a live daemon job",
+    "full native runtime not verified",
+    "files vary in size; ETA is approximate"
+  ]
+}
