@@ -164,7 +164,7 @@ async fn heal_uncovered_sources(
 	volume: &crate::domain::Volume,
 ) {
 	let cache = context.volume_index();
-	for source in cache.sources() {
+	for source in cache.sources_of(library.id()) {
 		if !source.root.starts_with(&volume.mount_point)
 			|| !source.attached
 			|| cache.is_indexing(&source.root)
@@ -266,7 +266,7 @@ pub async fn map_attached_volumes(
 
 		let covered = context
 			.volume_index()
-			.sources()
+			.sources_of(library.id())
 			.into_iter()
 			.map(|source| source.root)
 			.filter(|root| root.starts_with(&volume.mount_point))

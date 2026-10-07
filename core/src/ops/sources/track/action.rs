@@ -146,6 +146,22 @@ pub async fn track_and_index(
 		mount_point: volume.mount_point.clone(),
 	});
 
+	// A path is kept by one library on this machine. The index resolves a
+	// path to one source whatever library asks, so a root another open
+	// library already covers, above or below, would walk into that
+	// library's store and read its capture policy.
+	if let Some(other) = context
+		.volume_index()
+		.overlapping_source_of_another_library(library.id(), &root)
+	{
+		return Err(ActionError::Internal(format!(
+			"{} overlaps {}, a source of library {}; a path is kept by one library on this device",
+			root.display(),
+			other.root.display(),
+			other.library.unwrap_or_default()
+		)));
+	}
+
 	// The source's anchor is only as durable as the volume row it points at.
 	// Persisting the volume here is what lets the registry resolve this
 	// source's absolute root on every later boot; without the row, the next
@@ -162,7 +178,7 @@ pub async fn track_and_index(
 
 	let id = context
 		.volume_index()
-		.register_source(&root, anchor)
+		.register_source_in(Some(library.id()), &root, anchor)
 		.await
 		.map_err(|e| ActionError::Internal(format!("Failed to register source: {e}")))?;
 

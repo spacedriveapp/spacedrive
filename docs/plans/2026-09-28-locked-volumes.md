@@ -173,6 +173,11 @@ of its fields.
 L1 and L2 apply to every filesystem and come first. L3 adds what ZFS reports.
 L4 needs L1 and L2. L5 goes last, alongside R5 if that is underway.
 
+L4 works on a daemon with several libraries open. The volume index keeps one
+source registry per library and maps drives once for the machine, so a mount
+change reaches every library's sources and nothing a later library attaches
+replaces what an earlier one adopted.
+
 ## Acceptance
 
 Run L1 and L2 on Linux against a loop-mounted image, unmounted with its mount

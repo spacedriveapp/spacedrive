@@ -19,6 +19,7 @@ use crate::domain::SdPath;
 use crate::ops::indexing::{volume_index::SourceStatus, VolumeIndex};
 use crate::service::mounts::peer::{self, RemoteShare};
 use crate::volume::VolumeManager;
+use uuid::Uuid;
 
 /// One store a path reaches, and how its files sit beneath the path.
 #[derive(Debug, Clone)]
@@ -74,15 +75,21 @@ pub async fn stores_beneath_in(
 	reach(mounted_sources(index), &path)
 }
 
-/// Every store with a root on this machine, each read whole, in root order.
-pub fn every_store(context: &CoreContext) -> Vec<Reach> {
-	every_store_in(context.volume_index())
+/// Every store of one library with a root on this machine, each read whole,
+/// in root order.
+///
+/// Scoped to the library because the index serves every open library and
+/// a whole-library question (what holds the last copy, what a dedupe may
+/// delete) must not reach into another library's sources.
+pub fn every_store(context: &CoreContext, library: Uuid) -> Vec<Reach> {
+	every_store_in(context.volume_index(), library)
 }
 
 /// [`every_store`] from the index alone.
-pub fn every_store_in(index: &VolumeIndex) -> Vec<Reach> {
+pub fn every_store_in(index: &VolumeIndex, library: Uuid) -> Vec<Reach> {
 	mounted_sources(index)
 		.into_iter()
+		.filter(|source| source.library == Some(library))
 		.map(|source| Reach {
 			source,
 			scope: String::new(),
@@ -233,6 +240,7 @@ fn relative(path: &Path, base: &Path) -> Option<String> {
 #[cfg(test)]
 pub(super) fn source(root: &str) -> SourceStatus {
 	SourceStatus {
+		library: None,
 		id: uuid::Uuid::new_v4(),
 		root: std::path::PathBuf::from(root),
 		volume_uuid: None,
