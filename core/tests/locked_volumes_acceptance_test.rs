@@ -133,7 +133,7 @@ async fn describe(core: &Core, library: &Library) -> String {
 				.map(|row| format!("{:?}@{:?}/{:?}", row.name, row.volume_uuid, row.root))
 				.collect::<Vec<_>>()
 		})
-		.unwrap_or_default();
+		.unwrap_or_else(|e| vec![format!("query failed: {e}")]);
 	let volumes = entities::volume::Entity::find()
 		.all(library.db().conn())
 		.await
@@ -147,7 +147,7 @@ async fn describe(core: &Core, library: &Library) -> String {
 				})
 				.collect::<Vec<_>>()
 		})
-		.unwrap_or_default();
+		.unwrap_or_else(|e| vec![format!("query failed: {e}")]);
 	let index: Vec<String> = core
 		.context
 		.volume_index()
