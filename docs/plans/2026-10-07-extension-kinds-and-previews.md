@@ -294,8 +294,7 @@ manifest edits. K3 can start after K1. Eight days, two PRs (K1+K2, K3 to K5).
   K2 writes the column anyway, and it would make kind stats come from the
   store instead of the name. Not needed for this slice.
 - Whether a bundle preview should receive byte ranges rather than a whole
-  file URL. The original URL already supports range requests for video; the
-  `ctx` can grow a `range(start, end)` helper when a timeline-shaped viewer
-  asks for it.
+  file URL. The original URL already answers range requests; `ctx` can grow
+  a `range(start, end)` helper when a timeline-shaped viewer asks for it.
 - Whether a kind may ship its own icon. `Thumb.tsx` resolves icons by name
   today; a kind-to-icon map in `ui_manifest.json` is the next field.
