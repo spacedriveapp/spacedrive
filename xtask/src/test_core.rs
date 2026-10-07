@@ -172,6 +172,13 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Locked volumes acceptance test",
 		&["--test", "locked_volumes_acceptance_test"],
 	),
+	// A daemon with two libraries lists every library's sources, before and
+	// after a restart, whichever order the data directory lists them in.
+	acceptance(
+		"sd-core",
+		"Multi library acceptance test",
+		&["--test", "multi_library_acceptance_test"],
+	),
 	// core("Sync event log test", &["--test", "sync_event_log_test"]),
 	// core("Sync metrics test", &["--test", "sync_metrics_test"]),
 	// core("Sync backfill test", &["--test", "sync_backfill_test"]),

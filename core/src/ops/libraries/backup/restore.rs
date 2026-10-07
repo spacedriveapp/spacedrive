@@ -252,7 +252,10 @@ impl LibraryRestoreAction {
 		// The hold keeps every store closed until the renames are done, so a
 		// watcher event arriving mid-swap cannot reopen and cache the file
 		// that is about to be moved to the trash.
-		let (hold, snapshots_removed) = context.volume_index().quiesce_stores(&quiesced).await;
+		let (hold, snapshots_removed) = context
+			.volume_index()
+			.quiesce_stores(target_id, &quiesced)
+			.await;
 		let sidecar_hold = context.thumbs.hold_sidecars(&quiesced).await;
 
 		let swapped = swap_into_place(

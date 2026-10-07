@@ -423,7 +423,7 @@ mod tests {
 		let root = files.path().canonicalize().expect("root");
 		let cache = core.context.volume_index();
 		cache
-			.register_source(&root, None)
+			.register_source_in(Some(library.id()), &root, None)
 			.await
 			.expect("registered");
 		let store = cache.store_for(&root).await.expect("a store");

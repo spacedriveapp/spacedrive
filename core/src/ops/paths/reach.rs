@@ -233,6 +233,7 @@ fn relative(path: &Path, base: &Path) -> Option<String> {
 #[cfg(test)]
 pub(super) fn source(root: &str) -> SourceStatus {
 	SourceStatus {
+		library: None,
 		id: uuid::Uuid::new_v4(),
 		root: std::path::PathBuf::from(root),
 		volume_uuid: None,

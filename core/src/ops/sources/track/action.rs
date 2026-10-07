@@ -162,7 +162,7 @@ pub async fn track_and_index(
 
 	let id = context
 		.volume_index()
-		.register_source(&root, anchor)
+		.register_source_in(Some(library.id()), &root, anchor)
 		.await
 		.map_err(|e| ActionError::Internal(format!("Failed to register source: {e}")))?;
 

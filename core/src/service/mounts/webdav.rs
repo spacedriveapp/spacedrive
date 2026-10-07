@@ -622,6 +622,7 @@ mod tests {
 	#[test]
 	fn traversal_refused() {
 		let sources = vec![SourceStatus {
+			library: None,
 			id: Uuid::now_v7(),
 			root: PathBuf::from("/tmp/demo"),
 			volume_uuid: None,

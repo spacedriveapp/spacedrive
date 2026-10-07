@@ -171,6 +171,9 @@ struct Resolved {
 #[derive(Debug, Clone)]
 pub struct SourceStatus {
 	pub id: Uuid,
+	/// The library that registered this source; `None` for a registration
+	/// made before any library was open.
+	pub library: Option<Uuid>,
 	pub root: PathBuf,
 	/// The drive this source sits on, when it sits on one Spacedrive tracks.
 	pub volume_uuid: Option<Uuid>,
@@ -198,19 +201,36 @@ pub struct StoreHold {
 	_guards: Vec<tokio::sync::OwnedMutexGuard<()>>,
 }
 
+/// One library's registrations and where they are written.
+///
+/// A registration made before any library is open has nowhere durable to
+/// go; it lives in the session registry, whose `library` is `None`, for as
+/// long as the process does.
+struct LibrarySources {
+	library: Option<Uuid>,
+	db: Option<Arc<Database>>,
+	registry: SourceRegistry,
+}
+
+/// A registered source together with the drive that maps it.
+struct Located {
+	record: SourceRecord,
+	volume: VolumeKey,
+	volume_root: PathBuf,
+}
+
 pub struct VolumeIndex {
-	/// Registered sources, in memory. The durable copy is the `sources` table
-	/// in the open library.
-	registry: Mutex<SourceRegistry>,
-	/// Where registrations are written. Set when a library opens, cleared when
-	/// it closes.
+	/// Registered sources, in memory, one registry per open library. The
+	/// durable copy of each is the `sources` table in that library.
 	///
 	/// This cache is machine-scoped and a source registration is library
-	/// metadata, so the two do not have the same lifetime. Until the registry
-	/// is reachable from wherever a source is mutated, the cache follows the
-	/// open library: with none open it serves paths from memory and persists
-	/// nothing.
-	db: RwLock<Option<Arc<Database>>>,
+	/// metadata, so the two do not have the same lifetime. Each library
+	/// attaches its own registry when it opens and takes it away when it
+	/// closes; the drives underneath are mapped once and shared, since a
+	/// mount is a fact about the machine and not about any library. A path
+	/// resolves across every attached library, because a source belongs to
+	/// exactly one of them.
+	libraries: Mutex<Vec<LibrarySources>>,
 	/// Per-source directory layout; `None` means no persistence.
 	dirs: Option<SourceDirs>,
 	/// Live partitions by source id.
@@ -280,8 +300,7 @@ impl VolumeIndex {
 			None => None,
 		};
 		Ok(Self {
-			registry: Mutex::new(SourceRegistry::default()),
-			db: RwLock::new(None),
+			libraries: Mutex::new(Vec::new()),
 			dirs,
 			slots: RwLock::new(HashMap::new()),
 			scratch: Partition::new(VolumeKey::Scratch, None)?,
@@ -303,8 +322,8 @@ impl VolumeIndex {
 	/// right now, so a drive that came back somewhere else needs no repair. A
 	/// row whose volume is absent keeps its record and its counts; only its
 	/// path is unavailable, which is what is true of a drive in a drawer.
-	pub async fn attach_library(&self, db: Arc<Database>) -> anyhow::Result<usize> {
-		self.attach_library_with(db, None, LiveVolumes::Unavailable)
+	pub async fn attach_library(&self, library: Uuid, db: Arc<Database>) -> anyhow::Result<usize> {
+		self.attach_library_with(library, db, None, LiveVolumes::Unavailable)
 			.await
 	}
 
@@ -318,6 +337,7 @@ impl VolumeIndex {
 	/// elsewhere resolve without repair.
 	pub async fn attach_library_with(
 		&self,
+		library: Uuid,
 		db: Arc<Database>,
 		device_id: Option<Uuid>,
 		live: LiveVolumes<'_>,
@@ -405,8 +425,15 @@ impl VolumeIndex {
 			slot.set_detached(!self.root_attached(&slot.volume, &volume_root));
 		}
 
-		*self.registry.lock() = registry;
-		*self.db.write() = Some(db);
+		// Only this library's registrations are replaced; every other open
+		// library keeps serving its own sources.
+		let mut libraries = self.libraries.lock();
+		libraries.retain(|attached| attached.library != Some(library));
+		libraries.push(LibrarySources {
+			library: Some(library),
+			db: Some(db),
+			registry,
+		});
 		Ok(adopted)
 	}
 
@@ -472,7 +499,9 @@ impl VolumeIndex {
 			}
 		}
 		if mounted {
-			self.registry.lock().remount(uuid, mount_point);
+			for attached in self.libraries.lock().iter_mut() {
+				attached.registry.remount(uuid, mount_point);
+			}
 		}
 		let slot = self.slots.read().get(&key).cloned();
 		if let Some(slot) = slot {
@@ -486,12 +515,111 @@ impl VolumeIndex {
 		}
 	}
 
-	/// Stop persisting; the library that owned these registrations is closing.
-	pub fn detach_library(&self) {
-		*self.db.write() = None;
-		*self.registry.lock() = SourceRegistry::default();
-		self.volumes.lock().clear();
-		self.slots.write().clear();
+	/// Forget a closing library's registrations.
+	///
+	/// Drives stay mapped: they belong to the machine, and another open
+	/// library may keep sources on them. Partitions no remaining registration
+	/// or mapped drive can reach are dropped, and once no library is attached
+	/// at all the drives and partitions go with them, so a core that closes
+	/// everything starts the next library from nothing.
+	pub fn detach_library(&self, library: Uuid) {
+		let mut libraries = self.libraries.lock();
+		libraries.retain(|attached| attached.library != Some(library));
+		if libraries.iter().all(|attached| attached.library.is_none()) {
+			drop(libraries);
+			self.volumes.lock().clear();
+			self.slots.write().clear();
+			return;
+		}
+		let reachable: HashSet<VolumeKey> = libraries
+			.iter()
+			.flat_map(|attached| {
+				attached
+					.registry
+					.all()
+					.iter()
+					.map(|record| attached.registry.volume_of(record).0)
+			})
+			.chain(
+				self.volumes
+					.lock()
+					.iter()
+					.map(|tracked| VolumeKey::Id(tracked.uuid)),
+			)
+			.collect();
+		drop(libraries);
+		self.slots.write().retain(|key, _| reachable.contains(key));
+	}
+
+	/// The registry that holds a source, with the record and its drive.
+	fn find_source(&self, id: Uuid) -> Option<Located> {
+		let libraries = self.libraries.lock();
+		libraries.iter().find_map(|attached| {
+			let record = attached.registry.by_id(id)?.clone();
+			let (volume, volume_root) = attached.registry.volume_of(&record);
+			Some(Located {
+				record,
+				volume,
+				volume_root,
+			})
+		})
+	}
+
+	/// The innermost source owning `path` across every attached library.
+	///
+	/// Each registry answers with its own innermost match; the deepest root
+	/// among them wins, the same rule one registry applies between a source
+	/// and one nested inside it.
+	fn resolve_source(&self, path: &Path) -> Option<Located> {
+		let libraries = self.libraries.lock();
+		libraries
+			.iter()
+			.filter_map(|attached| {
+				let record = attached.registry.resolve(path)?.clone();
+				let (volume, volume_root) = attached.registry.volume_of(&record);
+				Some(Located {
+					record,
+					volume,
+					volume_root,
+				})
+			})
+			.max_by_key(|located| located.record.root.as_os_str().len())
+	}
+
+	/// Every registered source across the attached libraries, each with the
+	/// library it belongs to and the drive that maps it.
+	fn all_sources(&self) -> Vec<(Option<Uuid>, Located)> {
+		let libraries = self.libraries.lock();
+		libraries
+			.iter()
+			.flat_map(|attached| {
+				attached.registry.all().iter().map(move |record| {
+					let (volume, volume_root) = attached.registry.volume_of(record);
+					(
+						attached.library,
+						Located {
+							record: record.clone(),
+							volume,
+							volume_root,
+						},
+					)
+				})
+			})
+			.collect()
+	}
+
+	/// Apply a change to the registry that holds a source, returning what
+	/// the registry returned.
+	fn update_registry<R>(
+		&self,
+		id: Uuid,
+		update: impl FnOnce(&mut SourceRegistry) -> Option<R>,
+	) -> Option<R> {
+		let mut libraries = self.libraries.lock();
+		let attached = libraries
+			.iter_mut()
+			.find(|attached| attached.registry.by_id(id).is_some())?;
+		update(&mut attached.registry)
 	}
 
 	/// Register a root as a source, or refresh an existing registration.
@@ -505,17 +633,61 @@ impl VolumeIndex {
 	/// launch, and the snapshot it goes on to write would then belong to
 	/// nothing. With no library open at all there is nothing to write to and
 	/// the registration is in-memory by definition, which `persist` reports.
+	///
+	/// The registration goes to the one attached library. With several open
+	/// the caller has to say which, through [`Self::register_source_in`].
 	pub async fn register_source(
 		&self,
 		root: &Path,
 		volume: Option<VolumeAnchor>,
 	) -> anyhow::Result<Uuid> {
-		let record = self.registry.lock().register(root, volume.as_ref());
+		let library = {
+			let libraries = self.libraries.lock();
+			let mut attached = libraries.iter().filter_map(|attached| attached.library);
+			let library = attached.next();
+			if attached.next().is_some() {
+				anyhow::bail!("several libraries are open; the registration needs to name one");
+			}
+			library
+		};
+		self.register_source_in(library, root, volume).await
+	}
+
+	/// [`Self::register_source`] into a named library, or into the session
+	/// registry with `None`.
+	pub async fn register_source_in(
+		&self,
+		library: Option<Uuid>,
+		root: &Path,
+		volume: Option<VolumeAnchor>,
+	) -> anyhow::Result<Uuid> {
+		let (record, volume, volume_root) = {
+			let mut libraries = self.libraries.lock();
+			let position = libraries
+				.iter()
+				.position(|attached| attached.library == library);
+			let attached = match position {
+				Some(position) => &mut libraries[position],
+				None if library.is_some() => {
+					anyhow::bail!("library {} is not open", library.unwrap_or_default())
+				}
+				None => {
+					libraries.push(LibrarySources {
+						library: None,
+						db: None,
+						registry: SourceRegistry::default(),
+					});
+					libraries.last_mut().expect("just pushed")
+				}
+			};
+			let record = attached.registry.register(root, volume.as_ref());
+			let (volume, volume_root) = attached.registry.volume_of(&record);
+			(record, volume, volume_root)
+		};
 		self.persist(&record).await?;
 
 		// The partition belongs to the drive, so registering a source over an
 		// already-mapped one joins it rather than starting a second.
-		let (volume, volume_root) = self.registry.lock().volume_of(&record);
 		let slot = self.slot_for(&Resolved {
 			volume,
 			volume_root: volume_root.clone(),
@@ -533,7 +705,13 @@ impl VolumeIndex {
 	/// cache serving paths before a library exists, and a silent loss anywhere
 	/// else, so it says so.
 	async fn persist(&self, record: &SourceRecord) -> anyhow::Result<()> {
-		let Some(db) = self.db.read().clone() else {
+		let db = self
+			.libraries
+			.lock()
+			.iter()
+			.find(|attached| attached.registry.by_id(record.id).is_some())
+			.and_then(|attached| attached.db.clone());
+		let Some(db) = db else {
 			tracing::warn!(
 				source = %record.id,
 				root = %record.root.display(),
@@ -597,24 +775,29 @@ impl VolumeIndex {
 		Ok(())
 	}
 
-	/// All registered sources with their live state.
+	/// Every registered source across the attached libraries, with its live
+	/// state. A surface that answers for one library asks
+	/// [`Self::sources_of`] instead.
 	pub fn sources(&self) -> Vec<SourceStatus> {
-		let (records, volumes): (Vec<SourceRecord>, Vec<VolumeKey>) = {
-			let registry = self.registry.lock();
-			let records = registry.all().to_vec();
-			let volumes = records
-				.iter()
-				.map(|record| registry.volume_of(record).0)
-				.collect();
-			(records, volumes)
-		};
+		self.source_statuses(None)
+	}
+
+	/// One library's registered sources with their live state.
+	pub fn sources_of(&self, library: Uuid) -> Vec<SourceStatus> {
+		self.source_statuses(Some(library))
+	}
+
+	fn source_statuses(&self, library: Option<Uuid>) -> Vec<SourceStatus> {
+		let located = self.all_sources();
 		let slots = self.slots.read();
-		records
+		located
 			.into_iter()
-			.zip(volumes)
-			.map(|(record, volume)| {
+			.filter(|(owner, _)| library.is_none_or(|library| *owner == Some(library)))
+			.map(|(owner, located)| {
+				let Located { record, volume, .. } = located;
 				let slot = slots.get(&volume);
 				SourceStatus {
+					library: owner,
 					attached: self.root_attached(&volume, &record.root),
 					restored: slot
 						.map(|s| s.restored.load(Ordering::Acquire))
@@ -638,10 +821,8 @@ impl VolumeIndex {
 	/// resolving it goes through the registry's volume assignment.
 	pub fn source_snapshot_path(&self, source_id: Uuid) -> Option<PathBuf> {
 		let dirs = self.dirs.as_ref()?;
-		let registry = self.registry.lock();
-		let record = registry.all().iter().find(|r| r.id == source_id)?;
-		let (volume, _) = registry.volume_of(record);
-		Some(dirs.snapshot_file(volume.id()))
+		let located = self.find_source(source_id)?;
+		Some(dirs.snapshot_file(located.volume.id()))
 	}
 
 	/// Where the restart cache covering `path` lives, when the path belongs to
@@ -714,17 +895,11 @@ impl VolumeIndex {
 		// One acquisition, because a guard held in an `if let` scrutinee lives
 		// to the end of the block and taking the lock again inside it is a
 		// deadlock rather than a re-entry.
-		let located = {
-			let registry = self.registry.lock();
-			registry.resolve(path).cloned().map(|record| {
-				let (volume, volume_root) = registry.volume_of(&record);
-				Resolved {
-					volume,
-					volume_root,
-					source: Some(record),
-				}
-			})
-		};
+		let located = self.resolve_source(path).map(|located| Resolved {
+			volume: located.volume,
+			volume_root: located.volume_root,
+			source: Some(located.record),
+		});
 
 		let volumes = self.volumes.lock();
 		// Longest mount point wins, and at the same mount point the drive
@@ -877,10 +1052,8 @@ impl VolumeIndex {
 	/// where the background map's policy applies.
 	pub fn rule_toggles_for(&self, path: &Path) -> crate::ops::indexing::rules::RuleToggles {
 		let unfiltered = self
-			.registry
-			.lock()
-			.resolve(path)
-			.map(|record| record.config.unfiltered)
+			.resolve_source(path)
+			.map(|located| located.record.config.unfiltered)
 			.unwrap_or(false);
 		if unfiltered {
 			crate::ops::indexing::rules::RuleToggles::none()
@@ -891,23 +1064,17 @@ impl VolumeIndex {
 
 	/// A registered source's display name, by id.
 	pub fn source_name(&self, id: Uuid) -> Option<String> {
-		self.registry
-			.lock()
-			.by_id(id)
-			.map(|record| record.name.clone())
+		self.find_source(id).map(|located| located.record.name)
 	}
 
 	/// A registered source's capture policy, by id.
 	pub fn source_config(&self, id: Uuid) -> Option<SourceConfig> {
-		self.registry
-			.lock()
-			.by_id(id)
-			.map(|record| record.config.clone())
+		self.find_source(id).map(|located| located.record.config)
 	}
 
 	/// Update a source's capture policy, persisting the change.
 	pub async fn set_source_config(&self, id: Uuid, config: SourceConfig) {
-		let updated = self.registry.lock().set_config(id, config);
+		let updated = self.update_registry(id, |registry| registry.set_config(id, config));
 		if let Some(updated) = updated {
 			if let Err(err) = self.persist(&updated).await {
 				tracing::error!(source = %id, %err, "could not persist capture policy");
@@ -917,7 +1084,7 @@ impl VolumeIndex {
 
 	/// Rename a source, persisting the change.
 	pub async fn set_source_name(&self, id: Uuid, name: String) {
-		let updated = self.registry.lock().set_name(id, name);
+		let updated = self.update_registry(id, |registry| registry.set_name(id, name));
 		if let Some(updated) = updated {
 			if let Err(err) = self.persist(&updated).await {
 				tracing::error!(source = %id, %err, "could not persist the rename");
@@ -927,16 +1094,13 @@ impl VolumeIndex {
 
 	/// The root of the source owning `path`, when one does.
 	pub fn source_root_for(&self, path: &Path) -> Option<PathBuf> {
-		self.registry
-			.lock()
-			.resolve(path)
-			.map(|record| record.root.clone())
+		self.resolve_source(path).map(|located| located.record.root)
 	}
 
 	/// The id of the source owning `path`, when one does. The innermost
 	/// registered source wins, as it does for [`Self::store_for`].
 	pub fn source_id_for(&self, path: &Path) -> Option<Uuid> {
-		self.registry.lock().resolve(path).map(|record| record.id)
+		self.resolve_source(path).map(|located| located.record.id)
 	}
 
 	/// A registered source's current absolute root, by id.
@@ -945,10 +1109,7 @@ impl VolumeIndex {
 	/// relative to its volume, so anything that turns a source id into a
 	/// path to open must ask here rather than read the row.
 	pub fn source_root(&self, id: Uuid) -> Option<PathBuf> {
-		self.registry
-			.lock()
-			.by_id(id)
-			.map(|record| record.root.clone())
+		self.find_source(id).map(|located| located.record.root)
 	}
 
 	/// The durable store that should hold `path`, opened on first use.
@@ -962,7 +1123,7 @@ impl VolumeIndex {
 	/// directory. Browsing keeps working in both cases, which is what makes the
 	/// arena the read path and the store an addition to it.
 	pub async fn store_for(&self, path: &Path) -> Option<Arc<SourceStore>> {
-		let record = self.registry.lock().resolve(path).cloned()?;
+		let record = self.resolve_source(path)?.record;
 		let dirs = self.dirs.as_ref()?;
 
 		if let Some(store) = self.stores.read().get(&record.id) {
@@ -1054,7 +1215,7 @@ impl VolumeIndex {
 	/// removed, so nothing in memory or on disk outlives the files it indexed:
 	/// the reopened library re-adopts its sources and rebuilds the arena from
 	/// the restored stores. Returns the hold and the snapshot files removed.
-	pub async fn quiesce_stores(&self, ids: &[Uuid]) -> (StoreHold, Vec<PathBuf>) {
+	pub async fn quiesce_stores(&self, library: Uuid, ids: &[Uuid]) -> (StoreHold, Vec<PathBuf>) {
 		// One gate per source; locking the same gate twice would wait on
 		// itself.
 		let mut ids = ids.to_vec();
@@ -1104,7 +1265,7 @@ impl VolumeIndex {
 			db.pool().close().await;
 		}
 
-		self.detach_library();
+		self.detach_library(library);
 		let mut removed = Vec::new();
 		for path in snapshots {
 			match tokio::fs::remove_file(&path).await {
@@ -1154,11 +1315,9 @@ impl VolumeIndex {
 	/// though a question about opening a file is not.
 	pub async fn stores(&self) -> Vec<Arc<SourceStore>> {
 		let roots: Vec<PathBuf> = self
-			.registry
-			.lock()
-			.all()
-			.iter()
-			.map(|record| record.root.clone())
+			.all_sources()
+			.into_iter()
+			.map(|(_, located)| located.record.root)
 			.collect();
 
 		let mut stores = Vec::with_capacity(roots.len());
@@ -1415,12 +1574,11 @@ impl VolumeIndex {
 			.map(|tracked| tracked.mount_point.clone())
 			.collect();
 		roots.extend(
-			self.registry
-				.lock()
-				.all()
-				.iter()
+			self.all_sources()
+				.into_iter()
+				.map(|(_, located)| located.record)
 				.filter(|source| source.is_locatable())
-				.map(|source| source.root.clone()),
+				.map(|source| source.root),
 		);
 
 		for root in roots {
@@ -1694,7 +1852,9 @@ impl VolumeIndex {
 		// The snapshot itself is already on disk, so a failure here costs a
 		// stale count in listings rather than the index: report it and keep the
 		// save successful.
-		let updated = self.registry.lock().update_stats(record.id, counts);
+		let updated = self.update_registry(record.id, |registry| {
+			registry.update_stats(record.id, counts)
+		});
 		if let Some(updated) = updated {
 			if let Err(err) = self.persist(&updated).await {
 				tracing::error!(
@@ -1809,13 +1969,12 @@ impl VolumeIndex {
 		// evidence the root deserves a watch. Events over a sparser arena
 		// still file correctly; the writer synthesizes missing ancestors.
 		let indexed = slot.indexed_paths.read().contains(&path);
-		let registered = {
-			let registry = self.registry.lock();
-			registry
-				.all()
-				.iter()
-				.any(|record| record.root == path && record.root.exists())
-		};
+		let registered = self
+			.libraries
+			.lock()
+			.iter()
+			.flat_map(|attached| attached.registry.all())
+			.any(|record| record.root == path && record.root.exists());
 		if !indexed && !registered {
 			return false;
 		}
@@ -1936,7 +2095,12 @@ impl VolumeIndex {
 				.fold_slots(|s| s.watched_paths.read().len())
 				.into_iter()
 				.sum(),
-			sources: self.registry.lock().all().len(),
+			sources: self
+				.libraries
+				.lock()
+				.iter()
+				.map(|attached| attached.registry.all().len())
+				.sum(),
 		}
 	}
 
@@ -1977,6 +2141,10 @@ impl VolumeIndexStats {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	/// The one library most tests attach; a second one is minted where a
+	/// test is about two.
+	const LIBRARY: Uuid = Uuid::from_u128(0x1);
 
 	fn isolated_cache() -> VolumeIndex {
 		VolumeIndex::with_sources_dir(None).expect("failed to create cache")
@@ -2143,11 +2311,7 @@ mod tests {
 
 		// The innermost source is still the one that persists it.
 		assert_eq!(
-			cache
-				.registry
-				.lock()
-				.resolve(Path::new("/mnt/drive/file.txt"))
-				.map(|s| s.id),
+			cache.source_id_for(Path::new("/mnt/drive/file.txt")),
 			Some(nested)
 		);
 	}
@@ -2335,7 +2499,10 @@ mod tests {
 			let anchor = {
 				let cache =
 					VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-				cache.attach_library(library.clone()).await.expect("attach");
+				cache
+					.attach_library(LIBRARY, library.clone())
+					.await
+					.expect("attach");
 				let anchor = tracked_volume(&library, old_dir.path()).await;
 				indexed_source(&cache, old_dir.path(), anchor.clone(), 4).await;
 				anchor
@@ -2354,7 +2521,10 @@ mod tests {
 
 			let cache =
 				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-			cache.attach_library(library).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library)
+				.await
+				.expect("attach");
 
 			let snapshot_path = cache
 				.snapshot_path_for(new_dir.path())
@@ -2393,7 +2563,10 @@ mod tests {
 			{
 				let cache =
 					VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-				cache.attach_library(library.clone()).await.expect("attach");
+				cache
+					.attach_library(LIBRARY, library.clone())
+					.await
+					.expect("attach");
 				let anchor = tracked_volume(&library, &root).await;
 				indexed_source(&cache, &root, anchor, 8).await;
 			}
@@ -2401,7 +2574,10 @@ mod tests {
 			// A new session, as a restarted daemon sees it.
 			let cache =
 				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-			cache.attach_library(library).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library)
+				.await
+				.expect("attach");
 			let mut restored_roots = cache.subscribe_restored_roots();
 
 			assert!(
@@ -2442,7 +2618,10 @@ mod tests {
 			let count = {
 				let cache =
 					VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-				cache.attach_library(library.clone()).await.expect("attach");
+				cache
+					.attach_library(LIBRARY, library.clone())
+					.await
+					.expect("attach");
 				cache.track_volume(volume, root.clone());
 
 				// It has a map of its own rather than falling into scratch.
@@ -2473,7 +2652,10 @@ mod tests {
 			// And it comes back, because the snapshot belongs to the drive.
 			let cache =
 				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-			cache.attach_library(library).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library)
+				.await
+				.expect("attach");
 			cache.track_volume(volume, root.clone());
 			assert!(
 				cache.ensure_restored(&root).await,
@@ -2510,7 +2692,10 @@ mod tests {
 
 			let cache =
 				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 
 			let anchor = tracked_volume(&library, &root).await;
 			let drive = cache
@@ -2565,7 +2750,10 @@ mod tests {
 
 			let cache =
 				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 			let anchor = tracked_volume(&library, &root).await;
 
 			let photos = cache
@@ -2629,7 +2817,10 @@ mod tests {
 			let (id, snapshot_path) = {
 				let cache =
 					VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-				cache.attach_library(library.clone()).await.expect("attach");
+				cache
+					.attach_library(LIBRARY, library.clone())
+					.await
+					.expect("attach");
 				let anchor = tracked_volume(&library, &root).await;
 				let id = indexed_source(&cache, &root, anchor, 4).await;
 				let store = cache
@@ -2648,7 +2839,10 @@ mod tests {
 
 			let cache =
 				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-			cache.attach_library(library).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library)
+				.await
+				.expect("attach");
 			assert!(
 				!cache.ensure_restored(&root).await,
 				"junk must not restore as an index"
@@ -2681,7 +2875,10 @@ mod tests {
 			let snapshot_path = {
 				let cache =
 					VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-				cache.attach_library(library.clone()).await.expect("attach");
+				cache
+					.attach_library(LIBRARY, library.clone())
+					.await
+					.expect("attach");
 				let anchor = tracked_volume(&library, &root).await;
 				indexed_source(&cache, &root, anchor, 4).await;
 				cache.snapshot_path_for(&root).expect("snapshot path")
@@ -2690,7 +2887,10 @@ mod tests {
 
 			let cache =
 				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-			cache.attach_library(library).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library)
+				.await
+				.expect("attach");
 			assert!(!cache.ensure_restored(&root).await);
 			assert!(
 				!snapshot_path.exists(),
@@ -2727,7 +2927,10 @@ mod tests {
 
 			let cache =
 				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-			cache.attach_library(library).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library)
+				.await
+				.expect("attach");
 			cache.track_volume(Uuid::now_v7(), root.clone());
 
 			assert!(
@@ -2766,7 +2969,10 @@ mod tests {
 
 			let cache =
 				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 
 			let anchor = tracked_volume(&library, &root).await;
 			cache
@@ -2821,7 +3027,10 @@ mod tests {
 
 			let cache =
 				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 
 			let anchor = tracked_volume(&library, &root).await;
 			cache
@@ -2881,7 +3090,10 @@ mod tests {
 
 			let cache =
 				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 
 			let anchor = tracked_volume(&library, &root).await;
 			cache
@@ -2927,7 +3139,10 @@ mod tests {
 
 			let cache =
 				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 
 			let anchor = tracked_volume(&library, &root).await;
 			cache
@@ -2968,7 +3183,10 @@ mod tests {
 
 			let cache =
 				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 
 			let anchor = tracked_volume(&library, &root).await;
 			let id = indexed_source(&cache, &root, anchor, COLLAPSE_FLOOR * 3).await;
@@ -3001,7 +3219,10 @@ mod tests {
 			let (id, before) = {
 				let cache =
 					VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-				cache.attach_library(library.clone()).await.expect("attach");
+				cache
+					.attach_library(LIBRARY, library.clone())
+					.await
+					.expect("attach");
 				let anchor = tracked_volume(&library, &root).await;
 				let id = indexed_source(&cache, &root, anchor, COLLAPSE_FLOOR * 2).await;
 				let before = counted(&cache, id);
@@ -3011,7 +3232,10 @@ mod tests {
 			// A new session, as a restarted daemon sees it.
 			let cache =
 				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-			cache.attach_library(library).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library)
+				.await
+				.expect("attach");
 			assert!(
 				cache.ensure_restored(&root).await,
 				"snapshot did not restore"
@@ -3045,7 +3269,10 @@ mod tests {
 			let (id, full) = {
 				let cache =
 					VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-				cache.attach_library(library.clone()).await.expect("attach");
+				cache
+					.attach_library(LIBRARY, library.clone())
+					.await
+					.expect("attach");
 				let anchor = tracked_volume(&library, &root).await;
 				let id = indexed_source(&cache, &root, anchor, COLLAPSE_FLOOR * 3).await;
 				let full = counted(&cache, id);
@@ -3054,7 +3281,10 @@ mod tests {
 
 			let cache =
 				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
-			cache.attach_library(library).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library)
+				.await
+				.expect("attach");
 			cache.ensure_restored(&root).await;
 			browse(&cache, &folder, &["one.txt"]).await;
 
@@ -3082,7 +3312,10 @@ mod tests {
 
 		let cache =
 			VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
-		cache.attach_library(library.clone()).await.expect("attach");
+		cache
+			.attach_library(LIBRARY, library.clone())
+			.await
+			.expect("attach");
 		let source_id = cache
 			.register_source(&root, Some(tracked_volume(&library, &root).await))
 			.await
@@ -3175,7 +3408,10 @@ mod tests {
 		{
 			let cache =
 				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 			cache
 				.register_source(&root, Some(anchor.clone()))
 				.await
@@ -3213,7 +3449,7 @@ mod tests {
 		let cache =
 			VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
 		cache
-			.attach_library_with(library.clone(), None, LiveVolumes::Detected(&[]))
+			.attach_library_with(LIBRARY, library.clone(), None, LiveVolumes::Detected(&[]))
 			.await
 			.expect("attach");
 
@@ -3270,7 +3506,7 @@ mod tests {
 		let cache =
 			VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
 		cache
-			.attach_library_with(library.clone(), None, LiveVolumes::Detected(&[]))
+			.attach_library_with(LIBRARY, library.clone(), None, LiveVolumes::Detected(&[]))
 			.await
 			.expect("attach");
 
@@ -3302,7 +3538,7 @@ mod tests {
 		let cache =
 			VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
 		cache
-			.attach_library_with(library.clone(), None, LiveVolumes::Detected(&[]))
+			.attach_library_with(LIBRARY, library.clone(), None, LiveVolumes::Detected(&[]))
 			.await
 			.expect("attach");
 		assert_eq!(cache.volume_mounted(anchor.uuid), Some(true));
@@ -3326,17 +3562,112 @@ mod tests {
 		{
 			let cache =
 				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 			cache.register_source(&root, Some(anchor)).await.unwrap();
 		}
 
 		let cache =
 			VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
 		cache
-			.attach_library_with(library.clone(), None, LiveVolumes::Unavailable)
+			.attach_library_with(LIBRARY, library.clone(), None, LiveVolumes::Unavailable)
 			.await
 			.expect("attach");
 		assert!(cache.sources()[0].attached);
+	}
+
+	/// A daemon with two libraries serves both. Each library's registry is
+	/// its own, so the second to attach adds to the index instead of
+	/// replacing what the first adopted, whichever order `read_dir` hands
+	/// them to the library manager on a given machine.
+	#[tokio::test]
+	async fn two_libraries_each_list_their_own_sources_in_either_load_order() {
+		let first_dir = tempfile::tempdir().unwrap();
+		let second_dir = tempfile::tempdir().unwrap();
+		let first_library = test_library(first_dir.path()).await;
+		let second_library = test_library(second_dir.path()).await;
+		let first_id = Uuid::from_u128(0xa);
+		let second_id = Uuid::from_u128(0xb);
+		let first_root = tempfile::tempdir().unwrap();
+		let second_root = tempfile::tempdir().unwrap();
+
+		let cache_dir = tempfile::tempdir().unwrap();
+		{
+			let cache =
+				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
+			let anchor = tracked_volume(&first_library, first_root.path()).await;
+			cache
+				.attach_library(first_id, first_library.clone())
+				.await
+				.expect("attach");
+			cache
+				.register_source_in(Some(first_id), first_root.path(), Some(anchor))
+				.await
+				.unwrap();
+			let anchor = tracked_volume(&second_library, second_root.path()).await;
+			cache
+				.attach_library(second_id, second_library.clone())
+				.await
+				.expect("attach");
+			cache
+				.register_source_in(Some(second_id), second_root.path(), Some(anchor))
+				.await
+				.unwrap();
+		}
+
+		let roots = |cache: &VolumeIndex, library: Uuid| -> Vec<PathBuf> {
+			cache
+				.sources_of(library)
+				.into_iter()
+				.map(|source| source.root)
+				.collect()
+		};
+
+		for order in [[first_id, second_id], [second_id, first_id]] {
+			let cache =
+				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
+			for library in order {
+				let db = if library == first_id {
+					&first_library
+				} else {
+					&second_library
+				};
+				cache
+					.attach_library(library, db.clone())
+					.await
+					.expect("attach");
+			}
+
+			assert_eq!(
+				roots(&cache, first_id),
+				vec![first_root.path().to_path_buf()],
+				"load order {order:?}"
+			);
+			assert_eq!(
+				roots(&cache, second_id),
+				vec![second_root.path().to_path_buf()],
+				"load order {order:?}"
+			);
+			assert_eq!(cache.sources().len(), 2, "load order {order:?}");
+			assert!(cache.sources().iter().all(|source| source.attached));
+			assert_eq!(
+				cache.source_id_for(second_root.path()),
+				cache.sources_of(second_id).first().map(|source| source.id)
+			);
+
+			// Closing one library takes only its sources away.
+			cache.detach_library(first_id);
+			assert!(roots(&cache, first_id).is_empty());
+			assert_eq!(
+				roots(&cache, second_id),
+				vec![second_root.path().to_path_buf()]
+			);
+			assert!(cache.source_id_for(second_root.path()).is_some());
+			assert!(cache.source_id_for(first_root.path()).is_none());
+			assert_ne!(cache.resolve(second_root.path()).volume, VolumeKey::Scratch);
+		}
 	}
 
 	#[tokio::test]
@@ -3369,7 +3700,10 @@ mod tests {
 		{
 			let cache =
 				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 			cache
 				.register_source(&root, Some(tracked_volume(&library, &root).await))
 				.await
@@ -3401,7 +3735,10 @@ mod tests {
 		// restores from its snapshot, and serves read-only as detached.
 		let cache =
 			VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
-		cache.attach_library(library.clone()).await.expect("attach");
+		cache
+			.attach_library(LIBRARY, library.clone())
+			.await
+			.expect("attach");
 		assert_eq!(cache.sources().len(), 1);
 
 		let child = unplugged_root.join("photo.jpg");
@@ -3455,7 +3792,10 @@ mod tests {
 		{
 			let cache =
 				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 			cache
 				.register_source(&root, Some(tracked_volume(&library, &root).await))
 				.await
@@ -3488,7 +3828,10 @@ mod tests {
 		{
 			let cache =
 				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 			assert!(cache.ensure_restored(&root.join("a.txt")).await);
 			let index = cache.resolve_index(&root);
 			let index = index.read().await;
@@ -3530,7 +3873,10 @@ mod tests {
 		{
 			let cache =
 				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 			cache
 				.register_source(&root, Some(tracked_volume(&library, &root).await))
 				.await
@@ -3555,7 +3901,10 @@ mod tests {
 		{
 			let cache =
 				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 			let index = cache.create_for_indexing(root.clone());
 			{
 				let mut index = index.write().await;
@@ -3572,7 +3921,10 @@ mod tests {
 		{
 			let cache =
 				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 			assert!(cache.ensure_restored(&root.join("a.txt")).await);
 			let index = cache.resolve_index(&root);
 			let index = index.read().await;
@@ -3621,7 +3973,10 @@ mod tests {
 		{
 			let cache =
 				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 			source_id = cache
 				.register_source(&root, Some(tracked_volume(&library, &root).await))
 				.await
@@ -3642,7 +3997,10 @@ mod tests {
 		{
 			let cache =
 				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 			cache.ensure_restored(&root).await;
 			let index = cache.resolve_index(&root);
 			{
@@ -3660,7 +4018,10 @@ mod tests {
 		{
 			let cache =
 				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 			assert!(cache.ensure_restored(&after).await);
 			let index = cache.resolve_index(&root);
 			let mut index = index.write().await;
@@ -3673,7 +4034,10 @@ mod tests {
 		{
 			let cache =
 				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
-			cache.attach_library(library.clone()).await.expect("attach");
+			cache
+				.attach_library(LIBRARY, library.clone())
+				.await
+				.expect("attach");
 			let other = cache
 				.register_source(&root, Some(tracked_volume(&library, &root).await))
 				.await

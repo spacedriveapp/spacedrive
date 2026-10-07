@@ -108,7 +108,9 @@ async fn store_only_source(
 ) -> anyhow::Result<(Uuid, PathBuf)> {
 	let cache = harness.core.context.volume_index();
 	let (root, anchor) = anchor_for(harness, root).await;
-	let id = cache.register_source(&root, anchor).await?;
+	let id = cache
+		.register_source_in(Some(harness.library.id()), &root, anchor)
+		.await?;
 	let store = cache
 		.store_for(&root.join(files[0]))
 		.await
@@ -466,11 +468,13 @@ async fn a_file_under_nested_sources_is_one_hit_from_the_stores() -> anyhow::Res
 		.iter()
 		.filter_map(|source| cache.source_snapshot_path(source.id))
 		.collect();
-	cache.detach_library();
+	cache.detach_library(harness.library.id());
 	for snapshot in snapshots {
 		let _ = std::fs::remove_file(snapshot);
 	}
-	cache.attach_library(harness.library.db().clone()).await?;
+	cache
+		.attach_library(harness.library.id(), harness.library.db().clone())
+		.await?;
 	assert!(cache
 		.sources()
 		.iter()

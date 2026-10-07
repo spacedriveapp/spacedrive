@@ -285,7 +285,7 @@ pub async fn identify_every_source(
 	library: &Arc<crate::library::Library>,
 	context: &Arc<crate::context::CoreContext>,
 ) {
-	for source in context.volume_index().sources() {
+	for source in context.volume_index().sources_of(library.id()) {
 		if !source.attached {
 			continue;
 		}
