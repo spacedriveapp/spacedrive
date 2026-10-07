@@ -20,10 +20,11 @@ export function JobProgressSummary({job, compact = false}: {job: JobListItem; co
 	const elapsed = start ? Math.max(0, (job.completed_at ? Date.parse(job.completed_at) : now) - Date.parse(start)) : 0;
 	const contentJob = job.name === 'content_identity';
 	const percent = job.status === 'completed' ? 100 : Math.min(99, Math.max(0, Math.floor(job.progress * 100)));
-	const text = total > 0 ? `${completed.toLocaleString()} / ${total.toLocaleString()} checked` : contentJob ? generic ? `${completed.toLocaleString()} files checked` : 'Waiting for progress…' : `${percent}%`;
+	const compactCount = new Intl.NumberFormat(undefined, {notation: 'compact', maximumFractionDigits: 1});
+	const text = compact && total > 0 ? `${compactCount.format(completed)} / ${compactCount.format(total)}` : total > 0 ? `${completed.toLocaleString()} / ${total.toLocaleString()} ${contentJob ? 'checked' : 'processed'}` : contentJob ? generic ? `${compact ? compactCount.format(completed) : completed.toLocaleString()} ${compact ? 'checked' : 'files checked'}` : 'Waiting for progress…' : `${percent}%`;
 	return <div className="text-xs text-ink-dull min-w-0" title={generic?.message ?? undefined}>
 		<div className="truncate">{text}</div>
 		{job.status === 'running' && <div className="truncate">{eta ? `About ${formatDuration(eta.secs * 1000)} left` : 'Estimating…'}</div>}
-		{<div>{formatDuration(elapsed)} elapsed{!compact && rate > 0 && contentJob ? ` · ${Math.round(rate).toLocaleString()} files/s` : ''}</div>}
+		<div className="truncate">{formatDuration(elapsed)} elapsed{!compact && rate > 0 && contentJob ? ` · ${Math.round(rate).toLocaleString()} files/s` : ''}</div>
 	</div>;
 }
