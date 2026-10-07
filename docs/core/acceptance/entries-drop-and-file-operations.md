@@ -137,12 +137,13 @@ for.
 | K1 | A rename over an existing file inside a source fails to land in the store on `UNIQUE(parent_uuid, title)` (PROJECT_STATUS.md known limit) | `entries_drop_acceptance_test.rs` `a_rename_over_an_existing_file_lands_as_one_row` | failing (see F-b) |
 | K2 | Non-UTF-8 names are retained lossily and reported (known limit; release gate "unrepresentable names fail visibly") | `entries_drop_acceptance_test.rs` `a_non_utf8_name_is_retained_lossily_and_reported` (a `\xFF` name is a record under U+FFFD and the walk warns `file name is not valid UTF-8; recorded lossily`, read from a child process's output) | passing |
 
-Totals: 31 rows. 25 pass on the Linux runner; 3 fail there and are
-ignored tests (F3, F5 and F10 are one cause, F-a; K1 is F-b); P3, P4, B1,
-F6 and the two measurements have a passing automated half and a half that
-is live only or not automatable. Three ignored tests in all, four counting
-`non_utf8_child_walk` and `pin_restart_child`, which are ignored only so
-their parent tests can run them in a child process.
+Totals: 33 rows. 23 pass on the Linux runner outright; 4 fail there and
+are ignored tests (F3, F5 and F10 are one cause, F-a; K1 is F-b); 6 have a
+passing automated half and a half that is live only or not automatable
+(P3, P4, B1, F6 and the two measurements V6 and F7). Three ignored tests
+carry the failing rows; five counting `non_utf8_child_walk` and
+`pin_restart_child`, which are ignored only so their parent tests can run
+them in a child process.
 
 ## Failing rows
 

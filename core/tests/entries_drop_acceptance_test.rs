@@ -172,8 +172,11 @@ async fn a_pre_drop_library_upgrades_to_the_fourteen_table_schema() {
 		.expect("database");
 	let conn = db.conn();
 
-	let total = Migrator::migrations().len();
-	Migrator::up(conn, Some((total - 1) as u32))
+	let drop_index = Migrator::get_migration_files()
+		.iter()
+		.position(|migration| migration.name() == "m20260918_000001_drop_entries_world")
+		.expect("the drop migration is in the chain");
+	Migrator::up(conn, Some(drop_index as u32))
 		.await
 		.expect("the pre-drop chain applies");
 	let before = sqlite_master(conn, "table").await;
@@ -374,8 +377,12 @@ fn no_production_source_names_the_entry_substrate() {
 		"core.ephemeral_reset",
 	];
 	let mut hits = Vec::new();
+	let mut visited = 0usize;
 	for root in roots {
-		walk(&repo.join(root), &mut |path| {
+		let root = repo.join(root);
+		assert!(root.is_dir(), "{} is not a directory", root.display());
+		walk(&root, &mut |path| {
+			visited += 1;
 			let Some(ext) = path.extension().and_then(|e| e.to_str()) else {
 				return;
 			};
