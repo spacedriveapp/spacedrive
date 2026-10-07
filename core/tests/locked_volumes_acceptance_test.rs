@@ -208,11 +208,16 @@ async fn walked_volume(name: &str) -> Walked {
 
 	let data_dir = tempfile::tempdir().expect("data dir");
 	let core = boot(data_dir.path()).await;
+	// The core's volume index serves the library opened last, and library
+	// load order follows the data directory listing, so the fixture keeps
+	// the one library the daemon created rather than adding a second.
 	let library = core
 		.libraries
-		.create_library("Locked", None, core.context.clone())
+		.list()
 		.await
-		.expect("library");
+		.into_iter()
+		.next()
+		.expect("default library");
 	let library_path = library.path().to_path_buf();
 	track(&core, &library, &root).await.expect("track");
 	let store = core
