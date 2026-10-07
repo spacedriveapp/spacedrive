@@ -911,56 +911,130 @@ pub struct ContentCopy {
 	pub external_id: String,
 }
 
+type DuplicateRow = (
+	String,
+	Uuid,
+	Option<String>,
+	Option<i64>,
+	Uuid,
+	Option<Uuid>,
+	Option<String>,
+	Option<String>,
+);
+
 /// Files this source holds more than one copy of, largest first.
 ///
-/// Grouped by content row rather than by name or size, so a file renamed on
-/// the way to its second home is still the same bytes. A row is one sampled
-/// hash, split by integrity hash where its members carry one, so two files
-/// that only sample alike stop being a pair once both are read in full. What
-/// this cannot see is the copy that exists once here and once on another
-/// drive: each store only knows its own, and finding those means an index of
-/// content uuids across all of them.
+/// Grouped by sampled hash rather than by name or size, so a file renamed on
+/// the way to its second home is still the same bytes, and a copy that has
+/// been read in full still pairs with one that has not. Where members carry
+/// different integrity hashes the group splits: each confirmed row makes a
+/// group with the still-unread copies, and two files proven to hold
+/// different bytes are never listed together. The `content_uuid` reported
+/// is the confirmed uuid for a group anchored on a confirmed row and the
+/// candidate uuid otherwise. What this cannot see is the copy that exists
+/// once here and once on another drive: each store only knows its own, and
+/// finding those means an index of content uuids across all of them.
 pub async fn duplicate_copies(
 	pool: &sqlx::SqlitePool,
 	min_size: i64,
 	group_limit: usize,
 ) -> Result<Vec<ContentCopy>> {
-	let rows: Vec<ContentCopyRow> = sqlx::query_as(
+	let rows: Vec<DuplicateRow> = sqlx::query_as(
 		"WITH duplicated AS (
-				SELECT r.content_id AS content_id, c.size AS size
+				SELECT c.sampled_hash AS sampled_hash, MAX(c.size) AS size
 				FROM record r
 				JOIN content c ON c.id = r.content_id
-				WHERE COALESCE(c.size, 0) >= ?
-				GROUP BY r.content_id
+				WHERE c.sampled_hash IS NOT NULL AND COALESCE(c.size, 0) >= ?
+				GROUP BY c.sampled_hash
 				HAVING COUNT(*) > 1
-				ORDER BY size DESC
-				LIMIT ?
 			)
-			SELECT c.uuid, c.size, r.uuid, r.parent_uuid, d.path, r.title
+			SELECT c.sampled_hash, c.uuid, c.integrity_hash, c.size,
+			       r.uuid, r.parent_uuid, d.path, r.title
 			FROM duplicated
-			JOIN content c ON c.id = duplicated.content_id
-			JOIN record r ON r.content_id = duplicated.content_id
+			JOIN content c ON c.sampled_hash = duplicated.sampled_hash
+			JOIN record r ON r.content_id = c.id
 			LEFT JOIN directory_path d ON d.record_uuid = r.parent_uuid
-			ORDER BY c.size DESC",
+			ORDER BY duplicated.size DESC, c.sampled_hash, r.title",
 	)
 	.bind(min_size)
-	.bind(group_limit as i64)
 	.fetch_all(pool)
 	.await?;
 
-	Ok(rows
-		.into_iter()
-		.filter_map(
-			|(content_uuid, size, record_uuid, parent_uuid, parent_path, title)| {
-				Some(ContentCopy {
-					content_uuid,
-					size,
-					record_uuid,
-					external_id: address(parent_uuid, parent_path, title)?,
-				})
+	struct Member {
+		content_uuid: Uuid,
+		integrity_hash: Option<String>,
+		copy: ContentCopy,
+	}
+	let mut by_sample: Vec<(String, Vec<Member>)> = Vec::new();
+	for (
+		sampled,
+		content_uuid,
+		integrity_hash,
+		size,
+		record_uuid,
+		parent_uuid,
+		parent_path,
+		title,
+	) in rows
+	{
+		let Some(external_id) = address(parent_uuid, parent_path, title) else {
+			continue;
+		};
+		let member = Member {
+			content_uuid,
+			integrity_hash,
+			copy: ContentCopy {
+				content_uuid,
+				size,
+				record_uuid,
+				external_id,
 			},
-		)
-		.collect())
+		};
+		match by_sample.last_mut() {
+			Some((last, members)) if *last == sampled => members.push(member),
+			_ => by_sample.push((sampled, vec![member])),
+		}
+	}
+
+	let mut copies = Vec::new();
+	let mut groups = 0;
+	for (_, members) in by_sample {
+		if groups >= group_limit {
+			break;
+		}
+		let (confirmed, candidates): (Vec<Member>, Vec<Member>) = members
+			.into_iter()
+			.partition(|member| member.integrity_hash.is_some());
+		let mut anchors: Vec<(Uuid, Vec<Member>)> = Vec::new();
+		for member in confirmed {
+			match anchors
+				.iter_mut()
+				.find(|(uuid, _)| *uuid == member.content_uuid)
+			{
+				Some((_, group)) => group.push(member),
+				None => anchors.push((member.content_uuid, vec![member])),
+			}
+		}
+		if anchors.is_empty() {
+			if candidates.len() > 1 {
+				groups += 1;
+				copies.extend(candidates.into_iter().map(|member| member.copy));
+			}
+			continue;
+		}
+		for (uuid, group) in anchors {
+			if group.len() + candidates.len() < 2 {
+				continue;
+			}
+			groups += 1;
+			copies.extend(group.into_iter().map(|member| member.copy));
+			copies.extend(candidates.iter().map(|member| ContentCopy {
+				content_uuid: uuid,
+				..member.copy.clone()
+			}));
+		}
+	}
+	Ok(copies)
 }
 
 /// The identity of the bytes behind a record, if they have been identified.

@@ -86,9 +86,19 @@ content://550e8400-e29b-41d4-a716-446655440000
 A content address names bytes by the uuid of a `content` row. The uuid is
 `v5(CONTENT_NAMESPACE, hash)` over the strongest hash the row holds, so two
 installs that have never communicated derive the same id for the same bytes.
-It is derived from the sampled hash first, and re-derived from the integrity
-hash when a full read lands, so the id of one content changes once during its
-life. `record.content_id` points at the row and does not change.
+
+A row is a candidate or confirmed. A candidate row has a sampled hash and no
+integrity hash, one per sampled hash; a confirmed row has an integrity hash,
+unique in the table, with the sampled hash and its uuid kept beside it as
+`candidate_uuid`. A record whose bytes have only been sampled points at the
+candidate row. When its bytes are read in full it moves to the confirmed row
+for that hash, so `record.content_id` changes once and the content id a
+client saw before verification changes with it. Lookups by content uuid match
+`uuid` or `candidate_uuid`, so the earlier id still finds every copy. A record
+on a confirmed row had its own bytes read in full; nothing binds a record to a
+confirmed row on the strength of a sampled hash. The same bytes sampled by two
+installs give the same candidate uuid, and read in full the same confirmed
+uuid.
 
 ### Sidecar
 
@@ -182,9 +192,7 @@ volume by uuid. Content gets its own reference type, accepted by reads that can
 use any copy. Anything persisted names a source and a relative path, or a
 source and a record. One resolver in the source layer turns every address into
 something an operation can act on and fails as not found, offline, denied,
-stale or ambiguous. A content row's integrity hash is computed from the bytes
-of every record that points at it, so no deletion rests on another file's
-hash.
+stale or ambiguous.
 
 See [Data Model](/core/data-model) for identity and [File Copy
 Operations](/core/file-copy-operations) for resolution during mutation.

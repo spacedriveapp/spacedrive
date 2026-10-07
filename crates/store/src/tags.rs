@@ -431,14 +431,23 @@ pub async fn records_for_tag(db: &SourceDb, tag_uuid: Uuid) -> Result<Vec<Uuid>>
 	if !content_ids.is_empty() {
 		let candidate = candidate_column(db.schema_version());
 		let content_ph = vec!["?"; content_ids.len()].join(", ");
+		// The third clause reaches records still on the candidate row of a
+		// confirmed key, which a store below version 1 has no column for.
+		let through_candidate = if db.schema_version() >= 1 {
+			format!(
+				" OR c.candidate_uuid IN (SELECT c2.candidate_uuid FROM content c2
+					 WHERE c2.uuid IN ({content_ph}) AND c2.candidate_uuid IS NOT NULL)"
+			)
+		} else {
+			String::new()
+		};
 		let sql = format!(
 			"SELECT r.uuid, c.uuid, {candidate} FROM record r JOIN content c ON c.id = r.content_id
-				 WHERE c.uuid IN ({content_ph}) OR {candidate} IN ({content_ph})
-				 OR {candidate} IN (SELECT c2.candidate_uuid FROM content c2
-					 WHERE c2.uuid IN ({content_ph}) AND c2.candidate_uuid IS NOT NULL)"
+				 WHERE c.uuid IN ({content_ph}) OR {candidate} IN ({content_ph}){through_candidate}"
 		);
+		let binds = if through_candidate.is_empty() { 2 } else { 3 };
 		let mut query = sqlx::query_as::<_, (Uuid, Uuid, Option<Uuid>)>(&sql);
-		for id in content_ids.iter().chain(&content_ids).chain(&content_ids) {
+		for id in std::iter::repeat_n(content_ids.iter(), binds).flatten() {
 			query = query.bind(*id);
 		}
 		records_of_content = reach(query.fetch_all(pool).await?);

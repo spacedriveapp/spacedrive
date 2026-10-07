@@ -810,3 +810,50 @@ async fn a_new_file_does_not_inherit_an_orphaned_rows_integrity_hash() {
 	assert_ne!(b_row, a_row, "the orphaned confirmed row is not reused");
 	assert_eq!(hashes_of(&db, b).await, (Some("s1".into()), None));
 }
+
+/// Discovery pairs a verified copy with one that only samples alike, and
+/// never pairs two files proven to hold different bytes.
+#[tokio::test]
+async fn duplicate_discovery_groups_by_sampled_hash_and_splits_by_integrity() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+	let mut records = Vec::new();
+	for name in ["a", "b", "c", "d"] {
+		records.push(
+			db.upsert("note", name, &json!({ "title": name }))
+				.await
+				.expect(name),
+		);
+	}
+	let [a, b, c, d] = records[..] else {
+		unreachable!()
+	};
+	// a read in full, b only sampled alike: a pair.
+	db.set_content_identity(a, &confirmed("s1", "i-a"))
+		.await
+		.expect("a");
+	db.set_content_identity(b, &sampled("s1")).await.expect("b");
+	// c and d sample alike and were both read in full to different bytes.
+	db.set_content_identity(c, &confirmed("s2", "i-c"))
+		.await
+		.expect("c");
+	db.set_content_identity(d, &confirmed("s2", "i-d"))
+		.await
+		.expect("d");
+
+	let copies = sd_store::duplicate_copies(db.pool(), 0, 10)
+		.await
+		.expect("duplicates");
+	let mut listed: Vec<Uuid> = copies.iter().map(|copy| copy.record_uuid).collect();
+	listed.sort();
+	let mut pair = vec![a, b];
+	pair.sort();
+	assert_eq!(listed, pair, "c and d are not duplicates of each other");
+	assert!(
+		copies
+			.iter()
+			.all(|copy| copy.content_uuid == uuid_for("i-a")),
+		"the pair is reported under the confirmed uuid"
+	);
+}
