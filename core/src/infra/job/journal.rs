@@ -72,8 +72,13 @@ impl Subject {
 	}
 
 	/// Whether the path holds what the subject recorded.
+	///
+	/// A directory's mtime moves with every child written into it, and a
+	/// job that creates a folder journals it before filling it, so for a
+	/// directory only its kind is checked.
 	pub async fn still_holds(&self, path: &Path) -> bool {
 		match tokio::fs::symlink_metadata(path).await {
+			Ok(meta) if self.is_dir => meta.is_dir(),
 			Ok(meta) => Self::of(&meta) == *self,
 			Err(_) => false,
 		}
@@ -166,4 +171,30 @@ pub struct Recorded {
 pub struct JournalSummary {
 	pub effects: u64,
 	pub reversible: u64,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// A folder journaled before it is filled still holds: its mtime moved
+	/// with the child, its kind did not.
+	#[tokio::test]
+	async fn a_directory_still_holds_after_a_child_lands_in_it() {
+		let dir = tempfile::tempdir().expect("tempdir");
+		let folder = dir.path().join("made");
+		std::fs::create_dir(&folder).expect("folder");
+		let subject = Subject::of(&std::fs::metadata(&folder).expect("meta"));
+		std::thread::sleep(std::time::Duration::from_millis(20));
+		std::fs::write(folder.join("child.txt"), b"c").expect("child");
+		assert!(subject.still_holds(&folder).await);
+		assert!(!subject.still_holds(&folder.join("child.txt")).await);
+
+		let file = dir.path().join("f.txt");
+		std::fs::write(&file, b"abc").expect("file");
+		let subject = Subject::of(&std::fs::metadata(&file).expect("meta"));
+		assert!(subject.still_holds(&file).await);
+		std::fs::write(&file, b"abcd").expect("rewrite");
+		assert!(!subject.still_holds(&file).await);
+	}
 }
