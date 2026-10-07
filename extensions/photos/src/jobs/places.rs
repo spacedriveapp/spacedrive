@@ -12,7 +12,7 @@ pub struct IdentifyPlacesState {
 	pub location: String,
 }
 
-#[job]
+#[job(name = "identify_places")]
 pub async fn identify_places_in_location(
 	ctx: &JobContext,
 	state: &mut IdentifyPlacesState,

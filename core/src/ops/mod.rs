@@ -15,6 +15,7 @@ pub mod config;
 pub mod core;
 pub mod devices;
 pub mod extension_test;
+pub mod extensions;
 pub mod files;
 pub mod indexing;
 pub mod jobs;

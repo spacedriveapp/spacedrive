@@ -13,7 +13,7 @@ pub struct AnalyzePhotosState {
 	pub current_index: usize,
 }
 
-#[job]
+#[job(name = "analyze_photos")]
 pub async fn analyze_photos_batch(ctx: &JobContext, state: &mut AnalyzePhotosState) -> Result<()> {
 	ctx.progress(Progress::indeterminate("Analyzing photos for faces..."));
 

@@ -15,7 +15,7 @@ pub struct CreateMomentsState {
 	pub photo_events: Vec<PhotoEvent>,
 }
 
-#[job]
+#[job(name = "create_moments")]
 pub async fn create_moments(ctx: &JobContext, state: &mut CreateMomentsState) -> JobResult<()> {
 	let photo_events = &state.photo_events;
 	let moment_groups = cluster_into_moments(&photo_events);

@@ -263,7 +263,7 @@ fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
         state.current, state.target));
 
     while state.current < state.target {
-        if ctx.check_interrupt() {
+        if ctx.check_interrupt_sync() {
             ctx.checkpoint(state)?;
             return Err(Error::OperationFailed("Interrupted".into()));
         }
@@ -341,7 +341,7 @@ Extensions can define:
 - `crates/sdk/` - SDK implementation
 - `crates/sdk-macros/` - SDK procedural macros
 
-**Status:** SDK implementation in progress. Test extension compiles to WASM successfully. Core integration for loading and executing WASM modules is next phase.
+**Status:** A daemon built with the `wasm` feature loads every extension under `<data dir>/extensions/` at startup and runs the jobs they register through the job manager, with checkpoints and resume (`core/src/infra/extension/README.md`). Only the job host functions exist; the rest of the SDK (VDFS, AI, models, tasks) has no host side yet.
 
 ## Code Standards
 

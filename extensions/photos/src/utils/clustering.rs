@@ -2,7 +2,7 @@ use spacedrive_sdk::prelude::*;
 use uuid::Uuid;
 
 use crate::agent::PhotoEvent;
-use crate::models::*;
+use crate::models::{FaceDetection, *};
 
 pub fn dbscan_clustering(faces: &[(Uuid, FaceDetection)], threshold: f32) -> Vec<FaceCluster> {
 	todo!("Implement DBSCAN clustering")

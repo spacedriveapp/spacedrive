@@ -21,6 +21,7 @@ mod utils;
 
 pub use actions::*;
 pub use config::*;
+use jobs::*;
 pub use models::*;
 pub use queries::*;
 
@@ -30,6 +31,7 @@ use spacedrive_sdk::{extension, prelude::*};
     id = "com.spacedrive.photos",
     name = "Photos",
     version = "1.0.0",
+    jobs = [analyze_photos_batch, create_moments, identify_places_in_location, analyze_scenes],
     description = "Advanced photo management with faces, places, and intelligent organization",
     min_core_version = "2.0.0",
     required_features = ["exif_extraction", "ai_models"],
