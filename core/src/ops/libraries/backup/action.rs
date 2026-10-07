@@ -213,7 +213,12 @@ impl LibraryBackupAction {
 
 		let mut sources = Vec::with_capacity(rows.len());
 		for row in &rows {
-			let dir = source_dirs.source_dir(row.uuid);
+			// A store placed on its source is backed up from the drive, into
+			// the archive's one layout; the registration carries the placement.
+			let dir = context
+				.volume_index()
+				.store_dir(row.uuid)
+				.unwrap_or_else(|| source_dirs.source_dir(row.uuid));
 			let store = dir.join("data.db");
 			let sidecars = source_dirs.sidecars_file(row.uuid);
 			let has_store = store.is_file();

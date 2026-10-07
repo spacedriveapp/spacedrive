@@ -68,14 +68,21 @@ impl LibraryQuery for ListSourceRecordsQuery {
 		let store_id = registry::parse_store_id(&self.input.source_id)
 			.map_err(|e| QueryError::Internal(format!("{e}")))?;
 
-		source_manager
-			.list_records_full(
-				&store_id,
-				(self.input.limit as usize).min(2000),
-				self.input.offset as usize,
-			)
+		let limit = (self.input.limit as usize).min(2000);
+		let offset = self.input.offset as usize;
+		match registry::filesystem_store(&context, &self.input.source_id)
 			.await
-			.map_err(QueryError::Internal)
+			.map_err(|e| QueryError::Internal(format!("{e:#}")))?
+		{
+			Some(db) => db
+				.list_records_full(limit, offset)
+				.await
+				.map_err(|e| QueryError::Internal(e.to_string())),
+			None => source_manager
+				.list_records_full(&store_id, limit, offset)
+				.await
+				.map_err(QueryError::Internal),
+		}
 	}
 }
 

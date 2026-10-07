@@ -37,9 +37,7 @@ use crate::infra::db::entities::source;
 /// filtering belongs to lenses over a store that captured everything. Serde
 /// defaults keep every field optional in the stored JSON, so rows written
 /// before a field existed parse as the default.
-#[derive(
-	Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct SourceConfig {
 	/// Record everything readable, skipping the default rules. The walk and
 	/// the watcher both follow this.
@@ -60,6 +58,19 @@ pub struct SourceConfig {
 	/// owns finer-grained processing when it lands.
 	#[serde(default = "SourceConfig::default_true")]
 	pub identify_content: bool,
+}
+
+/// Written by hand so `Default` and the serde defaults agree: a row with no
+/// config and a record with no settings yet are the same source.
+impl Default for SourceConfig {
+	fn default() -> Self {
+		Self {
+			unfiltered: false,
+			placement: StorePlacement::InLibrary,
+			keep_offline_copy: true,
+			identify_content: true,
+		}
+	}
 }
 
 impl SourceConfig {
@@ -544,6 +555,7 @@ mod tests {
 		assert_eq!(old.placement, StorePlacement::InLibrary);
 		assert!(old.keep_offline_copy);
 		assert!(old.identify_content);
+		assert_eq!(old, SourceConfig::default(), "one notion of unset");
 		let placed = SourceConfig::from_json(r#"{"placement":"on_source"}"#);
 		assert_eq!(placed.placement, StorePlacement::OnSource);
 	}

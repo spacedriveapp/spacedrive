@@ -87,6 +87,30 @@ pub fn parse_store_id(id: &str) -> Result<String> {
 	))
 }
 
+/// A read-only handle on a filesystem source's store, wherever placement put
+/// it, or `None` for a source the volume index does not register here: an
+/// adapter source, whose store the engine opens from the in-library layout.
+///
+/// A registered filesystem source never falls through to the engine. Its
+/// store may be on the drive, and asking the in-library layout for it would
+/// answer with a different, empty database once anything created that
+/// directory.
+pub async fn filesystem_store(
+	context: &crate::context::CoreContext,
+	id: &str,
+) -> Result<Option<std::sync::Arc<sd_store::SourceDb>>> {
+	let uuid = Uuid::parse_str(id).with_context(|| format!("not a source id: {id}"))?;
+	let cache = context.volume_index();
+	if cache.source_root(uuid).is_none() {
+		return Ok(None);
+	}
+	cache
+		.read_store(uuid)
+		.await
+		.map(Some)
+		.with_context(|| format!("the store of source {id} is not available on this machine"))
+}
+
 /// Write a registration for a source an adapter fills.
 pub async fn register(
 	db: &DatabaseConnection,

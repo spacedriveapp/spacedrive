@@ -216,32 +216,44 @@ pub async fn track_and_index(
 	// A store this library already wrote for this scope carries its identity
 	// with it. Reopening it is what makes removing and re-adding a folder,
 	// or plugging in a drive with its catalog on it, continue where the
-	// catalog left off instead of starting over beside it.
-	let adopt = context
+	// catalog left off instead of starting over beside it. The catalog is
+	// reopened where it is, whatever placement the add asked for.
+	let adopted = context
 		.volume_index()
 		.portable_identity(&root, anchor.as_ref(), settings.placement, library.id())
 		.await;
 
 	let (id, existed) = context
 		.volume_index()
-		.register_source_with(&root, anchor, adopt)
+		.register_source_with(&root, anchor, adopted.map(|(id, _)| id))
 		.await
 		.map_err(|e| ActionError::Internal(format!("Failed to register source: {e}")))?;
 
 	// The settings are the source's, not the caller's moment: the watcher
 	// reads the capture policy for every later event, so they have to
-	// survive with the registration. Re-tracking may widen capture and never
-	// narrows it, so a plain re-track cannot silently demote an archival
-	// source; narrowing is `sources.update`'s explicit job. Placement is the
-	// one setting a re-track never changes: moving a store is relocation,
-	// not an add.
+	// survive with the registration. A re-track changes only what the add
+	// names: capture may widen and never narrows, so a plain re-track cannot
+	// silently demote an archival source (narrowing is `sources.update`'s
+	// explicit job), and placement never changes, because moving a store is
+	// relocation, not an add. An adopted catalog keeps the placement it was
+	// found under.
 	let settings = match context.volume_index().source_config(id) {
 		Some(previous) if existed => SourceConfig {
-			unfiltered: settings.unfiltered || previous.unfiltered,
+			unfiltered: previous.unfiltered || overrides.unfiltered == Some(true),
 			placement: previous.placement,
+			keep_offline_copy: overrides
+				.keep_offline_copy
+				.unwrap_or(previous.keep_offline_copy),
+			identify_content: overrides
+				.identify_content
+				.unwrap_or(previous.identify_content),
+		},
+		_ => SourceConfig {
+			placement: adopted
+				.map(|(_, placement)| placement)
+				.unwrap_or(settings.placement),
 			..settings
 		},
-		_ => settings,
 	};
 	context
 		.volume_index()

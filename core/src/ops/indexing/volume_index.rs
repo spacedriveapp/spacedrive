@@ -627,32 +627,47 @@ impl VolumeIndex {
 		super::sources::store_dir(record.config.placement, dirs, record.id, &record.root)
 	}
 
-	/// The identity a store already on disk holds for `root` under
-	/// `placement`, when one was written by `library_id` for the same volume
-	/// and path. Re-adding a scope then reopens its catalog rather than
-	/// starting an empty one beside it. `None` when no store binds, which
-	/// includes a store from another library or another drive.
+	/// The identity a store already on disk holds for `root`, and where that
+	/// store is placed, when one was written by `library_id` for the same
+	/// volume and path. Both placements are searched, because a drive that
+	/// arrives with its catalog on it is added with whatever the library's
+	/// default placement is, and the catalog is the one to reopen whichever
+	/// placement the add asked for. When both exist the one under `placement`
+	/// wins. `None` when no store binds, which includes a store from another
+	/// library or another drive.
 	pub async fn portable_identity(
 		&self,
 		root: &Path,
 		volume: Option<&VolumeAnchor>,
 		placement: super::sources::StorePlacement,
 		library_id: Uuid,
-	) -> Option<Uuid> {
+	) -> Option<(Uuid, super::sources::StorePlacement)> {
+		use super::sources::StorePlacement;
+
 		let dirs = self.dirs.as_ref()?;
 		let (key, anchor) = SourceRegistry::key_for(root, volume);
-		let stores_dir = match placement {
-			super::sources::StorePlacement::InLibrary => dirs.root().to_path_buf(),
-			super::sources::StorePlacement::OnSource => super::sources::on_source_stores_dir(root),
-		};
-		let (id, _) = super::descriptor::SourceDescriptor::find_bound(
-			&stores_dir,
-			library_id,
-			anchor.map(|a| a.uuid),
-			&key,
-		)
-		.await?;
-		Some(id)
+		let volume_uuid = anchor.map(|a| a.uuid);
+		let mut candidates = [StorePlacement::InLibrary, StorePlacement::OnSource];
+		if placement == StorePlacement::OnSource {
+			candidates.reverse();
+		}
+		for candidate in candidates {
+			let stores_dir = match candidate {
+				StorePlacement::InLibrary => dirs.root().to_path_buf(),
+				StorePlacement::OnSource => super::sources::on_source_stores_dir(root),
+			};
+			if let Some((id, _)) = super::descriptor::SourceDescriptor::find_bound(
+				&stores_dir,
+				library_id,
+				volume_uuid,
+				&key,
+			)
+			.await
+			{
+				return Some((id, candidate));
+			}
+		}
+		None
 	}
 
 	/// Write the source's descriptor beside its store, so the store can say
@@ -3917,9 +3932,9 @@ mod tests {
 		let found = cache
 			.portable_identity(&root, Some(&anchor), StorePlacement::InLibrary, library_id)
 			.await;
-		assert_eq!(found, Some(id));
+		assert_eq!(found, Some((id, StorePlacement::InLibrary)));
 		let (again, existed) = cache
-			.register_source_with(&root, Some(anchor.clone()), found)
+			.register_source_with(&root, Some(anchor.clone()), found.map(|(id, _)| id))
 			.await
 			.unwrap();
 		assert_eq!(again, id);
@@ -3943,9 +3958,13 @@ mod tests {
 			.portable_identity(&root, Some(&other), StorePlacement::InLibrary, library_id)
 			.await
 			.is_none());
-		assert!(cache
-			.portable_identity(&root, Some(&anchor), StorePlacement::OnSource, library_id)
-			.await
-			.is_none());
+		// An add asking for the other placement still finds the catalog that
+		// exists, and learns where it is.
+		assert_eq!(
+			cache
+				.portable_identity(&root, Some(&anchor), StorePlacement::OnSource, library_id)
+				.await,
+			Some((id, StorePlacement::InLibrary))
+		);
 	}
 }

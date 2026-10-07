@@ -216,6 +216,27 @@ async fn add_to_library_resolves_defaults_tracks_the_volume_and_keeps_the_catalo
 			.join(second.id.simple().to_string())
 	);
 	assert!(video_store.join("data.db").exists());
+	let records = {
+		let mut session = SessionContext::device_session(
+			sd_core::device::get_current_device_id(),
+			sd_core::device::get_current_device_slug(),
+		);
+		session.current_library_id = Some(harness.library.id());
+		sd_core::ops::sources::list_records::query::ListSourceRecordsQuery::from_input(
+			sd_core::ops::sources::list_records::query::ListSourceRecordsInput {
+				source_id: second.id.to_string(),
+				limit: 100,
+				offset: 0,
+			},
+		)
+		.unwrap()
+		.execute(harness.core.context.clone(), session)
+		.await?
+	};
+	assert!(
+		!records.is_empty(),
+		"the library's read queries reach the on-source store"
+	);
 	let defaults = harness.library.config().await.settings.adding;
 	assert_eq!(defaults.placement, StorePlacement::InLibrary);
 	assert!(
@@ -300,6 +321,40 @@ async fn add_to_library_resolves_defaults_tracks_the_volume_and_keeps_the_catalo
 	let fresh = track(&harness, photos.path(), None, AddOverrides::default()).await?;
 	assert_ne!(fresh.id, first.id);
 	assert!(!fresh.catalog_reused);
+
+	// A re-track names nothing, so it changes nothing: the on-source source
+	// keeps its placement, its unfiltered capture and its opt-out from
+	// content identification whatever the library defaults say.
+	let retracked = track(&harness, video.path(), None, AddOverrides::default()).await?;
+	assert_eq!(retracked.id, second.id);
+	assert_eq!(retracked.settings, second.settings);
+	assert!(retracked.catalog_reused);
+
+	// Removing the on-source source and adding it back with the default
+	// placement reopens the catalog on the drive rather than starting an
+	// empty one in the library.
+	let clip = video.path().join("clip.mov");
+	let clip_identity = record_id(&harness, &clip).await;
+	let removed = untrack(&harness, second.id, false).await?;
+	assert_eq!(removed.catalog_path, Some(video_store.clone()));
+	let readded = track(&harness, video.path(), None, AddOverrides::default()).await?;
+	assert_eq!(readded.id, second.id);
+	assert_eq!(readded.settings.placement, StorePlacement::OnSource);
+	assert_eq!(readded.store_path, Some(video_store.clone()));
+	assert!(readded.catalog_reused);
+	assert_eq!(record_id(&harness, &clip).await, clip_identity);
+	assert!(
+		!harness
+			.core
+			.context
+			.volume_index()
+			.source_dirs()
+			.unwrap()
+			.source_dir(second.id)
+			.join("data.db")
+			.exists(),
+		"no empty in-library store was started beside the drive's catalog"
+	);
 
 	// A changed default applies to the next add and moves nothing.
 	harness
