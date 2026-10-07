@@ -882,7 +882,7 @@ async fn every_file_a_job_touched_is_in_its_journal() {
 /// the largest folder available", CI-sized: a thousand files preview in
 /// one call. The measurement is printed; the ceiling is loose enough that
 /// only a pathological preview, not a busy runner, trips it (locally the
-/// debug build answers in about a second).
+/// debug build answers in about 100 ms).
 #[tokio::test]
 async fn a_batch_rename_preview_over_a_thousand_files_answers_within_the_ceiling() {
 	let fixture = Fixture::new().await;
