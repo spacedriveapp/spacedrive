@@ -175,8 +175,8 @@ async fn sd_mcp_exposes_the_registry_over_stdio(
 
 	let waited = client
 		.call_tool(
+			// No library_id: the job is found in whichever library owns it.
 			CallToolRequestParams::new("jobs.wait").with_arguments(rmcp::model::object(json!({
-				"library_id": library.id(),
 				"job_id": job_id,
 				"timeout_seconds": 60,
 			}))),

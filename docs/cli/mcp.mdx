@@ -83,8 +83,10 @@ cancelled and returns that final record:
 { "job_id": "0192...", "timeout_seconds": 300 }
 ```
 
-On timeout the job keeps running and the error names its last status; call
-`jobs.wait` again to keep following it. `jobs.list`, `jobs.info`,
+Jobs belong to the library their action ran in. Pass that `library_id` to go
+straight to it; without one the job is looked for in every library the daemon
+lists. On timeout the job keeps running and the error names its last status;
+call `jobs.wait` again to keep following it. `jobs.list`, `jobs.info`,
 `jobs.cancel`, `jobs.pause` and `jobs.resume` are the registry's own tools.
 
 ## Example session

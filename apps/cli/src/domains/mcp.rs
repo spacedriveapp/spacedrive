@@ -170,7 +170,11 @@ impl McpServer {
 						"minimum": 1,
 						"description": "Give up after this long; the job keeps running. Default 300."
 					},
-					"library_id": library_id_schema(),
+					"library_id": {
+						"type": "string",
+						"format": "uuid",
+						"description": "The library the job ran in. Without it the job is looked for in every library the daemon lists."
+					},
 				},
 				"required": ["job_id"],
 			})),
@@ -191,6 +195,27 @@ impl McpServer {
 		}
 	}
 
+	/// The libraries the daemon lists, in its order.
+	async fn library_ids(&self) -> Result<Vec<Uuid>, String> {
+		let libraries = self
+			.send(
+				Kind::Query,
+				"query:libraries.list".to_string(),
+				None,
+				json!({ "include_stats": false }),
+			)
+			.await?;
+		Ok(libraries
+			.as_array()
+			.map(|libs| {
+				libs.iter()
+					.filter_map(|lib| lib.get("id").and_then(Value::as_str))
+					.filter_map(|id| Uuid::parse_str(id).ok())
+					.collect()
+			})
+			.unwrap_or_default())
+	}
+
 	/// The library a call runs against: the argument, else the CLI's
 	/// selection when the daemon still has it, else the first library the
 	/// daemon lists. Read per call so a library created or deleted through
@@ -200,23 +225,7 @@ impl McpServer {
 		if explicit.is_some() {
 			return Ok(explicit);
 		}
-		let libraries = self
-			.send(
-				Kind::Query,
-				"query:libraries.list".to_string(),
-				None,
-				json!({ "include_stats": false }),
-			)
-			.await?;
-		let ids: Vec<Uuid> = libraries
-			.as_array()
-			.map(|libs| {
-				libs.iter()
-					.filter_map(|lib| lib.get("id").and_then(Value::as_str))
-					.filter_map(|id| Uuid::parse_str(id).ok())
-					.collect()
-			})
-			.unwrap_or_default();
+		let ids = self.library_ids().await?;
 		let selected = CliConfig::load(&self.data_dir)
 			.ok()
 			.and_then(|c| c.current_library_id)
@@ -273,6 +282,38 @@ impl McpServer {
 			.await
 	}
 
+	/// A job's `jobs.info` record from the library that owns it. Jobs are
+	/// per library and an action may have run in any of them, so without an
+	/// explicit library the job is looked for in every library the daemon
+	/// lists, the selected one first.
+	async fn find_job(&self, job_id: Uuid, library_id: Option<Uuid>) -> Result<Value, String> {
+		let candidates = match library_id {
+			Some(id) => vec![id],
+			None => {
+				let mut ids = self.library_ids().await?;
+				if let Some(selected) = self.resolve_library(None).await? {
+					ids.retain(|id| *id != selected);
+					ids.insert(0, selected);
+				}
+				ids
+			}
+		};
+		for library in candidates {
+			let info = self
+				.send(
+					Kind::Query,
+					"query:jobs.info".to_string(),
+					Some(library),
+					json!({ "job_id": job_id }),
+				)
+				.await?;
+			if !info.is_null() {
+				return Ok(info);
+			}
+		}
+		Err(format!("job {job_id} not found in any library"))
+	}
+
 	async fn wait_for_job(&self, arguments: &JsonObject) -> Result<Value, String> {
 		let job_id = arguments
 			.get("job_id")
@@ -283,21 +324,11 @@ impl McpServer {
 			.get("timeout_seconds")
 			.and_then(Value::as_u64)
 			.unwrap_or(300);
-		let library_id = self.resolve_library(parse_library_id(arguments)?).await?;
+		let library_id = parse_library_id(arguments)?;
 		let deadline = tokio::time::Instant::now() + Duration::from_secs(timeout);
 
 		loop {
-			let info = self
-				.send(
-					Kind::Query,
-					"query:jobs.info".to_string(),
-					library_id,
-					json!({ "job_id": job_id }),
-				)
-				.await?;
-			if info.is_null() {
-				return Err(format!("job {job_id} not found"));
-			}
+			let info = self.find_job(job_id, library_id).await?;
 			let status = info.get("status").and_then(Value::as_str).unwrap_or("");
 			if matches!(status, "completed" | "failed" | "cancelled") {
 				return Ok(info);
