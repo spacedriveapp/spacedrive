@@ -1002,12 +1002,11 @@ async fn non_utf8_child_walk() -> anyhow::Result<()> {
 	Ok(())
 }
 
-/// The known limit "A rename over an existing file inside a source fails to
-/// land in the store on `UNIQUE(parent_uuid, title)`": after `a.txt` is
+/// A rename over an existing file inside a source lands as one row under
+/// `UNIQUE(parent_uuid, title)`: after `a.txt` is
 /// renamed over `b.txt` on disk and the store is told, the way the watcher
 /// tells it, the store should hold one file named `b.txt` and no `a.txt`.
 #[tokio::test]
-#[ignore = "FDA: rename over an existing file: the overwritten file's row is never removed, so two rows share one title under one parent"]
 async fn a_rename_over_an_existing_file_lands_as_one_row() -> anyhow::Result<()> {
 	let harness = IndexingHarnessBuilder::new("fda_rename_over")
 		.disable_watcher()

@@ -661,6 +661,17 @@ impl SourceDb {
 			.await?;
 		}
 
+		// Removals land before writes, so a record renamed over another in
+		// this batch takes its name without colliding on `(parent_uuid,
+		// title)`. Facet rows and edges cascade. Assertions do not, by
+		// design: the row keeps its evidence and waits for a rebind.
+		for uuid in removals {
+			sqlx::query("DELETE FROM record WHERE uuid = ?")
+				.bind(uuid)
+				.execute(&mut *tx)
+				.await?;
+		}
+
 		for index in parents_first(writes) {
 			let write = &writes[index];
 			if !write.resolution.is_dirty() {
@@ -720,15 +731,6 @@ impl SourceDb {
 			}
 
 			applied += 1;
-		}
-
-		// Facet rows and edges cascade. Assertions do not, by design: the
-		// row keeps its evidence and waits for a rebind.
-		for uuid in removals {
-			sqlx::query("DELETE FROM record WHERE uuid = ?")
-				.bind(uuid)
-				.execute(&mut *tx)
-				.await?;
 		}
 
 		if let Some(watermark) = watermark {

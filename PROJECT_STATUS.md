@@ -308,8 +308,6 @@ These are regression boundaries, not incidental fixes:
   a single-library deployment and ambiguous with multiple open libraries.
 - The 50 percent sweep fuse has no force path. A legitimate deletion of most of
   a source leaves stale rows for a later explicit recovery path to address.
-- A rename over an existing file inside a source fails to land in the store on
-  `UNIQUE(parent_uuid, title)`, leaving the old and new names as separate rows.
 - Non-UTF-8 names are retained lossily and logged. Review every warning before
   accepting a final archival index.
 - A source whose volume is locked or unmounted, with its mount point directory

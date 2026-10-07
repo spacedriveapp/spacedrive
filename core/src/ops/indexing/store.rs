@@ -735,6 +735,18 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 				let _ = identities.send(resolved);
 			}
 			Ingest::Rename { from, observation } => {
+				// A rename over an existing file replaces it. The overwritten
+				// record goes in the same batch, ahead of the move, or the
+				// moved row collides with it on `(parent_uuid, title)`. Its
+				// content row stays: the bytes may still sit behind another
+				// record, and a hash is evidence worth keeping either way.
+				if from != observation.external_id && ledger.uuid_of(&from).is_some() {
+					if let Some(overwritten) = ledger.forget(&observation.external_id) {
+						writes.retain(|write| write.uuid() != overwritten);
+						removals.push(overwritten);
+					}
+				}
+
 				// A directory takes its subtree's addresses with it. Its own
 				// record moves; everything under it keeps its parent and its
 				// name and is simply reached a different way.
