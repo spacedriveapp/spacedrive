@@ -122,6 +122,45 @@ async fn volume_row(library: &Library, mount_point: &Path) -> entities::volume::
 		.expect("the source's volume has a row")
 }
 
+/// What the library and the index know about sources and volumes, for a
+/// failure message that says why a source is missing rather than that it is.
+async fn describe(core: &Core, library: &Library) -> String {
+	let sources = entities::source::Entity::find()
+		.all(library.db().conn())
+		.await
+		.map(|rows| {
+			rows.iter()
+				.map(|row| format!("{:?}@{:?}/{:?}", row.name, row.volume_uuid, row.root))
+				.collect::<Vec<_>>()
+		})
+		.unwrap_or_default();
+	let volumes = entities::volume::Entity::find()
+		.all(library.db().conn())
+		.await
+		.map(|rows| {
+			rows.iter()
+				.map(|row| {
+					format!(
+						"{} device={} online={} at {:?}",
+						row.uuid, row.device_id, row.is_online, row.mount_point
+					)
+				})
+				.collect::<Vec<_>>()
+		})
+		.unwrap_or_default();
+	let index: Vec<String> = core
+		.context
+		.volume_index()
+		.sources()
+		.iter()
+		.map(|source| format!("{} attached={}", source.root.display(), source.attached))
+		.collect();
+	format!(
+		"source rows {sources:?}; volume rows {volumes:?}; index {index:?}; device {}",
+		sd_core::device::get_current_device_id()
+	)
+}
+
 async fn job_count(library: &Library) -> usize {
 	library.jobs().list_jobs(None).await.expect("jobs").len()
 }
@@ -241,11 +280,16 @@ async fn a_source_whose_volume_is_gone_at_startup_comes_up_detached() {
 	let jobs_before = job_count(&library).await;
 
 	let cache = core.context.volume_index();
-	let source = cache
+	let Some(source) = cache
 		.sources()
 		.into_iter()
 		.find(|source| source.root == root)
-		.expect("the source is still registered");
+	else {
+		panic!(
+			"the source is still registered: {}",
+			describe(&core, &library).await
+		);
+	};
 	assert!(
 		!source.attached,
 		"an empty directory at the mount point is not the volume"
@@ -333,7 +377,12 @@ async fn the_monitor_marks_a_vanished_volume_offline() {
 		.find(|library| library.path() == walked.library_path)
 		.expect("the library reloads");
 	assert!(volume_row(&library, &root).await.is_online);
-	assert!(core.context.volume_index().sources()[0].attached);
+	let sources = core.context.volume_index().sources();
+	assert!(
+		sources.first().is_some_and(|source| source.attached),
+		"{}",
+		describe(&core, &library).await
+	);
 
 	unmount(&walked.volume).await;
 	core.volumes.refresh_volumes().await.expect("refresh");
@@ -376,7 +425,14 @@ async fn an_empty_mount_point_is_reported_unmounted_not_walked() {
 		.find(|library| library.path() == walked.library_path)
 		.expect("the library reloads");
 	let cache = core.context.volume_index();
-	assert!(cache.sources()[0].attached);
+	assert!(
+		cache
+			.sources()
+			.first()
+			.is_some_and(|source| source.attached),
+		"{}",
+		describe(&core, &library).await
+	);
 
 	// The volume goes away between refreshes: detection and the row both
 	// still say mounted, and the directory is empty.
