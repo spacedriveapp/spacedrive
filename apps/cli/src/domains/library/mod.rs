@@ -37,8 +37,23 @@ pub enum LibraryCmd {
 	/// Delete a library
 	Delete(LibraryDeleteArgs),
 	/// Back up a library and its source stores while the daemon runs
+	#[command(
+		long_about = "Back up a library and its source stores while the daemon runs.\n\n\
+		Every database is copied with VACUUM INTO, so the copy is consistent and the \
+		daemon is not paused. Every file is hashed into manifest.json; `backup verify` \
+		checks a backup against it without restoring.\n\n\
+		A `restore --replace` parks the state it displaces under <data dir>/restore-trash/. \
+		That directory is not pruned automatically; delete it once the restore is trusted."
+	)]
 	Backup(LibraryBackupArgs),
 	/// Restore a library and its source stores from a backup
+	#[command(
+		long_about = "Restore a library and its source stores from a backup.\n\n\
+		Every file is checked against the manifest before the data directory is touched. \
+		--replace closes the library, swaps the backup in, and reopens it; the displaced \
+		state is kept under <data dir>/restore-trash/ (printed on success, never pruned \
+		automatically). --as-new creates the library and refuses to overwrite anything."
+	)]
 	Restore(LibraryRestoreArgs),
 	/// Library sync setup commands
 	#[command(subcommand)]
