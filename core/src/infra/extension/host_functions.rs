@@ -279,12 +279,19 @@ pub fn host_spacedrive_random(mut env: FunctionEnvMut<PluginEnv>, buf_ptr: WasmP
 	use rand::RngCore;
 
 	let (plugin_env, store) = env.data_and_store_mut();
+	let view = plugin_env.memory.view(&store);
+	// Resolve the guest slice before allocating, so a bogus length is an
+	// error for the guest rather than a host allocation of its choosing.
+	let slice = match buf_ptr.slice(&view, len) {
+		Ok(slice) => slice,
+		Err(e) => {
+			tracing::error!(extension = %plugin_env.extension_id, "write entropy: {e:?}");
+			return;
+		}
+	};
 	let mut bytes = vec![0u8; len as usize];
 	rand::thread_rng().fill_bytes(&mut bytes);
-	if let Err(e) = buf_ptr
-		.slice(&plugin_env.memory.view(&store), len)
-		.and_then(|slice| slice.write_slice(&bytes))
-	{
+	if let Err(e) = slice.write_slice(&bytes) {
 		tracing::error!(extension = %plugin_env.extension_id, "write entropy: {e:?}");
 	}
 }

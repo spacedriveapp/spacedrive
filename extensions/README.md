@@ -91,7 +91,9 @@ cp target/wasm32-unknown-unknown/release/my_extension.wasm .
 
 The host rejects a manifest with a field it does not know, so a typo in a
 grant fails at load. `read_records` is the only way to see files; its optional
-`glob` is matched against the record's path. `write_sidecars` names the kinds
+`glob` is honored for its trailing extension list only (`*.jpg` or
+`**/*.{jpg,png}`); the directory part is ignored and a glob of another shape
+is refused at load. `write_sidecars` names the kinds
 the extension may write; `use_models` the inference categories it may ask for.
 `write_tags`, `write_custom_fields` and `dispatch_jobs` are declared but have
 no host side yet.

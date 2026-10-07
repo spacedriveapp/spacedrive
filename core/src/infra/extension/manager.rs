@@ -226,6 +226,9 @@ impl PluginManager {
 				PluginError::ManifestLoadFailed(format!("Failed to parse manifest: {}", e))
 			})?
 		};
+		manifest
+			.validate()
+			.map_err(PluginError::ManifestLoadFailed)?;
 		let plugin_id = manifest.id.clone();
 
 		tracing::info!(

@@ -33,15 +33,33 @@ impl ExtensionModelRegistry {
 		Self::default()
 	}
 
+	/// Accept a model a guest declared.
+	///
+	/// The name becomes a table and each field a column, spliced into DDL
+	/// and into the facet reader's SQL, and the guest can hand `register_model`
+	/// any JSON it likes, so every identifier is checked here rather than
+	/// trusted from the macro.
 	pub fn register(&self, extension_id: &str, model: ModelDefinition) -> Result<(), String> {
-		let safe = !model.name.is_empty()
-			&& model
-				.name
-				.chars()
-				.all(|c| c.is_ascii_alphanumeric() || c == '_');
-		if !safe {
+		let identifier = |s: &str| {
+			!s.is_empty()
+				&& !s.starts_with(|c: char| c.is_ascii_digit())
+				&& s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+		};
+		if !identifier(&model.name) {
 			return Err(format!(
 				"model name {:?} is not a valid table name",
+				model.name
+			));
+		}
+		if let Some(field) = model.fields.keys().find(|f| !identifier(f)) {
+			return Err(format!(
+				"model {} field {field:?} is not a valid column name",
+				model.name
+			));
+		}
+		if model.fields.contains_key("record_uuid") {
+			return Err(format!(
+				"model {} field \"record_uuid\" is the facet table's key column",
 				model.name
 			));
 		}

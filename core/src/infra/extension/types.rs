@@ -72,6 +72,42 @@ pub struct ManifestPermissions {
 	pub use_models: Vec<UseModel>,
 }
 
+impl ExtensionManifest {
+	/// What the host relies on beyond the shape serde enforces.
+	///
+	/// The id becomes a directory name under the library (sidecars and the
+	/// model store), so it has to be one path-safe segment, and a glob the
+	/// grant parser cannot read would otherwise fail open as "every record".
+	pub fn validate(&self) -> Result<(), String> {
+		let id_safe = !self.id.is_empty()
+			&& self.id != "."
+			&& self.id != ".."
+			&& self
+				.id
+				.chars()
+				.all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'));
+		if !id_safe {
+			return Err(format!(
+				"extension id {:?} must be one segment of [A-Za-z0-9._-]",
+				self.id
+			));
+		}
+		if let Some(glob) = self
+			.permissions
+			.read_records
+			.as_ref()
+			.and_then(|r| r.glob.as_deref())
+		{
+			if glob_extensions(glob).is_none() {
+				return Err(format!(
+					"read_records glob {glob:?} is not understood; only a trailing `*.ext` or `*.{{a,b}}` is honored"
+				));
+			}
+		}
+		Ok(())
+	}
+}
+
 impl ManifestPermissions {
 	pub fn can_read_sidecar(&self, kind: &str) -> bool {
 		self.read_sidecars.iter().any(|k| k == kind) || self.can_write_sidecar(kind)
@@ -82,12 +118,13 @@ impl ManifestPermissions {
 	}
 
 	/// The extensions a glob grant names, lowercase; `None` when the grant is
-	/// unrestricted or absent.
+	/// unrestricted or absent. A glob the parser cannot read names nothing,
+	/// so a query under it answers no records rather than every record.
 	pub fn granted_extensions(&self) -> Option<Vec<String>> {
 		self.read_records
 			.as_ref()
 			.and_then(|r| r.glob.as_deref())
-			.and_then(glob_extensions)
+			.map(|glob| glob_extensions(glob).unwrap_or_default())
 	}
 
 	/// Whether a record with this extension (lowercase, no dot) is readable.
@@ -193,6 +230,34 @@ mod tests {
 		let err =
 			serde_json::from_str::<ManifestPermissions>(r#"{"methods": ["query:"]}"#).unwrap_err();
 		assert!(err.to_string().contains("unknown field"));
+	}
+
+	#[test]
+	fn a_glob_the_parser_cannot_read_grants_nothing() {
+		let perms = ManifestPermissions {
+			read_records: Some(ReadRecords {
+				glob: Some("**/Photos/**".into()),
+			}),
+			..Default::default()
+		};
+		assert_eq!(perms.granted_extensions(), Some(Vec::new()));
+		assert!(!perms.can_read_record(Some("jpg")));
+	}
+
+	#[test]
+	fn the_loader_refuses_a_path_like_id_and_an_unreadable_glob() {
+		let mut manifest: ExtensionManifest = serde_json::from_str(
+			r#"{"id":"ok.ext","name":"x","version":"1","wasm_file":"x.wasm"}"#,
+		)
+		.unwrap();
+		assert!(manifest.validate().is_ok());
+		manifest.id = "../escape".into();
+		assert!(manifest.validate().is_err());
+		manifest.id = "ok".into();
+		manifest.permissions.read_records = Some(ReadRecords {
+			glob: Some("*".into()),
+		});
+		assert!(manifest.validate().is_err());
 	}
 
 	#[test]

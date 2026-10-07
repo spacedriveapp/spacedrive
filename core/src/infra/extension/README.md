@@ -59,7 +59,7 @@ that the SDK maps onto its own error type.
 | Operation | Grant | What it does |
 | --- | --- | --- |
 | `task.begin`, `task.end` | none | Bracket one `#[task]` attempt. The host writes an attempt line to the job log and refuses a task that outlives the SDK's deadline. |
-| `records.get`, `records.query` | `read_records` | A record by uuid, or the records of the library's sources filtered by kind and extension. The optional `glob` on the grant is checked by the SDK against the record's path. Tag filters are refused. |
+| `records.get`, `records.query` | `read_records` | A record by uuid, or the records of the library's sources filtered by kind and extension. The optional `glob` on the grant is honored for its trailing extension list only (`*.jpg`, `**/*.{jpg,png}`); the directory part is ignored, and a glob of another shape is refused at load. Tag filters are refused. |
 | `records.read` | `read_records` | The bytes of a record, read from its source store's root. |
 | `sidecars.exists`, `sidecars.read` | `read_sidecars` | One JSON document under `<library>/sidecars/`, keyed by content uuid and `SidecarKind::Extension { extension_id, kind }`. |
 | `sidecars.write` | `write_sidecars` (per kind) | Writes that document. |
