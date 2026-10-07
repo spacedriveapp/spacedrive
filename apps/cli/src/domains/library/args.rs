@@ -1,4 +1,5 @@
 use clap::{Args, Subcommand};
+use std::path::PathBuf;
 use uuid::Uuid;
 
 use sd_core::ops::libraries::{
@@ -214,4 +215,65 @@ impl SetupArgs {
 			leader_device_id,
 		})
 	}
+}
+
+#[derive(Subcommand, Debug)]
+pub enum BackupCmd {
+	/// Check a backup against its manifest without restoring it
+	Verify(BackupVerifyArgs),
+}
+
+#[derive(Args, Debug)]
+#[command(subcommand_negates_reqs = true)]
+pub struct LibraryBackupArgs {
+	/// Where to write: a directory that does not exist yet, or a .tar.zst file
+	#[arg(long, required = true)]
+	pub to: Option<PathBuf>,
+	/// Library to back up (defaults to the current library)
+	#[arg(long)]
+	pub library_id: Option<Uuid>,
+	/// Leave thumbnail sidecars out
+	#[arg(long, default_value_t = false)]
+	pub no_sidecars: bool,
+	/// Include this device's replicas of other devices' sources
+	#[arg(long, default_value_t = false)]
+	pub include_replicas: bool,
+	/// Check a backup instead of writing one
+	#[command(subcommand)]
+	pub cmd: Option<BackupCmd>,
+}
+
+#[derive(Args, Debug)]
+pub struct BackupVerifyArgs {
+	/// A backup directory, its manifest.json, or a .tar.zst archive
+	#[arg(long)]
+	pub from: PathBuf,
+}
+
+#[derive(Args, Debug)]
+pub struct LibraryRestoreArgs {
+	/// A backup directory, its manifest.json, or a .tar.zst archive
+	#[arg(long)]
+	pub from: PathBuf,
+	/// Replace the existing library the backup was taken from
+	#[arg(long, conflicts_with = "as_new")]
+	pub replace: bool,
+	/// Restore as a new library, refusing to overwrite anything
+	#[arg(long, conflicts_with = "replace")]
+	pub as_new: bool,
+	/// The library to replace, or the id the new library takes
+	#[arg(long)]
+	pub library_id: Option<Uuid>,
+	/// Replace a library that other devices are members of
+	#[arg(long, default_value_t = false)]
+	pub force: bool,
+	/// Skip the confirmation prompt
+	#[arg(long, short = 'y', default_value_t = false)]
+	pub yes: bool,
+}
+
+/// The daemon resolves paths against its own working directory, so the CLI
+/// hands it absolute ones.
+pub fn absolute(path: &std::path::Path) -> anyhow::Result<PathBuf> {
+	std::path::absolute(path).map_err(|e| anyhow::anyhow!("resolve {}: {e}", path.display()))
 }

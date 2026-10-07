@@ -160,6 +160,11 @@ const COLLAPSE_FLOOR: u64 = 1_000;
 /// as a collapse rather than a deletion someone actually performed.
 const COLLAPSE_FACTOR: u64 = 10;
 
+/// Keeps a set of sources' stores closed; see [`VolumeIndex::quiesce_stores`].
+pub struct StoreHold {
+	_guards: Vec<tokio::sync::OwnedMutexGuard<()>>,
+}
+
 pub struct VolumeIndex {
 	/// Registered sources, in memory. The durable copy is the `sources` table
 	/// in the open library.
@@ -747,6 +752,84 @@ impl VolumeIndex {
 				None
 			}
 		}
+	}
+
+	/// Close every handle on these sources' stores and keep them closed until
+	/// the returned hold drops, so the files can be replaced on disk.
+	///
+	/// A restore swaps `data.db` underneath a running daemon. A pool still
+	/// open on the old inode would keep writing to a file nothing reads any
+	/// more, and a watcher event arriving mid-swap would reopen the old file
+	/// and cache that handle. So the per-source open gates are taken first,
+	/// which parks every `store_for` and `read_store` caller behind the hold,
+	/// then the cached handles are flushed, dropped and closed. The library's
+	/// registrations and drive partitions are cleared the way a closing
+	/// library clears them, and the drive snapshots covering these sources are
+	/// removed, so nothing in memory or on disk outlives the files it indexed:
+	/// the reopened library re-adopts its sources and rebuilds the arena from
+	/// the restored stores. Returns the hold and the snapshot files removed.
+	pub async fn quiesce_stores(&self, ids: &[Uuid]) -> (StoreHold, Vec<PathBuf>) {
+		// One gate per source; locking the same gate twice would wait on
+		// itself.
+		let mut ids = ids.to_vec();
+		ids.sort();
+		ids.dedup();
+		let ids = &ids;
+		let gates: Vec<Arc<tokio::sync::Mutex<()>>> = {
+			let mut all = self.store_open_gates.lock();
+			ids.iter()
+				.map(|id| {
+					all.entry(*id)
+						.or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
+						.clone()
+				})
+				.collect()
+		};
+		let mut guards = Vec::with_capacity(gates.len());
+		for gate in gates {
+			guards.push(gate.lock_owned().await);
+		}
+
+		let snapshots: Vec<PathBuf> = {
+			let mut paths: Vec<PathBuf> = ids
+				.iter()
+				.filter_map(|id| self.source_snapshot_path(*id))
+				.collect();
+			paths.sort();
+			paths.dedup();
+			paths
+		};
+
+		let writers: Vec<Arc<SourceStore>> = {
+			let mut stores = self.stores.write();
+			ids.iter().filter_map(|id| stores.remove(id)).collect()
+		};
+		let readers: Vec<Arc<sd_store::SourceDb>> = {
+			let mut stores = self.read_stores.write();
+			ids.iter().filter_map(|id| stores.remove(id)).collect()
+		};
+		for store in writers {
+			if let Err(error) = store.flush().await {
+				tracing::warn!(source = %store.id(), %error, "store released without a clean flush");
+			}
+			store.db().pool().close().await;
+		}
+		for db in readers {
+			db.pool().close().await;
+		}
+
+		self.detach_library();
+		let mut removed = Vec::new();
+		for path in snapshots {
+			match tokio::fs::remove_file(&path).await {
+				Ok(()) => removed.push(path),
+				Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+				Err(error) => {
+					tracing::warn!(path = %path.display(), %error, "stale drive snapshot was not removed");
+				}
+			}
+		}
+		(StoreHold { _guards: guards }, removed)
 	}
 
 	/// The mount point of the volume a path resolves to. A source whose root

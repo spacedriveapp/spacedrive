@@ -58,16 +58,20 @@ A migration that changes public types also regenerates client bindings.
 
 ## Backup
 
-Copying a live database file without its WAL can lose committed state. Use a
-SQLite-consistent backup operation or a source freeze.
+Copying a live database file without its WAL can lose committed state. Use
+the library backup, which snapshots every database with `VACUUM INTO` and
+records a blake3 hash per file, or a source freeze for one store.
 
 ~~~bash
+sd-cli library backup --to <DIR|FILE.tar.zst>
+sd-cli library backup verify --from <DIR|FILE.tar.zst>
+sd-cli library restore --from <DIR|FILE.tar.zst> [--as-new | --replace]
 sd-cli sources freeze <SOURCE_ID>
 ~~~
 
-Back up library state as well as source stores. The library can be small while
-still containing permissions, tags, and provenance that no origin can
-reproduce.
+The library can be small while still containing permissions, tags, and
+provenance that no origin can reproduce, so a backup always takes the
+library and its source stores together. See [Library](/core/library).
 
 ## Corruption and recovery
 
