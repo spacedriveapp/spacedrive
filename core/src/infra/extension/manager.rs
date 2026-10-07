@@ -485,6 +485,15 @@ impl PluginManager {
 			.map(|p| p.manifest.clone())
 	}
 
+	/// The directory a loaded plugin was installed from.
+	pub async fn plugin_path(&self, plugin_id: &str) -> Option<PathBuf> {
+		self.plugins
+			.read()
+			.await
+			.get(plugin_id)
+			.map(|p| self.plugin_dir.join(&p.dir_name))
+	}
+
 	/// The runtime of a loaded plugin, for running one of its jobs.
 	pub async fn runtime(&self, plugin_id: &str) -> Option<Arc<Mutex<PluginRuntime>>> {
 		self.plugins

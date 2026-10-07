@@ -1,4 +1,4 @@
-use spacedrive_sdk::{job, task};
+use spacedrive_sdk::task;
 
 use spacedrive_sdk::prelude::*;
 use spacedrive_sdk::tasks::TaskContext;
@@ -65,6 +65,60 @@ pub async fn generate_face_tags(ctx: TaskContext, photo_ids: Vec<Uuid>) -> TaskR
 	Ok(())
 }
 
+/// The person whose representative embedding is nearest the cluster's
+/// centroid, when it is within the clustering threshold; otherwise a new,
+/// unnamed person built from the cluster.
 async fn find_or_create_person(ctx: &TaskContext, cluster: &FaceCluster) -> TaskResult<PersonId> {
-	todo!("Implement person matching")
+	let threshold = ctx
+		.config::<crate::PhotosConfig>()
+		.face_clustering_threshold;
+	let people = ctx.vdfs().query_models::<Person>().collect().await?;
+	let nearest = people
+		.iter()
+		.filter(|person| !person.representative_embedding.is_empty())
+		.map(|person| {
+			(
+				person,
+				cosine_distance(
+					&person.representative_embedding,
+					&cluster.centroid_embedding,
+				),
+			)
+		})
+		.filter(|(_, distance)| *distance <= threshold)
+		.min_by(|a, b| a.1.total_cmp(&b.1));
+
+	if let Some((person, _)) = nearest {
+		let embeddings: Vec<Vec<f32>> = cluster
+			.faces
+			.iter()
+			.map(|(_, face)| face.embedding.clone())
+			.collect();
+		let photos = cluster.faces.len();
+		ctx.vdfs()
+			.update_model(person.id, |mut p: Person| {
+				p.embeddings.extend(embeddings);
+				p.photo_count += photos;
+				p.representative_embedding = mean_embedding(&p.embeddings);
+				Ok(p)
+			})
+			.await?;
+		return Ok(person.id);
+	}
+
+	let person = Person {
+		id: Uuid::new_v4(),
+		name: None,
+		thumbnail_photo_id: cluster.faces.first().map(|(photo, _)| *photo),
+		embeddings: cluster
+			.faces
+			.iter()
+			.map(|(_, face)| face.embedding.clone())
+			.collect(),
+		photo_count: cluster.faces.len(),
+		representative_embedding: cluster.centroid_embedding.clone(),
+	};
+	let id = person.id;
+	ctx.vdfs().create_model(person).await?;
+	Ok(id)
 }

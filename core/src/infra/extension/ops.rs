@@ -81,6 +81,8 @@ pub struct JobOps {
 	pub extension_id: String,
 	pub manifest: Arc<ExtensionManifest>,
 	pub library: Arc<Library>,
+	/// The directory the extension was installed from, for `config.json`.
+	plugin_path: std::path::PathBuf,
 	models: Arc<ExtensionModelRegistry>,
 	/// The extension's store in this library, opened on the first model
 	/// operation and closed when the job ends.
@@ -101,6 +103,12 @@ struct ModelPut {
 	uuid: Option<Uuid>,
 	content_uuid: Option<Uuid>,
 	data: serde_json::Value,
+}
+
+#[derive(Deserialize)]
+struct Inference {
+	model: String,
+	task: String,
 }
 
 #[derive(Deserialize)]
@@ -189,12 +197,14 @@ impl JobOps {
 		extension_id: String,
 		manifest: Arc<ExtensionManifest>,
 		library: Arc<Library>,
+		plugin_path: std::path::PathBuf,
 		models: Arc<ExtensionModelRegistry>,
 	) -> Self {
 		Self {
 			extension_id,
 			manifest,
 			library,
+			plugin_path,
 			models,
 			store: None,
 			task: None,
@@ -241,6 +251,8 @@ impl JobOps {
 			"models.put" => self.model_put(parse(payload)?).await,
 			"models.get" => self.model_get(parse(payload)?).await,
 			"models.list" => self.model_list(parse(payload)?).await,
+			"ai.infer" => self.ai_infer(payload),
+			"config.get" => self.config_get().await,
 			_ => Err(OpError::new(
 				"unknown_op",
 				format!("unknown operation {op}"),
@@ -546,6 +558,70 @@ impl JobOps {
 			.map_err(|e| OpError::failed(e.to_string()))?;
 		json(&rows)
 	}
+}
+
+impl JobOps {
+	/// Inference, when the core has a provider for the model's category.
+	///
+	/// It has none for the categories photos asks for (face detection, scene
+	/// classification, embeddings, language models), so a granted request
+	/// is answered `not_available` with the category named, and the job
+	/// decides what to do without it. The grant is still checked first: a
+	/// request for an undeclared category is refused, not deferred.
+	fn ai_infer(&self, payload: &[u8]) -> OpResult {
+		let (header, _input) = split_frame(payload)?;
+		let inference: Inference = parse(header)?;
+		let category = inference
+			.model
+			.split_once(':')
+			.map(|(category, _)| category)
+			.unwrap_or(&inference.model);
+		let granted = self
+			.manifest
+			.permissions
+			.use_models
+			.iter()
+			.any(|m| m.category == category);
+		if !granted {
+			return Err(OpError::permission_denied(format!(
+				"{} has no use_models grant for {category}",
+				self.extension_id
+			)));
+		}
+		Err(OpError::not_available(format!(
+			"no {category} provider is installed for {} ({})",
+			inference.model, inference.task
+		)))
+	}
+
+	/// `config.json` beside the manifest, or `{}`.
+	async fn config_get(&self) -> OpResult {
+		match tokio::fs::read(self.plugin_path.join("config.json")).await {
+			Ok(bytes) => {
+				let value: serde_json::Value = serde_json::from_slice(&bytes)
+					.map_err(|e| OpError::failed(format!("config.json: {e}")))?;
+				json(&value)
+			}
+			Err(e) if e.kind() == std::io::ErrorKind::NotFound => json(&serde_json::json!({})),
+			Err(e) => Err(OpError::failed(format!("config.json: {e}"))),
+		}
+	}
+}
+
+/// A framed payload: a little-endian u32 header length, the JSON header,
+/// then raw bytes.
+fn split_frame(payload: &[u8]) -> Result<(&[u8], &[u8]), OpError> {
+	let malformed = || OpError::invalid_input("malformed framed payload");
+	let len = payload
+		.get(..4)
+		.and_then(|b| <[u8; 4]>::try_from(b).ok())
+		.map(u32::from_le_bytes)
+		.ok_or_else(malformed)? as usize;
+	let rest = &payload[4..];
+	if rest.len() < len {
+		return Err(malformed());
+	}
+	Ok(rest.split_at(len))
 }
 
 fn parse<T: for<'de> Deserialize<'de>>(payload: &[u8]) -> Result<T, OpError> {

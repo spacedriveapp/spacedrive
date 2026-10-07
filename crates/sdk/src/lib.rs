@@ -24,6 +24,7 @@ pub mod actions;
 pub mod agent;
 pub mod ai;
 pub mod clock;
+pub mod config;
 pub mod ffi;
 pub mod job_context;
 pub mod models;

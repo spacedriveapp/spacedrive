@@ -108,9 +108,12 @@ impl TaskContext {
 		AiContext
 	}
 
-	/// Access extension config
-	pub fn config<C>(&self) -> &C {
-		panic!("Access config")
+	/// The extension's configuration: `config.json` beside its manifest,
+	/// or `{}` when there is none, so a config type with serde defaults
+	/// always loads. A config that does not deserialize is a panic, since
+	/// the job cannot do anything sensible without it.
+	pub fn config<C: serde::de::DeserializeOwned + 'static>(&self) -> &C {
+		crate::config::load()
 	}
 
 	/// Read sidecar data

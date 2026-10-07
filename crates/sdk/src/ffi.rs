@@ -187,6 +187,23 @@ pub fn op(op: &str, payload: &[u8]) -> Result<Vec<u8>> {
 	})
 }
 
+/// [`op`] with a JSON header followed by raw bytes, for inputs too large to
+/// base64 into JSON: the frame is the header's length as little-endian u32,
+/// the header, then the bytes. The answer is JSON.
+pub fn op_framed<I: Serialize, O: DeserializeOwned>(
+	op_name: &str,
+	header: &I,
+	bytes: &[u8],
+) -> Result<O> {
+	let header = serde_json::to_vec(header).map_err(|e| Error::Serialization(e.to_string()))?;
+	let mut payload = Vec::with_capacity(4 + header.len() + bytes.len());
+	payload.extend_from_slice(&(header.len() as u32).to_le_bytes());
+	payload.extend_from_slice(&header);
+	payload.extend_from_slice(bytes);
+	let answer = op(op_name, &payload)?;
+	serde_json::from_slice(&answer).map_err(|e| Error::Deserialization(format!("{op_name}: {e}")))
+}
+
 /// [`op`] with a JSON request and a JSON answer.
 pub fn op_json<I: Serialize, O: DeserializeOwned>(op_name: &str, input: &I) -> Result<O> {
 	let payload = serde_json::to_vec(input).map_err(|e| Error::Serialization(e.to_string()))?;

@@ -105,7 +105,7 @@ impl JobHandler for WasmJob {
 				.await
 				.map_err(|e| JobError::ExecutionFailed(e.to_string()))?;
 		}
-		let (runtime, manifest, models) = {
+		let (runtime, manifest, plugin_path, models) = {
 			let pm = plugin_manager.read().await;
 			let not_loaded = || {
 				JobError::ExecutionFailed(format!("Extension '{}' not loaded", self.extension_id))
@@ -117,6 +117,9 @@ impl JobHandler for WasmJob {
 				pm.get_manifest(&self.extension_id)
 					.await
 					.ok_or_else(not_loaded)?,
+				pm.plugin_path(&self.extension_id)
+					.await
+					.ok_or_else(not_loaded)?,
 				pm.model_registry(),
 			)
 		};
@@ -124,6 +127,7 @@ impl JobHandler for WasmJob {
 			self.extension_id.clone(),
 			manifest,
 			ctx.library_arc(),
+			plugin_path,
 			models,
 		);
 
