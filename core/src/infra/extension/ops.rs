@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use sd_store::read::Start;
-use sd_store::FsEntry;
+use sd_store::{FsEntry, SourceDb};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -21,6 +21,7 @@ use crate::infra::job::prelude::JobContext;
 use crate::library::Library;
 use crate::ops::indexing::store::SourceStore;
 
+use super::model_registry::{open_extension_store, ExtensionModelRegistry};
 use super::types::ExtensionManifest;
 
 /// An error a guest can act on. `code` is the stable part: the SDK maps it
@@ -80,7 +81,32 @@ pub struct JobOps {
 	pub extension_id: String,
 	pub manifest: Arc<ExtensionManifest>,
 	pub library: Arc<Library>,
+	models: Arc<ExtensionModelRegistry>,
+	/// The extension's store in this library, opened on the first model
+	/// operation and closed when the job ends.
+	store: Option<SourceDb>,
 	task: Option<ActiveTask>,
+}
+
+#[derive(Deserialize)]
+struct ModelRef {
+	model: String,
+	uuid: Option<Uuid>,
+	content_uuid: Option<Uuid>,
+}
+
+#[derive(Deserialize)]
+struct ModelPut {
+	model: String,
+	uuid: Option<Uuid>,
+	content_uuid: Option<Uuid>,
+	data: serde_json::Value,
+}
+
+#[derive(Deserialize)]
+struct ModelList {
+	model: String,
+	limit: Option<usize>,
 }
 
 /// A record as the SDK's `Record` deserializes it.
@@ -163,12 +189,22 @@ impl JobOps {
 		extension_id: String,
 		manifest: Arc<ExtensionManifest>,
 		library: Arc<Library>,
+		models: Arc<ExtensionModelRegistry>,
 	) -> Self {
 		Self {
 			extension_id,
 			manifest,
 			library,
+			models,
+			store: None,
 			task: None,
+		}
+	}
+
+	/// Release what the job held open.
+	pub async fn finish(self) {
+		if let Some(store) = self.store {
+			store.pool().close().await;
 		}
 	}
 
@@ -202,6 +238,9 @@ impl JobOps {
 			"sidecars.exists" => self.sidecar_exists(parse(payload)?).await,
 			"sidecars.read" => self.sidecar_read(parse(payload)?).await,
 			"sidecars.write" => self.sidecar_write(parse(payload)?).await,
+			"models.put" => self.model_put(parse(payload)?).await,
+			"models.get" => self.model_get(parse(payload)?).await,
+			"models.list" => self.model_list(parse(payload)?).await,
 			_ => Err(OpError::new(
 				"unknown_op",
 				format!("unknown operation {op}"),
@@ -439,6 +478,73 @@ impl JobOps {
 		tokio::fs::write(&tmp, &bytes).await.map_err(io)?;
 		tokio::fs::rename(&tmp, &path).await.map_err(io)?;
 		json(&serde_json::Value::Null)
+	}
+}
+
+impl JobOps {
+	/// The extension's store in this library, opened on first use.
+	async fn store(&mut self) -> Result<&SourceDb, OpError> {
+		if self.store.is_none() {
+			let schema = self.models.schema_for(&self.extension_id).ok_or_else(|| {
+				OpError::invalid_input(format!(
+					"{} declares no models; list them in #[extension(models = [...])]",
+					self.extension_id
+				))
+			})?;
+			let db = open_extension_store(self.library.path(), &self.extension_id, &schema)
+				.await
+				.map_err(|e| OpError::failed(format!("open extension store: {e}")))?;
+			self.store = Some(db);
+		}
+		Ok(self.store.as_ref().expect("opened above"))
+	}
+
+	/// A standalone model is keyed by its own uuid, a content-scoped one by
+	/// the content it describes. Both are the record's external id.
+	fn model_key(uuid: Option<Uuid>, content_uuid: Option<Uuid>) -> Result<String, OpError> {
+		match (uuid, content_uuid) {
+			(Some(uuid), None) => Ok(uuid.to_string()),
+			(None, Some(content)) => Ok(format!("content:{content}")),
+			_ => Err(OpError::invalid_input(
+				"a model is keyed by exactly one of uuid or content_uuid",
+			)),
+		}
+	}
+
+	async fn model_put(&mut self, put: ModelPut) -> OpResult {
+		let key = Self::model_key(put.uuid, put.content_uuid)?;
+		let store = self.store().await?;
+		store
+			.upsert(&put.model, &key, &put.data)
+			.await
+			.map_err(|e| OpError::failed(e.to_string()))?;
+		json(&serde_json::Value::Null)
+	}
+
+	async fn model_get(&mut self, model: ModelRef) -> OpResult {
+		let key = Self::model_key(model.uuid, model.content_uuid)?;
+		let store = self.store().await?;
+		let rows = store
+			.facet_rows(&model.model, Some(&key), 1)
+			.await
+			.map_err(|e| OpError::failed(e.to_string()))?;
+		match rows.into_iter().next() {
+			Some(row) => json(&row),
+			None => Err(OpError::not_found()),
+		}
+	}
+
+	async fn model_list(&mut self, list: ModelList) -> OpResult {
+		let store = self.store().await?;
+		let rows = store
+			.facet_rows(
+				&list.model,
+				None,
+				list.limit.unwrap_or(QUERY_CAP).min(QUERY_CAP),
+			)
+			.await
+			.map_err(|e| OpError::failed(e.to_string()))?;
+		json(&rows)
 	}
 }
 

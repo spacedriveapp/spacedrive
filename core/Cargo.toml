@@ -124,6 +124,7 @@ sd-task-system = { path = "../crates/task-system" }
 
 # The per-source store, one SQLite file per source
 sd-store = { path = "../crates/store" }
+indexmap = { workspace = true, features = ["serde"] }
 
 # Archive system - indexes external data sources (emails, notes, etc.)
 sd-archive = { path = "../crates/archive" }

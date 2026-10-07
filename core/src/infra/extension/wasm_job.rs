@@ -105,7 +105,7 @@ impl JobHandler for WasmJob {
 				.await
 				.map_err(|e| JobError::ExecutionFailed(e.to_string()))?;
 		}
-		let (runtime, manifest) = {
+		let (runtime, manifest, models) = {
 			let pm = plugin_manager.read().await;
 			let not_loaded = || {
 				JobError::ExecutionFailed(format!("Extension '{}' not loaded", self.extension_id))
@@ -117,9 +117,15 @@ impl JobHandler for WasmJob {
 				pm.get_manifest(&self.extension_id)
 					.await
 					.ok_or_else(not_loaded)?,
+				pm.model_registry(),
 			)
 		};
-		let mut ops = JobOps::new(self.extension_id.clone(), manifest, ctx.library_arc());
+		let mut ops = JobOps::new(
+			self.extension_id.clone(),
+			manifest,
+			ctx.library_arc(),
+			models,
+		);
 
 		// A checkpoint outlives a kill; the job row only outlives a pause.
 		if let Some(saved) = ctx.load_state::<String>().await? {
@@ -177,6 +183,7 @@ impl JobHandler for WasmJob {
 		while let Ok(event) = events_rx.try_recv() {
 			self.handle(event, &ctx, &mut ops).await;
 		}
+		ops.finish().await;
 
 		match exit {
 			Ok(Ok(0)) => Ok(JobOutput::Success),

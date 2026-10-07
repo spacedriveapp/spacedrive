@@ -12,6 +12,8 @@ struct ExtensionArgs {
 	name: String,
 	version: String,
 	jobs: Vec<Ident>,
+	/// Model types whose facets `plugin_init` declares to the host.
+	models: Vec<Ident>,
 	// We'll ignore other parameters for now (description, permissions, etc.)
 	// They can be used by tooling but don't need codegen
 }
@@ -22,6 +24,7 @@ impl Parse for ExtensionArgs {
 		let mut name = None;
 		let mut version = None;
 		let mut jobs = Vec::new();
+		let mut models = Vec::new();
 
 		while !input.is_empty() {
 			let ident: Ident = input.parse()?;
@@ -45,6 +48,16 @@ impl Parse for ExtensionArgs {
 					syn::bracketed!(content in input);
 					while !content.is_empty() {
 						jobs.push(content.parse()?);
+						if content.peek(Token![,]) {
+							content.parse::<Token![,]>()?;
+						}
+					}
+				}
+				"models" => {
+					let content;
+					syn::bracketed!(content in input);
+					while !content.is_empty() {
+						models.push(content.parse()?);
 						if content.peek(Token![,]) {
 							content.parse::<Token![,]>()?;
 						}
@@ -95,6 +108,7 @@ impl Parse for ExtensionArgs {
 			name: name.ok_or_else(|| input.error("missing name parameter"))?,
 			version: version.ok_or_else(|| input.error("missing version parameter"))?,
 			jobs,
+			models,
 		})
 	}
 }
@@ -127,6 +141,21 @@ pub fn extension_impl(args: TokenStream, input: TokenStream) -> TokenStream {
 		}
 	});
 
+	let model_registrations = args.models.iter().map(|model| {
+		quote! {
+			if let Err(e) = ::spacedrive_sdk::ffi::register_model_with_host(
+				<#model as ::spacedrive_sdk::models::ExtensionModel>::DEFINITION,
+			) {
+				::spacedrive_sdk::ffi::log_error(&format!(
+					"Failed to register model {}: {}",
+					<#model as ::spacedrive_sdk::models::ExtensionModel>::MODEL_TYPE,
+					e
+				));
+				return 1;
+			}
+		}
+	});
+
 	let expanded = quote! {
 		#input_struct
 
@@ -147,6 +176,9 @@ pub fn extension_impl(args: TokenStream, input: TokenStream) -> TokenStream {
 
 			// Register all jobs
 			#(#job_registrations)*
+
+			// Declare data models, so the host has their facets before a job runs
+			#(#model_registrations)*
 
 			::spacedrive_sdk::ffi::log_info(&format!(
 				"✓ {} v{} initialized!",

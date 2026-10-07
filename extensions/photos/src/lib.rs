@@ -32,6 +32,7 @@ use spacedrive_sdk::{extension, prelude::*};
     name = "Photos",
     version = "1.0.0",
     jobs = [analyze_photos_batch, create_moments, identify_places_in_location, analyze_scenes],
+    models = [Person, Place, Moment, Album, Photo],
     description = "Advanced photo management with faces, places, and intelligent organization",
     min_core_version = "2.0.0",
     required_features = ["exif_extraction", "ai_models"],

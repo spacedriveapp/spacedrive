@@ -25,6 +25,8 @@ mod job_registry;
 #[cfg(feature = "wasm")]
 mod manager;
 #[cfg(feature = "wasm")]
+mod model_registry;
+#[cfg(feature = "wasm")]
 mod ops;
 #[cfg(feature = "wasm")]
 mod types;
@@ -35,6 +37,8 @@ mod wasm_job;
 pub use job_registry::{ExtensionJobRegistration, ExtensionJobRegistry};
 #[cfg(feature = "wasm")]
 pub use manager::PluginManager;
+#[cfg(feature = "wasm")]
+pub use model_registry::{ExtensionModelRegistry, ModelDefinition};
 #[cfg(feature = "wasm")]
 pub use types::{ExtensionManifest, ManifestPermissions, PluginManifest};
 #[cfg(feature = "wasm")]

@@ -11666,6 +11666,7 @@ dependencies = [
  "hound",
  "if-watch",
  "image",
+ "indexmap 2.11.4",
  "indicatif",
  "int-enum",
  "inventory",

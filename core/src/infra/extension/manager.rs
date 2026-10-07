@@ -15,6 +15,7 @@ use wasmer::{imports, Function, FunctionEnv, Instance, Memory, Module, Store, Ty
 
 use super::host_functions::{self, host_spacedrive_log, JobBridge, PluginEnv};
 use super::job_registry::ExtensionJobRegistry;
+use super::model_registry::ExtensionModelRegistry;
 use super::types::{ExtensionManifest, LoadedPlugin};
 
 #[derive(Error, Debug)]
@@ -133,6 +134,7 @@ pub struct PluginManager {
 	plugins: Arc<RwLock<HashMap<String, LoadedPlugin>>>,
 	plugin_dir: PathBuf,
 	job_registry: Arc<ExtensionJobRegistry>,
+	model_registry: Arc<ExtensionModelRegistry>,
 }
 
 impl PluginManager {
@@ -142,12 +144,18 @@ impl PluginManager {
 			plugins: Arc::new(RwLock::new(HashMap::new())),
 			plugin_dir,
 			job_registry: Arc::new(ExtensionJobRegistry::new()),
+			model_registry: Arc::new(ExtensionModelRegistry::new()),
 		}
 	}
 
 	/// Get the job registry for extension jobs
 	pub fn job_registry(&self) -> Arc<ExtensionJobRegistry> {
 		self.job_registry.clone()
+	}
+
+	/// The data models extensions declared
+	pub fn model_registry(&self) -> Arc<ExtensionModelRegistry> {
+		self.model_registry.clone()
 	}
 
 	/// The directory extensions are installed under: `<data dir>/extensions`.
@@ -250,6 +258,7 @@ impl PluginManager {
 			memory: temp_memory,
 			alloc: None,
 			job_registry: self.job_registry.clone(),
+			model_registry: self.model_registry.clone(),
 			current_job: None,
 		};
 
@@ -296,6 +305,11 @@ impl PluginManager {
 					&mut store,
 					&env,
 					host_functions::host_register_job
+				),
+				"register_model" => Function::new_typed_with_env(
+					&mut store,
+					&env,
+					host_functions::host_register_model
 				),
 				"spacedrive_random" => Function::new_typed_with_env(
 					&mut store,
@@ -358,6 +372,7 @@ impl PluginManager {
 				Ok(init_fn) => {
 					if let Err(e) = init_fn.call(&mut runtime.store, &[]) {
 						self.job_registry.unregister_extension_jobs(&plugin_id);
+						self.model_registry.unregister_extension(&plugin_id);
 						return Err(PluginError::InstantiationFailed(format!(
 							"plugin_init() failed: {}",
 							e
@@ -392,6 +407,7 @@ impl PluginManager {
 			.remove(plugin_id)
 			.ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))?;
 		self.job_registry.unregister_extension_jobs(plugin_id);
+		self.model_registry.unregister_extension(plugin_id);
 
 		// A trapped guest cannot be trusted to run cleanup, and a guest still
 		// running a job keeps its instance alive until that job returns; the
@@ -424,6 +440,7 @@ impl PluginManager {
 			.ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))?;
 		let fresh = self.instantiate(&dir_name).await?;
 		let previous_jobs = self.job_registry.list_jobs_for_extension(plugin_id);
+		let previous_schema = self.model_registry.schema_for(plugin_id);
 		let previous = self.unload_plugin(plugin_id).await?;
 		if let Err(e) = self.activate(fresh).await {
 			// The replacement's plugin_init failed; put the old plugin back so
@@ -434,6 +451,15 @@ impl PluginManager {
 					job.job_name,
 					job.export_fn,
 					job.resumable,
+				);
+			}
+			for (name, def) in previous_schema.map(|s| s.models).unwrap_or_default() {
+				let _ = self.model_registry.register(
+					plugin_id,
+					super::model_registry::ModelDefinition {
+						name,
+						fields: def.fields,
+					},
 				);
 			}
 			self.plugins

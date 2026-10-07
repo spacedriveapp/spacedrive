@@ -14,7 +14,7 @@ use crate::content::ContentId;
 use crate::error::{Error, Result};
 use crate::record::{facet_table, ContentIdentity, Record};
 use crate::schema::codegen::indexed_search_fields;
-use crate::schema::DataTypeSchema;
+use crate::schema::{DataTypeSchema, FieldType};
 
 /// `_sync_state` key holding the on-disk root a file-backed source's
 /// locator paths are relative to. File-backed adapters set it every sync;
@@ -902,6 +902,79 @@ impl SourceDb {
 		}
 
 		sql
+	}
+
+	/// The declared fields of one model's records as JSON objects, typed back
+	/// the way they went in: a `json` field is parsed, a `boolean` is a bool,
+	/// numbers are numbers. `external_id` narrows to one record. Newest first.
+	///
+	/// This is how an extension reads its own models back; the facet row is
+	/// the model, so nothing outside the declared fields comes out.
+	pub async fn facet_rows(
+		&self,
+		model: &str,
+		external_id: Option<&str>,
+		limit: usize,
+	) -> Result<Vec<serde_json::Value>> {
+		let model_def = self
+			.schema
+			.models
+			.get(model)
+			.ok_or_else(|| Error::Other(format!("unknown model: {model}")))?;
+		let table = facet_table(model);
+		let mut pairs = String::new();
+		for name in model_def.fields.keys() {
+			if !pairs.is_empty() {
+				pairs.push_str(", ");
+			}
+			let _ = write!(pairs, "'{name}', f.\"{name}\"");
+		}
+		let pairs = if pairs.is_empty() {
+			String::new()
+		} else {
+			format!("json_object({pairs})")
+		};
+		let sql = format!(
+			"SELECT r.uuid, {pairs} FROM record r \
+			 LEFT JOIN \"{table}\" f ON f.record_uuid = r.uuid \
+			 WHERE r.type = ? AND (?2 IS NULL OR r.external_id = ?2) \
+			 ORDER BY COALESCE(r.modified_at, r.created_at) DESC, r.rowid DESC \
+			 LIMIT ?"
+		);
+		let rows = sqlx::query_as::<_, (Uuid, Option<String>)>(&sql)
+			.bind(model)
+			.bind(external_id)
+			.bind(limit as i64)
+			.fetch_all(&self.pool)
+			.await?;
+
+		Ok(rows
+			.into_iter()
+			.filter_map(|(_, json)| {
+				let mut value: serde_json::Value = serde_json::from_str(&json?).ok()?;
+				let object = value.as_object_mut()?;
+				for (name, field_type) in &model_def.fields {
+					let Some(stored) = object.get_mut(name) else {
+						continue;
+					};
+					match field_type {
+						FieldType::Json => {
+							if let Some(text) = stored.as_str() {
+								*stored =
+									serde_json::from_str(text).unwrap_or(serde_json::Value::Null);
+							}
+						}
+						FieldType::Boolean => {
+							if let Some(n) = stored.as_i64() {
+								*stored = serde_json::Value::Bool(n != 0);
+							}
+						}
+						_ => {}
+					}
+				}
+				Some(value)
+			})
+			.collect())
 	}
 
 	/// List items of the primary record type, newest first.

@@ -22,6 +22,7 @@ pub struct PluginEnv {
 	/// The guest's allocator, for answers. Set once the instance exists.
 	pub alloc: Option<TypedFunction<i32, i32>>,
 	pub job_registry: Arc<super::job_registry::ExtensionJobRegistry>,
+	pub model_registry: Arc<super::model_registry::ExtensionModelRegistry>,
 	pub current_job: Option<JobBridge>,
 }
 
@@ -409,6 +410,39 @@ pub fn host_register_job(
 		Err(e) => {
 			tracing::error!("Failed to register job: {}", e);
 			1 // Error
+		}
+	}
+}
+
+/// Declare a data model's facet, from `plugin_init`.
+///
+/// The definition is the JSON the SDK's `#[model]` macro derived from the
+/// struct. Returns 0 on success, 1 on error.
+pub fn host_register_model(
+	mut env: FunctionEnvMut<PluginEnv>,
+	def_ptr: WasmPtr<u8>,
+	def_len: u32,
+) -> i32 {
+	let (plugin_env, store) = env.data_and_store_mut();
+	let memory_view = plugin_env.memory.view(&store);
+	let definition = match read_string_from_wasm(&memory_view, def_ptr, def_len)
+		.map_err(|e| e.to_string())
+		.and_then(|json| serde_json::from_str(&json).map_err(|e| e.to_string()))
+	{
+		Ok(definition) => definition,
+		Err(e) => {
+			tracing::error!(extension = %plugin_env.extension_id, "Unreadable model definition: {e}");
+			return 1;
+		}
+	};
+	match plugin_env
+		.model_registry
+		.register(&plugin_env.extension_id, definition)
+	{
+		Ok(()) => 0,
+		Err(e) => {
+			tracing::error!(extension = %plugin_env.extension_id, "Failed to register model: {e}");
+			1
 		}
 	}
 }

@@ -8,15 +8,21 @@
 use crate::types::*;
 use serde::{de::DeserializeOwned, Serialize};
 
-/// Marker trait for extension-defined data models
+/// An extension-defined data model, implemented by `#[model]`.
 ///
-/// Models are stored in the `models` database table and can be:
-/// - Content-scoped: Attached to a ContentIdentity (PhotoAnalysis)
-/// - Standalone: Independent entities (Person, Album, Place)
-/// - Entry-scoped: Tied to a specific path (rare)
+/// A model is a record in the extension's own store with a facet table of
+/// the struct's fields. It is either standalone, addressed by its own uuid
+/// (Person, Album, Place), or content-scoped, addressed by the content it
+/// describes (an analysis of a photo). `plugin_init` declares every model
+/// listed in `#[extension(models = [...])]` to the host, which creates or
+/// widens the facet table before any job runs.
 pub trait ExtensionModel: Serialize + DeserializeOwned + Send + Sync {
 	/// Model type name (e.g., "Person", "Album")
 	const MODEL_TYPE: &'static str;
+
+	/// The facet definition the host registers: the fields and their column
+	/// types, as JSON. Derived from the struct by `#[model]`.
+	const DEFINITION: &'static str;
 
 	/// Get the model's UUID
 	fn uuid(&self) -> Uuid;

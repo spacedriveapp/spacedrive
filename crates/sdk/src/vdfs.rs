@@ -68,22 +68,35 @@ impl VdfsContext {
 	/// Query extension models
 	pub fn query_models<T: ExtensionModel>(&self) -> ModelQuery<T> {
 		ModelQuery {
+			filtered: false,
+			limit: None,
 			_phantom: std::marker::PhantomData,
 		}
 	}
 
 	/// Get model scoped to content_identity
 	pub async fn get_model_by_content<T: ExtensionModel>(&self, content_uuid: Uuid) -> Result<T> {
-		Err(Error::Unsupported("get_model_by_content".into()))
+		crate::ffi::op_json(
+			"models.get",
+			&serde_json::json!({ "model": T::MODEL_TYPE, "content_uuid": content_uuid }),
+		)
 	}
 
-	/// Create model scoped to content_identity
+	/// Create (or replace) the model describing one content identity.
 	pub async fn create_model_for_content<T: ExtensionModel>(
 		&self,
 		content_uuid: Uuid,
 		model: T,
 	) -> Result<()> {
-		Err(Error::Unsupported("create_model_for_content".into()))
+		let _: serde_json::Value = crate::ffi::op_json(
+			"models.put",
+			&serde_json::json!({
+				"model": T::MODEL_TYPE,
+				"content_uuid": content_uuid,
+				"data": model,
+			}),
+		)?;
+		Ok(())
 	}
 
 	/// Update model scoped to content
@@ -95,17 +108,30 @@ impl VdfsContext {
 	where
 		F: FnOnce(T) -> Result<T>,
 	{
-		Err(Error::Unsupported("update_model_by_content".into()))
+		let current = self.get_model_by_content::<T>(content_uuid).await?;
+		self.create_model_for_content(content_uuid, f(current)?)
+			.await
 	}
 
-	/// Create standalone model
+	/// Create (or replace) a standalone model, keyed by its own uuid.
 	pub async fn create_model<T: ExtensionModel>(&self, model: T) -> Result<()> {
-		Err(Error::Unsupported("create_model".into()))
+		let _: serde_json::Value = crate::ffi::op_json(
+			"models.put",
+			&serde_json::json!({
+				"model": T::MODEL_TYPE,
+				"uuid": model.uuid(),
+				"data": model,
+			}),
+		)?;
+		Ok(())
 	}
 
 	/// Get standalone model by UUID
 	pub async fn get_model<T: ExtensionModel>(&self, uuid: Uuid) -> Result<T> {
-		Err(Error::Unsupported("get_model".into()))
+		crate::ffi::op_json(
+			"models.get",
+			&serde_json::json!({ "model": T::MODEL_TYPE, "uuid": uuid }),
+		)
 	}
 
 	/// Update standalone model
@@ -113,7 +139,8 @@ impl VdfsContext {
 	where
 		F: FnOnce(T) -> Result<T>,
 	{
-		Err(Error::Unsupported("update_model".into()))
+		let current = self.get_model::<T>(uuid).await?;
+		self.create_model(f(current)?).await
 	}
 
 	/// Add tag to content (all entries with this content get the tag)
@@ -236,30 +263,51 @@ impl FileType for Pdf {
 	const EXTENSIONS: &'static [&'static str] = &["pdf"];
 }
 
-/// Model query builder
+/// Model query builder.
+///
+/// Only an unfiltered listing has a host side; a query with a field or
+/// semantic filter is refused rather than answered without it.
 pub struct ModelQuery<T> {
+	filtered: bool,
+	limit: Option<usize>,
 	_phantom: std::marker::PhantomData<T>,
 }
 
 impl<T: ExtensionModel> ModelQuery<T> {
-	pub fn where_field(self, field: &str, predicate: FieldPredicate) -> Self {
-		panic!("Filter by field")
+	pub fn where_field(mut self, field: &str, predicate: FieldPredicate) -> Self {
+		self.filtered = true;
+		self
 	}
 
-	pub fn where_json_field(self, path: &str, predicate: FieldPredicate) -> Self {
-		panic!("Filter by JSON field")
+	pub fn where_json_field(mut self, path: &str, predicate: FieldPredicate) -> Self {
+		self.filtered = true;
+		self
 	}
 
-	pub fn search_semantic(self, field: &str, query: SemanticQuery) -> Self {
-		panic!("Semantic search")
+	pub fn search_semantic(mut self, field: &str, query: SemanticQuery) -> Self {
+		self.filtered = true;
+		self
+	}
+
+	pub fn limit(mut self, limit: usize) -> Self {
+		self.limit = Some(limit);
+		self
 	}
 
 	pub async fn first(self) -> Result<Option<T>> {
-		Err(Error::Unsupported("first".into()))
+		Ok(self.limit(1).collect().await?.into_iter().next())
 	}
 
 	pub async fn collect(self) -> Result<Vec<T>> {
-		Err(Error::Unsupported("collect".into()))
+		if self.filtered {
+			return Err(Error::Unsupported(
+				"model queries cannot filter yet; list and filter in the guest".into(),
+			));
+		}
+		crate::ffi::op_json(
+			"models.list",
+			&serde_json::json!({ "model": T::MODEL_TYPE, "limit": self.limit }),
+		)
 	}
 }
 

@@ -23,6 +23,7 @@ extern "C" {
 		export_fn_len: u32,
 		resumable: u32,
 	) -> i32;
+	fn register_model(def_ptr: *const u8, def_len: u32) -> i32;
 	fn spacedrive_random(buf_ptr: *mut u8, buf_len: u32);
 	fn spacedrive_now_ms() -> i64;
 	fn spacedrive_op(
@@ -97,6 +98,19 @@ pub fn register_job_with_host(job_name: &str, export_fn: &str, resumable: bool) 
 		Ok(())
 	} else {
 		Err(Error::HostCall(format!("register_job({job_name})")))
+	}
+}
+
+/// Declare a data model's facet to the host, from `plugin_init`.
+///
+/// `def_json` is the model definition the `#[model]` macro derived from the
+/// struct; the host turns it into a facet table in the extension's store.
+pub fn register_model_with_host(def_json: &str) -> Result<()> {
+	let result = unsafe { register_model(def_json.as_ptr(), def_json.len() as u32) };
+	if result == 0 {
+		Ok(())
+	} else {
+		Err(Error::HostCall("register_model".into()))
 	}
 }
 
