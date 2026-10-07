@@ -31,9 +31,11 @@ pub async fn detect_volumes(
 	task::spawn_blocking(move || {
 		let mut volumes = Vec::new();
 
-		// Use df to get mounted filesystems
+		// Use df to get mounted filesystems. LC_ALL=C and -B1 provide
+		// locale-independent byte counts; -T keeps the filesystem type.
 		let output = Command::new("df")
-			.args(["-h", "-T"]) // -T shows filesystem type
+			.env("LC_ALL", "C")
+			.args(["-B1", "-T"])
 			.output()
 			.map_err(|e| VolumeError::platform(format!("Failed to run df: {}", e)))?;
 
