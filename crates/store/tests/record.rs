@@ -678,3 +678,135 @@ async fn the_integrity_tier_moves_the_record_to_a_confirmed_row() {
 	assert_eq!(after, uuid_for("integrity-1"));
 	assert_eq!(pointed, confirmed);
 }
+
+fn sampled(hash: &str) -> ContentIdentity {
+	ContentIdentity {
+		sampled_hash: Some(hash.to_string()),
+		size: Some(8),
+		..Default::default()
+	}
+}
+
+fn confirmed(sampled_hash: &str, integrity_hash: &str) -> ContentIdentity {
+	ContentIdentity {
+		sampled_hash: Some(sampled_hash.to_string()),
+		integrity_hash: Some(integrity_hash.to_string()),
+		size: Some(8),
+		..Default::default()
+	}
+}
+
+async fn hashes_of(db: &sd_store::db::SourceDb, record: Uuid) -> (Option<String>, Option<String>) {
+	sqlx::query_as(
+		"SELECT c.sampled_hash, c.integrity_hash FROM record r JOIN content c ON c.id = r.content_id
+		 WHERE r.uuid = ?",
+	)
+	.bind(record)
+	.fetch_one(db.pool())
+	.await
+	.expect("row")
+}
+
+/// The rule the whole table shape exists for: a file that merely samples
+/// like a verified one does not get that file's integrity hash.
+#[tokio::test]
+async fn a_sampled_only_write_never_lands_on_a_confirmed_row() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+	let a = db
+		.upsert("note", "a", &json!({ "title": "A" }))
+		.await
+		.expect("a");
+	let b = db
+		.upsert("note", "b", &json!({ "title": "B" }))
+		.await
+		.expect("b");
+
+	db.set_content_identity(a, &confirmed("s1", "i1"))
+		.await
+		.expect("a read in full");
+	db.set_content_identity(b, &sampled("s1"))
+		.await
+		.expect("b sampled");
+
+	assert_eq!(
+		hashes_of(&db, a).await,
+		(Some("s1".into()), Some("i1".into()))
+	);
+	assert_eq!(
+		hashes_of(&db, b).await,
+		(Some("s1".into()), None),
+		"b's bytes were never read in full, so b carries no integrity hash"
+	);
+}
+
+#[tokio::test]
+async fn two_files_with_one_sampled_hash_and_different_bytes_end_on_two_confirmed_rows() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+	let a = db
+		.upsert("note", "a", &json!({ "title": "A" }))
+		.await
+		.expect("a");
+	let b = db
+		.upsert("note", "b", &json!({ "title": "B" }))
+		.await
+		.expect("b");
+	db.set_content_identity(a, &sampled("s1")).await.expect("a");
+	db.set_content_identity(b, &sampled("s1")).await.expect("b");
+	let shared: Vec<i64> = sqlx::query_scalar("SELECT DISTINCT content_id FROM record")
+		.fetch_all(db.pool())
+		.await
+		.expect("ids");
+	assert_eq!(shared.len(), 1, "one candidate row while both are guesses");
+
+	let a_row = db
+		.set_content_identity(a, &confirmed("s1", "i-a"))
+		.await
+		.expect("a");
+	let b_row = db
+		.set_content_identity(b, &confirmed("s1", "i-b"))
+		.await
+		.expect("b");
+	assert_ne!(a_row, b_row);
+
+	let rows: Vec<(Uuid, Option<Uuid>, Option<String>)> =
+		sqlx::query_as("SELECT uuid, candidate_uuid, integrity_hash FROM content ORDER BY id")
+			.fetch_all(db.pool())
+			.await
+			.expect("rows");
+	assert_eq!(
+		rows,
+		vec![
+			(uuid_for("i-a"), Some(uuid_for("s1")), Some("i-a".into())),
+			(uuid_for("i-b"), Some(uuid_for("s1")), Some("i-b".into())),
+		],
+		"the empty candidate row is gone; both confirmed rows keep the candidate uuid"
+	);
+}
+
+#[tokio::test]
+async fn a_new_file_does_not_inherit_an_orphaned_rows_integrity_hash() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+	let a = db
+		.upsert("note", "a", &json!({ "title": "A" }))
+		.await
+		.expect("a");
+	let a_row = db
+		.set_content_identity(a, &confirmed("s1", "i1"))
+		.await
+		.expect("a");
+	db.delete("note", "a").await.expect("a removed");
+
+	let b = db
+		.upsert("note", "b", &json!({ "title": "B" }))
+		.await
+		.expect("b");
+	let b_row = db.set_content_identity(b, &sampled("s1")).await.expect("b");
+	assert_ne!(b_row, a_row, "the orphaned confirmed row is not reused");
+	assert_eq!(hashes_of(&db, b).await, (Some("s1".into()), None));
+}

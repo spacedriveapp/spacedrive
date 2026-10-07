@@ -298,6 +298,29 @@ async fn a_moved_file_carries_its_assertions_with_it() {
 	assert!(matches!(ledger.resolve(&replacement), Resolution::Fresh(_)));
 }
 
+/// A move keeps the record's content row, so the bytes have to look
+/// untouched on every count the walk can see. Size alone is not enough.
+#[tokio::test]
+async fn a_move_needs_size_and_mtime_to_agree() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+
+	let mut ledger = Ledger::load(db.pool()).await.expect("ledger");
+	let observation = observe("a.txt", 100, 1_700_000_000_000, Some(10));
+	let fresh = ledger.resolve(&observation);
+	db.apply_files(&[write(fresh, observation)], &[], &[], None)
+		.await
+		.expect("apply");
+
+	// Same inode, same size, but the file was written since: a VM disk or a
+	// container rewritten in place and then renamed looks like this.
+	let rewritten = observe("b.txt", 100, 1_800_000_000_000, Some(10));
+	let resolution = ledger.resolve(&rewritten);
+	assert!(matches!(resolution, Resolution::Fresh(_)));
+	assert_ne!(resolution.uuid(), fresh.uuid());
+}
+
 #[tokio::test]
 async fn inode_reuse_alone_does_not_rebind() {
 	let fixture = Fixture::new().await;

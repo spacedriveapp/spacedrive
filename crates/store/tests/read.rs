@@ -5,7 +5,7 @@ use std::collections::HashSet;
 
 use sd_store::file::{FileKind, FileWrite, Ledger, Observation};
 use sd_store::record::ContentIdentity;
-use sd_store::{filesystem_schema, read, uuid_for, SourceManager};
+use sd_store::{filesystem_schema, read, SourceManager};
 
 struct Fixture {
 	_dir: tempfile::TempDir,
