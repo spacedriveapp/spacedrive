@@ -273,17 +273,44 @@ jobs:
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
         run: cargo run --locked --bin generate_typescript_types
 
+      - name: Fail on stale TypeScript types
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
+        run: |
+          if ! git diff --exit-code -- packages/ts-client/src/generated; then
+            echo "::error::packages/ts-client/src/generated is out of date. Run 'cargo run --bin generate_typescript_types' and commit the result."
+            exit 1
+          fi
+
       # tauri-build rewrites gen/schemas from the capability files during the
       # desktop crate's build script; a check is enough to run it.
       - name: Generate Tauri schemas
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
         run: cargo check --locked -p spacedrive
 
-      - name: Fail on stale generated files
+      # Key order in the schema files follows whether serde_json's
+      # preserve_order feature was unified into tauri-build, which a workspace
+      # build does (axum, gpui) and a -p build does not, so the files are
+      # compared as parsed JSON rather than bytes. Only the schemas the Linux
+      # build writes are checked; macOS-schema.json is written on macOS only.
+      - name: Fail on stale Tauri schemas
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
         run: |
-          if ! git diff --exit-code -- packages/ts-client/src/generated apps/tauri/src-tauri/gen/schemas; then
-            echo "::error::Generated files are out of date. Run 'cargo run --bin generate_typescript_types' and 'cargo check -p spacedrive', then commit the result."
+          stale=0
+          for file in $(git diff --name-only -- apps/tauri/src-tauri/gen/schemas); do
+            if ! python3 -c '
+          import json, subprocess, sys
+          path = sys.argv[1]
+          committed = json.loads(subprocess.check_output(["git", "show", "HEAD:" + path]))
+          with open(path) as f:
+              generated = json.load(f)
+          sys.exit(0 if committed == generated else 1)
+          ' "$file"; then
+              echo "::error file=$file::$file is out of date."
+              stale=1
+            fi
+          done
+          if [ "$stale" = 1 ]; then
+            echo "::error::Tauri schemas are out of date. Run 'cargo check -p spacedrive' and commit apps/tauri/src-tauri/gen/schemas."
             exit 1
           fi
 
