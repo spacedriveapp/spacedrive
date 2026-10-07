@@ -100,7 +100,15 @@ impl LibraryQuery for MediaSearchQuery {
 	) -> QueryResult<Self::Output> {
 		let input = self.input;
 		let (stores, replicas) = match &input.scope {
-			SearchScope::Library => (every_store(&context), every_replica(&context).await),
+			SearchScope::Library => {
+				let library = session
+					.current_library_id
+					.ok_or_else(|| QueryError::InvalidInput("no library selected".to_string()))?;
+				(
+					every_store(&context, library),
+					every_replica(&context).await,
+				)
+			}
 			SearchScope::Path { path } => (
 				stores_beneath(&context, path).await,
 				replicas_beneath(&context, path).await,

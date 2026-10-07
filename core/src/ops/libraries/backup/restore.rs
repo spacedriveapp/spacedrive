@@ -241,6 +241,12 @@ impl LibraryRestoreAction {
 					.await
 					.unwrap_or_default(),
 			);
+		}
+		// Resolved while the library is still open: closing it takes its
+		// registrations out of the index, and the partitions and snapshots
+		// to clear are found through them.
+		let quiesce_targets = context.volume_index().quiesce_targets(&quiesced);
+		if existing_path.is_some() {
 			if open.is_some() {
 				libraries
 					.close_library(target_id)
@@ -254,7 +260,7 @@ impl LibraryRestoreAction {
 		// that is about to be moved to the trash.
 		let (hold, snapshots_removed) = context
 			.volume_index()
-			.quiesce_stores(target_id, &quiesced)
+			.quiesce_stores(&quiesced, quiesce_targets)
 			.await;
 		let sidecar_hold = context.thumbs.hold_sidecars(&quiesced).await;
 

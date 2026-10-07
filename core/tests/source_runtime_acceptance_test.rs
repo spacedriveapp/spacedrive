@@ -461,17 +461,19 @@ async fn a_file_under_nested_sources_is_one_hit_from_the_stores() -> anyhow::Res
 	track_nested(&harness, outer.path().join("inner")).await?;
 
 	// The daemon restarts and no arena snapshot survives, so every source
-	// answers from its store.
+	// answers from its store. A restore's quiesce is the path that drops a
+	// library's partitions and snapshots; a plain close keeps the drive
+	// maps for the other open libraries.
 	let cache = harness.core.context.volume_index();
-	let snapshots: Vec<PathBuf> = cache
-		.sources()
+	let ids: Vec<Uuid> = cache
+		.sources_of(harness.library.id())
 		.iter()
-		.filter_map(|source| cache.source_snapshot_path(source.id))
+		.map(|source| source.id)
 		.collect();
+	let targets = cache.quiesce_targets(&ids);
 	cache.detach_library(harness.library.id());
-	for snapshot in snapshots {
-		let _ = std::fs::remove_file(snapshot);
-	}
+	let (hold, _) = cache.quiesce_stores(&ids, targets).await;
+	drop(hold);
 	cache
 		.attach_library(harness.library.id(), harness.library.db().clone())
 		.await?;

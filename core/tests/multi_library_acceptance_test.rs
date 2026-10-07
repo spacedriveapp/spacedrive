@@ -163,6 +163,29 @@ async fn two_libraries_list_their_own_sources_across_a_restart() {
 
 	check(&core, first.clone(), second.clone(), "before restart").await;
 
+	// A path is kept by one library on this device: the second library may
+	// not track the first's root, nor a directory under it.
+	for overlap in [
+		first_root.path().to_path_buf(),
+		first_root.path().join("nested"),
+	] {
+		std::fs::create_dir_all(&overlap).expect("mkdir");
+		let refused = TrackSourceAction::from_input(TrackSourceInput {
+			path: overlap.clone(),
+			name: None,
+			unfiltered: false,
+		})
+		.expect("input")
+		.execute(second.clone(), core.context.clone())
+		.await;
+		assert!(
+			refused.is_err(),
+			"tracking {} in the second library is refused",
+			overlap.display()
+		);
+	}
+	assert_eq!(core.context.volume_index().sources_of(second_id).len(), 1);
+
 	drop(first);
 	drop(second);
 	core.shutdown().await.expect("shutdown");

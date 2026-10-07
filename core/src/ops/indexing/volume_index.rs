@@ -201,6 +201,15 @@ pub struct StoreHold {
 	_guards: Vec<tokio::sync::OwnedMutexGuard<()>>,
 }
 
+/// What a restore has to clear in memory and on disk for a set of sources:
+/// the drive partitions that map them and the drive snapshots that would
+/// restore those partitions. See [`VolumeIndex::quiesce_targets`].
+#[derive(Debug, Default)]
+pub struct QuiesceTargets {
+	partitions: Vec<VolumeKey>,
+	snapshots: Vec<PathBuf>,
+}
+
 /// One library's registrations and where they are written.
 ///
 /// A registration made before any library is open has nowhere durable to
@@ -517,11 +526,14 @@ impl VolumeIndex {
 
 	/// Forget a closing library's registrations.
 	///
-	/// Drives stay mapped: they belong to the machine, and another open
-	/// library may keep sources on them. Partitions no remaining registration
-	/// or mapped drive can reach are dropped, and once no library is attached
-	/// at all the drives and partitions go with them, so a core that closes
-	/// everything starts the next library from nothing.
+	/// Drives and their partitions stay: they belong to the machine, another
+	/// open library may keep sources on them, and the OS watches armed over
+	/// their roots outlive the close, so the registrations those watches
+	/// depend on have to as well. Once no library is attached at all the
+	/// drives and partitions go too, so a core that closes everything starts
+	/// the next library from nothing. A restore, which must not serve the
+	/// arena it just replaced, drops its partitions through
+	/// [`Self::quiesce_stores`].
 	pub fn detach_library(&self, library: Uuid) {
 		let mut libraries = self.libraries.lock();
 		libraries.retain(|attached| attached.library != Some(library));
@@ -529,26 +541,7 @@ impl VolumeIndex {
 			drop(libraries);
 			self.volumes.lock().clear();
 			self.slots.write().clear();
-			return;
 		}
-		let reachable: HashSet<VolumeKey> = libraries
-			.iter()
-			.flat_map(|attached| {
-				attached
-					.registry
-					.all()
-					.iter()
-					.map(|record| attached.registry.volume_of(record).0)
-			})
-			.chain(
-				self.volumes
-					.lock()
-					.iter()
-					.map(|tracked| VolumeKey::Id(tracked.uuid)),
-			)
-			.collect();
-		drop(libraries);
-		self.slots.write().retain(|key, _| reachable.contains(key));
 	}
 
 	/// The registry that holds a source, with the record and its drive.
@@ -814,6 +807,24 @@ impl VolumeIndex {
 				}
 			})
 			.collect()
+	}
+
+	/// A source of a library other than `library` whose root is `root`, is
+	/// under it, or contains it.
+	///
+	/// Paths resolve to one source whatever library asks, so two libraries
+	/// covering one path would share a store and a capture policy by attach
+	/// order. The track action refuses that; this is how it looks.
+	pub fn overlapping_source_of_another_library(
+		&self,
+		library: Uuid,
+		root: &Path,
+	) -> Option<SourceStatus> {
+		self.sources().into_iter().find(|source| {
+			source.library != Some(library)
+				&& source.library.is_some()
+				&& (root.starts_with(&source.root) || source.root.starts_with(root))
+		})
 	}
 
 	/// Where a source's index snapshot lives on disk. The snapshot belongs to
@@ -1201,6 +1212,35 @@ impl VolumeIndex {
 		}
 	}
 
+	/// The partitions and drive snapshots a restore of these sources has to
+	/// clear, resolved while their library is still attached.
+	///
+	/// Resolution goes through the registry, and closing the library takes
+	/// its registry away, so a restore asks this before it closes the
+	/// library and hands the answer to [`Self::quiesce_stores`] after.
+	pub fn quiesce_targets(&self, ids: &[Uuid]) -> QuiesceTargets {
+		let Some(dirs) = self.dirs.as_ref() else {
+			return QuiesceTargets::default();
+		};
+		let mut partitions: Vec<VolumeKey> = ids
+			.iter()
+			.filter_map(|id| self.find_source(*id))
+			.map(|located| located.volume)
+			.collect();
+		partitions.sort_by_key(|key| key.id());
+		partitions.dedup();
+		let mut snapshots: Vec<PathBuf> = partitions
+			.iter()
+			.map(|key| dirs.snapshot_file(key.id()))
+			.collect();
+		snapshots.sort();
+		snapshots.dedup();
+		QuiesceTargets {
+			partitions,
+			snapshots,
+		}
+	}
+
 	/// Close every handle on these sources' stores and keep them closed until
 	/// the returned hold drops, so the files can be replaced on disk.
 	///
@@ -1209,13 +1249,19 @@ impl VolumeIndex {
 	/// more, and a watcher event arriving mid-swap would reopen the old file
 	/// and cache that handle. So the per-source open gates are taken first,
 	/// which parks every `store_for` and `read_store` caller behind the hold,
-	/// then the cached handles are flushed, dropped and closed. The library's
-	/// registrations and drive partitions are cleared the way a closing
-	/// library clears them, and the drive snapshots covering these sources are
-	/// removed, so nothing in memory or on disk outlives the files it indexed:
-	/// the reopened library re-adopts its sources and rebuilds the arena from
-	/// the restored stores. Returns the hold and the snapshot files removed.
-	pub async fn quiesce_stores(&self, library: Uuid, ids: &[Uuid]) -> (StoreHold, Vec<PathBuf>) {
+	/// then the cached handles are flushed, dropped and closed. The drive
+	/// partitions mapping these sources are dropped, whether or not another
+	/// open library shares the drive, and the drive snapshots covering them
+	/// are removed, so nothing in memory or on disk outlives the files it
+	/// indexed: the reopened library re-adopts its sources and rebuilds the
+	/// arena from the restored stores. The library's own registrations are
+	/// the close's to take away. Returns the hold and the snapshot files
+	/// removed.
+	pub async fn quiesce_stores(
+		&self,
+		ids: &[Uuid],
+		targets: QuiesceTargets,
+	) -> (StoreHold, Vec<PathBuf>) {
 		// One gate per source; locking the same gate twice would wait on
 		// itself.
 		let mut ids = ids.to_vec();
@@ -1237,16 +1283,6 @@ impl VolumeIndex {
 			guards.push(gate.lock_owned().await);
 		}
 
-		let snapshots: Vec<PathBuf> = {
-			let mut paths: Vec<PathBuf> = ids
-				.iter()
-				.filter_map(|id| self.source_snapshot_path(*id))
-				.collect();
-			paths.sort();
-			paths.dedup();
-			paths
-		};
-
 		let writers: Vec<Arc<SourceStore>> = {
 			let mut stores = self.stores.write();
 			ids.iter().filter_map(|id| stores.remove(id)).collect()
@@ -1265,9 +1301,30 @@ impl VolumeIndex {
 			db.pool().close().await;
 		}
 
-		self.detach_library(library);
+		// The partition goes so nothing restores the replaced arena from
+		// memory; its watch registrations stay, because the OS watch the
+		// service armed over each root survives the swap and the handler
+		// drops every event from a root the index no longer lists.
+		{
+			let mut slots = self.slots.write();
+			for key in &targets.partitions {
+				let Some(old) = slots.remove(key) else {
+					continue;
+				};
+				match Partition::new(key.clone(), old.root()) {
+					Ok(fresh) => {
+						*fresh.watched_paths.write() = old.watched_paths.read().clone();
+						fresh.set_detached(old.is_detached());
+						slots.insert(key.clone(), fresh);
+					}
+					Err(error) => {
+						tracing::warn!(%error, "could not replace a quiesced drive partition");
+					}
+				}
+			}
+		}
 		let mut removed = Vec::new();
-		for path in snapshots {
+		for path in targets.snapshots {
 			match tokio::fs::remove_file(&path).await {
 				Ok(()) => removed.push(path),
 				Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
