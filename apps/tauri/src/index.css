@@ -12,6 +12,8 @@
 @source "../../../packages/ui/src";
 @source "../../../packages/interface/src";
 @source "../../../../spaceui/packages/primitives/src";
+/* Without a sibling spaceui checkout the published package is what renders; scan it so dialogs keep their classes. */
+@source "../node_modules/@spacedrive/primitives/dist";
 @source "../../../../spaceui/packages/explorer/src";
 @source "../../../../spaceui/packages/forms/src";
 
