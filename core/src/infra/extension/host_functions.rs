@@ -1,159 +1,29 @@
 //! WASM host functions
 //!
-//! This module provides the bridge between WASM extensions and Spacedrive's
-//! operation registry. The key function is `host_spacedrive_call()` which routes
-//! generic Wire method calls to the existing `execute_json_operation()` function
-//! used by daemon RPC.
+//! The functions a guest imports from the `spacedrive` module. `spacedrive_log`
+//! and `register_job` serve `plugin_init`; the `job_*` functions report into
+//! the running job; `spacedrive_op` carries every operation that returns data.
+//!
+//! An operation is answered on the job's async side: the host function reads
+//! the request out of guest memory, sends it through the `JobBridge`, blocks
+//! the guest thread until the answer arrives, and writes the answer into
+//! memory taken from the guest's own `wasm_alloc`. The guest frees it. One
+//! convention for every operation keeps the import table small and the memory
+//! handling in one place on each side.
 
 use std::sync::Arc;
 
-use uuid::Uuid;
-use wasmer::{FunctionEnvMut, Memory, MemoryView, WasmPtr};
-
-use crate::{infra::daemon::rpc::RpcServer, Core};
-
-use super::permissions::ExtensionPermissions;
+use wasmer::{FunctionEnvMut, Memory, MemoryView, TypedFunction, WasmPtr};
 
 /// Environment passed to all host functions
 pub struct PluginEnv {
 	pub extension_id: String,
-	pub core_context: Arc<crate::context::CoreContext>, // Just context, not full Core!
-	pub api_dispatcher: Arc<crate::infra::api::ApiDispatcher>, // For creating sessions
-	pub permissions: ExtensionPermissions,
 	pub memory: Memory,
+	/// The guest's allocator, for answers. Set once the instance exists.
+	pub alloc: Option<TypedFunction<i32, i32>>,
 	pub job_registry: Arc<super::job_registry::ExtensionJobRegistry>,
+	pub model_registry: Arc<super::model_registry::ExtensionModelRegistry>,
 	pub current_job: Option<JobBridge>,
-}
-
-/// THE MAIN HOST FUNCTION - Generic Wire RPC
-///
-/// This is the ONLY function WASM extensions need to call Spacedrive operations.
-/// It routes calls to the existing Wire operation registry.
-///
-/// # Arguments
-/// - `method_ptr`, `method_len`: Wire method string (e.g., "query:ai.ocr")
-/// - `library_id_ptr`: 0 for None, or pointer to 16 UUID bytes
-/// - `payload_ptr`, `payload_len`: JSON payload string
-///
-/// # Returns
-/// Pointer to result JSON string in WASM memory (or 0 on error)
-pub fn host_spacedrive_call(
-	mut env: FunctionEnvMut<PluginEnv>,
-	method_ptr: WasmPtr<u8>,
-	method_len: u32,
-	library_id_ptr: u32,
-	payload_ptr: WasmPtr<u8>,
-	payload_len: u32,
-) -> u32 {
-	let (plugin_env, mut store) = env.data_and_store_mut();
-
-	// Get memory view from environment
-	let memory = &plugin_env.memory;
-	let memory_view = memory.view(&store);
-
-	// 1. Read method string from WASM memory
-	let method = match read_string_from_wasm(&memory_view, method_ptr, method_len) {
-		Ok(m) => m,
-		Err(e) => {
-			tracing::error!("Failed to read method string: {}", e);
-			return 0;
-		}
-	};
-
-	// 2. Read library_id (0 = None)
-	let library_id = if library_id_ptr == 0 {
-		None
-	} else {
-		match read_uuid_from_wasm(&memory_view, WasmPtr::new(library_id_ptr)) {
-			Ok(uuid) => Some(uuid),
-			Err(e) => {
-				tracing::error!("Failed to read library UUID: {}", e);
-				return 0;
-			}
-		}
-	};
-
-	// 3. Read payload JSON
-	let payload_str = match read_string_from_wasm(&memory_view, payload_ptr, payload_len) {
-		Ok(s) => s,
-		Err(e) => {
-			tracing::error!("Failed to read payload: {}", e);
-			return 0;
-		}
-	};
-
-	let payload_json: serde_json::Value = match serde_json::from_str(&payload_str) {
-		Ok(json) => json,
-		Err(e) => {
-			tracing::error!("Failed to parse payload JSON: {}", e);
-			return write_error_to_memory(&memory, &mut store, &format!("Invalid JSON: {}", e));
-		}
-	};
-
-	// 4. Permission check
-	let auth_result = tokio::runtime::Handle::current()
-		.block_on(async { plugin_env.permissions.authorize(&method, library_id).await });
-
-	if let Err(e) = auth_result {
-		tracing::warn!(
-			extension = %plugin_env.extension_id,
-			method = %method,
-			"Permission denied: {}",
-			e
-		);
-		return write_error_to_memory(&memory, &mut store, &format!("Permission denied: {}", e));
-	}
-
-	tracing::debug!(
-		extension = %plugin_env.extension_id,
-		method = %method,
-		library_id = ?library_id,
-		"Extension calling operation"
-	);
-
-	// 5. Call operation handlers directly (same as execute_json_operation does)
-	let result = tokio::runtime::Handle::current().block_on(async {
-		// Create base session
-		let base_session = match plugin_env.api_dispatcher.create_base_session() {
-			Ok(s) => s,
-			Err(e) => return Err(e),
-		};
-
-		// Try library queries
-		if let Some(handler) = crate::infra::wire::registry::LIBRARY_QUERIES.get(method.as_str()) {
-			let lib_id = library_id.ok_or_else(|| "Library ID required".to_string())?;
-			let session = base_session.with_library(lib_id);
-			return handler(plugin_env.core_context.clone(), session, payload_json).await;
-		}
-
-		// Try core queries
-		if let Some(handler) = crate::infra::wire::registry::CORE_QUERIES.get(method.as_str()) {
-			return handler(plugin_env.core_context.clone(), base_session, payload_json).await;
-		}
-
-		// Try library actions
-		if let Some(handler) = crate::infra::wire::registry::LIBRARY_ACTIONS.get(method.as_str()) {
-			let lib_id = library_id.ok_or_else(|| "Library ID required".to_string())?;
-			let session = base_session.with_library(lib_id);
-			return handler(plugin_env.core_context.clone(), session, payload_json).await;
-		}
-
-		// Try core actions
-		if let Some(handler) = crate::infra::wire::registry::CORE_ACTIONS.get(method.as_str()) {
-			return handler(plugin_env.core_context.clone(), payload_json).await;
-		}
-
-		Err(format!("Unknown method: {}", method))
-	});
-
-	// 6. Write result to WASM memory
-	match result {
-		Ok(json) => write_json_to_memory(&memory, &mut store, &json),
-		Err(e) => {
-			tracing::error!("Operation failed: {}", e);
-			write_error_to_memory(&memory, &mut store, &e)
-		}
-	}
 }
 
 /// Optional logging helper for extensions
@@ -201,74 +71,6 @@ fn read_string_from_wasm(
 	String::from_utf8(bytes).map_err(|e| e.into())
 }
 
-fn read_uuid_from_wasm(
-	memory_view: &MemoryView,
-	ptr: WasmPtr<u8>,
-) -> Result<Uuid, Box<dyn std::error::Error>> {
-	let bytes = ptr
-		.slice(memory_view, 16)
-		.and_then(|slice| slice.read_to_vec())
-		.map_err(|e| format!("Failed to read UUID from WASM memory: {:?}", e))?;
-
-	let uuid_bytes: [u8; 16] = bytes
-		.try_into()
-		.map_err(|_| "Invalid UUID bytes (expected 16 bytes)")?;
-
-	Ok(Uuid::from_bytes(uuid_bytes))
-}
-
-fn write_json_to_memory(
-	memory: &Memory,
-	store: &mut wasmer::StoreMut,
-	json: &serde_json::Value,
-) -> u32 {
-	let json_str = match serde_json::to_string(json) {
-		Ok(s) => s,
-		Err(e) => {
-			tracing::error!("Failed to serialize JSON: {}", e);
-			return 0; // NULL indicates error
-		}
-	};
-
-	let bytes = json_str.as_bytes();
-
-	// Try to call guest's allocator function
-	// WASM module must export: fn wasm_alloc(size: i32) -> i32
-	let alloc_result = memory
-		.view(&store)
-		.data_size() // Just check memory exists for now
-		.checked_sub(bytes.len() as u64);
-
-	if alloc_result.is_none() {
-		tracing::error!("Not enough WASM memory for result");
-		return 0;
-	}
-
-	// For now, write to a fixed offset (will implement proper allocator later)
-	// This is a simplification for testing - production needs guest allocator
-	let result_offset = 65536u32; // Start at 64KB
-
-	let memory_view = memory.view(&store);
-	let wasm_ptr = WasmPtr::<u8>::new(result_offset);
-
-	if let Ok(slice) = wasm_ptr.slice(&memory_view, bytes.len() as u32) {
-		if let Err(e) = slice.write_slice(bytes) {
-			tracing::error!("Failed to write to WASM memory: {:?}", e);
-			return 0;
-		}
-	} else {
-		tracing::error!("Failed to get WASM memory slice");
-		return 0;
-	}
-
-	result_offset
-}
-
-fn write_error_to_memory(memory: &Memory, store: &mut wasmer::StoreMut, error: &str) -> u32 {
-	let error_json = serde_json::json!({ "error": error });
-	write_json_to_memory(memory, store, &error_json)
-}
-
 /// What a running job's host calls report back to its `WasmJob`.
 ///
 /// The guest runs on a blocking thread while the job's async side drains these
@@ -285,6 +87,12 @@ pub enum JobEvent {
 	Warning(String),
 	Items(u64),
 	Bytes(u64),
+	/// A request for data, answered by `super::ops` on the async side.
+	Op {
+		op: String,
+		payload: Vec<u8>,
+		reply: tokio::sync::oneshot::Sender<super::ops::OpResult>,
+	},
 }
 
 /// The job a plugin instance is running right now, if any.
@@ -374,6 +182,123 @@ pub fn host_job_checkpoint(
 			_ => 1,
 		}
 	})
+}
+
+/// Run one data-returning operation for the job.
+///
+/// Writes `[ptr, len]` of the answer to `out_ptr` and returns 0, or writes a
+/// JSON error there and returns 1. Both buffers come from the guest's
+/// `wasm_alloc`, which the guest frees after reading. Called outside a job,
+/// or with an unreadable request, nothing is written and 2 is returned.
+pub fn host_spacedrive_op(
+	mut env: FunctionEnvMut<PluginEnv>,
+	op_ptr: WasmPtr<u8>,
+	op_len: u32,
+	payload_ptr: WasmPtr<u8>,
+	payload_len: u32,
+	out_ptr: WasmPtr<u32>,
+) -> i32 {
+	let (plugin_env, mut store) = env.data_and_store_mut();
+	let memory = plugin_env.memory.clone();
+	let memory_view = memory.view(&store);
+
+	let op = match read_string_from_wasm(&memory_view, op_ptr, op_len) {
+		Ok(op) => op,
+		Err(e) => {
+			tracing::error!("Failed to read op name: {}", e);
+			return 2;
+		}
+	};
+	let payload = match payload_ptr
+		.slice(&memory_view, payload_len)
+		.and_then(|slice| slice.read_to_vec())
+	{
+		Ok(payload) => payload,
+		Err(e) => {
+			tracing::error!("Failed to read op payload: {:?}", e);
+			return 2;
+		}
+	};
+	let Some(alloc) = plugin_env.alloc.clone() else {
+		return 2;
+	};
+
+	let answer = with_job(plugin_env, None, |job| {
+		let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+		if job
+			.events
+			.send(JobEvent::Op {
+				op: op.clone(),
+				payload,
+				reply: reply_tx,
+			})
+			.is_err()
+		{
+			return None;
+		}
+		reply_rx.blocking_recv().ok()
+	});
+	let Some(answer) = answer else {
+		return 2;
+	};
+
+	let (status, bytes) = match answer {
+		Ok(bytes) => (0, bytes),
+		Err(error) => (1, error.to_json().into_bytes()),
+	};
+
+	// The guest frees `len.max(1)` bytes, matching the allocation here.
+	let len = bytes.len() as u32;
+	let ptr = match alloc.call(&mut store, len.max(1) as i32) {
+		Ok(ptr) => ptr as u32,
+		Err(e) => {
+			tracing::error!(extension = %plugin_env.extension_id, op, "wasm_alloc failed: {e}");
+			return 2;
+		}
+	};
+	let memory_view = memory.view(&store);
+	if let Err(e) = memory_view.write(ptr as u64, &bytes) {
+		tracing::error!(extension = %plugin_env.extension_id, op, "write answer: {e}");
+		return 2;
+	}
+	if let Err(e) = out_ptr
+		.slice(&memory_view, 2)
+		.and_then(|slice| slice.write_slice(&[ptr, len]))
+	{
+		tracing::error!(extension = %plugin_env.extension_id, op, "write out pointer: {e:?}");
+		return 2;
+	}
+	status
+}
+
+/// Fill guest memory with entropy.
+///
+/// Every extension gets this without a grant: random ids and the time are
+/// not library data.
+pub fn host_spacedrive_random(mut env: FunctionEnvMut<PluginEnv>, buf_ptr: WasmPtr<u8>, len: u32) {
+	use rand::RngCore;
+
+	let (plugin_env, store) = env.data_and_store_mut();
+	let view = plugin_env.memory.view(&store);
+	// Resolve the guest slice before allocating, so a bogus length is an
+	// error for the guest rather than a host allocation of its choosing.
+	let slice = match buf_ptr.slice(&view, len) {
+		Ok(slice) => slice,
+		Err(e) => {
+			tracing::error!(extension = %plugin_env.extension_id, "write entropy: {e:?}");
+			return;
+		}
+	};
+	let mut bytes = vec![0u8; len as usize];
+	rand::thread_rng().fill_bytes(&mut bytes);
+	if let Err(e) = slice.write_slice(&bytes) {
+		tracing::error!(extension = %plugin_env.extension_id, "write entropy: {e:?}");
+	}
+}
+
+/// The host's clock, as milliseconds since the Unix epoch.
+pub fn host_spacedrive_now_ms(_env: FunctionEnvMut<PluginEnv>) -> i64 {
+	chrono::Utc::now().timestamp_millis()
 }
 
 /// Check if job should be interrupted
@@ -492,6 +417,39 @@ pub fn host_register_job(
 		Err(e) => {
 			tracing::error!("Failed to register job: {}", e);
 			1 // Error
+		}
+	}
+}
+
+/// Declare a data model's facet, from `plugin_init`.
+///
+/// The definition is the JSON the SDK's `#[model]` macro derived from the
+/// struct. Returns 0 on success, 1 on error.
+pub fn host_register_model(
+	mut env: FunctionEnvMut<PluginEnv>,
+	def_ptr: WasmPtr<u8>,
+	def_len: u32,
+) -> i32 {
+	let (plugin_env, store) = env.data_and_store_mut();
+	let memory_view = plugin_env.memory.view(&store);
+	let definition = match read_string_from_wasm(&memory_view, def_ptr, def_len)
+		.map_err(|e| e.to_string())
+		.and_then(|json| serde_json::from_str(&json).map_err(|e| e.to_string()))
+	{
+		Ok(definition) => definition,
+		Err(e) => {
+			tracing::error!(extension = %plugin_env.extension_id, "Unreadable model definition: {e}");
+			return 1;
+		}
+	};
+	match plugin_env
+		.model_registry
+		.register(&plugin_env.extension_id, definition)
+	{
+		Ok(()) => 0,
+		Err(e) => {
+			tracing::error!(extension = %plugin_env.extension_id, "Failed to register model: {e}");
+			1
 		}
 	}
 }

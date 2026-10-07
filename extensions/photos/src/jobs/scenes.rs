@@ -16,13 +16,12 @@ pub struct AnalyzeScenesState {
 #[job(name = "analyze_scenes")]
 pub async fn analyze_scenes(ctx: &JobContext, state: &mut AnalyzeScenesState) -> JobResult<()> {
 	for photo_id in &state.photo_ids {
-		let photo = ctx.vdfs().get_entry(*photo_id).await?;
+		let photo = ctx.vdfs().get_record(*photo_id).await?;
 
 		let scenes = ctx.run(classify_scene, photo.clone()).await?;
 
 		if let Some(content_uuid) = photo.content_uuid() {
-			ctx.save_sidecar(content_uuid, "scene", "photos", &scenes)
-				.await?;
+			ctx.save_sidecar(content_uuid, "scene", &scenes).await?;
 		}
 
 		for scene in &scenes {
@@ -32,7 +31,7 @@ pub async fn analyze_scenes(ctx: &JobContext, state: &mut AnalyzeScenesState) ->
 					.scene_confidence_threshold
 			{
 				ctx.vdfs()
-					.add_tag(photo.metadata_id(), &format!("#scene:{}", scene.label))
+					.add_tag(photo.id(), &format!("#scene:{}", scene.label))
 					.await?;
 			}
 		}

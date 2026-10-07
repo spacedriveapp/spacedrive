@@ -11666,6 +11666,7 @@ dependencies = [
  "hound",
  "if-watch",
  "image",
+ "indexmap 2.11.4",
  "indicatif",
  "int-enum",
  "inventory",
@@ -12988,6 +12989,7 @@ name = "spacedrive-sdk"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "getrandom 0.4.3",
  "serde",
  "serde_json",
  "spacedrive-sdk-macros",

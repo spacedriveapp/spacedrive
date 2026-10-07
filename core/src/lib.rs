@@ -186,11 +186,7 @@ impl Core {
 				warn!("Could not create extensions directory: {e}");
 			}
 
-			let mut pm = crate::infra::extension::PluginManager::new(
-				plugin_dir,
-				context.clone(),
-				Arc::new(api_dispatcher.clone()),
-			);
+			let mut pm = crate::infra::extension::PluginManager::new(plugin_dir);
 			let loaded = pm.load_all().await;
 			info!("Loaded {} extension(s): {:?}", loaded.len(), loaded);
 

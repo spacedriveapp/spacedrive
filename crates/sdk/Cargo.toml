@@ -9,6 +9,7 @@ version     = "0.1.0"
 
 [dependencies]
 chrono                = { version = "0.4", default-features = false, features = ["serde"] }
+getrandom             = { version = "0.4", default-features = false }
 serde                 = { version = "1.0", default-features = false, features = ["alloc", "derive"] }
 serde_json            = { version = "1.0", default-features = false, features = ["alloc"] }
 spacedrive-sdk-macros = { path = "../sdk-macros" }

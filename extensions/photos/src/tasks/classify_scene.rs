@@ -5,7 +5,7 @@ use spacedrive_sdk::prelude::*;
 use crate::models::SceneTag;
 
 #[task(requires_capability = "gpu_optional")]
-pub async fn classify_scene(ctx: TaskContext, photo: Entry) -> TaskResult<Vec<SceneTag>> {
+pub async fn classify_scene(ctx: TaskContext, photo: Record) -> TaskResult<Vec<SceneTag>> {
 	let image_bytes = photo.read().await?;
 
 	let classifications = ctx

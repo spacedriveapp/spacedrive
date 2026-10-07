@@ -81,11 +81,22 @@ cp target/wasm32-unknown-unknown/release/my_extension.wasm .
   "version": "0.1.0",
   "wasm_file": "my_extension.wasm",
   "permissions": {
-    "methods": ["vdfs.*", "ai.*"],
-    "libraries": ["*"]
+    "read_records": { "glob": "**/*.{jpg,png}" },
+    "read_sidecars": ["exif"],
+    "write_sidecars": ["digest"],
+    "use_models": [{ "category": "face_detection", "preference": "local" }]
   }
 }
 ```
+
+The host rejects a manifest with a field it does not know, so a typo in a
+grant fails at load. `read_records` is the only way to see files; its optional
+`glob` is honored for its trailing extension list only (`*.jpg` or
+`**/*.{jpg,png}`); the directory part is ignored and a glob of another shape
+is refused at load. `write_sidecars` names the kinds
+the extension may write; `use_models` the inference categories it may ask for.
+`write_tags`, `write_custom_fields` and `dispatch_jobs` are declared but have
+no host side yet.
 
 ## The Beautiful API
 
@@ -157,8 +168,8 @@ fn email_scan(ctx: &JobContext, state: &mut EmailScanState) -> Result<()> {
     ctx.add_warning("Non-fatal issue");
 
     // Full SDK access
-    let entry = ctx.vdfs().create_entry(...)?;
-    let ocr = ctx.ai().ocr(&pdf, ...)?;
+    let record = ctx.vdfs().get_record(uuid).await?;
+    let bytes = record.read().await?;
 
     Ok(())
 }
@@ -167,32 +178,42 @@ fn email_scan(ctx: &JobContext, state: &mut EmailScanState) -> Result<()> {
 ### VDFS Operations
 
 ```rust
-// Create entries
-let entry = ctx.vdfs().create_entry(CreateEntry {
-    name: "My File".into(),
-    path: "path/to/file".into(),
-    entry_type: "Document".into(),
-    metadata: None,
-})?;
+// Records of the library's sources, filtered by extension (read_records grant)
+let photos = ctx.vdfs()
+    .query_records()
+    .with_extensions(["jpg", "png"])
+    .collect()
+    .await?;
 
-// Write sidecars
-ctx.vdfs().write_sidecar(entry.id, "metadata.json", data)?;
+// One record and its bytes
+let record = ctx.vdfs().get_record(uuid).await?;
+let bytes = record.read().await?;
 
-// Read sidecars
-let data = ctx.vdfs().read_sidecar(entry.id, "metadata.json")?;
+// Sidecars are one JSON document per kind, keyed by content uuid
+let content_uuid = record.content_uuid().expect("hashed");
+if !ctx.sidecar_exists(content_uuid, "digest")? {
+    ctx.save_sidecar(content_uuid, "digest", &digest).await?;
+}
+let digest: Digest = ctx.read_sidecar(content_uuid, "digest").await?;
+
+// Models declared with #[model] live in the extension's own store
+ctx.vdfs().create_model(entry).await?;
+let all: Vec<CatalogEntry> = ctx.vdfs().query_models().collect().await?;
 ```
+
+Tags and custom fields have no host side yet and return `Error::NotAvailable`.
 
 ### AI Operations
 
+Inference goes through `ctx.ai().infer(...)` behind the `use_models` grant.
+The core has no provider yet, so every request answers `Error::NotAvailable`;
+handle it the way `extensions/photos/src/jobs/analyze.rs` does, with one
+warning and a skip, so the job completes and a later run with a provider
+picks the files up.
+
 ```rust
-// OCR
-let ocr = ctx.ai().ocr(&pdf_bytes, OcrOptions::default())?;
-
-// Classification
-let result = ctx.ai().classify_text(&text, "Extract data")?;
-
-// Embeddings
-let embedding = ctx.ai().embed("query text")?;
+// Written against the API; answers NotAvailable until a provider exists
+let faces = ctx.ai().from_registered("face_detection").detect_faces(&bytes).await?;
 ```
 
 ### Credentials

@@ -4234,7 +4234,13 @@ version: number; created_at: string; updated_at: string };
  */
 export type SidecarFormat = "webp" | "mp_4" | "json" | "message_pack" | "text" | "ply";
 
-export type SidecarKind = "thumb" | "thumbstrip" | "proxy" | "embeddings" | "ocr" | "transcript" | "gaussian_splat";
+/**
+ * What a sidecar holds. The core kinds are closed; an extension declares
+ * its own in its manifest (`write_sidecars`) and they live under the
+ * extension's namespace, so two extensions' `faces` never collide and no
+ * extension can write a core kind.
+ */
+export type SidecarKind = "thumb" | "thumbstrip" | "proxy" | "embeddings" | "ocr" | "transcript" | "gaussian_splat" | { extension: { extension_id: string; kind: string } };
 
 export type SidecarVariant = string;
 
