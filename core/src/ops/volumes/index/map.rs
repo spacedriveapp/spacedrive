@@ -88,10 +88,15 @@ pub async fn map_volume(
 	};
 
 	let cache = context.volume_index();
-	cache.track_volume(volume.id, volume.mount_point.clone());
+	let cloud = volume.parse_cloud_identity().is_some();
+	if cloud {
+		cache.track_volume(volume.id, volume.mount_point.clone());
+	} else {
+		cache.track_detected_volume(volume.id, volume.mount_point.clone(), volume.is_mounted);
+	}
 	// Detection can lag an unmount by a refresh interval, and the directory
 	// left behind at the mount point is never walked as the drive.
-	if !crate::volume::utils::is_mount_point(&volume.mount_point) {
+	if !cloud && !crate::volume::utils::is_mount_point(&volume.mount_point) {
 		return Err(ActionError::Internal(format!(
 			"not walking {}: {} is not a mount point; the volume is not mounted",
 			volume.name,
@@ -230,7 +235,7 @@ pub async fn map_attached_volumes(
 		}
 
 		let cache = context.volume_index();
-		cache.track_volume(volume.id, volume.mount_point.clone());
+		cache.track_detected_volume(volume.id, volume.mount_point.clone(), volume.is_mounted);
 		let restored = cache.ensure_restored(&volume.mount_point).await;
 
 		// Runs whether or not the volume restored: a restored snapshot can

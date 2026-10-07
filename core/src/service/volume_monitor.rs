@@ -69,32 +69,50 @@ impl VolumeMonitorService {
 		library: &Arc<crate::library::Library>,
 	) -> Result<()> {
 		let volume_index = library.core_context().volume_index();
-		for tracked in volume_manager.get_tracked_volumes(library).await? {
+		let tracked_volumes = volume_manager.get_tracked_volumes(library).await?;
+		// The table holds every device's rows; a peer's drive is not mounted
+		// here and its row is not this device's to write.
+		for tracked in tracked_volumes
+			.into_iter()
+			.filter(|tracked| tracked.device_id == volume_manager.device_id)
+		{
 			let current = volume_manager.get_volume(&tracked.fingerprint).await;
 			let mounted = current.as_ref().is_some_and(|volume| volume.is_mounted);
 			if tracked.is_online == mounted {
 				continue;
 			}
 
-			match &current {
+			// One row that cannot be written must not keep the others from
+			// their transition, so each failure is logged and the pass goes on.
+			let written = match &current {
 				Some(volume) => {
 					volume_manager
 						.update_tracked_volume_state(library, &tracked.fingerprint, volume)
-						.await?;
-					volume_index.set_volume_mounted(tracked.uuid, &volume.mount_point, mounted);
+						.await
 				}
 				None => {
 					volume_manager
 						.mark_tracked_volume_offline(library, &tracked.fingerprint)
-						.await?;
-					let mount_point = tracked.mount_point.as_deref().unwrap_or_default();
-					volume_index.set_volume_mounted(
-						tracked.uuid,
-						std::path::Path::new(mount_point),
-						false,
-					);
+						.await
 				}
+			};
+			if let Err(e) = written {
+				error!(
+					"Failed to update tracked volume {} in library {}: {}",
+					tracked.fingerprint,
+					library.id(),
+					e
+				);
+				continue;
 			}
+
+			let mount_point = current
+				.as_ref()
+				.map(|volume| volume.mount_point.clone())
+				.unwrap_or_else(|| {
+					std::path::PathBuf::from(tracked.mount_point.as_deref().unwrap_or_default())
+				});
+			volume_index.set_volume_mounted(tracked.uuid, &mount_point, mounted);
 			info!(
 				"Tracked volume {} in library {} is now {}",
 				tracked.fingerprint,

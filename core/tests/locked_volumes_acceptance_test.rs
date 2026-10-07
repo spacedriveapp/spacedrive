@@ -178,13 +178,29 @@ async fn walked_volume(name: &str) -> Walked {
 	let records = store.counts().await.expect("counts").records;
 	assert!(records >= 5, "the walk recorded the files: {records}");
 	// The hashing pass the walk queued is part of the fixture; a daemon
-	// stopping mid-hash would make the restart about job resumption.
-	for _ in 0..100 {
-		if library.jobs().list_running_jobs().await.is_empty() {
+	// stopping mid-hash would make the restart about job resumption. The
+	// pass is dispatched after the walk handle resolves, with no ordering
+	// against this function, so what is waited on is its effect: every
+	// record has a content identity.
+	for _ in 0..300 {
+		if store
+			.files_needing_content_count()
+			.await
+			.expect("pending count")
+			== 0
+		{
 			break;
 		}
 		tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 	}
+	assert_eq!(
+		store
+			.files_needing_content_count()
+			.await
+			.expect("pending count"),
+		0,
+		"the fixture's hashing pass finished"
+	);
 	drop(library);
 	core.shutdown().await.expect("shutdown");
 	drop(core);

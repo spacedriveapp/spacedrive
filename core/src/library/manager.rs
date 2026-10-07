@@ -608,7 +608,7 @@ impl LibraryManager {
 		};
 		match context
 			.volume_index()
-			.attach_library_with(library.db().clone(), live)
+			.attach_library_with(library.db().clone(), Some(device_id), live)
 			.await
 		{
 			Ok(adopted) => debug!("Adopted {adopted} sources for library {}", config.id),
