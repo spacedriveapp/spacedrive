@@ -36,6 +36,8 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Content identity progress (2026-10-08): report real file counts, rate and elapsed time. Discovery has an unknown total. Use the existing indicatif estimator for ETA after ten seconds and a known queue; no new dependency or external data transfer. Jobs and the sidebar activity control share the progress summary. Three content identity tests, the production frontend build, and TypeScript passed. Browser fixture screenshots cover known, unknown, missing and stale progress. Two job-refresh regression tests passed. The local repaired native app showed increasing counts and ETA; native pause/resume checks remain.
+
 File System Intelligence is a flagship priority identified by James (Codex,
 September 18). The product boundary now names persistent file and folder
 understanding as a first-class user benefit, with optional cloud acceleration.
