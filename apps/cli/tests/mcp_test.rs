@@ -134,11 +134,15 @@ async fn sd_mcp_exposes_the_registry_over_stdio(
 		))
 		.await?;
 	assert_eq!(listed.is_error, Some(false), "{}", text_of(&listed));
+	// The core also opens its default library, so find ours by id.
 	let libraries = json_of(&listed);
-	assert_eq!(libraries[0]["id"], json!(library.id()));
-	assert_eq!(libraries[0]["name"], "MCP Library");
+	let ours = libraries
+		.as_array()
+		.and_then(|libs| libs.iter().find(|lib| lib["id"] == json!(library.id())))
+		.unwrap_or_else(|| panic!("our library is listed: {libraries}"));
+	assert_eq!(ours["name"], "MCP Library");
 
-	// A library query with no library id: the only library is the default.
+	// A library query with no library id resolves to one the daemon lists.
 	let jobs = client
 		.call_tool(CallToolRequestParams::new("jobs.list"))
 		.await?;
@@ -172,6 +176,7 @@ async fn sd_mcp_exposes_the_registry_over_stdio(
 	let waited = client
 		.call_tool(
 			CallToolRequestParams::new("jobs.wait").with_arguments(rmcp::model::object(json!({
+				"library_id": library.id(),
 				"job_id": job_id,
 				"timeout_seconds": 60,
 			}))),

@@ -129,17 +129,13 @@ pub const CORE_TESTS: &[TestSuite] = &[
 	core("Sync catch-up test", &["--test", "sync_catchup_test"]),
 	core("Library join test", &["--test", "library_join_test"]),
 	core("Dedupe own hash test", &["--test", "dedupe_own_hash_test"]),
-	// The MCP server is an sd-cli subcommand, so its suite builds that crate.
-	TestSuite {
-		name: "MCP server test",
-		package: "sd-cli",
-		test_args: &["--test", "mcp_test"],
-		features: None,
-		group: Group::Integration,
-	},
 	// R8 source runtime acceptance (docs/core/acceptance/source-runtime.md):
 	// the single-daemon rows, the two-process replication rows, and the
 	// store crate's own suites, which carry the store-level rows.
+	// The MCP server is an sd-cli subcommand, so its suite builds that crate
+	// too; it rides the shorter acceptance job rather than the integration
+	// one, which sits near the hour.
+	acceptance("sd-cli", "MCP server test", &["--test", "mcp_test"]),
 	acceptance(
 		"sd-core",
 		"Source runtime acceptance test",

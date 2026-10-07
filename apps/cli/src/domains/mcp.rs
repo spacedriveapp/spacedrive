@@ -192,17 +192,13 @@ impl McpServer {
 	}
 
 	/// The library a call runs against: the argument, else the CLI's
-	/// selection, else the first library the daemon lists. Read per call so a
-	/// library created through this server is found without a restart.
+	/// selection when the daemon still has it, else the first library the
+	/// daemon lists. Read per call so a library created or deleted through
+	/// this server is seen without a restart; a stale selection is not
+	/// trusted, as `sd` repairs one on every command.
 	async fn resolve_library(&self, explicit: Option<Uuid>) -> Result<Option<Uuid>, String> {
 		if explicit.is_some() {
 			return Ok(explicit);
-		}
-		if let Some(id) = CliConfig::load(&self.data_dir)
-			.ok()
-			.and_then(|c| c.current_library_id)
-		{
-			return Ok(Some(id));
 		}
 		let libraries = self
 			.send(
@@ -212,12 +208,20 @@ impl McpServer {
 				json!({ "include_stats": false }),
 			)
 			.await?;
-		Ok(libraries
+		let ids: Vec<Uuid> = libraries
 			.as_array()
-			.and_then(|libs| libs.first())
-			.and_then(|lib| lib.get("id"))
-			.and_then(Value::as_str)
-			.and_then(|id| Uuid::parse_str(id).ok()))
+			.map(|libs| {
+				libs.iter()
+					.filter_map(|lib| lib.get("id").and_then(Value::as_str))
+					.filter_map(|id| Uuid::parse_str(id).ok())
+					.collect()
+			})
+			.unwrap_or_default();
+		let selected = CliConfig::load(&self.data_dir)
+			.ok()
+			.and_then(|c| c.current_library_id)
+			.filter(|id| ids.contains(id));
+		Ok(selected.or_else(|| ids.first().copied()))
 	}
 
 	/// One request to the daemon, answered as JSON or as the daemon's own
