@@ -13,18 +13,22 @@ import type { File } from "@sd/ts-client";
 import { MediaViewItem } from "./MediaViewItem";
 import { DateHeader } from "./DateHeader";
 import { formatDate, getItemDate, normalizeDateToMidnight } from "./utils";
+import { MediaTypeFilter, matchesMediaType, type MediaType } from "./MediaTypeFilter";
 import { useExplorerFiles } from "../../hooks/useExplorerFiles";
 
-// Helper to check if a file is a media file (image or video)
-function isMediaFile(file: File): boolean {
-	if (!file.extension) return false;
-	const ext = file.extension.toLowerCase();
-	const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'svg', 'bmp', 'tiff'];
-	const videoExts = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v', 'flv', 'wmv'];
-	return imageExts.includes(ext) || videoExts.includes(ext);
+export function MediaView() {
+	const [mediaType, setMediaType] = useState<MediaType>('all');
+	return (
+		<div className="absolute inset-0 flex flex-col">
+			<MediaTypeFilter value={mediaType} onChange={setMediaType} />
+			<div className="relative flex-1 min-h-0">
+				<MediaViewContent mediaType={mediaType} />
+			</div>
+		</div>
+	);
 }
 
-export function MediaView() {
+function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 	const { currentPath, viewSettings, sortBy, setSortBy, setCurrentFiles, mode } =
 		useExplorer();
 	const {
@@ -74,7 +78,7 @@ export function MediaView() {
 			? {
 					path: currentPath,
 					include_descendants: true,
-					media_types: null,
+					media_types: mediaType === "all" ? ["image", "video"] : [mediaType === "images" ? "image" : "video"],
 					limit: 10000,
 					sort_by: sortBy as any, // MediaSortBy is a subset of DirectorySortBy
 				}
@@ -91,13 +95,13 @@ export function MediaView() {
 		if (usesExplorerFiles) {
 			// Hook-driven modes: filter to media (collections are already
 			// media-only; search results may not be)
-			return [...explorerFiles.filter(isMediaFile)].reverse();
+			return [...explorerFiles.filter(file => matchesMediaType(file, mediaType))].reverse();
 		}
 		// Normal mode: use media_listing query
-		return [...(mediaQuery.data?.files || [])].reverse();
-	}, [usesExplorerFiles, explorerFiles, mediaQuery.data?.files]);
+		return [...(mediaQuery.data?.files || []).filter(file => matchesMediaType(file, mediaType))].reverse();
+	}, [usesExplorerFiles, explorerFiles, mediaQuery.data?.files, mediaType]);
 	const hasFiles = files.length > 0;
-	const listingKey = `${sortBy}:${JSON.stringify(
+	const listingKey = `${mediaType}:${sortBy}:${JSON.stringify(
 		mode.type === "browse" ? currentPath : mode,
 	)}`;
 

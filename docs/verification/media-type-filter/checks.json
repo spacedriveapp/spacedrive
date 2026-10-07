@@ -1,0 +1,17 @@
+{
+  "daemonQuery": {
+    "images": 3,
+    "videos": 1,
+    "recursive": true
+  },
+  "fixtureControls": {
+    "All": 3,
+    "Images": 2,
+    "Videos": 1
+  },
+  "limits": [
+    "UI preview uses fixture data",
+    "Daemon query checked separately",
+    "Native app and full Media gallery not checked"
+  ]
+}

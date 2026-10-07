@@ -36,6 +36,8 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Media type filters (2026-10-08): add All, Images, and Videos controls. Send the selected kinds to recursive folder queries and filter search, collection, and source results. Browser fixture check passed; production frontend build passed. Native app checks remain.
+
 File System Intelligence is a flagship priority identified by James (Codex,
 September 18). The product boundary now names persistent file and folder
 understanding as a first-class user benefit, with optional cloud acceleration.
