@@ -1,10 +1,20 @@
 //! WASM Job Executor
 //!
-//! Generic job type that executes WASM extension jobs.
+//! One core job type runs every extension job. The guest's state is an opaque
+//! JSON string the guest serializes itself, so the core persists it without
+//! knowing its shape: into the job row at dispatch and pause, and into the
+//! checkpoint table every time the guest asks.
+
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc;
 
-use crate::infra::job::prelude::*;
+use crate::infra::job::{error::JobError, prelude::*};
+
+use super::host_functions::{JobBridge, JobEvent};
 
 /// Generic job for executing WASM extension jobs
 #[derive(Debug, Serialize, Deserialize, Job)]
@@ -12,10 +22,13 @@ pub struct WasmJob {
 	/// Extension ID
 	pub extension_id: String,
 
+	/// Name the extension registered the job under (e.g. "counter")
+	pub job_name: String,
+
 	/// WASM export function name (e.g., "execute_test_counter")
 	pub export_fn: String,
 
-	/// Job state as JSON string
+	/// Job state as JSON string, as the guest last checkpointed it
 	pub state_json: String,
 
 	/// For resumability - track if this is a resumed job
@@ -36,80 +49,115 @@ impl crate::infra::job::traits::DynJob for WasmJob {
 	}
 }
 
-// ErasedJob implementation - uses Job derive macro like other jobs
+impl WasmJob {
+	async fn handle(&mut self, event: JobEvent, ctx: &JobContext<'_>) {
+		match event {
+			JobEvent::Progress { fraction, message } => {
+				ctx.progress(Progress::percentage(fraction));
+			}
+			JobEvent::Checkpoint { state, saved } => {
+				let result = ctx.save_state(&state).await;
+				if let Err(e) = &result {
+					ctx.log(format!("Checkpoint not saved: {e}"));
+				}
+				self.state_json = state;
+				let _ = saved.send(result.is_ok());
+			}
+			JobEvent::Warning(message) => ctx.add_warning(message),
+			JobEvent::Items(count) => ctx.increment_items(count).await,
+			JobEvent::Bytes(bytes) => ctx.increment_bytes(bytes).await,
+		}
+	}
+}
 
 #[async_trait::async_trait]
 impl JobHandler for WasmJob {
 	type Output = JobOutput;
 
 	async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
-		tracing::info!(
-			job_id = %ctx.id(),
-			extension = %self.extension_id,
-			export_fn = %self.export_fn,
-			"Executing WASM job"
-		);
+		let plugin_manager = ctx
+			.library()
+			.core_context()
+			.get_plugin_manager()
+			.await
+			.ok_or_else(|| JobError::ExecutionFailed("PluginManager not initialized".into()))?;
+		let runtime = plugin_manager
+			.read()
+			.await
+			.runtime(&self.extension_id)
+			.await
+			.ok_or_else(|| {
+				JobError::ExecutionFailed(format!("Extension '{}' not loaded", self.extension_id))
+			})?;
 
-		// Get PluginManager through Library → CoreContext (simple!)
-		let pm_opt = ctx.library().core_context().get_plugin_manager().await;
+		// A checkpoint outlives a kill; the job row only outlives a pause.
+		if let Some(saved) = ctx.load_state::<String>().await? {
+			ctx.log("Resuming from checkpoint");
+			self.state_json = saved;
+		}
 
-		let pm = match pm_opt {
-			Some(pm) => pm,
-			None => {
-				ctx.log("ERROR: PluginManager not available");
-				return Err(crate::infra::job::error::JobError::ExecutionFailed(
-					"PluginManager not initialized".into(),
-				));
-			}
-		};
-
-		// Prepare job context JSON for WASM
-		let job_ctx_json = serde_json::json!({
-			"job_id": ctx.id().to_string(),
-			"library_id": ctx.library().id().to_string(),
-		});
-		let ctx_json_str = serde_json::to_string(&job_ctx_json).unwrap();
-
-		ctx.log(&format!(
-			"Calling WASM function: {}::{}",
-			self.extension_id, self.export_fn
+		ctx.log(format!(
+			"Running {}:{} ({})",
+			self.extension_id, self.job_name, self.export_fn
 		));
 
-		// Call WASM export function
-		let result = {
-			let pm_lock = pm.write().await;
+		let ctx_json = serde_json::json!({
+			"job_id": ctx.id().to_string(),
+			"library_id": ctx.library().id().to_string(),
+		})
+		.to_string();
 
-			// For now, just verify the plugin is loaded
-			let plugins = pm_lock.list_plugins().await;
-			if !plugins.contains(&self.extension_id) {
-				ctx.log(&format!(
-					"ERROR: Extension '{}' not loaded",
-					self.extension_id
-				));
-				return Err(crate::infra::job::error::JobError::ExecutionFailed(
-					format!("Extension '{}' not loaded", self.extension_id),
-				));
-			}
-
-			ctx.log(&format!("✓ Extension '{}' is loaded", self.extension_id));
-
-			// TODO: Actually call the WASM export
-			// Need to:
-			// 1. Get the Instance for this plugin
-			// 2. Get the export function
-			// 3. Write ctx_json_str and state_json to WASM memory
-			// 4. Call the function with pointers
-			// 5. Read result code
-
-			ctx.log("WASM export call not yet implemented");
-			ctx.log("But the job executed and extension is available!");
-
-			0 // Success code
+		let (events_tx, mut events_rx) = mpsc::unbounded_channel();
+		let interrupted = Arc::new(AtomicBool::new(false));
+		let bridge = JobBridge {
+			events: events_tx,
+			interrupted: interrupted.clone(),
 		};
 
-		ctx.log(&format!("✓ WASM job completed with code: {}", result));
+		// The guest blocks its thread for the whole job, so it runs off the
+		// runtime while this task feeds its host calls back into the context.
+		let export_fn = self.export_fn.clone();
+		let state_json = self.state_json.clone();
+		let mut guest = tokio::task::spawn_blocking(move || {
+			let mut runtime = runtime
+				.lock()
+				.map_err(|_| "plugin runtime lock poisoned".to_string())?;
+			runtime
+				.run_job(&export_fn, &ctx_json, &state_json, bridge)
+				.map_err(|e| e.to_string())
+		});
 
-		Ok(JobOutput::Success)
+		let mut interrupt_poll = tokio::time::interval(Duration::from_millis(50));
+		let exit = loop {
+			tokio::select! {
+				result = &mut guest => break result,
+				event = events_rx.recv() => {
+					if let Some(event) = event {
+						self.handle(event, &ctx).await;
+					}
+				}
+				_ = interrupt_poll.tick() => {
+					if ctx.check_interrupt().await.is_err() {
+						interrupted.store(true, Ordering::SeqCst);
+					}
+				}
+			}
+		};
+		while let Ok(event) = events_rx.try_recv() {
+			self.handle(event, &ctx).await;
+		}
+
+		match exit {
+			Ok(Ok(0)) => Ok(JobOutput::Success),
+			Ok(Ok(1)) => Err(JobError::Interrupted),
+			Ok(Ok(code)) => Err(JobError::ExecutionFailed(format!(
+				"extension job exited with code {code}"
+			))),
+			Ok(Err(e)) => Err(JobError::ExecutionFailed(e)),
+			Err(e) => Err(JobError::ExecutionFailed(format!(
+				"extension job thread failed: {e}"
+			))),
+		}
 	}
 
 	async fn on_resume(&mut self, ctx: &JobContext<'_>) -> JobResult<()> {
@@ -122,6 +170,3 @@ impl JobHandler for WasmJob {
 		self.is_resuming
 	}
 }
-
-// Don't register automatically - will be registered when needed
-// WasmJob is a special case, not auto-loaded like regular jobs

@@ -22,6 +22,7 @@ pub struct PluginEnv {
 	pub permissions: ExtensionPermissions,
 	pub memory: Memory,
 	pub job_registry: Arc<super::job_registry::ExtensionJobRegistry>,
+	pub current_job: Option<JobBridge>,
 }
 
 /// THE MAIN HOST FUNCTION - Generic Wire RPC
@@ -268,27 +269,56 @@ fn write_error_to_memory(memory: &Memory, store: &mut wasmer::StoreMut, error: &
 	write_json_to_memory(memory, store, &error_json)
 }
 
-// === Job-Specific Host Functions ===
+/// What a running job's host calls report back to its `WasmJob`.
+///
+/// The guest runs on a blocking thread while the job's async side drains these
+/// events, so checkpoints reach the job database before the guest continues.
+pub enum JobEvent {
+	Progress {
+		fraction: f32,
+		message: String,
+	},
+	Checkpoint {
+		state: String,
+		saved: tokio::sync::oneshot::Sender<bool>,
+	},
+	Warning(String),
+	Items(u64),
+	Bytes(u64),
+}
+
+/// The job a plugin instance is running right now, if any.
+///
+/// Host functions read it instead of trusting the job id the guest passes, so a
+/// guest cannot report into another job.
+pub struct JobBridge {
+	pub events: tokio::sync::mpsc::UnboundedSender<JobEvent>,
+	pub interrupted: Arc<std::sync::atomic::AtomicBool>,
+}
+
+fn with_job<T>(env: &PluginEnv, fallback: T, f: impl FnOnce(&JobBridge) -> T) -> T {
+	match &env.current_job {
+		Some(bridge) => f(bridge),
+		None => {
+			tracing::warn!(
+				extension = %env.extension_id,
+				"Job host function called outside a job"
+			);
+			fallback
+		}
+	}
+}
 
 /// Report job progress
 pub fn host_job_report_progress(
 	mut env: FunctionEnvMut<PluginEnv>,
-	job_id_ptr: WasmPtr<u8>,
+	_job_id_ptr: WasmPtr<u8>,
 	progress: f32,
 	message_ptr: WasmPtr<u8>,
 	message_len: u32,
 ) {
-	let (plugin_env, mut store) = env.data_and_store_mut();
-	let memory = &plugin_env.memory;
-	let memory_view = memory.view(&store);
-
-	let job_id = match read_uuid_from_wasm(&memory_view, job_id_ptr) {
-		Ok(id) => id,
-		Err(e) => {
-			tracing::error!("Failed to read job ID: {}", e);
-			return;
-		}
-	};
+	let (plugin_env, store) = env.data_and_store_mut();
+	let memory_view = plugin_env.memory.view(&store);
 
 	let message = match read_string_from_wasm(&memory_view, message_ptr, message_len) {
 		Ok(msg) => msg,
@@ -298,85 +328,86 @@ pub fn host_job_report_progress(
 		}
 	};
 
-	tracing::info!(
-		job_id = %job_id,
-		progress = %progress,
-		extension = %plugin_env.extension_id,
-		"{}",
-		message
-	);
-
-	// TODO: Forward to actual JobContext once registry is implemented
+	with_job(plugin_env, (), |job| {
+		let _ = job.events.send(JobEvent::Progress {
+			fraction: progress,
+			message,
+		});
+	});
 }
 
 /// Save job checkpoint
+///
+/// Blocks the guest until the state is in the job database, which is what makes
+/// a checkpoint worth anything after a kill.
 pub fn host_job_checkpoint(
 	mut env: FunctionEnvMut<PluginEnv>,
-	job_id_ptr: WasmPtr<u8>,
-	_state_ptr: WasmPtr<u8>,
-	_state_len: u32,
+	_job_id_ptr: WasmPtr<u8>,
+	state_ptr: WasmPtr<u8>,
+	state_len: u32,
 ) -> i32 {
-	let (plugin_env, mut store) = env.data_and_store_mut();
-	let memory = &plugin_env.memory;
-	let memory_view = memory.view(&store);
+	let (plugin_env, store) = env.data_and_store_mut();
+	let memory_view = plugin_env.memory.view(&store);
 
-	let job_id = match read_uuid_from_wasm(&memory_view, job_id_ptr) {
-		Ok(id) => id,
+	let state = match read_string_from_wasm(&memory_view, state_ptr, state_len) {
+		Ok(state) => state,
 		Err(e) => {
-			tracing::error!("Failed to read job ID: {}", e);
-			return 1; // Error
+			tracing::error!("Failed to read checkpoint state: {}", e);
+			return 1;
 		}
 	};
 
-	tracing::debug!(job_id = %job_id, extension = %plugin_env.extension_id, "Checkpoint saved");
-
-	// TODO: Actually save state to database
-	0 // Success
+	with_job(plugin_env, 1, |job| {
+		let (saved_tx, saved_rx) = tokio::sync::oneshot::channel();
+		if job
+			.events
+			.send(JobEvent::Checkpoint {
+				state,
+				saved: saved_tx,
+			})
+			.is_err()
+		{
+			return 1;
+		}
+		match saved_rx.blocking_recv() {
+			Ok(true) => 0,
+			_ => 1,
+		}
+	})
 }
 
 /// Check if job should be interrupted
 pub fn host_job_check_interrupt(
 	mut env: FunctionEnvMut<PluginEnv>,
-	job_id_ptr: WasmPtr<u8>,
+	_job_id_ptr: WasmPtr<u8>,
 ) -> i32 {
-	let (plugin_env, mut store) = env.data_and_store_mut();
-	let memory = &plugin_env.memory;
-	let memory_view = memory.view(&store);
-
-	let _job_id = match read_uuid_from_wasm(&memory_view, job_id_ptr) {
-		Ok(id) => id,
-		Err(e) => {
-			tracing::error!("Failed to read job ID: {}", e);
-			return 0; // Continue
-		}
-	};
-
-	// TODO: Check actual interrupt status
-	0 // Not interrupted
+	let (plugin_env, _store) = env.data_and_store_mut();
+	with_job(plugin_env, 0, |job| {
+		job.interrupted.load(std::sync::atomic::Ordering::SeqCst) as i32
+	})
 }
 
-/// Add job warning
+/// Add a warning to the job
 pub fn host_job_add_warning(
 	mut env: FunctionEnvMut<PluginEnv>,
-	job_id_ptr: WasmPtr<u8>,
+	_job_id_ptr: WasmPtr<u8>,
 	message_ptr: WasmPtr<u8>,
 	message_len: u32,
 ) {
-	let (plugin_env, mut store) = env.data_and_store_mut();
-	let memory = &plugin_env.memory;
-	let memory_view = memory.view(&store);
-
-	let job_id = match read_uuid_from_wasm(&memory_view, job_id_ptr) {
-		Ok(id) => id,
-		Err(_) => return,
-	};
+	let (plugin_env, store) = env.data_and_store_mut();
+	let memory_view = plugin_env.memory.view(&store);
 
 	let message = match read_string_from_wasm(&memory_view, message_ptr, message_len) {
 		Ok(msg) => msg,
-		Err(_) => return,
+		Err(e) => {
+			tracing::error!("Failed to read warning: {}", e);
+			return;
+		}
 	};
 
-	tracing::warn!(job_id = %job_id, extension = %plugin_env.extension_id, "Job warning: {}", message);
+	with_job(plugin_env, (), |job| {
+		let _ = job.events.send(JobEvent::Warning(message));
+	});
 }
 
 /// Increment bytes processed
@@ -386,8 +417,9 @@ pub fn host_job_increment_bytes(
 	bytes: u64,
 ) {
 	let (plugin_env, _store) = env.data_and_store_mut();
-	tracing::debug!(extension = %plugin_env.extension_id, "Processed {} bytes", bytes);
-	// TODO: Update metrics
+	with_job(plugin_env, (), |job| {
+		let _ = job.events.send(JobEvent::Bytes(bytes));
+	});
 }
 
 /// Increment items processed
@@ -397,8 +429,9 @@ pub fn host_job_increment_items(
 	count: u64,
 ) {
 	let (plugin_env, _store) = env.data_and_store_mut();
-	tracing::debug!(extension = %plugin_env.extension_id, "Processed {} items", count);
-	// TODO: Update metrics
+	with_job(plugin_env, (), |job| {
+		let _ = job.events.send(JobEvent::Items(count));
+	});
 }
 
 // === Extension Registration Functions ===

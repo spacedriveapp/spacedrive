@@ -80,3 +80,18 @@ pub fn register_job_with_host(job_name: &str, export_fn: &str, resumable: bool) 
 		Err(())
 	}
 }
+
+/// Drive a future to completion on the guest's single thread.
+///
+/// Every host call returns before the guest continues, so a future built from
+/// SDK calls is never pending for long. A future that waits on something no
+/// host function supplies would spin here; nothing in the SDK produces one.
+pub fn block_on<F: core::future::Future>(future: F) -> F::Output {
+	let mut future = core::pin::pin!(future);
+	let mut cx = core::task::Context::from_waker(core::task::Waker::noop());
+	loop {
+		if let core::task::Poll::Ready(output) = future.as_mut().poll(&mut cx) {
+			return output;
+		}
+	}
+}

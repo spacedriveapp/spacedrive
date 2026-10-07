@@ -16,6 +16,9 @@ pub struct TestSuite {
 	pub package: &'static str,
 	/// Specific args that go between the common prefix and suffix
 	pub test_args: &'static [&'static str],
+	/// Cargo features the suite's build turns on, or `None` for the default
+	/// set.
+	pub features: Option<&'static str>,
 	/// Which CI job runs it.
 	pub group: Group,
 }
@@ -37,6 +40,9 @@ impl TestSuite {
 	/// Build complete cargo test command arguments
 	pub fn build_args(&self) -> Vec<&str> {
 		let mut args = vec!["test", "-p", self.package];
+		if let Some(features) = self.features {
+			args.extend_from_slice(&["--features", features]);
+		}
 		args.extend_from_slice(self.test_args);
 		args.extend_from_slice(&["--", "--test-threads=1", "--nocapture"]);
 		args
@@ -44,11 +50,16 @@ impl TestSuite {
 }
 
 /// A suite in the `sd-core` crate, which is where most of them live.
+///
+/// The whole integration group builds with the `wasm` feature so the
+/// extension suite shares one `sd-core` build with the rest instead of
+/// compiling the crate a second time.
 const fn core(name: &'static str, test_args: &'static [&'static str]) -> TestSuite {
 	TestSuite {
 		name,
 		package: "sd-core",
 		test_args,
+		features: Some("wasm"),
 		group: Group::Integration,
 	}
 }
@@ -63,6 +74,7 @@ const fn acceptance(
 		name,
 		package,
 		test_args,
+		features: None,
 		group: Group::Acceptance,
 	}
 }
@@ -77,6 +89,7 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		name: "All core unit tests",
 		package: "sd-core",
 		test_args: &["--lib"],
+		features: None,
 		group: Group::Unit,
 	},
 	core(
@@ -120,6 +133,7 @@ pub const CORE_TESTS: &[TestSuite] = &[
 	core("Sync catch-up test", &["--test", "sync_catchup_test"]),
 	core("Library join test", &["--test", "library_join_test"]),
 	core("Dedupe own hash test", &["--test", "dedupe_own_hash_test"]),
+	core("WASM extension test", &["--test", "wasm_extension_test"]),
 	// R8 source runtime acceptance (docs/core/acceptance/source-runtime.md):
 	// the single-daemon rows, the two-process replication rows, and the
 	// store crate's own suites, which carry the store-level rows.

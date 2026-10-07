@@ -1209,6 +1209,18 @@ strategy: string | null; estimated_files: number | null; estimated_bytes: number
 
 export type ExtensionCase = "lower" | "keep";
 
+export type ExtensionInfo = { id: string; name: string; version: string; jobs: ExtensionJobInfo[] };
+
+export type ExtensionJobInfo = { 
+/**
+ * Name the extension registered the job under
+ */
+name: string; 
+/**
+ * Full name a run request uses: `<extension id>:<name>`
+ */
+full_name: string; resumable: boolean };
+
 /**
  * A dependency Spacedrive knows how to discover and use.
  */
@@ -2829,6 +2841,14 @@ noisy_events: string[];
  */
 event_info: EventInfo[] };
 
+export type ListExtensionsInput = Record<string, never>;
+
+export type ListExtensionsOutput = { 
+/**
+ * Whether this build can load extensions at all
+ */
+supported: boolean; extensions: ExtensionInfo[] };
+
 export type ListLibrariesInput = { 
 /**
  * Whether to include detailed statistics for each library
@@ -3878,6 +3898,19 @@ export type RiskLevel =
  * Warning - system directory or root-level path (e.g., /, /System)
  */
 "high";
+
+export type RunExtensionJobInput = { 
+/**
+ * `<extension id>:<job name>`, as `extensions.list` reports it
+ */
+job: string; 
+/**
+ * The job's initial state, in the shape the extension's state type
+ * deserializes. Omit it to start from the state type's default.
+ */
+state?: JsonValue | null };
+
+export type RunExtensionJobOutput = { job_id: string };
 
 /**
  * Detailed breakdown of how the score was calculated
@@ -5594,6 +5627,7 @@ export type CoreAction =
 export type LibraryAction =
      { type: 'adapters.update'; input: UpdateAdapterInput; output: UpdateAdapterOutput }
   |  { type: 'config.library.update'; input: UpdateLibraryConfigInput; output: UpdateLibraryConfigOutput }
+  |  { type: 'extensions.run_job'; input: RunExtensionJobInput; output: RunExtensionJobOutput }
   |  { type: 'files.archive'; input: FileArchiveInput; output: JobReceipt }
   |  { type: 'files.copy'; input: FileCopyInput; output: JobReceipt }
   |  { type: 'files.createFolder'; input: CreateFolderInput; output: CreateFolderOutput }
@@ -5654,6 +5688,7 @@ export type CoreQuery =
   |  { type: 'core.events.list'; input: ListEventsInput; output: ListEventsOutput }
   |  { type: 'core.index_status'; input: IndexStatusInput; output: IndexStatus }
   |  { type: 'core.status'; input: Empty; output: CoreStatus }
+  |  { type: 'extensions.list'; input: ListExtensionsInput; output: ListExtensionsOutput }
   |  { type: 'files.collection_listing'; input: CollectionListingInput; output: CollectionListingOutput }
   |  { type: 'files.duplicates'; input: DuplicatesInput; output: DuplicatesOutput }
   |  { type: 'files.local_path'; input: LocalPathInput; output: LocalPathOutput }
@@ -5797,6 +5832,7 @@ export const WIRE_METHODS = {
   libraryActions: {
     'adapters.update': 'action:adapters.update.input',
     'config.library.update': 'action:config.library.update.input',
+    'extensions.run_job': 'action:extensions.run_job.input',
     'files.archive': 'action:files.archive.input',
     'files.copy': 'action:files.copy.input',
     'files.createFolder': 'action:files.createFolder.input',
@@ -5857,6 +5893,7 @@ export const WIRE_METHODS = {
     'core.events.list': 'query:core.events.list',
     'core.index_status': 'query:core.index_status',
     'core.status': 'query:core.status',
+    'extensions.list': 'query:extensions.list',
     'files.collection_listing': 'query:files.collection_listing',
     'files.duplicates': 'query:files.duplicates',
     'files.local_path': 'query:files.local_path',

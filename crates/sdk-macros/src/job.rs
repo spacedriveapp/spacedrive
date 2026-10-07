@@ -78,6 +78,14 @@ pub fn job_impl(args: TokenStream, input: TokenStream) -> TokenStream {
 		quote! {}
 	};
 
+	// A guest has no event loop, so an async job is driven to completion by
+	// the SDK's single-threaded poll loop; host calls are all synchronous.
+	let invocation = if is_async {
+		quote! { ::spacedrive_sdk::ffi::block_on(#fn_name(&job_ctx, &mut state)) }
+	} else {
+		quote! { #fn_name(&job_ctx, &mut state) }
+	};
+
 	let expanded = quote! {
 		// Keep original function for internal use
 		#(#fn_attrs)*
@@ -132,11 +140,7 @@ pub fn job_impl(args: TokenStream, input: TokenStream) -> TokenStream {
 				<#state_type>::default()
 			};
 
-			// Execute user's function
-			// STUB: Real implementation needs proper async/await support in WASM FFI boundary
-			// For now, just return success as this is demonstration code
-			let _ = &#fn_name; // Keep function reference to avoid unused warnings
-			let result: ::std::result::Result<(), ::spacedrive_sdk::Error> = Ok(());
+			let result: ::std::result::Result<(), ::spacedrive_sdk::Error> = #invocation;
 
 			// Handle result
 			match result {

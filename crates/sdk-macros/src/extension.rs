@@ -133,6 +133,12 @@ pub fn extension_impl(args: TokenStream, input: TokenStream) -> TokenStream {
 		// Generate plugin_init with auto-registration
 		#[no_mangle]
 		pub extern "C" fn plugin_init() -> i32 {
+			// A panic ends the guest call as a trap, so the message is logged
+			// before it is lost.
+			::std::panic::set_hook(Box::new(|info| {
+				::spacedrive_sdk::ffi::log_error(&format!("guest panic: {}", info));
+			}));
+
 			::spacedrive_sdk::ffi::log_info(&format!(
 				"{} v{} initializing...",
 				#ext_name,
