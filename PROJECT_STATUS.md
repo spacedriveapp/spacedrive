@@ -36,7 +36,7 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
-2026-10-08: Copy submenu work adds file, name, pathname, and local PNG/JPEG image actions. The official Tauri clipboard plugin supplies native writes. Seven copy-action tests and the isolated app TypeScript check passed. The browser shows all four choices and the exact test pathname. Desktop build and native clipboard checks are in progress.
+2026-10-08: Copy submenu work adds file, name, pathname, and local PNG/JPEG image actions. The official Tauri clipboard plugin supplies native writes. Seven copy-action tests and the isolated app TypeScript check passed. The browser shows all four choices and the exact test pathname. The combined macOS release app build and installed signature check passed. The app starts. Native image clipboard transfer remains unverified because the current UI automation cannot open the context menu.
 
 File System Intelligence is a flagship priority identified by James (Codex,
 September 18). The product boundary now names persistent file and folder
