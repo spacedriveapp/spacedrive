@@ -144,13 +144,13 @@ pub enum RecordKind {
 	Symlink,
 }
 
-/// Tag
+/// A tag as the host answers it after a change: its stable id, its full
+/// path (`Work/Clients/Acme`) and the leaf segment for display.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tag {
 	pub id: Uuid,
+	pub path: String,
 	pub name: String,
-	pub color: Option<String>,
-	pub icon: Option<String>,
 }
 
 /// Priority levels

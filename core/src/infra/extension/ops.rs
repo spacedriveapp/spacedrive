@@ -8,6 +8,7 @@
 //!
 //! Permission is checked here against the manifest, never in the guest.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -17,9 +18,15 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::domain::sidecar::{SidecarFormat, SidecarKind, SidecarVariant};
+use crate::domain::Tag;
+use crate::infra::action::{error::ActionError, LibraryAction};
 use crate::infra::job::prelude::JobContext;
 use crate::library::Library;
 use crate::ops::indexing::store::SourceStore;
+use crate::ops::tags::{
+	definitions, ApplyTagsAction, ApplyTagsInput, CreateTagAction, CreateTagInput, TagTargets,
+	UnapplyTagsAction, UnapplyTagsInput,
+};
 
 use super::model_registry::{open_extension_store, ExtensionModelRegistry};
 use super::types::ExtensionManifest;
@@ -178,6 +185,21 @@ struct SidecarWrite {
 }
 
 #[derive(Deserialize)]
+struct TagChange {
+	record_uuid: Option<Uuid>,
+	content_uuid: Option<Uuid>,
+	tag: String,
+}
+
+/// A tag as the SDK's `Tag` deserializes it.
+#[derive(Serialize)]
+struct TagOut {
+	id: Uuid,
+	path: String,
+	name: String,
+}
+
+#[derive(Deserialize)]
 struct TaskBegin {
 	name: String,
 	attempt: u32,
@@ -251,6 +273,8 @@ impl JobOps {
 			"models.put" => self.model_put(parse(payload)?).await,
 			"models.get" => self.model_get(parse(payload)?).await,
 			"models.list" => self.model_list(parse(payload)?).await,
+			"tags.add" => self.tag_change(parse(payload)?, true).await,
+			"tags.remove" => self.tag_change(parse(payload)?, false).await,
 			"ai.infer" => self.ai_infer(payload),
 			"config.get" => self.config_get().await,
 			_ => Err(OpError::new(
@@ -374,11 +398,6 @@ impl JobOps {
 	/// grant: a glob grant restricts the extensions a query without its own
 	/// list gets back.
 	async fn record_query(&self, query: RecordQuery) -> OpResult {
-		if query.tag.is_some() {
-			return Err(OpError::invalid_input(
-				"record queries cannot filter by tag yet",
-			));
-		}
 		let permissions = &self.manifest.permissions;
 		if permissions.read_records.is_none() {
 			return Err(OpError::permission_denied(format!(
@@ -397,6 +416,12 @@ impl JobOps {
 		};
 		let limit = query.limit.unwrap_or(QUERY_CAP).min(QUERY_CAP);
 		let scope = query.scope.unwrap_or_default();
+		// A tag filter is applied after the walk: tagged records are few
+		// and the walk is what knows scope and extension.
+		let tagged = match &query.tag {
+			Some(tag) => Some(self.records_with_tag(tag).await?),
+			None => None,
+		};
 
 		let mut records = Vec::new();
 		for store in self.stores().await {
@@ -412,13 +437,19 @@ impl JobOps {
 				Start::First,
 				extensions.as_deref(),
 				false,
-				limit - records.len(),
+				if tagged.is_some() {
+					QUERY_CAP
+				} else {
+					limit - records.len()
+				},
 			)
 			.await
 			.map_err(|e| OpError::failed(e.to_string()))?;
 			records.extend(
 				entries
 					.into_iter()
+					.filter(|entry| tagged.as_ref().is_none_or(|t| t.contains(&entry.uuid)))
+					.take(limit - records.len())
 					.map(|entry| RecordOut::new(store.id(), entry)),
 			);
 		}
@@ -557,6 +588,115 @@ impl JobOps {
 			.await
 			.map_err(|e| OpError::failed(e.to_string()))?;
 		json(&rows)
+	}
+}
+
+impl JobOps {
+	/// Add or remove one tag, named by path, on one record or on one
+	/// content identity.
+	///
+	/// A tag that does not exist yet is created by name, through the same
+	/// `tags.create` path a person uses, so a tag an extension coins is an
+	/// ordinary tag: it lands in the staging table, travels with its first
+	/// assertion and is found by slug the next time anything names it.
+	async fn tag_change(&self, change: TagChange, add: bool) -> OpResult {
+		if !self.manifest.permissions.write_tags {
+			return Err(OpError::permission_denied(format!(
+				"{} has no write_tags grant",
+				self.extension_id
+			)));
+		}
+		let targets = match (change.record_uuid, change.content_uuid) {
+			(Some(record), None) => TagTargets::File(vec![record]),
+			(None, Some(content)) => TagTargets::Content(vec![content]),
+			_ => {
+				return Err(OpError::invalid_input(
+					"a tag change names exactly one of record_uuid or content_uuid",
+				))
+			}
+		};
+		let context = self.library.core_context().clone();
+		let action_error = |e: ActionError| match e {
+			ActionError::InvalidInput(message) => OpError::invalid_input(message),
+			other => OpError::failed(other.to_string()),
+		};
+
+		let tag = if add {
+			CreateTagAction::from_input(CreateTagInput {
+				path: change.tag.clone(),
+				color: None,
+				icon: None,
+			})
+			.map_err(OpError::invalid_input)?
+			.execute(self.library.clone(), context.clone())
+			.await
+			.map_err(action_error)?
+			.tag
+		} else {
+			// Removing a tag that was never defined is a no-op, not a reason
+			// to mint a definition nothing carries.
+			let path = sd_store::normalize_tag_path(&change.tag)
+				.map_err(|e| OpError::invalid_input(e.to_string()))?;
+			let Some(definition) = definitions::find_by_slug(
+				&self.library,
+				context.volume_index(),
+				sd_store::slug_for_path(&path),
+			)
+			.await
+			else {
+				return json(&serde_json::Value::Null);
+			};
+			Tag::from_definition(&definition)
+		};
+
+		let result = if add {
+			ApplyTagsAction::from_input(ApplyTagsInput {
+				targets,
+				tag_ids: vec![tag.id],
+			})
+			.map_err(OpError::invalid_input)?
+			.execute(self.library.clone(), context)
+			.await
+			.map(|_| ())
+		} else {
+			UnapplyTagsAction::from_input(UnapplyTagsInput {
+				targets,
+				tag_ids: vec![tag.id],
+			})
+			.map_err(OpError::invalid_input)?
+			.execute(self.library.clone(), context)
+			.await
+			.map(|_| ())
+		};
+		result.map_err(action_error)?;
+		json(&TagOut {
+			id: tag.id,
+			path: tag.path,
+			name: tag.name,
+		})
+	}
+
+	/// Records in the library's stores that carry a tag, by path. A tag
+	/// nobody defined names no records.
+	async fn records_with_tag(&self, tag: &str) -> Result<HashSet<Uuid>, OpError> {
+		let path =
+			sd_store::normalize_tag_path(tag).map_err(|e| OpError::invalid_input(e.to_string()))?;
+		let index = self.library.core_context().volume_index();
+		let Some(definition) =
+			definitions::find_by_slug(&self.library, index, sd_store::slug_for_path(&path)).await
+		else {
+			return Ok(HashSet::new());
+		};
+		let mut records = HashSet::new();
+		for store in self.stores().await {
+			match store.db().records_with_tag(definition.uuid).await {
+				Ok(found) => records.extend(found),
+				Err(error) => {
+					tracing::warn!(source = %store.id(), %error, "tagged records unavailable")
+				}
+			}
+		}
+		Ok(records)
 	}
 }
 
