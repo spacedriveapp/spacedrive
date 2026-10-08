@@ -28,7 +28,8 @@ reports `supported: false` and `extensions.run_job` is refused.
 - `model_registry.rs`: the models each extension declared through
   `register_model`. The registry turns them into one `DataTypeSchema` and opens
   an sd-store database at `<library>/extensions/<extension id>/data.db` the first
-  time a job touches a model.
+  time a job touches a model or a custom field. Every schema carries a
+  built-in `custom_field` model; a guest may not register that name.
 - `wasm_job.rs`: the one core job type that runs every extension job. It
   holds the guest's state as a JSON string and persists it through the normal
   checkpoint table, so a kill or a pause resumes from the guest's last
@@ -83,8 +84,12 @@ that the SDK maps onto its own error type.
 | Operation | Grant | What it does |
 | --- | --- | --- |
 | `task.begin`, `task.end` | none | Bracket one `#[task]` attempt. The host writes an attempt line to the job log and refuses a task that outlives the SDK's deadline. |
-| `records.get`, `records.query` | `read_records` | A record by uuid, or the records of the library's sources filtered by kind and extension. The optional `glob` on the grant is honored for its trailing extension list only (`*.jpg`, `**/*.{jpg,png}`); the directory part is ignored, and a glob of another shape is refused at load. Tag filters are refused. |
+| `records.get`, `records.query` | `read_records` | A record by uuid, or the records of the library's sources filtered by kind and extension. The optional `glob` on the grant is honored for its trailing extension list only (`*.jpg`, `**/*.{jpg,png}`); the directory part is ignored, and a glob of another shape is refused at load. A tag filter names a path; an undefined tag matches nothing. |
 | `records.read` | `read_records` | The bytes of a record, read from its source store's root. |
+| `records.exif` | `read_records` | Capture time, GPS and camera for an image record: from the store's `facet_image` row when an ingest wrote one, otherwise parsed from the file (no ingest writes the facet yet; the op does not write it either). |
+| `records.set_field`, `records.get_field` | `write_custom_fields` (per namespace) for writes; reads are the extension's own | One custom field per record, namespace and name, as JSON text in the `custom_field` model every extension's store carries. The source store holds no per-record extension metadata, so fields live beside the extension's models. |
+| `tags.add`, `tags.remove` | `write_tags` | Apply or remove one tag, by path, on a record or a content identity, through `tags.create`, `tags.apply` and `tags.unapply`. A path nobody defined is created on add and a no-op on remove. |
+| `jobs.dispatch` | `dispatch_jobs` | Queue one of the calling extension's own jobs by registered name with a starting state; the name resolves under the caller's id. |
 | `sidecars.exists`, `sidecars.read` | `read_sidecars` | One JSON document under `<library>/sidecars/`, keyed by content uuid and `SidecarKind::Extension { extension_id, kind }`. |
 | `sidecars.write` | `write_sidecars` (per kind) | Writes that document. |
 | `models.put`, `models.get`, `models.list` | none, models are the extension's own | A row in the extension's store, keyed by the model's uuid or `content:<uuid>` for a content-scoped model. |
@@ -96,19 +101,24 @@ that the SDK maps onto its own error type.
 Everything in the table above, plus `spacedrive_log`, `register_job`,
 `register_model`, `spacedrive_random`, `spacedrive_now_ms` and the `job_*`
 functions (`job_report_progress`, `job_checkpoint`, `job_check_interrupt`,
-`job_add_warning`, `job_increment_items`, `job_increment_bytes`). Tags, custom
-fields, dispatching jobs, agents and file-kind or preview registration have no
-host side; the SDK returns an error or panics in the guest, and the panic
-reaches the host log and fails the job.
+`job_add_warning`, `job_increment_items`, `job_increment_bytes`). Agents,
+actions and queries have no host side; the SDK returns an error or panics in
+the guest, and the panic reaches the host log and fails the job. A dispatched
+job's priority and placement options are accepted and ignored.
 
 ## Testing
 
 `core/tests/wasm_extension_test.rs` loads the committed fixtures
 `extensions/test-extension/test_extension.wasm` and
 `extensions/photos/photos.wasm` against a library with twelve JPEG-magic
-files and two text files. The test extension's `catalog` job exercises
-records, sidecars, models and tasks; the photos extension's `analyze_photos`
-runs end to end and takes the `not_available` path for face detection.
+files and two text files, and a second library of twelve hand-built
+EXIF JPEGs with capture times and GPS. The test extension's `catalog` job
+exercises records, sidecars, models and tasks; its `tag` job exercises tags,
+custom fields and dispatch, and is refused under a manifest without the
+grants. The photos extension's `analyze_photos` runs end to end and takes the
+`not_available` path for face detection; `create_moments` groups the dated
+JPEGs into three moments from EXIF alone, and `identify_places` and
+`analyze_scenes` do their non-inference parts.
 Rebuild a fixture from its crate with `cargo build --release` (each crate's
 `.cargo/config.toml` selects wasm32-unknown-unknown) and copy the artifact
 next to its manifest. The suite is its own xtask acceptance entry with the
