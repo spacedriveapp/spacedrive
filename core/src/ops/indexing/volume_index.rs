@@ -1673,11 +1673,20 @@ impl VolumeIndex {
 		(handle.offline_copy == offline_copy).then(|| handle.db.clone())
 	}
 
-	/// Close a source's cached read-only handle, so the file it reads can be
-	/// replaced. The next read reopens whichever file is then the one to
-	/// read.
-	pub async fn retire_read_store(&self, source_id: Uuid) {
-		let handle = self.read_stores.write().remove(&source_id);
+	/// Close a source's cached read-only handle when it reads the offline
+	/// copy, so the copy's file can be replaced or removed; Windows refuses
+	/// the rename while SQLite holds the file. A handle on the origin is
+	/// left alone: other readers hold the same pool, and closing it would
+	/// fail their queries mid-flight. The next read reopens whichever file
+	/// is then the one to read.
+	pub async fn retire_offline_copy_reader(&self, source_id: Uuid) {
+		let handle = {
+			let mut stores = self.read_stores.write();
+			match stores.get(&source_id) {
+				Some(handle) if handle.offline_copy => stores.remove(&source_id),
+				_ => None,
+			}
+		};
 		if let Some(handle) = handle {
 			handle.db.pool().close().await;
 		}

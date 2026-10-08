@@ -275,8 +275,9 @@ pub async fn sync_source(
 		}
 	};
 
-	// Whatever reads the previous copy lets go before the file moves.
-	cache.retire_read_store(source_id).await;
+	// Whatever reads the previous copy lets go before the file moves; a
+	// handle on the origin stays, since other readers share it.
+	cache.retire_offline_copy_reader(source_id).await;
 	tokio::fs::rename(&part, dirs.offline_copy_file(source_id)).await?;
 	let manifest = OfflineCopyManifest {
 		source_id,
@@ -365,7 +366,7 @@ pub async fn remove(cache: &VolumeIndex, source_id: Uuid) -> anyhow::Result<()> 
 		),
 	}
 
-	cache.retire_read_store(source_id).await;
+	cache.retire_offline_copy_reader(source_id).await;
 	tokio::fs::remove_file(&copy).await?;
 	let _ = tokio::fs::remove_file(dirs.offline_copy_manifest(source_id)).await;
 	let _ = tokio::fs::remove_file(dirs.offline_copy_part(source_id)).await;
@@ -380,26 +381,10 @@ pub async fn delete_with_catalog(cache: &VolumeIndex, source_id: Uuid) {
 	let Some(dirs) = cache.source_dirs() else {
 		return;
 	};
-	cache.retire_read_store(source_id).await;
+	cache.retire_offline_copy_reader(source_id).await;
 	let _ = tokio::fs::remove_file(dirs.offline_copy_file(source_id)).await;
 	let _ = tokio::fs::remove_file(dirs.offline_copy_manifest(source_id)).await;
 	let _ = tokio::fs::remove_file(dirs.offline_copy_part(source_id)).await;
-}
-
-/// Apply a change of the `keep_offline_copy` setting: off removes the copy
-/// behind its origin check, on starts a copy.
-pub async fn apply_setting(
-	context: &Arc<CoreContext>,
-	source_id: Uuid,
-	previous: bool,
-	now: bool,
-) -> anyhow::Result<()> {
-	if previous && !now {
-		remove(context.volume_index(), source_id).await?;
-	} else if now && !previous {
-		sync_soon(context.clone(), source_id);
-	}
-	Ok(())
 }
 
 /// Copy a source now, off the caller's path.
@@ -653,6 +638,9 @@ mod tests {
 			sync_source(&cache, None, id, Pace::Settled).await.unwrap(),
 			SyncOutcome::Settling
 		);
+		// A reader holding the origin's pool across a publish keeps working:
+		// the publish retires only a handle on the copy.
+		let held = cache.read_store(id).await.expect("origin handle");
 		let copied = sync_source(&cache, None, id, Pace::Now).await.unwrap();
 		assert!(
 			matches!(
@@ -664,6 +652,11 @@ mod tests {
 			),
 			"{copied:?}"
 		);
+		let counted: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM record")
+			.fetch_one(held.pool())
+			.await
+			.expect("the origin pool is still open");
+		assert_eq!(counted.0, 3);
 		assert_eq!(info(&cache, id).await.unwrap().behind_by, Some(0));
 	}
 }
