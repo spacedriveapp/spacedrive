@@ -151,6 +151,10 @@ struct TrackedVolume {
 	is_mount: bool,
 }
 
+/// Rows read per arena lock during a store rebuild. At the measured insert
+/// cost a page holds the lock for a few milliseconds.
+const REBUILD_PAGE: usize = 2_000;
+
 /// Add every filesystem row of a store to an arena, rooted at `root`.
 ///
 /// Ancestors are synthesized by the arena itself and content kinds derive
@@ -159,10 +163,6 @@ struct TrackedVolume {
 /// snapshot is. The arena is locked one store page at a time, so a
 /// multi-million-record rebuild never holds a listing on the same drive
 /// for longer than one page of inserts. Returns how many entries were added.
-/// Rows read per arena lock during a store rebuild. At the measured insert
-/// cost a page holds the lock for a few milliseconds.
-const REBUILD_PAGE: usize = 2_000;
-
 pub(crate) async fn fill_arena_from_store(
 	index: &TokioRwLock<Arena>,
 	db: &sd_store::SourceDb,
@@ -1824,6 +1824,18 @@ impl VolumeIndex {
 			.indexing_in_progress
 			.read()
 			.contains(path)
+	}
+
+	/// Whether `path` or a directory above it is being indexed. A recursive
+	/// walk or a store fill in progress over an ancestor covers everything
+	/// beneath it, and a browse dispatched into that tree would clear what
+	/// the fill has already placed there.
+	pub fn is_under_indexing(&self, path: &Path) -> bool {
+		self.resolve(path)
+			.indexing_in_progress
+			.read()
+			.iter()
+			.any(|indexing| path.starts_with(indexing))
 	}
 
 	/// Restore a registered source's snapshot into its partition, if it has

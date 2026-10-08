@@ -54,6 +54,29 @@ fn session(library: &Library) -> SessionContext {
 	session
 }
 
+/// The sorted names a directory listing returns. `File::name` is the stem;
+/// the extension travels separately.
+async fn list_dir(core: &Arc<Core>, library: &Arc<Library>, path: PathBuf) -> Vec<String> {
+	let listing = DirectoryListingQuery::from_input(DirectoryListingInput {
+		path: SdPath::Physical {
+			device_slug: sd_core::device::get_current_device_slug(),
+			path,
+		},
+		limit: None,
+		include_hidden: Some(false),
+		sort_by: DirectorySortBy::Name,
+		folders_first: Some(false),
+		overlay: None,
+	})
+	.expect("input")
+	.execute(core.context.clone(), session(library))
+	.await
+	.expect("listing");
+	let mut names: Vec<String> = listing.files.iter().map(|file| file.name.clone()).collect();
+	names.sort();
+	names
+}
+
 async fn job_count(library: &Library) -> usize {
 	library.jobs().list_jobs(None).await.expect("jobs").len()
 }
@@ -187,40 +210,27 @@ async fn restart_and_check(walked: &Walked, retained_prefix: Option<&str>) {
 	let jobs_before = job_count(&library).await;
 	let cache = core.context.volume_index();
 
-	let list = || async {
-		let listing = DirectoryListingQuery::from_input(DirectoryListingInput {
-			path: SdPath::Physical {
-				device_slug: sd_core::device::get_current_device_slug(),
-				path: walked.root.clone(),
-			},
-			limit: None,
-			include_hidden: Some(false),
-			sort_by: DirectorySortBy::Name,
-			folders_first: Some(false),
-			overlay: None,
-		})
-		.expect("input")
-		.execute(core.context.clone(), session(&library))
-		.await
-		.expect("listing");
-		// `File::name` is the stem; the extension travels separately.
-		let mut names: Vec<String> = listing.files.iter().map(|file| file.name.clone()).collect();
-		names.sort();
-		names
-	};
+	let list_dir = |path: PathBuf| list_dir(&core, &library, path);
 
-	// The first listing lands while the rebuild may still be running: it
-	// is served from the store in that case, and from the arena once the
-	// rebuild has landed. Either way it names the files and starts no walk.
+	// The first listings land while the rebuild may still be running: they
+	// are served from the store in that case, and from the arena once the
+	// rebuild has landed. Either way they name the files and start no walk,
+	// a subdirectory included, since a browse dispatched beneath the fill
+	// would clear what it had already placed.
 	assert_eq!(
-		list().await,
+		list_dir(walked.root.join("photos")).await,
+		vec!["c", "d", "trip"],
+		"a subdirectory lists while the map comes back"
+	);
+	assert_eq!(
+		list_dir(walked.root.clone()).await,
 		vec!["a", "b", "notes", "photos"],
 		"the listing is served while the map comes back"
 	);
 	assert_eq!(
 		job_count(&library).await,
 		jobs_before,
-		"the first listing dispatched no walk"
+		"the first listings dispatched no walk"
 	);
 	for _ in 0..600 {
 		if !cache.is_indexing(&walked.root) && cache.arena_answers(&walked.root) {
@@ -229,9 +239,14 @@ async fn restart_and_check(walked: &Walked, retained_prefix: Option<&str>) {
 		tokio::time::sleep(Duration::from_millis(50)).await;
 	}
 	assert_eq!(
-		list().await,
+		list_dir(walked.root.clone()).await,
 		vec!["a", "b", "notes", "photos"],
 		"the listing is served from the rebuilt map"
+	);
+	assert_eq!(
+		list_dir(walked.root.join("photos/trip")).await,
+		vec!["e"],
+		"the deepest subtree survived the fill"
 	);
 	assert!(
 		cache.arena_answers(&walked.root),
