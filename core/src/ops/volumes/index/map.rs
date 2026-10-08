@@ -236,17 +236,22 @@ pub async fn map_attached_volumes(
 
 		let cache = context.volume_index();
 		cache.track_detected_volume(volume.id, volume.mount_point.clone(), volume.is_mounted);
-		let restored = cache.ensure_restored(&volume.mount_point).await;
+		cache.ensure_restored(&volume.mount_point).await;
 
 		// Runs whether or not the volume restored: a restored snapshot can
 		// faithfully persist a coverage hole, which is exactly the state
-		// this repairs.
+		// this repairs. A drive whose sources were rebuilt from their stores
+		// is covered and skipped here the same way.
 		heal_uncovered_sources(library, context, &volume).await;
 
 		if !whole_drives {
 			continue;
 		}
-		if restored {
+		// Only a snapshot carries the whole drive. Sources rebuilt from their
+		// stores already list; the walk below maps the rest of the drive
+		// around them and keeps their uuids, as any walk over a live arena
+		// does.
+		if cache.restored_from_snapshot(&volume.mount_point) {
 			debug!(
 				"{} restored from its snapshot; not walking it again",
 				volume.mount_point.display()

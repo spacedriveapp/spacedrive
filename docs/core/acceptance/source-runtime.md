@@ -50,7 +50,7 @@ cargo test -p sd-core --lib repeated_clear_and_refill_keeps_allocation_bounded -
 | 7 | Old schema with origin offline | `crates/store/tests/files.rs` `an_index_that_predates_parent_addressing_is_refused_intact` (the compatibility-status branch: the old table and its assertions stay intact; no data-preserving migration exists yet) | passing |
 | 8 | Same volume, nested roots, reversed registration order | `core/src/ops/indexing/sources.rs` `a_nested_source_never_redefines_its_volume_root`, `reversed_registration_order_keeps_one_volume_boundary`; `core/src/ops/indexing/volume_index.rs` `a_nested_source_shares_the_drive_it_sits_on`, `nested_sources_registered_inner_first_share_one_map_and_identity` | passing |
 | 9 | Remount and APFS alias changes | Remount: `core/src/ops/indexing/sources.rs` `a_remount_keeps_the_source`, `folders_on_one_drive_are_distinct_sources`, `a_different_drive_at_the_same_mount_point_is_a_different_source`; `core/src/ops/indexing/volume_index.rs` `a_root_mismatched_snapshot_moves_aside_instead_of_deleting`. APFS alias: none | passing (remount) / not automatable (APFS: firmlink spellings such as `/System/Volumes/Data/Users/x` only exist on macOS; `VolumeManager::locate_path` resolves them through the live volume list, which a Linux runner cannot produce) |
-| 10 | Missing or invalid restart snapshot | `core/src/ops/indexing/volume_index.rs` `an_invalid_snapshot_leaves_the_source_visible_and_its_store_readable`, `test_snapshot_roundtrip_and_detached_restore` (missing); `an_invalid_snapshot_is_retained_for_diagnosis` | passing / fixed (see F2) |
+| 10 | Missing or invalid restart snapshot | `core/tests/snapshot_rebuild_acceptance_test.rs` `a_missing_snapshot_rebuilds_the_map_from_the_store`, `a_corrupt_snapshot_is_quarantined_and_the_map_rebuilt_from_the_store` (real restart); `core/src/ops/indexing/volume_index.rs` `an_invalid_snapshot_leaves_the_source_visible_and_rebuilt_from_its_store`, `an_older_format_snapshot_is_quarantined_and_the_map_rebuilt_from_the_store`, `an_invalid_snapshot_is_retained_for_diagnosis`, `test_snapshot_roundtrip_and_detached_restore` | passing / fixed (see F2) |
 | 11 | Failed watcher subscription | `core/tests/source_runtime_acceptance_test.rs` `a_refused_watch_is_not_reported_active` (refusal reported with its reason on `core.index_status`, then a retry flips the root to active) | fixed (see F3) |
 | 12 | Offline client restart | `core/src/service/mounts/peer.rs` `a_cold_restore_rebuilds_the_inventory_without_the_owner`, `published_facts_outlive_the_owners_connection`, `a_manifest_without_facts_still_restores` | passing |
 | 13 | One failing source among nine | `core/src/service/mounts/peer.rs` `one_failing_source_among_nine_stays_listed_as_unavailable` | passing |
@@ -111,6 +111,28 @@ no launch parses the artifact again; the test asserts the bytes survive at
 the aside path. One retained copy is enough: when a `.corrupt-*` sibling
 already exists, a later unreadable artifact in the slot is removed instead,
 so a recurring failure cannot fill the disk.
+
+Follow-up: a partition whose snapshot is missing, quarantined, or from an
+older format no longer costs a walk. `VolumeIndex::ensure_restored` starts
+a background fill of every attached source on the drive from its store, the
+same fill a library restore uses, and resolves at once so no reader waits
+on it; each root is in progress until its fill lands, a listing serves the
+store meanwhile, and the landed source announces its root, which routes it
+to the arena and re-arms its watch. The coverage heal finds the source in
+progress or covered and dispatches nothing. The rebuild
+runs for a source whose registry row carries a record count, which a
+snapshot save writes, so it is the evidence a map existed and was lost; a
+source never walked to completion keeps answering from its store without
+an arena (rows 4 and 5 of this matrix), and a source with no store records
+is left for the heal to walk. A store rebuild covers
+the registered sources and not the rest of the drive, so the discovery pass
+(`map_attached_volumes` with defaults) still maps the drive around them in
+the background, as it does for any drive without a snapshot. The real
+restart is `core/tests/snapshot_rebuild_acceptance_test.rs`: the listing is
+served from the store while the fill runs and from the arena once it has
+landed, no job is dispatched, and `core.index_status` then reports the
+source restored with nothing in progress. The 1M-record rebuild time is
+recorded in `docs/core/design/ephemeral-snapshot-format.md`.
 
 ### F3. Row 11: a refused watch was reported active (fixed)
 

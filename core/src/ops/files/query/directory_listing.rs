@@ -304,6 +304,21 @@ impl DirectoryListingQuery {
 			});
 		}
 
+		// A source whose map is being filled from its store is in that state
+		// for the length of the fill, and its records are already true, so
+		// the store answers for anything beneath the root until the arena
+		// does; a browse dispatched into that tree would clear the subtree
+		// the fill has already placed.
+		if cache.is_filling_from_store(&local_path) {
+			if let Some(listing) = self.list_from_store(&context, &local_path).await {
+				tracing::debug!(
+					"Map of {} is being filled from its store; serving the store",
+					local_path.display()
+				);
+				return Ok(listing);
+			}
+		}
+
 		// No cached index or index doesn't cover this path
 		// Check if indexing is already in progress
 		if cache.is_indexing(&local_path) {

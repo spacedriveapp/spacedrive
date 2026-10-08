@@ -751,6 +751,87 @@ pub async fn all_entries_page(
 	Ok((rows.into_iter().filter_map(entry_from_row).collect(), last))
 }
 
+/// What an arena rebuild needs from a row: identity, kind, path and the
+/// facet metadata, without the content columns a listing also carries.
+#[derive(Debug, Clone)]
+pub struct RebuildEntry {
+	pub uuid: Uuid,
+	pub kind: FileKind,
+	pub relative_path: String,
+	pub size: Option<i64>,
+	pub mtime_ms: Option<i64>,
+	pub atime_ms: Option<i64>,
+	pub created_ms: Option<i64>,
+	pub is_hidden: bool,
+	pub link_target: Option<String>,
+	pub inode: Option<i64>,
+	pub mode: Option<i64>,
+	pub uid: Option<i64>,
+	pub gid: Option<i64>,
+}
+
+#[derive(FromRow)]
+struct RebuildRow {
+	rowid: i64,
+	uuid: Uuid,
+	kind: String,
+	rel_path: String,
+	size: Option<i64>,
+	mtime_ms: Option<i64>,
+	atime_ms: Option<i64>,
+	created_ms: Option<i64>,
+	is_hidden: i64,
+	link_target: Option<String>,
+	inode: Option<i64>,
+	mode: Option<i64>,
+	uid: Option<i64>,
+	gid: Option<i64>,
+}
+
+/// A page of entries for rebuilding an arena, in rowid order after
+/// `after_rowid`, with the last rowid read.
+///
+/// The same rows [`all_entries_page`] returns, minus the content join and
+/// its columns: a rebuild derives content kinds from extensions the way a
+/// walk does, and the join plus six decoded columns per row were a third of
+/// the time a million-record rebuild spent reading.
+pub async fn rebuild_entries_page(
+	pool: &SqlitePool,
+	after_rowid: i64,
+	limit: usize,
+) -> Result<(Vec<RebuildEntry>, i64)> {
+	let rows: Vec<RebuildRow> = sqlx::query_as(
+		"SELECT r.rowid AS rowid, r.uuid AS uuid, r.type AS kind, 		 COALESCE(own.path, parent.path || '/' || r.title, COALESCE(r.title, '')) AS rel_path, 		 f.size AS size, f.mtime AS mtime_ms, f.atime AS atime_ms, r.created_at AS created_ms, 		 COALESCE(f.is_hidden, 0) AS is_hidden, f.link_target AS link_target, 		 f.inode AS inode, f.mode AS mode, f.uid AS uid, f.gid AS gid 		 FROM record r 		 LEFT JOIN directory_path own ON own.record_uuid = r.uuid 		 LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid 		 LEFT JOIN facet_file f ON f.record_uuid = r.uuid 		 WHERE r.rowid > ? ORDER BY r.rowid LIMIT ?",
+	)
+	.bind(after_rowid)
+	.bind(limit as i64)
+	.fetch_all(pool)
+	.await?;
+	let last = rows.last().map(|row| row.rowid).unwrap_or(after_rowid);
+	let entries = rows
+		.into_iter()
+		.filter_map(|row| {
+			let kind = FileKind::parse(&row.kind)?;
+			Some(RebuildEntry {
+				uuid: row.uuid,
+				kind,
+				relative_path: row.rel_path,
+				size: row.size,
+				mtime_ms: row.mtime_ms,
+				atime_ms: row.atime_ms,
+				created_ms: row.created_ms,
+				is_hidden: row.is_hidden != 0,
+				link_target: row.link_target,
+				inode: row.inode,
+				mode: row.mode,
+				uid: row.uid,
+				gid: row.gid,
+			})
+		})
+		.collect();
+	Ok((entries, last))
+}
+
 /// Case-folded substring search over record titles.
 ///
 /// Folding happens in Rust so the semantics match the arena's registry

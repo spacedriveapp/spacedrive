@@ -1230,9 +1230,9 @@ async fn arena_from_database(
 	db: &sd_store::SourceDb,
 	share_root: &std::path::Path,
 ) -> anyhow::Result<Arena> {
-	let mut index = Arena::new()?;
-	crate::ops::indexing::volume_index::fill_arena_from_store(&mut index, db, share_root).await?;
-	Ok(index)
+	let index = TokioRwLock::new(Arena::new()?);
+	crate::ops::indexing::volume_index::fill_arena_from_store(&index, db, share_root).await?;
+	Ok(index.into_inner())
 }
 
 /// Fetch one source's database into the device's replica directory, rebuild
