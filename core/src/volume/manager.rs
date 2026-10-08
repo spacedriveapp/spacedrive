@@ -861,7 +861,7 @@ impl VolumeManager {
 							events.emit(Event::VolumeMountChanged {
 								fingerprint: fingerprint.clone(),
 								is_mounted: new_info.is_mounted,
-								state: new_state,
+								state: Some(new_state),
 							});
 
 							// Auto-run speed test when volume is mounted

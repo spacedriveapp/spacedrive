@@ -369,6 +369,12 @@ function SetupDialog({
 		},
 		{ enabled: target.kind === "path" },
 	);
+	// Which of the listed volumes are this device's, so a drive another
+	// device tracked at the same mount point cannot refuse an add here.
+	const { data: devices } = useLibraryQuery({
+		type: "devices.list",
+		input: { include_offline: true, include_details: false, show_paired: false },
+	});
 	const trackSource = useLibraryMutation("sources.track");
 	const trackVolume = useLibraryMutation("volumes.track");
 	const updateConfig = useLibraryMutation("config.library.update");
@@ -383,7 +389,11 @@ function SetupDialog({
 	const loaded = Boolean(config && sources && volumeList);
 	// A drive that is unmounted or locked cannot be added until it is back;
 	// the core would refuse, and the modal says why before the attempt.
-	const refusal = addRefusal(target, volumes);
+	const refusal = addRefusal(
+		target,
+		volumes,
+		devices?.find((device) => device.is_current)?.id,
+	);
 
 	const [edits, setEdits] = useState<Partial<AddSettings>>({});
 	const [typedName, setTypedName] = useState<string | null>(null);

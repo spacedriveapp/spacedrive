@@ -264,37 +264,69 @@ describe("addRefusal", () => {
 		mount_point: "/mnt/archive",
 		is_mounted: false,
 	});
+	const volumes = [mounted, locked, unmounted];
 
 	test("a mounted drive or a folder on one adds", () => {
-		expect(addRefusal({ kind: "volume", volume: mounted }, [mounted])).toBeUndefined();
+		expect(addRefusal({ kind: "volume", volume: mounted }, volumes, "dev")).toBeUndefined();
 		expect(
-			addRefusal({ kind: "path", path: "/mnt/pool/photos" }, [mounted, locked]),
+			addRefusal({ kind: "path", path: "/mnt/pool/photos" }, volumes, "dev"),
 		).toBeUndefined();
 	});
 
 	test("a locked drive is refused with its key as the reason", () => {
-		expect(addRefusal({ kind: "volume", volume: locked }, [mounted, locked])).toBe(
+		expect(addRefusal({ kind: "volume", volume: locked }, volumes, "dev")).toBe(
 			"vault is locked: its encryption key is not loaded. Load the key and mount it, then add it.",
 		);
 	});
 
 	test("an unmounted drive is refused under its display name", () => {
-		expect(addRefusal({ kind: "volume", volume: unmounted }, [unmounted])).toBe(
+		expect(addRefusal({ kind: "volume", volume: unmounted }, volumes, "dev")).toBe(
 			"Archive is not mounted. Mount it, then add it.",
 		);
 	});
 
 	test("a path at or under an away drive's mount point is refused like the drive", () => {
-		const volumes = [mounted, locked, unmounted];
-		expect(addRefusal({ kind: "path", path: "/mnt/pool/vault" }, volumes)).toContain(
+		expect(addRefusal({ kind: "path", path: "/mnt/pool/vault" }, volumes, "dev")).toContain(
 			"vault is locked",
 		);
 		expect(
-			addRefusal({ kind: "path", path: "/mnt/pool/vault/photos" }, volumes),
+			addRefusal({ kind: "path", path: "/mnt/pool/vault/photos" }, volumes, "dev"),
 		).toContain("vault is locked");
-		expect(addRefusal({ kind: "path", path: "/mnt/archive" }, volumes)).toContain(
+		expect(addRefusal({ kind: "path", path: "/mnt/archive" }, volumes, "dev")).toContain(
 			"Archive is not mounted",
 		);
-		expect(addRefusal({ kind: "path", path: "/mnt/archives" }, volumes)).toBeUndefined();
+		expect(addRefusal({ kind: "path", path: "/mnt/archives" }, volumes, "dev")).toBeUndefined();
+	});
+
+	test("another device's away drive never refuses a path here", () => {
+		const laptops = volume({
+			id: "t7-laptop",
+			name: "T7",
+			device_id: "laptop",
+			mount_point: "/Volumes/T7",
+			is_mounted: false,
+		});
+		expect(
+			addRefusal({ kind: "path", path: "/Volumes/T7/photos" }, [laptops], "dev"),
+		).toBeUndefined();
+
+		const here = volume({ id: "t7", name: "T7", mount_point: "/Volumes/T7" });
+		expect(
+			addRefusal({ kind: "path", path: "/Volumes/T7/photos" }, [laptops, here], "dev"),
+		).toBeUndefined();
+	});
+
+	test("without a known device id, a mounted drive at the same mount point wins", () => {
+		const stale = volume({
+			id: "t7-old",
+			name: "T7",
+			device_id: "laptop",
+			mount_point: "/Volumes/T7",
+			is_mounted: false,
+		});
+		const here = volume({ id: "t7", name: "T7", mount_point: "/Volumes/T7" });
+		expect(
+			addRefusal({ kind: "path", path: "/Volumes/T7/photos" }, [stale, here], undefined),
+		).toBeUndefined();
 	});
 });

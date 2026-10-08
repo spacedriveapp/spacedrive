@@ -344,12 +344,6 @@ impl VolumeState {
 		self == Self::Mounted
 	}
 
-	/// The state an event from before `locked` existed implies, for a
-	/// payload that carries only `is_mounted`.
-	pub fn from_mounted_flag() -> Self {
-		Self::Unmounted
-	}
-
 	pub fn is_locked(self) -> bool {
 		self == Self::Locked
 	}

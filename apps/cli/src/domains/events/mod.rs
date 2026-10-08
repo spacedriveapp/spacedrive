@@ -205,8 +205,10 @@ fn summarize_event(event: &Event) -> String {
 			)
 		}
 		Event::VolumeMountChanged {
-			fingerprint, state, ..
-		} => match state {
+			fingerprint,
+			is_mounted,
+			state,
+		} => match state.unwrap_or(VolumeState::from_flags(*is_mounted, false)) {
 			VolumeState::Locked => format!("Volume {} locked: key not loaded", fingerprint.0),
 			VolumeState::Unmounted => format!("Volume {} unmounted", fingerprint.0),
 			VolumeState::Mounted => format!("Volume {} mounted", fingerprint.0),
@@ -434,7 +436,7 @@ mod tests {
 		let locked = Event::VolumeMountChanged {
 			fingerprint: fingerprint.clone(),
 			is_mounted: false,
-			state: VolumeState::Locked,
+			state: Some(VolumeState::Locked),
 		};
 		assert_eq!(
 			summarize_event(&locked),
@@ -444,9 +446,20 @@ mod tests {
 		let mounted = Event::VolumeMountChanged {
 			fingerprint: fingerprint.clone(),
 			is_mounted: true,
-			state: VolumeState::Mounted,
+			state: Some(VolumeState::Mounted),
 		};
 		assert_eq!(summarize_event(&mounted), "Volume vault mounted");
+
+		let from_an_older_daemon = Event::VolumeMountChanged {
+			fingerprint: fingerprint.clone(),
+			is_mounted: true,
+			state: None,
+		};
+		assert_eq!(
+			summarize_event(&from_an_older_daemon),
+			"Volume vault mounted",
+			"without a state the flag decides"
+		);
 
 		let updated = Event::VolumeUpdated {
 			fingerprint,

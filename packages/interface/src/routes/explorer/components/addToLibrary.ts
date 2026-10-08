@@ -92,27 +92,43 @@ export function containingVolume(
 }
 
 /**
- * Why the add cannot start at all, when the target is a drive Spacedrive
+ * Why the add cannot start at all, when the target is a drive this device
  * knows but cannot read: a whole drive that is unmounted or locked, or a
  * path at or under such a drive's mount point. The core refuses these
  * (`sources.track` names the volume's state), and the directory left at
  * the mount point would otherwise be added as an empty folder of the
  * parent drive.
+ *
+ * Only this device's volumes count, since `volumes.list` also carries
+ * other devices' tracked rows and peers' published volumes under their
+ * own mount points: a drive the laptop tracked at `/Volumes/T7` must not
+ * refuse the same path here. Among this device's volumes the deepest
+ * mount point wins, a mounted one first at equal depth, so a mounted
+ * drive covering the path is never outranked by an away row beside it.
  */
 export function addRefusal(
 	target: AddTarget,
 	volumes: readonly Volume[],
+	deviceId: string | undefined,
 ): string | undefined {
-	const away =
-		target.kind === "volume"
-			? target.volume
-			: volumes.find(
-					(volume) =>
-						!volume.is_mounted &&
-						[volume.mount_point, ...volume.mount_points].some(
-							(mount) => mount && isUnder(target.path, mount),
-						),
-				);
+	let away: Volume | undefined;
+	if (target.kind === "volume") {
+		away = target.volume;
+	} else {
+		let best: { volume: Volume; depth: number } | undefined;
+		for (const volume of volumes) {
+			if (deviceId !== undefined && volume.device_id !== deviceId) continue;
+			for (const mount of [volume.mount_point, ...volume.mount_points]) {
+				if (!mount || !isUnder(target.path, mount)) continue;
+				const better =
+					!best ||
+					mount.length > best.depth ||
+					(mount.length === best.depth && volume.is_mounted && !best.volume.is_mounted);
+				if (better) best = { volume, depth: mount.length };
+			}
+		}
+		away = best?.volume;
+	}
 	if (!away || away.is_mounted) return undefined;
 	const name = away.display_name || away.name;
 	return away.locked
