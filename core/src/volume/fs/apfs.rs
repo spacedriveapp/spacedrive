@@ -405,6 +405,7 @@ pub fn containers_to_volumes(
 				available_space: available_bytes,
 				is_read_only: volume_info.sealed,
 				is_mounted: true,
+				locked: false,
 				hardware_id: Some(volume_info.disk_id.clone()),
 				backend: None,
 				cloud_identifier: None,

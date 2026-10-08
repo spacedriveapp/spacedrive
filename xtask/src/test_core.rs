@@ -177,13 +177,22 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Resource events test",
 		&["--test", "resource_events_test"],
 	),
-	// Locked volumes L1 and L2 (docs/core/acceptance/volumes.md): loop-mounted
-	// volumes unmounted with their mount points left behind. Skips with a
-	// reason where there is no sudo or no loop device.
+	// Locked volumes L1, L2 and plain L4 (docs/core/acceptance/volumes.md):
+	// loop-mounted volumes unmounted with their mount points left behind,
+	// and remounted under the running daemon. Skips with a reason where
+	// there is no sudo or no loop device.
 	acceptance(
 		"sd-core",
 		"Locked volumes acceptance test",
 		&["--test", "locked_volumes_acceptance_test"],
+	),
+	// Locked volumes L3 and L4 on ZFS: a file-backed pool with an encrypted
+	// dataset locked and unlocked under the running daemon. Skips with a
+	// reason where there is no sudo, no zfs userland or no zfs module.
+	acceptance(
+		"sd-core",
+		"ZFS locked volumes acceptance test",
+		&["--test", "zfs_locked_volumes_acceptance_test"],
 	),
 	// A source whose drive snapshot is missing or unusable at restart lists
 	// from a map rebuilt out of its store before any walk runs.

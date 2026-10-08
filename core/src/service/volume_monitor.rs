@@ -1,10 +1,16 @@
 //! Volume monitoring service
 //!
-//! Periodically refreshes volume information and updates tracked volumes in the database.
+//! Periodically refreshes volume information and updates tracked volumes in
+//! the database. The volume index does not wait for this loop: it follows
+//! the volume manager's events through [`follow_volume_events`], so a
+//! source detaches or reattaches as soon as a refresh notices its drive.
 
 use crate::{
-	context::CoreContext, infra::event::EventBus, library::LibraryManager, service::Service,
-	volume::VolumeManager,
+	context::CoreContext,
+	infra::event::{Event, EventBus},
+	library::LibraryManager,
+	service::Service,
+	volume::{Volume, VolumeFingerprint, VolumeManager, VolumeState},
 };
 use anyhow::Result;
 use std::sync::{Arc, Weak};
@@ -61,14 +67,12 @@ impl VolumeMonitorService {
 	/// A tracked volume detection still returns follows its mount state. One
 	/// detection no longer returns is marked offline: a drive in a drawer or a
 	/// dataset whose key is not loaded does not stay online because its row
-	/// said so at the last refresh. Every change is also told to the volume
-	/// index, so the sources on that drive detach or attach without waiting
-	/// for a restart.
+	/// said so at the last refresh. The volume index learns the same change
+	/// from the manager's events, not from here.
 	pub async fn reconcile_tracked_volumes(
 		volume_manager: &VolumeManager,
 		library: &Arc<crate::library::Library>,
 	) -> Result<()> {
-		let volume_index = library.core_context().volume_index();
 		let tracked_volumes = volume_manager.get_tracked_volumes(library).await?;
 		// The table holds every device's rows; a peer's drive is not mounted
 		// here and its row is not this device's to write.
@@ -106,18 +110,15 @@ impl VolumeMonitorService {
 				continue;
 			}
 
-			let mount_point = current
-				.as_ref()
-				.map(|volume| volume.mount_point.clone())
-				.unwrap_or_else(|| {
-					std::path::PathBuf::from(tracked.mount_point.as_deref().unwrap_or_default())
-				});
-			volume_index.set_volume_mounted(tracked.uuid, &mount_point, mounted);
 			info!(
 				"Tracked volume {} in library {} is now {}",
 				tracked.fingerprint,
 				library.id(),
-				if mounted { "online" } else { "offline" }
+				current
+					.as_ref()
+					.map(|volume| volume.state())
+					.unwrap_or(VolumeState::Unmounted)
+					.as_str()
 			);
 		}
 		Ok(())
@@ -164,8 +165,13 @@ impl VolumeMonitorService {
 					// Check for new external volumes to auto-track
 					let all_volumes = volume_manager.get_all_volumes().await;
 					for volume in all_volumes {
-						// Only consider external volumes
-						if matches!(volume.mount_type, crate::volume::types::MountType::External) {
+						// Only consider mounted external volumes; a dataset that
+						// is away cannot carry an identity file yet.
+						if volume.is_mounted
+							&& matches!(
+								volume.mount_type,
+								crate::volume::types::MountType::External
+							) {
 							for library in &libraries {
 								// Check if auto-tracking is enabled
 								let config = library.config().await;
@@ -262,4 +268,155 @@ impl Service for VolumeMonitorService {
 	fn name(&self) -> &'static str {
 		"volume_monitor"
 	}
+}
+
+/// Keep the volume index in step with the volume manager for as long as the
+/// core runs.
+///
+/// The manager emits an event when a drive appears, disappears, or changes
+/// mount state, and the index is the one place that knows which sources sit
+/// on that drive. Routing the change through the event bus rather than the
+/// monitor's loop means a refresh triggered by the mount watcher, by the
+/// `volumes.refresh` op or by the timer all reach the index the same way.
+/// When a drive returns, every source on it that had failed identifications
+/// while it was away has them put back in the pending set and a background
+/// identity pass dispatched, so a file that could not be read because its
+/// volume was locked is read once the key loads.
+pub fn follow_volume_events(context: Arc<CoreContext>) -> tokio::task::JoinHandle<()> {
+	let mut events = context.events.subscribe();
+	tokio::spawn(async move {
+		loop {
+			let event = match events.recv().await {
+				Ok(event) => event,
+				Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+					// A removal is emitted once; a drive whose removal fell in
+					// the gap would read mounted for the rest of the session,
+					// so the index is re-read against the manager instead.
+					warn!("volume follower skipped {skipped} events; resyncing the index");
+					resync(&context).await;
+					continue;
+				}
+				Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
+			};
+			match event {
+				Event::VolumeAdded(volume) => apply_volume(&context, &volume).await,
+				Event::VolumeMountChanged { fingerprint, .. }
+				| Event::VolumeUpdated { fingerprint, .. } => {
+					if let Some(volume) = context.volume_manager.get_volume(&fingerprint).await {
+						apply_volume(&context, &volume).await;
+					}
+				}
+				Event::VolumeRemoved { fingerprint } => vanished(&context, &fingerprint).await,
+				_ => {}
+			}
+		}
+	})
+}
+
+/// Bring every drive the index maps in line with what the manager holds now,
+/// for a window of events the follower did not see.
+async fn resync(context: &Arc<CoreContext>) {
+	let live = context.volume_manager.get_all_volumes().await;
+	for (uuid, fingerprint) in context.volume_index().mapped_volumes() {
+		let Some(fingerprint) = fingerprint else {
+			continue;
+		};
+		match live.iter().find(|volume| volume.fingerprint == fingerprint) {
+			Some(volume) => apply_volume(context, volume).await,
+			None if context.volume_index().volume_state(uuid) != Some(VolumeState::Unmounted) => {
+				vanished(context, &fingerprint).await
+			}
+			None => {}
+		}
+	}
+}
+
+/// A drive detection returned; the index follows its state when it maps
+/// the drive. `volume.id` is the row uuid once the drive is tracked by a
+/// library, and the fingerprint reaches a drive tracked before that.
+async fn apply_volume(context: &Arc<CoreContext>, volume: &Volume) {
+	let index = context.volume_index();
+	let uuid = match index.volume_by_fingerprint(&volume.fingerprint) {
+		Some((uuid, _)) => uuid,
+		None if index.volume_state(volume.id).is_some() => volume.id,
+		None => return,
+	};
+	let state = volume.state();
+	if index.volume_state(uuid) == Some(state) {
+		// Capacity figures change every refresh; only a state change moves
+		// anything here.
+		return;
+	}
+	let returned = index
+		.volume_state_changed(uuid, &volume.mount_point, state)
+		.await;
+	info!(
+		volume = %uuid,
+		mount_point = %volume.mount_point.display(),
+		state = state.as_str(),
+		"volume index followed a mount change"
+	);
+	if returned.is_empty() {
+		return;
+	}
+	let libraries = context.libraries().await;
+	for (library_id, source_id, root) in returned {
+		let Some(library_id) = library_id else {
+			continue;
+		};
+		let Some(library) = libraries.get_library(library_id).await else {
+			continue;
+		};
+		let Some(store) = index.store_for(&root).await else {
+			continue;
+		};
+		match store.retry_failed_identifications().await {
+			Ok(0) => {}
+			Ok(reset) => {
+				info!(source = %source_id, reset, "failed identifications are pending again")
+			}
+			Err(error) => {
+				warn!(source = %source_id, %error, "could not reset failed identifications")
+			}
+		}
+		let pending = store.files_needing_content_count().await.unwrap_or(0);
+		if pending == 0 {
+			continue;
+		}
+		if let Some(reason) = index.dispatch_refusal(&root) {
+			warn!(source = %source_id, %reason, "not identifying the returned source");
+			continue;
+		}
+		let job =
+			crate::ops::indexing::content_identity::ContentIdentityJob::background(root.clone());
+		match library
+			.jobs()
+			.dispatch_with_priority(job, crate::infra::job::types::JobPriority::LOW, None)
+			.await
+		{
+			Ok(handle) => info!(
+				source = %source_id,
+				pending,
+				job = %handle.id(),
+				"identifying the contents of a returned source"
+			),
+			Err(error) => warn!(source = %source_id, %error, "could not resume identification"),
+		}
+	}
+}
+
+/// Detection stopped returning a drive: its sources detach at the mount
+/// point they had, so their maps stay readable there.
+async fn vanished(context: &Arc<CoreContext>, fingerprint: &VolumeFingerprint) {
+	let index = context.volume_index();
+	let Some((uuid, mount_point)) = index.volume_by_fingerprint(fingerprint) else {
+		return;
+	};
+	if index.volume_state(uuid) == Some(VolumeState::Unmounted) {
+		return;
+	}
+	index
+		.volume_state_changed(uuid, &mount_point, VolumeState::Unmounted)
+		.await;
+	info!(volume = %uuid, mount_point = %mount_point.display(), "volume index followed a vanished drive");
 }

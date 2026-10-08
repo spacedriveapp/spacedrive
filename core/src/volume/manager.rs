@@ -389,6 +389,7 @@ impl VolumeManager {
 										as u64,
 									is_read_only: false,
 									is_mounted: true,
+									locked: false,
 									hardware_id: None,
 									backend: Some(Arc::new(backend)),
 									cloud_identifier: db_volume.cloud_identifier.clone(),
@@ -695,6 +696,10 @@ impl VolumeManager {
 			VolumeFingerprint,
 			(Uuid, Uuid, Option<String>, Option<u64>, Option<u64>),
 		> = HashMap::new();
+		// A dataset whose key is not loaded cannot be read, so detection
+		// cannot derive the fingerprint its row was tracked under. The row's
+		// mount point is the one thing both sides still know.
+		let mut tracked_mount_points: HashMap<PathBuf, VolumeFingerprint> = HashMap::new();
 		if let Some(lib_mgr) = library_manager.read().await.as_ref() {
 			if let Some(lib_mgr) = lib_mgr.upgrade() {
 				let libraries = lib_mgr.get_open_libraries().await;
@@ -748,6 +753,10 @@ impl VolumeManager {
 							}
 							debug!("DB_MERGE: Found tracked volume - fingerprint: {}, display_name: {:?}, read_speed: {:?}, write_speed: {:?}",
 								fingerprint.short_id(), db_vol.display_name, db_vol.read_speed_mbps, db_vol.write_speed_mbps);
+							if let Some(mount_point) = &db_vol.mount_point {
+								tracked_mount_points
+									.insert(PathBuf::from(mount_point), fingerprint.clone());
+							}
 							tracked_volumes_map.insert(
 								fingerprint,
 								(
@@ -781,6 +790,16 @@ impl VolumeManager {
 
 		// Process detected volumes
 		for mut detected in detected_volumes {
+			if !detected.is_mounted && !tracked_volumes_map.contains_key(&detected.fingerprint) {
+				if let Some(tracked) = tracked_mount_points.get(&detected.mount_point) {
+					debug!(
+						"Matching unmounted volume at {} to tracked fingerprint {} by mount point",
+						detected.mount_point.display(),
+						tracked.short_id()
+					);
+					detected.fingerprint = tracked.clone();
+				}
+			}
 			let fingerprint = detected.fingerprint.clone();
 			seen_fingerprints.insert(fingerprint.clone());
 
@@ -811,6 +830,7 @@ impl VolumeManager {
 					let new_info = VolumeInfo::from(&detected);
 
 					if old_info.is_mounted != new_info.is_mounted
+						|| old_info.locked != new_info.locked
 						|| old_info.total_bytes_available != new_info.total_bytes_available
 						|| old_info.error_status != new_info.error_status
 					{
@@ -2263,6 +2283,17 @@ impl VolumeManager {
 		{
 			debug!(
 				"Skipping Spacedrive identifier management for cloud volume: {}",
+				volume.name
+			);
+			return None;
+		}
+
+		// The directory at an unmounted volume's mount point belongs to the
+		// parent filesystem; a file written there shadows under the mount
+		// and, with ZFS overlay off, stops the dataset from mounting at all.
+		if !volume.is_mounted {
+			debug!(
+				"Skipping Spacedrive identifier management for unmounted volume: {}",
 				volume.name
 			);
 			return None;

@@ -42,6 +42,59 @@ fn zpool_bin() -> &'static str {
 	})
 }
 
+/// The columns every `zfs list` here asks for.
+///
+/// `mounted`, `encryption` and `keystatus` are what tell a dataset whose key
+/// is not loaded apart from one that is merely unmounted; `canmount` tells
+/// a dataset that never mounts (a container for its children) from one that
+/// is away. All of them are readable without privileges.
+const LIST_COLUMNS: &str =
+	"name,mountpoint,used,available,type,mounted,encryption,keystatus,canmount";
+
+/// The first five columns, for a zfs too old to know `encryption` and
+/// `keystatus`. [`ZfsDatasetInfo::parse_line`] reads such output as every
+/// dataset mounted and unlocked, which is what the mount table said before.
+const BASIC_LIST_COLUMNS: &str = "name,mountpoint,used,available,type";
+
+/// Whether a zfs binary can be run, so detection can list datasets the
+/// mount table does not show. A binary outside the usual prefixes (NixOS,
+/// a custom install) is found through PATH the way `Command` finds it.
+pub fn zfs_available() -> bool {
+	let bin = zfs_bin();
+	if Path::new(bin).is_absolute() {
+		return Path::new(bin).exists();
+	}
+	std::env::var_os("PATH")
+		.is_some_and(|path| std::env::split_paths(&path).any(|dir| dir.join(bin).exists()))
+}
+
+/// Run `zfs list -H -t filesystem` with `args` appended, asking for the
+/// state columns first and falling back to the basic five when the zfs
+/// rejects them.
+fn zfs_list(args: &[&str]) -> VolumeResult<String> {
+	let mut last_error = None;
+	for columns in [LIST_COLUMNS, BASIC_LIST_COLUMNS] {
+		let output = Command::new(zfs_bin())
+			.args(["list", "-H", "-o", columns, "-t", "filesystem"])
+			.args(args)
+			.output()
+			.map_err(|e| {
+				crate::volume::error::VolumeError::platform(format!(
+					"Failed to run zfs list: {}",
+					e
+				))
+			})?;
+		if output.status.success() {
+			return Ok(String::from_utf8_lossy(&output.stdout).to_string());
+		}
+		last_error = Some(String::from_utf8_lossy(&output.stderr).trim().to_string());
+	}
+	Err(crate::volume::error::VolumeError::platform(format!(
+		"zfs list command failed: {}",
+		last_error.unwrap_or_default()
+	)))
+}
+
 /// ZFS filesystem handler
 pub struct ZfsHandler;
 
@@ -68,38 +121,11 @@ impl ZfsHandler {
 	async fn get_dataset_info(&self, path: &Path) -> VolumeResult<ZfsDatasetInfo> {
 		let path = path.to_path_buf();
 
-		task::spawn_blocking(move || {
-			// Use zfs list to find the dataset containing this path
-			let output = Command::new(zfs_bin())
-				.args([
-					"list",
-					"-H",
-					"-o",
-					"name,mountpoint,used,available,type",
-					"-t",
-					"filesystem",
-				])
-				.output()
-				.map_err(|e| {
-					crate::volume::error::VolumeError::platform(format!(
-						"Failed to run zfs list: {}",
-						e
-					))
-				})?;
-
-			if !output.status.success() {
-				return Err(crate::volume::error::VolumeError::platform(
-					"zfs list command failed".to_string(),
-				));
-			}
-
-			let output_text = String::from_utf8_lossy(&output.stdout);
-			find_dataset_for_path(&output_text, &path)
-		})
-		.await
-		.map_err(|e| {
-			crate::volume::error::VolumeError::platform(format!("Task join error: {}", e))
-		})?
+		task::spawn_blocking(move || find_dataset_for_path(&zfs_list(&[])?, &path))
+			.await
+			.map_err(|e| {
+				crate::volume::error::VolumeError::platform(format!("Task join error: {}", e))
+			})?
 	}
 
 	/// Get ZFS pool information
@@ -146,39 +172,11 @@ impl ZfsHandler {
 	pub async fn get_pool_datasets(&self, pool_name: &str) -> VolumeResult<Vec<ZfsDatasetInfo>> {
 		let pool_name = pool_name.to_string();
 
-		task::spawn_blocking(move || {
-			let output = Command::new(zfs_bin())
-				.args([
-					"list",
-					"-H",
-					"-r",
-					"-o",
-					"name,mountpoint,used,available,type",
-					"-t",
-					"filesystem",
-					&pool_name,
-				])
-				.output()
-				.map_err(|e| {
-					crate::volume::error::VolumeError::platform(format!(
-						"Failed to run zfs list: {}",
-						e
-					))
-				})?;
-
-			if !output.status.success() {
-				return Err(crate::volume::error::VolumeError::platform(
-					"zfs list command failed".to_string(),
-				));
-			}
-
-			let output_text = String::from_utf8_lossy(&output.stdout);
-			parse_zfs_datasets(&output_text)
-		})
-		.await
-		.map_err(|e| {
-			crate::volume::error::VolumeError::platform(format!("Task join error: {}", e))
-		})?
+		task::spawn_blocking(move || parse_zfs_datasets(&zfs_list(&["-r", &pool_name])?))
+			.await
+			.map_err(|e| {
+				crate::volume::error::VolumeError::platform(format!("Task join error: {}", e))
+			})?
 	}
 }
 
@@ -234,6 +232,63 @@ pub struct ZfsDatasetInfo {
 	pub available_bytes: u64,
 	pub dataset_type: String,
 	pub readonly: bool,
+	/// The dataset is in the mount table.
+	pub mounted: bool,
+	/// The dataset is encrypted and its key is not loaded, so it cannot
+	/// mount until `zfs load-key` runs.
+	pub locked: bool,
+	/// `canmount` is `on` or `noauto`: the dataset mounts at its mount point
+	/// when asked. `off` names a dataset that exists only to hold children.
+	pub can_mount: bool,
+}
+
+impl ZfsDatasetInfo {
+	/// Parse one `zfs list -H` line in [`LIST_COLUMNS`] order.
+	///
+	/// A line with only the first five columns still parses; the state
+	/// columns then read as mounted and unlocked, which is what the mount
+	/// table said about every dataset before.
+	fn parse_line(line: &str) -> Option<Self> {
+		let fields: Vec<&str> = line.split('\t').collect();
+		if fields.len() < 5 {
+			return None;
+		}
+		let name = fields[0];
+		let mountpoint = fields[1];
+		let mount_point = (mountpoint != "-" && mountpoint != "legacy" && mountpoint != "none")
+			.then(|| PathBuf::from(mountpoint));
+		let field = |index: usize| fields.get(index).copied().unwrap_or("-");
+		let encrypted = !matches!(field(6), "-" | "off");
+		Some(Self {
+			name: name.to_string(),
+			pool_name: name.split('/').next().unwrap_or(name).to_string(),
+			mount_point,
+			used_bytes: parse_zfs_size(fields[2]).unwrap_or(0),
+			available_bytes: parse_zfs_size(fields[3]).unwrap_or(0),
+			dataset_type: fields[4].to_string(),
+			readonly: false,
+			mounted: field(5) != "no",
+			locked: encrypted && field(7) == "unavailable",
+			can_mount: field(8) != "off",
+		})
+	}
+}
+
+/// Datasets `zfs list` knows that are not in the mount table but would mount
+/// at a real path if asked: an unmounted dataset, or one whose key is not
+/// loaded. The mount table cannot show these, which is why a locked dataset
+/// used to read as an empty directory on its parent.
+pub fn unmounted_datasets(zfs_list_output: &str) -> Vec<ZfsDatasetInfo> {
+	zfs_list_output
+		.lines()
+		.filter_map(ZfsDatasetInfo::parse_line)
+		.filter(|dataset| {
+			!dataset.mounted
+				&& dataset.can_mount
+				&& dataset.dataset_type == "filesystem"
+				&& dataset.mount_point.is_some()
+		})
+		.collect()
 }
 
 /// ZFS pool information
@@ -251,76 +306,29 @@ fn find_dataset_for_path(
 	zfs_list_output: &str,
 	target_path: &Path,
 ) -> VolumeResult<ZfsDatasetInfo> {
-	let mut best_match: Option<ZfsDatasetInfo> = None;
-	let mut best_match_len = 0;
-
-	for line in zfs_list_output.lines() {
-		let fields: Vec<&str> = line.split('\t').collect();
-		if fields.len() >= 5 {
-			let name = fields[0];
-			let mountpoint = fields[1];
-			let used = fields[2];
-			let available = fields[3];
-			let dataset_type = fields[4];
-
-			if mountpoint != "-" && mountpoint != "legacy" {
-				let mount_path = Path::new(mountpoint);
-				if target_path.starts_with(mount_path) && mountpoint.len() > best_match_len {
-					let pool_name = name.split('/').next().unwrap_or(name).to_string();
-
-					best_match = Some(ZfsDatasetInfo {
-						name: name.to_string(),
-						pool_name,
-						mount_point: Some(mount_path.to_path_buf()),
-						used_bytes: parse_zfs_size(used).unwrap_or(0),
-						available_bytes: parse_zfs_size(available).unwrap_or(0),
-						dataset_type: dataset_type.to_string(),
-						readonly: false, // Would need additional property check
-					});
-					best_match_len = mountpoint.len();
-				}
-			}
-		}
-	}
-
-	best_match.ok_or_else(|| {
-		crate::volume::error::VolumeError::platform("Path not found in any ZFS dataset".to_string())
-	})
+	zfs_list_output
+		.lines()
+		.filter_map(ZfsDatasetInfo::parse_line)
+		.filter(|dataset| {
+			dataset
+				.mount_point
+				.as_ref()
+				.is_some_and(|mount| target_path.starts_with(mount))
+		})
+		.max_by_key(|dataset| dataset.mount_point.as_ref().map(|m| m.as_os_str().len()))
+		.ok_or_else(|| {
+			crate::volume::error::VolumeError::platform(
+				"Path not found in any ZFS dataset".to_string(),
+			)
+		})
 }
 
 /// Parse zfs list output to get all datasets
 fn parse_zfs_datasets(zfs_list_output: &str) -> VolumeResult<Vec<ZfsDatasetInfo>> {
-	let mut datasets = Vec::new();
-
-	for line in zfs_list_output.lines() {
-		let fields: Vec<&str> = line.split('\t').collect();
-		if fields.len() >= 5 {
-			let name = fields[0];
-			let mountpoint = fields[1];
-			let used = fields[2];
-			let available = fields[3];
-			let dataset_type = fields[4];
-
-			let pool_name = name.split('/').next().unwrap_or(name).to_string();
-			let mount_point = if mountpoint != "-" && mountpoint != "legacy" {
-				Some(PathBuf::from(mountpoint))
-			} else {
-				None
-			};
-
-			datasets.push(ZfsDatasetInfo {
-				name: name.to_string(),
-				pool_name,
-				mount_point,
-				used_bytes: parse_zfs_size(used).unwrap_or(0),
-				available_bytes: parse_zfs_size(available).unwrap_or(0),
-				dataset_type: dataset_type.to_string(),
-				readonly: false, // Would need additional property check
-			});
-		}
-	}
-
-	Ok(datasets)
+	Ok(zfs_list_output
+		.lines()
+		.filter_map(ZfsDatasetInfo::parse_line)
+		.collect())
 }
 
 /// Parse zpool status output
@@ -405,34 +413,9 @@ fn parse_zfs_size(size_str: &str) -> Option<u64> {
 
 /// Fetch `zfs list` output once for reuse across multiple volumes
 pub async fn fetch_zfs_list_output() -> VolumeResult<String> {
-	task::spawn_blocking(|| {
-		let output = Command::new(zfs_bin())
-			.args([
-				"list",
-				"-H",
-				"-o",
-				"name,mountpoint,used,available,type",
-				"-t",
-				"filesystem",
-			])
-			.output()
-			.map_err(|e| {
-				crate::volume::error::VolumeError::platform(format!(
-					"Failed to run zfs list: {}",
-					e
-				))
-			})?;
-
-		if !output.status.success() {
-			return Err(crate::volume::error::VolumeError::platform(
-				"zfs list command failed".to_string(),
-			));
-		}
-
-		Ok(String::from_utf8_lossy(&output.stdout).to_string())
-	})
-	.await
-	.map_err(|e| crate::volume::error::VolumeError::platform(format!("Task join error: {}", e)))?
+	task::spawn_blocking(|| zfs_list(&[])).await.map_err(|e| {
+		crate::volume::error::VolumeError::platform(format!("Task join error: {}", e))
+	})?
 }
 
 /// Enhance a volume using pre-fetched `zfs list` output (no subprocess call)
@@ -542,6 +525,34 @@ mod tests {
 			Some((1.5 * 1024.0 * 1024.0 * 1024.0) as u64)
 		);
 		assert_eq!(parse_zfs_size("-"), Some(0));
+	}
+
+	#[test]
+	fn a_dataset_whose_key_is_not_loaded_is_locked_not_merely_unmounted() {
+		let output = "tank\t/tank\t100M\t900M\tfilesystem\tyes\toff\t-\ton\n\
+			tank/vault\t/tank/vault\t0\t900M\tfilesystem\tno\taes-256-gcm\tunavailable\ton\n\
+			tank/spare\t/tank/spare\t0\t900M\tfilesystem\tno\toff\t-\ton\n\
+			tank/open\t/tank/open\t0\t900M\tfilesystem\tyes\taes-256-gcm\tavailable\ton\n\
+			tank/holder\t/tank/holder\t0\t900M\tfilesystem\tno\toff\t-\toff\n\
+			tank/legacy\tlegacy\t0\t900M\tfilesystem\tno\toff\t-\ton\n\
+			tank/none\tnone\t0\t900M\tfilesystem\tno\toff\t-\ton";
+
+		let away = unmounted_datasets(output);
+		let names: Vec<&str> = away.iter().map(|d| d.name.as_str()).collect();
+		assert_eq!(names, ["tank/vault", "tank/spare"]);
+		assert!(away[0].locked, "an unavailable key is a locked dataset");
+		assert!(!away[1].locked, "no key status is merely unmounted");
+		assert_eq!(away[0].mount_point, Some(PathBuf::from("/tank/vault")));
+
+		let open = find_dataset_for_path(output, Path::new("/tank/open/file")).unwrap();
+		assert!(open.mounted && !open.locked);
+	}
+
+	#[test]
+	fn five_column_output_still_parses_as_mounted() {
+		let dataset = ZfsDatasetInfo::parse_line("tank\t/tank\t100M\t900M\tfilesystem").unwrap();
+		assert!(dataset.mounted && !dataset.locked && dataset.can_mount);
+		assert!(unmounted_datasets("tank\t/tank\t100M\t900M\tfilesystem").is_empty());
 	}
 
 	#[test]

@@ -430,6 +430,15 @@ impl SourceStore {
 		Ok(count.max(0) as u64)
 	}
 
+	/// Put every file whose identification failed back in the pending set,
+	/// for a volume that came back: the failures were the volume's, not the
+	/// files'. Returns how many files are pending again.
+	pub async fn retry_failed_identifications(&self) -> Result<u64> {
+		sd_store::clear_content_errors(self.db.pool())
+			.await
+			.with_context(|| format!("clear content errors in source {}", self.id))
+	}
+
 	/// Record what the bytes behind these records turned out to be.
 	pub async fn identified(&self, identities: Vec<(Uuid, ContentIdentity)>) {
 		if identities.is_empty() {

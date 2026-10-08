@@ -252,6 +252,9 @@ pub struct SpacedriveVolumeId {
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct VolumeInfo {
 	pub is_mounted: bool,
+	/// Unmounted because the volume's encryption key is not loaded.
+	#[serde(default)]
+	pub locked: bool,
 	pub total_bytes_available: u64,
 	pub read_speed_mbps: Option<u64>,
 	pub write_speed_mbps: Option<u64>,
@@ -313,6 +316,45 @@ pub enum VolumeEvent {
 		fingerprint: VolumeFingerprint,
 		error: String,
 	},
+}
+
+/// How a known volume stands right now.
+///
+/// Derived on every refresh from the mount table and, on ZFS, from the
+/// dataset's `mounted` and `keystatus` properties; nothing stores it. A
+/// locked volume is unmounted, and the distinction is the reason: its key
+/// is not loaded, so mounting it needs the key rather than a cable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub enum VolumeState {
+	Mounted,
+	Unmounted,
+	Locked,
+}
+
+impl VolumeState {
+	pub fn from_flags(is_mounted: bool, locked: bool) -> Self {
+		match (is_mounted, locked) {
+			(true, _) => Self::Mounted,
+			(false, true) => Self::Locked,
+			(false, false) => Self::Unmounted,
+		}
+	}
+
+	pub fn is_mounted(self) -> bool {
+		self == Self::Mounted
+	}
+
+	pub fn is_locked(self) -> bool {
+		self == Self::Locked
+	}
+
+	pub fn as_str(self) -> &'static str {
+		match self {
+			Self::Mounted => "mounted",
+			Self::Unmounted => "unmounted",
+			Self::Locked => "locked",
+		}
+	}
 }
 
 /// Configuration for volume detection and monitoring
@@ -405,6 +447,12 @@ pub struct Volume {
 	/// Also deserializes from legacy "is_online" field for backwards compatibility
 	#[serde(alias = "is_online")]
 	pub is_mounted: bool,
+
+	/// Whether the volume is unmounted because its encryption key is not
+	/// loaded. A ZFS dataset reports this through `keystatus`; nothing else
+	/// sets it yet. Never true while `is_mounted` is.
+	#[serde(default)]
+	pub locked: bool,
 
 	/// Hardware identifier (device path, UUID, etc.)
 	pub hardware_id: Option<String>,
@@ -767,6 +815,7 @@ impl Volume {
 			available_space: 0,
 			is_read_only: false,
 			is_mounted: true,
+			locked: false,
 			is_tracked: false,
 			hardware_id: None,
 			backend: None,
@@ -855,6 +904,11 @@ impl Volume {
 		self.display_name.as_ref().unwrap_or(&self.name)
 	}
 
+	/// Mounted, unmounted, or locked, from the two flags detection sets.
+	pub fn state(&self) -> VolumeState {
+		VolumeState::from_flags(self.is_mounted, self.locked)
+	}
+
 	/// Check if volume supports copy-on-write
 	pub fn supports_cow(&self) -> bool {
 		match self.file_system {
@@ -911,6 +965,7 @@ impl Volume {
 	/// Update volume information
 	pub fn update_info(&mut self, info: VolumeInfo) {
 		self.is_mounted = info.is_mounted;
+		self.locked = info.locked;
 		self.available_space = info.total_bytes_available;
 		self.read_speed_mbps = info.read_speed_mbps;
 		self.write_speed_mbps = info.write_speed_mbps;
@@ -988,6 +1043,7 @@ impl From<&Volume> for VolumeInfo {
 	fn from(volume: &Volume) -> Self {
 		Self {
 			is_mounted: volume.is_mounted,
+			locked: volume.locked,
 			total_bytes_available: volume.available_space,
 			read_speed_mbps: volume.read_speed_mbps,
 			write_speed_mbps: volume.write_speed_mbps,
@@ -1029,6 +1085,7 @@ impl TrackedVolume {
 			available_space: self.available_capacity.unwrap_or(0),
 			is_read_only: false,
 			is_mounted: false,
+			locked: false,
 			hardware_id: self.device_model.clone(),
 			backend: None,
 			cloud_identifier: None,

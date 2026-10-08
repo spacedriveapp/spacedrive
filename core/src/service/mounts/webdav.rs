@@ -627,6 +627,7 @@ mod tests {
 			root: PathBuf::from("/tmp/demo"),
 			volume_uuid: None,
 			attached: true,
+			volume_state: None,
 			restored: false,
 			last_seen_secs: 0,
 			entry_count: None,

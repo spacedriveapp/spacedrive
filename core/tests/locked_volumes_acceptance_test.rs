@@ -1,9 +1,11 @@
-//! Acceptance for L1 and L2 of the locked volumes plan
-//! (`docs/plans/2026-09-28-locked-volumes.md`,
+//! Acceptance for L1, L2 and the plain-unmount half of L4 of the locked
+//! volumes plan (`docs/plans/2026-09-28-locked-volumes.md`,
 //! `docs/core/acceptance/volumes.md`): a volume that detection cannot see
 //! comes up detached whatever its row says, the monitor marks a vanished
-//! volume offline under a running daemon, and an unmounted volume's mount
-//! point is never walked, hashed or thumbnailed as an empty source.
+//! volume offline under a running daemon, an unmounted volume's mount
+//! point is never walked, hashed or thumbnailed as an empty source, and a
+//! volume that unmounts and remounts under a running daemon takes its
+//! source with it, watch included, through the volume manager's events.
 //!
 //! Every test mounts a loop-backed ext4 image through the shared test volume
 //! helper and unmounts it with the mount point left in place, which is the
@@ -170,6 +172,18 @@ async fn describe(core: &Core, library: &Library) -> String {
 
 async fn job_count(library: &Library) -> usize {
 	library.jobs().list_jobs(None).await.expect("jobs").len()
+}
+
+/// Poll `check` until it holds or ten seconds pass, for state the daemon
+/// reaches through its event bus rather than on the caller's thread.
+async fn eventually(what: &str, mut check: impl AsyncFnMut() -> bool) {
+	for _ in 0..100 {
+		if check().await {
+			return;
+		}
+		tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+	}
+	panic!("{what}: did not happen within ten seconds");
 }
 
 /// A populated loop volume tracked as a whole-volume source by a daemon
@@ -503,6 +517,138 @@ async fn an_empty_mount_point_is_reported_unmounted_not_walked() {
 		.expect("sources.list");
 	assert!(!listed[0].attached, "the source reads as unmounted");
 	assert_eq!(listed[0].item_count as u64, walked.records);
+
+	drop(library);
+	core.shutdown().await.expect("shutdown");
+}
+
+/// L4 on a plain filesystem: a volume unmounted and remounted under the
+/// running daemon detaches and reattaches its source through the volume
+/// manager's events alone, the watch is dropped and armed again on the
+/// returned filesystem, a file created after the return reaches the map,
+/// and identifications that failed while it was away are retried.
+#[tokio::test]
+async fn a_remounted_volume_reattaches_its_source_and_rearms_the_watch() {
+	let _ = tracing_subscriber::fmt::try_init();
+	if let Some(reason) = skip_reason().await {
+		warn!("Skipping: {reason}");
+		return;
+	}
+
+	let walked = walked_volume("SdLockedL4").await;
+	let root = walked.volume.path().clone();
+	let core = boot(walked.data_dir.path()).await;
+	let library = core
+		.libraries
+		.list()
+		.await
+		.into_iter()
+		.find(|library| library.path() == walked.library_path)
+		.expect("the library reloads");
+	let cache = core.context.volume_index();
+	let watcher = core.context.get_fs_watcher().await.expect("watcher");
+	eventually("the restored source is watched", async || {
+		cache.is_watched(&root)
+	})
+	.await;
+	assert!(watcher.watched_paths().await.contains(&root));
+
+	// One record is left as if its read had failed while the volume was
+	// away: no identity, and a reason recorded.
+	let store = cache.store_for(&root).await.expect("store");
+	let failed: (Vec<u8>,) =
+		sqlx::query_as("SELECT uuid FROM record WHERE type = 'file' ORDER BY rowid LIMIT 1")
+			.fetch_one(store.db().pool())
+			.await
+			.expect("a record");
+	sqlx::query("UPDATE record SET content_id = NULL WHERE uuid = ?")
+		.bind(&failed.0)
+		.execute(store.db().pool())
+		.await
+		.expect("drop identity");
+	sqlx::query("UPDATE facet_file SET content_error = 'volume away' WHERE record_uuid = ?")
+		.bind(&failed.0)
+		.execute(store.db().pool())
+		.await
+		.expect("record failure");
+	assert_eq!(store.files_needing_content_count().await.unwrap(), 0);
+
+	// The volume goes away. Only the refresh runs; the monitor's row
+	// reconciliation is not what moves the index any more.
+	unmount(&walked.volume).await;
+	core.volumes.refresh_volumes().await.expect("refresh");
+	eventually("the source detaches on the volume's event", async || {
+		cache
+			.sources()
+			.first()
+			.is_some_and(|source| !source.attached)
+	})
+	.await;
+	assert_eq!(
+		cache.sources()[0].volume_state,
+		Some(sd_core::volume::VolumeState::Unmounted)
+	);
+	eventually("the watch is dropped with the mount", async || {
+		!cache.is_watched(&root) && !watcher.watched_paths().await.contains(&root)
+	})
+	.await;
+	let listed = ListSourcesQuery::all()
+		.execute(core.context.clone(), session(&library))
+		.await
+		.expect("sources.list");
+	assert!(!listed[0].attached);
+	assert_eq!(
+		listed[0].volume_state,
+		Some(sd_core::volume::VolumeState::Unmounted)
+	);
+	assert_eq!(
+		listed[0].item_count as u64, walked.records,
+		"no record was lost"
+	);
+
+	// And comes back.
+	remount(&walked.volume).await;
+	core.volumes.refresh_volumes().await.expect("refresh");
+	eventually("the source reattaches on the volume's event", async || {
+		cache
+			.sources()
+			.first()
+			.is_some_and(|source| source.attached)
+	})
+	.await;
+	eventually(
+		"the watch is armed on the returned filesystem",
+		async || cache.is_watched(&root) && watcher.watched_paths().await.contains(&root),
+	)
+	.await;
+
+	let created = root.join("after-remount.txt");
+	std::fs::write(&created, "seen").expect("write");
+	eventually(
+		"a file created after the return reaches the map",
+		async || match cache.get_for_search(&created) {
+			Some(index) => index.read().await.get_entry_uuid(&created).is_some(),
+			None => false,
+		},
+	)
+	.await;
+
+	eventually("the failed identification is retried", async || {
+		let error: (Option<String>,) =
+			sqlx::query_as("SELECT content_error FROM facet_file WHERE record_uuid = ?")
+				.bind(&failed.0)
+				.fetch_one(store.db().pool())
+				.await
+				.expect("content error");
+		error.0.is_none() && store.files_needing_content_count().await.unwrap() == 0
+	})
+	.await;
+	let identity: (Option<i64>,) = sqlx::query_as("SELECT content_id FROM record WHERE uuid = ?")
+		.bind(&failed.0)
+		.fetch_one(store.db().pool())
+		.await
+		.expect("content id");
+	assert!(identity.0.is_some(), "the record was identified after all");
 
 	drop(library);
 	core.shutdown().await.expect("shutdown");

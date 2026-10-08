@@ -223,11 +223,7 @@ pub async fn track_and_index(
 					root.display()
 				))
 			})?;
-		context.volume_index().track_detected_volume(
-			volume.id,
-			volume.mount_point.clone(),
-			volume.is_mounted,
-		);
+		context.volume_index().track_detected_volume(volume);
 	}
 
 	// A store this library already wrote for this scope carries its identity

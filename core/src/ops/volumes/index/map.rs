@@ -92,7 +92,7 @@ pub async fn map_volume(
 	if cloud {
 		cache.track_volume(volume.id, volume.mount_point.clone());
 	} else {
-		cache.track_detected_volume(volume.id, volume.mount_point.clone(), volume.is_mounted);
+		cache.track_detected_volume(volume);
 	}
 	// Detection can lag an unmount by a refresh interval, and the directory
 	// left behind at the mount point is never walked as the drive.
@@ -235,7 +235,7 @@ pub async fn map_attached_volumes(
 		}
 
 		let cache = context.volume_index();
-		cache.track_detected_volume(volume.id, volume.mount_point.clone(), volume.is_mounted);
+		cache.track_detected_volume(&volume);
 		cache.ensure_restored(&volume.mount_point).await;
 
 		// Runs whether or not the volume restored: a restored snapshot can

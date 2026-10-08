@@ -922,6 +922,24 @@ pub async fn mark_content_unreadable(
 	Ok(())
 }
 
+/// Return every file that failed identification to the pending set.
+///
+/// A failure recorded while the file's volume was away says nothing about
+/// the file: the read failed because there was no filesystem to read from.
+/// Once the volume returns those rows are pending again, so the next
+/// identity pass hashes them instead of leaving them without an identity
+/// for the rest of the store's life. Returns how many rows were reset.
+pub async fn clear_content_errors(pool: &sqlx::SqlitePool) -> Result<u64> {
+	Ok(sqlx::query(
+		"UPDATE facet_file SET content_error = NULL \
+		 WHERE content_error IS NOT NULL \
+		 AND record_uuid IN (SELECT uuid FROM record WHERE content_id IS NULL)",
+	)
+	.execute(pool)
+	.await?
+	.rows_affected())
+}
+
 /// Name the kind of every content row whose files carry one of these
 /// extensions and that no extension kind has named yet.
 ///

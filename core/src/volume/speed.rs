@@ -357,6 +357,7 @@ mod tests {
 			available_space: 500000000,
 			is_read_only: false,
 			is_mounted: true,
+			locked: false,
 			hardware_id: None,
 			backend: None,
 			apfs_container: None,

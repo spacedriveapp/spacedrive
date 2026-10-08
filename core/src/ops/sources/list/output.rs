@@ -32,6 +32,11 @@ pub struct SourceInfo {
 	/// Whether the origin answers right now. Always true for an adapter, whose
 	/// origin is a network service rather than a drive in a drawer.
 	pub attached: bool,
+	/// How the drive under a filesystem source stands: mounted, unmounted,
+	/// or locked because its encryption key is not loaded. Absent for an
+	/// adapter, a replica, or a source on media Spacedrive does not track.
+	#[serde(default)]
+	pub volume_state: Option<crate::volume::VolumeState>,
 	pub total_bytes: Option<i64>,
 	/// Last time the origin answered. Absent for an adapter, whose registry
 	/// tracks a sync cursor rather than an attachment.
@@ -102,6 +107,7 @@ impl SourceInfo {
 				.then(|| record.root.to_string_lossy().into_owned()),
 			volume_uuid: record.volume_uuid,
 			attached,
+			volume_state: None,
 			total_bytes,
 			last_seen_at,
 			device_id: None,
@@ -141,6 +147,7 @@ impl SourceInfo {
 			root: Some(root.to_string_lossy().into_owned()),
 			volume_uuid: entry.info.volume_uuid,
 			attached: false,
+			volume_state: None,
 			total_bytes: entry.info.total_bytes.map(|bytes| bytes as i64),
 			last_seen_at: synced_at,
 			device_id: Some(device_id),
@@ -174,6 +181,7 @@ impl SourceInfo {
 			root: Some(transfer.root.to_string_lossy().into_owned()),
 			volume_uuid: None,
 			attached: false,
+			volume_state: None,
 			total_bytes: None,
 			last_seen_at: None,
 			device_id: Some(transfer.device_id),
@@ -209,6 +217,7 @@ impl SourceInfo {
 			root: Some(root.to_string_lossy().into_owned()),
 			volume_uuid: share.info.volume_uuid,
 			attached: share.info.attached,
+			volume_state: None,
 			total_bytes: share.info.total_bytes.map(|bytes| bytes as i64),
 			last_seen_at: synced_at,
 			device_id: Some(share.device_id),

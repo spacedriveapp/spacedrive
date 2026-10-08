@@ -7,5 +7,5 @@
 pub use crate::domain::volume::{
 	ApfsContainer, ApfsVolumeInfo, ApfsVolumeRole, DiskType, FileSystem, MountType, PathMapping,
 	SpacedriveVolumeId, TrackedVolume, Volume, VolumeDetectionConfig, VolumeEvent,
-	VolumeFingerprint, VolumeInfo, VolumeType,
+	VolumeFingerprint, VolumeInfo, VolumeState, VolumeType,
 };

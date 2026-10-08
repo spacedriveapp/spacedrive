@@ -4458,7 +4458,13 @@ volume_uuid: string | null;
  * Whether the origin answers right now. Always true for an adapter, whose
  * origin is a network service rather than a drive in a drawer.
  */
-attached: boolean; total_bytes: number | null; 
+attached: boolean; 
+/**
+ * How the drive under a filesystem source stands: mounted, unmounted,
+ * or locked because its encryption key is not loaded. Absent for an
+ * adapter, a replica, or a source on media Spacedrive does not track.
+ */
+volume_state?: VolumeState | null; total_bytes: number | null; 
 /**
  * Last time the origin answered. Absent for an adapter, whose registry
  * tracks a sync cursor rather than an attachment.
@@ -5503,6 +5509,12 @@ is_read_only: boolean;
  */
 is_mounted: boolean; 
 /**
+ * Whether the volume is unmounted because its encryption key is not
+ * loaded. A ZFS dataset reports this through `keystatus`; nothing else
+ * sets it yet. Never true while `is_mounted` is.
+ */
+locked?: boolean; 
+/**
  * Hardware identifier (device path, UUID, etc.)
  */
 hardware_id: string | null; 
@@ -5627,7 +5639,11 @@ export type VolumeFingerprint = string;
 /**
  * Summary information about a volume (for updates and caching)
  */
-export type VolumeInfo = { is_mounted: boolean; total_bytes_available: number; read_speed_mbps: number | null; write_speed_mbps: number | null; error_status: string | null };
+export type VolumeInfo = { is_mounted: boolean; 
+/**
+ * Unmounted because the volume's encryption key is not loaded.
+ */
+locked?: boolean; total_bytes_available: number; read_speed_mbps: number | null; write_speed_mbps: number | null; error_status: string | null };
 
 export type VolumeListOutput = { volumes: Volume[] };
 
@@ -5712,6 +5728,16 @@ read_speed_mbps: number | null;
  * Write speed in MB/s (if measured)
  */
 write_speed_mbps: number | null };
+
+/**
+ * How a known volume stands right now.
+ * 
+ * Derived on every refresh from the mount table and, on ZFS, from the
+ * dataset's `mounted` and `keystatus` properties; nothing stores it. A
+ * locked volume is unmounted, and the distinction is the reason: its key
+ * is not loaded, so mounting it needs the key rather than a cable.
+ */
+export type VolumeState = "Mounted" | "Unmounted" | "Locked";
 
 export type VolumeTrackInput = { 
 /**

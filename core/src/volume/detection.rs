@@ -145,20 +145,43 @@ async fn detect_linux_volumes(
 	debug!("Starting Linux volume detection");
 	let mut volumes = linux::detect_volumes(device_id, config).await?;
 
-	// Enhance with filesystem-specific capabilities
-	// For ZFS, fetch dataset info once and apply to all ZFS volumes
-	let zfs_volumes_exist = volumes
-		.iter()
-		.any(|v| matches!(v.file_system, crate::volume::types::FileSystem::ZFS));
-
-	if zfs_volumes_exist {
-		let zfs_output = fs::zfs::fetch_zfs_list_output().await.ok();
-		for volume in &mut volumes {
-			if matches!(volume.file_system, crate::volume::types::FileSystem::ZFS) {
-				if let Some(ref output) = zfs_output {
-					fs::zfs::enhance_volume_with_cached_output(volume, output);
+	// One `zfs list` per refresh: it enhances the datasets df found and adds
+	// the ones df cannot show. A dataset that is unmounted, or whose key is
+	// not loaded, is a volume this machine knows and cannot read right now;
+	// without it here the directory left at its mount point reads as part
+	// of the parent dataset.
+	if fs::zfs::zfs_available() {
+		match fs::zfs::fetch_zfs_list_output().await {
+			Ok(output) => {
+				for volume in &mut volumes {
+					if matches!(volume.file_system, crate::volume::types::FileSystem::ZFS) {
+						fs::zfs::enhance_volume_with_cached_output(volume, &output);
+					}
+				}
+				let mounted: std::collections::HashSet<std::path::PathBuf> =
+					volumes.iter().map(|v| v.mount_point.clone()).collect();
+				for dataset in fs::zfs::unmounted_datasets(&output) {
+					if dataset
+						.mount_point
+						.as_ref()
+						.is_some_and(|mount| mounted.contains(mount))
+					{
+						continue;
+					}
+					if let Some(mut volume) =
+						linux::volume_for_unmounted_dataset(&dataset, device_id)
+					{
+						fs::zfs::enhance_volume_with_cached_output(&mut volume, &output);
+						debug!(
+							dataset = %dataset.name,
+							state = volume.state().as_str(),
+							"ZFS dataset known but not mounted"
+						);
+						volumes.push(volume);
+					}
 				}
 			}
+			Err(e) => debug!("zfs list unavailable: {e}"),
 		}
 	}
 
