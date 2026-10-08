@@ -562,7 +562,10 @@ impl JobOps {
 						(Some(allowed), Some(ext)) => allowed.contains(ext),
 						(Some(_), None) => false,
 					};
-					if entry.kind == sd_store::file::FileKind::File && in_scope && extension_ok {
+					if entry.kind == sd_store::file::FileKind::File
+						&& !entry.is_hidden
+						&& in_scope && extension_ok
+					{
 						records.push(RecordOut::new(store.id(), entry));
 					}
 				}
