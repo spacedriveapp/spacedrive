@@ -79,6 +79,23 @@ pub async fn run(ctx: &Context, cmd: VolumeCmd) -> Result<()> {
 				return Ok(());
 			}
 
+			// A paired device's volume stands as its owner last reported it;
+			// whether that report is current depends on the owner being
+			// reachable, which only the device list says.
+			let devices: Vec<sd_core::domain::Device> = execute_query!(
+				ctx,
+				sd_core::ops::devices::list::query::ListLibraryDevicesInput {
+					include_offline: true,
+					include_details: false,
+					show_paired: true,
+				}
+			);
+			let reachable: std::collections::HashSet<uuid::Uuid> = devices
+				.iter()
+				.filter(|device| device.is_current || device.is_online)
+				.map(|device| device.id)
+				.collect();
+
 			println!("Tracked {} volume(s):\n", output.volumes.len());
 
 			for volume in output.volumes {
@@ -93,8 +110,10 @@ pub async fn run(ctx: &Context, cmd: VolumeCmd) -> Result<()> {
 					format_bytes(volume.available_space),
 				);
 				println!(
-					"   Visible: {}, Tracked: {}, Mounted: {}",
-					volume.is_user_visible, volume.is_tracked, volume.is_mounted,
+					"   Visible: {}, Tracked: {}, State: {}",
+					volume.is_user_visible,
+					volume.is_tracked,
+					volume_state_label(&volume, reachable.contains(&volume.device_id)),
 				);
 				println!();
 			}
@@ -105,6 +124,16 @@ pub async fn run(ctx: &Context, cmd: VolumeCmd) -> Result<()> {
 		}
 	}
 	Ok(())
+}
+
+/// `mounted`, `unmounted` or `locked` as the volume's owner has it, or
+/// `offline` when the owner is a paired device nothing can reach, in which
+/// case its last report says nothing about the drive now.
+fn volume_state_label(volume: &sd_core::volume::Volume, owner_reachable: bool) -> &'static str {
+	if !owner_reachable {
+		return "offline";
+	}
+	volume.state().as_str()
 }
 
 fn format_bytes(bytes: u64) -> String {
@@ -122,5 +151,31 @@ fn format_bytes(bytes: u64) -> String {
 		format!("{} {}", bytes, UNITS[unit])
 	} else {
 		format!("{:.2} {}", value, UNITS[unit])
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::volume_state_label;
+	use sd_core::volume::{Volume, VolumeFingerprint};
+
+	fn volume(is_mounted: bool, locked: bool) -> Volume {
+		let mut volume = Volume::new(
+			uuid::Uuid::nil(),
+			VolumeFingerprint("fp".to_string()),
+			"vault".to_string(),
+			std::path::PathBuf::from("/mnt/vault"),
+		);
+		volume.is_mounted = is_mounted;
+		volume.locked = locked;
+		volume
+	}
+
+	#[test]
+	fn the_state_line_names_the_owners_state_or_the_owner_being_away() {
+		assert_eq!(volume_state_label(&volume(true, false), true), "mounted");
+		assert_eq!(volume_state_label(&volume(false, false), true), "unmounted");
+		assert_eq!(volume_state_label(&volume(false, true), true), "locked");
+		assert_eq!(volume_state_label(&volume(false, true), false), "offline");
 	}
 }

@@ -6,6 +6,7 @@ use crate::{
 	infra::query::{LibraryQuery, QueryError, QueryResult},
 	ops::sources::registry,
 };
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
@@ -57,7 +58,33 @@ impl LibraryQuery for GetSourceQuery {
 			.await
 			.map_err(|e| QueryError::Internal(format!("{e}")))?;
 
-		Ok(SourceInfo::from_row(row, None))
+		let mount = match row.volume_uuid {
+			Some(uuid) => crate::infra::db::entities::volume::Entity::find()
+				.filter(crate::infra::db::entities::volume::Column::Uuid.eq(uuid))
+				.one(library.db().conn())
+				.await
+				.map_err(|e| QueryError::Internal(format!("Failed to read volume: {e}")))?
+				.filter(|volume| volume.is_online)
+				.and_then(|volume| volume.mount_point.map(std::path::PathBuf::from)),
+			None => None,
+		};
+		let mut info = SourceInfo::from_row(row, mount.as_deref());
+		// The volume index knows whether the drive is mounted or locked, which
+		// the row cannot tell from a mount point left behind as a directory.
+		if let Some(live) = context
+			.volume_index()
+			.sources_of(library.id())
+			.into_iter()
+			.find(|source| source.id == source_id)
+		{
+			info.attached = live.attached;
+			info.volume_state = live.volume_state;
+			info.store_path = live
+				.directory
+				.as_ref()
+				.map(|dir| dir.to_string_lossy().into_owned());
+		}
+		Ok(info)
 	}
 }
 

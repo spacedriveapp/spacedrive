@@ -6,6 +6,7 @@ import {
 	ArrowLeft,
 	ArrowsClockwise,
 	DotsThree,
+	Lock,
 	Trash,
 	ArrowSquareUp,
 } from "@phosphor-icons/react";
@@ -19,6 +20,11 @@ import { CircleButton, Popover, usePopover } from "@spacedrive/primitives";
 import { ExpandableSearchButton } from "../explorer/components/ExpandableSearchButton";
 import { SourcePathBar } from "../../components/Sources/SourcePathBar";
 import { SourceDataRow } from "../../components/Sources/SourceDataRow";
+import {
+	availabilityBadge,
+	availabilityDescription,
+	sourceAvailability,
+} from "../../components/Sources/sourceAvailability";
 
 const PAGE_SIZE = 100;
 
@@ -78,6 +84,20 @@ export function SourceDetail() {
 		type: "adapters.list",
 		input: {},
 	});
+
+	// The drive under a filesystem source, for its name in the state banner.
+	const { data: volumeList } = useLibraryQuery(
+		{ type: "volumes.list", input: { filter: "All" } },
+		{ enabled: source?.data_type === "filesystem" },
+	);
+	const availability = source ? sourceAvailability(source) : "available";
+	const volumeName = volumeList?.volumes.find(
+		(volume) => volume.id === source?.volume_uuid,
+	)?.name;
+	const availabilityNote =
+		source?.data_type === "filesystem"
+			? availabilityDescription(availability, volumeName)
+			: undefined;
 
 	const syncMutation = useLibraryMutation("sources.sync");
 	const deleteMutation = useLibraryMutation("sources.delete");
@@ -274,10 +294,27 @@ export function SourceDetail() {
 			/>
 
 			{/* Banners */}
-			{(updateMutation.data ||
+			{(availabilityNote ||
+				updateMutation.data ||
 				updateMutation.error ||
 				syncMutation.error) && (
 				<div className="border-app-line/30 space-y-2 border-b px-6 py-3">
+					{availabilityNote && (
+						<div
+							data-testid="source-availability"
+							className="border-app-line bg-app-box flex items-center gap-2 rounded-lg border p-3"
+						>
+							{availability === "locked" && (
+								<Lock size={14} weight="bold" className="text-ink-dull" />
+							)}
+							<p className="text-ink-dull text-xs">
+								<span className="text-ink font-medium">
+									{availabilityBadge(availability)}.
+								</span>{" "}
+								{availabilityNote}
+							</p>
+						</div>
+					)}
 					{updateMutation.data && (
 						<div className="border-accent/20 rounded-lg border p-3">
 							<p className="text-accent text-xs">

@@ -164,6 +164,12 @@ pub enum Event {
 	VolumeMountChanged {
 		fingerprint: crate::volume::VolumeFingerprint,
 		is_mounted: bool,
+		/// Mounted, unmounted, or locked: what the volume became. A dataset
+		/// whose key is unloaded after it was already unmounted changes
+		/// state without changing `is_mounted`. Absent from a daemon built
+		/// before the field existed; readers fall back to `is_mounted`.
+		#[serde(default)]
+		state: Option<crate::volume::VolumeState>,
 	},
 	VolumeError {
 		fingerprint: crate::volume::VolumeFingerprint,

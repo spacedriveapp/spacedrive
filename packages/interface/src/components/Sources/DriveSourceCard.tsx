@@ -1,13 +1,18 @@
-import { HardDrive } from "@phosphor-icons/react";
+import { HardDrive, Lock } from "@phosphor-icons/react";
 import { useNavigate } from "react-router-dom";
 import type { IndexSourceInfo } from "@sd/ts-client";
 import { formatBytes } from "../../routes/explorer/utils";
+import {
+	availabilityBadge,
+	availabilityDescription,
+	sourceAvailability,
+} from "./sourceAvailability";
 
 /**
  * A filesystem source on the Sources page — same card language as adapter
  * sources, because a drive is a source whose adapter is the indexer. Opens
- * the explorer at the source root; detached drives browse read-only from
- * their snapshots.
+ * the explorer at the source root; detached, unmounted and locked drives
+ * browse read-only from their snapshots and say so on the card.
  */
 
 function lastSeenLabel(lastSeenSecs: number): string {
@@ -30,6 +35,8 @@ export function DriveSourceCard({
 	const navigate = useNavigate();
 	const name =
 		source.root.split(/[/\\]/).filter(Boolean).pop() ?? source.root;
+	const availability = sourceAvailability(source);
+	const badge = availabilityBadge(availability);
 
 	const open = () => {
 		if (!deviceSlug) return;
@@ -42,7 +49,7 @@ export function DriveSourceCard({
 	return (
 		<button
 			onClick={open}
-			title={source.root}
+			title={availabilityDescription(availability, undefined) ?? source.root}
 			className="border-app-line bg-app-box hover:border-app-line/80 hover:bg-app-hover group relative rounded-lg border p-4 text-left transition-all"
 		>
 			<div className="mb-3 flex items-center gap-3">
@@ -51,7 +58,9 @@ export function DriveSourceCard({
 						size={20}
 						weight="bold"
 						className={
-							source.attached ? "text-ink-dull" : "text-ink-faint"
+							availability === "available"
+								? "text-ink-dull"
+								: "text-ink-faint"
 						}
 					/>
 				</div>
@@ -61,13 +70,17 @@ export function DriveSourceCard({
 					</h3>
 					<p className="text-ink-faint text-xs">filesystem</p>
 				</div>
-				{!source.attached && (
-					<span className="bg-app-selected/40 text-ink-faint rounded-full px-2 py-0.5 text-[10px] font-medium">
+				{badge && (
+					<span className="bg-app-selected/40 text-ink-faint flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium">
+						{availability === "locked" && (
+							<Lock size={10} weight="bold" />
+						)}
+						{badge.toLowerCase()}
 						{source.catalog === "offline_copy"
-							? "offline copy"
+							? ", offline copy"
 							: source.catalog === "away"
-								? "catalog on the drive"
-								: "offline"}
+								? ", catalog on the drive"
+								: ""}
 					</span>
 				)}
 			</div>

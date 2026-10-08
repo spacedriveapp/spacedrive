@@ -1,7 +1,7 @@
 # Locked and Unmounted Volumes
 
-> Status: L1 and L2 landed 2026-10-07 (#3119), L3 and L4 built 2026-10-08
-> (SPAC-40); L5 open
+> Status: L1 and L2 landed 2026-10-07 (#3119), L3 and L4 landed 2026-10-08
+> (#3140); L5 built 2026-10-08 (SPAC-43)
 > Captured: 2026-09-28
 > Owns: how a source behaves while its volume is known to the machine but not
 > mounted, including an encrypted ZFS dataset whose key is not loaded
@@ -225,6 +225,34 @@ L3 and L4 as built, where the code differs from the design above in detail:
 - Stop the daemon before locking a dataset it has files open in. The lock
   refuses a busy dataset, and forcing it removes files from under the daemon.
   A watch alone does not make a dataset busy.
+
+L5 as built:
+
+- A device publishes a tracked volume to its peers whatever its state, with
+  `RemoteVolumeInfo.state` saying mounted, unmounted or locked; an untracked
+  volume still travels only while mounted. A peer lists the volume as its
+  owner last reported it, mounted only while the owner is reachable. The
+  owner's source listing (`RemoteSourceInfo`) carries each source's
+  `volume_state`, so a replica reads as locked rather than stale.
+  `sources.get` reads the live volume index the way `sources.list` does.
+- `VolumeMountChanged` carries the new `VolumeState` and fires on any state
+  change, including a key unloaded from a dataset that was already
+  unmounted. The CLI event printer says `locked: key not loaded`,
+  `unmounted` or `mounted`, and `VolumeUpdated` names the transition.
+- `sd sources list` has a State column: the volume's state when the index
+  knows the drive, `offline` for a detached root or replica it does not,
+  `online` for an adapter. `sd volumes list` prints a State line, `offline`
+  when the volume's owner is a paired device nothing can reach.
+- The sidebar's Places rows, the Storage page cards and a source's detail
+  banner show Locked (with a lock glyph), Unmounted or Offline, dimmed, and
+  say the files stay listed from the last index and cannot be opened until
+  the key loads or the drive mounts, naming the volume where the view knows
+  it. The Overview's volume row carries the same badge. The Add to Library
+  modal refuses a whole drive that is unmounted or locked, and a path at or
+  under its mount point, with the reason and the add button disabled, since
+  the core would refuse and the directory left at the mount point would
+  otherwise be added as an empty folder of the parent drive.
+- Nothing offers to load a key: ZFS needs root for that.
 
 ## Decisions for James
 
