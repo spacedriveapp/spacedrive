@@ -216,7 +216,10 @@ jobs:
               sleep 15
             done
           fi
-          gh release upload "$NIGHTLY_TAG" --clobber dist/*
+          # The sha marker is the updater's fallback for the tag, so like the
+          # tag it is written only after the binaries it names.
+          gh release upload "$NIGHTLY_TAG" --clobber dist/sd-*
+          gh release upload "$NIGHTLY_TAG" --clobber dist/nightly.sha
 
           # The tag moves last. The updater keys on it, so a tag that already
           # named this commit while the release still served the previous
