@@ -2,9 +2,12 @@
 #
 # Every push to the branch below builds sd-cli and sd-daemon in release mode
 # and republishes them on the rolling `nightly` prerelease, whose tag moves to
-# the built commit. `sd update` on the nightly channel reads that commit from
-# the release and installs the binaries when it differs from the one the
-# installed CLI was built from (see docs/core/releases.mdx).
+# the built commit. The release is edited in place rather than recreated, so
+# people watching the repository for releases are not notified on every push.
+# `sd update` on the nightly channel reads the commit the tag points at (with
+# the `nightly.sha` asset as a fallback) and installs the binaries when it
+# differs from the one the installed CLI was built from (see
+# docs/core/releases.mdx).
 #
 # These binaries are not signed with a Developer ID and are not notarized. The
 # macOS linker adds an ad-hoc signature, which is enough to run a file the CLI
@@ -127,6 +130,14 @@ jobs:
     permissions:
       contents: write
     steps:
+      # The tag is moved with git so the release itself is never deleted:
+      # `gh release create` notifies everyone watching the repository for
+      # releases, while editing a release and replacing its assets does not.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -134,43 +145,72 @@ jobs:
           merge-multiple: true
           path: dist
 
-      # Delete and recreate rather than edit: the release's target commit is
-      # fixed at creation, and the updater reads it to decide whether to
-      # install.
       - name: Move the nightly release to this commit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -eux
+          sha=${{ github.sha }}
+          short=$(echo "$sha" | cut -c1-12)
+          # The updater reads this asset when the git ref API is rate limited.
+          echo "$sha" > dist/nightly.sha
           ls -l dist
-          gh release delete "$NIGHTLY_TAG" --cleanup-tag --yes || true
-          short=$(echo "${{ github.sha }}" | cut -c1-12)
           cat > notes.md <<EOF
-          Rolling nightly build of the CLI and daemon from \`${{ github.ref_name }}\` at ${{ github.sha }}.
+          Rolling nightly build of the CLI and daemon from \`${{ github.ref_name }}\` at $sha.
 
-          Unsigned, may break, replaced on every push. Opt in with \`sd config set update.channel nightly\` and run \`sd update\`; see docs/core/releases.mdx.
+          Unsigned, may break, replaced on every push. This release is edited in place: its tag moves to the commit above and the assets are replaced, so watching the repository for releases does not notify on nightly builds. Opt in with \`sd config set update.channel nightly\` and run \`sd update\`; see docs/core/releases.mdx.
           EOF
-          # GitHub occasionally answers the create with HTTP 403 right after
-          # the tag was deleted; a short retry rides it out.
-          for attempt in 1 2 3 4 5; do
-            if gh release create "$NIGHTLY_TAG" \
-              --target "${{ github.sha }}" \
+
+          # A release created by the old delete-and-recreate scheme carries no
+          # nightly.sha. Updaters built before the switch compare the release's
+          # target_commitish, which is frozen at creation, so such a release is
+          # recreated once with this commit as target; every later run edits it
+          # in place and those updaters have been replaced by then.
+          if gh release view "$NIGHTLY_TAG" --json assets --jq '.assets[].name' > assets.txt; then
+            if ! grep -qx nightly.sha assets.txt; then
+              echo "release predates in-place updates; recreating it once"
+              gh release delete "$NIGHTLY_TAG" --yes
+            fi
+          fi
+
+          git push --force origin "$sha:refs/tags/$NIGHTLY_TAG"
+
+          if gh release view "$NIGHTLY_TAG" --json assets --jq '.assets[].name' > assets.txt; then
+            gh release edit "$NIGHTLY_TAG" \
               --prerelease \
               --title "Nightly $short" \
-              --notes-file notes.md \
-              dist/*; then
-              break
-            fi
-            if [ "$attempt" = 5 ]; then exit 1; fi
-            echo "release create failed (attempt $attempt), retrying in 15s"
-            gh release delete "$NIGHTLY_TAG" --cleanup-tag --yes || true
-            sleep 15
-          done
-          # GitHub keeps an existing tag's commit over --target, and the
-          # updater keys on this field, so a stale tag must fail the job.
-          actual=$(gh release view "$NIGHTLY_TAG" --json targetCommitish --jq .targetCommitish)
-          if [ "$actual" != "${{ github.sha }}" ]; then
-            echo "nightly release targets $actual, expected ${{ github.sha }}"
+              --notes-file notes.md
+            # Assets whose platform no longer builds would otherwise stay on
+            # the release forever at an old commit.
+            while read -r name; do
+              if [ ! -e "dist/$name" ]; then
+                echo "removing stale asset $name"
+                gh release delete-asset "$NIGHTLY_TAG" "$name" --yes < /dev/null
+              fi
+            done < assets.txt
+          else
+            # GitHub occasionally answers a create with HTTP 403 right after
+            # the tag changed; a short retry rides it out.
+            for attempt in 1 2 3 4 5; do
+              if gh release create "$NIGHTLY_TAG" \
+                --target "$sha" \
+                --prerelease \
+                --title "Nightly $short" \
+                --notes-file notes.md; then
+                break
+              fi
+              if [ "$attempt" = 5 ]; then exit 1; fi
+              echo "release create failed (attempt $attempt), retrying in 15s"
+              sleep 15
+            done
+          fi
+          gh release upload "$NIGHTLY_TAG" --clobber dist/*
+
+          # The updater keys on the tag ref, so a tag that did not move must
+          # fail the job rather than publish binaries under the wrong commit.
+          actual=$(gh api "repos/$GH_REPO/git/ref/tags/$NIGHTLY_TAG" --jq .object.sha)
+          if [ "$actual" != "$sha" ]; then
+            echo "nightly tag points at $actual, expected $sha"
             exit 1
           fi
