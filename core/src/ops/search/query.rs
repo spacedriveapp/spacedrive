@@ -81,7 +81,7 @@ impl FileSearchQuery {
 					&self.input.pagination,
 					&context,
 					cache,
-					registry,
+					&registry,
 				)
 				.await?
 			}
@@ -93,7 +93,7 @@ impl FileSearchQuery {
 					&self.input.pagination,
 					&context,
 					cache,
-					registry,
+					&registry,
 				)
 				.await?
 			}

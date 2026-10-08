@@ -318,6 +318,7 @@ pub(super) async fn integrity(file: &Keyed) -> (Result<String, String>, Option<L
 			integrity_hash: Some(integrity.clone()),
 			size: file.entry.size,
 			kind: None,
+			kind_name: None,
 		},
 	};
 	(Ok(integrity), Some(learned))

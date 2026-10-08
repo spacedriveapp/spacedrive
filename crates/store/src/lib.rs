@@ -62,8 +62,8 @@ pub use error::{Error, Result};
 pub use file::{
 	content_of, copies_of_content, count_files_needing_content, count_files_needing_verification,
 	duplicate_copies, files_needing_content, files_needing_verification, filesystem_schema,
-	mark_content_unreadable, ContentCopy, FileKind, FileWrite, Ledger, Observation, PendingContent,
-	PendingVerification, Resolution, SubtreeRename, Watermark,
+	mark_content_unreadable, name_content_kind_by_extension, ContentCopy, FileKind, FileWrite,
+	Ledger, Observation, PendingContent, PendingVerification, Resolution, SubtreeRename, Watermark,
 };
 pub use migrate::SCHEMA_VERSION;
 pub use read::{FsEntry, TitleMatches};

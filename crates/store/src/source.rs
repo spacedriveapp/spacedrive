@@ -37,6 +37,13 @@ async fn open_pool(db_path: &Path, create: bool) -> Result<SqlitePool> {
 /// A pool that can only read. No journal-mode pragma runs: the store's own
 /// files are already WAL, and a delivered artifact may legitimately carry a
 /// rollback journal that a read-only connection could not convert anyway.
+///
+/// A replica keeps its owner's schema version, and an owner on an older
+/// build has no `content.kind_name`. The entry readers name that column, so
+/// each connection to a store below version 2 gets a temporary view named
+/// `content` that adds it as `NULL`; an unqualified name resolves to the
+/// temp schema first, so every reader sees the current shape and the file
+/// is untouched. The owner's upgrade replaces the replica wholesale.
 async fn open_pool_read_only(db_path: &Path) -> Result<SqlitePool> {
 	let options = SqliteConnectOptions::from_str(&format!("sqlite:{}", db_path.display()))
 		.map_err(|e| Error::Other(format!("invalid database path: {e}")))?
@@ -46,6 +53,22 @@ async fn open_pool_read_only(db_path: &Path) -> Result<SqlitePool> {
 
 	Ok(SqlitePoolOptions::new()
 		.max_connections(4)
+		.after_connect(|conn, _meta| {
+			Box::pin(async move {
+				let version: i64 = sqlx::query_scalar("PRAGMA user_version")
+					.fetch_one(&mut *conn)
+					.await?;
+				if version < 2 {
+					sqlx::query(
+						"CREATE TEMP VIEW IF NOT EXISTS content AS \
+						 SELECT *, NULL AS kind_name FROM main.content",
+					)
+					.execute(&mut *conn)
+					.await?;
+				}
+				Ok(())
+			})
+		})
 		.connect_with(options)
 		.await?)
 }
@@ -102,6 +125,11 @@ impl SourceManager {
 		sqlx::raw_sql(RECORD_SCHEMA).execute(pool).await?;
 		for sql in &generate_ddl(schema) {
 			sqlx::query(sql).execute(pool).await?;
+		}
+		if schema.models.contains_key("file") {
+			sqlx::query(crate::migrate::FACET_FILE_EXTENSION_INDEX)
+				.execute(pool)
+				.await?;
 		}
 		Ok(())
 	}

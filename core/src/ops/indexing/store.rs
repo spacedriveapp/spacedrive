@@ -138,6 +138,20 @@ impl SourceStore {
 			.with_context(|| format!("load ledger for {id}"))?;
 		tracing::debug!(source = %id, records = ledger.len(), "source store attached");
 
+		// Rows identified before the loaded extensions existed take their
+		// kinds now, so a store opened after startup is never behind them.
+		match super::kinds::name_kinds_in_store(&db, &crate::filetype::FileTypeRegistry::current())
+			.await
+		{
+			Ok(0) => {}
+			Ok(named) => {
+				tracing::info!(source = %id, named, "named content rows after extension kinds")
+			}
+			Err(error) => {
+				tracing::warn!(source = %id, %error, "could not name content rows after extension kinds")
+			}
+		}
+
 		let (tx, rx) = mpsc::channel(QUEUE_DEPTH);
 		tokio::spawn(write_loop(db.clone(), ledger, rx));
 
@@ -1364,6 +1378,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 					integrity_hash: None,
 					size: Some(5),
 					kind: None,
+					kind_name: None,
 				},
 			)])
 			.await;
@@ -1528,6 +1543,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 							integrity_hash: None,
 							size: Some(*size as i64),
 							kind: None,
+							kind_name: None,
 						},
 					)
 				})
@@ -1580,6 +1596,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 						integrity_hash: None,
 						size: Some(*size as i64),
 						kind: None,
+						kind_name: None,
 					},
 				)
 			})
@@ -1624,6 +1641,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 						integrity_hash: Some("integrity-hash".to_string()),
 						size: Some(*size as i64),
 						kind: None,
+						kind_name: None,
 					},
 				)
 			})
@@ -1726,6 +1744,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 			integrity_hash: None,
 			size: Some(size),
 			kind: None,
+			kind_name: None,
 		};
 		let identified = pending
 			.iter()
@@ -1776,6 +1795,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 					integrity_hash: None,
 					size: Some(4),
 					kind: None,
+					kind_name: None,
 				},
 			)
 		};

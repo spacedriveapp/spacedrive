@@ -94,6 +94,7 @@ async fn dedupe_keeps_a_file_whose_own_bytes_were_never_read_in_full(
 				integrity_hash: Some(integrity_of_a.clone()),
 				size: Some(4096),
 				kind: None,
+				kind_name: None,
 			},
 		)
 		.await?;
@@ -106,6 +107,7 @@ async fn dedupe_keeps_a_file_whose_own_bytes_were_never_read_in_full(
 				integrity_hash: None,
 				size: Some(4096),
 				kind: None,
+				kind_name: None,
 			},
 		)
 		.await?;

@@ -283,7 +283,7 @@ pub fn folder_for_kind(entry: &FsEntry) -> String {
 		.map(ContentKind::from_id)
 		.filter(|kind| *kind != ContentKind::Unknown)
 		.unwrap_or_else(|| {
-			crate::filetype::FileTypeRegistry::builtin()
+			crate::filetype::FileTypeRegistry::current()
 				.identify_by_extension(Path::new(&entry.name))
 		});
 	match kind {

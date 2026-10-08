@@ -53,6 +53,9 @@ pub struct FsEntry {
 	pub sampled_hash: Option<String>,
 	pub integrity_hash: Option<String>,
 	pub content_kind: Option<i64>,
+	/// The extension kind id the identity phase stored, loaded extension or
+	/// not; `content_kind` is then its parent.
+	pub content_kind_name: Option<String>,
 	pub content_error: Option<String>,
 }
 
@@ -80,7 +83,8 @@ macro_rules! entry_columns {
 		 COALESCE(f.is_hidden, 0) AS is_hidden, f.extension AS extension, \
 		 f.link_target AS link_target, f.inode AS inode, f.mode AS mode, f.uid AS uid, f.gid AS gid, \
 		 f.content_error AS content_error, c.uuid AS content_uuid, \
-		 c.sampled_hash AS sampled_hash, c.integrity_hash AS integrity_hash, c.kind AS content_kind"
+		 c.sampled_hash AS sampled_hash, c.integrity_hash AS integrity_hash, c.kind AS content_kind, \
+		 c.kind_name AS content_kind_name"
 	};
 }
 
@@ -130,6 +134,7 @@ struct EntryRow {
 	sampled_hash: Option<String>,
 	integrity_hash: Option<String>,
 	content_kind: Option<i64>,
+	content_kind_name: Option<String>,
 }
 
 fn entry_from_row(row: EntryRow) -> Option<FsEntry> {
@@ -155,6 +160,7 @@ fn entry_from_row(row: EntryRow) -> Option<FsEntry> {
 		sampled_hash: row.sampled_hash,
 		integrity_hash: row.integrity_hash,
 		content_kind: row.content_kind,
+		content_kind_name: row.content_kind_name,
 		content_error: row.content_error,
 	})
 }

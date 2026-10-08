@@ -237,6 +237,7 @@ async fn content_tag_reaches_every_copy() {
 		integrity_hash: None,
 		size: Some(42),
 		kind: None,
+		kind_name: None,
 	};
 	db.set_content_identity(original, &identity)
 		.await
@@ -302,6 +303,7 @@ async fn late_binding_fills_the_content_key() {
 		integrity_hash: None,
 		size: Some(42),
 		kind: None,
+		kind_name: None,
 	};
 	db.set_content_identity(original, &identity)
 		.await
@@ -346,6 +348,7 @@ async fn a_content_tag_applied_before_verification_reaches_every_copy_afterwards
 		integrity_hash: None,
 		size: Some(42),
 		kind: None,
+		kind_name: None,
 	};
 	db.set_content_identity(original, &guess)
 		.await
@@ -477,6 +480,7 @@ async fn identical_claims_collapse_across_stores() {
 		integrity_hash: None,
 		size: Some(7),
 		kind: None,
+		kind_name: None,
 	};
 
 	for (db, device, external) in [(&a, device_a, "copy-a"), (&b, device_b, "copy-b")] {

@@ -15,12 +15,18 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use sd_core::{
+	domain::{ContentKind, File, SdPath},
+	filetype::{FileTypeRegistry, KindConflict, PreviewSpec},
 	infra::{
 		action::LibraryAction,
+		api::SessionContext,
 		job::{database::checkpoint, types::JobStatus},
+		query::CoreQuery,
 	},
 	ops::{
-		extensions::{RunExtensionJobAction, RunExtensionJobInput},
+		extensions::{
+			ListExtensionsInput, ListExtensionsQuery, RunExtensionJobAction, RunExtensionJobInput,
+		},
 		sources::track::{TrackSourceAction, TrackSourceInput},
 	},
 	Core,
@@ -53,6 +59,87 @@ fn install_extension(data_dir: &Path, dir: &str, wasm: &str) {
 
 fn install_test_extension(data_dir: &Path) {
 	install_extension(data_dir, "test-extension", "test_extension.wasm");
+}
+
+/// A second extension claiming the test extension's `.fake` kind, under a
+/// directory name that sorts after it. It runs the test extension's module;
+/// only its manifest differs.
+fn install_second_kind_extension(data_dir: &Path) {
+	let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+		.join("tests/fixtures/extensions/zz-second-kind/manifest.json");
+	let wasm = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+		.parent()
+		.unwrap()
+		.join("extensions/test-extension/test_extension.wasm");
+	let target = data_dir.join("extensions/zz-second-kind");
+	std::fs::create_dir_all(&target).unwrap();
+	std::fs::copy(manifest, target.join("manifest.json")).unwrap();
+	std::fs::copy(wasm, target.join("test_extension.wasm")).unwrap();
+}
+
+/// Track `dir` in `library` and wait until every file in it has a content
+/// identity. Returns the store and its file entries by name.
+async fn track_and_identify(
+	core: &Core,
+	library: &Arc<sd_core::library::Library>,
+	dir: PathBuf,
+	expected: u64,
+) -> (
+	Arc<sd_core::ops::indexing::SourceStore>,
+	Vec<sd_store::FsEntry>,
+) {
+	let tracked = TrackSourceAction::from_input(TrackSourceInput {
+		path: dir,
+		name: None,
+		overrides: Default::default(),
+	})
+	.unwrap()
+	.execute(library.clone(), core.context.clone())
+	.await
+	.unwrap();
+	let store = core
+		.context
+		.volume_index()
+		.store_for(&tracked.root)
+		.await
+		.expect("the tracked source has a store");
+	let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+	loop {
+		let contents = store.counts().await.map_or(0, |counts| counts.contents);
+		if contents == expected {
+			break;
+		}
+		assert!(
+			tokio::time::Instant::now() < deadline,
+			"{contents} of {expected} files were hashed"
+		);
+		tokio::time::sleep(Duration::from_millis(50)).await;
+	}
+	(store.clone(), store_files(&store).await)
+}
+
+async fn store_files(store: &sd_core::ops::indexing::SourceStore) -> Vec<sd_store::FsEntry> {
+	store.flush().await.unwrap();
+	let mut files = sd_store::read::files_beneath(
+		store.db().pool(),
+		"",
+		sd_store::read::Start::First,
+		None,
+		false,
+		100,
+	)
+	.await
+	.unwrap();
+	files.sort_by(|a, b| a.name.cmp(&b.name));
+	files
+}
+
+fn kind_of(files: &[sd_store::FsEntry], name: &str) -> (Option<i64>, Option<String>) {
+	let entry = files
+		.iter()
+		.find(|f| f.name == name)
+		.unwrap_or_else(|| panic!("{name} is in the store"));
+	(entry.content_kind, entry.content_kind_name.clone())
 }
 
 /// Start an extension job and wait for it to end, whichever way.
@@ -670,4 +757,196 @@ fn walk(dir: &Path) -> Vec<PathBuf> {
 		}
 	}
 	out
+}
+
+/// The test extension declares a `fake` kind over `.fake` with magic
+/// bytes, and a second fixture loaded after it contests the extension. The
+/// content identity phase stores the kind and its name for every file,
+/// built-in kinds included; the row keeps its name after the extension
+/// unloads while the registry forgets it; rows identified before an
+/// extension existed are named when it loads and when a store opens after
+/// a restart.
+#[tokio::test(flavor = "multi_thread")]
+async fn extension_kinds_are_stored_and_survive_unload() {
+	guest_log();
+	let temp_dir = TempDir::new().unwrap();
+	let data_dir = temp_dir.path().join("core");
+	install_test_extension(&data_dir);
+	install_second_kind_extension(&data_dir);
+	let core = Core::new(data_dir.clone()).await.unwrap();
+	let pm = core
+		.plugin_manager
+		.as_ref()
+		.expect("plugin manager")
+		.clone();
+
+	// Both loaded, in directory order; the list reports the kinds and the
+	// one contested claim.
+	let session =
+		SessionContext::device_session(Uuid::now_v7(), sd_core::device::get_current_device_slug());
+	let list = ListExtensionsQuery::from_input(ListExtensionsInput {})
+		.unwrap()
+		.execute(core.context.clone(), session.clone())
+		.await
+		.unwrap();
+	let ids: Vec<&str> = list.extensions.iter().map(|e| e.id.as_str()).collect();
+	assert_eq!(ids, ["test-extension", "zz-second-kind"]);
+	let fake = &list.extensions[0].kinds[0];
+	assert_eq!(fake.id, "test-extension:fake");
+	assert_eq!(fake.display_name, "Fake file");
+	assert_eq!(fake.parent, ContentKind::Text);
+	assert_eq!(fake.preview, Some(PreviewSpec::Renderer("text".into())));
+	assert_eq!(
+		list.conflicts,
+		vec![KindConflict {
+			extension: "fake".into(),
+			kind: "zz-second-kind:other".into(),
+			claimed_by: "test-extension:fake".into(),
+		}]
+	);
+	assert_eq!(
+		FileTypeRegistry::current()
+			.type_by_extension(Path::new("x.fake2"))
+			.unwrap()
+			.id,
+		"zz-second-kind:other",
+		"the loser keeps its uncontested extension"
+	);
+
+	// Index a folder: the identity phase writes kind and kind_name.
+	let library = core
+		.libraries
+		.create_library("Kinds", None, core.context.clone())
+		.await
+		.unwrap();
+	let first = temp_dir.path().join("first");
+	std::fs::create_dir_all(&first).unwrap();
+	std::fs::write(first.join("a.fake"), b"FAKE".repeat(300)).unwrap();
+	std::fs::write(first.join("b.fake"), b"OTHR".repeat(300)).unwrap();
+	std::fs::write(first.join("c.fake"), vec![0u8; 1200]).unwrap();
+	let mut jpeg = vec![0xFF, 0xD8, 0xFF, 0xE0];
+	jpeg.extend(std::iter::repeat_n(7u8, 1200));
+	std::fs::write(first.join("d.jpg"), jpeg).unwrap();
+	std::fs::write(first.join("e.txt"), b"plain text".repeat(100)).unwrap();
+	let (first_store, files) = track_and_identify(&core, &library, first.clone(), 5).await;
+
+	let text = ContentKind::Text as i64;
+	assert_eq!(
+		kind_of(&files, "a.fake"),
+		(Some(text), Some("test-extension:fake".into()))
+	);
+	assert_eq!(
+		kind_of(&files, "b.fake"),
+		(Some(text), Some("zz-second-kind:other".into())),
+		"a lone magic match on the contested kind wins the file"
+	);
+	assert_eq!(
+		kind_of(&files, "c.fake"),
+		(Some(text), Some("test-extension:fake".into())),
+		"no magic match keeps the extension holder"
+	);
+	assert_eq!(
+		kind_of(&files, "d.jpg"),
+		(Some(ContentKind::Image as i64), None),
+		"a built-in kind is stored too"
+	);
+	assert_eq!(kind_of(&files, "e.txt"), (Some(text), None));
+
+	let a = files.iter().find(|f| f.name == "a.fake").unwrap();
+	let file = File::from_store_entry(a, SdPath::local(first.join("a.fake")));
+	assert_eq!(file.content_kind, ContentKind::Text);
+	assert_eq!(
+		file.content_kind_name.as_deref(),
+		Some("test-extension:fake")
+	);
+
+	// Unload the holder: the registry moves on, the rows do not.
+	pm.write()
+		.await
+		.unload_plugin("test-extension")
+		.await
+		.unwrap();
+	assert_eq!(
+		FileTypeRegistry::current()
+			.type_by_extension(Path::new("x.fake"))
+			.unwrap()
+			.id,
+		"zz-second-kind:other",
+		"the contested claim holds the extension once the winner is gone"
+	);
+	let files = store_files(&first_store).await;
+	assert_eq!(
+		kind_of(&files, "a.fake"),
+		(Some(text), Some("test-extension:fake".into()))
+	);
+	let a = files.iter().find(|f| f.name == "a.fake").unwrap();
+	let file = File::from_store_entry(a, SdPath::local(first.join("a.fake")));
+	assert_eq!(file.content_kind, ContentKind::Text, "the stored parent");
+	assert_eq!(
+		file.content_kind_name.as_deref(),
+		Some("test-extension:fake")
+	);
+
+	pm.write()
+		.await
+		.unload_plugin("zz-second-kind")
+		.await
+		.unwrap();
+	assert!(
+		FileTypeRegistry::current()
+			.type_by_extension(Path::new("x.fake"))
+			.is_none(),
+		"no extension loaded, the built-in registry is back"
+	);
+	assert!(FileTypeRegistry::current().conflicts().is_empty());
+
+	// Rows identified with no extension loaded have no kind; the load that
+	// follows names them by extension without reading the bytes.
+	let second = temp_dir.path().join("second");
+	std::fs::create_dir_all(&second).unwrap();
+	std::fs::write(second.join("f.FAKE"), vec![1u8; 1200]).unwrap();
+	std::fs::write(second.join("g.txt"), b"plain".repeat(300)).unwrap();
+	let (second_store, files) = track_and_identify(&core, &library, second.clone(), 2).await;
+	assert_eq!(kind_of(&files, "f.FAKE"), (None, None));
+	assert_eq!(kind_of(&files, "g.txt"), (Some(text), None));
+
+	pm.write()
+		.await
+		.load_plugin("test-extension")
+		.await
+		.unwrap();
+	let files = store_files(&second_store).await;
+	assert_eq!(
+		kind_of(&files, "f.FAKE"),
+		(Some(text), Some("test-extension:fake".into())),
+		"a load with kinds names the rows open stores hold, whatever the case of the extension"
+	);
+	assert_eq!(kind_of(&files, "g.txt"), (Some(text), None));
+
+	// A store opened after a restart is named by the kinds loaded at startup.
+	pm.write()
+		.await
+		.unload_plugin("test-extension")
+		.await
+		.unwrap();
+	let third = temp_dir.path().join("third");
+	std::fs::create_dir_all(&third).unwrap();
+	std::fs::write(third.join("h.fake"), vec![2u8; 1200]).unwrap();
+	let (_, files) = track_and_identify(&core, &library, third.clone(), 1).await;
+	assert_eq!(kind_of(&files, "h.fake"), (None, None));
+	core.shutdown().await.unwrap();
+
+	let core = Core::new(data_dir).await.unwrap();
+	let store = core
+		.context
+		.volume_index()
+		.store_for(&third)
+		.await
+		.expect("the third source reopens");
+	let files = store_files(&store).await;
+	assert_eq!(
+		kind_of(&files, "h.fake"),
+		(Some(text), Some("test-extension:fake".into()))
+	);
+	core.shutdown().await.unwrap();
 }

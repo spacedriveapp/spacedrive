@@ -857,3 +857,76 @@ async fn duplicate_discovery_groups_by_sampled_hash_and_splits_by_integrity() {
 		"the pair is reported under the confirmed uuid"
 	);
 }
+
+/// The kind the identity phase read from the bytes travels with the record
+/// to the confirmed row a verification pass moves it to, since that pass
+/// carries no kind of its own.
+#[tokio::test]
+async fn a_full_read_keeps_the_kind_the_sampled_pass_stored() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+	let note = db
+		.upsert("note", "note-1", &json!({ "title": "A" }))
+		.await
+		.expect("note");
+
+	db.set_content_identity(
+		note,
+		&ContentIdentity {
+			sampled_hash: Some("sampled-1".to_string()),
+			kind: Some(1),
+			kind_name: Some("photos:raw".to_string()),
+			..Default::default()
+		},
+	)
+	.await
+	.expect("candidate");
+	let confirmed = db
+		.set_content_identity(note, &confirmed("sampled-1", "integrity-1"))
+		.await
+		.expect("confirmed");
+
+	let (kind, kind_name): (Option<i64>, Option<String>) =
+		sqlx::query_as("SELECT kind, kind_name FROM content WHERE id = ?")
+			.bind(confirmed)
+			.fetch_one(db.pool())
+			.await
+			.expect("confirmed row");
+	assert_eq!(kind, Some(1));
+	assert_eq!(kind_name.as_deref(), Some("photos:raw"));
+
+	// A later identity pass that names the kind itself still wins.
+	db.set_content_identity(
+		note,
+		&ContentIdentity {
+			sampled_hash: Some("sampled-1".to_string()),
+			integrity_hash: Some("integrity-1".to_string()),
+			kind: Some(7),
+			kind_name: Some("other:thing".to_string()),
+			..Default::default()
+		},
+	)
+	.await
+	.expect("renamed");
+	let (kind, kind_name): (Option<i64>, Option<String>) =
+		sqlx::query_as("SELECT kind, kind_name FROM content WHERE id = ?")
+			.bind(confirmed)
+			.fetch_one(db.pool())
+			.await
+			.expect("confirmed row");
+	assert_eq!((kind, kind_name.as_deref()), (Some(7), Some("other:thing")));
+
+	// Changed bytes with no kind of their own inherit nothing.
+	let changed = db
+		.set_content_identity(note, &sampled("sampled-2"))
+		.await
+		.expect("rehashed");
+	let (kind, kind_name): (Option<i64>, Option<String>) =
+		sqlx::query_as("SELECT kind, kind_name FROM content WHERE id = ?")
+			.bind(changed)
+			.fetch_one(db.pool())
+			.await
+			.expect("new row");
+	assert_eq!((kind, kind_name), (None, None));
+}

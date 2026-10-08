@@ -1257,7 +1257,7 @@ strategy: string | null; estimated_files: number | null; estimated_bytes: number
 
 export type ExtensionCase = "lower" | "keep";
 
-export type ExtensionInfo = { id: string; name: string; version: string; jobs: ExtensionJobInfo[] };
+export type ExtensionInfo = { id: string; name: string; version: string; jobs: ExtensionJobInfo[]; kinds: ExtensionKindInfo[] };
 
 export type ExtensionJobInfo = { 
 /**
@@ -1268,6 +1268,22 @@ name: string;
  * Full name a run request uses: `<extension id>:<name>`
  */
 full_name: string; resumable: boolean };
+
+/**
+ * A file kind an extension declares, as the client resolves previews and
+ * icons against it. The kinds of every loaded extension are the client's
+ * only source of extension kinds, which is what lets a stored kind name
+ * fall back to its parent once the extension is gone.
+ */
+export type ExtensionKindInfo = { 
+/**
+ * `<extension id>:<name>`, the value `File.content_kind_name` carries
+ */
+id: string; name: string; display_name: string; parent: ContentKind; 
+/**
+ * Every extension the manifest claims, contested ones included
+ */
+extensions: string[]; preview: PreviewSpec | null };
 
 /**
  * A dependency Spacedrive knows how to discover and use.
@@ -1338,7 +1354,13 @@ created_at: string; modified_at: string; accessed_at: string | null;
 /**
  * Additional computed fields
  */
-content_kind: ContentKind; is_local: boolean; 
+content_kind: ContentKind; 
+/**
+ * The extension kind id (`<extension id>:<name>`) the content identity
+ * phase stored, whether or not that extension is loaded now;
+ * `content_kind` is then its parent. `None` for a built-in kind.
+ */
+content_kind_name?: string | null; is_local: boolean; 
 /**
  * Video duration (for grid display optimization)
  */
@@ -2388,6 +2410,26 @@ export type Keep =
 { kind: "these"; paths: SdPath[] };
 
 /**
+ * A file extension two loaded extensions both claimed. The kind loaded
+ * first holds the claim; the other kind's claim on that extension is
+ * dropped from the lookup table and its patterns stay available to the
+ * content identity phase as a tie-breaker.
+ */
+export type KindConflict = { 
+/**
+ * The file extension, lowercase, no dot.
+ */
+extension: string; 
+/**
+ * The kind id whose claim was dropped.
+ */
+kind: string; 
+/**
+ * The kind id that holds the extension.
+ */
+claimed_by: string };
+
+/**
  * Latency metrics snapshot
  */
 export type LatencySnapshot = { count: number; avg_ms: number; min_ms: number; max_ms: number };
@@ -2915,7 +2957,12 @@ export type ListExtensionsOutput = {
 /**
  * Whether this build can load extensions at all
  */
-supported: boolean; extensions: ExtensionInfo[] };
+supported: boolean; extensions: ExtensionInfo[]; 
+/**
+ * File extensions two loaded extensions both claimed, resolved by load
+ * order: the kind loaded first holds each one.
+ */
+conflicts: KindConflict[] };
 
 export type ListLibrariesInput = { 
 /**
@@ -3682,6 +3729,12 @@ export type PortRange = { from: number; to: number };
  * User preferences output
  */
 export type PreferencesOutput = { theme: string; language: string };
+
+/**
+ * How the client previews a kind: a built-in renderer by name, or a
+ * `ui_manifest.json` `file_viewers` entry by id.
+ */
+export type PreviewSpec = { renderer: string } | { viewer: string };
 
 export type Process = (ProcessStatus) & { id: string };
 

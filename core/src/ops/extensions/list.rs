@@ -1,4 +1,5 @@
-//! List loaded extensions and the jobs they registered
+//! List loaded extensions, the jobs they registered, the file kinds they
+//! declare, and the file extensions two of them both claimed.
 
 use std::sync::Arc;
 
@@ -7,6 +8,8 @@ use specta::Type;
 
 use crate::{
 	context::CoreContext,
+	domain::ContentKind,
+	filetype::{KindConflict, PreviewSpec},
 	infra::{
 		api::SessionContext,
 		query::{CoreQuery, QueryResult},
@@ -25,12 +28,29 @@ pub struct ExtensionJobInfo {
 	pub resumable: bool,
 }
 
+/// A file kind an extension declares, as the client resolves previews and
+/// icons against it. The kinds of every loaded extension are the client's
+/// only source of extension kinds, which is what lets a stored kind name
+/// fall back to its parent once the extension is gone.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ExtensionKindInfo {
+	/// `<extension id>:<name>`, the value `File.content_kind_name` carries
+	pub id: String,
+	pub name: String,
+	pub display_name: String,
+	pub parent: ContentKind,
+	/// Every extension the manifest claims, contested ones included
+	pub extensions: Vec<String>,
+	pub preview: Option<PreviewSpec>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ExtensionInfo {
 	pub id: String,
 	pub name: String,
 	pub version: String,
 	pub jobs: Vec<ExtensionJobInfo>,
+	pub kinds: Vec<ExtensionKindInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -38,6 +58,9 @@ pub struct ListExtensionsOutput {
 	/// Whether this build can load extensions at all
 	pub supported: bool,
 	pub extensions: Vec<ExtensionInfo>,
+	/// File extensions two loaded extensions both claimed, resolved by load
+	/// order: the kind loaded first holds each one.
+	pub conflicts: Vec<KindConflict>,
 }
 
 pub struct ListExtensionsQuery;
@@ -61,6 +84,7 @@ impl CoreQuery for ListExtensionsQuery {
 				return Ok(ListExtensionsOutput {
 					supported: true,
 					extensions: Vec::new(),
+					conflicts: Vec::new(),
 				});
 			};
 			let pm = plugin_manager.read().await;
@@ -80,17 +104,36 @@ impl CoreQuery for ListExtensionsQuery {
 					})
 					.collect();
 				jobs.sort_by(|a, b| a.name.cmp(&b.name));
+				let kinds = manifest
+					.kinds
+					.iter()
+					.map(|kind| ExtensionKindInfo {
+						id: kind.id(&id),
+						name: kind.name.clone(),
+						display_name: kind
+							.display_name
+							.clone()
+							.unwrap_or_else(|| kind.name.clone()),
+						parent: kind.parent,
+						extensions: kind.extensions.clone(),
+						preview: kind.preview.clone(),
+					})
+					.collect();
 				extensions.push(ExtensionInfo {
 					id,
 					name: manifest.name.clone(),
 					version: manifest.version.clone(),
 					jobs,
+					kinds,
 				});
 			}
 			extensions.sort_by(|a, b| a.id.cmp(&b.id));
 			Ok(ListExtensionsOutput {
 				supported: true,
 				extensions,
+				conflicts: crate::filetype::FileTypeRegistry::current()
+					.conflicts()
+					.to_vec(),
 			})
 		}
 		#[cfg(not(feature = "wasm"))]
@@ -99,6 +142,7 @@ impl CoreQuery for ListExtensionsQuery {
 			Ok(ListExtensionsOutput {
 				supported: false,
 				extensions: Vec::new(),
+				conflicts: Vec::new(),
 			})
 		}
 	}

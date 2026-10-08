@@ -471,3 +471,164 @@ async fn migration_1_timing_on_a_million_records() {
 	assert_eq!(count, rows);
 	println!("migration 1 over {rows} content rows and records: {elapsed:?}");
 }
+
+/// Turn a fresh store into one written at schema version 1: the content
+/// table without `kind_name`, no extension index, `user_version` 1.
+async fn downgrade_to_v1(path: &Path) -> SqlitePool {
+	let pool = raw(path).await;
+	for sql in [
+		"DROP TABLE content",
+		migrate::CONTENT_V1,
+		"CREATE UNIQUE INDEX idx_content_candidate ON content(sampled_hash) WHERE integrity_hash IS NULL",
+		"CREATE INDEX idx_content_sampled ON content(sampled_hash)",
+		"CREATE INDEX idx_content_uuid ON content(uuid)",
+		"CREATE INDEX idx_content_candidate_uuid ON content(candidate_uuid)",
+		"DROP INDEX IF EXISTS idx_facet_file_extension",
+		"PRAGMA user_version = 1",
+	] {
+		sqlx::query(sql).execute(&pool).await.expect(sql);
+	}
+	pool
+}
+
+async fn insert_v1_content(pool: &SqlitePool, id: i64, sampled: &str, kind: Option<i64>) {
+	sqlx::query(
+		"INSERT INTO content (id, uuid, candidate_uuid, sampled_hash, size, kind) VALUES (?, ?, ?, ?, 10, ?)",
+	)
+	.bind(id)
+	.bind(uuid_for(sampled))
+	.bind(uuid_for(sampled))
+	.bind(sampled)
+	.bind(kind)
+	.execute(pool)
+	.await
+	.expect("content row");
+}
+
+async fn insert_file_facet(pool: &SqlitePool, record: Uuid, extension: &str) {
+	sqlx::query("INSERT INTO facet_file (record_uuid, size, extension) VALUES (?, 10, ?)")
+		.bind(record)
+		.bind(extension)
+		.execute(pool)
+		.await
+		.expect("facet row");
+}
+
+async fn kind_columns(pool: &SqlitePool) -> Vec<(i64, Option<i64>, Option<String>)> {
+	sqlx::query_as("SELECT id, kind, kind_name FROM content ORDER BY id")
+		.fetch_all(pool)
+		.await
+		.expect("kind columns")
+}
+
+/// Migration 2 on a version 1 store: the column arrives empty, the
+/// extension index exists, every row and its kind survive, and the
+/// reidentification statement names rows by extension without touching a
+/// row already named.
+#[tokio::test]
+async fn migration_2_adds_kind_name_without_a_backfill() {
+	let fixture = Fixture::new().await;
+	let pool = downgrade_to_v1(&fixture.db_path()).await;
+	insert_v1_content(&pool, 1, "s1", Some(1)).await;
+	insert_v1_content(&pool, 2, "s2", None).await;
+	insert_v1_content(&pool, 3, "s3", Some(4)).await;
+	let cr2 = insert_record(&pool, "shot.CR2", Some(1)).await;
+	let nef = insert_record(&pool, "shot.nef", Some(2)).await;
+	let pdf = insert_record(&pool, "paper.pdf", Some(3)).await;
+	insert_file_facet(&pool, cr2, "CR2").await;
+	insert_file_facet(&pool, nef, "nef").await;
+	insert_file_facet(&pool, pdf, "pdf").await;
+	pool.close().await;
+
+	let db = fixture
+		.manager
+		.open("source-1")
+		.await
+		.expect("open migrates");
+	assert_eq!(db.schema_version(), 2);
+	assert_eq!(
+		migrate::version(db.pool()).await.expect("version"),
+		2,
+		"the file carries the new version"
+	);
+	assert_eq!(
+		kind_columns(db.pool()).await,
+		vec![(1, Some(1), None), (2, None, None), (3, Some(4), None)],
+		"rows keep their kind and gain an empty kind_name"
+	);
+	let index: Option<String> = sqlx::query_scalar(
+		"SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_facet_file_extension'",
+	)
+	.fetch_optional(db.pool())
+	.await
+	.expect("index lookup");
+	assert_eq!(index.as_deref(), Some("idx_facet_file_extension"));
+
+	let named = sd_store::name_content_kind_by_extension(
+		db.pool(),
+		"photos:raw",
+		1,
+		&["cr2".to_string(), "nef".to_string()],
+	)
+	.await
+	.expect("reidentify");
+	assert_eq!(named, 2, "the uppercase CR2 and the nef row are both named");
+	let again =
+		sd_store::name_content_kind_by_extension(db.pool(), "other:raw", 1, &["cr2".to_string()])
+			.await
+			.expect("reidentify again");
+	assert_eq!(again, 0, "a named row keeps its name");
+	assert_eq!(
+		kind_columns(db.pool()).await,
+		vec![
+			(1, Some(1), Some("photos:raw".into())),
+			(2, Some(1), Some("photos:raw".into())),
+			(3, Some(4), None),
+		]
+	);
+	let entry = db.entry_by_uuid(nef).await.expect("read").expect("row");
+	assert_eq!(entry.content_kind_name.as_deref(), Some("photos:raw"));
+	assert_eq!(entry.content_kind, Some(1));
+
+	// Reopening is a no-op.
+	drop(db);
+	let reopened = fixture.manager.open("source-1").await.expect("reopen");
+	assert_eq!(reopened.schema_version(), 2);
+	assert_eq!(kind_columns(reopened.pool()).await.len(), 3);
+}
+
+/// A replica still at version 1 is read through the current entry shape:
+/// its rows report no kind name rather than failing on a column the owner
+/// has not written yet.
+#[tokio::test]
+async fn a_version_1_replica_reads_with_an_empty_kind_name() {
+	let fixture = Fixture::new().await;
+	let pool = downgrade_to_v1(&fixture.db_path()).await;
+	insert_v1_content(&pool, 1, "s1", Some(1)).await;
+	let a = insert_record(&pool, "a.cr2", Some(1)).await;
+	insert_file_facet(&pool, a, "cr2").await;
+	let replica_path = fixture.dir.path().join("replica.db");
+	sqlx::query("VACUUM INTO ?")
+		.bind(replica_path.to_string_lossy().to_string())
+		.execute(&pool)
+		.await
+		.expect("vacuum into");
+	pool.close().await;
+
+	let replica = SourceManager::open_file_read_only(&replica_path)
+		.await
+		.expect("replica opens");
+	assert_eq!(replica.schema_version(), 1);
+	let entry = replica.entry_by_uuid(a).await.expect("read").expect("row");
+	assert_eq!(entry.content_kind, Some(1));
+	assert_eq!(entry.content_kind_name, None);
+	let (entries, _) = sd_store::read::all_entries_page(replica.pool(), 0, 10)
+		.await
+		.expect("page");
+	assert_eq!(entries.len(), 1);
+	assert_eq!(
+		migrate::version(replica.pool()).await.expect("version"),
+		1,
+		"nothing migrated the replica"
+	);
+}

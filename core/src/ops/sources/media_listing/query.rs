@@ -230,6 +230,7 @@ fn record_to_file(
 		modified_at: captured_at,
 		accessed_at: None,
 		content_kind,
+		content_kind_name: None,
 		is_local: true,
 		duration_seconds: None,
 		thumbnail_path: str_field("thumb_path").map(|p| absolutize(PathBuf::from(p))),

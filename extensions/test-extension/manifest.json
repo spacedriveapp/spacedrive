@@ -11,5 +11,24 @@
 		"write_sidecars": [
 			"digest"
 		]
-	}
+	},
+	"kinds": [
+		{
+			"name": "fake",
+			"display_name": "Fake file",
+			"parent": "text",
+			"extensions": [
+				"fake"
+			],
+			"magic": [
+				{
+					"pattern": "46 41 4B 45",
+					"offset": 0
+				}
+			],
+			"preview": {
+				"renderer": "text"
+			}
+		}
+	]
 }

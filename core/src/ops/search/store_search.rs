@@ -6,7 +6,7 @@
 //! other backend. Matching, filters and scoring mirror the arena path so the
 //! two backends return the same hits for the same capture.
 
-use crate::domain::{File, SdPath};
+use crate::domain::{ContentKind, File, SdPath};
 use crate::filetype::FileTypeRegistry;
 use crate::infra::query::QueryError;
 use crate::ops::search::input::{DateField, SearchFilters};
@@ -146,7 +146,15 @@ pub(super) fn passes_store_filters(
 	}
 
 	if let Some(ref content_types) = filters.content_types {
-		let identified_kind = file_type_registry.identify_by_extension(absolute);
+		// The stored kind is what the listing shows, so the filter agrees
+		// with it; a row identified before kinds were stored derives one
+		// from the name as the listing does.
+		let identified_kind = entry
+			.content_kind
+			.and_then(|kind| i32::try_from(kind).ok())
+			.map(ContentKind::from_id)
+			.filter(|kind| *kind != ContentKind::Unknown)
+			.unwrap_or_else(|| file_type_registry.identify_by_extension(absolute));
 		if !content_types.contains(&identified_kind) {
 			return false;
 		}

@@ -95,7 +95,8 @@ CREATE TABLE IF NOT EXISTS content (
     sampled_hash TEXT,
     integrity_hash TEXT UNIQUE,
     size INTEGER,
-    kind INTEGER
+    kind INTEGER,
+    kind_name TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_content_candidate ON content(sampled_hash)
     WHERE integrity_hash IS NULL;
@@ -238,7 +239,13 @@ pub struct ContentIdentity {
 	/// Full tier — hash over every byte.
 	pub integrity_hash: Option<String>,
 	pub size: Option<i64>,
+	/// The built-in kind, or an extension kind's parent, as a `ContentKind`
+	/// discriminant.
 	pub kind: Option<i64>,
+	/// The extension kind id (`<extension id>:<name>`) when an extension's
+	/// kind identified the bytes. Kept after the extension unloads, so a
+	/// reader can fall back to `kind` until it returns.
+	pub kind_name: Option<String>,
 }
 
 /// Facet table name for a model. Namespaced so a model can never collide with a
