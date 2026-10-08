@@ -165,8 +165,13 @@ impl VolumeMonitorService {
 					// Check for new external volumes to auto-track
 					let all_volumes = volume_manager.get_all_volumes().await;
 					for volume in all_volumes {
-						// Only consider external volumes
-						if matches!(volume.mount_type, crate::volume::types::MountType::External) {
+						// Only consider mounted external volumes; a dataset that
+						// is away cannot carry an identity file yet.
+						if volume.is_mounted
+							&& matches!(
+								volume.mount_type,
+								crate::volume::types::MountType::External
+							) {
 							for library in &libraries {
 								// Check if auto-tracking is enabled
 								let config = library.config().await;
@@ -284,9 +289,11 @@ pub fn follow_volume_events(context: Arc<CoreContext>) -> tokio::task::JoinHandl
 			let event = match events.recv().await {
 				Ok(event) => event,
 				Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
-					// Detection runs every refresh, so the state a skipped
-					// event carried is carried again by the next one.
-					debug!("volume follower skipped {skipped} events");
+					// A removal is emitted once; a drive whose removal fell in
+					// the gap would read mounted for the rest of the session,
+					// so the index is re-read against the manager instead.
+					warn!("volume follower skipped {skipped} events; resyncing the index");
+					resync(&context).await;
 					continue;
 				}
 				Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
@@ -304,6 +311,24 @@ pub fn follow_volume_events(context: Arc<CoreContext>) -> tokio::task::JoinHandl
 			}
 		}
 	})
+}
+
+/// Bring every drive the index maps in line with what the manager holds now,
+/// for a window of events the follower did not see.
+async fn resync(context: &Arc<CoreContext>) {
+	let live = context.volume_manager.get_all_volumes().await;
+	for (uuid, fingerprint) in context.volume_index().mapped_volumes() {
+		let Some(fingerprint) = fingerprint else {
+			continue;
+		};
+		match live.iter().find(|volume| volume.fingerprint == fingerprint) {
+			Some(volume) => apply_volume(context, volume).await,
+			None if context.volume_index().volume_state(uuid) != Some(VolumeState::Unmounted) => {
+				vanished(context, &fingerprint).await
+			}
+			None => {}
+		}
+	}
 }
 
 /// A drive detection returned; the index follows its state when it maps

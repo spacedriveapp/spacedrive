@@ -620,6 +620,17 @@ impl VolumeIndex {
 		mounted && root.exists()
 	}
 
+	/// Every drive this machine maps, with the fingerprint detection knows
+	/// it by when it came from a row or from detection.
+	pub fn mapped_volumes(&self) -> Vec<(Uuid, Option<VolumeFingerprint>)> {
+		self.volumes
+			.lock()
+			.iter()
+			.filter(|tracked| !is_cloud_root(&tracked.mount_point))
+			.map(|tracked| (tracked.uuid, tracked.fingerprint.clone()))
+			.collect()
+	}
+
 	/// Whether a mapped drive is mounted, or `None` for one this machine does
 	/// not map.
 	pub fn volume_mounted(&self, uuid: Uuid) -> Option<bool> {

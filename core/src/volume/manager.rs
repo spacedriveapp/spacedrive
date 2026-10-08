@@ -2288,6 +2288,17 @@ impl VolumeManager {
 			return None;
 		}
 
+		// The directory at an unmounted volume's mount point belongs to the
+		// parent filesystem; a file written there shadows under the mount
+		// and, with ZFS overlay off, stops the dataset from mounting at all.
+		if !volume.is_mounted {
+			debug!(
+				"Skipping Spacedrive identifier management for unmounted volume: {}",
+				volume.name
+			);
+			return None;
+		}
+
 		let id_file_path = volume.mount_point.join(SPACEDRIVE_VOLUME_ID_FILE);
 
 		// Try to read existing identifier file

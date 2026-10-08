@@ -51,10 +51,48 @@ fn zpool_bin() -> &'static str {
 const LIST_COLUMNS: &str =
 	"name,mountpoint,used,available,type,mounted,encryption,keystatus,canmount";
 
-/// Whether the zfs binary is present, so detection can list datasets the
-/// mount table does not show.
+/// The first five columns, for a zfs too old to know `encryption` and
+/// `keystatus`. [`ZfsDatasetInfo::parse_line`] reads such output as every
+/// dataset mounted and unlocked, which is what the mount table said before.
+const BASIC_LIST_COLUMNS: &str = "name,mountpoint,used,available,type";
+
+/// Whether a zfs binary can be run, so detection can list datasets the
+/// mount table does not show. A binary outside the usual prefixes (NixOS,
+/// a custom install) is found through PATH the way `Command` finds it.
 pub fn zfs_available() -> bool {
-	Path::new(zfs_bin()).exists()
+	let bin = zfs_bin();
+	if Path::new(bin).is_absolute() {
+		return Path::new(bin).exists();
+	}
+	std::env::var_os("PATH")
+		.is_some_and(|path| std::env::split_paths(&path).any(|dir| dir.join(bin).exists()))
+}
+
+/// Run `zfs list -H -t filesystem` with `args` appended, asking for the
+/// state columns first and falling back to the basic five when the zfs
+/// rejects them.
+fn zfs_list(args: &[&str]) -> VolumeResult<String> {
+	let mut last_error = None;
+	for columns in [LIST_COLUMNS, BASIC_LIST_COLUMNS] {
+		let output = Command::new(zfs_bin())
+			.args(["list", "-H", "-o", columns, "-t", "filesystem"])
+			.args(args)
+			.output()
+			.map_err(|e| {
+				crate::volume::error::VolumeError::platform(format!(
+					"Failed to run zfs list: {}",
+					e
+				))
+			})?;
+		if output.status.success() {
+			return Ok(String::from_utf8_lossy(&output.stdout).to_string());
+		}
+		last_error = Some(String::from_utf8_lossy(&output.stderr).trim().to_string());
+	}
+	Err(crate::volume::error::VolumeError::platform(format!(
+		"zfs list command failed: {}",
+		last_error.unwrap_or_default()
+	)))
 }
 
 /// ZFS filesystem handler
@@ -83,31 +121,11 @@ impl ZfsHandler {
 	async fn get_dataset_info(&self, path: &Path) -> VolumeResult<ZfsDatasetInfo> {
 		let path = path.to_path_buf();
 
-		task::spawn_blocking(move || {
-			// Use zfs list to find the dataset containing this path
-			let output = Command::new(zfs_bin())
-				.args(["list", "-H", "-o", LIST_COLUMNS, "-t", "filesystem"])
-				.output()
-				.map_err(|e| {
-					crate::volume::error::VolumeError::platform(format!(
-						"Failed to run zfs list: {}",
-						e
-					))
-				})?;
-
-			if !output.status.success() {
-				return Err(crate::volume::error::VolumeError::platform(
-					"zfs list command failed".to_string(),
-				));
-			}
-
-			let output_text = String::from_utf8_lossy(&output.stdout);
-			find_dataset_for_path(&output_text, &path)
-		})
-		.await
-		.map_err(|e| {
-			crate::volume::error::VolumeError::platform(format!("Task join error: {}", e))
-		})?
+		task::spawn_blocking(move || find_dataset_for_path(&zfs_list(&[])?, &path))
+			.await
+			.map_err(|e| {
+				crate::volume::error::VolumeError::platform(format!("Task join error: {}", e))
+			})?
 	}
 
 	/// Get ZFS pool information
@@ -154,39 +172,11 @@ impl ZfsHandler {
 	pub async fn get_pool_datasets(&self, pool_name: &str) -> VolumeResult<Vec<ZfsDatasetInfo>> {
 		let pool_name = pool_name.to_string();
 
-		task::spawn_blocking(move || {
-			let output = Command::new(zfs_bin())
-				.args([
-					"list",
-					"-H",
-					"-r",
-					"-o",
-					LIST_COLUMNS,
-					"-t",
-					"filesystem",
-					&pool_name,
-				])
-				.output()
-				.map_err(|e| {
-					crate::volume::error::VolumeError::platform(format!(
-						"Failed to run zfs list: {}",
-						e
-					))
-				})?;
-
-			if !output.status.success() {
-				return Err(crate::volume::error::VolumeError::platform(
-					"zfs list command failed".to_string(),
-				));
-			}
-
-			let output_text = String::from_utf8_lossy(&output.stdout);
-			parse_zfs_datasets(&output_text)
-		})
-		.await
-		.map_err(|e| {
-			crate::volume::error::VolumeError::platform(format!("Task join error: {}", e))
-		})?
+		task::spawn_blocking(move || parse_zfs_datasets(&zfs_list(&["-r", &pool_name])?))
+			.await
+			.map_err(|e| {
+				crate::volume::error::VolumeError::platform(format!("Task join error: {}", e))
+			})?
 	}
 }
 
@@ -423,27 +413,9 @@ fn parse_zfs_size(size_str: &str) -> Option<u64> {
 
 /// Fetch `zfs list` output once for reuse across multiple volumes
 pub async fn fetch_zfs_list_output() -> VolumeResult<String> {
-	task::spawn_blocking(|| {
-		let output = Command::new(zfs_bin())
-			.args(["list", "-H", "-o", LIST_COLUMNS, "-t", "filesystem"])
-			.output()
-			.map_err(|e| {
-				crate::volume::error::VolumeError::platform(format!(
-					"Failed to run zfs list: {}",
-					e
-				))
-			})?;
-
-		if !output.status.success() {
-			return Err(crate::volume::error::VolumeError::platform(
-				"zfs list command failed".to_string(),
-			));
-		}
-
-		Ok(String::from_utf8_lossy(&output.stdout).to_string())
-	})
-	.await
-	.map_err(|e| crate::volume::error::VolumeError::platform(format!("Task join error: {}", e)))?
+	task::spawn_blocking(|| zfs_list(&[])).await.map_err(|e| {
+		crate::volume::error::VolumeError::platform(format!("Task join error: {}", e))
+	})?
 }
 
 /// Enhance a volume using pre-fetched `zfs list` output (no subprocess call)
