@@ -535,6 +535,21 @@ shape and results equal a freshly built index. Snapshot node count follows
 live nodes, including required ancestors and summaries, rather than historical
 allocation. Concurrent mutation and active-reader fixtures preserve identity.
 
+Results (2026-10-07): the compaction half landed in
+`core/src/ops/indexing/{nodes,arena,snapshot}.rs`. `NodeArena` reuses vacated
+slots through a free list, so a cleared and refilled subtree reuses the slots
+it had (100 cycles over 50 files: 54 slots for 54 live paths, where 5,154 were
+allocated before). `Arena::compact` is the compact projection, run after a
+removal once vacant slots outnumber live entries and number at least 4,096; it
+renumbers every internal reference together and swaps in a fully built arena.
+The audit found no consumer retaining an `EntryId`: the type never leaves the
+indexing module, listings and search page by path, the watcher addresses by
+path, so there is no generation contract to publish and no reader to drain;
+compaction runs inline under the partition's write lock. Snapshot format v4
+writes the dense projection. `ArenaStats` now reports live entries, allocated
+slots, vacant slots and capacity separately; surfacing them on
+`core.index_status` with the other memory figures is the remaining half.
+
 ### R5: Report source health and capture coverage consistently
 
 Add a typed source inspection result shared by CLI, source cards, path status

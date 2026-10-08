@@ -31,12 +31,13 @@ use std::{
 };
 use uuid::Uuid;
 
-/// Current snapshot format version. Version 3 carries summarised directories,
-/// whose rollups cannot be rebuilt from a tree they have no children in.
-/// Version 2 keys snapshots by source id,
-/// carries a real root path, and holds one source's partition rather than a
-/// dump of a shared global index.
-const SNAPSHOT_VERSION: u32 = 3;
+/// Current snapshot format version. Version 4 writes only live nodes, densely
+/// renumbered, so the artifact follows the live tree rather than every slot
+/// the session allocated. Version 3 carries summarised directories, whose
+/// rollups cannot be rebuilt from a tree they have no children in. Version 2
+/// keys snapshots by source id, carries a real root path, and holds one
+/// source's partition rather than a dump of a shared global index.
+const SNAPSHOT_VERSION: u32 = 4;
 
 /// Metadata read back alongside a restored index, used for staleness checks
 /// and for reattaching the snapshot to its source.
@@ -70,8 +71,9 @@ pub struct IndexSnapshot {
 	pub name_cache_strings: Vec<String>,
 	/// Name registry (name → entry ID mappings)
 	pub name_registry_map: Vec<(String, Vec<EntryId>)>,
-	/// Arena entries (serialized without pointers)
-	pub arena_entries: Vec<(usize, SerializableFileNode)>,
+	/// Live arena nodes in slot order; a node's position is its slot, and
+	/// every id in this file names a position here.
+	pub arena_entries: Vec<SerializableFileNode>,
 	/// Directories counted but not kept, and the totals standing in for them.
 	/// Every other rollup is recomputed from the tree on load; these have no
 	/// tree beneath them to recompute from.
@@ -109,25 +111,40 @@ pub(super) fn save_snapshot_impl(
 	let (arena, cache, registry, path_index, entry_uuids, content_kinds, stats, stubs) =
 		index.snapshot_data();
 
+	// Every id is written through the live projection, so the file is the
+	// compact arena whether or not the session's arena was.
+	let projection = index.snapshot_projection();
+	let renumber = |id: EntryId| projection.get(id.as_usize()).copied().flatten();
+	fn remap_keys<V: Clone>(
+		ids: &HashMap<EntryId, V>,
+		renumber: impl Fn(EntryId) -> Option<EntryId>,
+	) -> HashMap<EntryId, V> {
+		ids.iter()
+			.filter_map(|(&id, value)| renumber(id).map(|new| (new, value.clone())))
+			.collect()
+	}
+
 	// Serialize name cache
 	let name_cache_strings: Vec<String> = cache.iter().collect();
 
 	// Serialize name registry
-	let name_registry_map = registry.export_map();
+	let name_registry_map: Vec<(String, Vec<EntryId>)> = registry
+		.export_map()
+		.into_iter()
+		.filter_map(|(name, ids)| {
+			let ids: Vec<EntryId> = ids.into_iter().filter_map(renumber).collect();
+			(!ids.is_empty()).then_some((name, ids))
+		})
+		.collect();
 
 	// Serialize arena entries (convert FileNode to SerializableFileNode)
-	let arena_entries: Vec<(usize, SerializableFileNode)> = arena
+	let arena_entries: Vec<SerializableFileNode> = arena
 		.iter()
-		.map(|(id, node)| {
-			(
-				id.as_usize(),
-				SerializableFileNode {
-					name: node.name().to_string(),
-					parent: node.parent().into(),
-					children: node.children.clone(),
-					meta: node.meta,
-				},
-			)
+		.map(|(_, node)| SerializableFileNode {
+			name: node.name().to_string(),
+			parent: node.parent().and_then(renumber).into(),
+			children: node.children.iter().copied().filter_map(renumber).collect(),
+			meta: node.meta,
 		})
 		.collect();
 
@@ -139,16 +156,19 @@ pub(super) fn save_snapshot_impl(
 			.duration_since(std::time::UNIX_EPOCH)
 			.unwrap()
 			.as_secs(),
-		path_index: path_index.clone(),
-		entry_uuids: entry_uuids.clone(),
-		content_kinds: content_kinds.clone(),
+		path_index: path_index
+			.iter()
+			.filter_map(|(path, &id)| renumber(id).map(|new| (path.clone(), new)))
+			.collect(),
+		entry_uuids: remap_keys(entry_uuids, renumber),
+		content_kinds: remap_keys(content_kinds, renumber),
 		stats: stats.clone(),
 		name_cache_strings,
 		name_registry_map,
 		arena_entries,
 		stubs: stubs
 			.iter()
-			.map(|(&id, rollup)| (id, rollup.bytes, rollup.files))
+			.filter_map(|(&id, rollup)| renumber(id).map(|new| (new, rollup.bytes, rollup.files)))
 			.collect(),
 	};
 
@@ -195,7 +215,7 @@ pub(super) fn save_snapshot_impl(
 
 	tracing::info!(
 		"Saved snapshot: {} entries, {} MB, took {:?}",
-		arena.len(),
+		arena.live(),
 		file_size / 1024 / 1024,
 		start.elapsed()
 	);
@@ -356,9 +376,10 @@ pub(super) fn load_snapshot_impl(
 		}
 	}
 
-	// Rebuild arena (convert SerializableFileNode back to FileNode)
-	let mut arena = super::NodeArena::new()?;
-	for (expected_idx, serializable_node) in snapshot.arena_entries {
+	// Rebuild arena (convert SerializableFileNode back to FileNode). Nodes
+	// were written densely in slot order, so each lands on its own position.
+	let mut arena = super::NodeArena::with_capacity(snapshot.arena_entries.len())?;
+	for (expected_idx, serializable_node) in snapshot.arena_entries.into_iter().enumerate() {
 		// Intern the name and create NameRef
 		let interned_name = cache.intern(&serializable_node.name);
 		let name_ref = super::types::NameRef::new(interned_name, serializable_node.parent);
@@ -395,7 +416,7 @@ pub(super) fn load_snapshot_impl(
 
 	tracing::info!(
 		"Loaded snapshot: {} entries, took {:?}",
-		index.snapshot_data().0.len(),
+		index.snapshot_data().0.live(),
 		start.elapsed()
 	);
 

@@ -57,7 +57,7 @@ cargo test -p sd-core --lib repeated_clear_and_refill_keeps_allocation_bounded -
 | 14 | Listing/fetch generation race | `core/src/service/mounts/peer.rs` `the_generation_recorded_names_the_delivered_bytes`, `a_corrupt_delivery_never_replaces_a_good_artifact` | passing |
 | 15 | Unchanged owner for ten intervals | `core/tests/source_replication_test.rs` `test_source_replication` (Bob's ten passes after convergence: same generation, same sync time, same loaded arena); `core/src/service/mounts/peer.rs` `dirtiness_alone_paces_while_a_moved_generation_transfers`, `an_unchanged_store_exports_identical_bytes`; `crates/store/tests/revision.rs` `reopening_an_unchanged_store_rewrites_no_triggers` | passing |
 | 16 | Continuous real writes | `core/tests/source_replication_test.rs` `test_source_replication` (Alice writes and re-walks; Bob lands a newer generation holding every record); `crates/store/tests/revision.rs` `file_changes_move_the_revision_and_nothing_else_does` | passing |
-| 17 | Repeated subtree clear and refill | `core/src/ops/indexing/arena.rs` `repeated_clear_and_refill_keeps_allocation_bounded` | failing (see F4) |
+| 17 | Repeated subtree clear and refill | `core/src/ops/indexing/arena.rs` `repeated_clear_and_refill_keeps_allocation_bounded` (slots bounded by the live tree across 100 cycles, snapshot carries live nodes), `a_shrunken_tree_compacts_once_vacancy_outgrows_it` (the compaction trigger), `a_snapshot_after_churn_carries_only_live_nodes` (round-trip after churn), `a_listing_cursor_taken_before_compaction_still_pages` (path cursors survive renumbering); `core/src/ops/indexing/nodes.rs` `a_vacated_slot_is_reused_and_unreadable_until_then` | fixed (see F4) |
 | 18 | Cold search across 100 stores | `crates/store/tests/scale.rs` `a_hundred_cold_stores_answer_without_writers` (CI size: 100 stores x 200 records); `a_cold_fan_out_across_many_stores` (the measurement, ignored, sized by `SD_SCALE_*`) | passing |
 | 19 | Same capture read through arena and SQLite | `core/src/ops/search/arena_search.rs` `the_store_backend_matches_the_arena_for_the_same_capture` (identities, matching, filters, scores); `core/src/ops/search/pipeline.rs` `every_sort_field_orders_and_reverses`, `equal_scores_tiebreak_deterministically`, `a_page_is_a_window_over_the_sorted_whole` (ordering and pagination shared by both backends) | passing |
 | 20 | Suitable loaded arena returns no matches | `core/tests/source_runtime_acceptance_test.rs` `an_empty_answer_from_a_suitable_arena_is_final` | passing |
@@ -70,17 +70,15 @@ cargo test -p sd-core --lib repeated_clear_and_refill_keeps_allocation_bounded -
 | 27 | Mapped volume with no source | `core/src/ops/indexing/volume_index.rs` `a_tracked_drive_maps_without_appearing_as_a_source` (browse and snapshot), `a_mapped_drive_without_a_source_is_watchable` (watcher); `core/src/ops/indexing/store.rs` `a_partition_with_no_store_still_browses` | passing |
 | 28 | Status query and resource event | `core/tests/source_runtime_acceptance_test.rs` `listing_status_and_store_agree_on_a_sources_count` (`sources.list`, `core.index_status` and the store report one count and one observation time for one source) | passing |
 
-Totals: 25 rows fully passing (21 at the commit that landed this file, plus
-rows 3, 10, 11 and 25 fixed since); 1 row failing (17); row 9 passing except
-its APFS half, which no Linux runner can produce; row 26 not automatable
-because the feature it names does not exist yet. One ignored test remains
-(F4).
+Totals: 26 rows fully passing (21 at the commit that landed this file, plus
+rows 3, 10, 11, 17 and 25 fixed since); row 9 passing except its APFS half,
+which no Linux runner can produce; row 26 not automatable because the
+feature it names does not exist yet. No ignored test remains.
 
 ## Failing and fixed rows
 
-F4 is an ignored test that fails; run it with `--ignored` to see the
-behavior. F1, F2, F3 and F5 record what failed at the commit that landed
-this file and what fixed it.
+F1 to F5 record what failed at the commit that landed this file and what
+fixed it.
 
 ### F1. Row 3: a repeat observation did not repair a failed write (fixed)
 
@@ -134,13 +132,42 @@ the refused list to `watched_paths`. The test covers both halves: the
 refusal with its reason, then the directory returning and one retry arming
 the watch.
 
-### F4. Row 17: arena allocation grows with history
+### F4. Row 17: arena allocation grows with history (fixed)
 
 `core/src/ops/indexing/arena.rs` `repeated_clear_and_refill_keeps_allocation_bounded`.
-One hundred clear-and-refill cycles over a 50-file branch leave 54 live
-paths and 5,154 allocated slots. `NodeArena::vacate` keeps the slot, nothing
-compacts, and the snapshot serializes every slot. This is R4, which has not
-landed.
+One hundred clear-and-refill cycles over a 50-file branch left 54 live
+paths and 5,154 allocated slots. `NodeArena::vacate` kept the slot, nothing
+compacted, and the snapshot serialized every slot.
+
+Fix (R4): `NodeArena` keeps a free list. `vacate` drops the node's heap,
+marks the slot unoccupied (so a lookup through the old id answers nothing)
+and queues it; the next `insert` takes a queued slot before growing. A
+cleared and refilled branch therefore reuses exactly the slots it had: the
+same 100 cycles end at 54 slots for 54 live paths. When a tree shrinks for
+real the free list grows instead, and `Arena::compact_if_inflated`, called
+after every removal, rebuilds the arena densely once vacant slots outnumber
+live entries and number at least `COMPACT_MIN_VACANT` (4,096). The first
+condition bounds allocation at twice the live tree and makes the pass
+amortized (one walk of the live graph, paid for by at least as many
+removals); the floor keeps a small arena from rebuilding over a few hundred
+bytes of slack. `compact` renumbers parent links, child lists, both path
+maps, uuid bindings, content kinds, collection flags, summary stubs and the
+name registry together, and builds the new arena in full before swapping it
+in, so a failed mapping leaves the old one answering.
+
+Slot reuse and renumbering are safe because `EntryId` never leaves the arena
+module: the public API speaks paths and uuids, the explorer's media cursor
+is a source, a directory and a name, library search pages by offset over
+sorted paths, and the watcher addresses entries by path. Record uuids,
+rollups and query results are unchanged by either; a cursor taken before a
+compaction names the same place after it, which
+`a_listing_cursor_taken_before_compaction_still_pages` proves at the arena.
+
+The restart snapshot (format version 4) is written through the same dense
+projection whether or not the session's arena compacted, so it carries one
+node per live entry and the reader restores a dense arena. A version 3
+artifact is quarantined on load like any other mismatch and the source
+reindexes once.
 
 ### F5. Row 25: store-backed search returned one hit per nested store (fixed)
 

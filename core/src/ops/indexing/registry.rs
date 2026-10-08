@@ -170,6 +170,15 @@ impl NameRegistry {
 			.collect()
 	}
 
+	/// Renumber every id through `map`, dropping the ones it answers `None`
+	/// for and any name left with no ids. Used when the arena compacts.
+	pub(crate) fn remap(&mut self, map: impl Fn(EntryId) -> Option<EntryId>) {
+		self.map.retain(|_, ids| {
+			*ids = ids.iter().filter_map(|&id| map(id)).collect();
+			!ids.is_empty()
+		});
+	}
+
 	/// Iterate over all (name, entry_ids) pairs
 	pub fn iter(&self) -> impl Iterator<Item = (&str, &[EntryId])> {
 		self.map.iter().map(|(k, v)| (k.as_str(), v.as_slice()))

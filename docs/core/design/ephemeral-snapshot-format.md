@@ -29,7 +29,7 @@ Postcard: varint (LEB128) integers, length-prefixed strings and collections, **n
 
 | # | Field | Type | Notes |
 |---|---|---|---|
-| 1 | `version` | `u32` | `2`. Gate; nothing else is trusted before it. |
+| 1 | `version` | `u32` | `4`. Gate; nothing else is trusted before it. |
 | 2 | `source_id` | `Uuid` | Ties the file to its `SourceRecord`; also the filename stem. |
 | 3 | `root_path` | `PathBuf` | The indexed root. On restore with the drive present, a mismatch against the record's current root (remount at a new path) discards the snapshot for reindex — absolute paths inside would be stale. |
 | 4 | `created_at_secs` | `u64` | Staleness metadata, surfaced via `SnapshotMeta`. |
@@ -39,11 +39,14 @@ Postcard: varint (LEB128) integers, length-prefixed strings and collections, **n
 | 8 | `stats` | `IndexerStats` | files/dirs/symlinks/bytes counters. |
 | 9 | `name_cache_strings` | `Vec<String>` | The interning pool, by value. |
 | 10 | `name_registry_map` | `Vec<(String, Vec<EntryId>)>` | Name → entries (search-by-name). |
-| 11 | `arena_entries` | `Vec<(usize, SerializableFileNode)>` | Per node: `{name, parent, children, meta}` — pointer-free. `meta` is the same packed 16 bytes as in memory (state/type/size in a u64, mtime/ctime as u32 secs). |
+| 11 | `arena_entries` | `Vec<SerializableFileNode>` | Live nodes only, in slot order; a node's position is its slot and every id in the file names a position here (v4; v3 wrote `(slot, node)` pairs for every slot ever allocated). Per node: `{name, parent, children, meta}` — pointer-free. `meta` is the same packed 16 bytes as in memory (state/type/size in a u64, mtime/ctime as u32 secs). |
+| 12 | `stubs` | `Vec<(EntryId, u64, u32)>` | Summarised directories and the totals standing in for them (v3). |
 
 ## Restore
 
-Replayed strictly in order: re-intern the name pool → rebuild the name registry → rebuild the arena, inserting each node at its recorded slot index — **a slot mismatch aborts the load**, because `EntryId` *is* the arena slot and every map in the file keys on it → reassemble the index, deriving `id_to_path` from `path_index`.
+Replayed strictly in order: re-intern the name pool → rebuild the name registry → rebuild the arena, inserting each node in order so it lands on the slot its position names — **a slot mismatch aborts the load**, because `EntryId` *is* the arena slot and every map in the file keys on it → reassemble the index, deriving `id_to_path` from `path_index`, then recomputing rollups and collection flags.
+
+The writer renumbers through the arena's live projection (`Arena::snapshot_projection`): vacant slots on the free list are skipped and every id in every map is rewritten to the dense numbering, so the artifact follows the live tree whether or not the session's arena has compacted (R4, `docs/plans/2026-09-15-source-runtime-reliability.md`).
 
 Restore attaches the snapshot to its source's partition (never a shared index), marks `root_path` as indexed, and sets the slot detached when the root is absent — which is what makes an unplugged drive browsable read-only.
 
