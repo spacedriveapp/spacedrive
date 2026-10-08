@@ -1235,6 +1235,18 @@ impl NeighborRow {
 	}
 }
 
+/// The row a record pointed at before a content write, for what the write
+/// has to carry across.
+#[derive(sqlx::FromRow)]
+struct PreviousContent {
+	id: i64,
+	uuid: Uuid,
+	sampled_hash: Option<String>,
+	integrity_hash: Option<String>,
+	kind: Option<i64>,
+	kind_name: Option<String>,
+}
+
 /// The content write itself, against whatever connection the caller holds: a
 /// pooled one for a single file, a transaction for a batch.
 ///
@@ -1264,8 +1276,8 @@ async fn bind_content(
 		.as_deref()
 		.map(crate::content::uuid_for);
 
-	let previous: Option<(i64, Uuid, Option<String>, Option<String>)> = sqlx::query_as(
-		"SELECT c.id, c.uuid, c.sampled_hash, c.integrity_hash
+	let previous: Option<PreviousContent> = sqlx::query_as(
+		"SELECT c.id, c.uuid, c.sampled_hash, c.integrity_hash, c.kind, c.kind_name
 		 FROM record r JOIN content c ON c.id = r.content_id WHERE r.uuid = ?",
 	)
 	.bind(uuid)
@@ -1275,11 +1287,25 @@ async fn bind_content(
 	// A sampled-only write says nothing against a full read of the same
 	// bytes, so a record already confirmed under this sampled hash stays
 	// where it is rather than walking back down to a guess.
-	if let Some((old_id, _, old_sampled, Some(_))) = &previous {
-		if identity.integrity_hash.is_none() && *old_sampled == identity.sampled_hash {
-			return Ok(*old_id);
+	if let Some(old) = &previous {
+		if old.integrity_hash.is_some()
+			&& identity.integrity_hash.is_none()
+			&& old.sampled_hash == identity.sampled_hash
+		{
+			return Ok(old.id);
 		}
 	}
+
+	// The kind travels with the record: a verification pass carries no kind
+	// of its own, and the confirmed row it moves the record to must not lose
+	// the one the identity phase read from the bytes.
+	let kind = identity
+		.kind
+		.or_else(|| previous.as_ref().and_then(|old| old.kind));
+	let kind_name = identity
+		.kind_name
+		.clone()
+		.or_else(|| previous.as_ref().and_then(|old| old.kind_name.clone()));
 
 	let content_id: i64 = match identity.integrity_hash.as_deref() {
 		Some(integrity) => sqlx::query_scalar(
@@ -1298,8 +1324,8 @@ async fn bind_content(
 		.bind(&identity.sampled_hash)
 		.bind(integrity)
 		.bind(identity.size)
-		.bind(identity.kind)
-		.bind(&identity.kind_name)
+		.bind(kind)
+		.bind(&kind_name)
 		.fetch_one(&mut *conn)
 		.await?,
 		None => sqlx::query_scalar(
@@ -1315,8 +1341,8 @@ async fn bind_content(
 		.bind(candidate_uuid)
 		.bind(&identity.sampled_hash)
 		.bind(identity.size)
-		.bind(identity.kind)
-		.bind(&identity.kind_name)
+		.bind(kind)
+		.bind(&kind_name)
 		.fetch_one(&mut *conn)
 		.await?,
 	};
@@ -1327,7 +1353,13 @@ async fn bind_content(
 		.execute(&mut *conn)
 		.await?;
 
-	let Some((old_id, old_uuid, _, old_integrity)) = previous else {
+	let Some(PreviousContent {
+		id: old_id,
+		uuid: old_uuid,
+		integrity_hash: old_integrity,
+		..
+	}) = previous
+	else {
 		return Ok(content_id);
 	};
 	if old_id == content_id {

@@ -74,6 +74,11 @@ pub struct FileTypeRegistry {
 
 	/// Every dropped claim, in load order, for `extensions.list`.
 	conflicts: Vec<KindConflict>,
+
+	/// Extension kind ids in load order, so a tie between kinds that
+	/// nothing but their magic bytes distinguishes resolves the same way
+	/// the extension table does.
+	extension_kind_order: Vec<String>,
 }
 
 static BUILTIN: OnceLock<Arc<FileTypeRegistry>> = OnceLock::new();
@@ -183,6 +188,7 @@ impl FileTypeRegistry {
 				.entry(mime.clone())
 				.or_insert_with(|| id.clone());
 		}
+		self.extension_kind_order.push(id.clone());
 		self.types.insert(
 			id.clone(),
 			FileType {
@@ -242,7 +248,12 @@ impl FileTypeRegistry {
 		};
 		let claimed = self.get_by_extension(&ext);
 		if claimed.is_empty() {
-			return self.types.values().filter(with_magic).collect();
+			return self
+				.extension_kind_order
+				.iter()
+				.filter_map(|id| self.types.get(id))
+				.filter(with_magic)
+				.collect();
 		}
 		let mut candidates: Vec<&FileType> = claimed.into_iter().filter(with_magic).collect();
 		candidates.extend(
@@ -290,6 +301,7 @@ impl FileTypeRegistry {
 			mime_map: HashMap::new(),
 			contested: HashMap::new(),
 			conflicts: Vec::new(),
+			extension_kind_order: Vec::new(),
 		};
 
 		// Load built-in types
@@ -763,11 +775,33 @@ mod tests {
 			layered.magic_candidates(Some("jpg")).is_empty(),
 			"a built-in extension nobody refines reads no bytes"
 		);
-		let unknown = layered.magic_candidates(Some("zzzunknown"));
+		let unknown: Vec<&str> = layered
+			.magic_candidates(Some("zzzunknown"))
+			.iter()
+			.map(|ft| ft.id.as_str())
+			.collect();
 		assert_eq!(
-			unknown.len(),
-			2,
-			"an unknown extension checks every kind with magic"
+			unknown,
+			["one:fake", "two:other"],
+			"an unknown extension checks every kind with magic, in load order"
+		);
+		let both = FileTypeRegistry::with_extension_kinds(&[
+			(
+				"one".to_string(),
+				vec![kind("a", ContentKind::Text, &["qqq"], &["4F 54"])],
+			),
+			(
+				"two".to_string(),
+				vec![kind("b", ContentKind::Text, &["rrr"], &["4F 54 48"])],
+			),
+		]);
+		let candidates = both.magic_candidates(Some("zzzunknown"));
+		assert_eq!(
+			both.resolve_by_magic(None, &candidates, b"OTHR")
+				.unwrap()
+				.id,
+			"one:a",
+			"several matches on an unclaimed extension go to the kind loaded first"
 		);
 		assert!(layered.magic_candidates(None).is_empty());
 	}
