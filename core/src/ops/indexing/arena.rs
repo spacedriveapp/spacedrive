@@ -1288,7 +1288,10 @@ impl Arena {
 			let Some(descendant) = self.path_index.remove(&old_path) else {
 				continue;
 			};
+			// `join("")` appends a separator, so the entry's own path is taken
+			// as given rather than built from an empty remainder.
 			let new_path = match old_path.strip_prefix(from) {
+				Ok(rest) if rest.as_os_str().is_empty() => to.path.clone(),
 				Ok(rest) => to.path.join(rest),
 				Err(_) => old_path,
 			};
@@ -2211,6 +2214,17 @@ mod rollup_tests {
 		let mut listed = index.list_directory(&to).unwrap();
 		listed.sort();
 		assert_eq!(listed, vec![to.join("inner"), to.join("top.bin")]);
+		// Paths leave the arena as strings too, so compare spellings and not
+		// just components: a trailing separator would fail every open.
+		assert_eq!(
+			index.find_by_name("new")[0].as_os_str(),
+			to.as_os_str(),
+			"the moved entry's own path is spelled exactly as given"
+		);
+		assert_eq!(
+			index.find_by_name("leaf.bin")[0].as_os_str(),
+			moved_leaf.as_os_str()
+		);
 		assert_eq!(index.find_by_name("leaf.bin"), vec![moved_leaf.clone()]);
 		assert_eq!(index.find_by_name("new"), vec![to.clone()]);
 		assert!(index.find_by_name("old").is_empty());
@@ -2260,6 +2274,10 @@ mod rollup_tests {
 		assert_eq!(index.subtree_size(&root), Some(12));
 		assert_eq!(index.get_content_kind(&to), ContentKind::Video);
 		assert_eq!(index.find_by_name("clip.mp4"), vec![to.clone()]);
+		assert_eq!(
+			index.find_by_name("clip.mp4")[0].as_os_str(),
+			to.as_os_str()
+		);
 		assert!(index.find_by_name("clip.txt").is_empty());
 		assert_consistent(&index);
 	}
