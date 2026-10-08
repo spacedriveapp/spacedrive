@@ -83,9 +83,23 @@ The nightly channel is a rolling build of the CLI and daemon for people who
 want to track `main` without compiling. Every push to `main` runs
 `.github/workflows/nightly.yml`, which builds `sd` and `sd-daemon`
 in release mode for macOS ARM64 and Linux x86-64 and republishes them on the
-GitHub prerelease tagged `nightly`. The tag moves to the built commit each
-time, so there is one nightly release and it always names the commit it came
-from.
+GitHub prerelease tagged `nightly`. There is one nightly release and the
+workflow edits it in place: it rewrites the title and notes, replaces every
+asset with `gh release upload --clobber`, removes assets for platforms that no
+longer build, and only then moves the `nightly` tag to the built commit, so
+the tag never names a commit whose binaries are not yet published. The
+release is created only when it does not exist. Asset URLs are stable because they are
+built from the tag and the asset name, for example
+`https://github.com/spacedriveapp/spacedrive/releases/download/nightly/sd-macos-aarch64`.
+
+The release notes name the commit the build came from. Because GitHub freezes
+a release's `target_commitish` at creation, that field does not move with the
+tag; use the tag ref or the `nightly.sha` asset instead. Earlier versions of
+the workflow deleted and recreated the release on every push, which sent a
+release notification to every watcher. A release whose notes do not say it is
+edited in place was made that way and is recreated one last time, so an updater built
+before the switch, which compares `target_commitish`, still sees a newer build
+and installs the current updater.
 
 Nightly builds are not a release:
 
@@ -101,6 +115,16 @@ Nightly builds are not a release:
 Each binary ships with a `.sha256` file, which `sd update` verifies before it
 writes anything.
 
+### Notifications
+
+GitHub notifies people who watch the repository for releases only when a
+release is published. Editing the nightly release, moving its tag, and
+replacing its assets publish nothing, so the nightly channel no longer sends a
+notification on every push to `main`. To follow stable releases only, choose
+**Watch**, **Custom**, and tick **Releases** on the repository page: that
+subscription fires for each new tagged release and stays quiet for nightly
+builds.
+
 ### Opting in
 
 ~~~bash
@@ -111,9 +135,15 @@ sd update
 
 The repository line matters on installs whose `cli.json` was written before
 the default pointed at this repository. On the nightly channel, `sd update`
-fetches the `nightly` release by tag and compares the commit it was built at
-with the commit the installed binary was built from. `sd --version` prints
-both the package version and that commit, for example
+fetches the `nightly` release by tag, reads the commit the `nightly` tag
+points at from the git ref API (`GET
+/repos/spacedriveapp/spacedrive/git/ref/tags/nightly`, dereferencing an
+annotated tag through `/git/tags/{sha}`), and compares it with the commit the
+installed binary was built from. Both requests are unauthenticated and share
+GitHub's 60 per hour limit; when the ref lookup fails, the updater reads the
+`nightly.sha` asset the workflow uploads with the binaries, which is served
+from the release download host and is not rate limited. `sd --version` prints
+both the package version and the installed commit, for example
 `2.0.0-alpha.2 (46a54caf3be5...)`. Builds from a tree without git report
 `unknown` and always see an update.
 
