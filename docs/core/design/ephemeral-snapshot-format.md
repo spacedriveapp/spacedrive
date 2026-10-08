@@ -21,7 +21,7 @@ Observed density on real data: a ~1.06 MB payload compresses to ~214 KB (≈4.9:
 Postcard: varint (LEB128) integers, length-prefixed strings and collections, **no field names or tags — struct field order is the schema.** Any reordering, insertion, or type change to `IndexSnapshot` is a format break. That fragility is owned by policy rather than avoided:
 
 - The `version` field is decoded and checked first.
-- A **version mismatch or any decode failure deletes the file** and reports "no snapshot." Recovery is a clean reindex, never a retry against a dead artifact. Bump `SNAPSHOT_VERSION` for *every* struct change; there is no migration path by design — snapshots are caches, not data.
+- A **version mismatch or any decode failure quarantines the file** (`<name>.corrupt-<unix seconds>`, one copy kept) and reports "no snapshot." Recovery is a rebuild from the source stores, or a walk for a source with no store records, never a retry against a dead artifact. Bump `SNAPSHOT_VERSION` for *every* struct change; there is no migration path by design — snapshots are caches, not data.
 
 > **Amended 2026-08-18** (`docs/plans/2026-08-18-storage-consolidation.md`, artifact classes): "caches, not data" holds only while the source is attached. A detached drive's snapshot is an availability-bearing replica — the only local copy of a promised capability — so for a detached source, version mismatch and decode failure **quarantine** the file (`.snapshot.bad`) instead of deleting it; a later decoder recovers or a reattach reindexes. Delete-and-reindex applies only when the root is present. Two hardenings follow from the positional fragility: a golden-bytes test pinning the serialized layout of a fixture snapshot (an unbumped field reorder fails CI, not user data — postcard decodes a swap of two same-typed fields *successfully and wrongly*), and zstd frame checksums explicitly enabled so damage surfaces as a decode failure rather than silent garbage.
 
@@ -50,12 +50,22 @@ The writer renumbers through the arena's live projection (`Arena::snapshot_proje
 
 Restore attaches the snapshot to its source's partition (never a shared index), marks `root_path` as indexed, and sets the slot detached when the root is absent — which is what makes an unplugged drive browsable read-only.
 
+### When the snapshot cannot be used
+
+A partition whose snapshot is missing, unreadable, or stamped with another format version does not re-walk its sources. `VolumeIndex::ensure_restored` runs one restore attempt per drive per session; when the snapshot load yields nothing and the drive is attached, it rebuilds the arena of every registered source on the drive from that source's store (`rebuild_from_store`, the same path a library restore uses), reading the record table in pages of 2,000 rows and taking the arena's write lock one page at a time so listings on the drive keep answering while a large store loads. Each rebuilt source keeps the uuids its store holds, is marked restored and indexed, and announces its root, which arms its filesystem watch. The unusable artifact stays beside the slot as `<name>.corrupt-<unix seconds>` (see Integrity) and the slot is clear for the next save, which writes the rebuilt arena in the current format.
+
+The rebuild runs for a source whose registry row carries a record count. The count is written when a snapshot is saved, so it is the evidence that a map existed and was lost; a source never walked to completion has no count and keeps answering from its store without an arena, which is the R6 routing (`docs/plans/2026-09-15-source-runtime-reliability.md`).
+
+What a store rebuild does not restore: the rest of the drive map outside the registered sources, and directory stubs. The discovery pass still walks a drive whose snapshot is gone when it maps whole drives (`VolumeIndex::restored_from_snapshot` is its test), and that walk keeps every uuid the rebuilt arena already holds. A source whose store has no records is the only one the coverage heal walks.
+
+Measured on a 4 vCPU cloud machine (release build, `a_million_record_store_rebuilds_in_seconds` in `volume_index.rs`, run with `--ignored`): a store of 1,010,100 records (1M files in 10,100 directories) rebuilds in 33.1 s, of which 28.2 s is reading the record pages (`all_entries_page`, four joins per row) and the rest is arena inserts; 101,010 records take 1.7 s. The read dominates, so a rebuild-only select without the facet and content joins is the next lever.
+
 ## Known redundancy (future v3)
 
-`path_index` stores every full absolute path even though arena parent chains already encode the tree. This mirrors the same redundancy in RAM; the zero-onboarding memory-diet work (`zero-onboarding-startup.md` § change 3) removes the stored path maps in favor of parent-chain resolution, and the format shrinks with it — likely to arena entries + name pool + the small maps, with paths derived on load. That change is a version bump like any other: old files self-delete, sources reindex.
+`path_index` stores every full absolute path even though arena parent chains already encode the tree. This mirrors the same redundancy in RAM; the zero-onboarding memory-diet work (`zero-onboarding-startup.md` § change 3) removes the stored path maps in favor of parent-chain resolution, and the format shrinks with it — likely to arena entries + name pool + the small maps, with paths derived on load. That change is a version bump like any other: old files are quarantined and the arena is rebuilt from the stores.
 
 ## Integrity
 
-No checksums beyond zstd's frame checksum, no journaling. Cells of this cache are recomputable by definition; corruption manifests as a decode failure, which triggers the delete-and-reindex path. Anything needing stronger guarantees belongs in the portable artifact format, not here.
+No checksums beyond zstd's frame checksum, no journaling. Cells of this cache are recomputable by definition; corruption manifests as a decode failure, which quarantines the artifact and rebuilds the arena from the source stores (see Restore). Anything needing stronger guarantees belongs in the portable artifact format, not here.
 
 Note that rollup data (`FileNode.subtree_bytes`) is deliberately **not serialized**: directory sizes are recomputed from live entries during restore, so the format carries no derived totals that could drift from their inputs.

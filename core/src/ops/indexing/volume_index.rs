@@ -49,16 +49,32 @@ pub struct Partition {
 	/// A detached source's root is not present on disk; its index is served
 	/// read-only from a restored snapshot and must never trigger indexing.
 	detached: AtomicBool,
-	/// Set once a snapshot restore has populated the index this session.
+	/// Set once a snapshot restore or a store rebuild has populated the
+	/// index this session.
 	restored: AtomicBool,
 	/// Single restore attempt per session: concurrent callers await the same
 	/// load instead of racing three copies of a 100 MB deserialization.
-	restore_once: tokio::sync::OnceCell<bool>,
+	restore_once: tokio::sync::OnceCell<RestoreOutcome>,
 	/// Serializes snapshot saves for this drive.
 	save_lock: tokio::sync::Mutex<()>,
 	/// Entry count at the last completed save; identical partitions skip the
 	/// rewrite (a burst of browse jobs otherwise re-saves 100 MB per job).
 	last_saved_entries: std::sync::atomic::AtomicU64,
+}
+
+/// How a partition's session restore ended.
+///
+/// A snapshot carries the whole drive map; a store rebuild carries only the
+/// registered sources on it. The discovery pass walks the rest of a drive
+/// whose snapshot is gone, so the two are kept apart.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RestoreOutcome {
+	/// Nothing populated the partition: no snapshot and no source store.
+	Nothing,
+	/// The drive snapshot loaded.
+	Snapshot,
+	/// At least one source's records were read back from its store.
+	Stores,
 }
 
 impl Partition {
@@ -140,9 +156,11 @@ struct TrackedVolume {
 /// Ancestors are synthesized by the arena itself and content kinds derive
 /// from extensions the way a fresh walk derives them, which is what makes a
 /// database browsable and searchable through the same paths an arena
-/// snapshot is. Returns how many entries were added.
+/// snapshot is. The arena is locked one store page at a time, so a
+/// multi-million-record rebuild never holds a listing on the same drive
+/// for longer than one page of inserts. Returns how many entries were added.
 pub(crate) async fn fill_arena_from_store(
-	index: &mut Arena,
+	index: &TokioRwLock<Arena>,
 	db: &sd_store::SourceDb,
 	root: &Path,
 ) -> anyhow::Result<usize> {
@@ -159,6 +177,7 @@ pub(crate) async fn fill_arena_from_store(
 		let done = entries.len() < 2_000;
 		after_rowid = last;
 
+		let mut index = index.write().await;
 		for entry in entries {
 			let path = root.join(&entry.relative_path);
 			let from_ms = |ms: Option<i64>| {
@@ -186,6 +205,7 @@ pub(crate) async fn fill_arena_from_store(
 			index.add_entry(path, entry.uuid, metadata)?;
 			added += 1;
 		}
+		drop(index);
 
 		if done {
 			break;
@@ -1799,16 +1819,83 @@ impl VolumeIndex {
 			VolumeKey::Id(uuid) => self.volume_mounted(*uuid).unwrap_or(true),
 			_ => true,
 		};
-		let restored = *slot
+		let outcome = *slot
 			.restore_once
-			.get_or_init(|| Self::attempt_restore(self.dirs.clone(), slot.clone(), mounted))
+			.get_or_init(|| async {
+				if Self::attempt_restore(self.dirs.clone(), slot.clone(), mounted).await {
+					return RestoreOutcome::Snapshot;
+				}
+				// A missing, quarantined or outdated snapshot costs a walk of
+				// every source on the drive, and every format bump produces
+				// exactly that. The stores hold the same records with the same
+				// uuids, so they refill the arena in seconds instead; a store
+				// rebuild announces each source root itself, which arms its
+				// watch. A detached drive keeps nothing to rebuild for.
+				if slot.is_detached() || self.rebuild_sources_from_stores(&slot).await == 0 {
+					return RestoreOutcome::Nothing;
+				}
+				RestoreOutcome::Stores
+			})
 			.await;
 
-		if restored && !already_restored {
+		if outcome == RestoreOutcome::Snapshot && !already_restored {
 			self.announce_restored(&root);
 		}
 
-		restored || !slot.indexed_paths.read().is_empty()
+		outcome != RestoreOutcome::Nothing || !slot.indexed_paths.read().is_empty()
+	}
+
+	/// Whether the drive under `path` was restored from its snapshot this
+	/// session. A store rebuild does not count: it covers the registered
+	/// sources and nothing else on the drive.
+	pub fn restored_from_snapshot(&self, path: &Path) -> bool {
+		let Some(resolved) = self.locate(path) else {
+			return false;
+		};
+		let slots = self.slots.read();
+		slots
+			.get(&resolved.volume)
+			.and_then(|slot| slot.restore_once.get())
+			.is_some_and(|outcome| *outcome == RestoreOutcome::Snapshot)
+	}
+
+	/// Rebuild every attached source on a drive partition from its store.
+	/// Returns how many sources were rebuilt; a source with no readable
+	/// store is left for the coverage heal to walk.
+	///
+	/// Only a source whose row records a count is rebuilt. The count is
+	/// written when a snapshot is saved, so it is the evidence that a map
+	/// existed and was lost; a source nothing has walked to completion keeps
+	/// answering from its store without an arena, as R6 routes it.
+	async fn rebuild_sources_from_stores(&self, slot: &Arc<Partition>) -> usize {
+		let mut rebuilt = 0usize;
+		for (_, located) in self.all_sources() {
+			if located.volume != slot.volume
+				|| located.record.record_count.unwrap_or(0) == 0
+				|| !self.root_attached(&located.volume, &located.record.root)
+			{
+				continue;
+			}
+			let started = Instant::now();
+			match self.rebuild_from_store(located.record.id).await {
+				Some(loaded) if loaded > 0 => {
+					rebuilt += 1;
+					tracing::info!(
+						source = %located.record.id,
+						root = %located.record.root.display(),
+						loaded,
+						took = ?started.elapsed(),
+						"no usable snapshot; map rebuilt from the source store"
+					);
+				}
+				_ => tracing::warn!(
+					source = %located.record.id,
+					root = %located.record.root.display(),
+					"no usable snapshot and no store records; the source will be walked"
+				),
+			}
+		}
+		rebuilt
 	}
 
 	/// Rebuild a source's map from its store, without walking the disk.
@@ -1819,21 +1906,23 @@ impl VolumeIndex {
 	/// the arena, the root is marked indexed and announced the way a snapshot
 	/// restore announces it, which is what arms the watch over it again.
 	/// Returns how many entries were loaded, or `None` when the source has
-	/// no readable store.
+	/// no readable store. A store with no records marks nothing: an empty
+	/// arena has no parent to file a change under, so the root is left for
+	/// a walk to claim.
 	pub async fn rebuild_from_store(&self, source_id: Uuid) -> Option<usize> {
 		let root = self.source_root(source_id)?;
 		let db = self.read_store(source_id).await?;
 		let slot = self.resolve(&root);
-		let loaded = {
-			let mut index = slot.index.write().await;
-			match fill_arena_from_store(&mut index, &db, &root).await {
-				Ok(loaded) => loaded,
-				Err(error) => {
-					tracing::warn!(source = %source_id, %error, "could not rebuild the map from the store");
-					return None;
-				}
+		let loaded = match fill_arena_from_store(&slot.index, &db, &root).await {
+			Ok(loaded) => loaded,
+			Err(error) => {
+				tracing::warn!(source = %source_id, %error, "could not rebuild the map from the store");
+				return None;
 			}
 		};
+		if loaded == 0 {
+			return Some(0);
+		}
 		slot.indexed_paths.write().insert(root.clone());
 		slot.restored.store(true, Ordering::Release);
 		self.announce_restored(&root);
@@ -2701,6 +2790,24 @@ mod tests {
 			}
 		}
 
+		/// Index `count` files under an already registered source and save
+		/// its snapshot, the way a completed walk leaves it. Store records
+		/// written before this call land on the registry row's count.
+		async fn walked_and_saved(cache: &VolumeIndex, root: &Path, count: u64) {
+			let index = cache.create_for_indexing(root.to_path_buf());
+			{
+				let mut index = index.write().await;
+				for i in 0..count {
+					let path = root.join(format!("file-{i}"));
+					index
+						.add_entry(path.clone(), Uuid::now_v7(), entry(&path))
+						.expect("add");
+				}
+			}
+			cache.mark_indexing_complete(root);
+			cache.save_snapshot(root).await.expect("save");
+		}
+
 		/// A source whose partition holds `count` files, indexed and saved the
 		/// way a completed walk leaves it.
 		async fn indexed_source(
@@ -3113,18 +3220,19 @@ mod tests {
 
 		/// R8 "Missing or invalid restart snapshot".
 		///
-		/// A snapshot that will not parse restores nothing, but the source it
-		/// belonged to stays registered and listed, its store still answers,
-		/// and the unreadable artifact stays on disk for diagnosis.
+		/// A snapshot that will not parse restores nothing from the file, but
+		/// the source it belonged to stays registered and listed, and its map
+		/// comes back from its store with the store's uuids, so no walk is
+		/// needed to list it again.
 		#[tokio::test]
-		async fn an_invalid_snapshot_leaves_the_source_visible_and_its_store_readable() {
+		async fn an_invalid_snapshot_leaves_the_source_visible_and_rebuilt_from_its_store() {
 			let data = tempfile::tempdir().unwrap();
 			let library = test_library(data.path()).await;
 			let root_dir = tempfile::tempdir().unwrap();
 			let root = root_dir.path().to_path_buf();
 			std::fs::write(root.join("kept.txt"), b"kept").unwrap();
 
-			let (id, snapshot_path) = {
+			let (id, snapshot_path, kept_uuid) = {
 				let cache =
 					VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
 				cache
@@ -3132,17 +3240,25 @@ mod tests {
 					.await
 					.expect("attach");
 				let anchor = tracked_volume(&library, &root).await;
-				let id = indexed_source(&cache, &root, anchor, 4).await;
+				let id = cache
+					.register_source(&root, Some(anchor))
+					.await
+					.expect("register");
 				let store = cache
 					.store_for(&root.join("kept.txt"))
 					.await
 					.expect("store");
-				store
+				let kept_uuid = store
 					.identify_one(&entry(&root.join("kept.txt")), None)
 					.await
 					.expect("identified");
 				store.flush().await.expect("flush");
-				(id, cache.snapshot_path_for(&root).expect("snapshot path"))
+				walked_and_saved(&cache, &root, 4).await;
+				(
+					id,
+					cache.snapshot_path_for(&root).expect("snapshot path"),
+					kept_uuid,
+				)
 			};
 			assert!(snapshot_path.exists());
 			std::fs::write(&snapshot_path, b"this is not a snapshot").unwrap();
@@ -3154,22 +3270,273 @@ mod tests {
 				.await
 				.expect("attach");
 			assert!(
-				!cache.ensure_restored(&root).await,
-				"junk must not restore as an index"
+				cache.ensure_restored(&root).await,
+				"the store refills the map the junk could not"
+			);
+			assert!(
+				!cache.restored_from_snapshot(&root),
+				"nothing came from the snapshot file"
 			);
 			assert!(
 				cache.sources().iter().any(|s| s.id == id),
 				"the source stays registered without its cache"
 			);
 			let db = cache.read_store(id).await.expect("the store still opens");
-			assert!(
-				db.resolve_path("kept.txt").await.expect("query").is_some(),
-				"retained records answer without the arena"
+			assert_eq!(
+				db.resolve_path("kept.txt").await.expect("query"),
+				Some(kept_uuid),
+				"retained records answer from the store"
 			);
 			assert!(
-				!cache.arena_answers(&root),
-				"a query over this source routes to the store, not an empty arena"
+				cache.arena_answers(&root),
+				"a query over this source routes to the rebuilt arena"
 			);
+			let index = cache.get_for_search(&root).expect("rebuilt index");
+			let index = index.read().await;
+			assert_eq!(
+				index.get_entry_uuid(&root.join("kept.txt")),
+				Some(kept_uuid),
+				"the rebuilt map carries the store's identity"
+			);
+			assert!(
+				index.get_entry_uuid(&root.join("file-0")).is_none(),
+				"entries the snapshot alone held are gone with it"
+			);
+		}
+
+		/// A v3-shaped artifact after the v4 bump: the header decodes, the
+		/// version check refuses it, and the slot is quarantined like any
+		/// other unreadable snapshot. The map is rebuilt from the store
+		/// rather than walked, and the artifact is kept for diagnosis.
+		#[tokio::test]
+		async fn an_older_format_snapshot_is_quarantined_and_the_map_rebuilt_from_the_store() {
+			let data = tempfile::tempdir().unwrap();
+			let library = test_library(data.path()).await;
+			let root_dir = tempfile::tempdir().unwrap();
+			let root = root_dir.path().to_path_buf();
+			for name in ["a.txt", "b.txt", "sub/c.txt"] {
+				let path = root.join(name);
+				std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+				std::fs::write(&path, name).unwrap();
+			}
+
+			let (id, snapshot_path, volume_index_id, uuids) = {
+				let cache =
+					VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
+				cache
+					.attach_library(LIBRARY, library.clone())
+					.await
+					.expect("attach");
+				let anchor = tracked_volume(&library, &root).await;
+				let volume_index_id = VolumeKey::Id(anchor.uuid).id();
+				let id = cache
+					.register_source(&root, Some(anchor))
+					.await
+					.expect("register");
+				let store = cache.store_for(&root.join("a.txt")).await.expect("store");
+				let mut uuids = Vec::new();
+				for name in ["a.txt", "b.txt", "sub/c.txt"] {
+					let path = root.join(name);
+					let uuid = store
+						.identify_one(&entry(&path), None)
+						.await
+						.expect("identified");
+					uuids.push((path, uuid));
+				}
+				store.flush().await.expect("flush");
+				walked_and_saved(&cache, &root, 0).await;
+				(
+					id,
+					cache.snapshot_path_for(&root).expect("snapshot path"),
+					volume_index_id,
+					uuids,
+				)
+			};
+
+			// The previous build's artifact: the same container and header
+			// layout, stamped with the format it was written in.
+			crate::ops::indexing::snapshot::write_artifact_with_version(
+				&snapshot_path,
+				3,
+				volume_index_id,
+				&root,
+			);
+
+			let cache =
+				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
+			cache
+				.attach_library(LIBRARY, library)
+				.await
+				.expect("attach");
+			assert!(
+				cache.ensure_restored(&root).await,
+				"the map is rebuilt without a walk"
+			);
+			assert!(!cache.restored_from_snapshot(&root));
+			assert!(!cache.is_indexing(&root), "the rebuild dispatched no walk");
+			assert!(cache.sources().iter().any(|s| s.id == id));
+			assert!(
+				!snapshot_path.exists(),
+				"the slot is cleared so the next save lands clean"
+			);
+			let name = snapshot_path.file_name().unwrap().to_string_lossy();
+			let retained = std::fs::read_dir(snapshot_path.parent().unwrap())
+				.unwrap()
+				.filter_map(|entry| entry.ok().map(|entry| entry.path()))
+				.filter(|path| {
+					path.file_name()
+						.map(|n| n.to_string_lossy().starts_with(&format!("{name}.corrupt-")))
+						.unwrap_or(false)
+				})
+				.count();
+			assert_eq!(retained, 1, "the v3 artifact is kept beside the slot");
+
+			let index = cache.get_for_search(&root).expect("rebuilt index");
+			let index = index.read().await;
+			for (path, uuid) in uuids {
+				assert_eq!(
+					index.get_entry_uuid(&path),
+					Some(uuid),
+					"{} keeps the store's uuid",
+					path.display()
+				);
+			}
+			assert!(
+				index
+					.list_directory(&root)
+					.is_some_and(|children| !children.is_empty()),
+				"the source root has coverage, so the heal has nothing to walk"
+			);
+		}
+
+		/// The rebuild time behind the missing-snapshot path: a store of
+		/// `SD_REBUILD_RECORDS` files (one million by default) in directories
+		/// of a hundred, the way a walk lays them out, read back into an
+		/// empty arena. Run with
+		/// `cargo test -p sd-core --release --lib
+		///   a_million_record_store_rebuilds -- --ignored --nocapture`.
+		#[tokio::test]
+		#[ignore = "measurement, not regression; run with --ignored --nocapture"]
+		async fn a_million_record_store_rebuilds_in_seconds() {
+			use sd_store::file::{FileKind, FileWrite, Ledger, Observation};
+
+			let records: usize = std::env::var("SD_REBUILD_RECORDS")
+				.ok()
+				.and_then(|v| v.parse().ok())
+				.unwrap_or(1_000_000);
+			let dir = tempfile::tempdir().unwrap();
+			let manager = sd_store::SourceManager::new(dir.path().to_path_buf());
+			manager
+				.create("source-1", &sd_store::filesystem_schema())
+				.await
+				.expect("create");
+			let db = manager.open("source-1").await.expect("open");
+			db.begin_sync().await.expect("epoch");
+			let mut ledger = Ledger::load(db.pool()).await.expect("ledger");
+			let observe = |external_id: String, kind: FileKind| {
+				let name = external_id.rsplit('/').next().unwrap().to_string();
+				Observation {
+					extension: (kind == FileKind::File).then(|| "dat".to_string()),
+					external_id,
+					kind,
+					name,
+					size: 1_000,
+					mtime: 1_700_000_000_000,
+					created: None,
+					accessed: None,
+					inode: None,
+					mode: Some(0o644),
+					uid: None,
+					gid: None,
+					link_target: None,
+					is_hidden: false,
+					identity: None,
+				}
+			};
+			let built = Instant::now();
+			let mut written = 0usize;
+			let mut top = 0usize;
+			while written < records {
+				let mut writes = Vec::with_capacity(10_100);
+				let top_obs = observe(format!("dir-{top}"), FileKind::Directory);
+				let top_res = ledger.resolve(&top_obs);
+				let top_uuid = top_res.uuid();
+				writes.push(FileWrite {
+					resolution: top_res,
+					parent_uuid: None,
+					observation: top_obs,
+				});
+				for sub in 0..100 {
+					let sub_obs = observe(format!("dir-{top}/sub-{sub}"), FileKind::Directory);
+					let sub_res = ledger.resolve(&sub_obs);
+					let sub_uuid = sub_res.uuid();
+					writes.push(FileWrite {
+						resolution: sub_res,
+						parent_uuid: Some(top_uuid),
+						observation: sub_obs,
+					});
+					for file in 0..100 {
+						if written >= records {
+							break;
+						}
+						let obs = observe(
+							format!("dir-{top}/sub-{sub}/file-{written}.dat"),
+							FileKind::File,
+						);
+						let resolution = ledger.resolve(&obs);
+						writes.push(FileWrite {
+							resolution,
+							parent_uuid: Some(sub_uuid),
+							observation: obs,
+						});
+						written += 1;
+					}
+				}
+				db.apply_files(&writes, &[], &[], None)
+					.await
+					.expect("apply");
+				top += 1;
+			}
+			let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM record")
+				.fetch_one(db.pool())
+				.await
+				.expect("count");
+			println!(
+				"built a store of {total} records ({records} files) in {:?}",
+				built.elapsed()
+			);
+
+			let read_only = Instant::now();
+			let mut rows = 0usize;
+			let mut after = 0i64;
+			loop {
+				let (entries, last) = sd_store::read::all_entries_page(db.pool(), after, 2_000)
+					.await
+					.expect("page");
+				rows += entries.len();
+				after = last;
+				if entries.len() < 2_000 {
+					break;
+				}
+			}
+			println!(
+				"read {rows} rows in {:?} (store pages alone)",
+				read_only.elapsed()
+			);
+
+			let index = TokioRwLock::new(Arena::new().expect("arena"));
+			let root = PathBuf::from("/volume/source");
+			let started = Instant::now();
+			let loaded = fill_arena_from_store(&index, &db, &root)
+				.await
+				.expect("rebuild");
+			let elapsed = started.elapsed();
+			let stats = index.read().await.get_stats();
+			println!(
+				"rebuilt {loaded} records ({} live entries) in {elapsed:?}",
+				stats.total_entries
+			);
+			assert_eq!(loaded as i64, total);
 		}
 
 		/// R8 "Missing or invalid restart snapshot", the diagnosis half: an
@@ -3201,7 +3568,11 @@ mod tests {
 				.attach_library(LIBRARY, library)
 				.await
 				.expect("attach");
-			assert!(!cache.ensure_restored(&root).await);
+			cache.ensure_restored(&root).await;
+			assert!(
+				!cache.restored_from_snapshot(&root),
+				"junk must not restore as an index"
+			);
 			assert!(
 				!snapshot_path.exists(),
 				"the slot is cleared so the next save lands clean"

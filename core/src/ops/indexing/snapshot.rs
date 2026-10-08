@@ -223,6 +223,34 @@ pub(super) fn save_snapshot_impl(
 	Ok(())
 }
 
+/// Write an empty artifact in the current layout stamped with `version`, so
+/// a test can stand in for the file a previous build left behind.
+#[cfg(test)]
+pub(super) fn write_artifact_with_version(
+	snapshot_path: &Path,
+	version: u32,
+	source_id: Uuid,
+	root_path: &Path,
+) {
+	let stale = IndexSnapshot {
+		version,
+		source_id,
+		root_path: root_path.to_path_buf(),
+		created_at_secs: 0,
+		path_index: HashMap::new(),
+		entry_uuids: HashMap::new(),
+		content_kinds: HashMap::new(),
+		stats: IndexerStats::default(),
+		name_cache_strings: Vec::new(),
+		name_registry_map: Vec::new(),
+		arena_entries: Vec::new(),
+		stubs: Vec::new(),
+	};
+	let bytes = postcard::to_allocvec(&stale).expect("encode");
+	let compressed = zstd::encode_all(bytes.as_slice(), 6).expect("compress");
+	fs::write(snapshot_path, compressed).expect("write artifact");
+}
+
 /// Move an artifact that will not load to `<name>.corrupt-<unix seconds>`
 /// beside it.
 ///

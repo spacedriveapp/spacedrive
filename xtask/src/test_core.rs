@@ -185,6 +185,13 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Locked volumes acceptance test",
 		&["--test", "locked_volumes_acceptance_test"],
 	),
+	// A source whose drive snapshot is missing or unusable at restart lists
+	// from a map rebuilt out of its store before any walk runs.
+	acceptance(
+		"sd-core",
+		"Snapshot rebuild acceptance test",
+		&["--test", "snapshot_rebuild_acceptance_test"],
+	),
 	// A daemon with two libraries lists every library's sources, before and
 	// after a restart, whichever order the data directory lists them in.
 	acceptance(
