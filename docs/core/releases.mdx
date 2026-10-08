@@ -96,8 +96,8 @@ The release notes name the commit the build came from. Because GitHub freezes
 a release's `target_commitish` at creation, that field does not move with the
 tag; use the tag ref or the `nightly.sha` asset instead. Earlier versions of
 the workflow deleted and recreated the release on every push, which sent a
-release notification to every watcher. A release that carries no `nightly.sha`
-asset was made that way and is recreated one last time, so an updater built
+release notification to every watcher. A release whose notes do not say it is
+edited in place was made that way and is recreated one last time, so an updater built
 before the switch, which compares `target_commitish`, still sees a newer build
 and installs the current updater.
 

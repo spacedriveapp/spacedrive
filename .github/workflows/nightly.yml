@@ -162,26 +162,31 @@ jobs:
           Unsigned, may break, replaced on every push. This release is edited in place: its tag moves to the commit above and the assets are replaced, so watching the repository for releases does not notify on nightly builds. Opt in with \`sd config set update.channel nightly\` and run \`sd update\`; see docs/core/releases.mdx.
           EOF
 
-          # Lists the release's assets into assets.txt; false only when the
-          # release does not exist, so a transient API error cannot send the
-          # script down the create branch.
+          # Writes the release's notes to body.txt and its asset names to
+          # assets.txt; false only when the release does not exist, so a
+          # transient API error cannot send the script down the create branch.
           release_exists() {
-            if gh release view "$NIGHTLY_TAG" --json assets --jq '.assets[].name' > assets.txt 2> view.err; then
+            if gh release view "$NIGHTLY_TAG" --json body,assets > view.json 2> view.err; then
+              jq -r .body view.json > body.txt
+              jq -r '.assets[].name' view.json > assets.txt
               return 0
             fi
             grep -q "release not found" view.err || { cat view.err; exit 1; }
             return 1
           }
 
-          # A release created by the old delete-and-recreate scheme carries no
-          # nightly.sha. Updaters built before the switch compare the release's
-          # target_commitish, which is frozen at creation, so such a release is
-          # recreated once with this commit as target; every later run edits it
-          # in place and those updaters have been replaced by then. The tag
+          # A release created by the old delete-and-recreate scheme does not
+          # carry the "edited in place" notes. Updaters built before the switch
+          # compare the release's target_commitish, which is frozen at
+          # creation, so such a release is recreated once with this commit as
+          # target; every later run edits it in place and those updaters have
+          # been replaced by then. The notes are the marker because both the
+          # create and the edit below write them before any asset upload, so
+          # a run cancelled mid-upload cannot re-arm this branch. The tag
           # moves here as well, because GitHub keeps an existing tag's commit
           # over --target; with the release gone there are no assets for it
           # to mismatch.
-          if release_exists && ! grep -qx nightly.sha assets.txt; then
+          if release_exists && ! grep -q "edited in place" body.txt; then
             echo "release predates in-place updates; recreating it once"
             gh release delete "$NIGHTLY_TAG" --yes
             git push --force origin "$sha:refs/tags/$NIGHTLY_TAG"
