@@ -303,10 +303,12 @@ impl ArenaWriter {
 		let uuid = uuid.unwrap_or_else(Uuid::now_v7);
 		let path = to.path.clone();
 
+		// A path the arena never held is a plain arrival at the destination.
 		let content_kind = {
 			let mut index = self.index.write().await;
-			index.remove_entry(&from);
-			if index.add_entry(path.clone(), uuid, to.clone()).is_err() {
+			if index.rename(&from, to.clone(), uuid).is_none()
+				&& index.add_entry(path.clone(), uuid, to.clone()).is_err()
+			{
 				return Vec::new();
 			}
 			index.get_content_kind(&path)

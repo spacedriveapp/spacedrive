@@ -1177,8 +1177,7 @@ impl Arena {
 	/// A directory goes with everything beneath it: a descendant left resident
 	/// would keep a parent link to a slot that the next insert may reuse for
 	/// an unrelated node, and from then on its bytes would roll up into the
-	/// wrong directory. A rename that routes through here is followed by a
-	/// walk of the new path, which rebuilds the subtree under its new name.
+	/// wrong directory. A rename is `rename`, which keeps the subtree.
 	pub fn remove_entry(&mut self, path: &Path) -> bool {
 		let Some(id) = self.path_index.get(path).copied() else {
 			return false;
@@ -1204,6 +1203,119 @@ impl Arena {
 		self.mark_dirty();
 		self.compact_if_inflated();
 		true
+	}
+
+	/// Move an entry, with everything beneath it, to a new path.
+	///
+	/// A directory takes its subtree's addresses with it, as the store's
+	/// `rename_tree` does, so a renamed folder keeps listing its files and
+	/// every descendant keeps its uuid, kind and rollup. Identity, size and
+	/// times for the moved entry itself come from `to`. Anything already at
+	/// the destination is removed first, as a rename over it on disk would.
+	/// Returns the entry's uuid, the one it had or `uuid` if it had none, or
+	/// `None` when `from` is not indexed.
+	pub fn rename(&mut self, from: &Path, to: EntryMetadata, uuid: Uuid) -> Option<Uuid> {
+		if !self.path_index.contains_key(from) {
+			return None;
+		}
+		if from == to.path {
+			let id = self.path_index[from];
+			return Some(*self.entry_uuids.entry(id).or_insert(uuid));
+		}
+		// Clearing the destination may compact, so look the slot up after it.
+		if self.path_index.contains_key(&to.path) {
+			self.remove_entry(&to.path);
+		}
+		let id = self.path_index.get(from).copied()?;
+
+		let (rollup, old_parent, is_directory) = {
+			let node = self.arena.get(id)?;
+			(Rollup::of(node), node.parent(), node.is_directory())
+		};
+		if let Some(parent_node) = old_parent.and_then(|parent| self.arena.get_mut(parent)) {
+			parent_node.children.retain(|child| *child != id);
+		}
+		self.bump_ancestors(old_parent, rollup.removed());
+		if let Some(name) = from.file_name().and_then(|name| name.to_str()) {
+			self.registry.remove(&name.to_lowercase(), id);
+		}
+
+		let new_parent = match to.path.parent() {
+			Some(parent) if !parent.as_os_str().is_empty() => match self.ensure_directory(parent) {
+				Ok(parent_id) => Some(parent_id),
+				Err(err) => {
+					tracing::warn!(%err, "could not build the destination's ancestry");
+					None
+				}
+			},
+			_ => None,
+		};
+		if let Some(parent_id) = new_parent {
+			self.unsummarise(parent_id);
+			if let Some(parent_node) = self.arena.get_mut(parent_id) {
+				parent_node.add_child(id);
+			}
+		}
+
+		let name = self.cache.intern(
+			to.path
+				.file_name()
+				.map(|s| s.to_string_lossy())
+				.as_deref()
+				.unwrap_or("unknown"),
+		);
+		let search_key = Self::search_key(&self.cache, name);
+		self.registry.insert(search_key, id);
+		let parent_ref = new_parent
+			.map(MaybeEntryId::some)
+			.unwrap_or(MaybeEntryId::NONE);
+		let rollup = if is_directory {
+			rollup
+		} else {
+			Rollup::file(to.size)
+		};
+		if let Some(node) = self.arena.get_mut(id) {
+			node.name_ref = NameRef::new(name, parent_ref);
+			node.meta =
+				PackedMetadata::new(NodeState::Accessible, FileType::from(to.kind), to.size)
+					.with_times(to.modified, to.created);
+			node.subtree_bytes = rollup.bytes;
+			node.file_count = rollup.files;
+		}
+		self.bump_ancestors(new_parent, rollup.added());
+
+		for old_path in self.descendant_paths(from) {
+			let Some(descendant) = self.path_index.remove(&old_path) else {
+				continue;
+			};
+			let new_path = match old_path.strip_prefix(from) {
+				Ok(rest) => to.path.join(rest),
+				Err(_) => old_path,
+			};
+			self.id_to_path.insert(descendant, new_path.clone());
+			self.path_index.insert(new_path, descendant);
+		}
+
+		// The name decides kind and collection flags; the subtree keeps its own.
+		if !is_directory {
+			let kind = FileTypeRegistry::current().identify_by_extension(&to.path);
+			self.content_kinds.insert(id, kind);
+			let flags = to
+				.path
+				.file_name()
+				.and_then(|n| n.to_str())
+				.map(|file_name| super::collections::classify(file_name, kind))
+				.unwrap_or(0);
+			if flags == 0 {
+				self.collection_flags.remove(&id);
+			} else {
+				self.collection_flags.insert(id, flags);
+			}
+		}
+
+		self.mark_dirty();
+		self.last_accessed = Instant::now();
+		Some(*self.entry_uuids.entry(id).or_insert(uuid))
 	}
 
 	/// Remove a directory and all its descendants.
@@ -2053,6 +2165,102 @@ mod rollup_tests {
 		assert_eq!(index.subtree_size(&root), Some(107));
 		index.recompute_rollups();
 		assert_eq!(index.subtree_size(&root), Some(107));
+		assert_consistent(&index);
+	}
+
+	/// A renamed directory keeps its subtree, its identities and its rollups
+	/// under the new name, as the store's `rename_tree` does.
+	#[test]
+	fn renaming_a_directory_carries_its_subtree() {
+		let mut index = Arena::new().unwrap();
+		let root = PathBuf::from("/vol");
+		let from = root.join("old");
+		let deep = from.join("inner").join("leaf.bin");
+		let shallow = from.join("top.bin");
+		let to = root.join("archive").join("new");
+
+		index
+			.add_entry(
+				deep.clone(),
+				Uuid::now_v7(),
+				meta(&deep, EntryKind::File, 100),
+			)
+			.unwrap();
+		index
+			.add_entry(
+				shallow.clone(),
+				Uuid::now_v7(),
+				meta(&shallow, EntryKind::File, 5),
+			)
+			.unwrap();
+		let dir_uuid = index.get_or_assign_uuid(&from);
+		let leaf_uuid = index.get_entry_uuid(&deep).unwrap();
+		let slots = index.len();
+
+		let kept = index
+			.rename(&from, meta(&to, EntryKind::Directory, 0), Uuid::now_v7())
+			.unwrap();
+		assert_eq!(kept, dir_uuid);
+
+		assert!(index.get_entry_ref(&from).is_none());
+		assert!(index.get_entry_ref(&deep).is_none());
+		let moved_leaf = to.join("inner").join("leaf.bin");
+		assert_eq!(index.get_entry_uuid(&moved_leaf), Some(leaf_uuid));
+		assert_eq!(index.get_entry_uuid(&to), Some(dir_uuid));
+		assert_eq!(index.get_entry_ref(&moved_leaf).unwrap().size, 100);
+		let mut listed = index.list_directory(&to).unwrap();
+		listed.sort();
+		assert_eq!(listed, vec![to.join("inner"), to.join("top.bin")]);
+		assert_eq!(index.find_by_name("leaf.bin"), vec![moved_leaf.clone()]);
+		assert_eq!(index.find_by_name("new"), vec![to.clone()]);
+		assert!(index.find_by_name("old").is_empty());
+		assert_eq!(index.subtree_size(&to), Some(105));
+		assert_eq!(index.subtree_file_count(&root.join("archive")), Some(2));
+		assert_eq!(index.subtree_size(&root), Some(105));
+		assert_eq!(index.len(), slots + 1, "only the new ancestor is allocated");
+		assert_consistent(&index);
+
+		index.recompute_rollups();
+		assert_eq!(index.subtree_size(&root), Some(105));
+
+		let dir = tempfile::tempdir().unwrap();
+		let snapshot = dir.path().join("arena.snapshot");
+		index
+			.save_snapshot(&snapshot, Uuid::now_v7(), &root)
+			.unwrap();
+		let (restored, _) = Arena::load_snapshot(&snapshot).unwrap().expect("snapshot");
+		assert_eq!(restored.get_entry_uuid(&moved_leaf), Some(leaf_uuid));
+		assert_eq!(restored.subtree_size(&to), Some(105));
+		assert_consistent(&restored);
+	}
+
+	/// A file rename keeps identity, adopts the new name's kind, and replaces
+	/// whatever the destination held.
+	#[test]
+	fn renaming_a_file_rebinds_name_kind_and_destination() {
+		let mut index = Arena::new().unwrap();
+		let root = PathBuf::from("/vol");
+		let from = root.join("clip.txt");
+		let to = root.join("clip.mp4");
+		let uuid = Uuid::now_v7();
+		index
+			.add_entry(from.clone(), uuid, meta(&from, EntryKind::File, 10))
+			.unwrap();
+		index
+			.add_entry(to.clone(), Uuid::now_v7(), meta(&to, EntryKind::File, 3))
+			.unwrap();
+		assert_eq!(index.subtree_size(&root), Some(13));
+
+		let kept = index
+			.rename(&from, meta(&to, EntryKind::File, 12), Uuid::now_v7())
+			.unwrap();
+		assert_eq!(kept, uuid);
+		assert_eq!(index.get_entry_uuid(&to), Some(uuid));
+		assert!(index.get_entry_ref(&from).is_none());
+		assert_eq!(index.subtree_size(&root), Some(12));
+		assert_eq!(index.get_content_kind(&to), ContentKind::Video);
+		assert_eq!(index.find_by_name("clip.mp4"), vec![to.clone()]);
+		assert!(index.find_by_name("clip.txt").is_empty());
 		assert_consistent(&index);
 	}
 
