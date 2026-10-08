@@ -159,6 +159,20 @@ struct RecordRef {
 	uuid: Uuid,
 }
 
+/// What the SDK's `Exif` deserializes: the capture facts a photo job sorts
+/// and groups by, and the camera for display.
+#[derive(Serialize, Default)]
+struct ExifOut {
+	/// RFC 3339; a naive EXIF time is read as UTC.
+	date_taken: Option<String>,
+	latitude: Option<f64>,
+	longitude: Option<f64>,
+	camera_make: Option<String>,
+	camera_model: Option<String>,
+	width: Option<i64>,
+	height: Option<i64>,
+}
+
 #[derive(Deserialize)]
 struct RecordQuery {
 	source: Option<Uuid>,
@@ -289,6 +303,7 @@ impl JobOps {
 			"records.get" => self.record_get(parse(payload)?).await,
 			"records.read" => self.record_read(parse(payload)?).await,
 			"records.query" => self.record_query(parse(payload)?).await,
+			"records.exif" => self.record_exif(parse(payload)?).await,
 			"sidecars.exists" => self.sidecar_exists(parse(payload)?).await,
 			"sidecars.read" => self.sidecar_read(parse(payload)?).await,
 			"sidecars.write" => self.sidecar_write(parse(payload)?).await,
@@ -416,6 +431,78 @@ impl JobOps {
 		tokio::fs::read(&path).await.map_err(|e| match e.kind() {
 			std::io::ErrorKind::NotFound => OpError::not_found(),
 			_ => OpError::failed(format!("read {}: {e}", path.display())),
+		})
+	}
+
+	/// A record's EXIF facts, or `null` when the file carries none.
+	///
+	/// The image facet is read first, for a store whose ingest wrote it.
+	/// No ingest writes it yet, so the usual path is a parse of the file
+	/// through the core's EXIF reader; the facet is not written back, since
+	/// that row belongs to the enricher that will own it.
+	async fn record_exif(&self, record: RecordRef) -> OpResult {
+		let (store, entry) = self.locate(record.uuid).await?;
+		self.check_read(&entry)?;
+
+		let facet: Option<(
+			Option<String>,
+			Option<f64>,
+			Option<f64>,
+			Option<String>,
+			Option<String>,
+			Option<i64>,
+			Option<i64>,
+		)> = sqlx::query_as(
+			"SELECT date_taken, latitude, longitude, camera_make, camera_model, width, height \
+			 FROM facet_image WHERE record_uuid = ?",
+		)
+		.bind(entry.uuid)
+		.fetch_optional(store.db().pool())
+		.await
+		.map_err(|e| OpError::failed(e.to_string()))?;
+		if let Some((date_taken, latitude, longitude, camera_make, camera_model, width, height)) =
+			facet
+		{
+			if date_taken.is_some() || latitude.is_some() {
+				return json(&ExifOut {
+					date_taken,
+					latitude,
+					longitude,
+					camera_make,
+					camera_model,
+					width,
+					height,
+				});
+			}
+		}
+
+		let path = store.root().join(&entry.relative_path);
+		let exif = match sd_media_metadata::exif::ExifMetadata::from_path(&path).await {
+			Ok(Some(exif)) => exif,
+			Ok(None) => return json(&serde_json::Value::Null),
+			Err(e) => {
+				return Err(OpError::failed(format!("exif {}: {e}", path.display())));
+			}
+		};
+		let date_taken = exif.date_taken.map(|date| match date {
+			sd_media_metadata::exif::MediaDate::Utc(t) => t.to_rfc3339(),
+			sd_media_metadata::exif::MediaDate::Naive(t) => t.and_utc().to_rfc3339(),
+		});
+		let (latitude, longitude) = exif
+			.location
+			.map(|l| {
+				let (lat, lon) = l.coordinates();
+				(Some(lat), Some(lon))
+			})
+			.unwrap_or((None, None));
+		json(&ExifOut {
+			date_taken,
+			latitude,
+			longitude,
+			camera_make: exif.camera_data.device_make,
+			camera_model: exif.camera_data.device_model,
+			width: (exif.resolution.width > 0).then_some(exif.resolution.width as i64),
+			height: (exif.resolution.height > 0).then_some(exif.resolution.height as i64),
 		})
 	}
 
@@ -615,9 +702,8 @@ impl JobOps {
 	/// A field name becomes part of the row key, so it is kept to one
 	/// identifier-like token.
 	fn field_key(record: Uuid, namespace: &str, name: &str) -> Result<String, OpError> {
-		let token = |s: &str| {
-			!s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-		};
+		let token =
+			|s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
 		if !token(namespace) || !token(name) {
 			return Err(OpError::invalid_input(format!(
 				"custom field {namespace}.{name}: namespace and name are [A-Za-z0-9_]"

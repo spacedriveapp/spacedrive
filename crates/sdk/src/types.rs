@@ -129,6 +129,12 @@ impl Record {
 		crate::vdfs::VdfsContext.read_record(self.uuid).await
 	}
 
+	/// The record's EXIF facts, or `None` when the file carries none.
+	/// Needs `read_records`, like the bytes.
+	pub async fn exif(&self) -> Result<Option<Exif>> {
+		crate::vdfs::VdfsContext.record_exif(self.uuid).await
+	}
+
 	/// A custom field this extension set on the record (`namespace.name`),
 	/// or `None`.
 	pub async fn custom_field<T: serde::de::DeserializeOwned>(
@@ -139,6 +145,20 @@ impl Record {
 			.custom_field(self.uuid, field)
 			.await
 	}
+}
+
+/// The capture facts the host reads from an image record: what a photo job
+/// sorts and groups by, without inference.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Exif {
+	/// A naive EXIF time is read as UTC.
+	pub date_taken: Option<chrono::DateTime<chrono::Utc>>,
+	pub latitude: Option<f64>,
+	pub longitude: Option<f64>,
+	pub camera_make: Option<String>,
+	pub camera_model: Option<String>,
+	pub width: Option<i64>,
+	pub height: Option<i64>,
 }
 
 /// What the ingest found at the record's path.

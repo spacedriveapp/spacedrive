@@ -123,6 +123,12 @@ impl ModelHandle {
 	pub async fn embed_text(&self, text: &str) -> Result<Vec<f32>> {
 		self.infer("embed_text", text.as_bytes())
 	}
+
+	/// Generate text from a prompt, through a language model of this
+	/// handle's category.
+	pub async fn generate_text(&self, prompt: &str) -> Result<String> {
+		self.infer("generate_text", prompt.as_bytes())
+	}
 }
 
 /// Prompt builder with Jinja templates

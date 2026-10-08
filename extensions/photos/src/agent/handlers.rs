@@ -41,8 +41,11 @@ impl crate::Photos {
 		if memory.plan.read().await.photos_needing_faces.len() >= 50 {
 			ctx.jobs()
 				.dispatch(
-					analyze_photos_batch,
-					memory.plan.read().await.photos_needing_faces.clone(),
+					"analyze_photos",
+					&AnalyzePhotosState {
+						photo_ids: memory.plan.read().await.photos_needing_faces.clone(),
+						..Default::default()
+					},
 				)
 				.priority(Priority::Low)
 				.when_idle()
@@ -76,7 +79,19 @@ impl crate::Photos {
 
 		if !last_week.is_empty() {
 			ctx.jobs()
-				.dispatch(create_moments, last_week)
+				.dispatch(
+					"create_moments",
+					&CreateMomentsState {
+						photo_ids: last_week
+							.iter()
+							.filter_map(|event| match event {
+								PhotoEvent::PhotoAnalyzed { photo_id, .. } => Some(*photo_id),
+								_ => None,
+							})
+							.collect(),
+						..Default::default()
+					},
+				)
 				.execute()
 				.await?;
 		}

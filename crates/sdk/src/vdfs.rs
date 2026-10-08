@@ -27,6 +27,13 @@ impl VdfsContext {
 		crate::ffi::op("records.read", &payload)
 	}
 
+	/// A record's EXIF facts, read from its source store's image facet when
+	/// the ingest wrote one and from the file otherwise; `None` when the
+	/// file carries no EXIF. Needs `read_records`.
+	pub async fn record_exif(&self, uuid: Uuid) -> Result<Option<Exif>> {
+		crate::ffi::op_json("records.exif", &serde_json::json!({ "uuid": uuid }))
+	}
+
 	/// Whether a sidecar of one of this extension's kinds exists for the
 	/// content.
 	pub fn sidecar_exists(&self, content_uuid: Uuid, kind: &str) -> Result<bool> {
@@ -240,9 +247,7 @@ impl VdfsContext {
 /// before the host sees it.
 fn split_field(field: &str) -> Result<(&str, &str)> {
 	field.split_once('.').ok_or_else(|| {
-		Error::InvalidInput(format!(
-			"custom field {field:?} must be namespace.name"
-		))
+		Error::InvalidInput(format!("custom field {field:?} must be namespace.name"))
 	})
 }
 
