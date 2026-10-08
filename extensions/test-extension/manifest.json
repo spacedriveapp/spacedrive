@@ -27,7 +27,7 @@
 				}
 			],
 			"preview": {
-				"renderer": "text"
+				"viewer": "fake_viewer"
 			}
 		}
 	]

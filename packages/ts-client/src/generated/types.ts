@@ -351,11 +351,13 @@ export type ContentKind = "unknown" | "image" | "video" | "audio" | "document" |
  */
 export type ContentKindStat = { 
 /**
- * The content kind (image, video, audio, etc.)
+ * The content kind (image, video, audio, etc.); the parent for an
+ * extension kind
  */
 kind: ContentKind; 
 /**
- * The name of the content kind
+ * The name of the content kind: the built-in name, or the extension
+ * kind's id (`<extension id>:<kind>`)
  */
 name: string; 
 /**
@@ -1257,7 +1259,7 @@ strategy: string | null; estimated_files: number | null; estimated_bytes: number
 
 export type ExtensionCase = "lower" | "keep";
 
-export type ExtensionInfo = { id: string; name: string; version: string; jobs: ExtensionJobInfo[]; kinds: ExtensionKindInfo[] };
+export type ExtensionInfo = { id: string; name: string; version: string; jobs: ExtensionJobInfo[]; kinds: ExtensionKindInfo[]; viewers: ExtensionViewerInfo[] };
 
 export type ExtensionJobInfo = { 
 /**
@@ -1284,6 +1286,17 @@ id: string; name: string; display_name: string; parent: ContentKind;
  * Every extension the manifest claims, contested ones included
  */
 extensions: string[]; preview: PreviewSpec | null };
+
+/**
+ * A viewer `ui_manifest.json` declares. The client mounts the bundle from
+ * `/extension/<extension id>/<bundle>` for a kind whose `preview.viewer`
+ * names the id.
+ */
+export type ExtensionViewerInfo = { id: string; 
+/**
+ * Path inside the extension directory to one ES module
+ */
+bundle: string };
 
 /**
  * A dependency Spacedrive knows how to discover and use.

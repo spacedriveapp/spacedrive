@@ -1,5 +1,5 @@
-//! List loaded extensions, the jobs they registered, the file kinds they
-//! declare, and the file extensions two of them both claimed.
+//! List loaded extensions, the jobs they registered, the file kinds and
+//! viewers they declare, and the file extensions two of them both claimed.
 
 use std::sync::Arc;
 
@@ -44,6 +44,16 @@ pub struct ExtensionKindInfo {
 	pub preview: Option<PreviewSpec>,
 }
 
+/// A viewer `ui_manifest.json` declares. The client mounts the bundle from
+/// `/extension/<extension id>/<bundle>` for a kind whose `preview.viewer`
+/// names the id.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ExtensionViewerInfo {
+	pub id: String,
+	/// Path inside the extension directory to one ES module
+	pub bundle: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ExtensionInfo {
 	pub id: String,
@@ -51,6 +61,7 @@ pub struct ExtensionInfo {
 	pub version: String,
 	pub jobs: Vec<ExtensionJobInfo>,
 	pub kinds: Vec<ExtensionKindInfo>,
+	pub viewers: Vec<ExtensionViewerInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -119,12 +130,26 @@ impl CoreQuery for ListExtensionsQuery {
 						preview: kind.preview.clone(),
 					})
 					.collect();
+				let viewers = pm
+					.ui_manifest(&id)
+					.await
+					.map(|ui| {
+						ui.file_viewers
+							.iter()
+							.map(|viewer| ExtensionViewerInfo {
+								id: viewer.id.clone(),
+								bundle: viewer.bundle.clone(),
+							})
+							.collect()
+					})
+					.unwrap_or_default();
 				extensions.push(ExtensionInfo {
 					id,
 					name: manifest.name.clone(),
 					version: manifest.version.clone(),
 					jobs,
 					kinds,
+					viewers,
 				});
 			}
 			extensions.sort_by(|a, b| a.id.cmp(&b.id));

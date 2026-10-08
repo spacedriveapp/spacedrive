@@ -39,6 +39,7 @@
         "connect-src": "ipc: http://ipc.localhost http://127.0.0.1:* http://localhost:*",
         "img-src": "'self' asset: http://asset.localhost http://127.0.0.1:* http://localhost:* blob: data:",
         "media-src": "'self' customprotocol: asset: http://asset.localhost http://127.0.0.1:*",
+        "script-src": "'self' http://127.0.0.1:* http://localhost:*",
         "style-src": "'self' 'unsafe-inline'"
       },
       "assetProtocol": {

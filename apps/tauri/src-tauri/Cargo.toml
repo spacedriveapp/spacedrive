@@ -26,6 +26,7 @@ sd-tauri-core = { path = "../sd-tauri-core" }
 
 # Sidecar tree layout (shared with the daemon)
 sd-sidecar-path = { path = "../../../crates/sidecar-path" }
+sd-extension-ui = { path = "../../../crates/extension-ui" }
 sd-pvcache = { path = "../../../crates/pvcache" }
 image = { workspace = true }
 

@@ -6,7 +6,9 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 
-use crate::filetype::{kinds::validate_kinds, ExtensionKind, FileTypeRegistry};
+use sd_extension_ui::UiManifest;
+
+use crate::filetype::{kinds::validate_kinds, ExtensionKind, FileTypeRegistry, PreviewSpec};
 
 /// Extension manifest (`manifest.json`).
 ///
@@ -119,6 +121,24 @@ impl ExtensionManifest {
 		}
 		Ok(())
 	}
+
+	/// A kind's `preview.viewer` has to name a `file_viewers` entry of the
+	/// extension's own `ui_manifest.json`, or the client would have nothing
+	/// to mount and silently show the parent's renderer.
+	pub fn validate_viewers(&self, ui: &UiManifest) -> Result<(), String> {
+		ui.validate()?;
+		for kind in &self.kinds {
+			if let Some(PreviewSpec::Viewer(viewer)) = &kind.preview {
+				if ui.viewer(viewer).is_none() {
+					return Err(format!(
+						"kind {:?} previews through viewer {viewer:?}, which ui_manifest.json does not declare",
+						kind.name
+					));
+				}
+			}
+		}
+		Ok(())
+	}
 }
 
 impl ManifestPermissions {
@@ -210,6 +230,8 @@ pub struct LoadedPlugin {
 	/// manifest id need not match.
 	pub dir_name: String,
 	pub manifest: Arc<ExtensionManifest>,
+	/// The `file_viewers` of `ui_manifest.json`, empty when the file is absent.
+	pub ui: Arc<UiManifest>,
 	pub loaded_at: DateTime<Utc>,
 	/// Set by the runtime when a guest call trapped; see `PluginRuntime`.
 	pub poisoned: Arc<AtomicBool>,

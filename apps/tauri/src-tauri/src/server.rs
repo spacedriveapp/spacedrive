@@ -200,6 +200,38 @@ async fn serve_hot_thumb(
 		.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
+/// Serve a viewer bundle an extension's `ui_manifest.json` declares. Only a
+/// declared bundle resolves, so the rest of the extension directory stays
+/// private, and the response is revalidated on every load because a
+/// reinstalled extension lands at the same path.
+async fn serve_extension_bundle(
+	State(state): State<ServerState>,
+	Path((extension_id, path)): Path<(String, String)>,
+) -> Result<Response<Body>, StatusCode> {
+	let bundle = sd_extension_ui::resolve_bundle(&state.data_dir, &extension_id, &path)
+		.await
+		.ok_or(StatusCode::NOT_FOUND)?;
+	let file = File::open(&bundle).await.map_err(|e| {
+		error!("Error opening extension bundle {:?}: {}", bundle, e);
+		if e.kind() == io::ErrorKind::NotFound {
+			StatusCode::NOT_FOUND
+		} else {
+			StatusCode::INTERNAL_SERVER_ERROR
+		}
+	})?;
+	let metadata = file
+		.metadata()
+		.await
+		.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+	Response::builder()
+		.status(StatusCode::OK)
+		.header(header::CONTENT_TYPE, "text/javascript; charset=utf-8")
+		.header(header::CONTENT_LENGTH, metadata.len())
+		.header(header::CACHE_CONTROL, "no-cache")
+		.body(Body::from_stream(tokio_util::io::ReaderStream::new(file)))
+		.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+}
+
 /// Serve an on-demand video scrub sheet. Every path component is parsed as a
 /// typed identity before it reaches the filesystem, and the content version is
 /// part of the URL, so the response can be cached immutably.
@@ -277,6 +309,10 @@ fn create_router(data_dir: PathBuf) -> Router {
 		.route(
 			"/hot-thumbstrip/:source_id/:record_uuid/:version",
 			get(serve_hot_thumbstrip),
+		)
+		.route(
+			"/extension/:extension_id/*path",
+			get(serve_extension_bundle),
 		)
 		.layer(middleware::from_fn(add_cors_headers))
 		.with_state(state)

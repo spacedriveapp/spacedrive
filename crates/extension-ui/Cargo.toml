@@ -1,0 +1,14 @@
+[package]
+name = "sd-extension-ui"
+version = "0.1.0"
+edition = "2021"
+description = "The part of an extension's ui_manifest.json the daemon and its HTTP servers read: file viewers and the bundles they serve"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tokio = { version = "1", features = ["fs"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { version = "1", features = ["fs", "macros", "rt"] }

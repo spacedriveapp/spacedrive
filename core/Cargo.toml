@@ -141,6 +141,7 @@ sd-ffmpeg        = { path = "../crates/ffmpeg", optional = true }
 sd-fs-watcher    = { path = "../crates/fs-watcher" }
 sd-images        = { path = "../crates/images" }
 sd-sidecar-path  = { path = "../crates/sidecar-path" }
+sd-extension-ui  = { path = "../crates/extension-ui" }
 sd-media-metadata = { path = "../crates/media-metadata" }
 tokio-rustls     = "0.26"
 webp             = "0.3"

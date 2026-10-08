@@ -9,6 +9,17 @@ export function getContentKind(file: File | null | undefined): ContentKind {
 }
 
 /**
+ * The most specific kind name a file carries: the extension kind id
+ * (`com.spacedrive.photos:raw`) the content identity phase stored, whether
+ * or not that extension is loaded now, else the built-in kind. The inspector
+ * and the file kinds page label with this; previews and icons resolve it
+ * against the loaded extensions and fall back to `getContentKind`.
+ */
+export function getContentKindName(file: File | null | undefined): string {
+	return file?.content_kind_name ?? getContentKind(file);
+}
+
+/**
  * Get the appropriate kind string for icon resolution.
  * This transforms the content kind into a capitalized string suitable for icon lookup.
  */

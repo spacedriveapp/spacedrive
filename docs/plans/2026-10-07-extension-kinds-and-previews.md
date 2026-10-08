@@ -1,6 +1,7 @@
 # Extension File Kinds and Previews
 
-> Status: K1 and K2 built 2026-10-07 (SPAC-35); K3 to K5 open
+> Status: K1 and K2 built 2026-10-07 (SPAC-35, merged as 0e53403); K3 to K5
+> built 2026-10-08 (SPAC-36)
 > Captured: 2026-10-07 (SPAC-31), from the tree at `b938526`
 > Owns: how an extension's manifest declares file kinds, how identification
 > assigns them, how the client renders a preview for them, and what happens
@@ -270,9 +271,9 @@ without the `wasm` feature behaves as today.
 | --- | --- | --- | --- |
 | K1 Manifest and registry (done 2026-10-07, SPAC-35) | `kinds` parsed and validated; layered `FileTypeRegistry::current()`; five `builtin()` call sites and the context field moved; `load_all` sorted; conflicts and contested claims recorded; `extensions.list` reports kinds and conflicts; ts-client regenerated | Unit tests: a manifest with a bad parent or a redefining claim is rejected with the reason; two fixtures claiming `.xyz` load with one conflict in the list output; `identify_by_extension` on `foo.cr2` returns the `raw` type with parent `image` while the fixture is loaded and `image` after `unload` | 2 days |
 | K2 Persisted kinds (done 2026-10-07, SPAC-35) | Store schema v2 `kind_name` and `idx_facet_file_extension`; content identity phase writes `kind` and `kind_name` and checks extension-kind magic; `File.content_kind_name`; reidentification pass on load | Acceptance test (wasm group): index a folder with `.cr2` files under a fixture extension, read the store, both columns set; unload the extension, re-read through `files.list`, `content_kind_name` still `raw`, `content_kind` is `image`; a `.cr2` whose bytes carry no TIFF header and whose extension is also claimed by a second fixture with matching magic gets the second kind | 2 days |
-| K3 Client registry | `renderers.ts`, `useExtensionKinds`, `ContentRenderer` becomes a lookup; `getContentKindName`; inspector and file kinds page show the name | `tsc` clean; Playwright or desktop recording of Quick Preview on a `raw` fixture rendering through the image renderer, then falling back to the same renderer with the extension removed from the data dir and the daemon restarted | 1.5 days |
-| K4 Bundle previews | `ui_manifest.json` `file_viewers` parsed for `id` and `bundle`; `/extension/:id/*path` route; `BundleRenderer` with the `mount` contract; a tiny fixture bundle in `extensions/test-extension/ui/` | Acceptance: the fixture declares a kind with `preview.viewer`; Quick Preview mounts the bundle and the bundle's DOM shows the file name; deleting the bundle file makes the preview fall back to the parent renderer with one logged warning | 2 days |
-| K5 Photos (manifest half done with K1) | Photos' manifest declares `raw` with `preview.renderer: image` (`heic` already has a built-in magic pattern, so it stays built in); `ui_manifest.json` `file_viewers` gains `id` and `bundle`, with `raw` pointing at it once a viewer exists | Photos loads with no conflicts on a daemon with the built-in table; `sd-cli op extensions.list` shows its kinds | 0.5 day |
+| K3 Client registry (done 2026-10-08, SPAC-36) | `renderers.ts`, `useExtensionKinds`, `ContentRenderer` becomes a lookup; `getContentKindName`; inspector and file kinds page show the name | `tsc` clean; Playwright or desktop recording of Quick Preview on a `raw` fixture rendering through the image renderer, then falling back to the same renderer with the extension removed from the data dir and the daemon restarted | 1.5 days |
+| K4 Bundle previews (done 2026-10-08, SPAC-36) | `ui_manifest.json` `file_viewers` parsed for `id` and `bundle`; `/extension/:id/*path` route; `BundleRenderer` with the `mount` contract; a tiny fixture bundle in `extensions/test-extension/ui/` | Acceptance: the fixture declares a kind with `preview.viewer`; Quick Preview mounts the bundle and the bundle's DOM shows the file name; deleting the bundle file makes the preview fall back to the parent renderer with one logged warning | 2 days |
+| K5 Photos (done 2026-10-08, SPAC-36; manifest half with K1) | Photos' manifest declares `raw` with `preview.renderer: image` (`heic` already has a built-in magic pattern, so it stays built in); `ui_manifest.json` `file_viewers` gains `id` and `bundle`, with `raw` pointing at it once a viewer exists | Photos loads with no conflicts on a daemon with the built-in table; `sd-cli op extensions.list` shows its kinds | 0.5 day |
 
 K1 and K2 are core; K3 and K4 are client plus one server route; K5 is
 manifest edits. K3 can start after K1. Eight days, two PRs (K1+K2, K3 to K5).
@@ -290,6 +291,28 @@ As built (K1 and K2, SPAC-35), three details differ from the text above:
 - A replica below schema version 2 is read through a per-connection
   temporary view that adds `kind_name` as `NULL`, so an older owner's
   database still answers the entry readers (`crates/store/src/source.rs`).
+
+As built (K3 to K5, SPAC-36), four details differ from the text above:
+
+- `ui_manifest.json` is read by a small crate, `sd-extension-ui`
+  (`crates/extension-ui`), rather than by core alone, because the desktop
+  app's local HTTP server does not link core and has to serve the same
+  bundles. Core reads it at load through the crate and refuses a kind whose
+  `preview.viewer` names no `file_viewers` entry. The route serves only a
+  path some `file_viewers[].bundle` names; the rest of the extension
+  directory (`config.json`, the module) is never served.
+- `extensions.list` also reports each extension's `viewers` (`id`, `bundle`)
+  so the client can build the bundle URL without a second query.
+- `files.content_kind_stats` groups by `kind_name` as well as `kind`, so the
+  file kinds page shows an extension kind as its own tile under the parent's
+  icon, named by the loaded extension's `display_name` or by its stored id
+  when the extension is gone. Built-in names in that output are now the
+  lowercase serde names the page's icon table expects.
+- The `BundleRenderer` context carries `file`, `originalUrl`,
+  `thumbnailUrl` and `buildSidecarUrl`. Photos ships `ui/photo_viewer.js`
+  so its `file_viewers` entry names a real module; `raw` stays on the
+  built-in image renderer, which zooms and pans, until Jamie wants the
+  viewer instead.
 
 ## Decisions for Jamie
 

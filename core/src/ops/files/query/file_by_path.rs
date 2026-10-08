@@ -55,6 +55,7 @@ impl LibraryQuery for FileByPathQuery {
 
 				let mut files = [file];
 				crate::ops::tags::decorate::decorate_files(&volume_index, &mut files).await;
+				crate::ops::indexing::kinds::decorate_kinds(&volume_index, &mut files).await;
 				let [file] = files;
 
 				return Ok(Some(file));

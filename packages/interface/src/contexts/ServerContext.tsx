@@ -57,6 +57,12 @@ export interface ServerContextValue {
 		recordUuid: string,
 		version: number | string,
 	) => string | null;
+	/**
+	 * The URL of a viewer bundle an extension's `ui_manifest.json` declares,
+	 * served by the daemon from the extension's directory. Returns null if
+	 * serverUrl is not available.
+	 */
+	buildExtensionBundleUrl: (extensionId: string, bundle: string) => string | null;
 }
 
 export const ServerContext = createContext<ServerContextValue | null>(null);
@@ -199,6 +205,16 @@ export function ServerProvider({ children }: ServerProviderProps) {
 		return `${serverUrl}/hot-thumbstrip/${sourceId}/${recordUuid}/${version}`;
 	};
 
+	const buildExtensionBundleUrl = (
+		extensionId: string,
+		bundle: string,
+	): string | null => {
+		if (!serverUrl) {
+			return null;
+		}
+		return `${serverUrl}/extension/${encodeURIComponent(extensionId)}/${bundle}`;
+	};
+
 	const value: ServerContextValue = {
 		serverUrl,
 		libraryId,
@@ -206,6 +222,7 @@ export function ServerProvider({ children }: ServerProviderProps) {
 		buildSidecarUrl,
 		buildHotThumbUrl,
 		buildHotThumbstripUrl,
+		buildExtensionBundleUrl,
 	};
 
 	return (

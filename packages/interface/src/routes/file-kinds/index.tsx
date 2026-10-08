@@ -1,9 +1,12 @@
 import { useNormalizedQuery } from "../../contexts/SpacedriveContext";
 import type { ContentKind } from "@sd/ts-client";
 import { getIcon } from "@sd/assets/util";
+import { useExtensionKinds } from "../../hooks/useExtensionKinds";
 
 interface ContentKindStat {
+	/** The built-in kind; the parent for an extension kind */
 	kind: ContentKind;
+	/** The built-in kind's name, or an extension kind's id */
 	name: string;
 	file_count: bigint | number;
 }
@@ -59,9 +62,12 @@ function formatFileCount(count: number): string {
 
 /**
  * File Kinds View
- * Shows content kinds (images, videos, audio, etc.) with file counts
+ * Shows content kinds (images, videos, audio, etc.) with file counts. An
+ * extension kind is its own tile under its parent's icon, named by the
+ * extension while it is loaded and by its stored id after.
  */
 export function FileKindsView() {
+	const extensionKinds = useExtensionKinds();
 	// Fetch content kind statistics
 	const { data: statsData, isLoading } = useNormalizedQuery<
 		Record<string, never>,
@@ -125,8 +131,14 @@ export function FileKindsView() {
 				>
 					{stats.map((stat) => {
 						const config =
-							CONTENT_KIND_CONFIG[stat.name] ||
+							CONTENT_KIND_CONFIG[stat.kind] ||
 							CONTENT_KIND_CONFIG.unknown;
+						const extensionKind = extensionKinds.get(stat.name);
+						const label =
+							extensionKind?.display_name ??
+							(stat.name.includes(":")
+								? stat.name.slice(stat.name.lastIndexOf(":") + 1)
+								: stat.name);
 						const icon = getIcon(
 							config.iconName,
 							true,
@@ -139,15 +151,18 @@ export function FileKindsView() {
 								key={stat.name}
 								onClick={() => handleKindClick(stat.kind)}
 								className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-app-box/50 transition-colors group aspect-square"
+								title={stat.name}
 							>
 								<img
 									src={icon}
-									alt={stat.name}
+									alt={label}
 									className="w-16 h-16 mb-3"
 								/>
 								<div className="text-center w-full">
-									<div className="text-sm font-medium text-ink capitalize mb-1">
-										{stat.name}
+									<div
+										className={`text-sm font-medium text-ink mb-1 ${extensionKind ? "" : "capitalize"}`}
+									>
+										{label}
 									</div>
 									<div className="text-xs text-ink-dull">
 										{formatFileCount(

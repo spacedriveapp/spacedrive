@@ -11760,6 +11760,7 @@ dependencies = [
  "rubato",
  "sd-archive",
  "sd-bake",
+ "sd-extension-ui",
  "sd-ffmpeg",
  "sd-fs-watcher",
  "sd-imageio",
@@ -11843,6 +11844,16 @@ name = "sd-desktop-macos"
 version = "0.1.0"
 dependencies = [
  "swift-rs",
+]
+
+[[package]]
+name = "sd-extension-ui"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]
@@ -12005,6 +12016,7 @@ dependencies = [
  "mime_guess",
  "rust-embed",
  "sd-core",
+ "sd-extension-ui",
  "sd-pvcache",
  "sd-sidecar-path",
  "secstr",
@@ -13022,6 +13034,7 @@ dependencies = [
  "image",
  "parking_lot",
  "sd-desktop-macos",
+ "sd-extension-ui",
  "sd-pvcache",
  "sd-sidecar-path",
  "sd-tauri-core",

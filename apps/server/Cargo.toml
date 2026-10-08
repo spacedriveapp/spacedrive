@@ -16,6 +16,7 @@ ai = ["sd-core/ai"]
 sd-sidecar-path = { path = "../../crates/sidecar-path" }
 sd-pvcache = { path = "../../crates/pvcache" }
 sd-core = { path = "../../core" }
+sd-extension-ui = { path = "../../crates/extension-ui" }
 image = { workspace = true }
 
 # HTTP server
