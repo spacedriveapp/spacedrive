@@ -2630,13 +2630,6 @@ delete_data: boolean };
 export type LibraryDeleteOutput = { library_id: string; name: string };
 
 /**
- * Input for exporting a library
- */
-export type LibraryExportInput = { library_id: string; export_path: string; include_thumbnails: boolean; include_previews: boolean };
-
-export type LibraryExportOutput = { library_id: string; library_name: string; export_path: string; exported_files: string[] };
-
-/**
  * Information about a library for listing purposes
  */
 export type LibraryInfo = { 
@@ -5988,7 +5981,6 @@ export type LibraryAction =
   |  { type: 'jobs.pause'; input: JobPauseInput; output: JobPauseOutput }
   |  { type: 'jobs.resume'; input: JobResumeInput; output: JobResumeOutput }
   |  { type: 'libraries.backup'; input: LibraryBackupInput; output: LibraryBackupOutput }
-  |  { type: 'libraries.export'; input: LibraryExportInput; output: LibraryExportOutput }
   |  { type: 'libraries.rename'; input: LibraryRenameInput; output: LibraryRenameOutput }
   |  { type: 'sources.assertions.merge'; input: MergeAssertionsInput; output: MergeAssertionsOutput }
   |  { type: 'sources.create'; input: CreateSourceInput; output: CreateSourceOutput }
@@ -6193,7 +6185,6 @@ export const WIRE_METHODS = {
     'jobs.pause': 'action:jobs.pause.input',
     'jobs.resume': 'action:jobs.resume.input',
     'libraries.backup': 'action:libraries.backup.input',
-    'libraries.export': 'action:libraries.export.input',
     'libraries.rename': 'action:libraries.rename.input',
     'sources.assertions.merge': 'action:sources.assertions.merge.input',
     'sources.create': 'action:sources.create.input',
