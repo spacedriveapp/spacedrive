@@ -188,20 +188,62 @@ impl VdfsContext {
 		)
 	}
 
-	/// Update custom field in UserMetadata
+	/// Set a custom field on a record, replacing any earlier value.
+	///
+	/// `field` is `namespace.name`; the namespace must be one the manifest's
+	/// `write_custom_fields` grants. Fields live in the extension's own
+	/// store, keyed by record uuid, so they are visible to this extension
+	/// only and survive the record being re-indexed.
 	pub async fn update_custom_field<T: Serialize>(
 		&self,
 		record_uuid: Uuid,
 		field: &str,
 		value: T,
 	) -> Result<()> {
-		Err(Error::Unsupported("update_custom_field".into()))
+		let (namespace, name) = split_field(field)?;
+		let _: serde_json::Value = crate::ffi::op_json(
+			"records.set_field",
+			&serde_json::json!({
+				"record_uuid": record_uuid,
+				"namespace": namespace,
+				"name": name,
+				"value": value,
+			}),
+		)?;
+		Ok(())
+	}
+
+	/// A custom field this extension set on a record, or `None`.
+	pub async fn custom_field<T: DeserializeOwned>(
+		&self,
+		record_uuid: Uuid,
+		field: &str,
+	) -> Result<Option<T>> {
+		let (namespace, name) = split_field(field)?;
+		crate::ffi::op_json(
+			"records.get_field",
+			&serde_json::json!({
+				"record_uuid": record_uuid,
+				"namespace": namespace,
+				"name": name,
+			}),
+		)
 	}
 
 	/// Check if a path is in user-granted scope
 	pub fn in_granted_scope(&self, path: &str) -> bool {
 		panic!("WASM host call")
 	}
+}
+
+/// `namespace.name` into its parts; a field with no namespace is refused
+/// before the host sees it.
+fn split_field(field: &str) -> Result<(&str, &str)> {
+	field.split_once('.').ok_or_else(|| {
+		Error::InvalidInput(format!(
+			"custom field {field:?} must be namespace.name"
+		))
+	})
 }
 
 /// Record query builder.

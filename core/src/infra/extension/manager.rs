@@ -518,7 +518,12 @@ impl PluginManager {
 					job.resumable,
 				);
 			}
-			for (name, def) in previous_schema.map(|s| s.models).unwrap_or_default() {
+			for (name, def) in previous_schema.models {
+				// The built-in custom field model is not the guest's to
+				// register; the registry adds it to every schema itself.
+				if name == super::model_registry::CUSTOM_FIELD_MODEL {
+					continue;
+				}
 				let _ = self.model_registry.register(
 					plugin_id,
 					super::model_registry::ModelDefinition {

@@ -57,6 +57,11 @@ impl ExtensionModelRegistry {
 				model.name
 			));
 		}
+		if model.name == CUSTOM_FIELD_MODEL {
+			return Err(format!(
+				"model name {CUSTOM_FIELD_MODEL:?} is reserved for the extension's custom fields"
+			));
+		}
 		if model.fields.contains_key("record_uuid") {
 			return Err(format!(
 				"model {} field \"record_uuid\" is the facet table's key column",
@@ -80,11 +85,12 @@ impl ExtensionModelRegistry {
 			.remove(extension_id);
 	}
 
-	/// The schema of an extension's store, or `None` when it declared no
-	/// models and so needs no store.
-	pub fn schema_for(&self, extension_id: &str) -> Option<DataTypeSchema> {
+	/// The schema of an extension's store: the models it declared plus the
+	/// custom field model every extension gets, so an extension with no
+	/// models of its own still has somewhere to put a field.
+	pub fn schema_for(&self, extension_id: &str) -> DataTypeSchema {
 		let models = self.models.read().unwrap_or_else(|p| p.into_inner());
-		let declared = models.get(extension_id).filter(|m| !m.is_empty())?;
+		let declared = models.get(extension_id).map(Vec::as_slice).unwrap_or(&[]);
 		let mut defs = IndexMap::new();
 		for model in declared {
 			defs.insert(
@@ -95,14 +101,17 @@ impl ExtensionModelRegistry {
 				},
 			);
 		}
-		Some(DataTypeSchema {
+		defs.insert(CUSTOM_FIELD_MODEL.to_string(), custom_field_model());
+		DataTypeSchema {
 			data_type: sd_store::schema::DataTypeMeta {
 				id: extension_id.to_string(),
 				name: extension_id.to_string(),
 				icon: None,
 			},
 			search: sd_store::schema::SearchContract {
-				primary_model: declared[0].name.clone(),
+				primary_model: declared
+					.first()
+					.map_or(CUSTOM_FIELD_MODEL.to_string(), |m| m.name.clone()),
 				title: "_derived.title".to_string(),
 				preview: "_derived.none".to_string(),
 				subtitle: None,
@@ -110,7 +119,28 @@ impl ExtensionModelRegistry {
 				date_field: None,
 			},
 			models: defs,
-		})
+		}
+	}
+}
+
+/// The model holding an extension's custom fields: one row per field on a
+/// record, keyed `<record uuid>:<namespace>:<name>`, the value kept as JSON
+/// text so any shape round-trips. The source store carries no per-record
+/// extension metadata, so fields live in the extension's own store.
+pub const CUSTOM_FIELD_MODEL: &str = "custom_field";
+
+fn custom_field_model() -> ModelDef {
+	ModelDef {
+		fields: [
+			("record", FieldType::String),
+			("namespace", FieldType::String),
+			("name", FieldType::String),
+			("value", FieldType::Text),
+		]
+		.into_iter()
+		.map(|(name, ty)| (name.to_string(), ty))
+		.collect(),
+		relations: Default::default(),
 	}
 }
 

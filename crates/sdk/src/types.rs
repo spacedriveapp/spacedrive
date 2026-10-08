@@ -129,9 +129,15 @@ impl Record {
 		crate::vdfs::VdfsContext.read_record(self.uuid).await
 	}
 
-	/// Get custom field from the record's metadata
-	pub fn custom_field<T: serde::de::DeserializeOwned>(&self, field: &str) -> Result<T> {
-		Err(Error::Unsupported("custom_field".into()))
+	/// A custom field this extension set on the record (`namespace.name`),
+	/// or `None`.
+	pub async fn custom_field<T: serde::de::DeserializeOwned>(
+		&self,
+		field: &str,
+	) -> Result<Option<T>> {
+		crate::vdfs::VdfsContext
+			.custom_field(self.uuid, field)
+			.await
 	}
 }
 

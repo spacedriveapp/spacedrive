@@ -28,7 +28,7 @@ use crate::ops::tags::{
 	UnapplyTagsAction, UnapplyTagsInput,
 };
 
-use super::model_registry::{open_extension_store, ExtensionModelRegistry};
+use super::model_registry::{open_extension_store, ExtensionModelRegistry, CUSTOM_FIELD_MODEL};
 use super::types::ExtensionManifest;
 
 /// An error a guest can act on. `code` is the stable part: the SDK maps it
@@ -185,6 +185,21 @@ struct SidecarWrite {
 }
 
 #[derive(Deserialize)]
+struct FieldRef {
+	record_uuid: Uuid,
+	namespace: String,
+	name: String,
+}
+
+#[derive(Deserialize)]
+struct FieldSet {
+	record_uuid: Uuid,
+	namespace: String,
+	name: String,
+	value: serde_json::Value,
+}
+
+#[derive(Deserialize)]
 struct TagChange {
 	record_uuid: Option<Uuid>,
 	content_uuid: Option<Uuid>,
@@ -273,6 +288,8 @@ impl JobOps {
 			"models.put" => self.model_put(parse(payload)?).await,
 			"models.get" => self.model_get(parse(payload)?).await,
 			"models.list" => self.model_list(parse(payload)?).await,
+			"records.set_field" => self.field_set(parse(payload)?).await,
+			"records.get_field" => self.field_get(parse(payload)?).await,
 			"tags.add" => self.tag_change(parse(payload)?, true).await,
 			"tags.remove" => self.tag_change(parse(payload)?, false).await,
 			"ai.infer" => self.ai_infer(payload),
@@ -528,12 +545,7 @@ impl JobOps {
 	/// The extension's store in this library, opened on first use.
 	async fn store(&mut self) -> Result<&SourceDb, OpError> {
 		if self.store.is_none() {
-			let schema = self.models.schema_for(&self.extension_id).ok_or_else(|| {
-				OpError::invalid_input(format!(
-					"{} declares no models; list them in #[extension(models = [...])]",
-					self.extension_id
-				))
-			})?;
+			let schema = self.models.schema_for(&self.extension_id);
 			let db = open_extension_store(self.library.path(), &self.extension_id, &schema)
 				.await
 				.map_err(|e| OpError::failed(format!("open extension store: {e}")))?;
@@ -588,6 +600,73 @@ impl JobOps {
 			.await
 			.map_err(|e| OpError::failed(e.to_string()))?;
 		json(&rows)
+	}
+}
+
+impl JobOps {
+	/// A field name becomes part of the row key, so it is kept to one
+	/// identifier-like token.
+	fn field_key(record: Uuid, namespace: &str, name: &str) -> Result<String, OpError> {
+		let token = |s: &str| {
+			!s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+		};
+		if !token(namespace) || !token(name) {
+			return Err(OpError::invalid_input(format!(
+				"custom field {namespace}.{name}: namespace and name are [A-Za-z0-9_]"
+			)));
+		}
+		Ok(format!("{record}:{namespace}:{name}"))
+	}
+
+	/// Set one custom field on a record, under a namespace the manifest's
+	/// `write_custom_fields` grants. The record itself is not checked: the
+	/// field lives in the extension's own store and names the record by
+	/// uuid, so a field on a record that later vanishes is just an orphan
+	/// row.
+	async fn field_set(&mut self, set: FieldSet) -> OpResult {
+		if !self
+			.manifest
+			.permissions
+			.write_custom_fields
+			.iter()
+			.any(|n| *n == set.namespace)
+		{
+			return Err(OpError::permission_denied(format!(
+				"{} has no write_custom_fields grant for {}",
+				self.extension_id, set.namespace
+			)));
+		}
+		let key = Self::field_key(set.record_uuid, &set.namespace, &set.name)?;
+		let row = serde_json::json!({
+			"record": set.record_uuid.to_string(),
+			"namespace": set.namespace,
+			"name": set.name,
+			"value": set.value.to_string(),
+		});
+		let store = self.store().await?;
+		store
+			.upsert(CUSTOM_FIELD_MODEL, &key, &row)
+			.await
+			.map_err(|e| OpError::failed(e.to_string()))?;
+		json(&serde_json::Value::Null)
+	}
+
+	/// One custom field's value, or `null` when the record has none. Fields
+	/// are the extension's own, so reading needs no grant.
+	async fn field_get(&mut self, field: FieldRef) -> OpResult {
+		let key = Self::field_key(field.record_uuid, &field.namespace, &field.name)?;
+		let store = self.store().await?;
+		let rows = store
+			.facet_rows(CUSTOM_FIELD_MODEL, Some(&key), 1)
+			.await
+			.map_err(|e| OpError::failed(e.to_string()))?;
+		let value = rows
+			.into_iter()
+			.next()
+			.and_then(|row| row["value"].as_str().map(str::to_string))
+			.map(|text| serde_json::from_str(&text).unwrap_or(serde_json::Value::Null))
+			.unwrap_or(serde_json::Value::Null);
+		json(&value)
 	}
 }
 
