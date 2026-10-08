@@ -156,10 +156,12 @@ jobs:
           # The updater reads this asset when the git ref API is rate limited.
           echo "$sha" > dist/nightly.sha
           ls -l dist
+          # Also the probe below for a release the old scheme created.
+          marker="This release is edited in place"
           cat > notes.md <<EOF
           Rolling nightly build of the CLI and daemon from \`${{ github.ref_name }}\` at $sha.
 
-          Unsigned, may break, replaced on every push. This release is edited in place: its tag moves to the commit above and the assets are replaced, so watching the repository for releases does not notify on nightly builds. Opt in with \`sd config set update.channel nightly\` and run \`sd update\`; see docs/core/releases.mdx.
+          Unsigned, may break, replaced on every push. $marker: its tag moves to the commit above and the assets are replaced, so watching the repository for releases does not notify on nightly builds. Opt in with \`sd config set update.channel nightly\` and run \`sd update\`; see docs/core/releases.mdx.
           EOF
 
           # Writes the release's notes to body.txt and its asset names to
@@ -176,7 +178,7 @@ jobs:
           }
 
           # A release created by the old delete-and-recreate scheme does not
-          # carry the "edited in place" notes. Updaters built before the switch
+          # carry the marker sentence in its notes. Updaters built before the switch
           # compare the release's target_commitish, which is frozen at
           # creation, so such a release is recreated once with this commit as
           # target; every later run edits it in place and those updaters have
@@ -186,7 +188,7 @@ jobs:
           # moves here as well, because GitHub keeps an existing tag's commit
           # over --target; with the release gone there are no assets for it
           # to mismatch.
-          if release_exists && ! grep -q "edited in place" body.txt; then
+          if release_exists && ! grep -qF "$marker" body.txt; then
             echo "release predates in-place updates; recreating it once"
             gh release delete "$NIGHTLY_TAG" --yes
             git push --force origin "$sha:refs/tags/$NIGHTLY_TAG"
