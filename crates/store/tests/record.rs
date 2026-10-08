@@ -916,4 +916,17 @@ async fn a_full_read_keeps_the_kind_the_sampled_pass_stored() {
 			.await
 			.expect("confirmed row");
 	assert_eq!((kind, kind_name.as_deref()), (Some(7), Some("other:thing")));
+
+	// Changed bytes with no kind of their own inherit nothing.
+	let changed = db
+		.set_content_identity(note, &sampled("sampled-2"))
+		.await
+		.expect("rehashed");
+	let (kind, kind_name): (Option<i64>, Option<String>) =
+		sqlx::query_as("SELECT kind, kind_name FROM content WHERE id = ?")
+			.bind(changed)
+			.fetch_one(db.pool())
+			.await
+			.expect("new row");
+	assert_eq!((kind, kind_name), (None, None));
 }

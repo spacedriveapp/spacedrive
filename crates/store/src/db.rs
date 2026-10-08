@@ -1296,16 +1296,22 @@ async fn bind_content(
 		}
 	}
 
-	// The kind travels with the record: a verification pass carries no kind
-	// of its own, and the confirmed row it moves the record to must not lose
-	// the one the identity phase read from the bytes.
+	// The kind travels with the record when the write describes the same
+	// bytes: a verification pass carries no kind of its own, and the
+	// confirmed row it moves the record to must not lose the one the
+	// identity phase read. A write with a new hash is a changed file, whose
+	// kind the old bytes say nothing about.
+	let same_bytes = previous.as_ref().filter(|old| {
+		(old.sampled_hash.is_some() && old.sampled_hash == identity.sampled_hash)
+			|| (old.integrity_hash.is_some() && old.integrity_hash == identity.integrity_hash)
+	});
 	let kind = identity
 		.kind
-		.or_else(|| previous.as_ref().and_then(|old| old.kind));
+		.or_else(|| same_bytes.and_then(|old| old.kind));
 	let kind_name = identity
 		.kind_name
 		.clone()
-		.or_else(|| previous.as_ref().and_then(|old| old.kind_name.clone()));
+		.or_else(|| same_bytes.and_then(|old| old.kind_name.clone()));
 
 	let content_id: i64 = match identity.integrity_hash.as_deref() {
 		Some(integrity) => sqlx::query_scalar(
