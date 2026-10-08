@@ -1174,12 +1174,19 @@ impl Arena {
 	/// Remove an entry at the given path.
 	///
 	/// Returns true if the entry was removed, false if it didn't exist.
-	/// For directories, this only removes the directory entry itself, not its children.
-	/// Use `remove_directory_tree` to remove a directory and all its descendants.
+	/// A directory goes with everything beneath it: a descendant left resident
+	/// would keep a parent link to a slot that the next insert may reuse for
+	/// an unrelated node, and from then on its bytes would roll up into the
+	/// wrong directory. A rename that routes through here is followed by a
+	/// walk of the new path, which rebuilds the subtree under its new name.
 	pub fn remove_entry(&mut self, path: &Path) -> bool {
 		let Some(id) = self.path_index.get(path).copied() else {
 			return false;
 		};
+
+		if self.arena.get(id).is_some_and(|node| node.is_directory()) {
+			return self.remove_directory_tree(path) > 0;
+		}
 
 		let parent = self.arena.get(id).and_then(|node| node.parent());
 
@@ -1986,6 +1993,67 @@ mod rollup_tests {
 		for path in &all_after {
 			assert!(index.get_entry_ref(path).is_some(), "{}", path.display());
 		}
+	}
+
+	/// A directory rename arrives as `remove_entry(from)` then `add_entry(to)`.
+	/// The old children must leave with their parent: with slot reuse, a
+	/// child still holding the vacated parent's slot would find an unrelated
+	/// node there and roll its bytes up the wrong chain.
+	#[test]
+	fn removing_a_directory_takes_its_children_so_no_parent_link_dangles() {
+		let mut index = Arena::new().unwrap();
+		let root = PathBuf::from("/vol");
+		let from = root.join("old");
+		let child = from.join("inner").join("leaf.bin");
+		let to = root.join("new");
+		let sibling = root.join("sibling");
+		let sibling_file = sibling.join("other.bin");
+
+		index
+			.add_entry(
+				child.clone(),
+				Uuid::now_v7(),
+				meta(&child, EntryKind::File, 100),
+			)
+			.unwrap();
+		let dir_uuid = index.get_or_assign_uuid(&from);
+
+		assert!(index.remove_entry(&from));
+		index
+			.add_entry(to.clone(), dir_uuid, meta(&to, EntryKind::Directory, 0))
+			.unwrap();
+		index
+			.add_entry(
+				sibling_file.clone(),
+				Uuid::now_v7(),
+				meta(&sibling_file, EntryKind::File, 7),
+			)
+			.unwrap();
+
+		assert!(index.get_entry_ref(&child).is_none());
+		assert!(index.get_entry_ref(&from.join("inner")).is_none());
+		assert!(index.find_by_name("leaf.bin").is_empty());
+		assert_eq!(index.get_entry_uuid(&to), Some(dir_uuid));
+		assert_eq!(index.subtree_size(&to), Some(0));
+		assert_eq!(index.subtree_size(&sibling), Some(7));
+		assert_eq!(index.subtree_size(&root), Some(7));
+		assert_consistent(&index);
+
+		// Re-observing the old leaf path builds it fresh under its own chain.
+		index
+			.add_entry(
+				child.clone(),
+				Uuid::now_v7(),
+				meta(&child, EntryKind::File, 100),
+			)
+			.unwrap();
+		assert_eq!(index.subtree_size(&from), Some(100));
+		assert_eq!(index.subtree_size(&to), Some(0));
+		assert_eq!(index.subtree_size(&sibling), Some(7));
+		assert_eq!(index.subtree_size(&root), Some(107));
+		index.recompute_rollups();
+		assert_eq!(index.subtree_size(&root), Some(107));
+		assert_consistent(&index);
 	}
 
 	#[test]
