@@ -7,7 +7,11 @@
 //! prerelease that `.github/workflows/nightly.yml` moves along a branch, so
 //! the package version never changes between builds and the updater compares
 //! the commit the binary was built from (`SD_GIT_SHA`, shown by
-//! `sd --version`) with the commit the release was tagged at.
+//! `sd --version`) with the commit the `nightly` tag points at. That commit
+//! comes from the git ref API rather than the release's `target_commitish`,
+//! which GitHub freezes when the release is created and the workflow edits
+//! the release in place; when the ref API is rate limited the `nightly.sha`
+//! asset the workflow uploads says the same thing.
 //!
 //! Nightly binaries are not signed with a Developer ID, so a checksum asset is
 //! verified before anything is written. Replacement goes through a temporary
@@ -42,6 +46,10 @@ const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CURRENT_SHA: &str = env!("SD_GIT_SHA");
 const NIGHTLY_CHANNEL: &str = "nightly";
 const NIGHTLY_TAG: &str = "nightly";
+/// Asset naming the commit the nightly tag points at, for when the git ref
+/// API answers with a rate limit.
+const NIGHTLY_SHA_ASSET: &str = "nightly.sha";
+const GITHUB_API: &str = "https://api.github.com";
 /// Marker beside the binaries naming the build they came from.
 const VERSION_FILE: &str = "sd-version.txt";
 const STATE_FILE: &str = "update-state.json";
@@ -55,9 +63,20 @@ pub const VERSION_STRING: &str = concat!(env!("CARGO_PKG_VERSION"), " (", env!("
 #[derive(Debug, Deserialize)]
 struct GitHubRelease {
 	tag_name: String,
-	#[serde(default)]
-	target_commitish: String,
 	assets: Vec<GitHubAsset>,
+}
+
+/// A git ref or annotated tag from the API: the object it points at.
+#[derive(Debug, Deserialize)]
+struct GitHubRefObject {
+	object: GitHubObject,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubObject {
+	sha: String,
+	#[serde(rename = "type")]
+	kind: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -209,17 +228,15 @@ async fn attempt(
 		fetch_release(&config.update.repo, "latest").await?
 	};
 
-	let (installed, available, up_to_date) = if nightly {
-		let remote_sha = release.target_commitish.trim().to_string();
-		if !looks_like_sha(&remote_sha) {
-			return Err(anyhow::anyhow!(
-				"Nightly release '{}' does not name the commit it was built from (target_commitish = '{}'); the workflow must create it with --target <sha>",
-				release.tag_name,
-				remote_sha
-			));
-		}
-		let same = sha_matches(CURRENT_SHA, &remote_sha);
-		(short_sha(CURRENT_SHA), short_sha(&remote_sha), same)
+	let nightly_sha = if nightly {
+		Some(resolve_nightly_sha(GITHUB_API, &config.update.repo, &release).await?)
+	} else {
+		None
+	};
+
+	let (installed, available, up_to_date) = if let Some(remote_sha) = &nightly_sha {
+		let same = sha_matches(CURRENT_SHA, remote_sha);
+		(short_sha(CURRENT_SHA), short_sha(remote_sha), same)
 	} else {
 		let latest = release.tag_name.trim_start_matches('v').to_string();
 		(
@@ -274,10 +291,9 @@ async fn attempt(
 
 	// Parts are keyed by the build they belong to, so a tick that finds a
 	// newer nightly does not resume into the previous one's bytes.
-	let build_key = if nightly {
-		short_sha(&release.target_commitish)
-	} else {
-		release.tag_name.trim_start_matches('v').to_string()
+	let build_key = match &nightly_sha {
+		Some(sha) => short_sha(sha),
+		None => release.tag_name.trim_start_matches('v').to_string(),
 	};
 	let part_dir = data_dir.join("updates");
 	discard_other_parts(&part_dir, &build_key);
@@ -314,11 +330,7 @@ async fn attempt(
 	replace_binary(&daemon_path, &daemon_data)?;
 	let _ = std::fs::remove_dir_all(&part_dir);
 
-	let version_marker = if nightly {
-		release.target_commitish.trim().to_string()
-	} else {
-		release.tag_name.clone()
-	};
+	let version_marker = nightly_sha.unwrap_or_else(|| release.tag_name.clone());
 	if let Err(e) = std::fs::write(bin_dir.join(VERSION_FILE), format!("{}\n", version_marker)) {
 		println!(
 			"  could not write {}: {}",
@@ -448,28 +460,90 @@ async fn restart_daemon(
 }
 
 async fn fetch_release(repo: &str, selector: &str) -> Result<GitHubRelease> {
-	let url = format!(
-		"https://api.github.com/repos/{}/releases/{}",
-		repo, selector
+	let url = format!("{}/repos/{}/releases/{}", GITHUB_API, repo, selector);
+	fetch_json(&url)
+		.await
+		.with_context(|| format!("fetching release {} from {}", selector, repo))
+}
+
+/// The commit the `nightly` tag points at.
+///
+/// The tag ref is the only thing the workflow moves on every push; the
+/// release's `target_commitish` stays at whatever it was when the release was
+/// created. An annotated tag is dereferenced through the tags API. The ref API
+/// shares the unauthenticated rate limit with the release lookup, so when it
+/// fails the `nightly.sha` asset, served from the release's download host, is
+/// read instead.
+async fn resolve_nightly_sha(
+	api_base: &str,
+	repo: &str,
+	release: &GitHubRelease,
+) -> Result<String> {
+	let from_ref = async {
+		let url = format!("{}/repos/{}/git/ref/tags/{}", api_base, repo, NIGHTLY_TAG);
+		let mut object = fetch_json::<GitHubRefObject>(&url).await?.object;
+		if object.kind == "tag" {
+			let url = format!("{}/repos/{}/git/tags/{}", api_base, repo, object.sha);
+			object = fetch_json::<GitHubRefObject>(&url).await?.object;
+		}
+		if object.kind != "commit" || !looks_like_sha(&object.sha) {
+			return Err(anyhow::anyhow!(
+				"tag {} points at {} {}, not a commit",
+				NIGHTLY_TAG,
+				object.kind,
+				object.sha
+			));
+		}
+		Ok::<_, anyhow::Error>(object.sha.to_ascii_lowercase())
+	};
+
+	let ref_error = match from_ref.await {
+		Ok(sha) => return Ok(sha),
+		Err(e) => e,
+	};
+	println!(
+		"  git ref lookup failed ({:#}); reading {} from the release",
+		ref_error, NIGHTLY_SHA_ASSET
 	);
 
-	let response = tokio::time::timeout(DOWNLOAD_IDLE_TIMEOUT, http_client()?.get(&url).send())
+	let asset = release
+		.assets
+		.iter()
+		.find(|a| a.name == NIGHTLY_SHA_ASSET)
+		.ok_or_else(|| {
+			anyhow::anyhow!(
+				"Nightly release '{}' has no {} asset to fall back on",
+				release.tag_name,
+				NIGHTLY_SHA_ASSET
+			)
+		})?;
+	let text = download_small(&asset.browser_download_url)
+		.await
+		.with_context(|| format!("downloading {}", NIGHTLY_SHA_ASSET))?;
+	let sha = String::from_utf8_lossy(&text).trim().to_ascii_lowercase();
+	if !looks_like_sha(&sha) {
+		return Err(anyhow::anyhow!(
+			"{} does not contain a commit sha: '{}'",
+			NIGHTLY_SHA_ASSET,
+			sha
+		));
+	}
+	Ok(sha)
+}
+
+async fn fetch_json<T: serde::de::DeserializeOwned>(url: &str) -> Result<T> {
+	let response = tokio::time::timeout(DOWNLOAD_IDLE_TIMEOUT, http_client()?.get(url).send())
 		.await
 		.map_err(|_| anyhow::anyhow!("timed out reaching {}", url))??;
 
 	if !response.status().is_success() {
-		return Err(anyhow::anyhow!(
-			"Failed to fetch release {} from {}: HTTP {}",
-			selector,
-			repo,
-			response.status()
-		));
+		return Err(anyhow::anyhow!("{}: HTTP {}", url, response.status()));
 	}
 
-	let release: GitHubRelease = tokio::time::timeout(DOWNLOAD_IDLE_TIMEOUT, response.json())
+	tokio::time::timeout(DOWNLOAD_IDLE_TIMEOUT, response.json())
 		.await
-		.map_err(|_| anyhow::anyhow!("timed out reading the release from {}", url))??;
-	Ok(release)
+		.map_err(|_| anyhow::anyhow!("timed out reading {}", url))?
+		.with_context(|| format!("decoding {}", url))
 }
 
 /// Downloads an asset into a resumable part file and checks it against its
@@ -845,6 +919,145 @@ mod tests {
 		assert!(is_newer_version("2.0.0-beta.1", "2.0.0-alpha.2"));
 		assert!(is_newer_version("2.0.0", "2.0.0-beta.1"));
 		assert!(is_newer_version("weekly-12", "2.0.0-alpha.2"));
+	}
+
+	/// Serves fixed responses by path so the sha resolution can be exercised
+	/// without GitHub. Returns the base URL.
+	async fn serve(routes: Vec<(&'static str, u16, &'static str)>) -> String {
+		use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+		let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+		let base = format!("http://{}", listener.local_addr().unwrap());
+		tokio::spawn(async move {
+			loop {
+				let Ok((mut stream, _)) = listener.accept().await else {
+					return;
+				};
+				let routes = routes.clone();
+				tokio::spawn(async move {
+					let mut buf = vec![0u8; 4096];
+					let n = stream.read(&mut buf).await.unwrap_or(0);
+					let request = String::from_utf8_lossy(&buf[..n]).into_owned();
+					let path = request.split_whitespace().nth(1).unwrap_or("/").to_string();
+					let (status, body) = routes
+						.iter()
+						.find(|(p, _, _)| *p == path)
+						.map(|(_, status, body)| (*status, *body))
+						.unwrap_or((404, "not found"));
+					let response = format!(
+						"HTTP/1.1 {} X\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+						status,
+						body.len(),
+						body
+					);
+					let _ = stream.write_all(response.as_bytes()).await;
+					let _ = stream.shutdown().await;
+				});
+			}
+		});
+		base
+	}
+
+	const REF_SHA: &str = "0e5340394e1a233fb4f7f5977fd637e9f2493c04";
+	const ASSET_SHA: &str = "ad6452d6f1c7b2d9a5a1e0c3b4d5e6f708192a3b";
+
+	fn nightly_release(base: &str) -> GitHubRelease {
+		GitHubRelease {
+			tag_name: "nightly".to_string(),
+			assets: vec![
+				asset("sd-macos-aarch64"),
+				GitHubAsset {
+					name: NIGHTLY_SHA_ASSET.to_string(),
+					browser_download_url: format!("{}/download/nightly/nightly.sha", base),
+					size: 41,
+				},
+			],
+		}
+	}
+
+	#[tokio::test]
+	async fn nightly_sha_comes_from_the_tag_ref() {
+		let base = serve(vec![
+			(
+				"/repos/o/r/git/ref/tags/nightly",
+				200,
+				r#"{"ref":"refs/tags/nightly","object":{"sha":"0E5340394E1A233FB4F7F5977FD637E9F2493C04","type":"commit"}}"#,
+			),
+			("/download/nightly/nightly.sha", 200, ASSET_SHA),
+		])
+		.await;
+
+		let sha = resolve_nightly_sha(&base, "o/r", &nightly_release(&base))
+			.await
+			.unwrap();
+		assert_eq!(sha, REF_SHA);
+	}
+
+	#[tokio::test]
+	async fn annotated_tag_is_dereferenced() {
+		let base = serve(vec![
+			(
+				"/repos/o/r/git/ref/tags/nightly",
+				200,
+				r#"{"object":{"sha":"1111111111111111111111111111111111111111","type":"tag"}}"#,
+			),
+			(
+				"/repos/o/r/git/tags/1111111111111111111111111111111111111111",
+				200,
+				r#"{"tag":"nightly","object":{"sha":"0e5340394e1a233fb4f7f5977fd637e9f2493c04","type":"commit"}}"#,
+			),
+		])
+		.await;
+
+		let sha = resolve_nightly_sha(&base, "o/r", &nightly_release(&base))
+			.await
+			.unwrap();
+		assert_eq!(sha, REF_SHA);
+	}
+
+	#[tokio::test]
+	async fn rate_limited_ref_api_falls_back_to_the_sha_asset() {
+		let base = serve(vec![
+			(
+				"/repos/o/r/git/ref/tags/nightly",
+				403,
+				r#"{"message":"API rate limit exceeded"}"#,
+			),
+			(
+				"/download/nightly/nightly.sha",
+				200,
+				"ad6452d6f1c7b2d9a5a1e0c3b4d5e6f708192a3b\n",
+			),
+		])
+		.await;
+
+		let sha = resolve_nightly_sha(&base, "o/r", &nightly_release(&base))
+			.await
+			.unwrap();
+		assert_eq!(sha, ASSET_SHA);
+	}
+
+	#[tokio::test]
+	async fn missing_ref_and_asset_is_an_error() {
+		let base = serve(vec![("/download/nightly/nightly.sha", 200, "not a sha")]).await;
+
+		let err = resolve_nightly_sha(&base, "o/r", &nightly_release(&base))
+			.await
+			.unwrap_err();
+		assert!(
+			err.to_string().contains("does not contain a commit sha"),
+			"{err:#}"
+		);
+
+		let mut release = nightly_release(&base);
+		release.assets.retain(|a| a.name != NIGHTLY_SHA_ASSET);
+		let err = resolve_nightly_sha(&base, "o/r", &release)
+			.await
+			.unwrap_err();
+		assert!(
+			err.to_string().contains("has no nightly.sha asset"),
+			"{err:#}"
+		);
 	}
 
 	#[test]
