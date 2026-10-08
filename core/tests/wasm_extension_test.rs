@@ -714,12 +714,21 @@ async fn photos_analyze_photos_runs_end_to_end_without_a_detector() {
 		]
 	);
 	let models = pm.read().await.model_registry();
-	let schema = models
-		.schema_for("com.spacedrive.photos")
-		.expect("photos declared its models");
+	let schema = models.schema_for("com.spacedrive.photos");
 	let mut declared: Vec<&String> = schema.models.keys().collect();
 	declared.sort();
-	assert_eq!(declared, ["Album", "Moment", "Person", "Photo", "Place"]);
+	assert_eq!(
+		declared,
+		[
+			"Album",
+			"Moment",
+			"Person",
+			"Photo",
+			"Place",
+			"custom_field"
+		],
+		"the built-in custom field model rides along"
+	);
 
 	let (library, files) = fixture_library(&core, temp_dir.path()).await;
 	let photo_ids: Vec<Uuid> = files
@@ -791,6 +800,443 @@ async fn photos_analyze_photos_runs_end_to_end_without_a_detector() {
 	assert_eq!(info.status, JobStatus::Failed);
 	let log = guest_log.lock().unwrap().clone();
 	assert!(log.contains("Permission denied"), "{log}");
+
+	core.shutdown().await.unwrap();
+}
+
+/// The test extension's `tag` job tags every photo by name, creating the
+/// tag, records a custom field and reads it back, removes the tag from one
+/// photo and tags its content instead, is refused a namespace the manifest
+/// does not grant, and queues a counter job that then runs. A manifest
+/// without the grants is refused at the first tag.
+#[tokio::test(flavor = "multi_thread")]
+async fn extension_job_tags_records_sets_fields_and_dispatches() {
+	let guest_log = guest_log();
+	let temp_dir = TempDir::new().unwrap();
+	let data_dir = temp_dir.path().join("core");
+	install_test_extension(&data_dir);
+	install_second_kind_extension(&data_dir);
+	let core = Core::new(data_dir).await.unwrap();
+	let (library, files) = fixture_library(&core, temp_dir.path()).await;
+	let jpegs: Vec<&sd_store::FsEntry> = files
+		.iter()
+		.filter(|f| f.extension.as_deref() == Some("JPG"))
+		.collect();
+
+	guest_log.lock().unwrap().clear();
+	let info = run_to_end(
+		&core,
+		&library,
+		"test-extension:tag",
+		serde_json::json!({ "extensions": ["jpg"] }),
+	)
+	.await;
+	assert_eq!(
+		info.status,
+		JobStatus::Completed,
+		"{:?}",
+		info.error_message
+	);
+	let log = guest_log.lock().unwrap().clone();
+	assert!(
+		log.contains("refused:") && log.contains("has no write_custom_fields grant for other"),
+		"{log}"
+	);
+	assert!(log.contains("an unset field reads as None"), "{log}");
+	assert!(
+		log.contains("removing an undefined tag answers None"),
+		"{log}"
+	);
+	assert!(
+		log.contains("11 records still carry Catalog/Digested"),
+		"{log}"
+	);
+
+	// Tags landed in the source store: eleven by record, one by content,
+	// under definitions the guest created by name.
+	let store = core
+		.context
+		.volume_index()
+		.store_for(&temp_dir.path().join("photos"))
+		.await
+		.unwrap();
+	let uuids: Vec<Uuid> = jpegs.iter().map(|j| j.uuid).collect();
+	let tags = store.db().tags_for_records(&uuids).await.unwrap();
+	let paths_of = |uuid: &Uuid| -> Vec<String> {
+		let mut paths: Vec<String> = tags
+			.get(uuid)
+			.map(|t| t.iter().map(|t| t.path.clone()).collect())
+			.unwrap_or_default();
+		paths.sort();
+		paths
+	};
+	let digested = uuids
+		.iter()
+		.filter(|u| paths_of(u) == ["Catalog/Digested"])
+		.count();
+	let untagged = uuids
+		.iter()
+		.filter(|u| paths_of(u) == ["Catalog/Bytes"])
+		.count();
+	assert_eq!((digested, untagged), (11, 1), "{tags:?}");
+	let definitions = store.db().tag_definitions().await.unwrap();
+	let mut defined: Vec<&str> = definitions.iter().map(|d| d.path.as_str()).collect();
+	defined.sort();
+	assert_eq!(defined, ["Catalog/Bytes", "Catalog/Digested"]);
+
+	// Custom fields are rows in the extension's own store
+	let ext_store = sd_store::SourceManager::open_file_read_only(
+		&library.path().join("extensions/test-extension/data.db"),
+	)
+	.await
+	.unwrap();
+	let fields = ext_store
+		.facet_rows("custom_field", None, 100)
+		.await
+		.unwrap();
+	assert_eq!(fields.len(), 12);
+	for field in &fields {
+		assert_eq!(field["namespace"], "test");
+		assert_eq!(field["name"], "size");
+		let record = Uuid::parse_str(field["record"].as_str().unwrap()).unwrap();
+		let jpeg = jpegs.iter().find(|j| j.uuid == record).expect("a photo");
+		assert_eq!(field["value"], jpeg.size.unwrap().to_string());
+	}
+	ext_store.pool().close().await;
+
+	// The dispatched counter ran as its own job and finished
+	let dispatched = log
+		.lines()
+		.find_map(|line| line.split("dispatched counter as ").nth(1))
+		.and_then(|id| Uuid::parse_str(id.trim()).ok())
+		.expect("the guest logged the dispatched job id");
+	assert_ne!(dispatched, info.id);
+	let counter = wait_for_status(
+		&library,
+		dispatched,
+		JobStatus::Completed,
+		Duration::from_secs(30),
+	)
+	.await;
+	assert_eq!(counter.name, "wasm_job");
+	assert!(log.contains("Completed processing 5 items"), "{log}");
+
+	// The same module under a manifest without the grants is refused
+	guest_log.lock().unwrap().clear();
+	let info = run_to_end(
+		&core,
+		&library,
+		"zz-second-kind:tag",
+		serde_json::json!({ "extensions": ["jpg"] }),
+	)
+	.await;
+	assert_eq!(info.status, JobStatus::Failed);
+	let log = guest_log.lock().unwrap().clone();
+	assert!(log.contains("has no write_tags grant"), "{log}");
+
+	core.shutdown().await.unwrap();
+}
+
+/// A JPEG that is only a SOI, an APP1 EXIF segment and a trailing payload:
+/// enough for the EXIF reader, which walks markers and never decodes.
+/// `date` is `YYYY:MM:DD HH:MM:SS`; `gps` is signed decimal degrees.
+fn exif_jpeg(seed: u8, date: Option<&str>, gps: Option<(f64, f64)>) -> Vec<u8> {
+	fn entry(tiff: &mut Vec<u8>, tag: u16, kind: u16, count: u32, value: [u8; 4]) {
+		tiff.extend_from_slice(&tag.to_be_bytes());
+		tiff.extend_from_slice(&kind.to_be_bytes());
+		tiff.extend_from_slice(&count.to_be_bytes());
+		tiff.extend_from_slice(&value);
+	}
+	fn dms(degrees: f64) -> [u8; 24] {
+		let abs = degrees.abs();
+		let d = abs.floor();
+		let m = ((abs - d) * 60.0).floor();
+		let s = ((abs - d) * 60.0 - m) * 60.0;
+		let mut out = [0u8; 24];
+		for (i, (num, den)) in [(d as u32, 1u32), (m as u32, 1), ((s * 1000.0) as u32, 1000)]
+			.into_iter()
+			.enumerate()
+		{
+			out[i * 8..i * 8 + 4].copy_from_slice(&num.to_be_bytes());
+			out[i * 8 + 4..i * 8 + 8].copy_from_slice(&den.to_be_bytes());
+		}
+		out
+	}
+
+	let entries = date.is_some() as u32 + gps.is_some() as u32;
+	let ifd0_len = 2 + 12 * entries + 4;
+	let mut tiff = b"MM\x00\x2a".to_vec();
+	tiff.extend_from_slice(&8u32.to_be_bytes());
+	tiff.extend_from_slice(&(entries as u16).to_be_bytes());
+	let date_offset = 8 + ifd0_len;
+	let gps_offset = date_offset + if date.is_some() { 20 } else { 0 };
+	if date.is_some() {
+		entry(&mut tiff, 0x0132, 2, 20, date_offset.to_be_bytes());
+	}
+	if gps.is_some() {
+		entry(&mut tiff, 0x8825, 4, 1, gps_offset.to_be_bytes());
+	}
+	tiff.extend_from_slice(&0u32.to_be_bytes());
+	if let Some(date) = date {
+		assert_eq!(date.len(), 19);
+		tiff.extend_from_slice(date.as_bytes());
+		tiff.push(0);
+	}
+	if let Some((lat, lon)) = gps {
+		let rationals = gps_offset + 2 + 12 * 4 + 4;
+		tiff.extend_from_slice(&4u16.to_be_bytes());
+		let lat_ref = if lat < 0.0 { b"S\0\0\0" } else { b"N\0\0\0" };
+		let lon_ref = if lon < 0.0 { b"W\0\0\0" } else { b"E\0\0\0" };
+		entry(&mut tiff, 0x0001, 2, 2, *lat_ref);
+		entry(&mut tiff, 0x0002, 5, 3, rationals.to_be_bytes());
+		entry(&mut tiff, 0x0003, 2, 2, *lon_ref);
+		entry(&mut tiff, 0x0004, 5, 3, (rationals + 24).to_be_bytes());
+		tiff.extend_from_slice(&0u32.to_be_bytes());
+		tiff.extend_from_slice(&dms(lat));
+		tiff.extend_from_slice(&dms(lon));
+	}
+
+	let mut payload = b"Exif\x00\x00".to_vec();
+	payload.extend_from_slice(&tiff);
+	let mut out = vec![0xFF, 0xD8, 0xFF, 0xE1];
+	out.extend_from_slice(&((payload.len() + 2) as u16).to_be_bytes());
+	out.extend_from_slice(&payload);
+	out.extend(std::iter::repeat_n(seed, 1000 + seed as usize * 7));
+	out
+}
+
+/// Capture times and places of the moments fixture: three outings (a
+/// morning in Tokyo, a morning in Kyoto a week later, a spring day with no
+/// GPS) and one photo with no EXIF at all.
+const MOMENT_PHOTOS: [(&str, Option<(f64, f64)>); 12] = [
+	("2024:03:12 10:00:00", Some((35.6812, 139.7671))),
+	("2024:03:12 10:20:00", Some((35.6815, 139.7660))),
+	("2024:03:12 11:05:00", Some((35.6900, 139.7000))),
+	("2024:03:12 12:30:00", Some((35.6903, 139.7004))),
+	("2024:03:12 13:00:00", None),
+	("2024:03:19 09:00:00", Some((35.0116, 135.7681))),
+	("2024:03:19 09:15:00", Some((35.0118, 135.7679))),
+	("2024:03:19 09:40:00", Some((34.9949, 135.7850))),
+	("2024:03:19 10:10:00", Some((34.9950, 135.7849))),
+	("2024:04:02 15:00:00", None),
+	("2024:04:02 16:00:00", None),
+	("2024:04:02 18:30:00", None),
+];
+
+/// A library with one tracked source holding the twelve EXIF-dated JPEGs
+/// of [`MOMENT_PHOTOS`] plus one JPEG with no EXIF, hashed through.
+async fn moments_library(
+	core: &Core,
+	root: &Path,
+) -> (Arc<sd_core::library::Library>, Vec<sd_store::FsEntry>) {
+	let library = core
+		.libraries
+		.create_library("Moments", None, core.context.clone())
+		.await
+		.unwrap();
+	let source_dir = root.join("moments");
+	std::fs::create_dir_all(&source_dir).unwrap();
+	for (i, (date, gps)) in MOMENT_PHOTOS.iter().enumerate() {
+		std::fs::write(
+			source_dir.join(format!("IMG_{i:04}.jpg")),
+			exif_jpeg(i as u8, Some(date), *gps),
+		)
+		.unwrap();
+	}
+	std::fs::write(source_dir.join("IMG_9999.jpg"), exif_jpeg(99, None, None)).unwrap();
+	let (_, files) = track_and_identify(core, &library, source_dir, 13).await;
+	assert_eq!(files.len(), 13);
+	(library, files)
+}
+
+/// The photos extension's `create_moments` runs end to end from EXIF alone:
+/// capture times and GPS come through `records.exif`, the twelve dated
+/// photos fall into three moments as `Moment` models, each photo is tagged
+/// `Moments/<title>` and carries its moment id as a custom field, the
+/// undated photo belongs to none, and a second run groups nothing twice.
+/// `identify_places` and `analyze_scenes` do their non-inference parts and
+/// take the `not_available` path where they need a model.
+#[tokio::test(flavor = "multi_thread")]
+async fn photos_create_moments_from_exif_without_inference() {
+	let guest_log = guest_log();
+	let temp_dir = TempDir::new().unwrap();
+	let data_dir = temp_dir.path().join("core");
+	install_extension(&data_dir, "photos", "photos.wasm");
+	let core = Core::new(data_dir).await.unwrap();
+	let (library, files) = moments_library(&core, temp_dir.path()).await;
+
+	guest_log.lock().unwrap().clear();
+	let info = run_to_end(
+		&core,
+		&library,
+		"com.spacedrive.photos:create_moments",
+		serde_json::json!({}),
+	)
+	.await;
+	assert_eq!(
+		info.status,
+		JobStatus::Completed,
+		"{:?}",
+		info.error_message
+	);
+	let log = guest_log.lock().unwrap().clone();
+	assert!(
+		log.contains("Created 3 moments over 12 photos (1 undated, 0 already in a moment)"),
+		"{log}"
+	);
+
+	let ext_store = sd_store::SourceManager::open_file_read_only(
+		&library
+			.path()
+			.join("extensions/com.spacedrive.photos/data.db"),
+	)
+	.await
+	.unwrap();
+	let mut moments = ext_store.facet_rows("Moment", None, 100).await.unwrap();
+	moments.sort_by_key(|m| m["start_date"].as_str().unwrap().to_string());
+	let titles: Vec<&str> = moments
+		.iter()
+		.map(|m| m["title"].as_str().unwrap())
+		.collect();
+	assert_eq!(
+		titles,
+		["March 12, 2024", "March 19, 2024", "April 2, 2024"]
+	);
+	let counts: Vec<i64> = moments
+		.iter()
+		.map(|m| m["photo_count"].as_i64().unwrap())
+		.collect();
+	assert_eq!(counts, [5, 4, 3]);
+	assert_eq!(moments[0]["start_date"], "2024-03-12T10:00:00Z");
+	assert_eq!(moments[0]["end_date"], "2024-03-12T13:00:00Z");
+
+	// Every dated photo is tagged with its moment and carries its id
+	let store = core
+		.context
+		.volume_index()
+		.store_for(&temp_dir.path().join("moments"))
+		.await
+		.unwrap();
+	let uuids: Vec<Uuid> = files.iter().map(|f| f.uuid).collect();
+	let tags = store.db().tags_for_records(&uuids).await.unwrap();
+	let fields = ext_store
+		.facet_rows("custom_field", None, 100)
+		.await
+		.unwrap();
+	assert_eq!(fields.len(), 12);
+	for (i, file) in files.iter().enumerate() {
+		let applied: Vec<String> = tags
+			.get(&file.uuid)
+			.map(|t| t.iter().map(|t| t.path.clone()).collect())
+			.unwrap_or_default();
+		let field = fields
+			.iter()
+			.find(|f| f["record"] == file.uuid.to_string())
+			.map(|f| f["value"].as_str().unwrap().trim_matches('"').to_string());
+		if i == 12 {
+			assert!(applied.is_empty(), "{}: {applied:?}", file.name);
+			assert_eq!(field, None, "{}", file.name);
+			continue;
+		}
+		let moment = &moments[match i {
+			0..=4 => 0,
+			5..=8 => 1,
+			_ => 2,
+		}];
+		assert_eq!(
+			applied,
+			[format!("Moments/{}", moment["title"].as_str().unwrap())],
+			"{}",
+			file.name
+		);
+		assert_eq!(field.as_deref(), moment["id"].as_str(), "{}", file.name);
+	}
+
+	// A second run leaves the grouping alone
+	guest_log.lock().unwrap().clear();
+	let info = run_to_end(
+		&core,
+		&library,
+		"com.spacedrive.photos:create_moments",
+		serde_json::json!({}),
+	)
+	.await;
+	assert_eq!(info.status, JobStatus::Completed);
+	let log = guest_log.lock().unwrap().clone();
+	assert!(
+		log.contains("Created 0 moments over 0 photos (1 undated, 12 already in a moment)"),
+		"{log}"
+	);
+	assert_eq!(
+		ext_store
+			.facet_rows("Moment", None, 100)
+			.await
+			.unwrap()
+			.len(),
+		3
+	);
+
+	// Places: clusters, Place models, fields and tags from GPS; the name
+	// needs a language model the host does not have
+	guest_log.lock().unwrap().clear();
+	let info = run_to_end(
+		&core,
+		&library,
+		"com.spacedrive.photos:identify_places",
+		serde_json::json!({}),
+	)
+	.await;
+	assert_eq!(
+		info.status,
+		JobStatus::Completed,
+		"{:?}",
+		info.error_message
+	);
+	let log = guest_log.lock().unwrap().clone();
+	assert!(
+		log.contains("Placed 8 photos (5 without a location, 4 new places)"),
+		"{log}"
+	);
+	assert!(
+		log.contains("task reverse_geocode attempt 1 failed")
+			&& log.contains("no llm provider is installed"),
+		"{log}"
+	);
+	let places = ext_store.facet_rows("Place", None, 100).await.unwrap();
+	assert_eq!(places.len(), 4);
+	assert!(places.iter().all(|p| p["name"] == "Unknown Location"));
+	let tags = store.db().tags_for_records(&uuids).await.unwrap();
+	let placed = uuids
+		.iter()
+		.filter(|u| {
+			tags.get(u)
+				.is_some_and(|t| t.iter().any(|t| t.path == "Places/Unknown Location"))
+		})
+		.count();
+	assert_eq!(placed, 8);
+
+	// Scenes: every photo skipped after one warning, no sidecar written
+	guest_log.lock().unwrap().clear();
+	let info = run_to_end(
+		&core,
+		&library,
+		"com.spacedrive.photos:analyze_scenes",
+		serde_json::json!({}),
+	)
+	.await;
+	assert_eq!(
+		info.status,
+		JobStatus::Completed,
+		"{:?}",
+		info.error_message
+	);
+	let log = guest_log.lock().unwrap().clone();
+	assert!(log.contains("Scenes: 0 classified, 13 skipped"), "{log}");
+	assert!(
+		log.contains("no scene_classification provider is installed"),
+		"{log}"
+	);
+	ext_store.pool().close().await;
 
 	core.shutdown().await.unwrap();
 }

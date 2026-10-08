@@ -4,6 +4,9 @@
 	"version": "0.1.0",
 	"description": "Test fixture: a second extension claiming the .fake extension, loaded after the test extension so its claim is contested. Runs the test extension's module.",
 	"wasm_file": "test_extension.wasm",
+	"permissions": {
+		"read_records": {}
+	},
 	"kinds": [
 		{
 			"name": "other",

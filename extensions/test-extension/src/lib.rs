@@ -14,7 +14,7 @@ use spacedrive_sdk::{extension, job, model, task};
 	id = "test-extension",
 	name = "Test Extension",
 	version = "0.1.0",
-	jobs = [test_counter, catalog_files],
+	jobs = [test_counter, catalog_files, tag_files],
 	models = [CatalogEntry],
 )]
 struct TestExtension;
@@ -183,6 +183,106 @@ async fn catalog_files(ctx: &JobContext, state: &mut CatalogState) -> Result<()>
 		state.digested,
 		state.skipped
 	));
+	ctx.checkpoint(state)?;
+	Ok(())
+}
+
+// Tag Job
+// Exercises tags, custom fields and job dispatch: tags every file of the
+// given extensions, records its size as a custom field and reads it back,
+// removes the tag from the first file again, checks the host refuses a
+// namespace the manifest does not grant, then queues a counter job.
+
+#[derive(Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct TagState {
+	pub extensions: Vec<String>,
+	pub tagged: usize,
+	pub dispatched: Option<Uuid>,
+}
+
+#[job(name = "tag")]
+async fn tag_files(ctx: &JobContext, state: &mut TagState) -> Result<()> {
+	let records = ctx
+		.vdfs()
+		.query_records()
+		.with_extensions(state.extensions.iter().cloned())
+		.collect()
+		.await?;
+
+	for record in &records {
+		let tag = ctx.vdfs().add_tag(record.id(), "Catalog/Digested").await?;
+		ctx.log(&format!("tagged {} with {} ({})", record.name(), tag.path, tag.id));
+		ctx.vdfs()
+			.update_custom_field(record.id(), "test.size", record.size)
+			.await?;
+		let stored: Option<u64> = record.custom_field("test.size").await?;
+		if stored != record.size {
+			return Err(Error::OperationFailed(format!(
+				"custom field for {} read back as {stored:?}, wrote {:?}",
+				record.name(),
+				record.size
+			)));
+		}
+		state.tagged += 1;
+	}
+
+	if let Some(first) = records.first() {
+		if let Some(content_uuid) = first.content_uuid() {
+			ctx.vdfs()
+				.add_tag_to_content(content_uuid, "Catalog/Bytes")
+				.await?;
+		}
+		let removed = ctx.vdfs().remove_tag(first.id(), "Catalog/Digested").await?;
+		ctx.log(&format!(
+			"removed {} from {}",
+			removed.map(|t| t.path).unwrap_or_default(),
+			first.name()
+		));
+		let none = ctx.vdfs().remove_tag(first.id(), "Never/Defined").await?;
+		ctx.log(&format!("removing an undefined tag answers {none:?}"));
+
+		match ctx
+			.vdfs()
+			.update_custom_field(first.id(), "other.size", 1)
+			.await
+		{
+			Err(Error::PermissionDenied(reason)) => ctx.log(&format!("refused: {reason}")),
+			other => {
+				return Err(Error::OperationFailed(format!(
+					"an ungranted namespace was not refused: {other:?}"
+				)))
+			}
+		}
+		let unset: Option<u64> = first.custom_field("test.missing").await?;
+		ctx.log(&format!("an unset field reads as {unset:?}"));
+	}
+
+	let still_tagged = ctx
+		.vdfs()
+		.query_records()
+		.with_tag("Catalog/Digested")
+		.collect()
+		.await?;
+	ctx.log(&format!(
+		"{} records still carry Catalog/Digested",
+		still_tagged.len()
+	));
+
+	let job_id = ctx
+		.jobs()
+		.dispatch(
+			"counter",
+			&CounterState {
+				current: 0,
+				target: 5,
+				processed: Vec::new(),
+			},
+		)
+		.execute()
+		.await?;
+	ctx.log(&format!("dispatched counter as {job_id}"));
+	state.dispatched = Some(job_id);
 	ctx.checkpoint(state)?;
 	Ok(())
 }

@@ -10,7 +10,12 @@
 		"read_records": {},
 		"write_sidecars": [
 			"digest"
-		]
+		],
+		"write_tags": true,
+		"write_custom_fields": [
+			"test"
+		],
+		"dispatch_jobs": true
 	},
 	"kinds": [
 		{
