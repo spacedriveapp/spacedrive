@@ -8,6 +8,7 @@ use crate::context::CoreContext;
 use crate::library::Library;
 use crate::ops::indexing::handlers::FsEventHandler;
 use crate::ops::indexing::rules::RuleToggles;
+use crate::ops::indexing::volume_index::RootAnnouncement;
 use crate::service::Service;
 use anyhow::Result;
 use sd_fs_watcher::{FsEvent, FsWatcher, WatchConfig, WatcherConfig};
@@ -162,7 +163,24 @@ impl FsWatcherService {
 		let mut restored = self.context.volume_index().subscribe_restored_roots();
 
 		tokio::spawn(async move {
-			while let Some(root) = restored.recv().await {
+			while let Some(announcement) = restored.recv().await {
+				let root = match announcement {
+					RootAnnouncement::Available(root) => root,
+					RootAnnouncement::Unavailable(root) => {
+						// The OS dropped the watch with the mount. Dropping
+						// the subscription too is what lets the drive's
+						// return arm a fresh watch on the mounted filesystem
+						// instead of finding the root already watched.
+						match self.watcher.unwatch(&root).await {
+							Ok(()) => info!(
+								"Dropped the watch on {}: its volume is away",
+								root.display()
+							),
+							Err(e) => debug!("No watch to drop on {}: {e}", root.display()),
+						}
+						continue;
+					}
+				};
 				match self.watch_root(root.clone()).await {
 					Ok(()) => info!("Watching restored source: {}", root.display()),
 					Err(e) => {

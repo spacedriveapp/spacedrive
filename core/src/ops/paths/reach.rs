@@ -245,6 +245,7 @@ pub(super) fn source(root: &str) -> SourceStatus {
 		root: std::path::PathBuf::from(root),
 		volume_uuid: None,
 		attached: true,
+		volume_state: None,
 		restored: true,
 		last_seen_secs: 0,
 		entry_count: None,

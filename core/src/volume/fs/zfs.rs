@@ -42,6 +42,21 @@ fn zpool_bin() -> &'static str {
 	})
 }
 
+/// The columns every `zfs list` here asks for.
+///
+/// `mounted`, `encryption` and `keystatus` are what tell a dataset whose key
+/// is not loaded apart from one that is merely unmounted; `canmount` tells
+/// a dataset that never mounts (a container for its children) from one that
+/// is away. All of them are readable without privileges.
+const LIST_COLUMNS: &str =
+	"name,mountpoint,used,available,type,mounted,encryption,keystatus,canmount";
+
+/// Whether the zfs binary is present, so detection can list datasets the
+/// mount table does not show.
+pub fn zfs_available() -> bool {
+	Path::new(zfs_bin()).exists()
+}
+
 /// ZFS filesystem handler
 pub struct ZfsHandler;
 
@@ -71,14 +86,7 @@ impl ZfsHandler {
 		task::spawn_blocking(move || {
 			// Use zfs list to find the dataset containing this path
 			let output = Command::new(zfs_bin())
-				.args([
-					"list",
-					"-H",
-					"-o",
-					"name,mountpoint,used,available,type",
-					"-t",
-					"filesystem",
-				])
+				.args(["list", "-H", "-o", LIST_COLUMNS, "-t", "filesystem"])
 				.output()
 				.map_err(|e| {
 					crate::volume::error::VolumeError::platform(format!(
@@ -153,7 +161,7 @@ impl ZfsHandler {
 					"-H",
 					"-r",
 					"-o",
-					"name,mountpoint,used,available,type",
+					LIST_COLUMNS,
 					"-t",
 					"filesystem",
 					&pool_name,
@@ -234,6 +242,63 @@ pub struct ZfsDatasetInfo {
 	pub available_bytes: u64,
 	pub dataset_type: String,
 	pub readonly: bool,
+	/// The dataset is in the mount table.
+	pub mounted: bool,
+	/// The dataset is encrypted and its key is not loaded, so it cannot
+	/// mount until `zfs load-key` runs.
+	pub locked: bool,
+	/// `canmount` is `on` or `noauto`: the dataset mounts at its mount point
+	/// when asked. `off` names a dataset that exists only to hold children.
+	pub can_mount: bool,
+}
+
+impl ZfsDatasetInfo {
+	/// Parse one `zfs list -H` line in [`LIST_COLUMNS`] order.
+	///
+	/// A line with only the first five columns still parses; the state
+	/// columns then read as mounted and unlocked, which is what the mount
+	/// table said about every dataset before.
+	fn parse_line(line: &str) -> Option<Self> {
+		let fields: Vec<&str> = line.split('\t').collect();
+		if fields.len() < 5 {
+			return None;
+		}
+		let name = fields[0];
+		let mountpoint = fields[1];
+		let mount_point = (mountpoint != "-" && mountpoint != "legacy" && mountpoint != "none")
+			.then(|| PathBuf::from(mountpoint));
+		let field = |index: usize| fields.get(index).copied().unwrap_or("-");
+		let encrypted = !matches!(field(6), "-" | "off");
+		Some(Self {
+			name: name.to_string(),
+			pool_name: name.split('/').next().unwrap_or(name).to_string(),
+			mount_point,
+			used_bytes: parse_zfs_size(fields[2]).unwrap_or(0),
+			available_bytes: parse_zfs_size(fields[3]).unwrap_or(0),
+			dataset_type: fields[4].to_string(),
+			readonly: false,
+			mounted: field(5) != "no",
+			locked: encrypted && field(7) == "unavailable",
+			can_mount: field(8) != "off",
+		})
+	}
+}
+
+/// Datasets `zfs list` knows that are not in the mount table but would mount
+/// at a real path if asked: an unmounted dataset, or one whose key is not
+/// loaded. The mount table cannot show these, which is why a locked dataset
+/// used to read as an empty directory on its parent.
+pub fn unmounted_datasets(zfs_list_output: &str) -> Vec<ZfsDatasetInfo> {
+	zfs_list_output
+		.lines()
+		.filter_map(ZfsDatasetInfo::parse_line)
+		.filter(|dataset| {
+			!dataset.mounted
+				&& dataset.can_mount
+				&& dataset.dataset_type == "filesystem"
+				&& dataset.mount_point.is_some()
+		})
+		.collect()
 }
 
 /// ZFS pool information
@@ -251,76 +316,29 @@ fn find_dataset_for_path(
 	zfs_list_output: &str,
 	target_path: &Path,
 ) -> VolumeResult<ZfsDatasetInfo> {
-	let mut best_match: Option<ZfsDatasetInfo> = None;
-	let mut best_match_len = 0;
-
-	for line in zfs_list_output.lines() {
-		let fields: Vec<&str> = line.split('\t').collect();
-		if fields.len() >= 5 {
-			let name = fields[0];
-			let mountpoint = fields[1];
-			let used = fields[2];
-			let available = fields[3];
-			let dataset_type = fields[4];
-
-			if mountpoint != "-" && mountpoint != "legacy" {
-				let mount_path = Path::new(mountpoint);
-				if target_path.starts_with(mount_path) && mountpoint.len() > best_match_len {
-					let pool_name = name.split('/').next().unwrap_or(name).to_string();
-
-					best_match = Some(ZfsDatasetInfo {
-						name: name.to_string(),
-						pool_name,
-						mount_point: Some(mount_path.to_path_buf()),
-						used_bytes: parse_zfs_size(used).unwrap_or(0),
-						available_bytes: parse_zfs_size(available).unwrap_or(0),
-						dataset_type: dataset_type.to_string(),
-						readonly: false, // Would need additional property check
-					});
-					best_match_len = mountpoint.len();
-				}
-			}
-		}
-	}
-
-	best_match.ok_or_else(|| {
-		crate::volume::error::VolumeError::platform("Path not found in any ZFS dataset".to_string())
-	})
+	zfs_list_output
+		.lines()
+		.filter_map(ZfsDatasetInfo::parse_line)
+		.filter(|dataset| {
+			dataset
+				.mount_point
+				.as_ref()
+				.is_some_and(|mount| target_path.starts_with(mount))
+		})
+		.max_by_key(|dataset| dataset.mount_point.as_ref().map(|m| m.as_os_str().len()))
+		.ok_or_else(|| {
+			crate::volume::error::VolumeError::platform(
+				"Path not found in any ZFS dataset".to_string(),
+			)
+		})
 }
 
 /// Parse zfs list output to get all datasets
 fn parse_zfs_datasets(zfs_list_output: &str) -> VolumeResult<Vec<ZfsDatasetInfo>> {
-	let mut datasets = Vec::new();
-
-	for line in zfs_list_output.lines() {
-		let fields: Vec<&str> = line.split('\t').collect();
-		if fields.len() >= 5 {
-			let name = fields[0];
-			let mountpoint = fields[1];
-			let used = fields[2];
-			let available = fields[3];
-			let dataset_type = fields[4];
-
-			let pool_name = name.split('/').next().unwrap_or(name).to_string();
-			let mount_point = if mountpoint != "-" && mountpoint != "legacy" {
-				Some(PathBuf::from(mountpoint))
-			} else {
-				None
-			};
-
-			datasets.push(ZfsDatasetInfo {
-				name: name.to_string(),
-				pool_name,
-				mount_point,
-				used_bytes: parse_zfs_size(used).unwrap_or(0),
-				available_bytes: parse_zfs_size(available).unwrap_or(0),
-				dataset_type: dataset_type.to_string(),
-				readonly: false, // Would need additional property check
-			});
-		}
-	}
-
-	Ok(datasets)
+	Ok(zfs_list_output
+		.lines()
+		.filter_map(ZfsDatasetInfo::parse_line)
+		.collect())
 }
 
 /// Parse zpool status output
@@ -407,14 +425,7 @@ fn parse_zfs_size(size_str: &str) -> Option<u64> {
 pub async fn fetch_zfs_list_output() -> VolumeResult<String> {
 	task::spawn_blocking(|| {
 		let output = Command::new(zfs_bin())
-			.args([
-				"list",
-				"-H",
-				"-o",
-				"name,mountpoint,used,available,type",
-				"-t",
-				"filesystem",
-			])
+			.args(["list", "-H", "-o", LIST_COLUMNS, "-t", "filesystem"])
 			.output()
 			.map_err(|e| {
 				crate::volume::error::VolumeError::platform(format!(
@@ -542,6 +553,34 @@ mod tests {
 			Some((1.5 * 1024.0 * 1024.0 * 1024.0) as u64)
 		);
 		assert_eq!(parse_zfs_size("-"), Some(0));
+	}
+
+	#[test]
+	fn a_dataset_whose_key_is_not_loaded_is_locked_not_merely_unmounted() {
+		let output = "tank\t/tank\t100M\t900M\tfilesystem\tyes\toff\t-\ton\n\
+			tank/vault\t/tank/vault\t0\t900M\tfilesystem\tno\taes-256-gcm\tunavailable\ton\n\
+			tank/spare\t/tank/spare\t0\t900M\tfilesystem\tno\toff\t-\ton\n\
+			tank/open\t/tank/open\t0\t900M\tfilesystem\tyes\taes-256-gcm\tavailable\ton\n\
+			tank/holder\t/tank/holder\t0\t900M\tfilesystem\tno\toff\t-\toff\n\
+			tank/legacy\tlegacy\t0\t900M\tfilesystem\tno\toff\t-\ton\n\
+			tank/none\tnone\t0\t900M\tfilesystem\tno\toff\t-\ton";
+
+		let away = unmounted_datasets(output);
+		let names: Vec<&str> = away.iter().map(|d| d.name.as_str()).collect();
+		assert_eq!(names, ["tank/vault", "tank/spare"]);
+		assert!(away[0].locked, "an unavailable key is a locked dataset");
+		assert!(!away[1].locked, "no key status is merely unmounted");
+		assert_eq!(away[0].mount_point, Some(PathBuf::from("/tank/vault")));
+
+		let open = find_dataset_for_path(output, Path::new("/tank/open/file")).unwrap();
+		assert!(open.mounted && !open.locked);
+	}
+
+	#[test]
+	fn five_column_output_still_parses_as_mounted() {
+		let dataset = ZfsDatasetInfo::parse_line("tank\t/tank\t100M\t900M\tfilesystem").unwrap();
+		assert!(dataset.mounted && !dataset.locked && dataset.can_mount);
+		assert!(unmounted_datasets("tank\t/tank\t100M\t900M\tfilesystem").is_empty());
 	}
 
 	#[test]

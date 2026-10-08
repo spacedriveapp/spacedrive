@@ -210,6 +210,10 @@ impl Core {
 		// Update context with libraries
 		context.set_libraries(libraries.clone()).await;
 
+		// Sources follow their drives from here on: every mount change the
+		// volume manager notices reaches the volume index through the bus.
+		crate::service::volume_monitor::follow_volume_events(context.clone());
+
 		// Initialize services first, passing them the context
 		let mut services = Services::new(context.clone());
 

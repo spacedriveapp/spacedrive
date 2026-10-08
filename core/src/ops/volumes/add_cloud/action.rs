@@ -434,6 +434,7 @@ impl LibraryAction for VolumeAddCloudAction {
 			available_space: 0,
 			is_read_only: false,
 			is_mounted: true,
+			locked: false,
 			hardware_id: None,
 			backend: Some(backend_arc),
 			cloud_identifier: Some(cloud_identifier),

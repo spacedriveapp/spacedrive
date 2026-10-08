@@ -66,6 +66,15 @@ jobs:
       - name: Install system dependencies
         run: ./scripts/setup.sh
 
+      # The ZFS locked volumes acceptance suite builds a file-backed pool.
+      # The suite skips with a reason when the module cannot load, so a
+      # runner kernel without it fails nothing here.
+      - name: Install ZFS
+        if: matrix.suite.name == 'acceptance'
+        run: |
+          sudo apt-get install -y zfsutils-linux
+          sudo modprobe zfs || echo "zfs kernel module unavailable; the ZFS suite will skip"
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:

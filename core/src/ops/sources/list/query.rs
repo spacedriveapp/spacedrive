@@ -114,6 +114,7 @@ impl LibraryQuery for ListSourcesQuery {
 				// from a mount point left behind as an empty directory.
 				if let Some(live) = live_sources.get(&info.id) {
 					info.attached = live.attached;
+					info.volume_state = live.volume_state;
 					info.store_path = live
 						.directory
 						.as_ref()

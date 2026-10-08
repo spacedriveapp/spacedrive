@@ -23,7 +23,7 @@ pub use error::VolumeError;
 pub use manager::VolumeManager;
 pub use types::{
 	ApfsContainer, ApfsVolumeInfo, ApfsVolumeRole, DiskType, FileSystem, MountType, PathMapping,
-	Volume, VolumeDetectionConfig, VolumeEvent, VolumeFingerprint, VolumeInfo,
+	Volume, VolumeDetectionConfig, VolumeEvent, VolumeFingerprint, VolumeInfo, VolumeState,
 };
 
 // Re-export detection functions

@@ -1,6 +1,7 @@
 # Locked and Unmounted Volumes
 
-> Status: proposed 2026-09-28; nothing built
+> Status: L1 and L2 landed 2026-10-07 (#3119), L3 and L4 built 2026-10-08
+> (SPAC-40); L5 open
 > Captured: 2026-09-28
 > Owns: how a source behaves while its volume is known to the machine but not
 > mounted, including an encrypted ZFS dataset whose key is not loaded
@@ -182,14 +183,48 @@ replaces what an earlier one adopted.
 
 Run L1 and L2 on Linux against a loop-mounted image, unmounted with its mount
 point left in place. Run L3 and L4 on a file-backed ZFS pool with an encrypted
-dataset, then once on the NAS.
+dataset, then once on the NAS. `docs/core/acceptance/volumes.md` maps each to
+its test; the ZFS suite runs in the acceptance CI job, which installs
+`zfsutils-linux` and loads the module, and skips with a reason on a kernel
+without it.
 
-## Until this lands
+## Built
 
-- Starting the daemon while a dataset is locked keeps the index. Restart the
-  daemon after loading the key, so the watch lands on the mounted dataset.
+L3 and L4 as built, where the code differs from the design above in detail:
+
+- Linux detection runs `zfs list` once per refresh whenever the zfs binary is
+  present, with `mounted`, `encryption`, `keystatus` and `canmount` added to
+  the columns it already asked for. A dataset that is not mounted, has a real
+  mount point and `canmount` other than `off` becomes a volume with
+  `is_mounted` false and `locked` set from `keystatus`. `Volume::state()`
+  folds the two flags into `VolumeState::{Mounted, Unmounted, Locked}`, which
+  `sources.list` carries as `volume_state` and `volumes.list` through the
+  volume's own flags. Nothing is stored; `VolumeInfo` carries `locked` so a
+  lock or unlock is a change the refresh notices.
+- A locked dataset cannot be read, so detection fingerprints it by mount point.
+  The refresh matches an unmounted detected volume with no tracked fingerprint
+  to a tracked row of this device by mount point and adopts the row's
+  fingerprint, so the dataset stays the volume it was tracked as whether its
+  row was fingerprinted from an identity file or from its mount point.
+- The volume index follows the volume manager's events
+  (`service::volume_monitor::follow_volume_events`, spawned by `Core::new`):
+  `VolumeAdded`, `VolumeMountChanged`, `VolumeUpdated` and `VolumeRemoved`.
+  The index keeps each drive's fingerprint from its row or from detection, so a
+  removed drive is found by the fingerprint the event carries. The monitor's
+  reconciliation only writes `is_online` rows now.
+- `VolumeIndex::volume_state_changed` detaches or reattaches every source on
+  the drive. On an unmount or lock it forgets the watches the OS dropped and
+  announces each root `Unavailable`, which the watcher service turns into an
+  OS unsubscribe. On a mount it resolves the roots at the new mount point,
+  restores or rebuilds the map if it has not been, and announces each root
+  `Available`, which arms the watch on the mounted filesystem. It returns the
+  sources that came back; the follower puts their failed identifications back
+  in the pending set (`SourceStore::retry_failed_identifications`, which clears
+  `content_error` on records without an identity) and dispatches a background
+  identity pass.
 - Stop the daemon before locking a dataset it has files open in. The lock
   refuses a busy dataset, and forcing it removes files from under the daemon.
+  A watch alone does not make a dataset busy.
 
 ## Decisions for James
 

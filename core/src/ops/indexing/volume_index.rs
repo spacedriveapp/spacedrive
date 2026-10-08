@@ -17,6 +17,7 @@ use crate::infra::db::entities::source;
 use crate::infra::db::Database;
 use crate::infra::source_dirs::SourceDirs;
 use crate::ops::indexing::sources::SourceConfig;
+use crate::volume::{Volume, VolumeFingerprint, VolumeState};
 use parking_lot::{Mutex, RwLock};
 use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
 use std::{
@@ -144,16 +145,42 @@ impl Partition {
 #[derive(Debug, Clone)]
 struct TrackedVolume {
 	uuid: Uuid,
+	/// Detection's name for the drive, when the drive came from a volume
+	/// row or from detection. Volume events name drives by it, since a
+	/// drive that vanished has no row uuid in the event.
+	fingerprint: Option<VolumeFingerprint>,
 	mount_point: PathBuf,
 	/// Whether the drive is mounted right now, as far as this process
 	/// knows: live detection when the library attached with it, the stored
-	/// flag otherwise, and the volume monitor's refreshes after that.
+	/// flag otherwise, and the volume manager's events after that.
 	mounted: bool,
+	/// Unmounted because the drive's encryption key is not loaded.
+	locked: bool,
 	/// Whether `mount_point` is where a filesystem mounts, so the directory
 	/// can be checked against the mount table before anything walks it. A
 	/// drive learned from a volume row or from detection is; a directory a
 	/// test tracks as a drive is not.
 	is_mount: bool,
+}
+
+impl TrackedVolume {
+	fn state(&self) -> VolumeState {
+		VolumeState::from_flags(self.mounted, self.locked)
+	}
+}
+
+/// What the volume index tells whoever owns filesystem watching.
+///
+/// A root becomes watchable when its map is browsable on a mounted drive,
+/// and stops being watchable when the drive goes away: the OS drops the
+/// watch with the mount, and a watch the service still believes it holds
+/// would stop the drive's return from being watched at all.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RootAnnouncement {
+	/// The map under this root is browsable on a mounted drive; arm a watch.
+	Available(PathBuf),
+	/// The drive under this root is away; drop whatever watch covered it.
+	Unavailable(PathBuf),
 }
 
 /// Rows read per arena lock during a store rebuild. At the measured insert
@@ -290,6 +317,10 @@ pub struct SourceStatus {
 	/// The drive this source sits on, when it sits on one Spacedrive tracks.
 	pub volume_uuid: Option<Uuid>,
 	pub attached: bool,
+	/// How the drive under the source stands, for a source on a drive this
+	/// machine maps. A locked drive is one whose key is not loaded; it reads
+	/// as detached, and this is why.
+	pub volume_state: Option<VolumeState>,
 	pub restored: bool,
 	pub last_seen_secs: u64,
 	pub entry_count: Option<u64>,
@@ -385,7 +416,7 @@ pub struct VolumeIndex {
 	/// restart left a fully browsable drive that reported no changes. A channel
 	/// rather than a handle because the watcher service holds this cache, and
 	/// holding it back would be a cycle.
-	restored_roots: RwLock<Option<mpsc::UnboundedSender<PathBuf>>>,
+	restored_roots: RwLock<Option<mpsc::UnboundedSender<RootAnnouncement>>>,
 	/// Summarised directories something changed under.
 	///
 	/// A change under one cannot be applied to a tree that was never kept, and
@@ -486,22 +517,30 @@ impl VolumeIndex {
 		// that root is the partition's detached flag, set below.
 		let mut mounts: HashMap<Uuid, PathBuf> = HashMap::new();
 		for row in volume_rows {
-			let (mounted, mount_point) = match &live {
-				LiveVolumes::Unavailable => {
-					(row.is_online, row.mount_point.as_ref().map(PathBuf::from))
-				}
+			let (state, mount_point) = match &live {
+				LiveVolumes::Unavailable => (
+					VolumeState::from_flags(row.is_online, false),
+					row.mount_point.as_ref().map(PathBuf::from),
+				),
 				LiveVolumes::Detected(volumes) => {
 					let detected = volumes
 						.iter()
 						.find(|volume| volume.fingerprint.0 == row.fingerprint);
 					match detected {
 						Some(volume) if volume.is_mounted => {
-							(true, Some(volume.mount_point.clone()))
+							(VolumeState::Mounted, Some(volume.mount_point.clone()))
 						}
-						_ => (false, row.mount_point.as_ref().map(PathBuf::from)),
+						Some(volume) => {
+							(volume.state(), row.mount_point.as_ref().map(PathBuf::from))
+						}
+						None => (
+							VolumeState::Unmounted,
+							row.mount_point.as_ref().map(PathBuf::from),
+						),
 					}
 				}
 			};
+			let mounted = state.is_mounted();
 
 			let Some(mount_point) = mount_point else {
 				continue;
@@ -514,7 +553,12 @@ impl VolumeIndex {
 				self.track_volume(row.uuid, mount_point);
 				continue;
 			}
-			self.track_volume_state(row.uuid, mount_point, mounted);
+			self.track_volume_state(
+				row.uuid,
+				Some(VolumeFingerprint(row.fingerprint.clone())),
+				mount_point,
+				state,
+			);
 
 			if row.is_online != mounted {
 				tracing::info!(
@@ -589,22 +633,60 @@ impl VolumeIndex {
 			.map(|tracked| tracked.mounted)
 	}
 
-	/// Record that a mapped drive mounted or unmounted while the daemon runs.
+	/// The mapped drive detection knows by `fingerprint`, with its last
+	/// mount point, for an event that names a drive and nothing else.
+	pub fn volume_by_fingerprint(
+		&self,
+		fingerprint: &VolumeFingerprint,
+	) -> Option<(Uuid, PathBuf)> {
+		self.volumes
+			.lock()
+			.iter()
+			.find(|tracked| tracked.fingerprint.as_ref() == Some(fingerprint))
+			.map(|tracked| (tracked.uuid, tracked.mount_point.clone()))
+	}
+
+	/// Which library each source on a drive belongs to, with its root.
+	fn sources_on_volume(&self, uuid: Uuid) -> Vec<(Option<Uuid>, Uuid, PathBuf)> {
+		self.all_sources()
+			.into_iter()
+			.filter(|(_, located)| located.volume == VolumeKey::Id(uuid))
+			.map(|(library, located)| (library, located.record.id, located.record.root))
+			.collect()
+	}
+
+	/// Record that a mapped drive mounted, unmounted or locked while the
+	/// daemon runs, and return the roots of the sources that just came
+	/// back, with the library each belongs to.
 	///
-	/// Every source on the drive follows. An unmounted drive's map stays
-	/// readable and its partition detaches, so nothing dispatches at the
-	/// mount point left behind. A mounted drive's sources resolve to their
-	/// roots under the mount point detection reports, which also covers a
-	/// drive that was away at attach and whose records had no root to give.
-	/// Nothing here arms a watch; the restore announcement and the watcher's
-	/// retry pass own that.
-	pub fn set_volume_mounted(&self, uuid: Uuid, mount_point: &Path, mounted: bool) {
+	/// Every source on the drive follows. A drive that is away keeps its
+	/// map readable and its partition detaches, so nothing dispatches at
+	/// the mount point left behind, and the watcher is told to drop the
+	/// watches the OS already dropped with the mount. A drive that returns
+	/// resolves its sources to their roots under the mount point detection
+	/// reports, which also covers a drive that was away at attach and
+	/// whose records had no root to give; the map restores if it has not,
+	/// and every root the map covers is announced so the watcher arms it
+	/// on the mounted filesystem rather than the directory it covered.
+	pub async fn volume_state_changed(
+		&self,
+		uuid: Uuid,
+		mount_point: &Path,
+		state: VolumeState,
+	) -> Vec<(Option<Uuid>, Uuid, PathBuf)> {
 		let key = VolumeKey::Id(uuid);
+		let mounted = state.is_mounted();
+		let was_attached: Vec<bool> = self
+			.sources_on_volume(uuid)
+			.iter()
+			.map(|(_, _, root)| self.root_attached(&key, root))
+			.collect();
 		{
 			let mut volumes = self.volumes.lock();
 			match volumes.iter_mut().find(|tracked| tracked.uuid == uuid) {
 				Some(tracked) => {
 					tracked.mounted = mounted;
+					tracked.locked = state.is_locked();
 					tracked.is_mount = !is_cloud_root(&tracked.mount_point);
 					if mounted {
 						tracked.mount_point = mount_point.to_path_buf();
@@ -612,11 +694,13 @@ impl VolumeIndex {
 				}
 				None if mounted => volumes.push(TrackedVolume {
 					uuid,
+					fingerprint: None,
 					mount_point: mount_point.to_path_buf(),
 					mounted: true,
+					locked: false,
 					is_mount: !is_cloud_root(mount_point),
 				}),
-				None => return,
+				None => return Vec::new(),
 			}
 		}
 		if mounted {
@@ -625,15 +709,63 @@ impl VolumeIndex {
 			}
 		}
 		let slot = self.slots.read().get(&key).cloned();
-		if let Some(slot) = slot {
+		if let Some(slot) = &slot {
 			if mounted {
 				*slot.root.write() = Some(mount_point.to_path_buf());
 			}
-			let Some(root) = slot.root() else {
-				return;
-			};
-			slot.set_detached(!self.root_attached(&key, &root));
+			if let Some(root) = slot.root() {
+				slot.set_detached(!self.root_attached(&key, &root));
+			}
 		}
+
+		let sources = self.sources_on_volume(uuid);
+		if !mounted {
+			// The OS dropped these watches with the mount. Forgetting them
+			// here is what lets the drive's return arm fresh ones; a watch
+			// the service still believed it held would make `watch_root`
+			// a no-op on the mounted filesystem.
+			for (_, _, root) in &sources {
+				if let Some(slot) = &slot {
+					slot.watched_paths.write().remove(root);
+				}
+				self.refused_watches.lock().remove(root);
+				self.announce(RootAnnouncement::Unavailable(root.clone()));
+			}
+			return Vec::new();
+		}
+
+		// A session whose one restore attempt ran while the drive was away
+		// found nothing to rebuild from, and that answer is cached; the
+		// stores are readable now, so the rebuild runs here and announces
+		// each source as it lands.
+		if let Some(slot) = &slot {
+			if slot.restore_once.get() == Some(&RestoreOutcome::Nothing)
+				&& !slot.restored.load(Ordering::Acquire)
+			{
+				self.rebuild_sources_from_stores(slot).await;
+			}
+		}
+
+		let mut returned = Vec::new();
+		for (index, (library, id, root)) in sources.into_iter().enumerate() {
+			if !self.root_attached(&key, &root) {
+				continue;
+			}
+			// A map restored or walked while the drive was mounted before, or
+			// restored while it was away, was announced for watching on a
+			// filesystem that is gone or never; a restore that happens now
+			// announces itself.
+			let announced_before = slot.as_ref().is_some_and(|slot| {
+				slot.restored.load(Ordering::Acquire) || slot.indexed_paths.read().contains(&root)
+			});
+			if self.ensure_restored(&root).await && announced_before {
+				self.announce(RootAnnouncement::Available(root.clone()));
+			}
+			if !was_attached.get(index).copied().unwrap_or(false) {
+				returned.push((library, id, root));
+			}
+		}
+		returned
 	}
 
 	/// Forget a closing library's registrations.
@@ -1023,6 +1155,10 @@ impl VolumeIndex {
 				SourceStatus {
 					library: owner,
 					attached: self.root_attached(&volume, &record.root),
+					volume_state: match &volume {
+						VolumeKey::Id(uuid) => self.volume_state(*uuid),
+						_ => None,
+					},
 					restored: slot
 						.map(|s| s.restored.load(Ordering::Acquire))
 						.unwrap_or(false),
@@ -1100,35 +1236,63 @@ impl VolumeIndex {
 			}
 			None => volumes.push(TrackedVolume {
 				uuid,
+				fingerprint: None,
 				mount_point,
 				mounted: true,
+				locked: false,
 				is_mount: false,
 			}),
 		}
 	}
 
 	/// Start mapping a drive detection returned, at the mount point and in
-	/// the state detection reports.
-	pub fn track_detected_volume(&self, uuid: Uuid, mount_point: PathBuf, mounted: bool) {
-		self.track_volume_state(uuid, mount_point, mounted);
+	/// the state detection reports, under the row uuid the volume carries.
+	pub fn track_detected_volume(&self, volume: &Volume) {
+		self.track_volume_state(
+			volume.id,
+			Some(volume.fingerprint.clone()),
+			volume.mount_point.clone(),
+			volume.state(),
+		);
 	}
 
-	fn track_volume_state(&self, uuid: Uuid, mount_point: PathBuf, mounted: bool) {
+	fn track_volume_state(
+		&self,
+		uuid: Uuid,
+		fingerprint: Option<VolumeFingerprint>,
+		mount_point: PathBuf,
+		state: VolumeState,
+	) {
 		let is_mount = !is_cloud_root(&mount_point);
 		let mut volumes = self.volumes.lock();
 		match volumes.iter_mut().find(|tracked| tracked.uuid == uuid) {
 			Some(tracked) => {
 				tracked.mount_point = mount_point;
-				tracked.mounted = mounted;
+				tracked.mounted = state.is_mounted();
+				tracked.locked = state.is_locked();
 				tracked.is_mount = is_mount;
+				if fingerprint.is_some() {
+					tracked.fingerprint = fingerprint;
+				}
 			}
 			None => volumes.push(TrackedVolume {
 				uuid,
+				fingerprint,
 				mount_point,
-				mounted,
+				mounted: state.is_mounted(),
+				locked: state.is_locked(),
 				is_mount,
 			}),
 		}
+	}
+
+	/// How a mapped drive stands, or `None` for one this machine does not map.
+	pub fn volume_state(&self, uuid: Uuid) -> Option<VolumeState> {
+		self.volumes
+			.lock()
+			.iter()
+			.find(|tracked| tracked.uuid == uuid)
+			.map(TrackedVolume::state)
 	}
 
 	/// Which drive a path sits on, and which source keeps it, if any.
@@ -1975,7 +2139,7 @@ impl VolumeIndex {
 				match filled {
 					Some(loaded) if loaded > 0 => {
 						if let Some(sender) = &announce {
-							let _ = sender.send(root.clone());
+							let _ = sender.send(RootAnnouncement::Available(root.clone()));
 						}
 						tracing::info!(
 							source = %source_id,
@@ -2077,17 +2241,22 @@ impl VolumeIndex {
 	}
 
 	/// Receive the root of every source whose index becomes browsable from a
-	/// snapshot. One subscriber; a second call replaces the first.
-	pub fn subscribe_restored_roots(&self) -> mpsc::UnboundedReceiver<PathBuf> {
+	/// snapshot or a store, and of every source whose drive goes away. One
+	/// subscriber; a second call replaces the first.
+	pub fn subscribe_restored_roots(&self) -> mpsc::UnboundedReceiver<RootAnnouncement> {
 		let (tx, rx) = mpsc::unbounded_channel();
 		*self.restored_roots.write() = Some(tx);
 		rx
 	}
 
 	fn announce_restored(&self, root: &Path) {
+		self.announce(RootAnnouncement::Available(root.to_path_buf()));
+	}
+
+	fn announce(&self, announcement: RootAnnouncement) {
 		let sender = self.restored_roots.read().clone();
 		if let Some(sender) = sender {
-			let _ = sender.send(root.to_path_buf());
+			let _ = sender.send(announcement);
 		}
 	}
 
@@ -3106,7 +3275,7 @@ mod tests {
 			);
 			assert_eq!(
 				restored_roots.try_recv().ok(),
-				Some(root.clone()),
+				Some(RootAnnouncement::Available(root.clone())),
 				"a restored source was never offered for watching"
 			);
 
@@ -4270,16 +4439,34 @@ mod tests {
 			.expect("volume row");
 		assert!(!row.is_online, "the stale flag is corrected in place");
 
-		// The drive returns at the same mount point.
-		cache.set_volume_mounted(anchor.uuid, &root, true);
+		// The drive returns at the same mount point. The map restored while
+		// it was away, so the return is what announces the root for watching.
+		let mut announced = cache.subscribe_restored_roots();
+		let returned = cache
+			.volume_state_changed(anchor.uuid, &root, VolumeState::Mounted)
+			.await;
+		assert_eq!(returned.len(), 1, "the source came back");
 		assert!(cache.sources()[0].attached);
+		assert_eq!(cache.sources()[0].volume_state, Some(VolumeState::Mounted));
 		assert!(!cache.is_detached(&photo));
+		assert_eq!(
+			announced.try_recv().ok(),
+			Some(RootAnnouncement::Available(root.clone()))
+		);
 		assert!(cache.register_for_watching(root.clone()));
 
-		// And goes away again under the running daemon.
-		cache.set_volume_mounted(anchor.uuid, &root, false);
+		// And is locked under the running daemon: the watch goes with it.
+		cache
+			.volume_state_changed(anchor.uuid, &root, VolumeState::Locked)
+			.await;
 		assert!(!cache.sources()[0].attached);
+		assert_eq!(cache.sources()[0].volume_state, Some(VolumeState::Locked));
 		assert!(cache.is_detached(&photo));
+		assert!(!cache.is_watched(&root));
+		assert_eq!(
+			announced.try_recv().ok(),
+			Some(RootAnnouncement::Unavailable(root.clone()))
+		);
 	}
 
 	/// A mapped drive with no source over it is still reachable while it is
@@ -4309,7 +4496,12 @@ mod tests {
 		// is refused whatever its state says; a directory a test stands in
 		// for a drive is not held to that.
 		let other = tempfile::tempdir().unwrap();
-		cache.track_detected_volume(Uuid::now_v7(), other.path().to_path_buf(), true);
+		cache.track_detected_volume(&Volume::new(
+			Uuid::nil(),
+			VolumeFingerprint("other".into()),
+			"other".into(),
+			other.path().to_path_buf(),
+		));
 		assert!(cache.dispatch_refusal(other.path()).is_some());
 		let fixture = tempfile::tempdir().unwrap();
 		cache.track_volume(Uuid::now_v7(), fixture.path().to_path_buf());
@@ -4335,7 +4527,14 @@ mod tests {
 		assert!(!cache.resolve(&bucket.join("photos")).is_detached());
 		assert!(cache.dispatch_refusal(&bucket).is_none());
 
-		cache.track_detected_volume(anchor.uuid, bucket.clone(), true);
+		let mut detected = Volume::new(
+			Uuid::nil(),
+			VolumeFingerprint("bucket".into()),
+			"bucket".into(),
+			bucket.clone(),
+		);
+		detected.id = anchor.uuid;
+		cache.track_detected_volume(&detected);
 		assert!(cache.dispatch_refusal(&bucket).is_none());
 	}
 

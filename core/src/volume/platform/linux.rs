@@ -161,6 +161,48 @@ fn parse_df_line(
 	Ok(Some(volume))
 }
 
+/// A volume for a ZFS dataset that is not in the mount table.
+///
+/// Nothing inside the dataset can be read, so there is no identity file to
+/// fingerprint it by and the stable mount-point derivation is used whatever
+/// the dataset would classify as once mounted. A tracked dataset is matched
+/// to its row by mount point at refresh, which is where the row's own
+/// fingerprint takes over.
+pub fn volume_for_unmounted_dataset(
+	dataset: &crate::volume::fs::zfs::ZfsDatasetInfo,
+	device_id: Uuid,
+) -> Option<Volume> {
+	let mount_path = dataset.mount_point.clone()?;
+	let mount_point = mount_path.to_string_lossy().into_owned();
+	let name = mount_path
+		.file_name()
+		.unwrap_or_default()
+		.to_string_lossy()
+		.to_string();
+	let file_system = FileSystem::ZFS;
+	let volume_type = classify_volume(&mount_path, &file_system, &name);
+	let is_user_visible = should_be_user_visible_linux(&mount_path, "zfs");
+	let auto_track_eligible = is_user_visible
+		&& matches!(
+			volume_type,
+			crate::volume::types::VolumeType::Primary | crate::volume::types::VolumeType::UserData
+		);
+	let fingerprint = VolumeFingerprint::from_primary_volume(&mount_path, device_id);
+
+	let mut volume = Volume::new(device_id, fingerprint, name, mount_path);
+	volume.mount_type = determine_mount_type(&mount_point, &dataset.name);
+	volume.volume_type = volume_type;
+	volume.file_system = file_system;
+	volume.total_capacity = dataset.used_bytes.saturating_add(dataset.available_bytes);
+	volume.available_space = dataset.available_bytes;
+	volume.hardware_id = Some(dataset.name.clone());
+	volume.is_user_visible = is_user_visible;
+	volume.auto_track_eligible = auto_track_eligible;
+	volume.is_mounted = false;
+	volume.locked = dataset.locked;
+	Some(volume)
+}
+
 /// Determine whether a Linux volume should be visible to the user in
 /// the default UI view.
 ///
