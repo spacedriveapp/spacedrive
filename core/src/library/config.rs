@@ -3,6 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 
 use crate::ops::indexing::sources::{SourceConfig, StorePlacement};
@@ -153,6 +154,43 @@ impl LibraryConfig {
 			.map_err(|e| super::error::LibraryError::JsonError(e))?;
 		Ok(config)
 	}
+
+	/// Save library configuration to a JSON file, replacing it atomically.
+	///
+	/// Several tasks write library.json without coordinating: the statistics
+	/// recalculation a finished job spawns, config updates, and the save on
+	/// shutdown. Truncating the file in place let two of them interleave and
+	/// leave the shorter document with the tail of the longer one appended,
+	/// which the next open could not parse and the library stayed closed.
+	/// Writing beside the file and renaming over it makes every reader see
+	/// one complete document.
+	pub async fn save(&self, path: &std::path::Path) -> Result<(), super::error::LibraryError> {
+		let json = serde_json::to_string_pretty(self)?;
+		let staging = path.with_extension(format!("json.{}.tmp", Uuid::now_v7()));
+		// The rename only orders metadata; without syncing the data first a
+		// crash can persist the rename while the bytes are still in the page
+		// cache, leaving an empty library.json at the final name.
+		let written = async {
+			let mut file = tokio::fs::File::create(&staging).await?;
+			file.write_all(json.as_bytes()).await?;
+			// tokio's File reports a failed write at flush, and sync_all
+			// swallows that result; without this a short write is renamed in.
+			file.flush().await?;
+			file.sync_all().await?;
+			tokio::fs::rename(&staging, path).await
+		}
+		.await;
+		if let Err(e) = written {
+			let _ = tokio::fs::remove_file(&staging).await;
+			return Err(e.into());
+		}
+		if let Some(parent) = path.parent() {
+			if let Ok(dir) = tokio::fs::File::open(parent).await {
+				let _ = dir.sync_all().await;
+			}
+		}
+		Ok(())
+	}
 }
 
 impl Default for LibrarySettings {
@@ -288,6 +326,60 @@ impl Default for LibraryStatistics {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	fn config(name: &str) -> LibraryConfig {
+		LibraryConfig {
+			version: crate::library::LIBRARY_CONFIG_VERSION,
+			id: Uuid::nil(),
+			name: name.to_string(),
+			description: None,
+			created_at: Utc::now(),
+			updated_at: Utc::now(),
+			settings: LibrarySettings::default(),
+			statistics: LibraryStatistics::default(),
+		}
+	}
+
+	/// The statistics task, a config update and the shutdown save can all
+	/// write library.json at once. Whichever lands last, the file is one
+	/// whole document, never a short one with the tail of a long one.
+	#[test]
+	fn concurrent_saves_leave_a_loadable_config() {
+		use std::sync::{Arc, Barrier};
+
+		let dir = tempfile::tempdir().unwrap();
+		let path = dir.path().join("library.json");
+		let short = config("a");
+		let long = config(&"b".repeat(4000));
+		for _ in 0..500 {
+			let barrier = Arc::new(Barrier::new(2));
+			let writers: Vec<_> = [short.clone(), long.clone()]
+				.into_iter()
+				.map(|config| {
+					let (barrier, path) = (barrier.clone(), path.clone());
+					std::thread::spawn(move || {
+						let runtime = tokio::runtime::Builder::new_current_thread()
+							.enable_all()
+							.build()
+							.unwrap();
+						barrier.wait();
+						runtime.block_on(config.save(&path))
+					})
+				})
+				.collect();
+			for writer in writers {
+				writer.join().unwrap().unwrap();
+			}
+			let loaded: LibraryConfig =
+				serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+			assert!(loaded.name == short.name || loaded.name == long.name);
+		}
+		let leftovers: Vec<_> = std::fs::read_dir(dir.path())
+			.unwrap()
+			.map(|entry| entry.unwrap().file_name())
+			.collect();
+		assert_eq!(leftovers, vec![std::ffi::OsString::from("library.json")]);
+	}
 
 	/// The plan's proposed defaults, built as proposed: in-library placement,
 	/// an offline copy kept, filtered capture, content identified.

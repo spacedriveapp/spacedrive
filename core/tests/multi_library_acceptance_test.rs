@@ -101,6 +101,16 @@ async fn open_library(core: &Arc<Core>, id: Uuid) -> Arc<Library> {
 
 #[tokio::test]
 async fn two_libraries_list_their_own_sources_across_a_restart() {
+	// The library manager logs a library it could not reopen and carries
+	// on, so without a subscriber a missing library fails the count below
+	// with no reason attached.
+	let _ = tracing_subscriber::fmt()
+		.with_env_filter(
+			tracing_subscriber::EnvFilter::try_from_default_env()
+				.unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("sd_core=warn")),
+		)
+		.with_test_writer()
+		.try_init();
 	let data_dir = tempfile::tempdir().expect("data dir");
 	let first_root = tempfile::tempdir().expect("first root");
 	let second_root = tempfile::tempdir().expect("second root");

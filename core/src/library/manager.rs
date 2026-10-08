@@ -926,9 +926,7 @@ impl LibraryManager {
 		info!("Initialized encryption key for library '{}'", config.name);
 
 		// Save configuration
-		let config_path = path.join("library.json");
-		let json = serde_json::to_string_pretty(&config)?;
-		tokio::fs::write(config_path, json).await?;
+		config.save(&path.join("library.json")).await?;
 
 		// Initialize database
 		let db_path = path.join(LIBRARY_DB_FILENAME);
@@ -985,9 +983,7 @@ impl LibraryManager {
 		);
 
 		// Save configuration
-		let config_path = path.join("library.json");
-		let json = serde_json::to_string_pretty(&config)?;
-		tokio::fs::write(config_path, json).await?;
+		config.save(&path.join("library.json")).await?;
 
 		// Initialize database
 		let db_path = path.join(LIBRARY_DB_FILENAME);
