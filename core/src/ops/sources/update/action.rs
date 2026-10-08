@@ -23,12 +23,18 @@ pub struct UpdateSourceInput {
 	pub name: Option<String>,
 	#[serde(default)]
 	pub unfiltered: Option<bool>,
+	/// For a store placed on its source, whether the library keeps an
+	/// offline copy. Turning it off removes the copy, and refuses while the
+	/// source's own catalog is unreachable.
+	#[serde(default)]
+	pub keep_offline_copy: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct UpdateSourceOutput {
 	pub name: String,
 	pub unfiltered: bool,
+	pub keep_offline_copy: bool,
 	/// The walk dispatched to capture what the rules previously skipped.
 	/// Only set when the policy widened.
 	pub rewalk_job: Option<uuid::Uuid>,
@@ -47,7 +53,7 @@ impl LibraryAction for UpdateSourceAction {
 		if input.source_id.trim().is_empty() {
 			return Err("Source ID cannot be empty".to_string());
 		}
-		if input.name.is_none() && input.unfiltered.is_none() {
+		if input.name.is_none() && input.unfiltered.is_none() && input.keep_offline_copy.is_none() {
 			return Err("Nothing to update".to_string());
 		}
 		if input
@@ -83,13 +89,26 @@ impl LibraryAction for UpdateSourceAction {
 		}
 
 		let unfiltered = self.input.unfiltered.unwrap_or(previous.unfiltered);
+		let keep_offline_copy = self
+			.input
+			.keep_offline_copy
+			.unwrap_or(previous.keep_offline_copy);
+		// The copy goes before the setting does: a refusal (the drive is
+		// away) leaves the setting on, so the listing keeps telling the
+		// truth about what is on disk.
+		if keep_offline_copy != previous.keep_offline_copy && !keep_offline_copy {
+			crate::service::mounts::offline::remove(cache, source_id)
+				.await
+				.map_err(|e| ActionError::Internal(e.to_string()))?;
+		}
 		let mut rewalk_job = None;
-		if self.input.unfiltered.is_some() {
+		if self.input.unfiltered.is_some() || self.input.keep_offline_copy.is_some() {
 			cache
 				.set_source_config(
 					source_id,
 					SourceConfig {
 						unfiltered,
+						keep_offline_copy,
 						..previous.clone()
 					},
 				)
@@ -123,12 +142,16 @@ impl LibraryAction for UpdateSourceAction {
 			.write_descriptor(source_id, library.id())
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?;
+		if keep_offline_copy && !previous.keep_offline_copy {
+			crate::service::mounts::offline::sync_soon(context.clone(), source_id);
+		}
 
 		let name = cache.source_name(source_id).unwrap_or_default();
 
 		Ok(UpdateSourceOutput {
 			name,
 			unfiltered,
+			keep_offline_copy,
 			rewalk_job,
 		})
 	}

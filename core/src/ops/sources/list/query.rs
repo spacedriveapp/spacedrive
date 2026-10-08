@@ -96,33 +96,32 @@ impl LibraryQuery for ListSourcesQuery {
 			.await
 			.map_err(|e| QueryError::Internal(format!("Failed to list sources: {e}")))?;
 
-		let mut sources: Vec<SourceInfo> = rows
-			.into_iter()
-			.filter(|row| {
-				self.input
-					.data_type
+		let mut sources: Vec<SourceInfo> = Vec::new();
+		for row in rows.into_iter().filter(|row| {
+			self.input
+				.data_type
+				.as_ref()
+				.is_none_or(|filter| &row.data_type == filter)
+		}) {
+			let mount = row
+				.volume_uuid
+				.and_then(|uuid| attached_mounts.get(&uuid).cloned());
+			let mut info = SourceInfo::from_row(row, mount.as_deref());
+			// The volume index knows whether the drive is mounted, which
+			// the row's flag and the root's existence cannot tell apart
+			// from a mount point left behind as an empty directory.
+			if let Some(live) = live_sources.get(&info.id) {
+				info.attached = live.attached;
+				info.volume_state = live.volume_state;
+				info.store_path = live
+					.directory
 					.as_ref()
-					.is_none_or(|filter| &row.data_type == filter)
-			})
-			.map(|row| {
-				let mount = row
-					.volume_uuid
-					.and_then(|uuid| attached_mounts.get(&uuid).cloned());
-				let mut info = SourceInfo::from_row(row, mount.as_deref());
-				// The volume index knows whether the drive is mounted, which
-				// the row's flag and the root's existence cannot tell apart
-				// from a mount point left behind as an empty directory.
-				if let Some(live) = live_sources.get(&info.id) {
-					info.attached = live.attached;
-					info.volume_state = live.volume_state;
-					info.store_path = live
-						.directory
-						.as_ref()
-						.map(|dir| dir.to_string_lossy().into_owned());
-				}
-				info
-			})
-			.collect();
+					.map(|dir| dir.to_string_lossy().into_owned());
+				info.offline_copy =
+					crate::service::mounts::offline::info(context.volume_index(), info.id).await;
+			}
+			sources.push(info);
+		}
 
 		// Paired devices' sources, already replicated by the peer-mount
 		// plane. They live in memory rather than the library database, so

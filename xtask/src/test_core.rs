@@ -194,6 +194,14 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"ZFS locked volumes acceptance test",
 		&["--test", "zfs_locked_volumes_acceptance_test"],
 	),
+	// Add to Library step 4 (docs/core/acceptance/add-to-library.md row 10):
+	// an on-source catalog keeps a library copy that answers while the
+	// loop-mounted drive is away. Skips like the locked volumes suite.
+	acceptance(
+		"sd-core",
+		"Offline copy acceptance test",
+		&["--test", "offline_copy_acceptance_test"],
+	),
 	// A source whose drive snapshot is missing or unusable at restart lists
 	// from a map rebuilt out of its store before any walk runs.
 	acceptance(

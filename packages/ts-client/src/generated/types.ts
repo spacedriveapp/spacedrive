@@ -3438,6 +3438,34 @@ export type NetworkStopInput = Record<string, never>;
 export type NetworkStopOutput = { stopped: boolean };
 
 /**
+ * A source's offline copy as `sources.list` reports it.
+ */
+export type OfflineCopyInfo = { 
+/**
+ * A validated copy is on disk.
+ */
+present: boolean; 
+/**
+ * Listings and search answer from the copy right now, because the
+ * origin is away.
+ */
+serving: boolean; 
+/**
+ * When the copy was taken, RFC 3339.
+ */
+last_synced: string | null; 
+/**
+ * Changes the origin has committed since the copy was taken. Absent
+ * while the origin is away, when there is no copy, and when the origin
+ * is a different store than the copy came from.
+ */
+behind_by: number | null; 
+/**
+ * Records the copy holds.
+ */
+record_count: number | null; bytes: number | null };
+
+/**
  * Operating system types
  */
 export type OperatingSystem = "MacOS" | "Windows" | "Linux" | "IOs" | "Android" | "Other";
@@ -4499,7 +4527,14 @@ store_path?: string | null;
  * The settings the source was saved with, so a re-add can show what it
  * keeps. Absent for an adapter source and a replica, like `placement`.
  */
-settings?: SourceConfig | null };
+settings?: SourceConfig | null; 
+/**
+ * The library's offline copy of a store placed on its source: whether
+ * one exists, whether reads answer from it right now, when it was
+ * taken and how far behind the origin it is. Absent unless the
+ * catalog lives on the source.
+ */
+offline_copy?: OfflineCopyInfo | null };
 
 export type SourceItem = { id: string; external_id: string; title: string; preview: string | null; subtitle: string | null };
 
@@ -5370,9 +5405,15 @@ success: boolean;
  */
 message: string };
 
-export type UpdateSourceInput = { source_id: string; name?: string | null; unfiltered?: boolean | null };
+export type UpdateSourceInput = { source_id: string; name?: string | null; unfiltered?: boolean | null; 
+/**
+ * For a store placed on its source, whether the library keeps an
+ * offline copy. Turning it off removes the copy, and refuses while the
+ * source's own catalog is unreachable.
+ */
+keep_offline_copy?: boolean | null };
 
-export type UpdateSourceOutput = { name: string; unfiltered: boolean; 
+export type UpdateSourceOutput = { name: string; unfiltered: boolean; keep_offline_copy: boolean; 
 /**
  * The walk dispatched to capture what the rules previously skipped.
  * Only set when the policy widened.

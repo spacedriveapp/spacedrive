@@ -14,9 +14,13 @@ menu. It shows the library defaults resolved for the scope, takes per-add
 overrides with unavailable placements explained, offers Use these settings
 as defaults, shows existing inclusion, and reports what the core saved with
 a link to the walk. Library Settings > Adding content edits the defaults.
-Offline copies, remount of on-source stores, relocation and consolidation
-remain open; the defaults built are the proposals below and remain James's
-to change.
+Step 4 landed on 2026-10-08 (SPAC-42): with Keep an offline copy on, the
+library keeps a replica of an on-source store under the peer replica rules
+(`core/src/service/mounts/offline.rs`), serves listings and search from it
+while the drive is away and says so in `sources.list`, catches up on
+remount, removes it only once the origin answers, and backs it up in the
+drive's place. Relocation and consolidation remain open; the defaults built
+are the proposals below and remain James's to change.
 
 ## Agreed user flow
 
@@ -421,6 +425,12 @@ the last included folder should not silently erase known hardware or stores.
 4. Add on-source placement on supported local filesystems and use database
    exports for optional offline copies. Show origin availability and catalog
    availability separately. Coordinate peer copies with library membership.
+   Landed 2026-10-08: the offline copy is a `VACUUM INTO` export of the
+   on-source store, named by the store's revision and validated before a
+   rename publishes it, under `<data>/sources/<id>/offline-copy.db`;
+   `sources.list` reports `attached` (the origin) and `offline_copy`
+   (present, serving, last synced, behind by) separately. Peer copies of an
+   on-source store are unchanged: the owner serves its store wherever it is.
 5. Enable later relocation, device handoff and overlapping-scope consolidation
    only after their preservation and interruption cases pass. Removal semantics
    must be fixed before the first portable store can be removed from a library.

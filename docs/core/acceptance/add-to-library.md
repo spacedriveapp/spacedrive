@@ -32,8 +32,8 @@ Status values follow `source-runtime.md`.
 | 6 | Removal | Removing a source keeps its catalog and its volume row; the registration and the open handles go | acceptance test section 5; `core/src/ops/indexing/volume_index.rs` `a_removed_source_is_readopted_from_its_descriptor`; `core/src/ops/sources/delete/action.rs` `deletion_of_the_catalog_is_opt_in` | passing |
 | 7 | Identity | Re-adding the scope reopens the catalog under the identity its descriptor carries, under either placement and whatever placement the add asked for; a re-track names nothing and changes nothing; a file keeps its record id; deleting the catalog is explicit and a later add starts over | acceptance test sections 6 and 7; `core/src/ops/indexing/descriptor.rs` `a_descriptor_binds_to_library_volume_and_path`, `find_bound_picks_the_store_of_this_scope` | passing |
 | 8 | Network | On source is refused for a network or cloud volume, whose serving daemon keeps the store in the library | `core/src/ops/sources/track/action.rs` (refusal before registration) | not provable on the runner: no network volume; the refusal is unit-level code with no fixture yet |
-| 9 | Remount | Detach and remount an on-source store without losing identity or replacing it | not built: an on-source store of a drive that is away resolves to no directory and is not reopened empty, but the loop-device remount row is not written |
-| 10 | Offline copy | Verify offline behavior with and without a retained library copy | not built: `keep_offline_copy` is recorded intent; the copy itself is step 4 of the plan |
+| 9 | Remount | Detach and remount an on-source store without losing identity or replacing it | `core/tests/offline_copy_acceptance_test.rs` (sections 3 and 4: the loop drive is lazily unmounted under the running daemon, the source detaches, remounting and re-adding reopens the catalog on the drive under the same id, and nothing opened an empty store at the mount point meanwhile) | passing on the loop-device helper; skips with a reason where there is no sudo or loop device |
+| 10 | Offline copy | With `keep_offline_copy` on an on-source source, the library keeps a replica of the store that matches the origin's record count; with the drive away, `sources.list_records` and the store search backend answer from the copy and `sources.list` reports `offline_copy.serving`; the off switch refuses while the drive is away and the copy survives; a backup taken then carries the copy as the store with `from_offline_copy`; after remount and a walk the copy catches up to `behind_by: 0`; with the origin reachable the off switch removes the copy. Without a copy the detached source still browses from its restored map (`volumes.md` L1) and its store-backed reads answer nothing | `core/tests/offline_copy_acceptance_test.rs` `an_on_source_catalog_keeps_a_library_copy_that_answers_while_the_drive_is_away`; `core/src/service/mounts/offline.rs` `the_off_switch_keeps_the_copy_while_the_origin_is_away`, `a_settled_pass_waits_for_the_origin_to_stop_moving` | passing on the loop-device helper; the unit tests run in `--lib` |
 | 11 | Entry points | Every entry point uses Add to Library through the modal | the modal is separate work; `sources.track` and `volumes.track` share one body (`track_and_index`) and one override shape |
 
 ## Decisions carried
@@ -55,6 +55,26 @@ the in-library layout, does not count it as a restored store, and names it in
 `LibraryRestoreOutput.on_source_catalogs` with where it was left. The
 registration still says on source and resolves to the drive. Relocation (plan
 step 5) is where that copy would move.
+
+The offline copy is a replica of the on-source store under the rules a
+peer's replica follows: the on-drive store is the origin and the only
+writer; the copy is a `VACUUM INTO` export named by the origin's revision,
+validated by opening and counting before a rename publishes it; it is never
+discarded because the origin stopped answering. It lives at
+`<data>/sources/<id>/offline-copy.db` beside `offline-copy.json`, its own
+file name so the in-library layout of an on-source source never reads as a
+store this machine writes or adopts. It is refreshed on the peer replica
+cadence (every 30 s, `mounts::REFRESH_INTERVAL`) when the origin's revision
+has held for one poll, at once when a walk lands, and regardless after ten
+minutes behind. The bandwidth cap and pause switch do not apply: nothing
+crosses the link. While the drive is away, `VolumeIndex::read_store` opens
+the copy instead of the origin, so every store-backed read (listings,
+search, media) answers from it. Turning the setting off removes the copy
+only once the origin store opens; while the drive is away the update is
+refused and the setting stays on. `sources.delete` with `delete_catalog`
+removes the copy with the catalog; without the flag it stays beside the
+sidecars. `libraries.backup` copies the offline copy as the source's
+`data.db` when the drive is away and marks the entry `from_offline_copy`.
 
 Removing a source never deletes its volume row. The plan asks for an
 explicit containing-volume retention rule; the rule built is that the row

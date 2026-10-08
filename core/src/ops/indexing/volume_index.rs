@@ -10,7 +10,7 @@
 //! Paths on no tracked drive land in the **scratch** partition, which serves
 //! ad-hoc browsing and never snapshots.
 
-use super::sources::{SourceRecord, SourceRegistry, VolumeAnchor, VolumeKey};
+use super::sources::{SourceRecord, SourceRegistry, StorePlacement, VolumeAnchor, VolumeKey};
 use super::store::{DuplicateCopy, SourceStore};
 use super::Arena;
 use crate::infra::db::entities::source;
@@ -339,6 +339,15 @@ const COLLAPSE_FLOOR: u64 = 1_000;
 /// as a collapse rather than a deletion someone actually performed.
 const COLLAPSE_FACTOR: u64 = 10;
 
+/// A cached read-only handle and which file it reads.
+#[derive(Clone)]
+struct ReadHandle {
+	db: Arc<sd_store::SourceDb>,
+	/// The handle reads the library's offline copy because the origin store
+	/// is unreachable; see [`VolumeIndex::offline_copy_wanted`].
+	offline_copy: bool,
+}
+
 /// Keeps a set of sources' stores closed; see [`VolumeIndex::quiesce_stores`].
 pub struct StoreHold {
 	_guards: Vec<tokio::sync::OwnedMutexGuard<()>>,
@@ -394,8 +403,11 @@ pub struct VolumeIndex {
 	stores: RwLock<HashMap<Uuid, Arc<SourceStore>>>,
 	/// Read-only store handles by source id. The write handle above exists to
 	/// ingest; these exist to answer when no arena covers a source, and they
-	/// open without DDL, ledger or writer task.
-	read_stores: RwLock<HashMap<Uuid, Arc<sd_store::SourceDb>>>,
+	/// open without DDL, ledger or writer task. A handle remembers whether
+	/// it reads the origin or the library's offline copy, so a drive coming
+	/// or going retires it on the next read instead of serving a file that
+	/// is no longer the one to read.
+	read_stores: RwLock<HashMap<Uuid, ReadHandle>>,
 	/// One async gate per source, so concurrent first opens coalesce into a
 	/// single pool, ledger load, and writer task. See [`Self::store_for`].
 	store_open_gates: Mutex<HashMap<Uuid, Arc<tokio::sync::Mutex<()>>>>,
@@ -994,8 +1006,6 @@ impl VolumeIndex {
 		placement: super::sources::StorePlacement,
 		library_id: Uuid,
 	) -> Option<(Uuid, super::sources::StorePlacement)> {
-		use super::sources::StorePlacement;
-
 		let dirs = self.dirs.as_ref()?;
 		let (key, anchor) = SourceRegistry::key_for(root, volume);
 		let volume_uuid = anchor.map(|a| a.uuid);
@@ -1060,7 +1070,7 @@ impl VolumeIndex {
 			store.db().pool().close().await;
 		}
 		if let Some(reader) = reader {
-			reader.pool().close().await;
+			reader.db.pool().close().await;
 		}
 		Some((record, dir))
 	}
@@ -1592,10 +1602,11 @@ impl VolumeIndex {
 	/// this path. The open shares the per-source gate with [`Self::store_for`]
 	/// so a read never races a writer's first open.
 	pub async fn read_store(&self, source_id: Uuid) -> Option<Arc<sd_store::SourceDb>> {
-		if let Some(db) = self.read_stores.read().get(&source_id) {
-			return Some(db.clone());
-		}
 		let dirs = self.dirs.as_ref()?;
+		let offline_copy = self.offline_copy_wanted(source_id);
+		if let Some(handle) = self.cached_read_handle(source_id, offline_copy) {
+			return Some(handle);
+		}
 
 		let gate = {
 			let mut gates = self.store_open_gates.lock();
@@ -1606,26 +1617,43 @@ impl VolumeIndex {
 		};
 		let _open = gate.lock().await;
 
-		if let Some(db) = self.read_stores.read().get(&source_id) {
-			return Some(db.clone());
+		if let Some(handle) = self.cached_read_handle(source_id, offline_copy) {
+			return Some(handle);
 		}
 
-		// A registered source reads from wherever its placement put the
-		// store; one this machine does not register, a replica being
-		// inspected by id, reads from the in-library layout.
-		let stores_dir = self
-			.find_source(source_id)
-			.and_then(|located| self.store_dir_of(&located.record))
-			.and_then(|dir| dir.parent().map(Path::to_path_buf))
-			.unwrap_or_else(|| dirs.root().to_path_buf());
-		let manager = sd_store::SourceManager::new(stores_dir);
-		match manager
-			.open_read_only(&source_id.simple().to_string())
-			.await
-		{
+		// A handle on the file that is no longer the one to read is closed
+		// before the other is opened, so a drive's departure never leaves a
+		// pool on its unmounted store.
+		let stale = self.read_stores.write().remove(&source_id);
+		if let Some(stale) = stale {
+			stale.db.pool().close().await;
+		}
+
+		let opened = if offline_copy {
+			sd_store::SourceManager::open_file_read_only(&dirs.offline_copy_file(source_id)).await
+		} else {
+			// A registered source reads from wherever its placement put the
+			// store; one this machine does not register, a replica being
+			// inspected by id, reads from the in-library layout.
+			let stores_dir = self
+				.find_source(source_id)
+				.and_then(|located| self.store_dir_of(&located.record))
+				.and_then(|dir| dir.parent().map(Path::to_path_buf))
+				.unwrap_or_else(|| dirs.root().to_path_buf());
+			sd_store::SourceManager::new(stores_dir)
+				.open_read_only(&source_id.simple().to_string())
+				.await
+		};
+		match opened {
 			Ok(db) => {
 				let db = Arc::new(db);
-				self.read_stores.write().insert(source_id, db.clone());
+				self.read_stores.write().insert(
+					source_id,
+					ReadHandle {
+						db: db.clone(),
+						offline_copy,
+					},
+				);
 				Some(db)
 			}
 			Err(error) => {
@@ -1633,6 +1661,57 @@ impl VolumeIndex {
 				None
 			}
 		}
+	}
+
+	fn cached_read_handle(
+		&self,
+		source_id: Uuid,
+		offline_copy: bool,
+	) -> Option<Arc<sd_store::SourceDb>> {
+		let stores = self.read_stores.read();
+		let handle = stores.get(&source_id)?;
+		(handle.offline_copy == offline_copy).then(|| handle.db.clone())
+	}
+
+	/// Close a source's cached read-only handle, so the file it reads can be
+	/// replaced. The next read reopens whichever file is then the one to
+	/// read.
+	pub async fn retire_read_store(&self, source_id: Uuid) {
+		let handle = self.read_stores.write().remove(&source_id);
+		if let Some(handle) = handle {
+			handle.db.pool().close().await;
+		}
+	}
+
+	/// The on-disk file of a source's own store, when this machine can reach
+	/// it right now: the origin of an offline copy. `None` for a source this
+	/// machine does not register, for an on-source store whose drive is
+	/// away, and for a store that has not been written yet.
+	pub fn origin_store_file(&self, source_id: Uuid) -> Option<PathBuf> {
+		let located = self.find_source(source_id)?;
+		if located.record.config.placement == StorePlacement::OnSource
+			&& !self.root_attached(&located.volume, &located.record.root)
+		{
+			return None;
+		}
+		let file = self.store_dir_of(&located.record)?.join("data.db");
+		file.is_file().then_some(file)
+	}
+
+	/// Whether reads of a source should answer from the library's offline
+	/// copy: the store lives on the source, the drive is away, and a copy is
+	/// on disk. The copy is served whenever it exists, whatever the setting
+	/// now says, since a copy is only ever removed once the origin answers.
+	pub fn offline_copy_wanted(&self, source_id: Uuid) -> bool {
+		let Some(dirs) = self.dirs.as_ref() else {
+			return false;
+		};
+		let Some(located) = self.find_source(source_id) else {
+			return false;
+		};
+		located.record.config.placement == StorePlacement::OnSource
+			&& !self.root_attached(&located.volume, &located.record.root)
+			&& dirs.offline_copy_file(source_id).is_file()
 	}
 
 	/// The partitions and drive snapshots a restore of these sources has to
@@ -1708,7 +1787,7 @@ impl VolumeIndex {
 			let mut stores = self.stores.write();
 			ids.iter().filter_map(|id| stores.remove(id)).collect()
 		};
-		let readers: Vec<Arc<sd_store::SourceDb>> = {
+		let readers: Vec<ReadHandle> = {
 			let mut stores = self.read_stores.write();
 			ids.iter().filter_map(|id| stores.remove(id)).collect()
 		};
@@ -1718,8 +1797,8 @@ impl VolumeIndex {
 			}
 			store.db().pool().close().await;
 		}
-		for db in readers {
-			db.pool().close().await;
+		for reader in readers {
+			reader.db.pool().close().await;
 		}
 
 		// The partition goes so nothing restores the replaced arena from
@@ -2809,7 +2888,7 @@ impl VolumeIndexStats {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
 	use super::*;
 
 	/// The one library most tests attach; a second one is minted where a
@@ -2843,7 +2922,7 @@ mod tests {
 
 	/// A library database for tests that rebuild the cache: registrations live
 	/// in `library.db`, so a session boundary needs one to cross.
-	async fn test_library(dir: &Path) -> Arc<Database> {
+	pub(crate) async fn test_library(dir: &Path) -> Arc<Database> {
 		let db = Database::create(&dir.join("library.db"))
 			.await
 			.expect("create library");
@@ -2855,7 +2934,7 @@ mod tests {
 	/// that volume's mount point on every attach. A test that skips this
 	/// gets a source with no root after a restart, which is a different
 	/// bug than the one being measured.
-	async fn tracked_volume(db: &Arc<Database>, mount_point: &Path) -> VolumeAnchor {
+	pub(crate) async fn tracked_volume(db: &Arc<Database>, mount_point: &Path) -> VolumeAnchor {
 		use crate::infra::db::entities::volume;
 		use sea_orm::{ActiveModelTrait, ActiveValue::Set};
 

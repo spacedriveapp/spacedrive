@@ -215,11 +215,26 @@ impl LibraryBackupAction {
 		for row in &rows {
 			// A store placed on its source is backed up from the drive, into
 			// the archive's one layout; the registration carries the placement.
+			// With the drive away, the library's offline copy stands in: it
+			// is the same store at the revision the copy was taken, and the
+			// only one this machine can reach.
+			let placement =
+				crate::ops::indexing::sources::SourceConfig::from_json(&row.config).placement;
 			let dir = context
 				.volume_index()
 				.store_dir(row.uuid)
 				.unwrap_or_else(|| source_dirs.source_dir(row.uuid));
-			let store = dir.join("data.db");
+			let origin = dir.join("data.db");
+			let offline_copy = source_dirs.offline_copy_file(row.uuid);
+			let from_offline_copy = placement
+				== crate::ops::indexing::sources::StorePlacement::OnSource
+				&& context.volume_index().origin_store_file(row.uuid).is_none()
+				&& offline_copy.is_file();
+			let store = if from_offline_copy {
+				offline_copy
+			} else {
+				origin
+			};
 			let sidecars = source_dirs.sidecars_file(row.uuid);
 			let has_store = store.is_file();
 			let has_sidecars = self.input.include_sidecars && sidecars.is_file();
@@ -244,8 +259,8 @@ impl LibraryBackupAction {
 				root: row.root.clone(),
 				store: None,
 				has_sidecars,
-				placement: crate::ops::indexing::sources::SourceConfig::from_json(&row.config)
-					.placement,
+				placement,
+				from_offline_copy,
 			});
 		}
 

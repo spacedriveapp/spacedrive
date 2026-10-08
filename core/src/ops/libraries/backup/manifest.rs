@@ -64,6 +64,11 @@ pub struct SourceEntry {
 	/// placement existed hold in-library stores.
 	#[serde(default)]
 	pub placement: crate::ops::indexing::sources::StorePlacement,
+	/// The store copy was taken from the library's offline copy because the
+	/// drive holding the store was away, so it is as old as that copy's
+	/// revision says rather than as the origin stood.
+	#[serde(default)]
+	pub from_offline_copy: bool,
 }
 
 /// How a store's copy identifies itself; see `sd_store::revision`.

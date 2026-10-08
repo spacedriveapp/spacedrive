@@ -250,7 +250,8 @@ pub async fn track_and_index(
 	// explicit job), and placement never changes, because moving a store is
 	// relocation, not an add. An adopted catalog keeps the placement it was
 	// found under.
-	let settings = match context.volume_index().source_config(id) {
+	let previous = context.volume_index().source_config(id);
+	let settings = match previous.clone() {
 		Some(previous) if existed => SourceConfig {
 			unfiltered: previous.unfiltered || overrides.unfiltered == Some(true),
 			placement: previous.placement,
@@ -268,6 +269,18 @@ pub async fn track_and_index(
 			..settings
 		},
 	};
+	// A re-add that turns the offline copy off removes the copy behind the
+	// same origin check `sources.update` applies, before the setting is
+	// saved, so a refusal leaves the registration saying a copy is kept.
+	if existed
+		&& settings.placement == StorePlacement::OnSource
+		&& previous.as_ref().is_some_and(|p| p.keep_offline_copy)
+		&& !settings.keep_offline_copy
+	{
+		crate::service::mounts::offline::remove(context.volume_index(), id)
+			.await
+			.map_err(|e| ActionError::Internal(e.to_string()))?;
+	}
 	context
 		.volume_index()
 		.set_source_config(id, settings.clone())
@@ -387,12 +400,18 @@ pub(crate) async fn dispatch_source_walk(
 	// one dispatched beside the walk finds an empty store and finishes. A walk
 	// that fails or is cancelled leaves hashing to the next track. A source
 	// added without content identification gets its walk and nothing after.
-	if !source_config.identify_content {
-		return Some(job_id);
-	}
+	// The offline copy, when the source keeps one, is refreshed as soon as
+	// the walk lands rather than waiting for the cadence.
 	let library = library.clone();
+	let context = context.clone();
 	tokio::spawn(async move {
 		if handle.wait().await.is_err() {
+			return;
+		}
+		if source_config.placement == StorePlacement::OnSource && source_config.keep_offline_copy {
+			crate::service::mounts::offline::sync_soon(context, id);
+		}
+		if !source_config.identify_content {
 			return;
 		}
 		if let Err(e) = library
