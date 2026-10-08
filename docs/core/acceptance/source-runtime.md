@@ -113,11 +113,13 @@ already exists, a later unreadable artifact in the slot is removed instead,
 so a recurring failure cannot fill the disk.
 
 Follow-up: a partition whose snapshot is missing, quarantined, or from an
-older format no longer costs a walk. `VolumeIndex::ensure_restored` falls
-back to `rebuild_from_store` for every attached source on the drive, the
-same path a library restore uses, so the map comes back with the store's
-uuids in seconds and the announced roots re-arm their watches; the coverage
-heal then finds the source covered and dispatches nothing. The rebuild
+older format no longer costs a walk. `VolumeIndex::ensure_restored` starts
+a background fill of every attached source on the drive from its store, the
+same fill a library restore uses, and resolves at once so no reader waits
+on it; each root is in progress until its fill lands, a listing serves the
+store meanwhile, and the landed source announces its root, which routes it
+to the arena and re-arms its watch. The coverage heal finds the source in
+progress or covered and dispatches nothing. The rebuild
 runs for a source whose registry row carries a record count, which a
 snapshot save writes, so it is the evidence a map existed and was lost; a
 source never walked to completion keeps answering from its store without
@@ -127,8 +129,9 @@ the registered sources and not the rest of the drive, so the discovery pass
 (`map_attached_volumes` with defaults) still maps the drive around them in
 the background, as it does for any drive without a snapshot. The real
 restart is `core/tests/snapshot_rebuild_acceptance_test.rs`: the listing is
-served and `core.index_status` reports the source restored with nothing in
-progress before any job is dispatched. The 1M-record rebuild time is
+served from the store while the fill runs and from the arena once it has
+landed, no job is dispatched, and `core.index_status` then reports the
+source restored with nothing in progress. The 1M-record rebuild time is
 recorded in `docs/core/design/ephemeral-snapshot-format.md`.
 
 ### F3. Row 11: a refused watch was reported active (fixed)

@@ -187,26 +187,49 @@ async fn restart_and_check(walked: &Walked, retained_prefix: Option<&str>) {
 	let jobs_before = job_count(&library).await;
 	let cache = core.context.volume_index();
 
-	let listing = DirectoryListingQuery::from_input(DirectoryListingInput {
-		path: SdPath::Physical {
-			device_slug: sd_core::device::get_current_device_slug(),
-			path: walked.root.clone(),
-		},
-		limit: None,
-		include_hidden: Some(false),
-		sort_by: DirectorySortBy::Name,
-		folders_first: Some(false),
-		overlay: None,
-	})
-	.expect("input")
-	.execute(core.context.clone(), session(&library))
-	.await
-	.expect("listing");
-	// `File::name` is the stem; the extension travels separately.
-	let mut names: Vec<String> = listing.files.iter().map(|file| file.name.clone()).collect();
-	names.sort();
+	let list = || async {
+		let listing = DirectoryListingQuery::from_input(DirectoryListingInput {
+			path: SdPath::Physical {
+				device_slug: sd_core::device::get_current_device_slug(),
+				path: walked.root.clone(),
+			},
+			limit: None,
+			include_hidden: Some(false),
+			sort_by: DirectorySortBy::Name,
+			folders_first: Some(false),
+			overlay: None,
+		})
+		.expect("input")
+		.execute(core.context.clone(), session(&library))
+		.await
+		.expect("listing");
+		// `File::name` is the stem; the extension travels separately.
+		let mut names: Vec<String> = listing.files.iter().map(|file| file.name.clone()).collect();
+		names.sort();
+		names
+	};
+
+	// The first listing lands while the rebuild may still be running: it
+	// is served from the store in that case, and from the arena once the
+	// rebuild has landed. Either way it names the files and starts no walk.
 	assert_eq!(
-		names,
+		list().await,
+		vec!["a", "b", "notes", "photos"],
+		"the listing is served while the map comes back"
+	);
+	assert_eq!(
+		job_count(&library).await,
+		jobs_before,
+		"the first listing dispatched no walk"
+	);
+	for _ in 0..600 {
+		if !cache.is_indexing(&walked.root) && cache.arena_answers(&walked.root) {
+			break;
+		}
+		tokio::time::sleep(Duration::from_millis(50)).await;
+	}
+	assert_eq!(
+		list().await,
 		vec!["a", "b", "notes", "photos"],
 		"the listing is served from the rebuilt map"
 	);

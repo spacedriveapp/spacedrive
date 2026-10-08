@@ -159,6 +159,10 @@ struct TrackedVolume {
 /// snapshot is. The arena is locked one store page at a time, so a
 /// multi-million-record rebuild never holds a listing on the same drive
 /// for longer than one page of inserts. Returns how many entries were added.
+/// Rows read per arena lock during a store rebuild. At the measured insert
+/// cost a page holds the lock for a few milliseconds.
+const REBUILD_PAGE: usize = 2_000;
+
 pub(crate) async fn fill_arena_from_store(
 	index: &TokioRwLock<Arena>,
 	db: &sd_store::SourceDb,
@@ -171,10 +175,11 @@ pub(crate) async fn fill_arena_from_store(
 	let mut added = 0usize;
 	let mut after_rowid = 0i64;
 	loop {
-		let (entries, last) = sd_store::read::all_entries_page(db.pool(), after_rowid, 2_000)
-			.await
-			.map_err(|e| anyhow::anyhow!("database page failed: {e}"))?;
-		let done = entries.len() < 2_000;
+		let (entries, last) =
+			sd_store::read::rebuild_entries_page(db.pool(), after_rowid, REBUILD_PAGE)
+				.await
+				.map_err(|e| anyhow::anyhow!("database page failed: {e}"))?;
+		let done = entries.len() < REBUILD_PAGE;
 		after_rowid = last;
 
 		let mut index = index.write().await;
@@ -212,6 +217,29 @@ pub(crate) async fn fill_arena_from_store(
 		}
 	}
 	Ok(added)
+}
+
+/// Fill a source's subtree of a partition from its store and, when the
+/// store held anything, mark the root indexed and the partition restored.
+/// Announcing the root is the caller's: it decides whether a watch should
+/// follow. `None` when the store could not be read.
+async fn fill_source_from_store(
+	slot: &Partition,
+	db: &sd_store::SourceDb,
+	root: &Path,
+) -> Option<usize> {
+	let loaded = match fill_arena_from_store(&slot.index, db, root).await {
+		Ok(loaded) => loaded,
+		Err(error) => {
+			tracing::warn!(root = %root.display(), %error, "could not rebuild the map from the store");
+			return None;
+		}
+	};
+	if loaded > 0 {
+		slot.indexed_paths.write().insert(root.to_path_buf());
+		slot.restored.store(true, Ordering::Release);
+	}
+	Some(loaded)
 }
 
 /// Whether a volume root is a service prefix rather than a filesystem path.
@@ -1822,16 +1850,24 @@ impl VolumeIndex {
 		let outcome = *slot
 			.restore_once
 			.get_or_init(|| async {
+				// A library restore fills the drive's fresh partition through
+				// `rebuild_quiesced` before anything asks here; reading the
+				// stores again would only repeat it.
+				if slot.restored.load(Ordering::Acquire) {
+					return RestoreOutcome::Stores;
+				}
 				if Self::attempt_restore(self.dirs.clone(), slot.clone(), mounted).await {
 					return RestoreOutcome::Snapshot;
 				}
 				// A missing, quarantined or outdated snapshot costs a walk of
 				// every source on the drive, and every format bump produces
 				// exactly that. The stores hold the same records with the same
-				// uuids, so they refill the arena in seconds instead; a store
-				// rebuild announces each source root itself, which arms its
-				// watch. A detached drive keeps nothing to rebuild for.
-				if slot.is_detached() || self.rebuild_sources_from_stores(&slot).await == 0 {
+				// uuids, so they refill the arena instead, off this request:
+				// every reader on the drive funnels through this gate, so the
+				// fill runs on its own task and each source announces itself
+				// as it lands, which flips its routing and arms its watch. A
+				// detached drive keeps nothing to rebuild for.
+				if slot.is_detached() || !self.rebuild_sources_from_stores(&slot).await {
 					return RestoreOutcome::Nothing;
 				}
 				RestoreOutcome::Stores
@@ -1859,16 +1895,22 @@ impl VolumeIndex {
 			.is_some_and(|outcome| *outcome == RestoreOutcome::Snapshot)
 	}
 
-	/// Rebuild every attached source on a drive partition from its store.
-	/// Returns how many sources were rebuilt; a source with no readable
-	/// store is left for the coverage heal to walk.
+	/// Start rebuilding every attached source on a drive partition from its
+	/// store, on one background task, and say whether anything was started.
 	///
 	/// Only a source whose row records a count is rebuilt. The count is
 	/// written when a snapshot is saved, so it is the evidence that a map
 	/// existed and was lost; a source nothing has walked to completion keeps
-	/// answering from its store without an arena, as R6 routes it.
-	async fn rebuild_sources_from_stores(&self, slot: &Arc<Partition>) -> usize {
-		let mut rebuilt = 0usize;
+	/// answering from its store without an arena, as R6 routes it, and a
+	/// source with no readable store is left for the coverage heal to walk.
+	///
+	/// Each root is marked in progress until its fill lands, so the heal
+	/// does not dispatch a walk over it, a listing serves its store in the
+	/// meantime, and the status surface shows the work. The stores are
+	/// opened here, before the task starts, so the caller learns at once
+	/// whether the drive has anything to rebuild from.
+	async fn rebuild_sources_from_stores(&self, slot: &Arc<Partition>) -> bool {
+		let mut pending = Vec::new();
 		for (_, located) in self.all_sources() {
 			if located.volume != slot.volume
 				|| located.record.record_count.unwrap_or(0) == 0
@@ -1876,26 +1918,62 @@ impl VolumeIndex {
 			{
 				continue;
 			}
-			let started = Instant::now();
-			match self.rebuild_from_store(located.record.id).await {
-				Some(loaded) if loaded > 0 => {
-					rebuilt += 1;
-					tracing::info!(
-						source = %located.record.id,
-						root = %located.record.root.display(),
-						loaded,
-						took = ?started.elapsed(),
-						"no usable snapshot; map rebuilt from the source store"
-					);
-				}
-				_ => tracing::warn!(
+			let db = self.read_store(located.record.id).await;
+			let first_row = match &db {
+				Some(db) => sd_store::read::rebuild_entries_page(db.pool(), 0, 1)
+					.await
+					.map(|(rows, _)| !rows.is_empty())
+					.unwrap_or(false),
+				None => false,
+			};
+			let (Some(db), true) = (db, first_row) else {
+				tracing::warn!(
 					source = %located.record.id,
 					root = %located.record.root.display(),
 					"no usable snapshot and no store records; the source will be walked"
-				),
-			}
+				);
+				continue;
+			};
+			slot.indexing_in_progress
+				.write()
+				.insert(located.record.root.clone());
+			pending.push((located.record.id, located.record.root, db));
 		}
-		rebuilt
+		if pending.is_empty() {
+			return false;
+		}
+
+		let slot = slot.clone();
+		let announce = self.restored_roots.read().clone();
+		tokio::spawn(async move {
+			for (source_id, root, db) in pending {
+				let started = Instant::now();
+				match fill_source_from_store(&slot, &db, &root).await {
+					Some(loaded) if loaded > 0 => {
+						slot.indexing_in_progress.write().remove(&root);
+						if let Some(sender) = &announce {
+							let _ = sender.send(root.clone());
+						}
+						tracing::info!(
+							source = %source_id,
+							root = %root.display(),
+							loaded,
+							took = ?started.elapsed(),
+							"no usable snapshot; map rebuilt from the source store"
+						);
+					}
+					_ => {
+						slot.indexing_in_progress.write().remove(&root);
+						tracing::warn!(
+							source = %source_id,
+							root = %root.display(),
+							"no usable snapshot and no store records; the source will be walked"
+						);
+					}
+				}
+			}
+		});
+		true
 	}
 
 	/// Rebuild a source's map from its store, without walking the disk.
@@ -1913,19 +1991,10 @@ impl VolumeIndex {
 		let root = self.source_root(source_id)?;
 		let db = self.read_store(source_id).await?;
 		let slot = self.resolve(&root);
-		let loaded = match fill_arena_from_store(&slot.index, &db, &root).await {
-			Ok(loaded) => loaded,
-			Err(error) => {
-				tracing::warn!(source = %source_id, %error, "could not rebuild the map from the store");
-				return None;
-			}
-		};
-		if loaded == 0 {
-			return Some(0);
+		let loaded = fill_source_from_store(&slot, &db, &root).await?;
+		if loaded > 0 {
+			self.announce_restored(&root);
 		}
-		slot.indexed_paths.write().insert(root.clone());
-		slot.restored.store(true, Ordering::Release);
-		self.announce_restored(&root);
 		Some(loaded)
 	}
 
@@ -2790,6 +2859,18 @@ mod tests {
 			}
 		}
 
+		/// A store rebuild lands on its own task; wait for the root to leave
+		/// the in-progress set.
+		async fn wait_for_rebuild(cache: &VolumeIndex, root: &Path) {
+			for _ in 0..600 {
+				if !cache.is_indexing(root) {
+					return;
+				}
+				tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+			}
+			panic!("the rebuild of {} did not finish", root.display());
+		}
+
 		/// Index `count` files under an already registered source and save
 		/// its snapshot, the way a completed walk leaves it. Store records
 		/// written before this call land on the registry row's count.
@@ -3273,6 +3354,7 @@ mod tests {
 				cache.ensure_restored(&root).await,
 				"the store refills the map the junk could not"
 			);
+			wait_for_rebuild(&cache, &root).await;
 			assert!(
 				!cache.restored_from_snapshot(&root),
 				"nothing came from the snapshot file"
@@ -3372,8 +3454,12 @@ mod tests {
 				cache.ensure_restored(&root).await,
 				"the map is rebuilt without a walk"
 			);
+			assert!(
+				cache.is_indexing(&root) || cache.arena_answers(&root),
+				"the rebuild is in progress or landed"
+			);
+			wait_for_rebuild(&cache, &root).await;
 			assert!(!cache.restored_from_snapshot(&root));
-			assert!(!cache.is_indexing(&root), "the rebuild dispatched no walk");
 			assert!(cache.sources().iter().any(|s| s.id == id));
 			assert!(
 				!snapshot_path.exists(),
@@ -3510,12 +3596,13 @@ mod tests {
 			let mut rows = 0usize;
 			let mut after = 0i64;
 			loop {
-				let (entries, last) = sd_store::read::all_entries_page(db.pool(), after, 2_000)
-					.await
-					.expect("page");
+				let (entries, last) =
+					sd_store::read::rebuild_entries_page(db.pool(), after, REBUILD_PAGE)
+						.await
+						.expect("page");
 				rows += entries.len();
 				after = last;
-				if entries.len() < 2_000 {
+				if entries.len() < REBUILD_PAGE {
 					break;
 				}
 			}

@@ -305,8 +305,18 @@ impl DirectoryListingQuery {
 		}
 
 		// No cached index or index doesn't cover this path
-		// Check if indexing is already in progress
+		// Check if indexing is already in progress. A source whose map is
+		// being rebuilt from its store is in this state for the length of
+		// the rebuild, and its records are already true, so the store
+		// answers until the arena does.
 		if cache.is_indexing(&local_path) {
+			if let Some(listing) = self.list_from_store(&context, &local_path).await {
+				tracing::debug!(
+					"Indexing in progress for {}; serving its store",
+					local_path.display()
+				);
+				return Ok(listing);
+			}
 			tracing::debug!("Indexing already in progress for {}", local_path.display());
 			return Ok(DirectoryListingOutput {
 				files: Vec::new(),
