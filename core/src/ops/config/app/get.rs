@@ -45,6 +45,9 @@ pub struct AppConfigOutput {
 	/// Replica transfers with paired devices
 	pub replication: ReplicationConfigOutput,
 
+	/// Library backup and restore
+	pub backup: BackupConfigOutput,
+
 	/// Daemon logging configuration
 	pub logging: LoggingConfigOutput,
 
@@ -93,6 +96,14 @@ pub struct ReplicationConfigOutput {
 	pub paused: bool,
 }
 
+/// Backup configuration output
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct BackupConfigOutput {
+	/// Displaced copies kept per library under `restore-trash/` after a
+	/// successful `restore --replace`.
+	pub restore_trash_keep: u32,
+}
+
 /// Logging configuration output
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LoggingConfigOutput {
@@ -133,6 +144,9 @@ impl From<&AppConfig> for AppConfigOutput {
 			replication: ReplicationConfigOutput {
 				max_bytes_per_sec: config.replication.max_bytes_per_sec,
 				paused: config.replication.paused,
+			},
+			backup: BackupConfigOutput {
+				restore_trash_keep: config.backup.restore_trash_keep,
 			},
 			services: ServiceConfigOutput {
 				networking_enabled: config.services.networking_enabled,

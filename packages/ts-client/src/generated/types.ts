@@ -139,6 +139,10 @@ mounts: MountsConfigOutput;
  */
 replication: ReplicationConfigOutput; 
 /**
+ * Library backup and restore
+ */
+backup: BackupConfigOutput; 
+/**
  * Daemon logging configuration
  */
 logging: LoggingConfigOutput; 
@@ -179,6 +183,16 @@ modified_ms: number | null; hidden: boolean | null };
  * Audio metadata extracted from FFmpeg
  */
 export type AudioMediaData = { uuid: string; duration_seconds: number | null; bit_rate: number | null; sample_rate: number | null; channels: string | null; codec: string | null; title: string | null; artist: string | null; album: string | null; album_artist: string | null; genre: string | null; year: number | null; track_number: number | null; disc_number: number | null; composer: string | null; publisher: string | null; copyright: string | null };
+
+/**
+ * Backup configuration output
+ */
+export type BackupConfigOutput = { 
+/**
+ * Displaced copies kept per library under `restore-trash/` after a
+ * successful `restore --replace`.
+ */
+restore_trash_keep: number };
 
 export type CaseRule = "lower" | "upper" | "title" | "keep";
 
@@ -2735,7 +2749,12 @@ on_source_catalogs?: UnplacedCatalog[];
  * Where the state the restore replaced was moved, so a bad restore can
  * be undone by hand. Absent for a new library.
  */
-replaced_state: string | null };
+replaced_state: string | null; 
+/**
+ * Older `restore-trash/` entries for this library removed once the
+ * restore succeeded, keeping `backup.restore_trash_keep` newest ones.
+ */
+pruned_state?: string[] };
 
 /**
  * Library-specific settings
@@ -5252,6 +5271,12 @@ mounts_cache_max_bytes?: number | null;
  * zero lifts it. Applies to transfers already in flight.
  */
 replication_max_bytes_per_sec?: number | null; 
+/**
+ * Displaced copies kept per library under `restore-trash/` after a
+ * successful `restore --replace`; the copy that restore just parked
+ * is kept whatever the number.
+ */
+backup_restore_trash_keep?: number | null; 
 /**
  * Whether networking is enabled
  */

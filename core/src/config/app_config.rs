@@ -49,6 +49,33 @@ pub struct AppConfig {
 	/// Replica transfers to and from paired devices
 	#[serde(default)]
 	pub replication: ReplicationConfig,
+
+	/// Library backup and restore
+	#[serde(default)]
+	pub backup: BackupConfig,
+}
+
+/// Settings for library backup and restore.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BackupConfig {
+	/// How many displaced copies `restore --replace` keeps per library
+	/// under `restore-trash/`, newest first. A successful restore prunes
+	/// the older ones; the copy that restore just parked is always kept,
+	/// even at zero, so a bad restore can still be undone by hand.
+	#[serde(default = "default_restore_trash_keep")]
+	pub restore_trash_keep: u32,
+}
+
+fn default_restore_trash_keep() -> u32 {
+	2
+}
+
+impl Default for BackupConfig {
+	fn default() -> Self {
+		Self {
+			restore_trash_keep: default_restore_trash_keep(),
+		}
+	}
 }
 
 /// Settings for the source replicas exchanged with paired devices.
@@ -289,6 +316,7 @@ impl AppConfig {
 			proxy_pairing: ProxyPairingConfig::default(),
 			mounts: MountsConfig::default(),
 			replication: ReplicationConfig::default(),
+			backup: BackupConfig::default(),
 		}
 	}
 
