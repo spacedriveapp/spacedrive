@@ -225,6 +225,7 @@ impl TestConfigBuilder {
 			proxy_pairing: crate::config::app_config::ProxyPairingConfig::default(),
 			mounts: crate::config::app_config::MountsConfig::default(),
 			replication: crate::config::app_config::ReplicationConfig::default(),
+			backup: crate::config::app_config::BackupConfig::default(),
 		}
 	}
 

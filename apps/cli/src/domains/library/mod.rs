@@ -42,8 +42,8 @@ pub enum LibraryCmd {
 		Every database is copied with VACUUM INTO, so the copy is consistent and the \
 		daemon is not paused. Every file is hashed into manifest.json; `backup verify` \
 		checks a backup against it without restoring.\n\n\
-		A `restore --replace` parks the state it displaces under <data dir>/restore-trash/. \
-		That directory is not pruned automatically; delete it once the restore is trusted."
+		A `restore --replace` parks the state it displaces under <data dir>/restore-trash/ \
+		and keeps the newest `backup.restore_trash_keep` entries per library (default 2)."
 	)]
 	Backup(LibraryBackupArgs),
 	/// Restore a library and its source stores from a backup
@@ -51,8 +51,9 @@ pub enum LibraryCmd {
 		long_about = "Restore a library and its source stores from a backup.\n\n\
 		Every file is checked against the manifest before the data directory is touched. \
 		--replace closes the library, swaps the backup in, and reopens it; the displaced \
-		state is kept under <data dir>/restore-trash/ (printed on success, never pruned \
-		automatically). --as-new creates the library and refuses to overwrite anything."
+		state is kept under <data dir>/restore-trash/ (printed on success); older entries \
+		for the same library beyond `backup.restore_trash_keep` (default 2) are pruned once \
+		the restore succeeds. --as-new creates the library and refuses to overwrite anything."
 	)]
 	Restore(LibraryRestoreArgs),
 	/// Library sync setup commands
@@ -331,6 +332,9 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
 				}
 				if let Some(trash) = &o.replaced_state {
 					println!("Replaced state kept at {}", trash.display());
+				}
+				for pruned in &o.pruned_state {
+					println!("Pruned older replaced state {}", pruned.display());
 				}
 			});
 		}

@@ -18,6 +18,7 @@ use super::input::{LibraryRestoreInput, RestoreMode};
 use super::manifest::BackupManifest;
 use super::output::{LibraryRestoreOutput, UnplacedCatalog};
 use super::snapshot;
+use super::trash;
 use super::verify::OpenedBackup;
 use crate::ops::indexing::sources::StorePlacement;
 use crate::{
@@ -316,6 +317,19 @@ impl LibraryRestoreAction {
 			))
 		})?;
 
+		// Only now, with the restored library open, is the parked state
+		// surplus; a failure above leaves every entry for the undo.
+		let keep = crate::config::AppConfig::load_from(&context.data_dir)
+			.map(|config| config.backup.restore_trash_keep)
+			.unwrap_or_else(|_| crate::config::BackupConfig::default().restore_trash_keep);
+		let pruned_state = trash::prune(
+			&context.data_dir.join("restore-trash"),
+			target_id,
+			keep,
+			replaced.then_some(trash.as_path()),
+		)
+		.await;
+
 		let output = LibraryRestoreOutput {
 			library_id: library.id(),
 			library_name: library.name().await,
@@ -325,12 +339,14 @@ impl LibraryRestoreAction {
 			sources,
 			on_source_catalogs,
 			replaced_state: replaced.then_some(trash),
+			pruned_state,
 		};
 		tracing::info!(
 			library = %output.library_id,
 			path = %output.path.display(),
 			sources = output.sources,
 			replaced = ?output.replaced_state,
+			pruned = ?output.pruned_state,
 			"library restored"
 		);
 		Ok(output)

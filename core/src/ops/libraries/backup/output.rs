@@ -88,6 +88,10 @@ pub struct LibraryRestoreOutput {
 	/// Where the state the restore replaced was moved, so a bad restore can
 	/// be undone by hand. Absent for a new library.
 	pub replaced_state: Option<PathBuf>,
+	/// Older `restore-trash/` entries for this library removed once the
+	/// restore succeeded, keeping `backup.restore_trash_keep` newest ones.
+	#[serde(default)]
+	pub pruned_state: Vec<PathBuf>,
 }
 
 /// A restored catalog that is not where its source reads it.
