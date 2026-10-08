@@ -63,7 +63,11 @@ export function DriveSourceCard({
 				</div>
 				{!source.attached && (
 					<span className="bg-app-selected/40 text-ink-faint rounded-full px-2 py-0.5 text-[10px] font-medium">
-						offline
+						{source.catalog === "offline_copy"
+							? "offline copy"
+							: source.catalog === "away"
+								? "catalog on the drive"
+								: "offline"}
 					</span>
 				)}
 			</div>

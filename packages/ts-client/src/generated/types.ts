@@ -182,6 +182,8 @@ export type AudioMediaData = { uuid: string; duration_seconds: number | null; bi
 
 export type CaseRule = "lower" | "upper" | "title" | "keep";
 
+export type CatalogAvailability = "library" | "drive" | "offline_copy" | "away";
+
 export type ChangeKind = { type: "create"; size: number } | { type: "create_directory" } | { type: "replace"; existing_size: number; incoming_size: number; reason: ReplaceReason } | 
 /**
  * A directory on both sides; the plan continues inside it.
@@ -2061,7 +2063,14 @@ directory: string | null;
 /**
  * The source's thumbnail cache file within that directory
  */
-thumbs_path: string | null };
+thumbs_path: string | null; 
+/**
+ * Where the catalog can be read from right now: `library` for an
+ * in-library store, `drive` for an on-source store whose drive is
+ * attached, `offline_copy` while the drive is away and the library's
+ * copy answers, and `away` when the drive is away and there is no copy.
+ */
+catalog?: CatalogAvailability };
 
 /**
  * Status of the volume index

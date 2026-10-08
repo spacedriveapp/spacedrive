@@ -24,6 +24,22 @@ pub struct IndexSourceInfo {
 	pub directory: Option<PathBuf>,
 	/// The source's thumbnail cache file within that directory
 	pub thumbs_path: Option<PathBuf>,
+	/// Where the catalog can be read from right now: `library` for an
+	/// in-library store, `drive` for an on-source store whose drive is
+	/// attached, `offline_copy` while the drive is away and the library's
+	/// copy answers, and `away` when the drive is away and there is no copy.
+	#[serde(default)]
+	pub catalog: CatalogAvailability,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum CatalogAvailability {
+	#[default]
+	Library,
+	Drive,
+	OfflineCopy,
+	Away,
 }
 
 /// A root whose OS watch subscription was refused

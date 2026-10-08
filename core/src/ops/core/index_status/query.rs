@@ -177,6 +177,19 @@ impl CoreQuery for IndexStatusQuery {
 				total_bytes: s.total_bytes,
 				directory: s.directory,
 				thumbs_path: s.thumbs_path,
+				catalog: {
+					use super::output::CatalogAvailability;
+					use crate::ops::indexing::sources::StorePlacement;
+					let on_source = cache
+						.source_config(s.id)
+						.is_some_and(|c| c.placement == StorePlacement::OnSource);
+					match (on_source, s.attached, cache.offline_copy_wanted(s.id)) {
+						(false, _, _) => CatalogAvailability::Library,
+						(true, true, _) => CatalogAvailability::Drive,
+						(true, false, true) => CatalogAvailability::OfflineCopy,
+						(true, false, false) => CatalogAvailability::Away,
+					}
+				},
 			})
 			.collect();
 
