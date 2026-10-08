@@ -67,12 +67,15 @@ jobs:
         run: ./scripts/setup.sh
 
       # The ZFS locked volumes acceptance suite builds a file-backed pool.
-      # The suite skips with a reason when the module cannot load, so a
-      # runner kernel without it fails nothing here.
+      # The Blacksmith kernel ships no zfs module, so the suite skips with a
+      # reason here and runs for real in the zfs job below; the step stays
+      # so a runner image that gains the module runs it here too.
       - name: Install ZFS
         if: matrix.suite.name == 'acceptance'
         run: |
           sudo apt-get install -y zfsutils-linux
+          uname -r; ls /lib/modules/"$(uname -r)" || true
+          apt-cache policy "linux-headers-$(uname -r)" "linux-modules-extra-$(uname -r)" || true
           sudo modprobe zfs || echo "zfs kernel module unavailable; the ZFS suite will skip"
 
       - name: Setup Bun
@@ -85,3 +88,53 @@ jobs:
 
       - name: Run tests
         run: ${{ matrix.suite.run }}
+
+  # The ZFS half of the locked volumes acceptance (docs/core/acceptance/
+  # volumes.md rows 5 and 6) needs a kernel with the zfs module, which the
+  # Blacksmith image lacks and GitHub's ubuntu-24.04 image carries in
+  # linux-modules-extra. One suite, so the cold build is the whole cost.
+  zfs:
+    name: Core Tests (zfs acceptance, ubuntu-24.04)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          restore-cache: "false"
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: core-tests-zfs
+
+      # The hosted runner's preinstalled libunwind blocks the gstreamer dev
+      # package setup.sh installs, as nightly.yml works around too.
+      - name: Install system dependencies
+        run: |
+          sudo apt-get remove libunwind-* || true
+          ./scripts/setup.sh
+
+      - name: Install ZFS
+        run: |
+          sudo apt-get install -y zfsutils-linux
+          sudo modprobe zfs
+          zfs version
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: "1.3.4"
+
+      - name: Install TypeScript dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run the ZFS locked volumes suite
+        run: RUST_LOG=sd_core=info cargo test -p sd-core --test zfs_locked_volumes_acceptance_test -- --nocapture
