@@ -346,6 +346,7 @@ mod tests {
 			placement: None,
 			store_path: None,
 			settings: None,
+			offline_copy: None,
 		}
 	}
 
