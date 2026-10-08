@@ -137,4 +137,4 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Run the ZFS locked volumes suite
-        run: RUST_LOG=sd_core=info cargo test -p sd-core --test zfs_locked_volumes_acceptance_test -- --nocapture
+        run: RUST_LOG=sd_core=info cargo test -p sd-core --test zfs_locked_volumes_acceptance_test -- --test-threads=1 --nocapture

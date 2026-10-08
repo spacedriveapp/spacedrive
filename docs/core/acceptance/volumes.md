@@ -14,20 +14,22 @@ How the suite runs:
   left in place, which is the shape of a locked ZFS dataset or an unplugged
   drive. The helper skips with a reason where there is no passwordless sudo or
   no loop device; the Blacksmith runner has both.
-- `core/tests/zfs_locked_volumes_acceptance_test.rs` runs in the same job. It
-  builds a file-backed pool under `/tmp` mounted under `/mnt` with one
-  encrypted dataset keyed from a passphrase file, tracks the dataset, locks it
-  (`zfs unmount` and `zfs unload-key`) and unlocks it (`zfs load-key` and
-  `zfs mount`) under the running daemon. The job installs `zfsutils-linux`
-  and loads the module; the suite skips with a reason where there is no
-  passwordless sudo, no zfs userland or no zfs kernel module.
+- `core/tests/zfs_locked_volumes_acceptance_test.rs` runs for real in the
+  `zfs` job of `core_tests.yml` on GitHub's `ubuntu-24.04` image, whose kernel
+  carries the zfs module; the Blacksmith kernel has none, so in the
+  `acceptance` job the suite skips with that reason. It builds a file-backed
+  pool under `/tmp` mounted under `/mnt` with one encrypted dataset keyed from
+  a passphrase file, tracks the dataset, locks it (`zfs unmount` and
+  `zfs unload-key`) and unlocks it (`zfs load-key` and `zfs mount`) under the
+  running daemon. The suite skips with a reason where there is no passwordless
+  sudo, no zfs userland or no zfs kernel module.
 - The colocated tests run in the `--lib` suite of
   `cargo xtask test-core --unit`.
 
 Status values follow `source-runtime.md`. `CI` marks a row whose test runs
 for real only on the CI runner: the cloud machines the crew builds on have no
 ZFS kernel module, so the ZFS suite skips there and its status is read from
-the acceptance job.
+the `zfs` job.
 
 ## Matrix
 
