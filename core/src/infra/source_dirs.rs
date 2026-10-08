@@ -30,6 +30,9 @@ const THUMBS_FILE: &str = "thumbs.pvcache";
 const THUMBSTRIPS_DIR: &str = "thumbstrips";
 const SIDECARS_FILE: &str = "sidecars.db";
 const BLOCKS_DIR: &str = "blocks";
+const OFFLINE_COPY_FILE: &str = "offline-copy.db";
+const OFFLINE_COPY_MANIFEST: &str = "offline-copy.json";
+const OFFLINE_COPY_PART: &str = "offline-copy.db.part";
 
 /// Resolves the on-disk layout for per-source storage.
 #[derive(Debug, Clone)]
@@ -120,6 +123,26 @@ impl SourceDirs {
 	/// are what a peer replicating the source copies.
 	pub fn sidecars_file(&self, id: Uuid) -> PathBuf {
 		self.source_dir(id).join(SIDECARS_FILE)
+	}
+
+	/// The library's replica of a store placed on its source: a consistent
+	/// copy of the on-drive `data.db`, kept here so the catalog answers
+	/// while the drive is away. Its own file name, never `data.db`, so the
+	/// in-library layout of a source whose store lives on the drive is
+	/// never mistaken for a store this machine writes or adopts.
+	pub fn offline_copy_file(&self, id: Uuid) -> PathBuf {
+		self.source_dir(id).join(OFFLINE_COPY_FILE)
+	}
+
+	/// What the offline copy was taken from and when, beside the copy.
+	pub fn offline_copy_manifest(&self, id: Uuid) -> PathBuf {
+		self.source_dir(id).join(OFFLINE_COPY_MANIFEST)
+	}
+
+	/// Where a copy is written before it is validated and renamed into
+	/// place, so a failed export never replaces a good copy.
+	pub fn offline_copy_part(&self, id: Uuid) -> PathBuf {
+		self.source_dir(id).join(OFFLINE_COPY_PART)
 	}
 
 	/// A source's streamed block cache. Inside the source's directory so

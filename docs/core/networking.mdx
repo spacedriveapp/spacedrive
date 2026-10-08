@@ -161,6 +161,24 @@ emits `ReplicationProgress { transfer }` about once a second per transfer
 and once more with `finished: true` when the transfer leaves the active set,
 complete or stopped.
 
+### Offline copies
+
+A source whose catalog is placed on its drive (`StorePlacement::OnSource`)
+with `keep_offline_copy` on keeps a replica of that store in the library,
+at `<data>/sources/<id>/offline-copy.db`, under the same rules as a peer
+replica: the on-drive store is the origin and the only writer, the copy is
+a `VACUUM INTO` export named by the origin's revision, and it is validated
+before a rename publishes it. Only the transport differs: the origin is a
+local file, so there is no byterange stream, nothing to resume, and the
+bandwidth cap and pause switch do not apply. The copy is refreshed on the
+same 30 s cadence once the origin's revision has held for one poll, at once
+when a walk lands, and regardless after ten minutes behind. While the drive
+is away the library's store reads answer from the copy and `sources.list`
+reports it under `offline_copy` (`present`, `serving`, `last_synced`,
+`behind_by`); `sd sources list` shows `detached, offline copy`. Turning the
+setting off (`sd sources update <id> --keep-offline-copy false`) removes
+the copy only once the origin store opens again.
+
 ## Sync traffic
 
 Library assertions and source generations use separate streams and watermarks.

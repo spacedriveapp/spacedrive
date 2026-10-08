@@ -107,6 +107,10 @@ pub struct SourceUpdateArgs {
 	/// narrowing removes nothing, since hiding is view-time.
 	#[arg(long)]
 	pub unfiltered: Option<bool>,
+	/// For an on-source catalog, keep (true) or drop (false) the library's
+	/// offline copy. Dropping it refuses while the drive is away.
+	#[arg(long)]
+	pub keep_offline_copy: Option<bool>,
 }
 
 pub async fn run(ctx: &Context, cmd: SourceCmd) -> Result<()> {
@@ -175,6 +179,7 @@ pub async fn run(ctx: &Context, cmd: SourceCmd) -> Result<()> {
 				source_id: args.source_id,
 				name: args.name,
 				unfiltered: args.unfiltered,
+				keep_offline_copy: args.keep_offline_copy,
 			};
 
 			let out: UpdateSourceOutput = execute_action!(ctx, input);
@@ -186,6 +191,14 @@ pub async fn run(ctx: &Context, cmd: SourceCmd) -> Result<()> {
 						"everything"
 					} else {
 						"default rules"
+					}
+				);
+				println!(
+					"offline copy: {}",
+					if o.keep_offline_copy {
+						"kept"
+					} else {
+						"not kept"
 					}
 				);
 				if let Some(job) = o.rewalk_job {
@@ -259,9 +272,24 @@ pub async fn run(ctx: &Context, cmd: SourceCmd) -> Result<()> {
 fn source_row(source: &SourceInfo) -> Vec<String> {
 	let mut status = if source.attached {
 		source.status.clone()
+	} else if source
+		.offline_copy
+		.as_ref()
+		.is_some_and(|copy| copy.serving)
+	{
+		format!("{} (detached, offline copy)", source.status)
 	} else {
 		format!("{} (detached)", source.status)
 	};
+	if let Some(copy) = source.offline_copy.as_ref().filter(|copy| copy.present) {
+		if source.attached {
+			status = match copy.behind_by {
+				Some(0) => format!("{status}: offline copy current"),
+				Some(behind) => format!("{status}: offline copy behind by {behind}"),
+				None => format!("{status}: offline copy"),
+			};
+		}
+	}
 	if let Some(transfer) = &source.transfer {
 		status = format!(
 			"{status}: fetching {}",
@@ -318,6 +346,7 @@ mod tests {
 			placement: None,
 			store_path: None,
 			settings: None,
+			offline_copy: None,
 		}
 	}
 

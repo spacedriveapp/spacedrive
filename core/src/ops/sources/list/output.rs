@@ -63,6 +63,12 @@ pub struct SourceInfo {
 	/// keeps. Absent for an adapter source and a replica, like `placement`.
 	#[serde(default)]
 	pub settings: Option<crate::ops::indexing::sources::SourceConfig>,
+	/// The library's offline copy of a store placed on its source: whether
+	/// one exists, whether reads answer from it right now, when it was
+	/// taken and how far behind the origin it is. Absent unless the
+	/// catalog lives on the source.
+	#[serde(default)]
+	pub offline_copy: Option<crate::service::mounts::offline::OfflineCopyInfo>,
 }
 
 impl SourceInfo {
@@ -116,6 +122,7 @@ impl SourceInfo {
 			placement,
 			store_path: None,
 			settings,
+			offline_copy: None,
 		}
 	}
 
@@ -156,6 +163,7 @@ impl SourceInfo {
 			placement: None,
 			store_path: None,
 			settings: None,
+			offline_copy: None,
 		}
 	}
 
@@ -190,6 +198,7 @@ impl SourceInfo {
 			placement: None,
 			store_path: None,
 			settings: None,
+			offline_copy: None,
 		}
 	}
 
@@ -226,6 +235,7 @@ impl SourceInfo {
 			placement: None,
 			store_path: None,
 			settings: None,
+			offline_copy: None,
 		}
 	}
 }

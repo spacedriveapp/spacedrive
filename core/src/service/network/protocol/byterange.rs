@@ -987,7 +987,7 @@ async fn store_generation(
 /// Fold a store revision into a generation word. The store id takes part so
 /// a store recreated from scratch never matches a copy of its predecessor.
 /// Zero is reserved for "nothing to describe", which always transfers.
-fn revision_generation(revision: sd_store::Revision) -> u64 {
+pub(crate) fn revision_generation(revision: sd_store::Revision) -> u64 {
 	let mut hasher = blake3::Hasher::new();
 	hasher.update(revision.store_id.as_bytes());
 	hasher.update(&revision.value.to_le_bytes());

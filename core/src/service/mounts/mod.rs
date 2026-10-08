@@ -14,6 +14,7 @@
 
 pub mod attach;
 pub mod cache;
+pub mod offline;
 pub mod peer;
 pub mod provider;
 pub mod replication;
@@ -97,7 +98,8 @@ pub async fn start(context: Arc<CoreContext>, cache_max_bytes: u64) -> anyhow::R
 	}
 
 	tokio::spawn(watch_peers(context.clone()));
-	tokio::spawn(refresh_peers(context));
+	tokio::spawn(refresh_peers(context.clone()));
+	tokio::spawn(offline::watch(context));
 	Ok(addr)
 }
 

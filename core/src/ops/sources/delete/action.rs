@@ -73,6 +73,15 @@ impl LibraryAction for DeleteSourceAction {
 
 		let mut catalog_deleted = false;
 		if self.input.delete_catalog {
+			// The library's offline copy is part of the catalog being
+			// deleted; without the flag it stays beside the sidecars.
+			if filesystem.is_some() {
+				crate::service::mounts::offline::delete_with_catalog(
+					context.volume_index(),
+					source_id,
+				)
+				.await;
+			}
 			match &filesystem {
 				Some((_, Some(dir))) => match tokio::fs::remove_dir_all(dir).await {
 					Ok(()) => catalog_deleted = true,
