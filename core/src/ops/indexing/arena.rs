@@ -291,7 +291,7 @@ impl Arena {
 		uuid: Uuid,
 		metadata: EntryMetadata,
 	) -> std::io::Result<(Option<ContentKind>, Uuid)> {
-		self.add_entry_with_registry(path, Some(uuid), metadata, FileTypeRegistry::builtin())
+		self.add_entry_with_registry(path, Some(uuid), metadata, &FileTypeRegistry::current())
 	}
 
 	fn add_entry_with_registry(
@@ -451,14 +451,10 @@ impl Arena {
 		entries: Vec<(PathBuf, Option<Uuid>, EntryMetadata)>,
 	) -> std::io::Result<Vec<(Option<ContentKind>, Uuid)>> {
 		let mut results = Vec::with_capacity(entries.len());
+		let registry = FileTypeRegistry::current();
 
 		for (path, uuid, metadata) in entries {
-			results.push(self.add_entry_with_registry(
-				path,
-				uuid,
-				metadata,
-				FileTypeRegistry::builtin(),
-			)?);
+			results.push(self.add_entry_with_registry(path, uuid, metadata, &registry)?);
 		}
 
 		Ok(results)

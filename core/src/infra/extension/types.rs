@@ -6,6 +6,8 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 
+use crate::filetype::{kinds::validate_kinds, ExtensionKind, FileTypeRegistry};
+
 /// Extension manifest (`manifest.json`).
 ///
 /// Unknown fields are refused rather than ignored, so a grant the host does
@@ -44,6 +46,11 @@ pub struct ExtensionManifest {
 	/// Configuration schema (JSON Schema)
 	#[serde(default)]
 	pub config_schema: Option<serde_json::Value>,
+
+	/// File kinds this extension declares, folded into the file type
+	/// registry while it is loaded. See `crate::filetype::kinds`.
+	#[serde(default)]
+	pub kinds: Vec<ExtensionKind>,
 }
 
 /// Permission declaration in manifest.
@@ -102,6 +109,12 @@ impl ExtensionManifest {
 				return Err(format!(
 					"read_records glob {glob:?} is not understood; only a trailing `*.ext` or `*.{{a,b}}` is honored"
 				));
+			}
+		}
+		validate_kinds(&self.kinds)?;
+		for kind in &self.kinds {
+			if let Some(reason) = FileTypeRegistry::builtin().refusal_for(kind) {
+				return Err(reason);
 			}
 		}
 		Ok(())
@@ -223,6 +236,15 @@ mod tests {
 		assert!(perms.can_read_sidecar("exif"));
 		assert!(!perms.can_write_sidecar("exif"));
 		assert_eq!(manifest.models.len(), 2);
+		assert_eq!(
+			manifest.validate(),
+			Ok(()),
+			"photos' kinds load against the built-in table"
+		);
+		assert_eq!(
+			manifest.kinds[0].id(&manifest.id),
+			"com.spacedrive.photos:raw"
+		);
 	}
 
 	#[test]
@@ -258,6 +280,46 @@ mod tests {
 			glob: Some("*".into()),
 		});
 		assert!(manifest.validate().is_err());
+	}
+
+	#[test]
+	fn the_loader_refuses_a_kind_that_redefines_a_built_in_extension() {
+		let mut manifest: ExtensionManifest = serde_json::from_str(
+			r#"{"id":"ok","name":"x","version":"1","wasm_file":"x.wasm",
+			"kinds":[{"name":"raw","parent":"image","extensions":["cr2","dng"],
+			"preview":{"renderer":"image"}}]}"#,
+		)
+		.unwrap();
+		assert_eq!(
+			manifest.validate(),
+			Ok(()),
+			"refining .dng under image is allowed"
+		);
+
+		manifest.kinds[0].extensions = vec!["pdf".into()];
+		let err = manifest.validate().unwrap_err();
+		assert!(err.contains(".pdf") && err.contains("document"), "{err}");
+
+		manifest.kinds[0].extensions = vec!["cr2".into()];
+		manifest.kinds[0].parent = crate::domain::ContentKind::Unknown;
+		assert!(manifest.validate().unwrap_err().contains("parent"));
+
+		let twice = serde_json::from_str::<ExtensionManifest>(
+			r#"{"id":"ok","name":"x","version":"1","wasm_file":"x.wasm",
+			"kinds":[{"name":"raw","parent":"image","extensions":["cr2"]},
+			{"name":"raw","parent":"image","extensions":["nef"]}]}"#,
+		)
+		.unwrap();
+		assert!(twice.validate().unwrap_err().contains("twice"));
+
+		let unknown_field = serde_json::from_str::<ExtensionManifest>(
+			r#"{"id":"ok","name":"x","version":"1","wasm_file":"x.wasm",
+			"kinds":[{"name":"raw","parent":"image","extensions":["cr2"],"icon":"x"}]}"#,
+		);
+		assert!(unknown_field
+			.unwrap_err()
+			.to_string()
+			.contains("unknown field"));
 	}
 
 	#[test]

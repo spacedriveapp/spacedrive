@@ -12,9 +12,11 @@ use thiserror::Error;
 use uuid::Uuid;
 
 pub mod builtin;
+pub mod kinds;
 pub mod magic;
 pub mod registry;
 
+pub use kinds::{ExtensionKind, KindConflict, MagicPatternSpec, PreviewSpec};
 pub use magic::{MagicByte, MagicBytePattern};
 pub use registry::FileTypeRegistry;
 
@@ -47,6 +49,11 @@ pub struct FileType {
 
 	/// Extensible metadata
 	pub metadata: JsonValue,
+
+	/// The kind id (`<extension id>:<name>`) when an extension declared this
+	/// type; `None` for every built-in type. `category` is then the parent.
+	#[serde(default)]
+	pub kind_name: Option<String>,
 }
 
 /// Result of file type identification

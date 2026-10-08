@@ -50,8 +50,6 @@ pub struct CoreContext {
 	pub external_tools: Arc<ExternalTools>,
 	// Remote job cache for cross-device job visibility
 	pub remote_job_cache: Arc<RemoteJobCache>,
-	// File type registry (loaded once at startup, never changes)
-	pub file_type_registry: Arc<FileTypeRegistry>,
 	// Job logging configuration
 	pub job_logging_config: Option<JobLoggingConfig>,
 	pub job_logs_dir: Option<PathBuf>,
@@ -109,7 +107,6 @@ impl CoreContext {
 			thumbs,
 			external_tools,
 			remote_job_cache: Arc::new(RemoteJobCache::new()),
-			file_type_registry: Arc::new(FileTypeRegistry::new()),
 			job_logging_config: None,
 			job_logs_dir: None,
 			data_dir,
@@ -122,9 +119,10 @@ impl CoreContext {
 		&self.volume_index
 	}
 
-	/// Get the file type registry
-	pub fn file_type_registry(&self) -> &Arc<FileTypeRegistry> {
-		&self.file_type_registry
+	/// The file type registry every lookup shares: the built-in types plus
+	/// the kinds of every loaded extension, swapped by the plugin manager.
+	pub fn file_type_registry(&self) -> Arc<FileTypeRegistry> {
+		FileTypeRegistry::current()
 	}
 
 	/// Get the library manager

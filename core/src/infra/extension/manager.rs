@@ -17,6 +17,8 @@ use super::host_functions::{self, host_spacedrive_log, JobBridge, PluginEnv};
 use super::job_registry::ExtensionJobRegistry;
 use super::model_registry::ExtensionModelRegistry;
 use super::types::{ExtensionManifest, LoadedPlugin};
+use crate::filetype::{ExtensionKind, FileTypeRegistry};
+use crate::ops::indexing::VolumeIndex;
 
 #[derive(Error, Debug)]
 pub enum PluginError {
@@ -135,16 +137,58 @@ pub struct PluginManager {
 	plugin_dir: PathBuf,
 	job_registry: Arc<ExtensionJobRegistry>,
 	model_registry: Arc<ExtensionModelRegistry>,
+	/// The kinds of every loaded extension, in load order, which is the
+	/// order the file type registry resolves a contested file extension in.
+	kinds: Vec<(String, Vec<ExtensionKind>)>,
+	/// Where open stores are found, so a load with kinds can name the rows
+	/// those stores already hold. `None` only in tests of the manager alone.
+	volume_index: Option<Arc<VolumeIndex>>,
 }
 
 impl PluginManager {
 	/// Create new plugin manager
-	pub fn new(plugin_dir: PathBuf) -> Self {
+	pub fn new(plugin_dir: PathBuf, volume_index: Option<Arc<VolumeIndex>>) -> Self {
 		Self {
 			plugins: Arc::new(RwLock::new(HashMap::new())),
 			plugin_dir,
 			job_registry: Arc::new(ExtensionJobRegistry::new()),
 			model_registry: Arc::new(ExtensionModelRegistry::new()),
+			kinds: Vec::new(),
+			volume_index,
+		}
+	}
+
+	/// Put this extension's kinds into the registry every lookup uses, and
+	/// name the rows open stores already hold after them.
+	async fn add_kinds(&mut self, plugin_id: &str, kinds: &[ExtensionKind]) {
+		if kinds.is_empty() {
+			return;
+		}
+		self.kinds.push((plugin_id.to_string(), kinds.to_vec()));
+		let registry = FileTypeRegistry::install_current(&self.kinds);
+		for conflict in registry.conflicts() {
+			if conflict.kind.starts_with(&format!("{plugin_id}:")) {
+				tracing::warn!(
+					extension = %plugin_id,
+					file_extension = %conflict.extension,
+					kind = %conflict.kind,
+					claimed_by = %conflict.claimed_by,
+					"file extension already claimed by an earlier extension; claim dropped"
+				);
+			}
+		}
+		if let Some(volume_index) = &self.volume_index {
+			crate::ops::indexing::kinds::name_kinds_in_open_stores(volume_index).await;
+		}
+	}
+
+	/// Take this extension's kinds back out of the registry. Rows already
+	/// named keep their name; readers fall back to the parent kind.
+	fn remove_kinds(&mut self, plugin_id: &str) {
+		let before = self.kinds.len();
+		self.kinds.retain(|(id, _)| id != plugin_id);
+		if self.kinds.len() != before {
+			FileTypeRegistry::install_current(&self.kinds);
 		}
 	}
 
@@ -177,12 +221,19 @@ impl PluginManager {
 			}
 		};
 
-		let mut loaded = Vec::new();
+		// Sorted, so the extension that wins a contested file extension is
+		// the same on every machine rather than whichever the filesystem
+		// listed first.
+		let mut dir_names = Vec::new();
 		while let Ok(Some(entry)) = dirs.next_entry().await {
-			if !entry.path().join("manifest.json").is_file() {
-				continue;
+			if entry.path().join("manifest.json").is_file() {
+				dir_names.push(entry.file_name().to_string_lossy().to_string());
 			}
-			let dir_name = entry.file_name().to_string_lossy().to_string();
+		}
+		dir_names.sort();
+
+		let mut loaded = Vec::new();
+		for dir_name in dir_names {
 			match self.load_plugin(&dir_name).await {
 				Ok(id) => loaded.push(id),
 				Err(e) => tracing::error!(extension = %dir_name, "Extension did not load: {e}"),
@@ -395,7 +446,9 @@ impl PluginManager {
 			"Extension loaded"
 		);
 
+		let kinds = plugin.manifest.kinds.clone();
 		self.plugins.write().await.insert(plugin_id.clone(), plugin);
+		self.add_kinds(&plugin_id, &kinds).await;
 		Ok(plugin_id)
 	}
 
@@ -411,6 +464,7 @@ impl PluginManager {
 			.ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))?;
 		self.job_registry.unregister_extension_jobs(plugin_id);
 		self.model_registry.unregister_extension(plugin_id);
+		self.remove_kinds(plugin_id);
 
 		// A trapped guest cannot be trusted to run cleanup, and a guest still
 		// running a job keeps its instance alive until that job returns; the
@@ -465,10 +519,12 @@ impl PluginManager {
 					},
 				);
 			}
+			let kinds = previous.manifest.kinds.clone();
 			self.plugins
 				.write()
 				.await
 				.insert(plugin_id.to_string(), previous);
+			self.add_kinds(plugin_id, &kinds).await;
 			return Err(e);
 		}
 		Ok(())

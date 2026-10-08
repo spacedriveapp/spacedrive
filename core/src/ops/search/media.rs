@@ -128,7 +128,7 @@ impl LibraryQuery for MediaSearchQuery {
 		};
 
 		let registry = context.file_type_registry();
-		let extensions = media_extensions(registry, &input.filters);
+		let extensions = media_extensions(&registry, &input.filters);
 		if extensions.is_empty() {
 			return Ok(finished);
 		}
@@ -159,7 +159,7 @@ impl LibraryQuery for MediaSearchQuery {
 			needle: input.query.to_lowercase(),
 			filters: &input.filters,
 			tags: tags.as_ref(),
-			registry,
+			registry: &registry,
 			extensions: &extensions,
 			device_slug: crate::device::get_current_device_slug(),
 		};
@@ -534,6 +534,7 @@ mod tests {
 			sampled_hash: None,
 			integrity_hash: None,
 			content_kind: None,
+			content_kind_name: None,
 			content_error: None,
 		}
 	}

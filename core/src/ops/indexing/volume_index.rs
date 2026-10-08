@@ -1352,6 +1352,11 @@ impl VolumeIndex {
 		Some(store)
 	}
 
+	/// Every writable store this machine has opened so far.
+	pub fn open_stores(&self) -> Vec<Arc<SourceStore>> {
+		self.stores.read().values().cloned().collect()
+	}
+
 	/// A read-only handle to a source's store, cached per source.
 	///
 	/// `None` means the source has no store on disk or it refused to open,
