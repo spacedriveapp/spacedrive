@@ -92,6 +92,13 @@ place. `--as-new` creates the library and refuses to overwrite anything;
 displaced store files to `restore-trash/<library>-<time>/`, swaps the backup
 in, and reopens it. Pass `--library-id` to restore under a different id.
 
+Once the restored library is open, the restore prunes `restore-trash/` down
+to the newest `backup.restore_trash_keep` entries for that library (default
+2) and prints what it removed. The entry it just parked is always kept, so
+even `sd config set backup.restore_trash_keep 0` leaves one way back from
+the restore that just ran. Other libraries' entries are not touched, and a
+restore that fails prunes nothing.
+
 A library that other devices are members of is not replaced without
 `--force`. Their device rows and the sync watermarks recording what each
 peer was sent live in the library; an older copy rewinds both, so peers

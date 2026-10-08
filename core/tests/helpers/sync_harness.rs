@@ -72,6 +72,7 @@ impl TestConfigBuilder {
 			},
 			proxy_pairing: sd_core::config::app_config::ProxyPairingConfig::default(),
 			mounts: sd_core::config::app_config::MountsConfig::default(),
+			backup: sd_core::config::app_config::BackupConfig::default(),
 			replication: sd_core::config::app_config::ReplicationConfig::default(),
 		};
 

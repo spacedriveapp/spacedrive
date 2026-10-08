@@ -6,6 +6,7 @@ pub mod manifest;
 pub mod output;
 pub mod restore;
 pub mod snapshot;
+pub mod trash;
 pub mod verify;
 
 pub use action::LibraryBackupAction;

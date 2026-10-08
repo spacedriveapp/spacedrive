@@ -139,6 +139,10 @@ mounts: MountsConfigOutput;
  */
 replication: ReplicationConfigOutput; 
 /**
+ * Library backup and restore
+ */
+backup: BackupConfigOutput; 
+/**
  * Daemon logging configuration
  */
 logging: LoggingConfigOutput; 
@@ -179,6 +183,16 @@ modified_ms: number | null; hidden: boolean | null };
  * Audio metadata extracted from FFmpeg
  */
 export type AudioMediaData = { uuid: string; duration_seconds: number | null; bit_rate: number | null; sample_rate: number | null; channels: string | null; codec: string | null; title: string | null; artist: string | null; album: string | null; album_artist: string | null; genre: string | null; year: number | null; track_number: number | null; disc_number: number | null; composer: string | null; publisher: string | null; copyright: string | null };
+
+/**
+ * Backup configuration output
+ */
+export type BackupConfigOutput = { 
+/**
+ * Displaced copies kept per library under `restore-trash/` after a
+ * successful `restore --replace`.
+ */
+restore_trash_keep: number };
 
 export type CaseRule = "lower" | "upper" | "title" | "keep";
 
@@ -2630,13 +2644,6 @@ delete_data: boolean };
 export type LibraryDeleteOutput = { library_id: string; name: string };
 
 /**
- * Input for exporting a library
- */
-export type LibraryExportInput = { library_id: string; export_path: string; include_thumbnails: boolean; include_previews: boolean };
-
-export type LibraryExportOutput = { library_id: string; library_name: string; export_path: string; exported_files: string[] };
-
-/**
  * Information about a library for listing purposes
  */
 export type LibraryInfo = { 
@@ -2742,7 +2749,12 @@ on_source_catalogs?: UnplacedCatalog[];
  * Where the state the restore replaced was moved, so a bad restore can
  * be undone by hand. Absent for a new library.
  */
-replaced_state: string | null };
+replaced_state: string | null; 
+/**
+ * Older `restore-trash/` entries for this library removed once the
+ * restore succeeded, keeping `backup.restore_trash_keep` newest ones.
+ */
+pruned_state?: string[] };
 
 /**
  * Library-specific settings
@@ -5260,6 +5272,12 @@ mounts_cache_max_bytes?: number | null;
  */
 replication_max_bytes_per_sec?: number | null; 
 /**
+ * Displaced copies kept per library under `restore-trash/` after a
+ * successful `restore --replace`; the copy that restore just parked
+ * is kept whatever the number.
+ */
+backup_restore_trash_keep?: number | null; 
+/**
  * Whether networking is enabled
  */
 networking_enabled?: boolean | null; 
@@ -5988,7 +6006,6 @@ export type LibraryAction =
   |  { type: 'jobs.pause'; input: JobPauseInput; output: JobPauseOutput }
   |  { type: 'jobs.resume'; input: JobResumeInput; output: JobResumeOutput }
   |  { type: 'libraries.backup'; input: LibraryBackupInput; output: LibraryBackupOutput }
-  |  { type: 'libraries.export'; input: LibraryExportInput; output: LibraryExportOutput }
   |  { type: 'libraries.rename'; input: LibraryRenameInput; output: LibraryRenameOutput }
   |  { type: 'sources.assertions.merge'; input: MergeAssertionsInput; output: MergeAssertionsOutput }
   |  { type: 'sources.create'; input: CreateSourceInput; output: CreateSourceOutput }
@@ -6193,7 +6210,6 @@ export const WIRE_METHODS = {
     'jobs.pause': 'action:jobs.pause.input',
     'jobs.resume': 'action:jobs.resume.input',
     'libraries.backup': 'action:libraries.backup.input',
-    'libraries.export': 'action:libraries.export.input',
     'libraries.rename': 'action:libraries.rename.input',
     'sources.assertions.merge': 'action:sources.assertions.merge.input',
     'sources.create': 'action:sources.create.input',

@@ -43,6 +43,12 @@ pub struct UpdateAppConfigInput {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub replication_max_bytes_per_sec: Option<u64>,
 
+	/// Displaced copies kept per library under `restore-trash/` after a
+	/// successful `restore --replace`; the copy that restore just parked
+	/// is kept whatever the number.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub backup_restore_trash_keep: Option<u32>,
+
 	/// Whether networking is enabled
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub networking_enabled: Option<bool>,
@@ -209,6 +215,13 @@ impl CoreAction for UpdateAppConfigAction {
 				config.replication.max_bytes_per_sec = max_bytes_per_sec;
 				changes.push("replication_max_bytes_per_sec");
 				crate::service::mounts::replication::configure(&config.replication);
+			}
+		}
+
+		if let Some(keep) = self.input.backup_restore_trash_keep {
+			if config.backup.restore_trash_keep != keep {
+				config.backup.restore_trash_keep = keep;
+				changes.push("backup_restore_trash_keep");
 			}
 		}
 
