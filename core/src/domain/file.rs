@@ -79,6 +79,11 @@ pub struct File {
 
 	/// Additional computed fields
 	pub content_kind: ContentKind, // Populated by the indexer, for when a File does not have a ContentIdentity
+	/// The extension kind id (`<extension id>:<name>`) the content identity
+	/// phase stored, whether or not that extension is loaded now;
+	/// `content_kind` is then its parent. `None` for a built-in kind.
+	#[serde(default)]
+	pub content_kind_name: Option<String>,
 	pub is_local: bool, // this is redundant with SdPath
 
 	/// Video duration (for grid display optimization)
@@ -237,7 +242,7 @@ impl File {
 				.and_then(|extension| extension.to_str())
 				.map(|extension| extension.to_lowercase());
 			let content_kind =
-				crate::filetype::FileTypeRegistry::builtin().identify_by_extension(path);
+				crate::filetype::FileTypeRegistry::current().identify_by_extension(path);
 			(stem, extension, EntryKind::File, content_kind)
 		};
 		let now = Utc::now();
@@ -260,11 +265,20 @@ impl File {
 			modified_at: now,
 			accessed_at: None,
 			content_kind,
+			content_kind_name: None,
 			duration_seconds: None,
 			thumbnail_path: None,
 		}
 	}
 
+	/// A file as its store row describes it.
+	///
+	/// The stored content kind is the answer when the identity phase has
+	/// written one; a row identified before kinds were stored derives its
+	/// parent from the name through the current registry, as every row did
+	/// before. The stored kind name is reported whether or not the extension
+	/// that declared it is loaded, so the client can fall back to the parent
+	/// until the extension returns.
 	pub fn from_store_entry(entry: &sd_store::FsEntry, sd_path: SdPath) -> Self {
 		let is_local = sd_path.is_local();
 
@@ -293,7 +307,7 @@ impl File {
 			.filter(|kind| *kind != ContentKind::Unknown)
 			.unwrap_or_else(|| {
 				if entry.kind == sd_store::FileKind::File {
-					crate::filetype::FileTypeRegistry::builtin()
+					crate::filetype::FileTypeRegistry::current()
 						.identify_by_extension(std::path::Path::new(&entry.name))
 				} else {
 					ContentKind::Unknown
@@ -316,6 +330,7 @@ impl File {
 			modified_at: from_ms(entry.mtime_ms).unwrap_or_else(Utc::now),
 			accessed_at: from_ms(entry.atime_ms),
 			content_kind,
+			content_kind_name: entry.content_kind_name.clone(),
 			extension,
 			kind,
 			is_local,
@@ -408,6 +423,7 @@ impl File {
 			modified_at,
 			accessed_at,
 			content_kind: ContentKind::Unknown,
+			content_kind_name: None,
 			extension,
 			kind,
 			is_local,
@@ -519,6 +535,7 @@ mod tests {
 			sampled_hash: None,
 			integrity_hash: None,
 			content_kind,
+			content_kind_name: None,
 			content_error: None,
 		}
 	}

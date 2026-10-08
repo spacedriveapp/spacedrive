@@ -68,5 +68,63 @@
 			},
 			"description": "ResNet50 trained on Places365 dataset"
 		}
+	],
+	"kinds": [
+		{
+			"name": "raw",
+			"display_name": "RAW photo",
+			"parent": "image",
+			"extensions": [
+				"cr2",
+				"cr3",
+				"nef",
+				"arw",
+				"dng",
+				"raf",
+				"orf",
+				"rw2",
+				"pef",
+				"dcr",
+				"srw"
+			],
+			"mime_types": [
+				"image/x-canon-cr2",
+				"image/x-canon-cr3",
+				"image/x-nikon-nef",
+				"image/x-sony-arw",
+				"image/x-adobe-dng",
+				"image/x-fuji-raf",
+				"image/x-olympus-orf",
+				"image/x-panasonic-rw2",
+				"image/x-pentax-pef",
+				"image/x-kodak-dcr",
+				"image/x-samsung-srw"
+			],
+			"magic": [
+				{
+					"pattern": "49 49 2A 00",
+					"offset": 0
+				},
+				{
+					"pattern": "4D 4D 00 2A",
+					"offset": 0
+				},
+				{
+					"pattern": "46 55 4A 49 46 49 4C 4D",
+					"offset": 0
+				},
+				{
+					"pattern": "49 49 52 4F",
+					"offset": 0
+				},
+				{
+					"pattern": "49 49 55 00",
+					"offset": 0
+				}
+			],
+			"preview": {
+				"renderer": "image"
+			}
+		}
 	]
 }

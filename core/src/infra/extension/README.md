@@ -37,6 +37,30 @@ reports `supported: false` and `extensions.run_job` is refused.
   reject unknown fields, so a typo in a grant fails at load instead of
   silently granting nothing.
 
+## File kinds
+
+A manifest may declare `kinds`: a name, a built-in `ContentKind` parent, the
+file extensions and optional MIME types and magic bytes that identify it,
+and a `preview` naming a built-in renderer or a `ui_manifest.json` viewer
+(`core/src/filetype/kinds.rs`). The kind's id is `<extension id>:<name>`.
+On load the manager rebuilds `FileTypeRegistry::current()` from the built-in
+table plus every loaded extension's kinds in load order, and on unload it
+rebuilds without them. A kind may refine a file extension the built-in table
+maps to its own parent, or claim one the table does not know; a claim that
+would redefine a built-in extension is refused at load. Two extensions
+claiming one file extension resolve by load order (`load_all` sorts the
+directory names), the later claim is dropped from the lookup and reported by
+`extensions.list` as a conflict, and its magic patterns still decide a file
+whose bytes match only them.
+
+The content identity phase writes the kind and, for an extension kind, its
+name onto the content row (`content.kind`, `content.kind_name`, store schema
+version 2). Rows identified before an extension existed are named by
+extension when the extension loads and when a store opens
+(`core/src/ops/indexing/kinds.rs`). A row keeps its name after the extension
+unloads; `File.content_kind` is then the parent and `File.content_kind_name`
+the name, so a client can fall back until the extension returns.
+
 ## Running a job
 
 1. `extensions.run_job` looks the job up in the registry and dispatches a

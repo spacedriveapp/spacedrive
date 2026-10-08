@@ -13,16 +13,28 @@
 //! decision that needs it, which is the same rule the ladder in
 //! `sd_store::content` exists to keep: never delete one copy of two on the
 //! strength of a guess.
+//!
+//! The pass also decides the content's kind, since it is the one place that
+//! opens every file. The file extension answers for a built-in kind. A file
+//! an extension kind claims with magic patterns, or one no type claims, has
+//! its first bytes checked against the extension kinds' patterns; the
+//! built-in patterns stay unused as before. Both the kind and, for an
+//! extension kind, its name land on the content row.
 
 use crate::{
-	domain::content_identity::ContentHashGenerator,
+	domain::{content_identity::ContentHashGenerator, ContentKind},
+	filetype::{registry::MAX_MAGIC_BYTES, FileTypeRegistry},
 	infra::job::{generic_progress::GenericProgress, prelude::*, types::JobPriority},
 	ops::indexing::SourceStore,
 };
 use futures::StreamExt;
 use sd_store::ContentIdentity;
 use serde::{Deserialize, Serialize};
-use std::{path::PathBuf, sync::Arc};
+use std::{
+	path::{Path, PathBuf},
+	sync::Arc,
+};
+use tokio::io::AsyncReadExt;
 use uuid::Uuid;
 
 /// Files claimed from the store per pass. Large enough that the queue round
@@ -166,6 +178,7 @@ impl JobHandler for ContentIdentityJob {
 
 		let mut identified = 0u64;
 		let mut unreadable = 0u64;
+		let registry = FileTypeRegistry::current();
 
 		loop {
 			ctx.check_interrupt().await?;
@@ -180,7 +193,7 @@ impl JobHandler for ContentIdentityJob {
 
 			for chunk in batch.chunks(PROGRESS_CHUNK) {
 				ctx.check_interrupt().await?;
-				let (identities, failures) = hash_batch(chunk.to_vec()).await;
+				let (identities, failures) = hash_batch(chunk.to_vec(), &registry).await;
 
 				// Failures leave the pending set with their reason recorded,
 				// so the loop always advances and the store can say
@@ -240,19 +253,24 @@ pub(crate) fn source_label(root: &std::path::Path) -> String {
 /// on every pass.
 async fn hash_batch(
 	batch: Vec<(Uuid, PathBuf, u64)>,
+	registry: &FileTypeRegistry,
 ) -> (Vec<(Uuid, ContentIdentity)>, Vec<(Uuid, String)>) {
 	let results: Vec<_> = futures::stream::iter(batch)
 		.map(|(uuid, path, size)| async move {
 			match ContentHashGenerator::generate_content_hash(&path).await {
-				Ok(hash) => Ok((
-					uuid,
-					ContentIdentity {
-						sampled_hash: Some(hash),
-						integrity_hash: None,
-						size: Some(size as i64),
-						kind: None,
-					},
-				)),
+				Ok(hash) => {
+					let (kind, kind_name) = identify_kind(&path, registry).await;
+					Ok((
+						uuid,
+						ContentIdentity {
+							sampled_hash: Some(hash),
+							integrity_hash: None,
+							size: Some(size as i64),
+							kind,
+							kind_name,
+						},
+					))
+				}
 				Err(error) => {
 					tracing::debug!(path = %path.display(), %error, "could not hash");
 					Err((uuid, error.to_string()))
@@ -272,6 +290,36 @@ async fn hash_batch(
 		}
 	}
 	(identities, failures)
+}
+
+/// The kind a file's name and, when an extension kind's patterns are in
+/// play, its first bytes decide: the `ContentKind` discriminant to store,
+/// and the extension kind's id when one claimed the file.
+///
+/// Bytes are read only when the registry has patterns to check for this
+/// extension; a plain `.jpg` costs no second open. A header that cannot be
+/// read keeps the extension result, since the hash just succeeded and the
+/// file was there a moment ago.
+async fn identify_kind(path: &Path, registry: &FileTypeRegistry) -> (Option<i64>, Option<String>) {
+	let by_extension = registry.type_by_extension(path);
+	let extension = path.extension().and_then(|e| e.to_str());
+	let candidates = registry.magic_candidates(extension);
+	let file_type = if candidates.is_empty() {
+		by_extension
+	} else {
+		let mut header = vec![0u8; MAX_MAGIC_BYTES];
+		let read = match tokio::fs::File::open(path).await {
+			Ok(mut file) => file.read(&mut header).await.unwrap_or(0),
+			Err(_) => 0,
+		};
+		header.truncate(read);
+		registry.resolve_by_magic(by_extension, &candidates, &header)
+	};
+	let Some(file_type) = file_type else {
+		return (None, None);
+	};
+	let kind = (file_type.category != ContentKind::Unknown).then_some(file_type.category as i64);
+	(kind, file_type.kind_name.clone())
 }
 
 /// Queue the hashing of every source on this machine, behind whatever else is
@@ -323,10 +371,13 @@ mod tests {
 		let real = dir.path().join("real.bin");
 		std::fs::write(&real, vec![7u8; 4096]).unwrap();
 
-		let (identities, failures) = hash_batch(vec![
-			(Uuid::now_v7(), dir.path().join("gone.bin"), 10),
-			(Uuid::now_v7(), real, 4096),
-		])
+		let (identities, failures) = hash_batch(
+			vec![
+				(Uuid::now_v7(), dir.path().join("gone.bin"), 10),
+				(Uuid::now_v7(), real, 4096),
+			],
+			FileTypeRegistry::builtin(),
+		)
 		.await;
 
 		assert_eq!(identities.len(), 1);
@@ -342,10 +393,10 @@ mod tests {
 		std::fs::write(&one, vec![3u8; 8192]).unwrap();
 		std::fs::write(&two, vec![3u8; 8192]).unwrap();
 
-		let (identities, _) = hash_batch(vec![
-			(Uuid::now_v7(), one, 8192),
-			(Uuid::now_v7(), two, 8192),
-		])
+		let (identities, _) = hash_batch(
+			vec![(Uuid::now_v7(), one, 8192), (Uuid::now_v7(), two, 8192)],
+			FileTypeRegistry::builtin(),
+		)
 		.await;
 
 		assert_eq!(identities.len(), 2);
@@ -353,5 +404,47 @@ mod tests {
 			identities[0].1.sampled_hash, identities[1].1.sampled_hash,
 			"two copies of the same bytes are one content row"
 		);
+	}
+
+	#[tokio::test]
+	async fn a_built_in_kind_is_stored_and_an_extension_kind_reads_the_header() {
+		use crate::filetype::{ExtensionKind, MagicPatternSpec};
+		let dir = tempfile::tempdir().unwrap();
+		let photo = dir.path().join("a.jpg");
+		std::fs::write(&photo, vec![0xFF; 4096]).unwrap();
+		let nothing = dir.path().join("b.zzzkind");
+		std::fs::write(&nothing, b"ZZKIND rest of file".repeat(300)).unwrap();
+		let other = dir.path().join("c.zzzkind");
+		std::fs::write(&other, vec![0u8; 4096]).unwrap();
+
+		let builtin = FileTypeRegistry::builtin();
+		assert_eq!(identify_kind(&photo, builtin).await, (Some(1), None));
+		assert_eq!(identify_kind(&nothing, builtin).await, (None, None));
+
+		let layered = FileTypeRegistry::with_extension_kinds(&[(
+			"ext".into(),
+			vec![ExtensionKind {
+				name: "zz".into(),
+				display_name: None,
+				parent: ContentKind::Text,
+				extensions: vec!["zzzkind".into()],
+				mime_types: Vec::new(),
+				magic: vec![MagicPatternSpec {
+					pattern: "5A 5A 4B 49 4E 44".into(),
+					offset: 0,
+				}],
+				preview: None,
+			}],
+		)]);
+		assert_eq!(
+			identify_kind(&nothing, &layered).await,
+			(Some(ContentKind::Text as i64), Some("ext:zz".into()))
+		);
+		assert_eq!(
+			identify_kind(&other, &layered).await,
+			(Some(ContentKind::Text as i64), Some("ext:zz".into())),
+			"no magic match keeps the extension result"
+		);
+		assert_eq!(identify_kind(&photo, &layered).await, (Some(1), None));
 	}
 }

@@ -28,7 +28,11 @@ use crate::error::{Error, Result};
 /// 1. `content` rebuilt so a row's integrity hash belongs to every record on
 ///    it: candidate rows keyed by sampled hash, confirmed rows by integrity
 ///    hash, `candidate_uuid` beside `uuid`.
-pub const SCHEMA_VERSION: i64 = 1;
+/// 2. `content.kind_name` for the extension kind that identified the bytes,
+///    nullable and never backfilled, and an index over the lowercase file
+///    extension so a reidentification pass by extension does not walk the
+///    facet table.
+pub const SCHEMA_VERSION: i64 = 2;
 
 /// The version a store carries. `0` for a store written before versions
 /// existed.
@@ -76,6 +80,7 @@ pub(crate) async fn run(pool: &SqlitePool) -> Result<()> {
 async fn apply(pool: &SqlitePool, next: i64) -> Result<()> {
 	match next {
 		1 => content_rows_own_their_hash(pool).await,
+		2 => content_rows_name_their_kind(pool).await,
 		_ => Err(Error::Other(format!(
 			"no migration defined for schema version {next}"
 		))),
@@ -102,6 +107,47 @@ const CONTENT_V1_INDEXES: [&str; 4] = [
 	"CREATE INDEX idx_content_uuid ON content(uuid)",
 	"CREATE INDEX idx_content_candidate_uuid ON content(candidate_uuid)",
 ];
+
+/// The index a reidentification pass by extension needs. Lowercase because
+/// the walk writes the extension as the name carries it and every lookup
+/// compares lowercase. Created here for a store that predates it and by the
+/// open path for a fresh one; `IF NOT EXISTS` makes both idempotent.
+pub const FACET_FILE_EXTENSION_INDEX: &str =
+	"CREATE INDEX IF NOT EXISTS idx_facet_file_extension ON facet_file(lower(extension))";
+
+/// Migration 2: `content.kind_name`, nullable, with no backfill. Before this
+/// no row carried a kind at all; the kind was derived from the file name on
+/// every read. Rows identified from here on get `kind` and `kind_name` at
+/// the content identity phase, and an extension that loads with kinds runs
+/// one reidentification update by extension over the rows it can name.
+async fn content_rows_name_their_kind(pool: &SqlitePool) -> Result<()> {
+	let mut conn = pool.acquire().await?;
+	let mut tx = conn.begin().await?;
+	let present: Option<i64> =
+		sqlx::query_scalar("SELECT 1 FROM pragma_table_info('content') WHERE name = 'kind_name'")
+			.fetch_optional(&mut *tx)
+			.await?;
+	if present.is_none() {
+		sqlx::query("ALTER TABLE content ADD COLUMN kind_name TEXT")
+			.execute(&mut *tx)
+			.await?;
+	}
+	let has_facet_file: Option<i64> = sqlx::query_scalar(
+		"SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'facet_file'",
+	)
+	.fetch_optional(&mut *tx)
+	.await?;
+	if has_facet_file.is_some() {
+		sqlx::query(FACET_FILE_EXTENSION_INDEX)
+			.execute(&mut *tx)
+			.await?;
+	}
+	sqlx::query("PRAGMA user_version = 2")
+		.execute(&mut *tx)
+		.await?;
+	tx.commit().await?;
+	Ok(())
+}
 
 /// Migration 1: rebuild `content` so that no record carries an integrity
 /// hash its own bytes were never read for.

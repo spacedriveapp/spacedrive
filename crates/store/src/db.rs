@@ -1283,13 +1283,14 @@ async fn bind_content(
 
 	let content_id: i64 = match identity.integrity_hash.as_deref() {
 		Some(integrity) => sqlx::query_scalar(
-			"INSERT INTO content (uuid, candidate_uuid, sampled_hash, integrity_hash, size, kind)
-					 VALUES (?, ?, ?, ?, ?, ?)
+			"INSERT INTO content (uuid, candidate_uuid, sampled_hash, integrity_hash, size, kind, kind_name)
+					 VALUES (?, ?, ?, ?, ?, ?, ?)
 					 ON CONFLICT (integrity_hash) DO UPDATE SET
 						candidate_uuid = COALESCE(content.candidate_uuid, excluded.candidate_uuid),
 						sampled_hash = COALESCE(content.sampled_hash, excluded.sampled_hash),
 						size = COALESCE(excluded.size, content.size),
-						kind = COALESCE(excluded.kind, content.kind)
+						kind = COALESCE(excluded.kind, content.kind),
+						kind_name = COALESCE(excluded.kind_name, content.kind_name)
 					 RETURNING id",
 		)
 		.bind(content_uuid)
@@ -1298,14 +1299,16 @@ async fn bind_content(
 		.bind(integrity)
 		.bind(identity.size)
 		.bind(identity.kind)
+		.bind(&identity.kind_name)
 		.fetch_one(&mut *conn)
 		.await?,
 		None => sqlx::query_scalar(
-			"INSERT INTO content (uuid, candidate_uuid, sampled_hash, integrity_hash, size, kind)
-					 VALUES (?, ?, ?, NULL, ?, ?)
+			"INSERT INTO content (uuid, candidate_uuid, sampled_hash, integrity_hash, size, kind, kind_name)
+					 VALUES (?, ?, ?, NULL, ?, ?, ?)
 					 ON CONFLICT (sampled_hash) WHERE integrity_hash IS NULL DO UPDATE SET
 						size = COALESCE(excluded.size, content.size),
-						kind = COALESCE(excluded.kind, content.kind)
+						kind = COALESCE(excluded.kind, content.kind),
+						kind_name = COALESCE(excluded.kind_name, content.kind_name)
 					 RETURNING id",
 		)
 		.bind(content_uuid)
@@ -1313,6 +1316,7 @@ async fn bind_content(
 		.bind(&identity.sampled_hash)
 		.bind(identity.size)
 		.bind(identity.kind)
+		.bind(&identity.kind_name)
 		.fetch_one(&mut *conn)
 		.await?,
 	};

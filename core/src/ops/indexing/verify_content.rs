@@ -196,6 +196,7 @@ async fn verify_batch(
 						integrity_hash: Some(hash),
 						size: Some(size as i64),
 						kind: None,
+						kind_name: None,
 					},
 					size,
 				)),

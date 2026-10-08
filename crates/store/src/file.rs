@@ -922,6 +922,37 @@ pub async fn mark_content_unreadable(
 	Ok(())
 }
 
+/// Name the kind of every content row whose files carry one of these
+/// extensions and that no extension kind has named yet.
+///
+/// This is the reidentification an extension's load runs over rows that
+/// were identified before it existed: one statement per declared kind, by
+/// extension, since the bytes are not read again. A row another extension
+/// already named keeps that name; magic-only claims wait for the next
+/// identity pass over those files. Returns the rows named.
+pub async fn name_content_kind_by_extension(
+	pool: &sqlx::SqlitePool,
+	kind_name: &str,
+	kind: i64,
+	extensions: &[String],
+) -> Result<u64> {
+	if extensions.is_empty() {
+		return Ok(0);
+	}
+	let sql = format!(
+		"UPDATE content SET kind_name = ?, kind = ? WHERE kind_name IS NULL AND id IN (
+			SELECT r.content_id FROM record r
+			JOIN facet_file f ON f.record_uuid = r.uuid
+			WHERE r.content_id IS NOT NULL AND lower(f.extension) IN ({}))",
+		vec!["?"; extensions.len()].join(", ")
+	);
+	let mut query = sqlx::query(&sql).bind(kind_name).bind(kind);
+	for ext in extensions {
+		query = query.bind(ext.to_lowercase());
+	}
+	Ok(query.execute(pool).await?.rows_affected())
+}
+
 /// One copy of some bytes: a record, and where it is.
 #[derive(Debug, Clone)]
 pub struct ContentCopy {

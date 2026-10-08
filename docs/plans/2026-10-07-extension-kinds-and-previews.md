@@ -1,6 +1,6 @@
 # Extension File Kinds and Previews
 
-> Status: proposed 2026-10-07; nothing built
+> Status: K1 and K2 built 2026-10-07 (SPAC-35); K3 to K5 open
 > Captured: 2026-10-07 (SPAC-31), from the tree at `b938526`
 > Owns: how an extension's manifest declares file kinds, how identification
 > assigns them, how the client renders a preview for them, and what happens
@@ -268,14 +268,28 @@ without the `wasm` feature behaves as today.
 
 | Phase | Work | Exit proof | Size |
 | --- | --- | --- | --- |
-| K1 Manifest and registry | `kinds` parsed and validated; layered `FileTypeRegistry::current()`; five `builtin()` call sites and the context field moved; `load_all` sorted; conflicts and contested claims recorded; `extensions.list` reports kinds and conflicts; ts-client regenerated | Unit tests: a manifest with a bad parent or a redefining claim is rejected with the reason; two fixtures claiming `.xyz` load with one conflict in the list output; `identify_by_extension` on `foo.cr2` returns the `raw` type with parent `image` while the fixture is loaded and `image` after `unload` | 2 days |
-| K2 Persisted kinds | Store schema v2 `kind_name` and `idx_facet_file_extension`; content identity phase writes `kind` and `kind_name` and checks extension-kind magic; `File.content_kind_name`; reidentification pass on load | Acceptance test (wasm group): index a folder with `.cr2` files under a fixture extension, read the store, both columns set; unload the extension, re-read through `files.list`, `content_kind_name` still `raw`, `content_kind` is `image`; a `.cr2` whose bytes carry no TIFF header and whose extension is also claimed by a second fixture with matching magic gets the second kind | 2 days |
+| K1 Manifest and registry (done 2026-10-07, SPAC-35) | `kinds` parsed and validated; layered `FileTypeRegistry::current()`; five `builtin()` call sites and the context field moved; `load_all` sorted; conflicts and contested claims recorded; `extensions.list` reports kinds and conflicts; ts-client regenerated | Unit tests: a manifest with a bad parent or a redefining claim is rejected with the reason; two fixtures claiming `.xyz` load with one conflict in the list output; `identify_by_extension` on `foo.cr2` returns the `raw` type with parent `image` while the fixture is loaded and `image` after `unload` | 2 days |
+| K2 Persisted kinds (done 2026-10-07, SPAC-35) | Store schema v2 `kind_name` and `idx_facet_file_extension`; content identity phase writes `kind` and `kind_name` and checks extension-kind magic; `File.content_kind_name`; reidentification pass on load | Acceptance test (wasm group): index a folder with `.cr2` files under a fixture extension, read the store, both columns set; unload the extension, re-read through `files.list`, `content_kind_name` still `raw`, `content_kind` is `image`; a `.cr2` whose bytes carry no TIFF header and whose extension is also claimed by a second fixture with matching magic gets the second kind | 2 days |
 | K3 Client registry | `renderers.ts`, `useExtensionKinds`, `ContentRenderer` becomes a lookup; `getContentKindName`; inspector and file kinds page show the name | `tsc` clean; Playwright or desktop recording of Quick Preview on a `raw` fixture rendering through the image renderer, then falling back to the same renderer with the extension removed from the data dir and the daemon restarted | 1.5 days |
 | K4 Bundle previews | `ui_manifest.json` `file_viewers` parsed for `id` and `bundle`; `/extension/:id/*path` route; `BundleRenderer` with the `mount` contract; a tiny fixture bundle in `extensions/test-extension/ui/` | Acceptance: the fixture declares a kind with `preview.viewer`; Quick Preview mounts the bundle and the bundle's DOM shows the file name; deleting the bundle file makes the preview fall back to the parent renderer with one logged warning | 2 days |
-| K5 Photos | Photos' manifest declares `raw` (and `heic` where the built-in table lacks a magic pattern) with `preview.renderer: image`; `ui_manifest.json` `file_viewers` gains `id` and `bundle`, with `raw` pointing at it once a viewer exists | Photos loads with no conflicts on a daemon with the built-in table; `sd-cli op extensions.list` shows its kinds | 0.5 day |
+| K5 Photos (manifest half done with K1) | Photos' manifest declares `raw` with `preview.renderer: image` (`heic` already has a built-in magic pattern, so it stays built in); `ui_manifest.json` `file_viewers` gains `id` and `bundle`, with `raw` pointing at it once a viewer exists | Photos loads with no conflicts on a daemon with the built-in table; `sd-cli op extensions.list` shows its kinds | 0.5 day |
 
 K1 and K2 are core; K3 and K4 are client plus one server route; K5 is
 manifest edits. K3 can start after K1. Eight days, two PRs (K1+K2, K3 to K5).
+
+As built (K1 and K2, SPAC-35), three details differ from the text above:
+
+- `content.kind` is written for built-in kinds too, closing the first open
+  question: every row the identity phase touches from now on carries its
+  kind, and only rows identified before that derive one at read time.
+- The reidentification pass runs when a store opens as well as when an
+  extension with kinds loads, because stores open lazily after the
+  extensions load at startup. `idx_facet_file_extension` is over
+  `lower(extension)` since the walk stores the extension as the name
+  carries it.
+- A replica below schema version 2 is read through a per-connection
+  temporary view that adds `kind_name` as `NULL`, so an older owner's
+  database still answers the entry readers (`crates/store/src/source.rs`).
 
 ## Decisions for Jamie
 

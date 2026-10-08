@@ -1,0 +1,17 @@
+{
+	"id": "zz-second-kind",
+	"name": "Second kind",
+	"version": "0.1.0",
+	"description": "Test fixture: a second extension claiming the .fake extension, loaded after the test extension so its claim is contested. Runs the test extension's module.",
+	"wasm_file": "test_extension.wasm",
+	"kinds": [
+		{
+			"name": "other",
+			"display_name": "Other fake file",
+			"parent": "text",
+			"extensions": ["fake", "fake2"],
+			"magic": [{ "pattern": "4F 54 48 52", "offset": 0 }],
+			"preview": { "renderer": "text" }
+		}
+	]
+}

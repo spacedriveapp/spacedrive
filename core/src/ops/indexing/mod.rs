@@ -17,6 +17,7 @@ pub mod descriptor;
 pub mod handlers;
 pub mod input;
 pub mod job;
+pub mod kinds;
 pub mod lens;
 pub mod metadata;
 pub mod metrics;
