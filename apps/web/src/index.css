@@ -11,6 +11,9 @@
 /* Tell Tailwind v4 where to scan for utility classes */
 @source "../../../packages/interface/src";
 @source "../../../../spaceui/packages/primitives/src";
+/* Without a sibling spaceui checkout the published package is what renders; scan it so dialogs keep their classes. */
+@source "../../../packages/interface/node_modules/@spacedrive/primitives/dist";
+@source "../../../node_modules/@spacedrive/primitives/dist";
 @source "../../../../spaceui/packages/explorer/src";
 @source "../../../../spaceui/packages/forms/src";
 
