@@ -25,10 +25,8 @@ name: Nightly
 on:
   push:
     branches:
-      # The branch the nightly channel tracks. `sources` stays for one release
-      # so a stray push there still publishes; drop it after that.
+      # The branch the nightly channel tracks.
       - main
-      - sources
   workflow_dispatch:
 
 env:
