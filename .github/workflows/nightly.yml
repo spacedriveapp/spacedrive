@@ -162,21 +162,32 @@ jobs:
           Unsigned, may break, replaced on every push. This release is edited in place: its tag moves to the commit above and the assets are replaced, so watching the repository for releases does not notify on nightly builds. Opt in with \`sd config set update.channel nightly\` and run \`sd update\`; see docs/core/releases.mdx.
           EOF
 
+          # Lists the release's assets into assets.txt; false only when the
+          # release does not exist, so a transient API error cannot send the
+          # script down the create branch.
+          release_exists() {
+            if gh release view "$NIGHTLY_TAG" --json assets --jq '.assets[].name' > assets.txt 2> view.err; then
+              return 0
+            fi
+            grep -q "release not found" view.err || { cat view.err; exit 1; }
+            return 1
+          }
+
           # A release created by the old delete-and-recreate scheme carries no
           # nightly.sha. Updaters built before the switch compare the release's
           # target_commitish, which is frozen at creation, so such a release is
           # recreated once with this commit as target; every later run edits it
-          # in place and those updaters have been replaced by then.
-          if gh release view "$NIGHTLY_TAG" --json assets --jq '.assets[].name' > assets.txt; then
-            if ! grep -qx nightly.sha assets.txt; then
-              echo "release predates in-place updates; recreating it once"
-              gh release delete "$NIGHTLY_TAG" --yes
-            fi
+          # in place and those updaters have been replaced by then. The tag
+          # moves here as well, because GitHub keeps an existing tag's commit
+          # over --target; with the release gone there are no assets for it
+          # to mismatch.
+          if release_exists && ! grep -qx nightly.sha assets.txt; then
+            echo "release predates in-place updates; recreating it once"
+            gh release delete "$NIGHTLY_TAG" --yes
+            git push --force origin "$sha:refs/tags/$NIGHTLY_TAG"
           fi
 
-          git push --force origin "$sha:refs/tags/$NIGHTLY_TAG"
-
-          if gh release view "$NIGHTLY_TAG" --json assets --jq '.assets[].name' > assets.txt; then
+          if release_exists; then
             gh release edit "$NIGHTLY_TAG" \
               --prerelease \
               --title "Nightly $short" \
@@ -191,7 +202,7 @@ jobs:
             done < assets.txt
           else
             # GitHub occasionally answers a create with HTTP 403 right after
-            # the tag changed; a short retry rides it out.
+            # the tag was deleted; a short retry rides it out.
             for attempt in 1 2 3 4 5; do
               if gh release create "$NIGHTLY_TAG" \
                 --target "$sha" \
@@ -207,8 +218,15 @@ jobs:
           fi
           gh release upload "$NIGHTLY_TAG" --clobber dist/*
 
-          # The updater keys on the tag ref, so a tag that did not move must
-          # fail the job rather than publish binaries under the wrong commit.
+          # The tag moves last. The updater keys on it, so a tag that already
+          # named this commit while the release still served the previous
+          # build would install the wrong binaries under this commit's name;
+          # the other way round, an updater only learns about the new build a
+          # little later.
+          git push --force origin "$sha:refs/tags/$NIGHTLY_TAG"
+
+          # A tag that did not move must fail the job rather than leave the
+          # binaries published under the wrong commit.
           actual=$(gh api "repos/$GH_REPO/git/ref/tags/$NIGHTLY_TAG" --jq .object.sha)
           if [ "$actual" != "$sha" ]; then
             echo "nightly tag points at $actual, expected $sha"

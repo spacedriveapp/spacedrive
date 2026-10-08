@@ -84,10 +84,11 @@ want to track `main` without compiling. Every push to `main` runs
 `.github/workflows/nightly.yml`, which builds `sd` and `sd-daemon`
 in release mode for macOS ARM64 and Linux x86-64 and republishes them on the
 GitHub prerelease tagged `nightly`. There is one nightly release and the
-workflow edits it in place: it moves the `nightly` tag to the built commit,
-rewrites the title and notes, and replaces every asset with `gh release upload
---clobber`, removing assets for platforms that no longer build. The release is
-created only when it does not exist. Asset URLs are stable because they are
+workflow edits it in place: it rewrites the title and notes, replaces every
+asset with `gh release upload --clobber`, removes assets for platforms that no
+longer build, and only then moves the `nightly` tag to the built commit, so
+the tag never names a commit whose binaries are not yet published. The
+release is created only when it does not exist. Asset URLs are stable because they are
 built from the tag and the asset name, for example
 `https://github.com/spacedriveapp/spacedrive/releases/download/nightly/sd-macos-aarch64`.
 
