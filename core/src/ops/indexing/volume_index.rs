@@ -45,6 +45,10 @@ pub struct Partition {
 	index: Arc<TokioRwLock<Arena>>,
 	indexed_paths: RwLock<HashSet<PathBuf>>,
 	indexing_in_progress: RwLock<HashSet<PathBuf>>,
+	/// Source roots whose arena is being filled from their stores. A fill
+	/// covers everything beneath its root and the store answers for all of
+	/// it, which a walk in `indexing_in_progress` does not promise.
+	filling_from_store: RwLock<HashSet<PathBuf>>,
 	watched_paths: RwLock<HashSet<PathBuf>>,
 	/// A detached source's root is not present on disk; its index is served
 	/// read-only from a restored snapshot and must never trigger indexing.
@@ -85,6 +89,7 @@ impl Partition {
 			index: Arc::new(TokioRwLock::new(Arena::new()?)),
 			indexed_paths: RwLock::new(HashSet::new()),
 			indexing_in_progress: RwLock::new(HashSet::new()),
+			filling_from_store: RwLock::new(HashSet::new()),
 			watched_paths: RwLock::new(HashSet::new()),
 			detached: AtomicBool::new(false),
 			restored: AtomicBool::new(false),
@@ -1826,16 +1831,17 @@ impl VolumeIndex {
 			.contains(path)
 	}
 
-	/// Whether `path` or a directory above it is being indexed. A recursive
-	/// walk or a store fill in progress over an ancestor covers everything
-	/// beneath it, and a browse dispatched into that tree would clear what
-	/// the fill has already placed there.
-	pub fn is_under_indexing(&self, path: &Path) -> bool {
+	/// Whether `path` sits under a source root being filled from its store.
+	/// The fill covers everything beneath the root and the store answers for
+	/// all of it, so a browse dispatched into that tree would only clear what
+	/// the fill has already placed. A walk in progress makes no such promise
+	/// and is not consulted here.
+	pub fn is_filling_from_store(&self, path: &Path) -> bool {
 		self.resolve(path)
-			.indexing_in_progress
+			.filling_from_store
 			.read()
 			.iter()
-			.any(|indexing| path.starts_with(indexing))
+			.any(|filling| path.starts_with(filling))
 	}
 
 	/// Restore a registered source's snapshot into its partition, if it has
@@ -1949,6 +1955,9 @@ impl VolumeIndex {
 			slot.indexing_in_progress
 				.write()
 				.insert(located.record.root.clone());
+			slot.filling_from_store
+				.write()
+				.insert(located.record.root.clone());
 			pending.push((located.record.id, located.record.root, db));
 		}
 		if pending.is_empty() {
@@ -1960,9 +1969,11 @@ impl VolumeIndex {
 		tokio::spawn(async move {
 			for (source_id, root, db) in pending {
 				let started = Instant::now();
-				match fill_source_from_store(&slot, &db, &root).await {
+				let filled = fill_source_from_store(&slot, &db, &root).await;
+				slot.indexing_in_progress.write().remove(&root);
+				slot.filling_from_store.write().remove(&root);
+				match filled {
 					Some(loaded) if loaded > 0 => {
-						slot.indexing_in_progress.write().remove(&root);
 						if let Some(sender) = &announce {
 							let _ = sender.send(root.clone());
 						}
@@ -1975,7 +1986,6 @@ impl VolumeIndex {
 						);
 					}
 					_ => {
-						slot.indexing_in_progress.write().remove(&root);
 						tracing::warn!(
 							source = %source_id,
 							root = %root.display(),
