@@ -8,7 +8,6 @@
 //!
 //! Permission is checked here against the manifest, never in the guest.
 
-use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -528,12 +527,48 @@ impl JobOps {
 		};
 		let limit = query.limit.unwrap_or(QUERY_CAP).min(QUERY_CAP);
 		let scope = query.scope.unwrap_or_default();
-		// A tag filter is applied after the walk: tagged records are few
-		// and the walk is what knows scope and extension.
-		let tagged = match &query.tag {
-			Some(tag) => Some(self.records_with_tag(tag).await?),
-			None => None,
-		};
+
+		// A tag filter starts from the tagged records, which the stores
+		// know exactly, rather than from a walk that would have to be
+		// capped: the walk's scope and extension filters are applied to
+		// each tagged record instead.
+		if let Some(tag) = &query.tag {
+			let mut records = Vec::new();
+			for store in self.stores().await {
+				if query.source.is_some_and(|source| source != store.id()) {
+					continue;
+				}
+				let tagged = self.records_with_tag(&store, tag).await?;
+				for uuid in tagged {
+					if records.len() >= limit {
+						break;
+					}
+					let Some(entry) = store
+						.db()
+						.entry_by_uuid(uuid)
+						.await
+						.map_err(|e| OpError::failed(e.to_string()))?
+					else {
+						continue;
+					};
+					let in_scope = scope.is_empty()
+						|| entry
+							.relative_path
+							.strip_prefix(scope.as_str())
+							.is_some_and(|rest| rest.starts_with('/'));
+					let extension = entry.extension.as_deref().map(str::to_lowercase);
+					let extension_ok = match (&extensions, &extension) {
+						(None, _) => true,
+						(Some(allowed), Some(ext)) => allowed.contains(ext),
+						(Some(_), None) => false,
+					};
+					if entry.kind == sd_store::file::FileKind::File && in_scope && extension_ok {
+						records.push(RecordOut::new(store.id(), entry));
+					}
+				}
+			}
+			return json(&records);
+		}
 
 		let mut records = Vec::new();
 		for store in self.stores().await {
@@ -549,19 +584,13 @@ impl JobOps {
 				Start::First,
 				extensions.as_deref(),
 				false,
-				if tagged.is_some() {
-					QUERY_CAP
-				} else {
-					limit - records.len()
-				},
+				limit - records.len(),
 			)
 			.await
 			.map_err(|e| OpError::failed(e.to_string()))?;
 			records.extend(
 				entries
 					.into_iter()
-					.filter(|entry| tagged.as_ref().is_none_or(|t| t.contains(&entry.uuid)))
-					.take(limit - records.len())
 					.map(|entry| RecordOut::new(store.id(), entry)),
 			);
 		}
@@ -894,26 +923,24 @@ impl JobOps {
 		})
 	}
 
-	/// Records in the library's stores that carry a tag, by path. A tag
-	/// nobody defined names no records.
-	async fn records_with_tag(&self, tag: &str) -> Result<HashSet<Uuid>, OpError> {
+	/// Records in one store that carry a tag, by path, in a stable order. A
+	/// tag nobody defined names no records; a store that cannot answer is
+	/// an error, not an empty match.
+	async fn records_with_tag(&self, store: &SourceStore, tag: &str) -> Result<Vec<Uuid>, OpError> {
 		let path =
 			sd_store::normalize_tag_path(tag).map_err(|e| OpError::invalid_input(e.to_string()))?;
 		let index = self.library.core_context().volume_index();
 		let Some(definition) =
 			definitions::find_by_slug(&self.library, index, sd_store::slug_for_path(&path)).await
 		else {
-			return Ok(HashSet::new());
+			return Ok(Vec::new());
 		};
-		let mut records = HashSet::new();
-		for store in self.stores().await {
-			match store.db().records_with_tag(definition.uuid).await {
-				Ok(found) => records.extend(found),
-				Err(error) => {
-					tracing::warn!(source = %store.id(), %error, "tagged records unavailable")
-				}
-			}
-		}
+		let mut records = store
+			.db()
+			.records_with_tag(definition.uuid)
+			.await
+			.map_err(|e| OpError::failed(format!("tagged records in {}: {e}", store.id())))?;
+		records.sort();
 		Ok(records)
 	}
 }

@@ -26,13 +26,17 @@ pub struct IdentifyPlacesState {
 	pub placed: usize,
 	pub unlocated: usize,
 	pub places_created: usize,
+	pub already_placed: usize,
 }
 
 /// Group photos by where they were taken, from EXIF GPS alone, and tag
 /// each with its place.
 ///
 /// Clustering, place matching, the `Place` model, the custom field and the
-/// `Places/<name>` tag need no inference. Naming a new place does: the
+/// `Places/<name>` tag need no inference. A photo that already carries a
+/// place is left alone, so a re-run places only new photos and a place's
+/// count stays the number of photos assigned to it. Naming a new place does
+/// need inference: the
 /// reverse geocode asks a language model, and when the host has none the
 /// place keeps the name `Unknown Location` and the job warns once, so a
 /// later run with a provider can name it.
@@ -64,6 +68,10 @@ pub async fn identify_places_in_location(
 	let mut located = Vec::new();
 	for photo in photos {
 		ctx.check_interrupt().await?;
+		if photo.custom_field::<Uuid>(PLACE_FIELD).await?.is_some() {
+			state.already_placed += 1;
+			continue;
+		}
 		let coords = photo.exif().await?.and_then(|exif| {
 			exif.latitude
 				.zip(exif.longitude)
@@ -121,8 +129,8 @@ pub async fn identify_places_in_location(
 	}
 
 	ctx.log(&format!(
-		"Placed {} photos ({} without a location, {} new places)",
-		state.placed, state.unlocated, state.places_created
+		"Placed {} photos ({} without a location, {} new places, {} already placed)",
+		state.placed, state.unlocated, state.places_created, state.already_placed
 	));
 	ctx.progress(Progress::complete("Places identified"));
 	Ok(())

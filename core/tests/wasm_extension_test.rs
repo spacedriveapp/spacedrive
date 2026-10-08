@@ -1194,7 +1194,7 @@ async fn photos_create_moments_from_exif_without_inference() {
 	);
 	let log = guest_log.lock().unwrap().clone();
 	assert!(
-		log.contains("Placed 8 photos (5 without a location, 4 new places)"),
+		log.contains("Placed 8 photos (5 without a location, 4 new places, 0 already placed)"),
 		"{log}"
 	);
 	assert!(
@@ -1214,6 +1214,31 @@ async fn photos_create_moments_from_exif_without_inference() {
 		})
 		.count();
 	assert_eq!(placed, 8);
+
+	// A second run places nothing again and the counts stay put
+	guest_log.lock().unwrap().clear();
+	let info = run_to_end(
+		&core,
+		&library,
+		"com.spacedrive.photos:identify_places",
+		serde_json::json!({}),
+	)
+	.await;
+	assert_eq!(info.status, JobStatus::Completed);
+	let log = guest_log.lock().unwrap().clone();
+	assert!(
+		log.contains("Placed 0 photos (5 without a location, 0 new places, 8 already placed)"),
+		"{log}"
+	);
+	let mut counts: Vec<i64> = ext_store
+		.facet_rows("Place", None, 100)
+		.await
+		.unwrap()
+		.iter()
+		.map(|p| p["photo_count"].as_i64().unwrap())
+		.collect();
+	counts.sort();
+	assert_eq!(counts, [2, 2, 2, 2]);
 
 	// Scenes: every photo skipped after one warning, no sidecar written
 	guest_log.lock().unwrap().clear();
