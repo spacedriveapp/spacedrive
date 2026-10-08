@@ -200,6 +200,13 @@ struct FieldSet {
 }
 
 #[derive(Deserialize)]
+struct JobDispatch {
+	job: String,
+	#[serde(default)]
+	state: Option<serde_json::Value>,
+}
+
+#[derive(Deserialize)]
 struct TagChange {
 	record_uuid: Option<Uuid>,
 	content_uuid: Option<Uuid>,
@@ -290,6 +297,7 @@ impl JobOps {
 			"models.list" => self.model_list(parse(payload)?).await,
 			"records.set_field" => self.field_set(parse(payload)?).await,
 			"records.get_field" => self.field_get(parse(payload)?).await,
+			"jobs.dispatch" => self.job_dispatch(parse(payload)?).await,
 			"tags.add" => self.tag_change(parse(payload)?, true).await,
 			"tags.remove" => self.tag_change(parse(payload)?, false).await,
 			"ai.infer" => self.ai_infer(payload),
@@ -667,6 +675,51 @@ impl JobOps {
 			.map(|text| serde_json::from_str(&text).unwrap_or(serde_json::Value::Null))
 			.unwrap_or(serde_json::Value::Null);
 		json(&value)
+	}
+}
+
+impl JobOps {
+	/// Queue another of this extension's jobs, with its starting state.
+	///
+	/// The name is resolved under the caller's own extension id, so an
+	/// extension can never start another extension's job. The new job runs
+	/// through the library's job manager like one started from the API; it
+	/// waits for the plugin's runtime once the caller's job has released it.
+	async fn job_dispatch(&self, dispatch: JobDispatch) -> OpResult {
+		if !self.manifest.permissions.dispatch_jobs {
+			return Err(OpError::permission_denied(format!(
+				"{} has no dispatch_jobs grant",
+				self.extension_id
+			)));
+		}
+		if dispatch.job.contains(':') {
+			return Err(OpError::invalid_input(format!(
+				"job {:?}: name the job as the extension registered it, without an extension id",
+				dispatch.job
+			)));
+		}
+		let plugin_manager = self
+			.library
+			.core_context()
+			.get_plugin_manager()
+			.await
+			.ok_or_else(|| OpError::failed("extensions are not initialized"))?;
+		let job = plugin_manager
+			.read()
+			.await
+			.job_registry()
+			.create_wasm_job(
+				&format!("{}:{}", self.extension_id, dispatch.job),
+				dispatch.state.map(|s| s.to_string()).unwrap_or_default(),
+			)
+			.map_err(OpError::invalid_input)?;
+		let handle = self
+			.library
+			.jobs()
+			.dispatch(job)
+			.await
+			.map_err(|e| OpError::failed(format!("dispatch {}: {e}", dispatch.job)))?;
+		json(&serde_json::json!({ "job_id": handle.id().0 }))
 	}
 }
 

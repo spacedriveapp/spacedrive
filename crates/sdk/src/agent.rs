@@ -53,19 +53,29 @@ impl<M: AgentMemory> AgentContext<M> {
 	}
 }
 
+/// Queues this extension's own jobs. Needs the manifest's `dispatch_jobs`.
 #[derive(Default)]
 pub struct JobDispatcher;
 
 impl JobDispatcher {
-	pub fn dispatch<J, A>(&self, _job: J, _args: A) -> JobDispatchBuilder {
-		JobDispatchBuilder::default()
+	/// A job by the name its `#[job(name = "...")]` registered, with the
+	/// state it starts from. Only this extension's jobs can be named.
+	pub fn dispatch<S: Serialize>(&self, job: &str, state: &S) -> JobDispatchBuilder {
+		JobDispatchBuilder {
+			job: job.to_string(),
+			state: serde_json::to_value(state).map_err(|e| Error::Serialization(e.to_string())),
+		}
 	}
 }
 
-#[derive(Default)]
-pub struct JobDispatchBuilder;
+pub struct JobDispatchBuilder {
+	job: String,
+	state: Result<serde_json::Value>,
+}
 
 impl JobDispatchBuilder {
+	/// Priority and placement are not carried to the host yet; the job runs
+	/// at normal priority on this device.
 	pub fn priority(self, _priority: Priority) -> Self {
 		self
 	}
@@ -78,8 +88,19 @@ impl JobDispatchBuilder {
 		self
 	}
 
-	pub async fn execute(self) -> Result<()> {
-		panic!("Dispatch job")
+	/// Queue the job and return its id. It runs once the job manager picks
+	/// it up, which for a job dispatched from inside another of this
+	/// extension's jobs is after the caller finishes.
+	pub async fn execute(self) -> Result<Uuid> {
+		#[derive(serde::Deserialize)]
+		struct Dispatched {
+			job_id: Uuid,
+		}
+		let dispatched: Dispatched = crate::ffi::op_json(
+			"jobs.dispatch",
+			&serde_json::json!({ "job": self.job, "state": self.state? }),
+		)?;
+		Ok(dispatched.job_id)
 	}
 }
 

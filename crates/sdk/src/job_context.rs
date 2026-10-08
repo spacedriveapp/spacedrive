@@ -212,6 +212,11 @@ impl JobContext {
 			.await
 	}
 
+	/// Queue another of this extension's jobs; needs `dispatch_jobs`.
+	pub fn jobs(&self) -> crate::agent::JobDispatcher {
+		crate::agent::JobDispatcher
+	}
+
 	/// Access agent memory
 	pub fn memory(&self) -> crate::agent::MemoryHandle<()> {
 		panic!("Access agent memory")
