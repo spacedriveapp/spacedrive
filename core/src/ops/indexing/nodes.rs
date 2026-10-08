@@ -15,6 +15,12 @@
 //!
 //! The arena doubles capacity (1024 → 2048 → 4096 → ...) when full, minimizing
 //! expensive remap operations while staying within Vec-like amortized O(1) insertion.
+//!
+//! A vacated slot goes on a free list and the next insert takes it, so a tree
+//! that is cleared and refilled reuses the slots it had instead of appending
+//! behind them. Reuse is safe because `EntryId`s never leave the `Arena`: its
+//! public API speaks paths and uuids, and `Arena::detach` strips every internal
+//! reference (name registry, parent child list, lookup maps) before vacating.
 
 use super::types::{EntryId, FileNode};
 use memmap2::{MmapMut, MmapOptions};
@@ -38,6 +44,12 @@ pub struct NodeArena {
 	mmap: MmapMut,
 	capacity: NonZeroUsize,
 	len: usize,
+	/// Slots below `len` whose node was vacated, reused by the next inserts.
+	free: Vec<EntryId>,
+	/// One flag per slot below `len`; `false` while the slot is on the free
+	/// list, so a lookup through a stale id answers nothing rather than an
+	/// empty node.
+	occupied: Vec<bool>,
 }
 
 impl NodeArena {
@@ -55,6 +67,8 @@ impl NodeArena {
 			mmap,
 			capacity,
 			len: 0,
+			free: Vec::new(),
+			occupied: Vec::new(),
 		})
 	}
 
@@ -110,11 +124,21 @@ impl NodeArena {
 		}
 	}
 
-	/// Appends a node and returns its stable ID.
+	/// Stores a node in a vacated slot when one exists, otherwise appends it,
+	/// and returns the slot's ID.
 	///
 	/// The arena grows automatically when full, remapping to a larger capacity.
 	/// EntryIds remain valid across remaps since they're just indices.
 	pub fn insert(&mut self, node: FileNode) -> io::Result<EntryId> {
+		if let Some(id) = self.free.pop() {
+			let slot = id.as_usize();
+			unsafe {
+				*self.entries_mut().get_unchecked_mut(slot).assume_init_mut() = node;
+			}
+			self.occupied[slot] = true;
+			return Ok(id);
+		}
+
 		if self.len == self.capacity.get() {
 			self.grow()?;
 		}
@@ -127,25 +151,33 @@ impl NodeArena {
 		}
 
 		self.len += 1;
+		self.occupied.push(true);
 		Ok(id)
 	}
 
-	/// Release a slot's heap allocation, leaving an empty node in its place.
+	/// Release a slot: drop the node's heap (its children `SmallVec`) and put
+	/// the slot on the free list for the next insert.
 	///
-	/// The slot keeps its index: `EntryId`s are handed out monotonically and are
-	/// referenced from the name registry and from parents' child lists, so
-	/// reusing one would silently rebind a stale reference to a different file.
-	/// Replacing the node instead drops its children `SmallVec` — the only heap
-	/// the node owns — while the slot itself stays initialized and pages out
-	/// under memory pressure like any other cold entry.
+	/// An id that is already vacant, or past the end, is ignored, so a slot can
+	/// never be queued for reuse twice.
 	pub fn vacate(&mut self, id: EntryId) {
-		if let Some(node) = self.get_mut(id) {
-			*node = FileNode::vacant();
+		let slot = id.as_usize();
+		if slot >= self.len || !self.occupied[slot] {
+			return;
 		}
+		unsafe {
+			*self.entries_mut().get_unchecked_mut(slot).assume_init_mut() = FileNode::vacant();
+		}
+		self.occupied[slot] = false;
+		self.free.push(id);
+	}
+
+	fn is_occupied(&self, id: EntryId) -> bool {
+		self.occupied.get(id.as_usize()).copied().unwrap_or(false)
 	}
 
 	pub fn get(&self, id: EntryId) -> Option<&FileNode> {
-		if id.as_usize() < self.len {
+		if self.is_occupied(id) {
 			Some(unsafe {
 				self.entries()
 					.get_unchecked(id.as_usize())
@@ -157,7 +189,7 @@ impl NodeArena {
 	}
 
 	pub fn get_mut(&mut self, id: EntryId) -> Option<&mut FileNode> {
-		if id.as_usize() < self.len {
+		if self.is_occupied(id) {
 			Some(unsafe {
 				self.entries_mut()
 					.get_unchecked_mut(id.as_usize())
@@ -168,12 +200,24 @@ impl NodeArena {
 		}
 	}
 
+	/// Slots handed out so far, vacant ones included: the high-water mark that
+	/// the mapping and the restart snapshot used to carry.
 	pub fn len(&self) -> usize {
 		self.len
 	}
 
+	/// Slots holding a node.
+	pub fn live(&self) -> usize {
+		self.len - self.free.len()
+	}
+
+	/// Slots waiting on the free list.
+	pub fn vacant(&self) -> usize {
+		self.free.len()
+	}
+
 	pub fn is_empty(&self) -> bool {
-		self.len == 0
+		self.live() == 0
 	}
 
 	/// No-op for memory-mapped arenas; the OS manages paging.
@@ -191,21 +235,15 @@ impl NodeArena {
 		Ok(())
 	}
 
+	/// Every live node in slot order; vacant slots are skipped.
 	pub fn iter(&self) -> impl Iterator<Item = (EntryId, &FileNode)> {
-		(0..self.len).map(move |i| {
-			let id = EntryId::from_usize(i);
-			let node = unsafe { self.entries().get_unchecked(i).assume_init_ref() };
-			(id, node)
-		})
-	}
-
-	pub fn iter_mut(&mut self) -> ArenaIterMut<'_> {
-		let len = self.len;
-		ArenaIterMut {
-			entries: self.entries_mut(),
-			len,
-			index: 0,
-		}
+		(0..self.len)
+			.filter(move |&i| self.occupied[i])
+			.map(move |i| {
+				let id = EntryId::from_usize(i);
+				let node = unsafe { self.entries().get_unchecked(i).assume_init_ref() };
+				(id, node)
+			})
 	}
 
 	/// Reports total allocation including mmap overhead and child vectors.
@@ -216,31 +254,6 @@ impl NodeArena {
 				.filter_map(|i| self.get(EntryId::from_usize(i)))
 				.map(|n| n.children.capacity() * mem::size_of::<EntryId>())
 				.sum::<usize>()
-	}
-}
-
-pub struct ArenaIterMut<'a> {
-	entries: &'a mut [MaybeUninit<FileNode>],
-	len: usize,
-	index: usize,
-}
-
-impl<'a> Iterator for ArenaIterMut<'a> {
-	type Item = (EntryId, &'a mut FileNode);
-
-	fn next(&mut self) -> Option<Self::Item> {
-		if self.index >= self.len {
-			return None;
-		}
-
-		let id = EntryId::from_usize(self.index);
-		let node = unsafe {
-			let ptr = self.entries.as_mut_ptr().add(self.index);
-			&mut *(*ptr).as_mut_ptr()
-		};
-
-		self.index += 1;
-		Some((id, node))
 	}
 }
 
@@ -300,6 +313,29 @@ mod tests {
 			.expect("backing file metadata")
 			.nlink();
 		assert_eq!(links, 0, "a named backing file outlives a killed daemon");
+	}
+
+	#[test]
+	fn a_vacated_slot_is_reused_and_unreadable_until_then() {
+		let mut arena = NodeArena::new().expect("failed to create arena");
+		let a = arena.insert(make_test_node("a")).unwrap();
+		let b = arena.insert(make_test_node("b")).unwrap();
+
+		arena.vacate(a);
+		assert!(arena.get(a).is_none(), "a stale id answers nothing");
+		assert_eq!(arena.live(), 1);
+		assert_eq!(arena.vacant(), 1);
+		assert_eq!(arena.iter().map(|(id, _)| id).collect::<Vec<_>>(), vec![b]);
+
+		// Vacating twice must not queue the slot twice.
+		arena.vacate(a);
+		assert_eq!(arena.vacant(), 1);
+
+		let c = arena.insert(make_test_node("c")).unwrap();
+		assert_eq!(c, a, "the freed slot is taken before the arena grows");
+		assert_eq!(arena.len(), 2);
+		assert_eq!(arena.vacant(), 0);
+		assert_eq!(arena.get(c).unwrap().name(), "c");
 	}
 
 	#[test]

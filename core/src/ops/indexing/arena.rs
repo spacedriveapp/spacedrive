@@ -14,6 +14,21 @@
 //! `/mnt/nas` and `/media/usb` simultaneously), sharing the string interning pool
 //! for maximum deduplication.
 //!
+//! ## Slots, identity and compaction
+//!
+//! `EntryId` is an arena slot and never leaves this module: the public API
+//! speaks paths and uuids, listings page by path, search pages by offset over
+//! paths, and the watcher addresses entries by path. That is what makes slot
+//! reuse safe. A removed entry's slot goes on the `NodeArena` free list and the
+//! next insert takes it, so a folder that is cleared and refilled reuses the
+//! slots it had. When a drive shrinks for real the free list grows instead;
+//! once vacant slots outnumber live entries (and there are at least
+//! `COMPACT_MIN_VACANT` of them) the arena is rebuilt densely from its live
+//! graph, renumbering every internal reference together. Record uuids, rollups,
+//! stubs and query results survive both; only the slot numbers change. The
+//! restart snapshot always writes that dense projection, so it carries live
+//! nodes rather than history.
+//!
 //! The design is heavily inspired by Cardinal's search-cache implementation,
 //! particularly the memory-mapped arena storage, string interning, and snapshot
 //! persistence patterns. See: https://github.com/cardisoft/cardinal
@@ -41,6 +56,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
+
+/// Compaction runs once vacant slots outnumber live entries and there are at
+/// least this many of them. The first half bounds allocation at twice the live
+/// tree and keeps the pass amortized (a rebuild costs one walk of the live
+/// graph, paid for by at least as many removals); the second keeps a small
+/// arena from rebuilding over a few hundred bytes of slack.
+pub const COMPACT_MIN_VACANT: usize = 4_096;
 
 /// Memory-efficient index for browsing unmanaged paths.
 pub struct Arena {
@@ -119,7 +141,8 @@ impl MemoryBreakdown {
 impl std::fmt::Debug for Arena {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("Arena")
-			.field("entry_count", &self.arena.len())
+			.field("entry_count", &self.arena.live())
+			.field("allocated_slots", &self.arena.len())
 			.field("interned_names", &self.cache.len())
 			.field("path_count", &self.path_index.len())
 			.finish()
@@ -711,6 +734,7 @@ impl Arena {
 
 		if cleared > 0 {
 			self.mark_dirty();
+			self.compact_if_inflated();
 			tracing::debug!(
 				"Cleared {} entries from {} (preserved browsed subdirs)",
 				cleared,
@@ -760,12 +784,90 @@ impl Arena {
 		self.last_accessed.elapsed()
 	}
 
+	/// Slots allocated so far, vacant ones included. The live count is
+	/// `path_index_count`; the two differ by what the free list holds.
 	pub fn len(&self) -> usize {
 		self.arena.len()
 	}
 
 	pub fn is_empty(&self) -> bool {
 		self.arena.is_empty()
+	}
+
+	/// Slots on the free list, waiting for an insert or a compaction.
+	pub fn vacant_slots(&self) -> usize {
+		self.arena.vacant()
+	}
+
+	/// Dense renumbering of the live slots, in slot order: `map[old]` is the
+	/// slot a live node lands on in a compact arena, `None` for a vacant one.
+	fn live_projection(&self) -> Vec<Option<EntryId>> {
+		let mut map = vec![None; self.arena.len()];
+		for (next, (old, _)) in self.arena.iter().enumerate() {
+			map[old.as_usize()] = Some(EntryId::from_usize(next));
+		}
+		map
+	}
+
+	/// Rebuild the arena densely from its live graph.
+	///
+	/// Every internal reference is renumbered together: parent links, child
+	/// lists, the path maps, uuid bindings, content kinds, collection flags,
+	/// summary stubs and the name registry. Nothing a caller holds changes,
+	/// since nothing outside this module holds a slot number. The new arena is
+	/// built in full before it replaces the old one, so a failure to map the
+	/// backing file leaves the index as it was.
+	pub fn compact(&mut self) -> std::io::Result<()> {
+		let map = self.live_projection();
+		let renumber = |id: EntryId| map.get(id.as_usize()).copied().flatten();
+
+		let mut fresh = NodeArena::with_capacity(self.arena.live())?;
+		for (_, node) in self.arena.iter() {
+			let parent = node
+				.parent()
+				.and_then(renumber)
+				.map(MaybeEntryId::some)
+				.unwrap_or(MaybeEntryId::NONE);
+			let mut moved = FileNode::new(NameRef::new(node.name(), parent), node.meta);
+			moved.children = node.children.iter().copied().filter_map(renumber).collect();
+			moved.subtree_bytes = node.subtree_bytes;
+			moved.file_count = node.file_count;
+			fresh.insert(moved)?;
+		}
+		self.arena = fresh;
+
+		self.path_index.retain(|_, id| match renumber(*id) {
+			Some(new) => {
+				*id = new;
+				true
+			}
+			None => false,
+		});
+		self.id_to_path = self
+			.path_index
+			.iter()
+			.map(|(path, &id)| (id, path.clone()))
+			.collect();
+		remap_keys(&mut self.entry_uuids, renumber);
+		remap_keys(&mut self.content_kinds, renumber);
+		remap_keys(&mut self.collection_flags, renumber);
+		remap_keys(&mut self.stubs, renumber);
+		self.registry.remap(renumber);
+		Ok(())
+	}
+
+	/// Compact when the free list has outgrown the live tree. Called after
+	/// every removal; a failure keeps the inflated arena, which still answers.
+	fn compact_if_inflated(&mut self) {
+		let vacant = self.arena.vacant();
+		if vacant < COMPACT_MIN_VACANT || vacant <= self.arena.live() {
+			return;
+		}
+		let live = self.arena.live();
+		match self.compact() {
+			Ok(()) => tracing::debug!(live, vacant, "compacted arena"),
+			Err(err) => tracing::warn!(%err, live, vacant, "arena compaction failed"),
+		}
 	}
 
 	pub fn memory_usage(&self) -> usize {
@@ -1028,7 +1130,10 @@ impl Arena {
 
 	pub fn get_stats(&self) -> ArenaStats {
 		ArenaStats {
-			total_entries: self.arena.len(),
+			total_entries: self.arena.live(),
+			allocated_slots: self.arena.len(),
+			vacant_slots: self.arena.vacant(),
+			capacity: self.arena.capacity(),
 			unique_names: self.registry.unique_names(),
 			interned_strings: self.cache.len(),
 			memory_bytes: self.memory_usage(),
@@ -1090,6 +1195,7 @@ impl Arena {
 		self.bump_ancestors(parent, removed.removed());
 
 		self.mark_dirty();
+		self.compact_if_inflated();
 		true
 	}
 
@@ -1128,6 +1234,7 @@ impl Arena {
 			}
 		}
 
+		self.compact_if_inflated();
 		count
 	}
 
@@ -1183,6 +1290,12 @@ impl Arena {
 		snapshot_path: &Path,
 	) -> anyhow::Result<Option<(Self, super::snapshot::SnapshotMeta)>> {
 		super::snapshot::load_snapshot_impl(snapshot_path)
+	}
+
+	/// The dense renumbering a snapshot is written through, so the artifact
+	/// carries live nodes rather than every slot ever allocated.
+	pub(super) fn snapshot_projection(&self) -> Vec<Option<EntryId>> {
+		self.live_projection()
 	}
 
 	/// Internal accessor for snapshot serialization
@@ -1254,10 +1367,26 @@ impl Default for Arena {
 	}
 }
 
+/// Renumber a map keyed by slot through `renumber`, dropping entries for
+/// slots it no longer knows.
+fn remap_keys<V>(map: &mut HashMap<EntryId, V>, renumber: impl Fn(EntryId) -> Option<EntryId>) {
+	*map = std::mem::take(map)
+		.into_iter()
+		.filter_map(|(id, value)| renumber(id).map(|new| (new, value)))
+		.collect();
+}
+
 /// Statistics about an arena
 #[derive(Debug, Clone)]
 pub struct ArenaStats {
+	/// Live entries.
 	pub total_entries: usize,
+	/// Slots handed out, vacant ones included.
+	pub allocated_slots: usize,
+	/// Slots on the free list.
+	pub vacant_slots: usize,
+	/// Slots the backing mapping can hold before it grows.
+	pub capacity: usize,
 	pub unique_names: usize,
 	pub interned_strings: usize,
 	pub memory_bytes: usize,
@@ -1534,7 +1663,8 @@ mod rollup_tests {
 		assert!(index.find_by_name("leaf.bin").is_empty());
 		assert_eq!(index.subtree_size(&root), Some(0));
 
-		// Slots are released rather than accumulated, and ids are never reused.
+		// Slots are released and reused, so re-adding a cleared path is a fresh
+		// entry that costs no new allocation.
 		let reused = index
 			.add_entry(
 				deep.clone(),
@@ -1547,7 +1677,7 @@ mod rollup_tests {
 			"re-adding a cleared path is a fresh entry"
 		);
 		assert_eq!(index.subtree_size(&root), Some(64));
-		assert!(index.arena.len() >= before);
+		assert_eq!(index.arena.len(), before);
 	}
 
 	/// R8 "Repeated subtree clear and refill".
@@ -1557,7 +1687,6 @@ mod rollup_tests {
 	/// a snapshot must carry live nodes rather than historical slots. Entries
 	/// outside the churn keep their identities throughout.
 	#[test]
-	#[ignore = "R8: repeated subtree clear and refill fails: NodeArena::vacate keeps the slot, so allocation and the snapshot grow with history (R4 compaction unlanded)"]
 	fn repeated_clear_and_refill_keeps_allocation_bounded() {
 		let mut index = Arena::new().unwrap();
 		let root = PathBuf::from("/vol");
@@ -1615,6 +1744,248 @@ mod rollup_tests {
 			"the snapshot reconstructs live nodes, not every slot ever allocated: {}",
 			restored.len()
 		);
+	}
+
+	/// Every live node must be reachable the way the tree says: its parent
+	/// lists it, its children are live and point back, and its path map entry
+	/// agrees. Compaction renumbers all of these together, and this is the
+	/// check that it did.
+	fn assert_consistent(index: &Arena) {
+		assert_eq!(index.path_index.len(), index.id_to_path.len());
+		for (path, &id) in &index.path_index {
+			let node = index.arena.get(id).expect("live path has a node");
+			assert_eq!(index.id_to_path.get(&id), Some(path));
+			if let Some(name) = path.file_name() {
+				assert_eq!(name.to_string_lossy(), node.name(), "{}", path.display());
+			}
+			if let Some(parent) = node.parent() {
+				let parent_node = index.arena.get(parent).expect("parent is live");
+				assert!(parent_node.children.contains(&id));
+				assert_eq!(
+					index.id_to_path.get(&parent).map(PathBuf::as_path),
+					path.parent()
+				);
+			}
+			for &child in &node.children {
+				let child_node = index.arena.get(child).expect("child is live");
+				assert_eq!(child_node.parent(), Some(id));
+			}
+		}
+		for id in index.entry_uuids.keys().chain(index.content_kinds.keys()) {
+			assert!(index.id_to_path.contains_key(id));
+		}
+	}
+
+	fn fill_files(index: &mut Arena, dir: &Path, count: usize) {
+		let entries = (0..count)
+			.map(|i| {
+				let path = dir
+					.join(format!("d{}", i % 7))
+					.join(format!("file-{i}.bin"));
+				let metadata = meta(&path, EntryKind::File, i as u64 + 1);
+				(path, Some(Uuid::now_v7()), metadata)
+			})
+			.collect();
+		index.add_entries_batch(entries).unwrap();
+	}
+
+	/// R4: a drive that shrinks for real leaves vacant slots behind that no
+	/// refill will take. Once they outnumber the live tree the arena rebuilds
+	/// itself, and nothing a caller can observe changes.
+	#[test]
+	fn a_shrunken_tree_compacts_once_vacancy_outgrows_it() {
+		let mut index = Arena::new().unwrap();
+		let root = PathBuf::from("/vol");
+		let total = COMPACT_MIN_VACANT * 2 + 500;
+		fill_files(&mut index, &root, total);
+		let keep = root.join("d3").join("file-3.bin");
+		let keep_uuid = index.get_entry_uuid(&keep).unwrap();
+		let before = index.len();
+
+		for i in 0..total {
+			let path = root
+				.join(format!("d{}", i % 7))
+				.join(format!("file-{i}.bin"));
+			if path != keep {
+				index.remove_entry(&path);
+			}
+		}
+
+		let live = index.path_index_count();
+		assert_eq!(live, 10, "/, /vol, seven buckets and the kept file");
+		// Removals after the pass leave vacancies below the floor, so the
+		// bound is the live tree plus that floor, not the slots ever used.
+		assert!(
+			index.vacant_slots() < COMPACT_MIN_VACANT && index.len() < live + COMPACT_MIN_VACANT,
+			"the free list was folded away: {} slots ({} vacant) for {live} live paths (was {before})",
+			index.len(),
+			index.vacant_slots()
+		);
+		assert!(index.len() < before / 10);
+		assert_eq!(index.get_entry_uuid(&keep), Some(keep_uuid));
+		assert_eq!(index.subtree_size(&root), Some(4));
+		assert_eq!(index.find_by_name("file-3.bin"), vec![keep.clone()]);
+		assert_eq!(
+			index.list_directory(&root.join("d3")),
+			Some(vec![keep.clone()])
+		);
+		assert_consistent(&index);
+
+		// The compacted arena keeps working as a tree: new entries land under
+		// renumbered parents and roll up to them.
+		let again = root.join("d0").join("late.bin");
+		index
+			.add_entry(
+				again.clone(),
+				Uuid::now_v7(),
+				meta(&again, EntryKind::File, 10),
+			)
+			.unwrap();
+		assert_eq!(index.subtree_size(&root.join("d0")), Some(10));
+		assert_eq!(index.subtree_size(&root), Some(14));
+		assert_consistent(&index);
+	}
+
+	/// R4: whatever the session's slot history, the restart snapshot carries
+	/// the live tree and nothing else, and what it restores answers the same.
+	#[test]
+	fn a_snapshot_after_churn_carries_only_live_nodes() {
+		let mut index = Arena::new().unwrap();
+		let root = PathBuf::from("/vol");
+		let branch = root.join("branch");
+		let summarised = root.join("Library");
+		index
+			.add_entry(
+				summarised.clone(),
+				Uuid::now_v7(),
+				meta(&summarised, EntryKind::Directory, 0),
+			)
+			.unwrap();
+		index.summarise(
+			&summarised,
+			Rollup {
+				bytes: 900,
+				files: 9,
+			},
+		);
+		for cycle in 0..20 {
+			index.remove_directory_tree(&branch);
+			fill_files(&mut index, &branch, 60 + cycle);
+		}
+		// Leave vacant slots behind, below the compaction trigger, so the
+		// writer has history to leave out.
+		for i in 0..40 {
+			index.remove_entry(
+				&branch
+					.join(format!("d{}", i % 7))
+					.join(format!("file-{i}.bin")),
+			);
+		}
+		assert!(index.vacant_slots() > 0, "the test needs an inflated arena");
+
+		let live = index.path_index_count();
+		let uuids: Vec<(PathBuf, Uuid)> = index
+			.path_index
+			.keys()
+			.filter_map(|path| Some((path.clone(), index.get_entry_uuid(path)?)))
+			.collect();
+		assert!(uuids.len() > 30);
+		let sizes: Vec<(PathBuf, u64, EntryKind)> = index
+			.entries()
+			.into_iter()
+			.map(|(path, entry)| (path, entry.size, entry.kind))
+			.collect();
+
+		let dir = tempfile::tempdir().unwrap();
+		let snapshot = dir.path().join("arena.snapshot");
+		index
+			.save_snapshot(&snapshot, Uuid::now_v7(), &root)
+			.unwrap();
+		let (restored, _) = Arena::load_snapshot(&snapshot).unwrap().expect("snapshot");
+
+		assert_eq!(restored.len(), live, "one slot per live node");
+		assert_eq!(restored.vacant_slots(), 0);
+		for (path, size, kind) in sizes {
+			let entry = restored.get_entry_ref(&path).expect("restored entry");
+			assert_eq!((entry.size, entry.kind), (size, kind), "{}", path.display());
+		}
+		for (path, uuid) in uuids {
+			assert_eq!(
+				restored.get_entry_uuid(&path),
+				Some(uuid),
+				"{}",
+				path.display()
+			);
+		}
+		assert_eq!(restored.subtree_size(&root), index.subtree_size(&root));
+		assert_eq!(
+			restored.subtree_file_count(&branch),
+			index.subtree_file_count(&branch)
+		);
+		assert!(restored.is_summarised(&summarised));
+		assert_eq!(restored.subtree_size(&summarised), Some(900));
+		assert_eq!(
+			restored.find_by_name("file-50.bin"),
+			index.find_by_name("file-50.bin")
+		);
+		assert_consistent(&restored);
+	}
+
+	/// Listings and search page by path (the explorer's cursor is a directory
+	/// and a name, search pages by offset over sorted paths), so a cursor taken
+	/// before a compaction names the same place afterwards. Slot numbers never
+	/// reach a caller, which is the rule that lets compaction renumber freely.
+	#[test]
+	fn a_listing_cursor_taken_before_compaction_still_pages() {
+		let mut index = Arena::new().unwrap();
+		let root = PathBuf::from("/vol");
+		fill_files(&mut index, &root, 200);
+		for i in (0..200).step_by(3) {
+			index.remove_entry(
+				&root
+					.join(format!("d{}", i % 7))
+					.join(format!("file-{i}.bin")),
+			);
+		}
+
+		let page_size = 25;
+		let all_before = index.files_in_scope(&root, true).unwrap();
+		let first_page: Vec<PathBuf> = all_before.iter().take(page_size).cloned().collect();
+		let cursor = first_page.last().cloned().unwrap();
+		let expected_rest: Vec<PathBuf> = all_before
+			.iter()
+			.filter(|path| **path > cursor)
+			.cloned()
+			.collect();
+		let bucket = root.join("d1");
+		let mut bucket_before = index.list_directory(&bucket).unwrap();
+		bucket_before.sort();
+
+		assert!(index.vacant_slots() > 0);
+		index.compact().unwrap();
+		assert_eq!(index.vacant_slots(), 0);
+		assert_consistent(&index);
+
+		let all_after = index.files_in_scope(&root, true).unwrap();
+		assert_eq!(all_after, all_before);
+		let rest_after: Vec<PathBuf> = all_after
+			.iter()
+			.filter(|path| **path > cursor)
+			.cloned()
+			.collect();
+		assert_eq!(rest_after, expected_rest);
+		assert_eq!(rest_after.len(), all_before.len() - page_size);
+
+		let mut bucket_after = index.list_directory(&bucket).unwrap();
+		bucket_after.sort();
+		assert_eq!(bucket_after, bucket_before);
+		assert_eq!(
+			index.find_by_prefix("file-1").len(),
+			index.find_by_prefix("file-1").len()
+		);
+		for path in &all_after {
+			assert!(index.get_entry_ref(path).is_some(), "{}", path.display());
+		}
 	}
 
 	#[test]
