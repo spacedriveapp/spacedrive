@@ -52,32 +52,6 @@ pub trait OperationTypeInfo {
 		let input_type_name = extract_type_name(std::any::type_name::<Self::Input>());
 		let output_type_name = extract_type_name(std::any::type_name::<Self::Output>());
 
-		// Debug output for type names
-		if Self::identifier() == "jobs.info" {
-			println!(
-				"DEBUG: jobs.info input type: {} -> {}",
-				std::any::type_name::<Self::Input>(),
-				input_type_name
-			);
-			println!(
-				"DEBUG: jobs.info output type: {} -> {}",
-				std::any::type_name::<Self::Output>(),
-				output_type_name
-			);
-		}
-		if Self::identifier() == "jobs.list" {
-			println!(
-				"DEBUG: jobs.list input type: {} -> {}",
-				std::any::type_name::<Self::Input>(),
-				input_type_name
-			);
-			println!(
-				"DEBUG: jobs.list output type: {} -> {}",
-				std::any::type_name::<Self::Output>(),
-				output_type_name
-			);
-		}
-
 		OperationMetadata {
 			identifier: Self::identifier(),
 			wire_method: Self::wire_method(),
@@ -499,86 +473,37 @@ fn extract_type_name(full_type_name: &str) -> String {
 
 	// Handle unit type () - use Empty struct for Swift
 	if full_type_name == "()" {
-		let result = "Empty".to_string();
-		if full_type_name.contains("()") {
-			println!(
-				"DEBUG: Unit case: '{}' -> result: '{}'",
-				full_type_name, result
-			);
-		}
-		return result;
+		return "Empty".to_string();
 	}
 
-	// Handle generic types like Option<T>, Vec<T>, etc.
-	// For Option<T>, we want just T
-	if full_type_name.contains("Option<") && full_type_name.ends_with(">") {
-		// Find the content inside Option<...>
-		let start = full_type_name.find("Option<").unwrap() + 7; // Skip "Option<"
-		let end = full_type_name.rfind(">").unwrap();
-		let inner = &full_type_name[start..end];
-		let result = extract_type_name(inner); // Recursively extract the inner type
-		if full_type_name.contains("JobInfo")
-			|| full_type_name.contains("Vec")
-			|| full_type_name.contains("()")
-		{
-			println!(
-				"DEBUG: Option case: '{}' -> inner: '{}' -> result: '{}'",
-				full_type_name, inner, result
-			);
-		}
-		return result;
+	// Option<T> names T: the Swift client spells optionality separately.
+	if full_type_name.contains("Option<") && full_type_name.ends_with('>') {
+		let start = full_type_name.find("Option<").unwrap() + 7;
+		let end = full_type_name.rfind('>').unwrap();
+		return extract_type_name(&full_type_name[start..end]);
 	}
 
-	// Handle Vec<T> - we want to keep Vec but with proper Swift syntax
-	if full_type_name.contains("Vec<") && full_type_name.ends_with(">") {
-		// Find the content inside Vec<...>
-		let start = full_type_name.find("Vec<").unwrap() + 4; // Skip "Vec<"
-		let end = full_type_name.rfind(">").unwrap();
-		let inner = &full_type_name[start..end];
-		let inner_type = extract_type_name(inner); // Recursively extract the inner type
-		let result = format!("[{}]", inner_type); // Convert to Swift array syntax
-		if full_type_name.contains("JobInfo")
-			|| full_type_name.contains("Vec")
-			|| full_type_name.contains("()")
-		{
-			println!(
-				"DEBUG: Vec case: '{}' -> inner: '{}' -> inner_type: '{}' -> result: '{}'",
-				full_type_name, inner, inner_type, result
-			);
-		}
-		return result;
+	// Vec<T> becomes Swift array syntax.
+	if full_type_name.contains("Vec<") && full_type_name.ends_with('>') {
+		let start = full_type_name.find("Vec<").unwrap() + 4;
+		let end = full_type_name.rfind('>').unwrap();
+		return format!("[{}]", extract_type_name(&full_type_name[start..end]));
 	}
 
 	// For other generic types, just return the base name
 	if full_type_name.contains('<') {
-		let base_name = full_type_name.split('<').next().unwrap_or(full_type_name);
-		let result = base_name.to_string();
-		if full_type_name.contains("JobInfo")
-			|| full_type_name.contains("Vec")
-			|| full_type_name.contains("()")
-		{
-			println!(
-				"DEBUG: Generic case: '{}' -> base_name: '{}' -> result: '{}'",
-				full_type_name, base_name, result
-			);
-		}
-		return result;
+		return full_type_name
+			.split('<')
+			.next()
+			.unwrap_or(full_type_name)
+			.to_string();
 	}
 
-	// For simple types, extract just the type name from the path
-	let type_name = full_type_name.split("::").last().unwrap_or(full_type_name);
-
-	let result = type_name.to_string();
-	if full_type_name.contains("JobInfo")
-		|| full_type_name.contains("Vec")
-		|| full_type_name.contains("()")
-	{
-		println!(
-			"DEBUG: Simple case: '{}' -> type_name: '{}' -> result: '{}'",
-			full_type_name, type_name, result
-		);
-	}
-	result
+	full_type_name
+		.split("::")
+		.last()
+		.unwrap_or(full_type_name)
+		.to_string()
 }
 
 /// Convert snake_case to camelCase for Swift method names

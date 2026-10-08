@@ -24,6 +24,7 @@ inquire     = "0.7"
 qr2term     = "0.3"
 ratatui     = "0.26"
 reqwest     = { version = "0.12", features = ["json"] }
+rmcp        = { version = "3", default-features = false, features = ["server", "transport-io"] }
 sd-client   = { path = "../../crates/sd-client" }
 sd-core     = { path = "../../core", features = ["cli"] }
 semver      = "1"
@@ -31,7 +32,12 @@ serde       = { version = "1", features = ["derive"] }
 serde_json  = "1"
 sha2        = "0.10"
 tokio       = { version = "1", features = ["full"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 uuid        = { version = "1", features = ["serde", "v4"] }
+
+[dev-dependencies]
+rmcp     = { version = "3", default-features = false, features = ["client", "transport-child-process"] }
+tempfile = "3.14"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 libc = "0.2"

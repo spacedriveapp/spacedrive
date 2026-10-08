@@ -4,6 +4,7 @@
 	"root": true,
 	"pages": [
 		"overview",
+		"mcp",
 		"linux-deployment",
 		"library-sync-setup",
 		"multi-instance",

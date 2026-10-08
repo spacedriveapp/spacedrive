@@ -132,6 +132,10 @@ pub const CORE_TESTS: &[TestSuite] = &[
 	// R8 source runtime acceptance (docs/core/acceptance/source-runtime.md):
 	// the single-daemon rows, the two-process replication rows, and the
 	// store crate's own suites, which carry the store-level rows.
+	// The MCP server is an sd-cli subcommand, so its suite builds that crate
+	// too; it rides the shorter acceptance job rather than the integration
+	// one, which sits near the hour.
+	acceptance("sd-cli", "MCP server test", &["--test", "mcp_test"]),
 	acceptance(
 		"sd-core",
 		"Source runtime acceptance test",

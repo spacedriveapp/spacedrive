@@ -8,6 +8,7 @@ pub mod index;
 pub mod job;
 pub mod library;
 pub mod logs;
+pub mod mcp;
 pub mod network;
 pub mod redundancy;
 pub mod search;

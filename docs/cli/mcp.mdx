@@ -1,0 +1,104 @@
+---
+title: MCP Server
+sidebarTitle: MCP
+description: Give an agent every Spacedrive operation as a tool with sd mcp
+---
+
+`sd mcp` serves the [Model Context Protocol](https://modelcontextprotocol.io)
+over stdio. It is a transport over the operation registry and nothing more:
+every registered query, action, validate and preview method is one tool, named
+after the op, with an input schema generated from the op's input type. Calls go
+to the running daemon over the same socket the CLI uses, so the server adds no
+permission model and holds no state. Whoever can run `sd` can run `sd mcp`.
+
+## Add it to an agent
+
+The command is the `sd` binary with the `mcp` subcommand. Global flags go
+before it: `--data-dir` picks the CLI state (the selected library), `--instance`
+addresses a named daemon, and `--device` runs every call on a paired device.
+
+Claude Code:
+
+```bash
+claude mcp add spacedrive -- sd mcp
+```
+
+Cursor, in `.cursor/mcp.json` (or the global `~/.cursor/mcp.json`):
+
+```json
+{
+	"mcpServers": {
+		"spacedrive": {
+			"command": "sd",
+			"args": ["mcp"]
+		}
+	}
+}
+```
+
+Capy: Settings → Integrations, add an MCP server with the stdio transport,
+command `sd` and arguments `["mcp"]`.
+
+Use the binary's full path when `sd` is not on the agent's PATH, for example
+`/path/to/spacedrive/target/release/sd-cli`. The daemon has to be running
+(`sd start`); `sd mcp` starts without it so the agent can list tools, and each
+call answers "Spacedrive daemon is not reachable" until it is.
+
+## Tools
+
+Tool names are the registered op names: `libraries.list`, `sources.track`,
+`files.copy`, `jobs.info`. An action's preflight methods are
+`<name>.validate` and `<name>.preview`. The list is the registry at the time
+the binary was built; `tools/list` is the authoritative catalog. The dots are
+deliberate: the MCP specification allows them in tool names, and keeping the
+op name intact means a tool name is also an `sd op` name. If a client refuses
+dotted names, say so in an issue.
+
+Every tool takes one object:
+
+- `input`: the op's input, shaped as serde accepts it. The schema is walked
+  from the Rust input type, with doc comments as descriptions. An op whose
+  input is `()` takes no `input`.
+- `library_id`: on library-scoped tools only. Without it the call uses the
+  library selected in the CLI (`cli.json` in the data directory), or the
+  first library the daemon lists.
+
+Queries, validates and previews carry `readOnlyHint: true` in their
+annotations; actions carry `readOnlyHint: false`. An agent that respects
+annotations can therefore run reads without confirmation and ask before an
+action.
+
+A tool answers with the op's output as JSON text, and as `structuredContent`
+when the output is an object. A failure inside the daemon comes back as a tool
+error (`isError: true`) carrying the daemon's message, so the agent reads it.
+An unknown tool name is a protocol error.
+
+## Following jobs
+
+Actions that start work return at once, usually with a `job_id` in their
+output. `jobs.wait` polls `jobs.info` until the job is completed, failed or
+cancelled and returns that final record:
+
+```json
+{ "job_id": "0192...", "timeout_seconds": 300 }
+```
+
+Jobs belong to the library their action ran in. Pass that `library_id` to go
+straight to it; without one the job is looked for in every library the daemon
+lists. On timeout the job keeps running and the error names its last status;
+call `jobs.wait` again to keep following it. `jobs.list`, `jobs.info`,
+`jobs.cancel`, `jobs.pause` and `jobs.resume` are the registry's own tools.
+
+## Example session
+
+```text
+libraries.list   {"input": {"include_stats": false}}
+sources.track    {"input": {"path": "/Volumes/Archive/photos"}}
+jobs.wait        {"job_id": "<job_id from the output above>"}
+search.files     {"input": {"query": "invoice"}}
+files.copy.preview {"input": {...}}
+files.copy       {"input": {...}}
+```
+
+`sd op <name> --json '<input>'` calls the same ops from a shell; see
+[Overview](/cli/overview).

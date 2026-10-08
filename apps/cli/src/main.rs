@@ -246,6 +246,8 @@ enum Commands {
 		#[arg(long)]
 		library: Option<uuid::Uuid>,
 	},
+	/// Serve the Model Context Protocol over stdio: every registered op as a tool
+	Mcp,
 	/// Interactive cloud storage setup
 	Cloud,
 	/// Update CLI and daemon to the latest build on the configured channel
@@ -478,6 +480,11 @@ async fn main() -> Result<()> {
 		Commands::Daemon(cmd) => {
 			// Daemon management doesn't need the client, handle directly
 			daemon::run(data_dir, instance, cmd).await?;
+		}
+		Commands::Mcp => {
+			// Serves without a daemon so an MCP client can list tools; each
+			// call reports the daemon as unreachable until it is started.
+			domains::mcp::run(data_dir, socket_addr, cli.device).await?;
 		}
 		Commands::Update { force, yes, timer } => match timer {
 			Some(cmd) => update::run_timer(data_dir, instance, cmd).await?,
