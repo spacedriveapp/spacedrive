@@ -386,14 +386,18 @@ function SetupDialog({
 	const library = libraryDefaults(config?.adding);
 	const defaults = effectiveDefaults(library, target, volume, inclusion.exact);
 	const choices = placementChoices(volume, inclusion.exact);
-	const loaded = Boolean(config && sources && volumeList);
+	const loaded = Boolean(config && sources && volumeList && devices);
 	// A drive that is unmounted or locked cannot be added until it is back;
-	// the core would refuse, and the modal says why before the attempt.
-	const refusal = addRefusal(
-		target,
-		volumes,
-		devices?.find((device) => device.is_current)?.id,
-	);
+	// the core would refuse, and the modal says why before the attempt. The
+	// decision waits for the device list, since without it every device's
+	// rows would be weighed.
+	const refusal = devices
+		? addRefusal(
+				target,
+				volumes,
+				devices.find((device) => device.is_current)?.id,
+			)
+		: undefined;
 
 	const [edits, setEdits] = useState<Partial<AddSettings>>({});
 	const [typedName, setTypedName] = useState<string | null>(null);
