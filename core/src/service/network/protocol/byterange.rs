@@ -239,6 +239,8 @@ pub struct RemoteVolumeInfo {
 	pub write_speed_mbps: Option<u64>,
 	/// How the owner has the volume right now. A build that predates the
 	/// field published only mounted volumes, so its facts read as mounted.
+	/// Frames are positional, so this stays the last field: anything added
+	/// after it needs its own default, and nothing may go before it.
 	#[serde(default = "mounted")]
 	pub state: VolumeState,
 }
