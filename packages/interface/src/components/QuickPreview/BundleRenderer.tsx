@@ -44,7 +44,8 @@ interface BundleRendererProps extends ContentRendererProps {
  * Hosts an extension's viewer bundle for one file. The module is imported
  * from the daemon's `/extension/<id>/<bundle>` route and its `mount` is
  * called with the file's context; the function it returns runs when the
- * file or the bundle changes and on unmount. A bundle that cannot be fetched,
+ * file or the bundle changes and on unmount, and the host element is
+ * cleared after it. A bundle that cannot be fetched,
  * has no `mount`, or throws while mounting is logged once and replaced by
  * the parent kind's renderer for that file.
  */
@@ -116,6 +117,9 @@ export function BundleRenderer(props: BundleRendererProps) {
 			cancelled = true;
 			unmount?.();
 			unmount = undefined;
+			// A viewer that returns no remover must not leave its nodes for
+			// the next mount to stack on.
+			el.replaceChildren();
 		};
 		// The context is rebuilt when the file or its byte URL changes; the
 		// sidecar URL builder only changes with the server, which remounts
