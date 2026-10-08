@@ -17,6 +17,8 @@ export interface SidebarItemProps {
 	onContextMenu?: (event: React.MouseEvent<HTMLButtonElement>) => void;
 	badge?: string | number;
 	badgeLabel?: string;
+	/** Drawn before the badge text, for a state a glyph says faster than a word. */
+	badgeIcon?: Icon;
 	disabled?: boolean;
 	tone?: SidebarItemTone;
 	title?: string;
@@ -49,6 +51,7 @@ export function SidebarItem({
 	onContextMenu,
 	badge,
 	badgeLabel,
+	badgeIcon,
 	disabled = false,
 	tone = 'default',
 	title
@@ -66,6 +69,7 @@ export function SidebarItem({
 				location.pathname.startsWith(`${prefix}/`)
 		);
 	const IconComponent = icon;
+	const BadgeIcon = badgeIcon;
 
 	return (
 		<button
@@ -108,12 +112,13 @@ export function SidebarItem({
 				<span
 					aria-label={badgeLabel}
 					className={clsx(
-						'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none',
+						'flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none',
 						tone === 'warning'
 							? 'bg-status-warning/15 text-status-warning'
 							: 'bg-sidebar-selected text-sidebar-ink-dull'
 					)}
 				>
+					{BadgeIcon && <BadgeIcon size={10} weight="bold" />}
 					{badge}
 				</span>
 			)}

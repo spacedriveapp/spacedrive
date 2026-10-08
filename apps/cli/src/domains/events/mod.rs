@@ -9,6 +9,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use sd_core::infra::daemon::types::EventFilter;
 use sd_core::infra::event::Event;
+use sd_core::volume::VolumeState;
 use std::collections::HashSet;
 
 /// Run events command
@@ -175,8 +176,23 @@ fn summarize_event(event: &Event) -> String {
 		Event::VolumeRemoved { fingerprint } => {
 			format!("Volume removed: {}", fingerprint.0)
 		}
-		Event::VolumeUpdated { fingerprint, .. } => {
-			format!("Volume updated: {}", fingerprint.0)
+		Event::VolumeUpdated {
+			fingerprint,
+			old_info,
+			new_info,
+		} => {
+			let before = VolumeState::from_flags(old_info.is_mounted, old_info.locked);
+			let after = VolumeState::from_flags(new_info.is_mounted, new_info.locked);
+			if before == after {
+				format!("Volume updated: {}", fingerprint.0)
+			} else {
+				format!(
+					"Volume updated: {} ({} -> {})",
+					fingerprint.0,
+					before.as_str(),
+					after.as_str()
+				)
+			}
 		}
 		Event::VolumeSpeedTested {
 			fingerprint,
@@ -191,13 +207,12 @@ fn summarize_event(event: &Event) -> String {
 		Event::VolumeMountChanged {
 			fingerprint,
 			is_mounted,
-		} => {
-			format!(
-				"Volume {} mount changed: {}",
-				fingerprint.0,
-				if *is_mounted { "mounted" } else { "unmounted" }
-			)
-		}
+			state,
+		} => match state.unwrap_or(VolumeState::from_flags(*is_mounted, false)) {
+			VolumeState::Locked => format!("Volume {} locked: key not loaded", fingerprint.0),
+			VolumeState::Unmounted => format!("Volume {} unmounted", fingerprint.0),
+			VolumeState::Mounted => format!("Volume {} mounted", fingerprint.0),
+		},
 		Event::VolumeError { fingerprint, error } => {
 			format!("Volume {} error: {}", fingerprint.0, error)
 		}
@@ -395,5 +410,65 @@ fn summarize_event(event: &Event) -> String {
 		Event::ConfigChanged { field } => {
 			format!("Configuration changed: {}", field)
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::summarize_event;
+	use sd_core::infra::event::Event;
+	use sd_core::volume::{VolumeFingerprint, VolumeInfo, VolumeState};
+
+	fn info(is_mounted: bool, locked: bool) -> VolumeInfo {
+		VolumeInfo {
+			is_mounted,
+			locked,
+			total_bytes_available: 0,
+			read_speed_mbps: None,
+			write_speed_mbps: None,
+			error_status: None,
+		}
+	}
+
+	#[test]
+	fn a_lock_and_an_unlock_are_named_as_such() {
+		let fingerprint = VolumeFingerprint("vault".to_string());
+		let locked = Event::VolumeMountChanged {
+			fingerprint: fingerprint.clone(),
+			is_mounted: false,
+			state: Some(VolumeState::Locked),
+		};
+		assert_eq!(
+			summarize_event(&locked),
+			"Volume vault locked: key not loaded"
+		);
+
+		let mounted = Event::VolumeMountChanged {
+			fingerprint: fingerprint.clone(),
+			is_mounted: true,
+			state: Some(VolumeState::Mounted),
+		};
+		assert_eq!(summarize_event(&mounted), "Volume vault mounted");
+
+		let from_an_older_daemon = Event::VolumeMountChanged {
+			fingerprint: fingerprint.clone(),
+			is_mounted: true,
+			state: None,
+		};
+		assert_eq!(
+			summarize_event(&from_an_older_daemon),
+			"Volume vault mounted",
+			"without a state the flag decides"
+		);
+
+		let updated = Event::VolumeUpdated {
+			fingerprint,
+			old_info: info(false, false),
+			new_info: info(false, true),
+		};
+		assert_eq!(
+			summarize_event(&updated),
+			"Volume updated: vault (unmounted -> locked)"
+		);
 	}
 }

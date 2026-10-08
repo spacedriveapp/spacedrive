@@ -171,6 +171,7 @@ impl CoreQuery for IndexStatusQuery {
 				root: s.root,
 				volume_uuid: s.volume_uuid,
 				attached: s.attached,
+				volume_state: s.volume_state,
 				restored: s.restored,
 				last_seen_secs: s.last_seen_secs,
 				entry_count: s.entry_count,

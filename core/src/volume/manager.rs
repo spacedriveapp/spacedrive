@@ -9,7 +9,7 @@ use crate::volume::{
 	error::{VolumeError, VolumeResult},
 	types::{
 		SpacedriveVolumeId, TrackedVolume, Volume, VolumeDetectionConfig, VolumeFingerprint,
-		VolumeInfo,
+		VolumeInfo, VolumeState,
 	},
 	VolumeExt,
 };
@@ -850,11 +850,18 @@ impl VolumeManager {
 							new_info: new_info.clone(),
 						});
 
-						// Emit mount status change if applicable
-						if old_info.is_mounted != new_info.is_mounted {
+						// A lock or unlock is a state change even when the
+						// mount flag holds, as when a key is unloaded from an
+						// already unmounted dataset.
+						let old_state =
+							VolumeState::from_flags(old_info.is_mounted, old_info.locked);
+						let new_state =
+							VolumeState::from_flags(new_info.is_mounted, new_info.locked);
+						if old_state != new_state {
 							events.emit(Event::VolumeMountChanged {
 								fingerprint: fingerprint.clone(),
 								is_mounted: new_info.is_mounted,
+								state: Some(new_state),
 							});
 
 							// Auto-run speed test when volume is mounted

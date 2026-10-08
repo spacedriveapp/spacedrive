@@ -13,6 +13,11 @@ pub struct IndexSourceInfo {
 	pub volume_uuid: Option<uuid::Uuid>,
 	/// The root exists on disk right now
 	pub attached: bool,
+	/// How the drive under the source stands: mounted, unmounted, or locked
+	/// because its key is not loaded. Absent on media Spacedrive does not
+	/// track.
+	#[serde(default)]
+	pub volume_state: Option<crate::volume::VolumeState>,
 	/// A snapshot restore has populated this source's index this session
 	pub restored: bool,
 	pub last_seen_secs: u64,

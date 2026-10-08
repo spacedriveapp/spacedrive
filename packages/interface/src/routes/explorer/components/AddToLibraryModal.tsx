@@ -32,6 +32,7 @@ import {
 } from "../../../contexts/SpacedriveContext";
 import { describeError, Failure } from "../../../components/modals/RearrangeModal";
 import {
+	addRefusal,
 	buildPayload,
 	changedKeys,
 	containingVolume,
@@ -368,6 +369,12 @@ function SetupDialog({
 		},
 		{ enabled: target.kind === "path" },
 	);
+	// Which of the listed volumes are this device's, so a drive another
+	// device tracked at the same mount point cannot refuse an add here.
+	const { data: devices } = useLibraryQuery({
+		type: "devices.list",
+		input: { include_offline: true, include_details: false, show_paired: false },
+	});
 	const trackSource = useLibraryMutation("sources.track");
 	const trackVolume = useLibraryMutation("volumes.track");
 	const updateConfig = useLibraryMutation("config.library.update");
@@ -379,7 +386,18 @@ function SetupDialog({
 	const library = libraryDefaults(config?.adding);
 	const defaults = effectiveDefaults(library, target, volume, inclusion.exact);
 	const choices = placementChoices(volume, inclusion.exact);
-	const loaded = Boolean(config && sources && volumeList);
+	const loaded = Boolean(config && sources && volumeList && devices);
+	// A drive that is unmounted or locked cannot be added until it is back;
+	// the core would refuse, and the modal says why before the attempt. The
+	// decision waits for the device list, since without it every device's
+	// rows would be weighed.
+	const refusal = devices
+		? addRefusal(
+				target,
+				volumes,
+				devices.find((device) => device.is_current)?.id,
+			)
+		: undefined;
 
 	const [edits, setEdits] = useState<Partial<AddSettings>>({});
 	const [typedName, setTypedName] = useState<string | null>(null);
@@ -454,11 +472,18 @@ function SetupDialog({
 			onSubmit={() => void submit()}
 			ctaLabel={risk ? "Add anyway" : inclusion.exact ? "Re-add to Library" : "Add to Library"}
 			ctaDanger={Boolean(risk)}
-			submitDisabled={!loaded || pending}
+			submitDisabled={!loaded || pending || Boolean(refusal)}
 			loading={pending}
 		>
 			<div className="space-y-4 py-1">
 				<IncludeCard target={target} volume={volume} />
+
+				{refusal && (
+					<Notice tone="warning">
+						<span className="font-medium text-ink">Cannot add this now.</span>{" "}
+						{refusal}
+					</Notice>
+				)}
 
 				{inclusion.exact && (
 					<Notice tone="info">

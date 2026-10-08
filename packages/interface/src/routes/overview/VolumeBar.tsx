@@ -1,4 +1,10 @@
-import {ArrowDown, ArrowUp, DotsThree, EyeSlash} from '@phosphor-icons/react';
+import {
+	ArrowDown,
+	ArrowUp,
+	DotsThree,
+	EyeSlash,
+	Lock
+} from '@phosphor-icons/react';
 import type {SourceInfo, Volume} from '@sd/ts-client';
 import {CircleButton} from '@spacedrive/primitives';
 import {motion} from 'framer-motion';
@@ -239,6 +245,21 @@ export function VolumeBar({volume, sources, isLocal, index}: VolumeBarProps) {
 							<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
 								{volumeTypeStr}
 							</span>
+						)}
+						{volume.locked ? (
+							<span
+								title="The encryption key is not loaded"
+								className="bg-app-box border-app-line text-ink-dull flex items-center gap-1 rounded border px-1.5 py-0.5"
+							>
+								<Lock size={10} weight="bold" />
+								locked
+							</span>
+						) : (
+							!volume.is_mounted && (
+								<span className="bg-app-box border-app-line text-ink-faint rounded border px-1.5 py-0.5">
+									unmounted
+								</span>
+							)
 						)}
 						{indexingProgress ? (
 							<span className="bg-accent/20 border-accent/30 text-accent rounded border px-1.5 py-0.5 font-medium">
