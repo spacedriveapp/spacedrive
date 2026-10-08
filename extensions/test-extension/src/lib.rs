@@ -212,7 +212,12 @@ async fn tag_files(ctx: &JobContext, state: &mut TagState) -> Result<()> {
 
 	for record in &records {
 		let tag = ctx.vdfs().add_tag(record.id(), "Catalog/Digested").await?;
-		ctx.log(&format!("tagged {} with {} ({})", record.name(), tag.path, tag.id));
+		ctx.log(&format!(
+			"tagged {} with {} ({})",
+			record.name(),
+			tag.path,
+			tag.id
+		));
 		ctx.vdfs()
 			.update_custom_field(record.id(), "test.size", record.size)
 			.await?;
@@ -233,7 +238,10 @@ async fn tag_files(ctx: &JobContext, state: &mut TagState) -> Result<()> {
 				.add_tag_to_content(content_uuid, "Catalog/Bytes")
 				.await?;
 		}
-		let removed = ctx.vdfs().remove_tag(first.id(), "Catalog/Digested").await?;
+		let removed = ctx
+			.vdfs()
+			.remove_tag(first.id(), "Catalog/Digested")
+			.await?;
 		ctx.log(&format!(
 			"removed {} from {}",
 			removed.map(|t| t.path).unwrap_or_default(),

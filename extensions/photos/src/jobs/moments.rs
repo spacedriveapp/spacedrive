@@ -72,11 +72,7 @@ pub async fn create_moments(ctx: &JobContext, state: &mut CreateMomentsState) ->
 	let mut captures = Vec::new();
 	for photo in &photos {
 		ctx.check_interrupt().await?;
-		if photo
-			.custom_field::<Uuid>(MOMENT_FIELD)
-			.await?
-			.is_some()
-		{
+		if photo.custom_field::<Uuid>(MOMENT_FIELD).await?.is_some() {
 			state.already_grouped += 1;
 			continue;
 		}
@@ -84,13 +80,14 @@ pub async fn create_moments(ctx: &JobContext, state: &mut CreateMomentsState) ->
 			exif.date_taken.map(|taken| PhotoCapture {
 				photo_id: photo.id(),
 				taken,
-				location: exif.latitude.zip(exif.longitude).map(|(latitude, longitude)| {
-					GpsCoordinates {
+				location: exif
+					.latitude
+					.zip(exif.longitude)
+					.map(|(latitude, longitude)| GpsCoordinates {
 						latitude,
 						longitude,
 						altitude: None,
-					}
-				}),
+					}),
 			})
 		}) else {
 			state.undated += 1;
@@ -157,11 +154,7 @@ pub fn moment_title(start: DateTime<Utc>, end: DateTime<Utc>) -> String {
 		);
 	}
 	if sd.month() != ed.month() {
-		return format!(
-			"{} to {}",
-			start.format("%B %-d"),
-			end.format("%B %-d, %Y")
-		);
+		return format!("{} to {}", start.format("%B %-d"), end.format("%B %-d, %Y"));
 	}
 	format!("{} to {}", start.format("%B %-d"), end.format("%-d, %Y"))
 }

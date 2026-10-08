@@ -124,7 +124,8 @@ pub fn cluster_by_location(
 		{
 			Some(cluster) => {
 				let n = cluster.photos.len() as f64;
-				cluster.center.latitude = (cluster.center.latitude * n + coords.latitude) / (n + 1.0);
+				cluster.center.latitude =
+					(cluster.center.latitude * n + coords.latitude) / (n + 1.0);
 				cluster.center.longitude =
 					(cluster.center.longitude * n + coords.longitude) / (n + 1.0);
 				cluster.photos.push(photo.clone());
