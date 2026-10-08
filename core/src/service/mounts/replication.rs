@@ -131,6 +131,7 @@ mod tests {
 			root: std::path::PathBuf::from("/mnt/pool/kept"),
 			volume_uuid: None,
 			attached: true,
+			volume_state: None,
 			entry_count: None,
 			total_bytes: None,
 			generation: 1,

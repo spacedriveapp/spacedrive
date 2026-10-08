@@ -161,31 +161,11 @@ pub async fn run(ctx: &Context, cmd: SourceCmd) -> Result<()> {
 				}
 				let mut table = Table::new();
 				table.load_preset(UTF8_BORDERS_ONLY);
-				table.set_header(vec!["ID", "Name", "Type", "Records", "Status", "Root"]);
+				table.set_header(vec![
+					"ID", "Name", "Type", "Records", "Status", "State", "Root",
+				]);
 				for source in sources {
-					let mut status = if source.attached {
-						source.status.clone()
-					} else {
-						format!("{} (detached)", source.status)
-					};
-					if let Some(transfer) = &source.transfer {
-						status = format!(
-							"{status}: fetching {}",
-							crate::util::output::format_transfer(
-								transfer.bytes,
-								transfer.total,
-								transfer.bytes_per_sec
-							)
-						);
-					}
-					table.add_row(vec![
-						source.id.to_string(),
-						source.name.clone(),
-						source.data_type.clone(),
-						source.item_count.to_string(),
-						status,
-						source.root.clone().unwrap_or_default(),
-					]);
+					table.add_row(source_row(source));
 				}
 				println!("{table}");
 			});
@@ -268,4 +248,106 @@ pub async fn run(ctx: &Context, cmd: SourceCmd) -> Result<()> {
 	}
 
 	Ok(())
+}
+
+/// One `sd sources list` row.
+///
+/// The state column names what stands between the library and the
+/// source's files: `mounted`, `unmounted` or `locked` for a drive the
+/// volume index knows, `offline` for a root or a replica nothing answers
+/// for, and `online` for an adapter, whose origin is a service.
+fn source_row(source: &SourceInfo) -> Vec<String> {
+	let mut status = if source.attached {
+		source.status.clone()
+	} else {
+		format!("{} (detached)", source.status)
+	};
+	if let Some(transfer) = &source.transfer {
+		status = format!(
+			"{status}: fetching {}",
+			crate::util::output::format_transfer(
+				transfer.bytes,
+				transfer.total,
+				transfer.bytes_per_sec
+			)
+		);
+	}
+	vec![
+		source.id.to_string(),
+		source.name.clone(),
+		source.data_type.clone(),
+		source.item_count.to_string(),
+		status,
+		source_state_label(source).to_string(),
+		source.root.clone().unwrap_or_default(),
+	]
+}
+
+fn source_state_label(source: &SourceInfo) -> &'static str {
+	match source.volume_state {
+		Some(state) => state.as_str(),
+		None if source.data_type != "filesystem" => "online",
+		None if source.attached => "mounted",
+		None => "offline",
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sd_core::volume::VolumeState;
+
+	fn source(attached: bool, volume_state: Option<VolumeState>) -> SourceInfo {
+		SourceInfo {
+			id: uuid::Uuid::nil(),
+			name: "vault".to_string(),
+			data_type: "filesystem".to_string(),
+			adapter_id: None,
+			item_count: 5,
+			last_synced: None,
+			status: "idle".to_string(),
+			root: Some("/mnt/vault".to_string()),
+			volume_uuid: None,
+			attached,
+			volume_state,
+			total_bytes: None,
+			last_seen_at: None,
+			device_id: None,
+			device_label: None,
+			transfer: None,
+			placement: None,
+			store_path: None,
+			settings: None,
+		}
+	}
+
+	#[test]
+	fn the_state_column_says_what_stands_between_the_library_and_the_files() {
+		assert_eq!(
+			source_state_label(&source(true, Some(VolumeState::Mounted))),
+			"mounted"
+		);
+		assert_eq!(
+			source_state_label(&source(false, Some(VolumeState::Locked))),
+			"locked"
+		);
+		assert_eq!(
+			source_state_label(&source(false, Some(VolumeState::Unmounted))),
+			"unmounted"
+		);
+		assert_eq!(source_state_label(&source(false, None)), "offline");
+		assert_eq!(source_state_label(&source(true, None)), "mounted");
+
+		let mut adapter = source(true, None);
+		adapter.data_type = "github".to_string();
+		assert_eq!(source_state_label(&adapter), "online");
+	}
+
+	#[test]
+	fn a_locked_source_lists_detached_with_its_state() {
+		let row = source_row(&source(false, Some(VolumeState::Locked)));
+		assert_eq!(row[4], "idle (detached)");
+		assert_eq!(row[5], "locked");
+		assert_eq!(row[6], "/mnt/vault");
+	}
 }

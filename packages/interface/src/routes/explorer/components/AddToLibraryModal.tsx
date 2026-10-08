@@ -32,6 +32,7 @@ import {
 } from "../../../contexts/SpacedriveContext";
 import { describeError, Failure } from "../../../components/modals/RearrangeModal";
 import {
+	addRefusal,
 	buildPayload,
 	changedKeys,
 	containingVolume,
@@ -380,6 +381,9 @@ function SetupDialog({
 	const defaults = effectiveDefaults(library, target, volume, inclusion.exact);
 	const choices = placementChoices(volume, inclusion.exact);
 	const loaded = Boolean(config && sources && volumeList);
+	// A drive that is unmounted or locked cannot be added until it is back;
+	// the core would refuse, and the modal says why before the attempt.
+	const refusal = addRefusal(target, volumes);
 
 	const [edits, setEdits] = useState<Partial<AddSettings>>({});
 	const [typedName, setTypedName] = useState<string | null>(null);
@@ -454,11 +458,18 @@ function SetupDialog({
 			onSubmit={() => void submit()}
 			ctaLabel={risk ? "Add anyway" : inclusion.exact ? "Re-add to Library" : "Add to Library"}
 			ctaDanger={Boolean(risk)}
-			submitDisabled={!loaded || pending}
+			submitDisabled={!loaded || pending || Boolean(refusal)}
 			loading={pending}
 		>
 			<div className="space-y-4 py-1">
 				<IncludeCard target={target} volume={volume} />
+
+				{refusal && (
+					<Notice tone="warning">
+						<span className="font-medium text-ink">Cannot add this now.</span>{" "}
+						{refusal}
+					</Notice>
+				)}
 
 				{inclusion.exact && (
 					<Notice tone="info">

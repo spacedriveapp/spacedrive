@@ -1,13 +1,20 @@
-import {HardDrive} from '@phosphor-icons/react';
+import {HardDrive, Lock} from '@phosphor-icons/react';
 import {useNavigate} from 'react-router-dom';
 import type {SourceInfo} from '@sd/ts-client';
 import {formatBytes} from '../../routes/explorer/utils';
+import {
+	availabilityBadge,
+	availabilityDescription,
+	sourceAvailability
+} from './sourceAvailability';
 
 /**
  * A paired device's source, replicated through the peer-mount plane — same
  * card language as local drives, labelled with the owning device. Opens the
  * explorer routed through that device's slug, which is what serves the
- * listing from the replicated index.
+ * listing from the replicated index. The owner's volume state rides along
+ * in the replica, so a locked dataset on the owner reads as locked here
+ * rather than as a replica that stopped updating.
  */
 
 function syncedLabel(iso: string): string {
@@ -28,6 +35,8 @@ export function ReplicaSourceCard({
 	deviceSlug: string | undefined;
 }) {
 	const navigate = useNavigate();
+	const availability = sourceAvailability(source);
+	const badge = availabilityBadge(availability);
 
 	const open = () => {
 		if (!deviceSlug || !source.root) return;
@@ -40,12 +49,24 @@ export function ReplicaSourceCard({
 	return (
 		<button
 			onClick={open}
-			title={source.root ?? source.name}
+			title={
+				availabilityDescription(availability, undefined) ??
+				source.root ??
+				source.name
+			}
 			className="border-app-line bg-app-box hover:border-app-line/80 hover:bg-app-hover group relative rounded-lg border p-4 text-left transition-all"
 		>
 			<div className="mb-3 flex items-center gap-3">
 				<div className="bg-app-selected/40 flex size-9 shrink-0 items-center justify-center rounded-lg">
-					<HardDrive size={20} weight="bold" className="text-ink-dull" />
+					<HardDrive
+						size={20}
+						weight="bold"
+						className={
+							availability === 'available'
+								? 'text-ink-dull'
+								: 'text-ink-faint'
+						}
+					/>
 				</div>
 				<div className="min-w-0 flex-1">
 					<h3 className="text-ink truncate text-sm font-medium">
@@ -55,6 +76,14 @@ export function ReplicaSourceCard({
 						{source.device_label ?? 'paired device'}
 					</p>
 				</div>
+				{badge && (
+					<span className="bg-app-selected/40 text-ink-faint flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium">
+						{availability === 'locked' && (
+							<Lock size={10} weight="bold" />
+						)}
+						{badge.toLowerCase()}
+					</span>
+				)}
 				<span className="bg-app-selected/40 text-ink-faint rounded-full px-2 py-0.5 text-[10px] font-medium">
 					replica
 				</span>

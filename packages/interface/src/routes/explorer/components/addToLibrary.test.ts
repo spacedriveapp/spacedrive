@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { SourceInfo, Volume } from "@sd/ts-client";
 import {
+	addRefusal,
 	buildPayload,
 	containingVolume,
 	effectiveDefaults,
@@ -244,5 +245,56 @@ describe("containing volume", () => {
 			volume({ id: "mnt", mount_point: "/mnt" }),
 		];
 		expect(containingVolume("/mnt/data/file", volumes)?.id).toBe("data");
+	});
+});
+
+describe("addRefusal", () => {
+	const mounted = volume({ id: "pool", name: "pool", mount_point: "/mnt/pool" });
+	const locked = volume({
+		id: "vault",
+		name: "vault",
+		mount_point: "/mnt/pool/vault",
+		is_mounted: false,
+		locked: true,
+	});
+	const unmounted = volume({
+		id: "archive",
+		name: "archive",
+		display_name: "Archive",
+		mount_point: "/mnt/archive",
+		is_mounted: false,
+	});
+
+	test("a mounted drive or a folder on one adds", () => {
+		expect(addRefusal({ kind: "volume", volume: mounted }, [mounted])).toBeUndefined();
+		expect(
+			addRefusal({ kind: "path", path: "/mnt/pool/photos" }, [mounted, locked]),
+		).toBeUndefined();
+	});
+
+	test("a locked drive is refused with its key as the reason", () => {
+		expect(addRefusal({ kind: "volume", volume: locked }, [mounted, locked])).toBe(
+			"vault is locked: its encryption key is not loaded. Load the key and mount it, then add it.",
+		);
+	});
+
+	test("an unmounted drive is refused under its display name", () => {
+		expect(addRefusal({ kind: "volume", volume: unmounted }, [unmounted])).toBe(
+			"Archive is not mounted. Mount it, then add it.",
+		);
+	});
+
+	test("a path at or under an away drive's mount point is refused like the drive", () => {
+		const volumes = [mounted, locked, unmounted];
+		expect(addRefusal({ kind: "path", path: "/mnt/pool/vault" }, volumes)).toContain(
+			"vault is locked",
+		);
+		expect(
+			addRefusal({ kind: "path", path: "/mnt/pool/vault/photos" }, volumes),
+		).toContain("vault is locked");
+		expect(addRefusal({ kind: "path", path: "/mnt/archive" }, volumes)).toContain(
+			"Archive is not mounted",
+		);
+		expect(addRefusal({ kind: "path", path: "/mnt/archives" }, volumes)).toBeUndefined();
 	});
 });

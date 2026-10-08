@@ -91,6 +91,35 @@ export function containingVolume(
 	return best?.volume;
 }
 
+/**
+ * Why the add cannot start at all, when the target is a drive Spacedrive
+ * knows but cannot read: a whole drive that is unmounted or locked, or a
+ * path at or under such a drive's mount point. The core refuses these
+ * (`sources.track` names the volume's state), and the directory left at
+ * the mount point would otherwise be added as an empty folder of the
+ * parent drive.
+ */
+export function addRefusal(
+	target: AddTarget,
+	volumes: readonly Volume[],
+): string | undefined {
+	const away =
+		target.kind === "volume"
+			? target.volume
+			: volumes.find(
+					(volume) =>
+						!volume.is_mounted &&
+						[volume.mount_point, ...volume.mount_points].some(
+							(mount) => mount && isUnder(target.path, mount),
+						),
+				);
+	if (!away || away.is_mounted) return undefined;
+	const name = away.display_name || away.name;
+	return away.locked
+		? `${name} is locked: its encryption key is not loaded. Load the key and mount it, then add it.`
+		: `${name} is not mounted. Mount it, then add it.`;
+}
+
 /** How the library already covers the path, before anything is added. */
 export interface Inclusion {
 	/** A source whose root is exactly this path. */

@@ -17,7 +17,9 @@
 use crate::context::CoreContext;
 use crate::device::DeviceConfig;
 use crate::domain::device::{parse_device_form_factor_from_string, Device};
-use crate::domain::volume::{DiskType, FileSystem, Volume, VolumeFingerprint, VolumeType};
+use crate::domain::volume::{
+	DiskType, FileSystem, Volume, VolumeFingerprint, VolumeState, VolumeType,
+};
 use crate::service::network::device::registry::DeviceRegistry;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -151,14 +153,18 @@ pub struct RemoteDeviceSummary {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RemoteDeviceFacts {
 	pub hardware: RemoteHardware,
-	/// Volumes the device has mounted and shows a person.
+	/// Volumes the device shows a person: the ones it has mounted, and the
+	/// tracked ones it knows but cannot read right now, with their state.
 	pub volumes: Vec<RemoteVolumeInfo>,
 }
 
 impl RemoteDeviceFacts {
 	/// Describe this device from its configuration and its volume manager's
-	/// live volumes. Hidden and unmounted volumes stay out, as they do from
-	/// the device's own volume list.
+	/// live volumes. Hidden volumes stay out, as they do from the device's
+	/// own volume list. An unmounted or locked volume travels only when it
+	/// is tracked: a peer holding its replica needs to know the drive is
+	/// away rather than that it stopped updating, while an untracked
+	/// dataset nobody added is noise.
 	pub fn describe(config: &DeviceConfig, volumes: &[Volume]) -> Self {
 		Self {
 			hardware: RemoteHardware {
@@ -172,7 +178,7 @@ impl RemoteDeviceFacts {
 			},
 			volumes: volumes
 				.iter()
-				.filter(|volume| volume.is_user_visible && volume.is_mounted)
+				.filter(|volume| volume.is_user_visible && (volume.is_mounted || volume.is_tracked))
 				.map(RemoteVolumeInfo::from)
 				.collect(),
 		}
@@ -231,6 +237,14 @@ pub struct RemoteVolumeInfo {
 	pub is_tracked: bool,
 	pub read_speed_mbps: Option<u64>,
 	pub write_speed_mbps: Option<u64>,
+	/// How the owner has the volume right now. A build that predates the
+	/// field published only mounted volumes, so its facts read as mounted.
+	#[serde(default = "mounted")]
+	pub state: VolumeState,
+}
+
+fn mounted() -> VolumeState {
+	VolumeState::Mounted
 }
 
 impl From<&Volume> for RemoteVolumeInfo {
@@ -250,13 +264,15 @@ impl From<&Volume> for RemoteVolumeInfo {
 			is_tracked: volume.is_tracked,
 			read_speed_mbps: volume.read_speed_mbps,
 			write_speed_mbps: volume.write_speed_mbps,
+			state: volume.state(),
 		}
 	}
 }
 
 impl RemoteVolumeInfo {
 	/// The volume as this device lists it: owned by `owner`, mounted only
-	/// while the owner is reachable, and last seen when its facts arrived.
+	/// while the owner is reachable and has it mounted, locked when the
+	/// owner last said so, and last seen when its facts arrived.
 	pub fn to_volume(&self, owner: Uuid, reachable: bool, observed_at: DateTime<Utc>) -> Volume {
 		let mut volume = Volume::new(
 			owner,
@@ -273,7 +289,8 @@ impl RemoteVolumeInfo {
 		volume.available_space = self.available_space;
 		volume.is_read_only = self.is_read_only;
 		volume.is_tracked = self.is_tracked;
-		volume.is_mounted = reachable;
+		volume.is_mounted = reachable && self.state.is_mounted();
+		volume.locked = self.state.is_locked();
 		volume.auto_track_eligible = false;
 		volume.read_speed_mbps = self.read_speed_mbps;
 		volume.write_speed_mbps = self.write_speed_mbps;
@@ -290,6 +307,11 @@ pub struct RemoteSourceInfo {
 	pub root: PathBuf,
 	pub volume_uuid: Option<uuid::Uuid>,
 	pub attached: bool,
+	/// How the drive under the source stands on its owner, so a peer can
+	/// say locked rather than guess from `attached`. Absent from an older
+	/// build's answer and for a source on media the owner does not track.
+	#[serde(default)]
+	pub volume_state: Option<VolumeState>,
 	pub entry_count: Option<u64>,
 	pub total_bytes: Option<u64>,
 	/// Version of the artifact a peer would receive: the snapshot's size and
@@ -761,6 +783,7 @@ impl ByteRangeProtocolHandler {
 						root: s.root,
 						volume_uuid: s.volume_uuid,
 						attached: s.attached,
+						volume_state: s.volume_state,
 						entry_count: s.entry_count,
 						total_bytes: s.total_bytes,
 						generation,
@@ -1133,10 +1156,14 @@ mod tests {
 		config.memory_total_bytes = Some(128 << 30);
 
 		let shown = volume("pool", true, true);
+		let mut vault = volume("vault", true, false);
+		vault.is_tracked = true;
+		vault.locked = true;
 		let facts = RemoteDeviceFacts::describe(
 			&config,
 			&[
 				shown.clone(),
+				vault.clone(),
 				volume("boot", false, true),
 				volume("usb", true, false),
 			],
@@ -1144,9 +1171,11 @@ mod tests {
 
 		assert_eq!(
 			facts.volumes.iter().map(|v| v.id).collect::<Vec<_>>(),
-			vec![shown.id],
-			"hidden and unmounted volumes stay out"
+			vec![shown.id, vault.id],
+			"hidden and untracked unmounted volumes stay out; a tracked locked one travels"
 		);
+		assert_eq!(facts.volumes[0].state, VolumeState::Mounted);
+		assert_eq!(facts.volumes[1].state, VolumeState::Locked);
 		assert_eq!(facts.hardware.cpu_model.as_deref(), Some("AMD EPYC 4464P"));
 		assert_eq!(facts.hardware.memory_total_bytes, Some(128 << 30));
 	}
@@ -1182,6 +1211,72 @@ mod tests {
 			"an unreachable owner's volume is not mounted here"
 		);
 		assert_eq!(listed.last_seen_at, observed_at);
+	}
+
+	/// A locked volume reads as locked on its peer while the owner is
+	/// reachable, as it does on the owner, so a replica over it says the key
+	/// is not loaded instead of looking like a drive that stopped updating.
+	/// Facts from a build that published only mounted volumes, and so carry
+	/// no state, still read as mounted.
+	#[test]
+	fn a_volumes_state_reaches_its_peer() {
+		let mut original = volume("vault", true, false);
+		original.is_tracked = true;
+		original.locked = true;
+		let info = RemoteVolumeInfo::from(&original);
+		assert_eq!(info.state, VolumeState::Locked);
+
+		let encoded = rmp_serde::to_vec(&info).expect("encode");
+		let decoded: RemoteVolumeInfo = rmp_serde::from_slice(&encoded).expect("decode");
+		assert_eq!(decoded, info);
+
+		let owner = Uuid::now_v7();
+		let reachable = decoded.to_volume(owner, true, Utc::now());
+		assert_eq!(reachable.state(), VolumeState::Locked);
+		assert!(reachable.is_tracked);
+		let away = decoded.to_volume(owner, false, Utc::now());
+		assert!(
+			!away.is_mounted && away.locked,
+			"an unreachable owner's locked volume keeps the state it last reported"
+		);
+
+		#[derive(Serialize)]
+		struct LegacyVolumeInfo {
+			id: Uuid,
+			fingerprint: String,
+			name: String,
+			display_name: Option<String>,
+			mount_point: PathBuf,
+			volume_type: String,
+			disk_type: String,
+			file_system: String,
+			total_capacity: u64,
+			available_space: u64,
+			is_read_only: bool,
+			is_tracked: bool,
+			read_speed_mbps: Option<u64>,
+			write_speed_mbps: Option<u64>,
+		}
+		let bytes = rmp_serde::to_vec(&LegacyVolumeInfo {
+			id: Uuid::now_v7(),
+			fingerprint: "fingerprint-pool".to_string(),
+			name: "pool".to_string(),
+			display_name: None,
+			mount_point: PathBuf::from("/mnt/pool"),
+			volume_type: "External".to_string(),
+			disk_type: "HDD".to_string(),
+			file_system: "ZFS".to_string(),
+			total_capacity: 1,
+			available_space: 1,
+			is_read_only: false,
+			is_tracked: true,
+			read_speed_mbps: None,
+			write_speed_mbps: None,
+		})
+		.expect("encode");
+		let old_build: RemoteVolumeInfo = rmp_serde::from_slice(&bytes).expect("decode");
+		assert_eq!(old_build.state, VolumeState::Mounted);
+		assert!(old_build.to_volume(owner, true, Utc::now()).is_mounted);
 	}
 
 	/// A resumed artifact request answers with the whole file's identity and
