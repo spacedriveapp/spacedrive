@@ -165,15 +165,39 @@ fn entry_from_row(row: EntryRow) -> Option<FsEntry> {
 	})
 }
 
-/// File counts per content kind, from the content rows records point at.
-/// Kinds are the store's integers; the caller owns the enum mapping.
-pub async fn content_kind_counts(pool: &SqlitePool) -> Result<Vec<(i64, i64)>> {
+/// File counts per content kind and kind name, from the content rows records
+/// point at. Kinds are the store's integers; the caller owns the enum
+/// mapping. The name is an extension kind's id, `None` for a built-in kind,
+/// so a `raw` photo counts under its own name and not under `image`.
+pub async fn content_kind_counts(pool: &SqlitePool) -> Result<Vec<(i64, Option<String>, i64)>> {
 	Ok(sqlx::query_as(
-		"SELECT c.kind, COUNT(*) FROM record r JOIN content c ON c.id = r.content_id
-			 WHERE c.kind IS NOT NULL GROUP BY c.kind",
+		"SELECT c.kind, c.kind_name, COUNT(*) FROM record r JOIN content c ON c.id = r.content_id
+			 WHERE c.kind IS NOT NULL GROUP BY c.kind, c.kind_name",
 	)
 	.fetch_all(pool)
 	.await?)
+}
+
+/// The stored kind and kind name of a batch of records, by record uuid.
+/// Only records with identified content answer; the rest keep whatever the
+/// caller derived from the name.
+pub async fn content_kinds_for_records(
+	pool: &SqlitePool,
+	record_uuids: &[Uuid],
+) -> Result<Vec<(Uuid, Option<i64>, Option<String>)>> {
+	if record_uuids.is_empty() {
+		return Ok(Vec::new());
+	}
+	let sql = format!(
+		"SELECT r.uuid, c.kind, c.kind_name FROM record r JOIN content c ON c.id = r.content_id
+			 WHERE r.uuid IN ({})",
+		vec!["?"; record_uuids.len()].join(", ")
+	);
+	let mut query = sqlx::query_as::<_, (Uuid, Option<i64>, Option<String>)>(&sql);
+	for id in record_uuids {
+		query = query.bind(*id);
+	}
+	Ok(query.fetch_all(pool).await?)
 }
 
 /// The record at a source-relative path.

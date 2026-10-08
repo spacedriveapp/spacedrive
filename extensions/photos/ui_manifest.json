@@ -109,6 +109,8 @@
 	],
 	"file_viewers": [
 		{
+			"id": "photo_viewer",
+			"bundle": "ui/photo_viewer.js",
 			"mime_types": [
 				"image/jpeg",
 				"image/png",

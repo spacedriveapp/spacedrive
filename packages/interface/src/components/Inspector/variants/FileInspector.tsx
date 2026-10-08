@@ -31,13 +31,15 @@ import {TagSelectorButton, tagColor} from '../../../components/Tags';
 import {usePlatform} from '../../../contexts/PlatformContext';
 import {useServer} from '../../../contexts/ServerContext';
 import {useOptionalExplorer} from '../../../routes/explorer';
-import { getContentKind } from "@sd/ts-client";
+import { getContentKind, getContentKindName } from "@sd/ts-client";
 import {
 	getDeviceIcon,
 	useLibraryMutation,
 	useNormalizedQuery
 } from '../../../contexts/SpacedriveContext';
 import {useContextMenu} from '../../../hooks/useContextMenu';
+import {useExtensionKinds} from '../../../hooks/useExtensionKinds';
+import {kindLabel} from '../../QuickPreview/renderers';
 import {File as FileComponent} from '../../../routes/explorer/File';
 import { formatBytes } from '../../../routes/explorer/utils';
 import {Divider, InfoRow, Section, TabContent, Tabs, Tag} from '../Inspector';
@@ -540,10 +542,13 @@ function OverviewTab({file}: {file: File}) {
 	const isAudio = getContentKind(file) === 'audio';
 	const hasText = file?.content_identity?.text_content;
 
+	// An extension kind shows its display name while the extension is
+	// loaded and its stored id after; a built-in kind shows its own name.
 	const contentKind = getContentKind(file);
+	const extensionKinds = useExtensionKinds();
 	const fileKind =
 		contentKind && contentKind !== 'unknown'
-			? contentKind
+			? kindLabel(file, extensionKinds)
 			: file.kind === 'File'
 				? file.extension || 'File'
 				: file.kind;
@@ -1547,6 +1552,9 @@ function DetailsTab({file}: {file: File}) {
 					label="Content Kind"
 					value={String(file.content_kind || 'Unknown')}
 				/>
+				{file.content_kind_name && (
+					<InfoRow label="Kind Name" value={getContentKindName(file)} mono />
+				)}
 				{file.extension && (
 					<InfoRow label="Extension" value={String(file.extension)} />
 				)}

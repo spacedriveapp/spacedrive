@@ -56,6 +56,7 @@ impl LibraryQuery for FileByIdQuery {
 
 		let mut files = [file];
 		crate::ops::tags::decorate::decorate_files(&cache, &mut files).await;
+		crate::ops::indexing::kinds::decorate_kinds(&cache, &mut files).await;
 		let [file] = files;
 
 		Ok(Some(file))

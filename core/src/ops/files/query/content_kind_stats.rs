@@ -2,7 +2,9 @@
 //!
 //! File counts grouped by content kind, summed across every local source
 //! store. Kinds live on content rows, so the count covers hashed files; a
-//! file whose bytes are not identified yet has no kind to count.
+//! file whose bytes are not identified yet has no kind to count. An
+//! extension kind counts under its own name beside the built-in kinds, with
+//! its parent as `kind`, whether or not the extension is loaded.
 
 use crate::infra::query::{QueryError, QueryResult};
 use crate::{context::CoreContext, domain::ContentKind, infra::query::LibraryQuery};
@@ -18,9 +20,11 @@ pub struct ContentKindStatsInput {}
 /// A single content kind with its file count
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ContentKindStat {
-	/// The content kind (image, video, audio, etc.)
+	/// The content kind (image, video, audio, etc.); the parent for an
+	/// extension kind
 	pub kind: ContentKind,
-	/// The name of the content kind
+	/// The name of the content kind: the built-in name, or the extension
+	/// kind's id (`<extension id>:<kind>`)
 	pub name: String,
 	/// The number of files with this content kind
 	pub file_count: i64,
@@ -64,12 +68,13 @@ impl LibraryQuery for ContentKindStatsQuery {
 	) -> QueryResult<Self::Output> {
 		let cache = context.volume_index();
 
-		let mut by_kind: std::collections::HashMap<i64, i64> = std::collections::HashMap::new();
+		let mut by_kind: std::collections::HashMap<(i64, Option<String>), i64> =
+			std::collections::HashMap::new();
 		for store in cache.stores().await {
 			match sd_store::read::content_kind_counts(store.db().pool()).await {
 				Ok(counts) => {
-					for (kind, count) in counts {
-						*by_kind.entry(kind).or_default() += count;
+					for (kind, kind_name, count) in counts {
+						*by_kind.entry((kind, kind_name)).or_default() += count;
 					}
 				}
 				Err(error) => {
@@ -80,16 +85,16 @@ impl LibraryQuery for ContentKindStatsQuery {
 
 		let mut stats: Vec<ContentKindStat> = by_kind
 			.into_iter()
-			.filter_map(|(kind, count)| {
+			.filter_map(|((kind, kind_name), count)| {
 				let kind = ContentKind::try_from(kind as i32).ok()?;
 				Some(ContentKindStat {
-					name: format!("{kind:?}"),
+					name: kind_name.unwrap_or_else(|| kind.to_string()),
 					kind,
 					file_count: count,
 				})
 			})
 			.collect();
-		stats.sort_by(|a, b| b.file_count.cmp(&a.file_count));
+		stats.sort_by(|a, b| b.file_count.cmp(&a.file_count).then(a.name.cmp(&b.name)));
 		let total_files = stats.iter().map(|s| s.file_count).sum();
 
 		Ok(ContentKindStatsOutput { stats, total_files })

@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use chrono::Utc;
+use sd_extension_ui::UiManifest;
 use thiserror::Error;
 use tokio::sync::RwLock;
 use wasmer::{imports, Function, FunctionEnv, Instance, Memory, Module, Store, TypedFunction};
@@ -280,6 +281,12 @@ impl PluginManager {
 		manifest
 			.validate()
 			.map_err(PluginError::ManifestLoadFailed)?;
+		let ui = UiManifest::read_from(&plugin_path)
+			.await
+			.map_err(PluginError::ManifestLoadFailed)?;
+		manifest
+			.validate_viewers(&ui)
+			.map_err(PluginError::ManifestLoadFailed)?;
 		let plugin_id = manifest.id.clone();
 
 		tracing::info!(
@@ -401,6 +408,7 @@ impl PluginManager {
 			id: plugin_id,
 			dir_name: dir_name.to_string(),
 			manifest: Arc::new(manifest),
+			ui: Arc::new(ui),
 			loaded_at: Utc::now(),
 			poisoned: poisoned.clone(),
 			runtime: Arc::new(Mutex::new(PluginRuntime {
@@ -542,6 +550,15 @@ impl PluginManager {
 			.await
 			.get(plugin_id)
 			.map(|p| p.manifest.clone())
+	}
+
+	/// The viewers a loaded plugin's `ui_manifest.json` declares.
+	pub async fn ui_manifest(&self, plugin_id: &str) -> Option<Arc<UiManifest>> {
+		self.plugins
+			.read()
+			.await
+			.get(plugin_id)
+			.map(|p| p.ui.clone())
 	}
 
 	/// The directory a loaded plugin was installed from.

@@ -1,4 +1,3 @@
-import type { File } from "@sd/ts-client";
 import { getContentKind } from "@sd/ts-client";
 import { File as FileComponent } from "../../routes/explorer/File";
 import { formatBytes } from "../../routes/explorer/utils";
@@ -18,10 +17,6 @@ import {
 	Cube,
 } from "@phosphor-icons/react";
 import { VideoPlayer } from "./VideoPlayer";
-import type {
-	VideoControlsState,
-	VideoControlsCallbacks,
-} from "./VideoControls";
 import { AudioPlayer } from "./AudioPlayer";
 import { useZoomPan } from "./useZoomPan";
 import { TextViewer } from "./TextViewer";
@@ -30,6 +25,15 @@ import { sounds } from "@sd/assets/sounds";
 import { CircleButton } from "@spacedrive/primitives";
 import { DirectoryPreview } from "./DirectoryPreview";
 import { useOriginalUrl } from "./useOriginalUrl";
+import { BundleRenderer } from "./BundleRenderer";
+import { useExtensionKinds } from "../../hooks/useExtensionKinds";
+import { useHotThumb } from "../../routes/explorer/hooks/useHotThumb";
+import {
+	getRenderer,
+	registerRenderer,
+	resolvePreview,
+	type ContentRendererProps,
+} from "./renderers";
 
 const MeshViewer = lazy(() =>
 	import("./MeshViewer").then((m) => ({ default: m.MeshViewer })),
@@ -38,13 +42,7 @@ const MeshViewerUI = lazy(() =>
 	import("./MeshViewer").then((m) => ({ default: m.MeshViewerUI })),
 );
 
-interface ContentRendererProps {
-	file: File;
-	onZoomChange?: (isZoomed: boolean) => void;
-	onVideoControlsStateChange?: (state: VideoControlsState) => void;
-	onShowVideoControlsChange?: (show: boolean) => void;
-	getVideoCallbacks?: (callbacks: VideoControlsCallbacks) => void;
-}
+export type { ContentRendererProps } from "./renderers";
 
 function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 	const { buildSidecarUrl } = useServer();
@@ -133,7 +131,11 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 		);
 	};
 
-	const thumbnailUrl = getHighestResThumbnail();
+	// A file listed from the arena carries no sidecars yet; the hot tier
+	// has a tile for it, which is also what the grid showed.
+	const sidecarThumbnailUrl = getHighestResThumbnail();
+	const hotThumb = useHotThumb(file.sd_path, sidecarThumbnailUrl === null);
+	const thumbnailUrl = sidecarThumbnailUrl ?? hotThumb.url;
 
 	// Stable callback to prevent re-renders that would reinitialize MeshViewer
 	const handleSplatLoaded = useCallback(() => {
@@ -489,57 +491,55 @@ function DefaultRenderer({ file }: ContentRendererProps) {
 	);
 }
 
-export function ContentRenderer({
-	file,
-	onZoomChange,
-	onVideoControlsStateChange,
-	onShowVideoControlsChange,
-	getVideoCallbacks,
-}: ContentRendererProps) {
-	// Handle directories with grid preview of subdirectories
+function MeshRenderer({ file }: ContentRendererProps) {
+	return (
+		<Suspense
+			fallback={
+				<div className="w-full h-full flex items-center justify-center">
+					<FileComponent.Thumb file={file} size={200} />
+				</div>
+			}
+		>
+			<MeshViewer file={file} />
+		</Suspense>
+	);
+}
+
+registerRenderer("image", ImageRenderer);
+registerRenderer("video", VideoRenderer);
+registerRenderer("audio", AudioRenderer);
+registerRenderer("mesh", MeshRenderer);
+registerRenderer("document", DocumentRenderer);
+registerRenderer("text", TextRenderer);
+registerRenderer("default", DefaultRenderer);
+
+/**
+ * Previews one file: a directory gets its grid, anything else the renderer
+ * the registry resolves for its kind. An extension kind whose extension is
+ * loaded previews as its manifest says (a built-in renderer or a viewer
+ * bundle); one whose extension is gone previews as its parent kind.
+ */
+export function ContentRenderer(props: ContentRendererProps) {
+	const { file } = props;
+	const kinds = useExtensionKinds();
+
 	if (file.kind === "Directory") {
 		return <DirectoryPreview file={file} />;
 	}
 
-	const kind = getContentKind(file);
-
-	switch (kind) {
-		case "image":
-			return <ImageRenderer file={file} onZoomChange={onZoomChange} />;
-		case "video":
-			return (
-				<VideoRenderer
-					file={file}
-					onZoomChange={onZoomChange}
-					onVideoControlsStateChange={onVideoControlsStateChange}
-					onShowVideoControlsChange={onShowVideoControlsChange}
-					getVideoCallbacks={getVideoCallbacks}
-				/>
-			);
-		case "audio":
-			return <AudioRenderer file={file} />;
-		case "mesh":
-			return (
-				<Suspense
-					fallback={
-						<div className="w-full h-full flex items-center justify-center">
-							<FileComponent.Thumb file={file} size={200} />
-						</div>
-					}
-				>
-					<MeshViewer file={file} />
-				</Suspense>
-			);
-		case "document":
-		case "book":
-		case "spreadsheet":
-		case "presentation":
-			return <DocumentRenderer file={file} />;
-		case "text":
-		case "code":
-		case "config":
-			return <TextRenderer file={file} />;
-		default:
-			return <DefaultRenderer file={file} />;
+	const preview = resolvePreview(file, kinds);
+	if (preview.type === "bundle") {
+		return (
+			<BundleRenderer
+				{...props}
+				extensionId={preview.extensionId}
+				viewer={preview.viewer}
+				bundle={preview.bundle}
+				fallback={preview.fallback}
+				fallbackRenderer={getRenderer(preview.fallback) ?? DefaultRenderer}
+			/>
+		);
 	}
+	const Renderer = getRenderer(preview.name) ?? DefaultRenderer;
+	return <Renderer {...props} />;
 }

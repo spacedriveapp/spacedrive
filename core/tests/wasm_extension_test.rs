@@ -55,6 +55,20 @@ fn install_extension(data_dir: &Path, dir: &str, wasm: &str) {
 	for file in ["manifest.json", wasm] {
 		std::fs::copy(source.join(file), target.join(file)).unwrap();
 	}
+	// The viewer half ships beside the module when the extension has one.
+	if source.join("ui_manifest.json").exists() {
+		std::fs::copy(
+			source.join("ui_manifest.json"),
+			target.join("ui_manifest.json"),
+		)
+		.unwrap();
+	}
+	if let Ok(bundles) = std::fs::read_dir(source.join("ui")) {
+		std::fs::create_dir_all(target.join("ui")).unwrap();
+		for bundle in bundles.flatten() {
+			std::fs::copy(bundle.path(), target.join("ui").join(bundle.file_name())).unwrap();
+		}
+	}
 }
 
 fn install_test_extension(data_dir: &Path) {
@@ -116,6 +130,44 @@ async fn track_and_identify(
 		tokio::time::sleep(Duration::from_millis(50)).await;
 	}
 	(store.clone(), store_files(&store).await)
+}
+
+/// The directory listing the explorer asks for, by file name.
+async fn list_directory(
+	core: &Core,
+	library: &Arc<sd_core::library::Library>,
+	dir: &Path,
+) -> std::collections::HashMap<String, File> {
+	use sd_core::infra::query::LibraryQuery;
+	use sd_core::ops::files::query::directory_listing::{
+		DirectoryListingInput, DirectoryListingQuery, DirectorySortBy,
+	};
+	let session =
+		SessionContext::device_session(Uuid::now_v7(), sd_core::device::get_current_device_slug())
+			.with_library(library.id());
+	let listing = DirectoryListingQuery::from_input(DirectoryListingInput {
+		path: SdPath::local(dir.to_path_buf()),
+		folders_first: Some(false),
+		limit: None,
+		include_hidden: Some(false),
+		sort_by: DirectorySortBy::Name,
+		overlay: None,
+	})
+	.unwrap()
+	.execute(core.context.clone(), session)
+	.await
+	.unwrap();
+	listing
+		.files
+		.into_iter()
+		.map(|f| {
+			let name = match &f.extension {
+				Some(ext) => format!("{}.{ext}", f.name),
+				None => f.name.clone(),
+			};
+			(name, f)
+		})
+		.collect()
 }
 
 async fn store_files(store: &sd_core::ops::indexing::SourceStore) -> Vec<sd_store::FsEntry> {
@@ -795,7 +847,20 @@ async fn extension_kinds_are_stored_and_survive_unload() {
 	assert_eq!(fake.id, "test-extension:fake");
 	assert_eq!(fake.display_name, "Fake file");
 	assert_eq!(fake.parent, ContentKind::Text);
-	assert_eq!(fake.preview, Some(PreviewSpec::Renderer("text".into())));
+	assert_eq!(
+		fake.preview,
+		Some(PreviewSpec::Viewer("fake_viewer".into()))
+	);
+	assert_eq!(
+		list.extensions[0]
+			.viewers
+			.iter()
+			.map(|v| (v.id.as_str(), v.bundle.as_str()))
+			.collect::<Vec<_>>(),
+		[("fake_viewer", "ui/fake-viewer.js")],
+		"the list carries the bundle the client mounts for the viewer"
+	);
+	assert!(list.extensions[1].viewers.is_empty());
 	assert_eq!(
 		list.conflicts,
 		vec![KindConflict {
@@ -858,6 +923,28 @@ async fn extension_kinds_are_stored_and_survive_unload() {
 	assert_eq!(
 		file.content_kind_name.as_deref(),
 		Some("test-extension:fake")
+	);
+
+	// The browse listing answers from the arena, which knows only the
+	// built-in kind; the stored name is laid over it so the client sees it.
+	let listing = list_directory(&core, &library, &first).await;
+	assert_eq!(
+		listing
+			.get("a.fake")
+			.map(|f| (f.content_kind, f.content_kind_name.as_deref())),
+		Some((ContentKind::Text, Some("test-extension:fake")))
+	);
+	assert_eq!(
+		listing
+			.get("b.fake")
+			.map(|f| f.content_kind_name.as_deref()),
+		Some(Some("zz-second-kind:other"))
+	);
+	assert_eq!(
+		listing
+			.get("d.jpg")
+			.map(|f| (f.content_kind, f.content_kind_name.as_deref())),
+		Some((ContentKind::Image, None))
 	);
 
 	// Unload the holder: the registry moves on, the rows do not.
@@ -949,4 +1036,117 @@ async fn extension_kinds_are_stored_and_survive_unload() {
 		(Some(text), Some("test-extension:fake".into()))
 	);
 	core.shutdown().await.unwrap();
+}
+
+/// The viewer half of a preview. The test extension's `fake` kind previews
+/// through `fake_viewer`, whose bundle `ui_manifest.json` names; the HTTP
+/// route resolves that bundle and nothing else in the directory, and a
+/// deleted bundle leaves a path whose open fails, which is what the client
+/// turns into the parent renderer plus one warning. Photos declares `raw`
+/// over the image renderer and a `photo_viewer` bundle, and loads beside the
+/// built-in table with no conflict. A kind naming a viewer the UI manifest
+/// does not declare refuses to load.
+#[tokio::test(flavor = "multi_thread")]
+async fn viewer_bundles_resolve_and_a_kind_needs_a_declared_viewer() {
+	guest_log();
+	let temp_dir = TempDir::new().unwrap();
+	let data_dir = temp_dir.path().join("core");
+	install_test_extension(&data_dir);
+	install_extension(&data_dir, "photos", "photos.wasm");
+	let core = Core::new(data_dir.clone()).await.unwrap();
+	let session =
+		SessionContext::device_session(Uuid::now_v7(), sd_core::device::get_current_device_slug());
+	let list = ListExtensionsQuery::from_input(ListExtensionsInput {})
+		.unwrap()
+		.execute(core.context.clone(), session)
+		.await
+		.unwrap();
+
+	let photos = &list.extensions[0];
+	assert_eq!(photos.id, "com.spacedrive.photos");
+	assert_eq!(photos.kinds.len(), 1);
+	assert_eq!(photos.kinds[0].id, "com.spacedrive.photos:raw");
+	assert_eq!(photos.kinds[0].parent, ContentKind::Image);
+	assert_eq!(
+		photos.kinds[0].preview,
+		Some(PreviewSpec::Renderer("image".into()))
+	);
+	assert_eq!(photos.viewers.len(), 1);
+	assert_eq!(photos.viewers[0].id, "photo_viewer");
+	assert_eq!(photos.viewers[0].bundle, "ui/photo_viewer.js");
+	assert!(list.conflicts.is_empty(), "{:?}", list.conflicts);
+	assert_eq!(
+		FileTypeRegistry::current()
+			.type_by_extension(Path::new("IMG_0001.dng"))
+			.unwrap()
+			.id,
+		"com.spacedrive.photos:raw"
+	);
+
+	let bundle = sd_extension_ui::resolve_bundle(&data_dir, "test-extension", "ui/fake-viewer.js")
+		.await
+		.expect("the declared bundle resolves");
+	assert_eq!(
+		bundle,
+		data_dir.join("extensions/test-extension/ui/fake-viewer.js")
+	);
+	let module = std::fs::read_to_string(&bundle).unwrap();
+	assert!(module.contains("export function mount(el, ctx)"));
+	for path in [
+		"manifest.json",
+		"test_extension.wasm",
+		"ui/../manifest.json",
+	] {
+		assert_eq!(
+			sd_extension_ui::resolve_bundle(&data_dir, "test-extension", path).await,
+			None,
+			"{path} is not a declared bundle"
+		);
+	}
+	assert!(sd_extension_ui::resolve_bundle(
+		&data_dir,
+		"com.spacedrive.photos",
+		"ui/photo_viewer.js"
+	)
+	.await
+	.is_some_and(|p| p.is_file()));
+
+	std::fs::remove_file(&bundle).unwrap();
+	let gone = sd_extension_ui::resolve_bundle(&data_dir, "test-extension", "ui/fake-viewer.js")
+		.await
+		.expect("the declaration still resolves");
+	assert!(
+		tokio::fs::File::open(&gone).await.is_err(),
+		"the route's open fails, so the client gets 404 and falls back"
+	);
+
+	let broken = data_dir.join("extensions/broken-viewer");
+	std::fs::create_dir_all(&broken).unwrap();
+	std::fs::copy(
+		data_dir.join("extensions/test-extension/test_extension.wasm"),
+		broken.join("test_extension.wasm"),
+	)
+	.unwrap();
+	std::fs::write(
+		broken.join("manifest.json"),
+		r#"{"id":"broken-viewer","name":"x","version":"1","wasm_file":"test_extension.wasm",
+		"kinds":[{"name":"k","parent":"text","extensions":["brk"],"preview":{"viewer":"nope"}}]}"#,
+	)
+	.unwrap();
+	let pm = core
+		.plugin_manager
+		.as_ref()
+		.expect("plugin manager")
+		.clone();
+	let err = pm
+		.write()
+		.await
+		.load_plugin("broken-viewer")
+		.await
+		.unwrap_err()
+		.to_string();
+	assert!(err.contains("does not declare"), "{err}");
+	assert!(FileTypeRegistry::current()
+		.type_by_extension(Path::new("x.brk"))
+		.is_none());
 }

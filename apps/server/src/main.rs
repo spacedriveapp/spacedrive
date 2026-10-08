@@ -277,6 +277,36 @@ fn read_tile_png(path: &std::path::Path, uuid: uuid::Uuid, version: u64) -> Opti
 	Some(png.into_inner())
 }
 
+/// Serve a viewer bundle an extension's `ui_manifest.json` declares, from
+/// the extension's directory under the data dir. Only a declared bundle is
+/// served, so the rest of the directory (its `config.json`, its module)
+/// stays private; the response is revalidated on every load because a
+/// reinstalled extension lands at the same path.
+async fn serve_extension_bundle(
+	State(state): State<AppState>,
+	axum::extract::Path((extension_id, path)): axum::extract::Path<(String, String)>,
+) -> Response {
+	let Some(bundle) = sd_extension_ui::resolve_bundle(&state.data_dir, &extension_id, &path).await
+	else {
+		return plain_status(StatusCode::NOT_FOUND, "extension bundle not found");
+	};
+	let Ok(file) = tokio::fs::File::open(&bundle).await else {
+		warn!(extension = %extension_id, bundle = %path, "declared viewer bundle is missing on disk");
+		return plain_status(StatusCode::NOT_FOUND, "extension bundle not found");
+	};
+	let mut builder = Response::builder()
+		.status(StatusCode::OK)
+		.header(header::CONTENT_TYPE, "text/javascript; charset=utf-8")
+		.header(header::CACHE_CONTROL, "no-cache")
+		.header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+	if let Ok(meta) = file.metadata().await {
+		builder = builder.header(header::CONTENT_LENGTH, meta.len());
+	}
+	builder
+		.body(Body::from_stream(tokio_util::io::ReaderStream::new(file)))
+		.expect("extension bundle response is well-formed")
+}
+
 /// Serve an on-demand timeline sprite after every path component has been
 /// parsed into a fixed-width identity.
 async fn serve_hot_thumbstrip(
@@ -578,6 +608,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.route(
 			"/hot-thumbstrip/:source_id/:record_uuid/:version",
 			get(serve_hot_thumbstrip),
+		)
+		.route(
+			"/extension/:extension_id/*path",
+			get(serve_extension_bundle),
 		)
 		.fallback(serve_web)
 		.layer(middleware::from_fn_with_state(state.clone(), basic_auth))

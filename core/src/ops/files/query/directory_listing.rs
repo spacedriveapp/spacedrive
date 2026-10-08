@@ -268,6 +268,7 @@ impl DirectoryListingQuery {
 					// SQLite, so the arena's page still reads the store.
 					let mut listing = self.finalize_listing(files);
 					crate::ops::tags::decorate::decorate_files(&cache, &mut listing.files).await;
+					crate::ops::indexing::kinds::decorate_kinds(&cache, &mut listing.files).await;
 					return Ok(listing);
 				}
 			} else {
