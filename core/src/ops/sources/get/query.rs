@@ -83,6 +83,8 @@ impl LibraryQuery for GetSourceQuery {
 				.directory
 				.as_ref()
 				.map(|dir| dir.to_string_lossy().into_owned());
+			info.offline_copy =
+				crate::service::mounts::offline::info(context.volume_index(), info.id).await;
 		}
 		Ok(info)
 	}

@@ -37,6 +37,15 @@ export function DriveSourceCard({
 		source.root.split(/[/\\]/).filter(Boolean).pop() ?? source.root;
 	const availability = sourceAvailability(source);
 	const badge = availabilityBadge(availability);
+	// Where the catalog is read from is a fact about the source, not the
+	// drive: a mounted drive whose tracked folder is gone has no badge and
+	// still serves from the copy or from nothing.
+	const catalogHint =
+		source.catalog === "offline_copy"
+			? "offline copy"
+			: source.catalog === "away"
+				? "catalog on the drive"
+				: undefined;
 
 	const open = () => {
 		if (!deviceSlug) return;
@@ -70,17 +79,14 @@ export function DriveSourceCard({
 					</h3>
 					<p className="text-ink-faint text-xs">filesystem</p>
 				</div>
-				{badge && (
+				{(badge || catalogHint) && (
 					<span className="bg-app-selected/40 text-ink-faint flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium">
 						{availability === "locked" && (
 							<Lock size={10} weight="bold" />
 						)}
-						{badge.toLowerCase()}
-						{source.catalog === "offline_copy"
-							? ", offline copy"
-							: source.catalog === "away"
-								? ", catalog on the drive"
-								: ""}
+						{[badge?.toLowerCase(), catalogHint]
+							.filter(Boolean)
+							.join(", ")}
 					</span>
 				)}
 			</div>
