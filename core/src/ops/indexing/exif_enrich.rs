@@ -139,10 +139,11 @@ impl JobHandler for ExifEnrichJob {
 		// pending again at a row id already passed. One more sweep from the
 		// start picks it up, since a second dispatch deduplicates onto this
 		// job rather than queueing behind it. Rows the first sweep already
-		// attempted are skipped, so a file that could not be opened is
-		// neither opened nor counted twice.
+		// attempted under the same hash are skipped, so a file that could
+		// not be opened is neither opened nor counted twice, while one whose
+		// bytes changed presents a new hash and is read again.
 		let mut swept_again = false;
-		let mut attempted: HashSet<i64> = HashSet::new();
+		let mut attempted: HashSet<(i64, String)> = HashSet::new();
 
 		loop {
 			ctx.check_interrupt().await?;
@@ -162,7 +163,7 @@ impl JobHandler for ExifEnrichJob {
 			cursor = last.0.rowid;
 			let batch: Vec<_> = claimed
 				.into_iter()
-				.filter(|(image, _)| attempted.insert(image.rowid))
+				.filter(|(image, _)| attempted.insert((image.rowid, image.content_hash.clone())))
 				.collect();
 			if batch.is_empty() {
 				continue;
