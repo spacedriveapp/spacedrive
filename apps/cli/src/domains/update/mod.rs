@@ -727,12 +727,14 @@ fn discard_other_parts(part_dir: &Path, build_key: &str) {
 
 /// Replaces `path` with `data` without ever truncating the running binary.
 ///
-/// The new bytes land in a sibling `.update` file, the current binary is
-/// renamed to `.bak`, and the staged file is renamed into place. Moving the
-/// running binary aside instead of renaming over it is what Windows allows: a
-/// loaded executable can be renamed but not replaced or deleted, so the
-/// `.bak` of the running `sd` stays behind there until the next update
-/// removes it. A failed install renames the backup back.
+/// The new bytes land in a sibling `.update` file and are renamed into place.
+/// Where the platform allows a rename over a running executable (Unix), the
+/// current binary is first copied to `.bak` so a kill at any instant still
+/// leaves a working file at the path. Windows lets a loaded executable be
+/// renamed but not replaced or deleted, so there the current binary is moved
+/// to `.bak` before the staged file takes its place, the path is briefly
+/// empty, and the `.bak` of the running `sd` stays behind until the next
+/// update removes it. A failed install restores the backup either way.
 fn replace_binary(path: &Path, data: &[u8]) -> Result<()> {
 	use std::fs;
 
@@ -754,7 +756,12 @@ fn replace_binary(path: &Path, data: &[u8]) -> Result<()> {
 
 	let had_previous = path.exists();
 	if had_previous {
-		fs::rename(path, &backup).with_context(|| format!("moving {} aside", path.display()))?;
+		if cfg!(windows) {
+			fs::rename(path, &backup)
+				.with_context(|| format!("moving {} aside", path.display()))?;
+		} else {
+			fs::copy(path, &backup).with_context(|| format!("backing up {}", path.display()))?;
+		}
 	}
 
 	match fs::rename(&staged, path) {

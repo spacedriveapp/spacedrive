@@ -506,10 +506,11 @@ pub fn is_mount_point(path: &Path) -> bool {
 		if !path.is_dir() {
 			return false;
 		}
-		// Through any \\?\ prefix and symlink, so the comparison below sees
-		// the spelling GetVolumePathNameW answers with.
-		let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-		let wide: Vec<u16> = canonical
+		// The path as given, not canonicalized: GetVolumePathNameW judges the
+		// string it is handed, and a subst or mapped drive letter resolves
+		// through canonicalize to the target it stands for, which would make
+		// the drive's own root read as not a mount point.
+		let wide: Vec<u16> = path
 			.as_os_str()
 			.encode_wide()
 			.chain(std::iter::once(0))
@@ -526,7 +527,7 @@ pub fn is_mount_point(path: &Path) -> bool {
 				.trim_end_matches(['\\', '/'])
 				.to_ascii_lowercase()
 		};
-		strip(&root) == strip(canonical.as_os_str())
+		strip(&root) == strip(path.as_os_str())
 	}
 	#[cfg(not(any(unix, windows)))]
 	{

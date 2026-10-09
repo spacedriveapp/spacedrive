@@ -265,7 +265,10 @@ impl Arena {
 		let parent_ref = parent_id
 			.map(MaybeEntryId::some)
 			.unwrap_or(MaybeEntryId::NONE);
-		let meta = PackedMetadata::new(NodeState::Accessible, FileType::Directory, 0);
+		// A placeholder nobody has statted yet; the hidden answer has to come
+		// from somewhere, and the walk corrects it when it reaches the entry.
+		let meta = PackedMetadata::new(NodeState::Accessible, FileType::Directory, 0)
+			.with_hidden(super::metadata::is_hidden_path(path));
 		let node = FileNode::new(NameRef::new(name, parent_ref), meta);
 
 		let id = self.arena.insert(node)?;

@@ -155,10 +155,11 @@ both the package version and the installed commit, for example
 `sd update --yes` skips the confirmation prompt and does nothing when the
 installed commit already matches. `sd update --force` reinstalls the current
 nightly even when it matches. Both replace the running `sd` binary and the
-`sd-daemon` next to it by moving the current binary to `.bak` and renaming the
-downloaded file into place, stop the daemon first, and start it again
-afterwards. Windows cannot delete a running executable, so `sd.exe.bak` stays
-beside the binaries there until the next update removes it. When `sd daemon install` has launchd
+`sd-daemon` next to it through a `.bak` copy and a rename of the downloaded
+file into place, stop the daemon first, and start it again afterwards. Windows
+cannot replace or delete a running executable, so there the current binary is
+moved to `.bak` first and `sd.exe.bak` stays beside the binaries until the
+next update removes it. When `sd daemon install` has launchd
 managing the daemon, the restart goes through `launchctl kickstart` so launchd
 keeps owning the process. After an install the build's commit (or the release
 tag on the stable channel) is written to `sd-version.txt` beside the binaries.
