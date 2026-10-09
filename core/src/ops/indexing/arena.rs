@@ -43,7 +43,7 @@
 
 use crate::domain::ContentKind;
 use crate::filetype::FileTypeRegistry;
-use crate::ops::indexing::metadata::{is_hidden_path, EntryMetadata};
+use crate::ops::indexing::metadata::EntryMetadata;
 use crate::ops::indexing::state::{EntryKind, IndexerStats};
 
 use super::types::{
@@ -350,6 +350,7 @@ impl Arena {
 					FileType::from(metadata.kind),
 					metadata.size,
 				)
+				.with_hidden(metadata.is_hidden)
 				.with_times(metadata.modified, metadata.created);
 				node.subtree_bytes = current.bytes;
 				node.file_count = current.files;
@@ -401,6 +402,7 @@ impl Arena {
 		let file_type = FileType::from(metadata.kind);
 
 		let meta = PackedMetadata::new(NodeState::Accessible, file_type, metadata.size)
+			.with_hidden(metadata.is_hidden)
 			.with_times(metadata.modified, metadata.created);
 
 		let parent_ref = parent_id
@@ -501,7 +503,7 @@ impl Arena {
 			uid: None,
 			gid: None,
 			link_target: None,
-			is_hidden: is_hidden_path(path),
+			is_hidden: node.meta.is_hidden(),
 		})
 	}
 
@@ -522,7 +524,7 @@ impl Arena {
 			uid: None,
 			gid: None,
 			link_target: None,
-			is_hidden: is_hidden_path(path),
+			is_hidden: node.meta.is_hidden(),
 		})
 	}
 
@@ -1065,6 +1067,17 @@ impl Arena {
 	/// Runs on snapshot restore (flags are derived data and never persist),
 	/// and is safe to re-run when classification heuristics change.
 	pub fn recompute_collections(&mut self) {
+		// Snapshots written before the arena kept the hidden bit have it
+		// clear. Where the name alone decides, it is recomputed here; on
+		// Windows the bit is what the walk read from the attribute, and no
+		// snapshot there predates it.
+		#[cfg(not(windows))]
+		for (path, &id) in &self.path_index {
+			if let Some(node) = self.arena.get_mut(id) {
+				node.meta = node.meta.with_hidden(super::metadata::is_hidden_path(path));
+			}
+		}
+
 		self.collection_flags.clear();
 		// Flags are derived from name and kind, neither of which says anything
 		// about a summarised directory, so its marker is restored from the
@@ -1278,6 +1291,7 @@ impl Arena {
 			node.name_ref = NameRef::new(name, parent_ref);
 			node.meta =
 				PackedMetadata::new(NodeState::Accessible, FileType::from(to.kind), to.size)
+					.with_hidden(to.is_hidden)
 					.with_times(to.modified, to.created);
 			node.subtree_bytes = rollup.bytes;
 			node.file_count = rollup.files;
@@ -1382,7 +1396,7 @@ impl Arena {
 					uid: None,
 					gid: None,
 					link_target: None,
-					is_hidden: is_hidden_path(path),
+					is_hidden: node.meta.is_hidden(),
 				};
 				result.insert(path.clone(), metadata);
 			}

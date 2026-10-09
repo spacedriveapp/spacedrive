@@ -130,7 +130,7 @@ impl ArenaChange {
 	}
 
 	fn is_hidden(&self) -> bool {
-		is_hidden_path(&self.path)
+		self.metadata.as_ref().is_some_and(|m| m.is_hidden)
 	}
 }
 
@@ -649,7 +649,12 @@ mod tests {
 			uid: None,
 			gid: None,
 			link_target: None,
-			is_hidden: is_hidden_path(path),
+			// As a walk would have read it, so the test does not depend on a
+			// file existing on disk with the platform's hidden marker.
+			is_hidden: path
+				.file_name()
+				.and_then(|n| n.to_str())
+				.is_some_and(|n| n.starts_with('.')),
 		}
 	}
 
