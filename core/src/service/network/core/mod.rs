@@ -2017,12 +2017,11 @@ async fn spawn_connection_watcher_task(
 			watched.remove(&node_id);
 		}
 
-		// Remove only this specific connection (by node_id AND alpn)
+		// Remove only this specific connection; a newer one under the same
+		// key stays.
+		event_loop::remove_closed_connection(&active_connections, node_id, &conn).await;
 		let has_other_connections = {
-			let mut connections = active_connections.write().await;
-			connections.remove(&(node_id, alpn_bytes.clone()));
-
-			// Check if there are any other active connections to this node
+			let connections = active_connections.read().await;
 			connections.keys().any(|(nid, _)| *nid == node_id)
 		};
 

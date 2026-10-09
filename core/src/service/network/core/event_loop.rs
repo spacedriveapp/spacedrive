@@ -52,6 +52,32 @@ pub enum EventLoopCommand {
 	Shutdown,
 }
 
+/// Connections by remote node and ALPN.
+pub type ActiveConnections =
+	Arc<RwLock<std::collections::HashMap<(EndpointId, Vec<u8>), Connection>>>;
+
+/// Drop `conn` from the map only if it is the connection stored under its key.
+///
+/// An incoming connection and an outbound one opened for a single message
+/// share a key when they carry the same ALPN. Removing by key when the older
+/// one closes would take the newer one's last handle, so QUIC closes it
+/// under the peer before the message has been read.
+pub(crate) async fn remove_closed_connection(
+	connections: &ActiveConnections,
+	node_id: EndpointId,
+	conn: &Connection,
+) -> bool {
+	let key = (node_id, conn.alpn().to_vec());
+	let mut connections = connections.write().await;
+	match connections.get(&key) {
+		Some(active) if active.stable_id() == conn.stable_id() => {
+			connections.remove(&key);
+			true
+		}
+		_ => false,
+	}
+}
+
 /// Networking event loop that processes Iroh connections
 pub struct NetworkingEventLoop {
 	/// Iroh endpoint
@@ -290,9 +316,7 @@ impl NetworkingEventLoop {
 
 			// Only remove connection if it's actually closed
 			if conn.close_reason().is_some() {
-				let mut connections = active_connections.write().await;
-				let alpn_bytes = conn.alpn().to_vec();
-				connections.remove(&(remote_node_id, alpn_bytes));
+				remove_closed_connection(&active_connections, remote_node_id, &conn).await;
 				logger
 					.info(&format!(
 						"Connection to {} removed (closed)",
@@ -721,8 +745,7 @@ impl NetworkingEventLoop {
 
 					// Clean up when handler exits
 					if conn.close_reason().is_some() {
-						let mut connections = active_connections.write().await;
-						connections.remove(&(node_id, alpn_bytes));
+						remove_closed_connection(&active_connections, node_id, &conn).await;
 						logger
 							.info(&format!(
 								"Outbound connection to {} closed and removed",
@@ -858,6 +881,24 @@ impl NetworkingEventLoop {
 								}
 
 								let _ = send.finish();
+
+								// This connection's only handle is the map entry, which
+								// the next message to the same node replaces; wait for
+								// the peer to acknowledge the bytes so that cannot drop
+								// them.
+								if let Err(_timeout) = tokio::time::timeout(
+									tokio::time::Duration::from_secs(5),
+									send.stopped(),
+								)
+								.await
+								{
+									self.logger
+										.warn(&format!(
+											"Peer {} did not acknowledge the {} message within 5s",
+											node_id, protocol
+										))
+										.await;
+								}
 							}
 							Err(e) => {
 								self.logger
