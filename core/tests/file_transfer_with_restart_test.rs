@@ -10,8 +10,8 @@ use tokio::time::timeout;
 #[path = "helpers/wait.rs"]
 mod wait;
 use wait::{
-	wait_for_connected_device, wait_for_dir_entries, wait_for_file, wait_for_paired_device,
-	wait_for_peer, wait_for_transfer,
+	wait_for_connected_device, wait_for_dir_entries, wait_for_file, wait_for_file_matching,
+	wait_for_paired_device, wait_for_peer, wait_for_transfer,
 };
 
 /// Alice's scenario - pairs, restarts, then sends files
@@ -228,13 +228,13 @@ async fn alice_restart_scenario() {
 
 			// Wait for Bob's confirmation
 			println!("Alice: Waiting for Bob's confirmation...");
-			if wait_for_file(
+			if wait_for_file_matching(
 				"/tmp/spacedrive-restart-test/bob_received_confirmation.txt",
 				Duration::from_secs(60),
+				|content| content.starts_with("received_and_verified:"),
 			)
 			.await
-			.map(|content| content.starts_with("received_and_verified:"))
-			.unwrap_or(false)
+			.is_ok()
 			{
 				println!("Alice: Bob confirmed file receipt!");
 				std::fs::write("/tmp/spacedrive-restart-test/alice_success.txt", "success")
@@ -423,6 +423,15 @@ async fn bob_restart_scenario() {
 				format!("received_and_verified:{}", timestamp),
 			)
 			.unwrap();
+
+			// The sender's job still awaits the final ack for the last file;
+			// stay up until Alice reports it, or the ack dies with the process.
+			wait_for_file(
+				"/tmp/spacedrive-restart-test/alice_success.txt",
+				Duration::from_secs(60),
+			)
+			.await
+			.expect("Bob: Alice never reported the transfer complete");
 		} else {
 			panic!("Bob: File verification failed");
 		}

@@ -10,7 +10,7 @@
 #![allow(dead_code)]
 
 use sd_core::{
-	infra::event::Event,
+	infra::event::{Event, EventSubscriber},
 	service::file_sharing::{TransferId, TransferState},
 	Core,
 };
@@ -45,13 +45,28 @@ where
 
 /// Wait for a marker file another process writes and return its trimmed
 /// content.
+///
+/// A read that lands between the writer's truncate and its write sees an
+/// empty file, so an empty read counts as not written yet.
 pub async fn wait_for_file(path: impl AsRef<Path>, deadline: Duration) -> anyhow::Result<String> {
+	wait_for_file_matching(path, deadline, |_| true).await
+}
+
+/// Wait for a marker file whose trimmed content satisfies `matches` and
+/// return that content.
+///
+/// The predicate runs on every poll, so a file caught mid-write or holding
+/// an earlier value is retried rather than reported.
+pub async fn wait_for_file_matching(
+	path: impl AsRef<Path>,
+	deadline: Duration,
+	matches: impl Fn(&str) -> bool,
+) -> anyhow::Result<String> {
 	let path = path.as_ref();
 	wait_until(&format!("file {}", path.display()), deadline, || async {
-		tokio::fs::read_to_string(path)
-			.await
-			.ok()
-			.map(|content| content.trim().to_string())
+		let content = tokio::fs::read_to_string(path).await.ok()?;
+		let content = content.trim();
+		(!content.is_empty() && matches(content)).then(|| content.to_string())
 	})
 	.await
 }
@@ -162,19 +177,20 @@ pub async fn wait_for_dir_entries(
 	.await
 }
 
-/// Wait for the first event on the core bus that `matches`.
+/// Wait for the first event on `subscriber` that `matches`.
 ///
-/// Subscribe before causing the event: a broadcast subscriber only sees what
-/// is emitted after it exists.
+/// Take the subscriber from `core.events.subscribe()` before causing the
+/// event: a broadcast subscriber only sees what is emitted after it exists,
+/// so subscribing inside this function would miss anything the caller
+/// already triggered.
 pub async fn wait_for_event<F>(
-	core: &Core,
+	subscriber: &mut EventSubscriber,
 	deadline: Duration,
 	mut matches: F,
 ) -> anyhow::Result<Event>
 where
 	F: FnMut(&Event) -> bool,
 {
-	let mut subscriber = core.events.subscribe();
 	let wait = async {
 		loop {
 			match subscriber.recv().await {

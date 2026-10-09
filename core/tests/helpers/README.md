@@ -229,12 +229,13 @@ Polls a real condition on a 100 ms interval up to a deadline, so a test waits
 only as long as the thing it waits for. Use these instead of a fixed `sleep`:
 
 - `wait_until(what, deadline, || async { Option<T> })` - generic poll
-- `wait_for_file(path, deadline)` - a marker file another process writes
+- `wait_for_file(path, deadline)` - a marker file another process writes (an empty read is not written yet)
+- `wait_for_file_matching(path, deadline, |content| bool)` - a marker whose content must match, checked on every poll
 - `wait_for_connected_device(core, deadline)` / `wait_for_peer(core, id, deadline)`
 - `wait_for_paired_device(core, deadline)` - connected, or paired and not yet reconnected
 - `wait_for_transfer(core, &transfer_id, deadline)` - a file sharing transfer settling
 - `wait_for_dir_entries(dir, count, deadline)` - files landing in a directory
-- `wait_for_event(core, deadline, |event| bool)` - the next matching core bus event
+- `wait_for_event(&mut subscriber, deadline, |event| bool)` - the next matching event on a subscriber taken before the trigger
 
 The subprocess suites (pairing, file transfer, library join) include it on its
 own with `#[path = "helpers/wait.rs"] mod wait;`, so it depends on nothing else

@@ -9,7 +9,10 @@ use tokio::time::timeout;
 
 #[path = "helpers/wait.rs"]
 mod wait;
-use wait::{wait_for_dir_entries, wait_for_file, wait_for_paired_device, wait_for_transfer};
+use wait::{
+	wait_for_dir_entries, wait_for_file, wait_for_file_matching, wait_for_paired_device,
+	wait_for_transfer,
+};
 
 /// Alice's file transfer scenario - sender role
 #[tokio::test]
@@ -225,13 +228,13 @@ async fn alice_file_transfer_scenario() {
 				println!("Alice: All transfers completed, now waiting for Bob's confirmation...");
 
 				// Wait for Bob to confirm receipt and verification
-				let bob_confirmed = wait_for_file(
+				let bob_confirmed = wait_for_file_matching(
 					"/tmp/spacedrive-file-transfer-test/bob_received_confirmation.txt",
 					Duration::from_secs(60),
+					|content| content.starts_with("received_and_verified:"),
 				)
 				.await
-				.map(|content| content.starts_with("received_and_verified:"))
-				.unwrap_or(false);
+				.is_ok();
 
 				if bob_confirmed {
 					println!("FILE_TRANSFER_SUCCESS: Alice completed all file transfers and Bob confirmed receipt");
@@ -489,6 +492,15 @@ async fn bob_file_transfer_scenario() {
 			)
 			.unwrap();
 			println!("Bob: Wrote confirmation signal for Alice");
+
+			// The sender's job still awaits the final ack for the last file;
+			// stay up until Alice reports it, or the ack dies with the process.
+			wait_for_file(
+				"/tmp/spacedrive-file-transfer-test/alice_success.txt",
+				Duration::from_secs(60),
+			)
+			.await
+			.expect("Bob: Alice never reported the transfer complete");
 		} else {
 			panic!("Bob: File verification failed");
 		}

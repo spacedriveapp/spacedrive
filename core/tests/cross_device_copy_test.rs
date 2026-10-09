@@ -15,7 +15,9 @@ use tokio::time::timeout;
 
 #[path = "helpers/wait.rs"]
 mod wait;
-use wait::{wait_for_connected_device, wait_for_dir_entries, wait_for_file};
+use wait::{
+	wait_for_connected_device, wait_for_dir_entries, wait_for_file, wait_for_file_matching,
+};
 
 /// Alice's cross-device copy scenario - sender role
 #[tokio::test]
@@ -224,13 +226,13 @@ async fn alice_cross_device_copy_scenario() {
 
 	// Wait for Bob to confirm receipt
 	println!("Alice: Waiting for Bob to confirm file receipt...");
-	let bob_confirmed = wait_for_file(
+	let bob_confirmed = wait_for_file_matching(
 		"/tmp/spacedrive-cross-device-copy-test/bob_verified.txt",
 		Duration::from_secs(60),
+		|content| content.starts_with("verified:"),
 	)
 	.await
-	.map(|content| content.starts_with("verified:"))
-	.unwrap_or(false);
+	.is_ok();
 
 	if bob_confirmed {
 		println!("CROSS_DEVICE_COPY_SUCCESS: Alice successfully dispatched copy actions");
@@ -414,6 +416,15 @@ async fn bob_cross_device_copy_scenario() {
 		.unwrap();
 
 		println!("CROSS_DEVICE_COPY_SUCCESS: Bob verified all received files");
+
+		// Alice's copy jobs still await their final acks; stay up until she
+		// reports success, or the acks die with the process.
+		wait_for_file(
+			"/tmp/spacedrive-cross-device-copy-test/alice_success.txt",
+			Duration::from_secs(60),
+		)
+		.await
+		.expect("Bob: Alice never reported the copies complete");
 	} else {
 		println!(
 			"Bob: Only received {}/{} expected files",

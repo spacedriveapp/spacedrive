@@ -15,7 +15,9 @@ use tokio::time::timeout;
 
 #[path = "helpers/wait.rs"]
 mod wait;
-use wait::{wait_for_connected_device, wait_for_dir_entries, wait_for_file};
+use wait::{
+	wait_for_connected_device, wait_for_dir_entries, wait_for_file, wait_for_file_matching,
+};
 
 /// Alice's role in PULL test - file host (source device)
 #[tokio::test]
@@ -160,13 +162,13 @@ async fn alice_pull_source_scenario() {
 
 	// Wait for Bob to complete PULL transfers
 	println!("Alice: Waiting for Bob to complete PULL transfers...");
-	let bob_completed = wait_for_file(
+	let bob_completed = wait_for_file_matching(
 		"/tmp/spacedrive-pull-test/bob_pull_success.txt",
 		Duration::from_secs(90),
+		|content| content.starts_with("success"),
 	)
 	.await
-	.map(|content| content.starts_with("success"))
-	.unwrap_or(false);
+	.is_ok();
 
 	if bob_completed {
 		println!("PULL_TEST_SUCCESS: Alice successfully served files for PULL");
