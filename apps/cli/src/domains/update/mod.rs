@@ -331,7 +331,7 @@ async fn attempt(
 	let _ = std::fs::remove_dir_all(&part_dir);
 
 	let version_marker = nightly_sha.unwrap_or_else(|| release.tag_name.clone());
-	if let Err(e) = std::fs::write(bin_dir.join(VERSION_FILE), format!("{}\n", version_marker)) {
+	if let Err(e) = write_version_marker(bin_dir, &version_marker) {
 		println!(
 			"  could not write {}: {}",
 			bin_dir.join(VERSION_FILE).display(),
@@ -823,6 +823,13 @@ fn parse_sha256(text: &str) -> Option<String> {
 		.then(|| token.to_ascii_lowercase())
 }
 
+/// Writes the installed build's marker beside the binaries, the full commit
+/// sha for a nightly or the tag for a release, one line with a trailing
+/// newline, the same shape a local rebuild script writes.
+fn write_version_marker(bin_dir: &Path, marker: &str) -> std::io::Result<()> {
+	std::fs::write(bin_dir.join(VERSION_FILE), format!("{}\n", marker))
+}
+
 fn looks_like_sha(s: &str) -> bool {
 	s.len() >= 7 && s.len() <= 40 && s.chars().all(|c| c.is_ascii_hexdigit())
 }
@@ -870,6 +877,19 @@ mod tests {
 			browser_download_url: String::new(),
 			size: 0,
 		}
+	}
+
+	#[test]
+	fn version_marker_is_the_full_sha_on_one_line() {
+		let dir = tempfile::tempdir().unwrap();
+		std::fs::write(dir.path().join(VERSION_FILE), "stale\n").unwrap();
+
+		write_version_marker(dir.path(), ASSET_SHA).unwrap();
+
+		assert_eq!(
+			std::fs::read_to_string(dir.path().join("sd-version.txt")).unwrap(),
+			format!("{}\n", ASSET_SHA)
+		);
 	}
 
 	#[test]
