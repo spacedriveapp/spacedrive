@@ -1510,6 +1510,11 @@ impl LibraryManager {
 			loop {
 				tokio::select! {
 					Some(event) = rx.recv() => {
+						if !*is_watching.read().await {
+							info!("Library watcher shutting down");
+							break;
+						}
+
 						let now = std::time::Instant::now();
 
 						for path in &event.paths {

@@ -204,16 +204,29 @@ async fn test_default_library_creation() {
 /// near the end of the window; one of them is the last tick's.
 #[tokio::test]
 async fn stopping_the_watcher_inside_its_debounce_reopens_nothing() {
+	// Windows refuses a plain open of a directory without backup semantics.
+	fn touch_directory(path: &std::path::Path) {
+		let mut options = std::fs::OpenOptions::new();
+		options.read(true);
+		#[cfg(windows)]
+		{
+			use std::os::windows::fs::OpenOptionsExt;
+			options.custom_flags(0x0200_0000);
+		}
+		options
+			.open(path)
+			.unwrap()
+			.set_modified(std::time::SystemTime::now())
+			.unwrap();
+	}
+
 	let temp_dir = TempDir::new().unwrap();
 	let core = Core::new(temp_dir.path().to_path_buf()).await.unwrap();
 	let lib_path = core.libraries.list().await[0].path().to_path_buf();
 	let lock_path = lib_path.join(".sdlibrary.lock");
 
 	for offset_ms in (400u64..500).step_by(10) {
-		std::fs::File::open(&lib_path)
-			.unwrap()
-			.set_modified(std::time::SystemTime::now())
-			.unwrap();
+		touch_directory(&lib_path);
 		tokio::time::sleep(std::time::Duration::from_millis(offset_ms)).await;
 		core.libraries.stop_watching().await.unwrap();
 		core.libraries.close_all().await.unwrap();
