@@ -17,8 +17,8 @@
 //! arrive as index snapshots with no store beside them, so a replica pages from
 //! the index this device holds of it, in path order, judged as the arena
 //! backend of `search.files` judges its rows. A replica holds no facet, so
-//! under a capture filter its files are left out, as they are under a tag
-//! filter.
+//! its files read as undated and unplaced under a capture filter, as they do
+//! in `search.files`.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -140,10 +140,9 @@ impl LibraryQuery for MediaSearchQuery {
 		let cache = context.volume_index();
 		let tags = TagScope::resolve_if_active(cache, input.filters.tags.as_ref()).await;
 		let mut partitions: Vec<Partition> = stores.into_iter().map(Partition::Store).collect();
-		// A replica's tags live with its owner and its facets with its store,
-		// so under a tag or capture filter its files are left out rather than
-		// passed through unfiltered.
-		if tags.is_none() && !capture::filtered(&input.filters) {
+		// A replica's tags live with its owner, so under a tag filter its files
+		// are left out rather than passed through unfiltered.
+		if tags.is_none() {
 			partitions.extend(replicas.into_iter().map(Partition::Replica));
 		}
 
@@ -374,6 +373,11 @@ fn replica_files(
 			},
 		);
 		file.content_kind = content_kind;
+		// No facet here, so the file is undated and unplaced: it fails a
+		// capture range and `has_location: true`, and passes `false`.
+		if !capture::passes(&file, judge.filters) {
+			continue;
+		}
 		page.files.push(file);
 		if page.files.len() == wanted {
 			page.full_at = Some(cursor_at(root, path));
@@ -685,5 +689,28 @@ mod tests {
 
 		let missing = replica_files(&mut index, root, "absent", "titan", &judge, None, 10);
 		assert!(missing.files.is_empty() && missing.full_at.is_none());
+
+		// A replica holds no facet, so its files are unplaced: all of them
+		// under `has_location: false`, none under `true`, as in search.files.
+		let unplaced = SearchFilters {
+			has_location: Some(false),
+			..Default::default()
+		};
+		let judge = Judge {
+			filters: &unplaced,
+			..judge
+		};
+		let every = replica_files(&mut index, root, "", "titan", &judge, None, 10);
+		assert_eq!(every.files.len(), 3);
+		let placed = SearchFilters {
+			has_location: Some(true),
+			..Default::default()
+		};
+		let judge = Judge {
+			filters: &placed,
+			..judge
+		};
+		let none = replica_files(&mut index, root, "", "titan", &judge, None, 10);
+		assert!(none.files.is_empty());
 	}
 }
