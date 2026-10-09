@@ -280,6 +280,38 @@ impl CargoTestRunner {
 		Ok(())
 	}
 
+	/// Wait for a subprocess to exit on its own and require a zero status.
+	///
+	/// A phase that restarts a role needs the first instance gone before the
+	/// second opens the same data directory; killing it would cut whatever
+	/// it was still persisting.
+	pub async fn wait_for_exit(&mut self, name: &str, timeout: Duration) -> Result<(), String> {
+		let process = self
+			.processes
+			.iter_mut()
+			.find(|p| p.name == name)
+			.ok_or_else(|| format!("Process '{}' not found", name))?;
+		let Some(mut child) = process.child.take() else {
+			return Err(format!("Process '{}' was not spawned", name));
+		};
+		match tokio::time::timeout(timeout, child.wait()).await {
+			Ok(Ok(status)) if status.success() => Ok(()),
+			Ok(Ok(status)) => Err(format!(
+				"Process '{}' exited with failure: {:?}",
+				name,
+				status.code()
+			)),
+			Ok(Err(e)) => Err(format!("Failed to wait for process '{}': {}", name, e)),
+			Err(_) => {
+				let _ = child.kill().await;
+				Err(format!(
+					"Process '{}' did not exit within {:?}",
+					name, timeout
+				))
+			}
+		}
+	}
+
 	/// Kill all processes
 	pub async fn kill_all(&mut self) {
 		for process in &mut self.processes {

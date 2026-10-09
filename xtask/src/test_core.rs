@@ -24,8 +24,11 @@ pub struct TestSuite {
 }
 
 /// The CI job a suite belongs to. Each group is one runner, so the split is
-/// about wall time: the integration group sits near the hour and anything
-/// new goes in its own job rather than on top of it.
+/// about wall time: the integration group runs in about 10 minutes since
+/// #3149, the job's cap in `core_tests.yml` is 90, and the pull request
+/// loop wants it under 15, so a suite that takes seconds goes there and
+/// anything that needs its own build (a feature flag, a kernel module) or
+/// adds minutes goes in another group.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Group {
 	/// The `--lib` suite
@@ -114,6 +117,17 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		&["--test", "normalized_cache_fixtures_test"],
 	),
 	core("Device pairing test", &["--test", "device_pairing_test"]),
+	core(
+		"Device persistence test",
+		&["--test", "device_persistence_test"],
+	),
+	core("Proxy pairing test", &["--test", "proxy_pairing_test"]),
+	// Pairs through an iroh relay the suite runs in-process, so the relay
+	// path is covered without the public relays.
+	core(
+		"Relay only pairing test",
+		&["--test", "relay_only_pairing_test"],
+	),
 	core("File copy pull test", &["--test", "file_copy_pull_test"]),
 	core("File transfer test", &["--test", "file_transfer_test"]),
 	core(

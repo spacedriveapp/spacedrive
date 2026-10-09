@@ -38,6 +38,13 @@ Spacedrive combines:
 Connections can migrate between viable paths without changing device identity
 or operation semantics.
 
+The daemon uses the n0 public relays by default. `SD_RELAY_URL` in the
+daemon's environment replaces them with one relay, such as a self-hosted
+`iroh-relay`, and a joiner that knows only a node id dials it through that
+relay without waiting for internet discovery. `SD_DISABLE_MDNS` turns local
+network discovery off; the relay pairing test uses both so two cores on one
+host can only reach each other through the relay it runs.
+
 ## Protocol registry
 
 Each protocol has a stable identifier, version, request limits, and

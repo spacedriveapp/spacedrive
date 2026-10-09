@@ -23,8 +23,6 @@ async fn test_enhanced_pairing_code_with_relay_info() {
 		.unwrap()
 		.unwrap();
 
-	tokio::time::sleep(Duration::from_secs(3)).await;
-
 	let networking = core.networking().unwrap();
 
 	// Generate a pairing code (should include relay info)
@@ -78,8 +76,6 @@ async fn test_enhanced_pairing_codes_always_have_relay_info() {
 		.unwrap()
 		.unwrap();
 
-	tokio::time::sleep(Duration::from_secs(3)).await;
-
 	let networking = core.networking().unwrap();
 
 	// Generate a pairing code
@@ -122,8 +118,6 @@ async fn test_relay_discovery_flow() {
 		.await
 		.unwrap()
 		.unwrap();
-
-	tokio::time::sleep(Duration::from_secs(3)).await;
 
 	let networking = core.networking().unwrap();
 

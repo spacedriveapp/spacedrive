@@ -291,5 +291,8 @@ path = "src/bin/daemon.rs"
 
 
 [dev-dependencies]
+# The relay pairing suite runs its own relay in-process so CI never depends
+# on the public n0 relays.
+iroh-relay        = { version = "0.95.1", features = ["server"] }
 pretty_assertions = "1.4"
 tempfile          = "3.14"
