@@ -82,8 +82,8 @@ explicit version tag.
 The nightly channel is a rolling build of the CLI and daemon for people who
 want to track `main` without compiling. Every push to `main` runs
 `.github/workflows/nightly.yml`, which builds `sd` and `sd-daemon`
-in release mode for macOS ARM64 and Linux x86-64 and republishes them on the
-GitHub prerelease tagged `nightly`. There is one nightly release and the
+in release mode for macOS ARM64, Linux x86-64 and Windows x86-64 and
+republishes them on the GitHub prerelease tagged `nightly`. There is one nightly release and the
 workflow edits it in place: it rewrites the title and notes, replaces every
 asset with `gh release upload --clobber`, removes assets for platforms that no
 longer build, and only then moves the `nightly` tag to the built commit, so
@@ -91,6 +91,9 @@ the tag never names a commit whose binaries are not yet published. The
 release is created only when it does not exist. Asset URLs are stable because they are
 built from the tag and the asset name, for example
 `https://github.com/spacedriveapp/spacedrive/releases/download/nightly/sd-macos-aarch64`.
+Windows assets carry the `.exe` suffix (`sd-windows-x86_64.exe`,
+`sd-daemon-windows-x86_64.exe`), which the updater strips when it matches an
+asset to a binary.
 
 The release notes name the commit the build came from. Because GitHub freezes
 a release's `target_commitish` at creation, that field does not move with the
@@ -106,7 +109,9 @@ Nightly builds are not a release:
 - They are not signed with a Developer ID and are not notarized. The macOS
   linker adds an ad-hoc signature, which is enough to run a binary the CLI
   downloaded itself. A copy downloaded in a browser carries the quarantine
-  attribute and Gatekeeper refuses it until you remove that attribute.
+  attribute and Gatekeeper refuses it until you remove that attribute. The
+  Windows binaries have no Authenticode signature, so SmartScreen warns the
+  first time you run one you downloaded in a browser.
 - They can break, lose data, or change schemas without migrations. Keep
   backups of any library you point a nightly build at.
 - They carry sd-core's default features only: no bundled FFmpeg, libheif, or
@@ -150,8 +155,11 @@ both the package version and the installed commit, for example
 `sd update --yes` skips the confirmation prompt and does nothing when the
 installed commit already matches. `sd update --force` reinstalls the current
 nightly even when it matches. Both replace the running `sd` binary and the
-`sd-daemon` next to it through a temporary file and a rename, stop the daemon
-first, and start it again afterwards. When `sd daemon install` has launchd
+`sd-daemon` next to it through a `.bak` copy and a rename of the downloaded
+file into place, stop the daemon first, and start it again afterwards. Windows
+cannot replace or delete a running executable, so there the current binary is
+moved to `.bak` first and `sd.exe.bak` stays beside the binaries until the
+next update removes it. When `sd daemon install` has launchd
 managing the daemon, the restart goes through `launchctl kickstart` so launchd
 keeps owning the process. After an install the build's commit (or the release
 tag on the stable channel) is written to `sd-version.txt` beside the binaries.

@@ -292,7 +292,10 @@ async fn main() -> Result<()> {
 			let client = CoreClient::new(socket_addr.clone());
 			let current_exe = std::env::current_exe()?;
 			let launch = DaemonLaunchConfig {
-				daemon_path: current_exe.parent().unwrap().join("sd-daemon"),
+				daemon_path: current_exe
+					.parent()
+					.unwrap()
+					.join(sd_client::daemon_binary_name()),
 				data_dir: data_dir.clone(),
 				instance: instance.clone(),
 				no_default_sources,
@@ -422,7 +425,10 @@ async fn main() -> Result<()> {
 			println!("Starting daemon...");
 			let current_exe = std::env::current_exe()?;
 			let launch = DaemonLaunchConfig {
-				daemon_path: current_exe.parent().unwrap().join("sd-daemon"),
+				daemon_path: current_exe
+					.parent()
+					.unwrap()
+					.join(sd_client::daemon_binary_name()),
 				data_dir: data_dir.clone(),
 				instance: instance.clone(),
 				no_default_sources,

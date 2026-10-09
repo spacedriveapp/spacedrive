@@ -138,3 +138,54 @@ jobs:
 
       - name: Run the ZFS locked volumes suite
         run: RUST_LOG=sd_core=info cargo test -p sd-core --test zfs_locked_volumes_acceptance_test -- --test-threads=1 --nocapture
+
+  # Windows is the one supported desktop platform the rewrite has never been
+  # built on, so this job is the evidence for the cross-platform gate in
+  # docs/core/releases.mdx. It runs on GitHub's hosted image because
+  # Blacksmith has no Windows runners. The sd-core lib tests and the sd-cli
+  # tests are the cheap half; the integration and acceptance suites assume a
+  # Linux filesystem and are tracked in docs/plans/2026-10-09-windows-gap.md.
+  # continue-on-error keeps the job from gating main until it has been green
+  # twice; drop it then.
+  windows:
+    name: Core Tests (windows unit, continue-on-error until green twice)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    continue-on-error: true
+    permissions:
+      contents: read
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    env:
+      # PDBs for every test binary and their link time are most of a Windows
+      # debug build; the tests do not need symbols.
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_PROFILE_TEST_DEBUG: 0
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # The hosted image has no rustup toolchain for the pinned channel, so
+      # setup-rust installs it from rust-toolchain.toml.
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          restore-cache: "false"
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: core-tests-windows
+          # The job is expected to be red while the gaps are worked through;
+          # a cache saved only on success would never warm.
+          cache-on-failure: "true"
+
+      - name: Build sd-cli and sd-daemon
+        run: cargo build --locked -p sd-cli -p sd-core --bin sd-cli --bin sd-daemon
+
+      - name: Run sd-core unit tests
+        run: cargo test --locked -p sd-core --lib
+
+      - name: Run sd-cli tests
+        run: cargo test --locked -p sd-cli
+

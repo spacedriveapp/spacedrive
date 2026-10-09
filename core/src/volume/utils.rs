@@ -477,8 +477,12 @@ mod tests {
 /// An unmounted drive leaves its mount point behind as an empty directory on
 /// the parent filesystem, and that directory passes every existence check.
 /// What tells the two apart is the device: a mount point's device differs
-/// from its parent's, or it is the filesystem root. Platforms without device
-/// numbers answer by existence, which is the check this replaces.
+/// from its parent's, or it is the filesystem root. Windows answers the same
+/// question through `GetVolumePathNameW`, which names the mount point of the
+/// volume holding a path: a path that is its own volume root is a mount point
+/// (a drive letter or a folder a volume is mounted at), while the directory a
+/// drive left behind resolves to the parent volume's root. Platforms with
+/// neither answer by existence, which is the check this replaces.
 pub fn is_mount_point(path: &Path) -> bool {
 	#[cfg(unix)]
 	{
@@ -494,9 +498,59 @@ pub fn is_mount_point(path: &Path) -> bool {
 			Err(_) => true,
 		}
 	}
-	#[cfg(not(unix))]
+	#[cfg(windows)]
+	{
+		use std::os::windows::ffi::{OsStrExt, OsStringExt};
+		use windows_sys::Win32::Storage::FileSystem::GetVolumePathNameW;
+
+		if !path.is_dir() {
+			return false;
+		}
+		// The path as given, not canonicalized: GetVolumePathNameW judges the
+		// string it is handed, and a subst or mapped drive letter resolves
+		// through canonicalize to the target it stands for, which would make
+		// the drive's own root read as not a mount point.
+		let wide: Vec<u16> = path
+			.as_os_str()
+			.encode_wide()
+			.chain(std::iter::once(0))
+			.collect();
+		let mut root = vec![0u16; 1024];
+		if unsafe { GetVolumePathNameW(wide.as_ptr(), root.as_mut_ptr(), root.len() as u32) } == 0 {
+			return false;
+		}
+		let len = root.iter().position(|&c| c == 0).unwrap_or(root.len());
+		let root = std::ffi::OsString::from_wide(&root[..len]);
+		let strip = |s: &std::ffi::OsStr| {
+			s.to_string_lossy()
+				.trim_start_matches(r"\\?\")
+				.trim_end_matches(['\\', '/'])
+				.to_ascii_lowercase()
+		};
+		strip(&root) == strip(path.as_os_str())
+	}
+	#[cfg(not(any(unix, windows)))]
 	{
 		path.exists()
+	}
+}
+
+#[cfg(all(test, windows))]
+mod mount_point_tests {
+	use super::is_mount_point;
+	use std::path::Path;
+
+	/// The system drive is a mount point, a directory on it is not, and a
+	/// missing path is not.
+	#[test]
+	fn a_drive_root_is_a_mount_point_and_a_folder_on_it_is_not() {
+		let system = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into());
+		assert!(is_mount_point(Path::new(&format!("{system}\\"))));
+		let dir = tempfile::tempdir().unwrap();
+		let left_behind = dir.path().join("mount");
+		std::fs::create_dir(&left_behind).unwrap();
+		assert!(!is_mount_point(&left_behind));
+		assert!(!is_mount_point(&dir.path().join("missing")));
 	}
 }
 

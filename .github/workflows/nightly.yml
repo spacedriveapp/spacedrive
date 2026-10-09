@@ -12,7 +12,10 @@
 # These binaries are not signed with a Developer ID and are not notarized. The
 # macOS linker adds an ad-hoc signature, which is enough to run a file the CLI
 # downloaded itself; a copy fetched through a browser carries the quarantine
-# attribute and Gatekeeper refuses it until that attribute is removed.
+# attribute and Gatekeeper refuses it until that attribute is removed. The
+# Windows binaries carry no Authenticode signature, so SmartScreen warns on the
+# first run of a browser download; `sd update` replaces binaries in place and
+# is not affected.
 #
 # The binaries are built with sd-core's default features: no bundled FFmpeg,
 # libheif or Pdfium, so they do not depend on apps/.deps at runtime. macOS
@@ -52,6 +55,11 @@ jobs:
           - host: blacksmith-4vcpu-ubuntu-2204
             target: x86_64-unknown-linux-gnu
             platform: linux-x86_64
+          # GitHub-hosted: Blacksmith has no Windows runners. Unsigned like
+          # the others; SmartScreen warns on first run of a browser download.
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows-x86_64
     name: Build ${{ matrix.settings.platform }}
     runs-on: ${{ matrix.settings.host }}
     timeout-minutes: 90
@@ -83,6 +91,7 @@ jobs:
           ./scripts/setup.sh
 
       - name: Build sd-cli and sd-daemon
+        shell: bash
         env:
           SD_GIT_SHA: ${{ github.sha }}
           OPENSSL_STATIC: '1'
@@ -92,18 +101,21 @@ jobs:
             -p sd-cli -p sd-core --bin sd-cli --bin sd-daemon \
             --target ${{ matrix.settings.target }}
 
-      # Names are <binary>-<platform>; the updater strips the platform and
-      # expects exactly `sd` and `sd-daemon`.
+      # Names are <binary>-<platform>, plus .exe on Windows; the updater
+      # strips both and expects exactly `sd` and `sd-daemon`.
       - name: Prepare binaries and checksums
+        shell: bash
         run: |
           set -eux
           mkdir -p dist
           platform=${{ matrix.settings.platform }}
-          cp target/${{ matrix.settings.target }}/release/sd-cli "dist/sd-$platform"
-          cp target/${{ matrix.settings.target }}/release/sd-daemon "dist/sd-daemon-$platform"
+          exe=""
+          if [ "${{ runner.os }}" = "Windows" ]; then exe=".exe"; fi
+          cp "target/${{ matrix.settings.target }}/release/sd-cli$exe" "dist/sd-$platform$exe"
+          cp "target/${{ matrix.settings.target }}/release/sd-daemon$exe" "dist/sd-daemon-$platform$exe"
           chmod +x dist/*
           cd dist
-          for f in "sd-$platform" "sd-daemon-$platform"; do
+          for f in "sd-$platform$exe" "sd-daemon-$platform$exe"; do
             if command -v sha256sum >/dev/null; then
               sha256sum "$f" > "$f.sha256"
             else
@@ -111,7 +123,7 @@ jobs:
             fi
           done
           cat ./*.sha256
-          "./sd-$platform" --version
+          "./sd-$platform$exe" --version
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

@@ -9,6 +9,12 @@ use sd_core::infra::daemon::types::{DaemonRequest, DaemonResponse};
 
 use crate::client::CoreClient;
 
+/// The daemon executable's file name next to the CLI: `sd-daemon`, or
+/// `sd-daemon.exe` on Windows.
+pub fn daemon_binary_name() -> String {
+	format!("sd-daemon{}", std::env::consts::EXE_SUFFIX)
+}
+
 /// How to launch the daemon executable when it is not already running.
 pub struct DaemonLaunchConfig {
 	/// Path to the daemon executable.
