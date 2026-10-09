@@ -29,9 +29,12 @@ use std::{
 /// claim is sized to make the queue round trip disappear.
 const BATCH_SIZE: usize = 256;
 
-/// Files parsed at once. The same bound the thumbnail job submits under: a
-/// header read is a seek and a few kilobytes, and the drive sets the limit.
-const CONCURRENCY: usize = 32;
+/// Files parsed at once. A JPEG read is a seek and a few kilobytes, but the
+/// EXIF reader loads a TIFF-shaped container (TIFF, DNG, CR2, NEF, ARW and
+/// the other raw kinds) whole, so the bound is memory for a raw folder, not
+/// the drive's appetite for seeks. Four keeps a shoot of 50 MB raws under a
+/// few hundred megabytes in flight.
+const CONCURRENCY: usize = 4;
 
 /// Reads EXIF for the image records of a source that have no current
 /// facet row.
@@ -132,6 +135,11 @@ impl JobHandler for ExifEnrichJob {
 		let mut unreadable = 0u64;
 		let mut done = 0u64;
 		let mut cursor = 0i64;
+		// A record re-identified behind the cursor while this pass runs is
+		// pending again at a row id already passed. One more sweep from the
+		// start picks it up, since a second dispatch deduplicates onto this
+		// job rather than queueing behind it.
+		let mut swept_again = false;
 
 		loop {
 			ctx.check_interrupt().await?;
@@ -141,7 +149,12 @@ impl JobHandler for ExifEnrichJob {
 				.await
 				.map_err(|e| e.to_string())?;
 			let Some(last) = batch.last() else {
-				break;
+				if swept_again || cursor == 0 {
+					break;
+				}
+				swept_again = true;
+				cursor = 0;
+				continue;
 			};
 			cursor = last.0.rowid;
 			done += batch.len() as u64;

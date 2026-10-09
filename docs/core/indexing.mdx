@@ -125,8 +125,11 @@ and is never read twice. One row is written per content hash, to every
 record holding those bytes, so a source with three copies of a photo reads
 one header.
 
-The pass runs at low priority behind identification, reads up to 32 headers
-at once on the blocking pool, and is silent on the event bus when the
+The pass runs at low priority behind identification, reads four files at a
+time on the blocking pool (a raw or TIFF container is read whole, so the
+bound is memory rather than seeks), sweeps once more from the start before
+it exits so a photo re-identified behind its cursor is not left for the next
+pass, and is silent on the event bus when the
 identification it follows was a background one. A source added with content
 identification off is never enriched, since nothing names its images. The
 launch sweep backfills stores indexed before the pass existed.

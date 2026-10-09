@@ -445,8 +445,11 @@ impl JobOps {
 		let (store, entry) = self.locate(record.uuid).await?;
 		self.check_read(&entry)?;
 
+		// The row's hash is compared with the record's current content so
+		// an edited photo whose row the pass has not rewritten yet is parsed
+		// rather than answered with the old image's facts.
 		let facet: Option<(
-			Option<String>,
+			bool,
 			Option<String>,
 			Option<f64>,
 			Option<f64>,
@@ -455,15 +458,19 @@ impl JobOps {
 			Option<i64>,
 			Option<i64>,
 		)> = sqlx::query_as(
-			"SELECT content_hash, date_taken, latitude, longitude, camera_make, camera_model, \
-			 width, height FROM facet_image WHERE record_uuid = ?",
+			"SELECT i.content_hash IS NOT NULL \
+			 AND i.content_hash IS COALESCE(c.sampled_hash, c.integrity_hash), \
+			 i.date_taken, i.latitude, i.longitude, i.camera_make, i.camera_model, \
+			 i.width, i.height \
+			 FROM facet_image i JOIN record r ON r.uuid = i.record_uuid \
+			 LEFT JOIN content c ON c.id = r.content_id WHERE i.record_uuid = ?",
 		)
 		.bind(entry.uuid)
 		.fetch_optional(store.db().pool())
 		.await
 		.map_err(|e| OpError::failed(e.to_string()))?;
 		if let Some((
-			content_hash,
+			read_by_pass,
 			date_taken,
 			latitude,
 			longitude,
@@ -473,9 +480,8 @@ impl JobOps {
 			height,
 		)) = facet
 		{
-			// A hashed row is the pass's verdict on these bytes, even when
-			// the verdict is that there was nothing to read.
-			let read_by_pass = content_hash.is_some();
+			// A row keyed by the record's bytes is the pass's verdict on
+			// them, even when the verdict is that there was nothing to read.
 			let out = ExifOut {
 				date_taken,
 				latitude,
@@ -490,11 +496,12 @@ impl JobOps {
 				&& out.camera_make.is_none()
 				&& out.camera_model.is_none()
 				&& out.width.is_none();
-			if read_by_pass && empty {
-				return json(&serde_json::Value::Null);
-			}
-			if !empty {
-				return json(&out);
+			if read_by_pass {
+				return if empty {
+					json(&serde_json::Value::Null)
+				} else {
+					json(&out)
+				};
 			}
 		}
 

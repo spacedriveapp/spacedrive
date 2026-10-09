@@ -20,6 +20,12 @@ use crate::file::address;
 /// (a confirmed row keeps it), so a verified file does not read as changed.
 const CONTENT_KEY: &str = "COALESCE(c.sampled_hash, c.integrity_hash)";
 
+/// [`CONTENT_KEY`] as a lookup, with the hash bound twice. Spelled out so
+/// each arm reaches its own index; a `COALESCE` on the left of `=` is a
+/// scan of `content` per statement.
+const CONTENT_KEY_IS: &str =
+	"(c.sampled_hash = ? OR (c.sampled_hash IS NULL AND c.integrity_hash = ?))";
+
 /// Image records whose facet row is missing or describes other bytes.
 ///
 /// One clause, so the count and the batch cannot disagree about what is
@@ -152,7 +158,7 @@ pub async fn set_image_facets(
 	let sql = format!(
 		"INSERT INTO facet_image (record_uuid, content_hash, {IMAGE_COLUMNS}) \
 		 SELECT r.uuid, ?, {} FROM record r JOIN content c ON c.id = r.content_id \
-		 WHERE {CONTENT_KEY} = ? \
+		 WHERE {CONTENT_KEY_IS} \
 		 ON CONFLICT (record_uuid) DO UPDATE SET content_hash = excluded.content_hash, {updates}",
 		vec!["?"; 19].join(", ")
 	);
@@ -181,6 +187,7 @@ pub async fn set_image_facets(
 			.bind(&facet.artist)
 			.bind(&facet.copyright)
 			.bind(&facet.description)
+			.bind(hash)
 			.bind(hash)
 			.execute(&mut *tx)
 			.await?
