@@ -25,9 +25,10 @@ pub struct TestSuite {
 
 /// The CI job a suite belongs to. Each group is one runner, so the split is
 /// about wall time: the integration group runs in about 10 minutes since
-/// #3149 against a 15 minute budget, so a suite that takes seconds goes
-/// there and anything that needs its own build (a feature flag, a kernel
-/// module) or adds minutes goes in another group.
+/// #3149, the job's cap in `core_tests.yml` is 90, and the pull request
+/// loop wants it under 15, so a suite that takes seconds goes there and
+/// anything that needs its own build (a feature flag, a kernel module) or
+/// adds minutes goes in another group.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Group {
 	/// The `--lib` suite
