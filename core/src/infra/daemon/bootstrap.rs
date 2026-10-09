@@ -17,6 +17,11 @@ pub async fn start_default_server(
 	// Initialize basic tracing with file logging first
 	initialize_tracing_with_file_logging(&data_dir)?;
 
+	// Before Core::new: library pools, watchers and the network endpoint open
+	// descriptors under whatever limit the process has at that moment.
+	#[cfg(unix)]
+	raise_fd_limit();
+
 	// Create a single Core instance
 	let mut core = Core::new(data_dir.clone())
 		.await
@@ -39,9 +44,6 @@ pub async fn start_default_server(
 	info!("Socket address: {}", socket_addr);
 	info!("Networking enabled: {}", enable_networking);
 
-	#[cfg(unix)]
-	raise_fd_limit();
-
 	let mut server = RpcServer::new(socket_addr, core.clone());
 
 	// Start the server, which will initialize event streaming
@@ -55,8 +57,8 @@ pub async fn start_default_server(
 /// process may grant itself without privileges, so that is the target. macOS
 /// reports an unlimited hard limit but refuses a soft limit above
 /// kern.maxfilesperproc, so an unlimited hard limit falls back to 65536 and
-/// then to OPEN_MAX (10240), which macOS always accepts. The warning stays only
-/// when the limit is still low after the attempt.
+/// then to OPEN_MAX (10240), which macOS always accepts. The warning stays
+/// when the limit is still low after the attempt, raised or not.
 #[cfg(unix)]
 fn raise_fd_limit() {
 	const LOW_WATER: libc::rlim_t = 10000;
@@ -98,6 +100,12 @@ fn raise_fd_limit() {
 				"File descriptor limit raised from {} to {} (hard limit {})",
 				before, target, hard
 			);
+			if target < LOW_WATER {
+				warn!(
+					"File descriptor limit is still low ({}); raise the hard limit or launchd NumberOfFiles",
+					target
+				);
+			}
 			return;
 		}
 	}
