@@ -316,11 +316,17 @@ impl NetworkingEventLoop {
 
 			// Only remove connection if it's actually closed
 			if conn.close_reason().is_some() {
-				remove_closed_connection(&active_connections, remote_node_id, &conn).await;
+				let removed =
+					remove_closed_connection(&active_connections, remote_node_id, &conn).await;
 				logger
 					.info(&format!(
-						"Connection to {} removed (closed)",
-						remote_node_id
+						"Connection to {} closed{}",
+						remote_node_id,
+						if removed {
+							" and removed"
+						} else {
+							"; a newer one under the same key stays"
+						}
 					))
 					.await;
 			} else {
@@ -745,11 +751,17 @@ impl NetworkingEventLoop {
 
 					// Clean up when handler exits
 					if conn.close_reason().is_some() {
-						remove_closed_connection(&active_connections, node_id, &conn).await;
+						let removed =
+							remove_closed_connection(&active_connections, node_id, &conn).await;
 						logger
 							.info(&format!(
-								"Outbound connection to {} closed and removed",
-								node_id
+								"Outbound connection to {} closed{}",
+								node_id,
+								if removed {
+									" and removed"
+								} else {
+									"; a newer one under the same key stays"
+								}
 							))
 							.await;
 					}
@@ -882,23 +894,37 @@ impl NetworkingEventLoop {
 
 								let _ = send.finish();
 
-								// This connection's only handle is the map entry, which
-								// the next message to the same node replaces; wait for
-								// the peer to acknowledge the bytes so that cannot drop
-								// them.
-								if let Err(_timeout) = tokio::time::timeout(
-									tokio::time::Duration::from_secs(5),
-									send.stopped(),
-								)
-								.await
-								{
-									self.logger
-										.warn(&format!(
-											"Peer {} did not acknowledge the {} message within 5s",
-											node_id, protocol
-										))
-										.await;
-								}
+								// Hold a handle until the peer acknowledges the bytes:
+								// the map entry is the only other one, and the next
+								// message to the same node replaces it. Off the event
+								// loop, which must keep accepting meanwhile.
+								let held = conn.clone();
+								let logger = self.logger.clone();
+								let protocol = protocol.to_string();
+								tokio::spawn(async move {
+									let outcome = tokio::time::timeout(
+										tokio::time::Duration::from_secs(5),
+										send.stopped(),
+									)
+									.await;
+									let problem = match outcome {
+										Ok(Ok(None)) => None,
+										Ok(Ok(Some(code))) => {
+											Some(format!("peer stopped the stream ({code})"))
+										}
+										Ok(Err(e)) => Some(format!("connection lost ({e})")),
+										Err(_) => Some("no acknowledgement within 5s".to_string()),
+									};
+									if let Some(problem) = problem {
+										logger
+											.warn(&format!(
+												"The {} message to {} may not have arrived: {}",
+												protocol, node_id, problem
+											))
+											.await;
+									}
+									drop(held);
+								});
 							}
 							Err(e) => {
 								self.logger
