@@ -223,6 +223,24 @@ harness.transport_alice;
 - `create_snapshot_dir()` - Create timestamped snapshot directory
 - `SnapshotCapture` - Utilities for capturing databases, logs, events
 
+### `wait.rs` - Condition Waits
+
+Polls a real condition on a 100 ms interval up to a deadline, so a test waits
+only as long as the thing it waits for. Use these instead of a fixed `sleep`:
+
+- `wait_until(what, deadline, || async { Option<T> })` - generic poll
+- `wait_for_file(path, deadline)` - a marker file another process writes
+- `wait_for_connected_device(core, deadline)` / `wait_for_peer(core, id, deadline)`
+- `wait_for_paired_device(core, deadline)` - connected, or paired and not yet reconnected
+- `wait_for_transfer(core, &transfer_id, deadline)` - a file sharing transfer settling
+- `wait_for_dir_entries(dir, count, deadline)` - files landing in a directory
+- `wait_for_event(core, deadline, |event| bool)` - the next matching core bus event
+
+The subprocess suites (pairing, file transfer, library join) include it on its
+own with `#[path = "helpers/wait.rs"] mod wait;`, so it depends on nothing else
+in this directory. A fixed sleep is still right when the test proves that
+nothing happens inside a window; say so in a comment next to it.
+
 ### `sync_transport.rs` - Mock Network Transport
 
 Mock implementation of `NetworkTransport` for testing sync without real networking.
