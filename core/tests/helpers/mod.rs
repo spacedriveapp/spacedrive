@@ -1,6 +1,7 @@
 //! Test helper modules for integration tests
 
 pub mod event_collector;
+pub mod exif_fixture;
 pub mod indexing_harness;
 pub mod snapshot;
 pub mod sync_harness;
@@ -9,6 +10,7 @@ pub mod test_data;
 pub mod test_volumes;
 
 pub use event_collector::*;
+pub use exif_fixture::*;
 pub use indexing_harness::*;
 pub use snapshot::*;
 pub use sync_harness::*;

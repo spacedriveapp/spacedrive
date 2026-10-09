@@ -224,6 +224,14 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Add to Library acceptance test",
 		&["--test", "add_to_library_acceptance_test"],
 	),
+	// The EXIF metadata pass behind identification: one image facet row
+	// per content hash, re-read when the bytes change, none for a source
+	// added without content identification.
+	acceptance(
+		"sd-core",
+		"EXIF enrich acceptance test",
+		&["--test", "exif_enrich_acceptance_test"],
+	),
 	// The extension runtime. Its own build with the `wasm` feature: wasmer
 	// in sd-core adds minutes to every test binary link, which took the
 	// integration group from 51 to 78 minutes when the whole group carried

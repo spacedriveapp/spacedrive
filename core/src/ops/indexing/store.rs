@@ -21,8 +21,8 @@ use std::time::{Duration, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use sd_store::{
-	filesystem_schema, ContentIdentity, FileKind, FileWrite, Ledger, Observation, SourceDb,
-	SourceManager, SubtreeRename,
+	filesystem_schema, ContentIdentity, FileKind, FileWrite, ImageFacet, Ledger, Observation,
+	PendingImage, SourceDb, SourceManager, SubtreeRename,
 };
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
@@ -41,6 +41,9 @@ const BATCH_LINGER: Duration = Duration::from_millis(250);
 
 /// Depth of the queue between the arena and the writer.
 const QUEUE_DEPTH: usize = 8192;
+
+/// The content kind the image facet is read for, as the store holds it.
+const IMAGE_KIND: i64 = crate::domain::ContentKind::Image as i64;
 
 /// What the arena tells the store it saw.
 enum Ingest {
@@ -67,6 +70,8 @@ enum Ingest {
 	Identified(Vec<(Uuid, ContentIdentity)>),
 	/// The bytes behind some records could not be read, and why.
 	Unreadable(Vec<(Uuid, String)>),
+	/// What an EXIF read of some bytes said, keyed by content hash.
+	ImageFacets(Vec<(String, ImageFacet)>),
 	/// Commit what is pending and answer with how many writes have failed to
 	/// land since the previous flush barrier. Zero is the only success.
 	Flush(oneshot::Sender<u64>),
@@ -454,6 +459,43 @@ impl SourceStore {
 			return;
 		}
 		self.send(Ingest::Unreadable(failures)).await;
+	}
+
+	/// Image records whose facet row is missing or describes other bytes,
+	/// past the `after` row id. Absolute paths, because the caller opens them.
+	pub async fn files_needing_image_facets(
+		&self,
+		after: i64,
+		batch_size: usize,
+	) -> Result<Vec<(PendingImage, PathBuf)>> {
+		let pending =
+			sd_store::files_needing_image_facets(self.db.pool(), IMAGE_KIND, after, batch_size)
+				.await
+				.with_context(|| format!("list images needing facets in source {}", self.id))?;
+		Ok(pending
+			.into_iter()
+			.map(|image| {
+				let path = self.root.join(&image.external_id);
+				(image, path)
+			})
+			.collect())
+	}
+
+	/// How many image records are still waiting for a facet row.
+	pub async fn files_needing_image_facets_count(&self) -> Result<u64> {
+		let count = sd_store::count_files_needing_image_facets(self.db.pool(), IMAGE_KIND)
+			.await
+			.with_context(|| format!("count images needing facets in source {}", self.id))?;
+		Ok(count.max(0) as u64)
+	}
+
+	/// Record what an EXIF read of these bytes said. Each row lands on every
+	/// record holding the hash.
+	pub async fn image_facets(&self, facets: Vec<(String, ImageFacet)>) {
+		if facets.is_empty() {
+			return;
+		}
+		self.send(Ingest::ImageFacets(facets)).await;
 	}
 
 	/// Write a dated, self-contained copy of this source's store.
@@ -850,6 +892,14 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 				if let Err(error) = sd_store::mark_content_unreadable(db.pool(), &failures).await {
 					tracing::error!(%error, "content errors failed to land");
 					failed_since_flush += failures.len() as u64;
+				}
+			}
+			Ingest::ImageFacets(facets) => {
+				failed_since_flush +=
+					commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
+				if let Err(error) = sd_store::set_image_facets(db.pool(), &facets).await {
+					tracing::error!(%error, "image facets failed to land");
+					failed_since_flush += facets.len() as u64;
 				}
 			}
 			Ingest::Flush(done) => {

@@ -229,6 +229,14 @@ impl JobHandler for ContentIdentityJob {
 			"Identified {identified} files, {unreadable} unreadable"
 		));
 
+		// Images now have a kind, which is what the metadata pass claims by.
+		super::exif_enrich::enrich_after_identification(
+			&ctx.library_arc(),
+			&self.root,
+			self.background,
+		)
+		.await;
+
 		Ok(ContentIdentityOutput {
 			identified,
 			unreadable,

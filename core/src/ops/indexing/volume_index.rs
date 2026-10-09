@@ -1502,6 +1502,13 @@ impl VolumeIndex {
 		self.find_source(id).map(|located| located.record.config)
 	}
 
+	/// The settings of the source whose root holds `path`, for a job that
+	/// knows a root and nothing else.
+	pub fn source_config_at(&self, path: &Path) -> Option<SourceConfig> {
+		self.resolve_source(path)
+			.map(|located| located.record.config)
+	}
+
 	/// Update a source's settings, persisting the change. An error means the
 	/// row did not take the change; the in-memory record did, so the caller
 	/// reports the add or update as failed rather than as saved.
