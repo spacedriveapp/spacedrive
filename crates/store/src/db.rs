@@ -958,10 +958,13 @@ impl SourceDb {
 						continue;
 					};
 					match field_type {
+						// A bare string lands in a JSON column as itself, so
+						// text that is not JSON is the string it was.
 						FieldType::Json => {
 							if let Some(text) = stored.as_str() {
-								*stored =
-									serde_json::from_str(text).unwrap_or(serde_json::Value::Null);
+								*stored = serde_json::from_str(text).unwrap_or_else(|_| {
+									serde_json::Value::String(text.to_string())
+								});
 							}
 						}
 						FieldType::Boolean => {

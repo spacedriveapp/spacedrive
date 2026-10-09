@@ -2,8 +2,7 @@
 //!
 //! Records are the files the library's source stores hold; see
 //! [`crate::types::Record`]. Reading them needs the manifest's `read_records`
-//! grant. Model and tag operations are stubs until a host function backs
-//! them.
+//! grant, tagging them `write_tags`.
 
 use crate::types::*;
 use serde::{de::DeserializeOwned, Serialize};
@@ -26,6 +25,13 @@ impl VdfsContext {
 	pub async fn read_record(&self, uuid: Uuid) -> Result<Vec<u8>> {
 		let payload = serde_json::to_vec(&serde_json::json!({ "uuid": uuid }))?;
 		crate::ffi::op("records.read", &payload)
+	}
+
+	/// A record's EXIF facts, read from its source store's image facet when
+	/// the ingest wrote one and from the file otherwise; `None` when the
+	/// file carries no EXIF. Needs `read_records`.
+	pub async fn record_exif(&self, uuid: Uuid) -> Result<Option<Exif>> {
+		crate::ffi::op_json("records.exif", &serde_json::json!({ "uuid": uuid }))
 	}
 
 	/// Whether a sidecar of one of this extension's kinds exists for the
@@ -143,35 +149,106 @@ impl VdfsContext {
 		self.create_model(f(current)?).await
 	}
 
-	/// Add tag to content (all entries with this content get the tag)
-	pub async fn add_tag_to_content(&self, content_uuid: Uuid, tag: &str) -> Result<()> {
-		Err(Error::Unsupported("add_tag_to_content".into()))
+	/// Tag the bytes: every copy of this content, on every drive, carries
+	/// the tag. Needs `write_tags`; a tag path nobody defined yet is created.
+	pub async fn add_tag_to_content(&self, content_uuid: Uuid, tag: &str) -> Result<Tag> {
+		crate::ffi::op_json(
+			"tags.add",
+			&serde_json::json!({ "content_uuid": content_uuid, "tag": tag }),
+		)
 	}
 
-	/// Add tag to model
+	/// Remove a tag from the content. A tag that was never defined is a
+	/// no-op and answers `None`.
+	pub async fn remove_tag_from_content(
+		&self,
+		content_uuid: Uuid,
+		tag: &str,
+	) -> Result<Option<Tag>> {
+		crate::ffi::op_json(
+			"tags.remove",
+			&serde_json::json!({ "content_uuid": content_uuid, "tag": tag }),
+		)
+	}
+
+	/// Tags are a record concept; a model row carries none.
 	pub async fn add_tag_to_model(&self, model_uuid: Uuid, tag: &str) -> Result<()> {
 		Err(Error::Unsupported("add_tag_to_model".into()))
 	}
 
-	/// Add tag to one record
-	pub async fn add_tag(&self, record_uuid: Uuid, tag: &str) -> Result<()> {
-		Err(Error::Unsupported("add_tag".into()))
+	/// Tag one record: this copy of the file rather than every copy of its
+	/// bytes. Needs `write_tags`; a tag path nobody defined yet is created.
+	/// A path is `Parent/Child`; one segment is a root tag.
+	pub async fn add_tag(&self, record_uuid: Uuid, tag: &str) -> Result<Tag> {
+		crate::ffi::op_json(
+			"tags.add",
+			&serde_json::json!({ "record_uuid": record_uuid, "tag": tag }),
+		)
 	}
 
-	/// Update custom field in UserMetadata
+	/// Remove a tag from one record. A tag that was never defined is a
+	/// no-op and answers `None`.
+	pub async fn remove_tag(&self, record_uuid: Uuid, tag: &str) -> Result<Option<Tag>> {
+		crate::ffi::op_json(
+			"tags.remove",
+			&serde_json::json!({ "record_uuid": record_uuid, "tag": tag }),
+		)
+	}
+
+	/// Set a custom field on a record, replacing any earlier value.
+	///
+	/// `field` is `namespace.name`; the namespace must be one the manifest's
+	/// `write_custom_fields` grants. Fields live in the extension's own
+	/// store, keyed by record uuid, so they are visible to this extension
+	/// only and survive the record being re-indexed.
 	pub async fn update_custom_field<T: Serialize>(
 		&self,
 		record_uuid: Uuid,
 		field: &str,
 		value: T,
 	) -> Result<()> {
-		Err(Error::Unsupported("update_custom_field".into()))
+		let (namespace, name) = split_field(field)?;
+		let _: serde_json::Value = crate::ffi::op_json(
+			"records.set_field",
+			&serde_json::json!({
+				"record_uuid": record_uuid,
+				"namespace": namespace,
+				"name": name,
+				"value": value,
+			}),
+		)?;
+		Ok(())
+	}
+
+	/// A custom field this extension set on a record, or `None`.
+	pub async fn custom_field<T: DeserializeOwned>(
+		&self,
+		record_uuid: Uuid,
+		field: &str,
+	) -> Result<Option<T>> {
+		let (namespace, name) = split_field(field)?;
+		crate::ffi::op_json(
+			"records.get_field",
+			&serde_json::json!({
+				"record_uuid": record_uuid,
+				"namespace": namespace,
+				"name": name,
+			}),
+		)
 	}
 
 	/// Check if a path is in user-granted scope
 	pub fn in_granted_scope(&self, path: &str) -> bool {
 		panic!("WASM host call")
 	}
+}
+
+/// `namespace.name` into its parts; a field with no namespace is refused
+/// before the host sees it.
+fn split_field(field: &str) -> Result<(&str, &str)> {
+	field.split_once('.').ok_or_else(|| {
+		Error::InvalidInput(format!("custom field {field:?} must be namespace.name"))
+	})
 }
 
 /// Record query builder.
@@ -221,8 +298,8 @@ impl RecordQuery {
 		self.with_extensions(T::EXTENSIONS.iter().copied())
 	}
 
-	/// Only records carrying this tag. No host side yet: a query with a tag
-	/// filter is refused rather than answered without it.
+	/// Only records carrying this tag, by path. A tag nobody defined
+	/// matches no records.
 	pub fn with_tag(mut self, tag: &str) -> Self {
 		self.tag = Some(tag.to_string());
 		self

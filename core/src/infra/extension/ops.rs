@@ -17,11 +17,17 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::domain::sidecar::{SidecarFormat, SidecarKind, SidecarVariant};
+use crate::domain::Tag;
+use crate::infra::action::{error::ActionError, LibraryAction};
 use crate::infra::job::prelude::JobContext;
 use crate::library::Library;
 use crate::ops::indexing::store::SourceStore;
+use crate::ops::tags::{
+	definitions, ApplyTagsAction, ApplyTagsInput, CreateTagAction, CreateTagInput, TagTargets,
+	UnapplyTagsAction, UnapplyTagsInput,
+};
 
-use super::model_registry::{open_extension_store, ExtensionModelRegistry};
+use super::model_registry::{open_extension_store, ExtensionModelRegistry, CUSTOM_FIELD_MODEL};
 use super::types::ExtensionManifest;
 
 /// An error a guest can act on. `code` is the stable part: the SDK maps it
@@ -152,6 +158,20 @@ struct RecordRef {
 	uuid: Uuid,
 }
 
+/// What the SDK's `Exif` deserializes: the capture facts a photo job sorts
+/// and groups by, and the camera for display.
+#[derive(Serialize, Default)]
+struct ExifOut {
+	/// RFC 3339; a naive EXIF time is read as UTC.
+	date_taken: Option<String>,
+	latitude: Option<f64>,
+	longitude: Option<f64>,
+	camera_make: Option<String>,
+	camera_model: Option<String>,
+	width: Option<i64>,
+	height: Option<i64>,
+}
+
 #[derive(Deserialize)]
 struct RecordQuery {
 	source: Option<Uuid>,
@@ -175,6 +195,43 @@ struct SidecarWrite {
 	content_uuid: Uuid,
 	kind: String,
 	data: serde_json::Value,
+}
+
+#[derive(Deserialize)]
+struct FieldRef {
+	record_uuid: Uuid,
+	namespace: String,
+	name: String,
+}
+
+#[derive(Deserialize)]
+struct FieldSet {
+	record_uuid: Uuid,
+	namespace: String,
+	name: String,
+	value: serde_json::Value,
+}
+
+#[derive(Deserialize)]
+struct JobDispatch {
+	job: String,
+	#[serde(default)]
+	state: Option<serde_json::Value>,
+}
+
+#[derive(Deserialize)]
+struct TagChange {
+	record_uuid: Option<Uuid>,
+	content_uuid: Option<Uuid>,
+	tag: String,
+}
+
+/// A tag as the SDK's `Tag` deserializes it.
+#[derive(Serialize)]
+struct TagOut {
+	id: Uuid,
+	path: String,
+	name: String,
 }
 
 #[derive(Deserialize)]
@@ -245,12 +302,18 @@ impl JobOps {
 			"records.get" => self.record_get(parse(payload)?).await,
 			"records.read" => self.record_read(parse(payload)?).await,
 			"records.query" => self.record_query(parse(payload)?).await,
+			"records.exif" => self.record_exif(parse(payload)?).await,
 			"sidecars.exists" => self.sidecar_exists(parse(payload)?).await,
 			"sidecars.read" => self.sidecar_read(parse(payload)?).await,
 			"sidecars.write" => self.sidecar_write(parse(payload)?).await,
 			"models.put" => self.model_put(parse(payload)?).await,
 			"models.get" => self.model_get(parse(payload)?).await,
 			"models.list" => self.model_list(parse(payload)?).await,
+			"records.set_field" => self.field_set(parse(payload)?).await,
+			"records.get_field" => self.field_get(parse(payload)?).await,
+			"jobs.dispatch" => self.job_dispatch(parse(payload)?).await,
+			"tags.add" => self.tag_change(parse(payload)?, true).await,
+			"tags.remove" => self.tag_change(parse(payload)?, false).await,
 			"ai.infer" => self.ai_infer(payload),
 			"config.get" => self.config_get().await,
 			_ => Err(OpError::new(
@@ -370,15 +433,82 @@ impl JobOps {
 		})
 	}
 
+	/// A record's EXIF facts, or `null` when the file carries none.
+	///
+	/// The image facet is read first, for a store whose ingest wrote it.
+	/// No ingest writes it yet, so the usual path is a parse of the file
+	/// through the core's EXIF reader; the facet is not written back, since
+	/// that row belongs to the enricher that will own it.
+	async fn record_exif(&self, record: RecordRef) -> OpResult {
+		let (store, entry) = self.locate(record.uuid).await?;
+		self.check_read(&entry)?;
+
+		let facet: Option<(
+			Option<String>,
+			Option<f64>,
+			Option<f64>,
+			Option<String>,
+			Option<String>,
+			Option<i64>,
+			Option<i64>,
+		)> = sqlx::query_as(
+			"SELECT date_taken, latitude, longitude, camera_make, camera_model, width, height \
+			 FROM facet_image WHERE record_uuid = ?",
+		)
+		.bind(entry.uuid)
+		.fetch_optional(store.db().pool())
+		.await
+		.map_err(|e| OpError::failed(e.to_string()))?;
+		if let Some((date_taken, latitude, longitude, camera_make, camera_model, width, height)) =
+			facet
+		{
+			if date_taken.is_some() || latitude.is_some() {
+				return json(&ExifOut {
+					date_taken,
+					latitude,
+					longitude,
+					camera_make,
+					camera_model,
+					width,
+					height,
+				});
+			}
+		}
+
+		let path = store.root().join(&entry.relative_path);
+		let exif = match sd_media_metadata::exif::ExifMetadata::from_path(&path).await {
+			Ok(Some(exif)) => exif,
+			Ok(None) => return json(&serde_json::Value::Null),
+			Err(e) => {
+				return Err(OpError::failed(format!("exif {}: {e}", path.display())));
+			}
+		};
+		let date_taken = exif.date_taken.map(|date| match date {
+			sd_media_metadata::exif::MediaDate::Utc(t) => t.to_rfc3339(),
+			sd_media_metadata::exif::MediaDate::Naive(t) => t.and_utc().to_rfc3339(),
+		});
+		let (latitude, longitude) = exif
+			.location
+			.map(|l| {
+				let (lat, lon) = l.coordinates();
+				(Some(lat), Some(lon))
+			})
+			.unwrap_or((None, None));
+		json(&ExifOut {
+			date_taken,
+			latitude,
+			longitude,
+			camera_make: exif.camera_data.device_make,
+			camera_model: exif.camera_data.device_model,
+			width: (exif.resolution.width > 0).then_some(exif.resolution.width as i64),
+			height: (exif.resolution.height > 0).then_some(exif.resolution.height as i64),
+		})
+	}
+
 	/// Files across the library's stores, narrowed by the query and by the
 	/// grant: a glob grant restricts the extensions a query without its own
 	/// list gets back.
 	async fn record_query(&self, query: RecordQuery) -> OpResult {
-		if query.tag.is_some() {
-			return Err(OpError::invalid_input(
-				"record queries cannot filter by tag yet",
-			));
-		}
 		let permissions = &self.manifest.permissions;
 		if permissions.read_records.is_none() {
 			return Err(OpError::permission_denied(format!(
@@ -397,6 +527,51 @@ impl JobOps {
 		};
 		let limit = query.limit.unwrap_or(QUERY_CAP).min(QUERY_CAP);
 		let scope = query.scope.unwrap_or_default();
+
+		// A tag filter starts from the tagged records, which the stores
+		// know exactly, rather than from a walk that would have to be
+		// capped: the walk's scope and extension filters are applied to
+		// each tagged record instead.
+		if let Some(tag) = &query.tag {
+			let mut records = Vec::new();
+			for store in self.stores().await {
+				if query.source.is_some_and(|source| source != store.id()) {
+					continue;
+				}
+				let tagged = self.records_with_tag(&store, tag).await?;
+				for uuid in tagged {
+					if records.len() >= limit {
+						break;
+					}
+					let Some(entry) = store
+						.db()
+						.entry_by_uuid(uuid)
+						.await
+						.map_err(|e| OpError::failed(e.to_string()))?
+					else {
+						continue;
+					};
+					let in_scope = scope.is_empty()
+						|| entry
+							.relative_path
+							.strip_prefix(scope.as_str())
+							.is_some_and(|rest| rest.starts_with('/'));
+					let extension = entry.extension.as_deref().map(str::to_lowercase);
+					let extension_ok = match (&extensions, &extension) {
+						(None, _) => true,
+						(Some(allowed), Some(ext)) => allowed.contains(ext),
+						(Some(_), None) => false,
+					};
+					if entry.kind == sd_store::file::FileKind::File
+						&& !entry.is_hidden
+						&& in_scope && extension_ok
+					{
+						records.push(RecordOut::new(store.id(), entry));
+					}
+				}
+			}
+			return json(&records);
+		}
 
 		let mut records = Vec::new();
 		for store in self.stores().await {
@@ -497,12 +672,7 @@ impl JobOps {
 	/// The extension's store in this library, opened on first use.
 	async fn store(&mut self) -> Result<&SourceDb, OpError> {
 		if self.store.is_none() {
-			let schema = self.models.schema_for(&self.extension_id).ok_or_else(|| {
-				OpError::invalid_input(format!(
-					"{} declares no models; list them in #[extension(models = [...])]",
-					self.extension_id
-				))
-			})?;
+			let schema = self.models.schema_for(&self.extension_id);
 			let db = open_extension_store(self.library.path(), &self.extension_id, &schema)
 				.await
 				.map_err(|e| OpError::failed(format!("open extension store: {e}")))?;
@@ -557,6 +727,224 @@ impl JobOps {
 			.await
 			.map_err(|e| OpError::failed(e.to_string()))?;
 		json(&rows)
+	}
+}
+
+impl JobOps {
+	/// A field name becomes part of the row key, so it is kept to one
+	/// identifier-like token.
+	fn field_key(record: Uuid, namespace: &str, name: &str) -> Result<String, OpError> {
+		let token =
+			|s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+		if !token(namespace) || !token(name) {
+			return Err(OpError::invalid_input(format!(
+				"custom field {namespace}.{name}: namespace and name are [A-Za-z0-9_]"
+			)));
+		}
+		Ok(format!("{record}:{namespace}:{name}"))
+	}
+
+	/// Set one custom field on a record, under a namespace the manifest's
+	/// `write_custom_fields` grants. The record itself is not checked: the
+	/// field lives in the extension's own store and names the record by
+	/// uuid, so a field on a record that later vanishes is just an orphan
+	/// row.
+	async fn field_set(&mut self, set: FieldSet) -> OpResult {
+		if !self
+			.manifest
+			.permissions
+			.write_custom_fields
+			.iter()
+			.any(|n| *n == set.namespace)
+		{
+			return Err(OpError::permission_denied(format!(
+				"{} has no write_custom_fields grant for {}",
+				self.extension_id, set.namespace
+			)));
+		}
+		let key = Self::field_key(set.record_uuid, &set.namespace, &set.name)?;
+		let row = serde_json::json!({
+			"record": set.record_uuid.to_string(),
+			"namespace": set.namespace,
+			"name": set.name,
+			"value": set.value.to_string(),
+		});
+		let store = self.store().await?;
+		store
+			.upsert(CUSTOM_FIELD_MODEL, &key, &row)
+			.await
+			.map_err(|e| OpError::failed(e.to_string()))?;
+		json(&serde_json::Value::Null)
+	}
+
+	/// One custom field's value, or `null` when the record has none. Fields
+	/// are the extension's own, so reading needs no grant.
+	async fn field_get(&mut self, field: FieldRef) -> OpResult {
+		let key = Self::field_key(field.record_uuid, &field.namespace, &field.name)?;
+		let store = self.store().await?;
+		let rows = store
+			.facet_rows(CUSTOM_FIELD_MODEL, Some(&key), 1)
+			.await
+			.map_err(|e| OpError::failed(e.to_string()))?;
+		let value = rows
+			.into_iter()
+			.next()
+			.and_then(|row| row["value"].as_str().map(str::to_string))
+			.map(|text| serde_json::from_str(&text).unwrap_or(serde_json::Value::Null))
+			.unwrap_or(serde_json::Value::Null);
+		json(&value)
+	}
+}
+
+impl JobOps {
+	/// Queue another of this extension's jobs, with its starting state.
+	///
+	/// The name is resolved under the caller's own extension id, so an
+	/// extension can never start another extension's job. The new job runs
+	/// through the library's job manager like one started from the API; it
+	/// waits for the plugin's runtime once the caller's job has released it.
+	async fn job_dispatch(&self, dispatch: JobDispatch) -> OpResult {
+		if !self.manifest.permissions.dispatch_jobs {
+			return Err(OpError::permission_denied(format!(
+				"{} has no dispatch_jobs grant",
+				self.extension_id
+			)));
+		}
+		if dispatch.job.contains(':') {
+			return Err(OpError::invalid_input(format!(
+				"job {:?}: name the job as the extension registered it, without an extension id",
+				dispatch.job
+			)));
+		}
+		let plugin_manager = self
+			.library
+			.core_context()
+			.get_plugin_manager()
+			.await
+			.ok_or_else(|| OpError::failed("extensions are not initialized"))?;
+		let job = plugin_manager
+			.read()
+			.await
+			.job_registry()
+			.create_wasm_job(
+				&format!("{}:{}", self.extension_id, dispatch.job),
+				dispatch.state.map(|s| s.to_string()).unwrap_or_default(),
+			)
+			.map_err(OpError::invalid_input)?;
+		let handle = self
+			.library
+			.jobs()
+			.dispatch(job)
+			.await
+			.map_err(|e| OpError::failed(format!("dispatch {}: {e}", dispatch.job)))?;
+		json(&serde_json::json!({ "job_id": handle.id().0 }))
+	}
+}
+
+impl JobOps {
+	/// Add or remove one tag, named by path, on one record or on one
+	/// content identity.
+	///
+	/// A tag that does not exist yet is created by name, through the same
+	/// `tags.create` path a person uses, so a tag an extension coins is an
+	/// ordinary tag: it lands in the staging table, travels with its first
+	/// assertion and is found by slug the next time anything names it.
+	async fn tag_change(&self, change: TagChange, add: bool) -> OpResult {
+		if !self.manifest.permissions.write_tags {
+			return Err(OpError::permission_denied(format!(
+				"{} has no write_tags grant",
+				self.extension_id
+			)));
+		}
+		let targets = match (change.record_uuid, change.content_uuid) {
+			(Some(record), None) => TagTargets::File(vec![record]),
+			(None, Some(content)) => TagTargets::Content(vec![content]),
+			_ => {
+				return Err(OpError::invalid_input(
+					"a tag change names exactly one of record_uuid or content_uuid",
+				))
+			}
+		};
+		let context = self.library.core_context().clone();
+		let action_error = |e: ActionError| match e {
+			ActionError::InvalidInput(message) => OpError::invalid_input(message),
+			other => OpError::failed(other.to_string()),
+		};
+
+		let tag = if add {
+			CreateTagAction::from_input(CreateTagInput {
+				path: change.tag.clone(),
+				color: None,
+				icon: None,
+			})
+			.map_err(OpError::invalid_input)?
+			.execute(self.library.clone(), context.clone())
+			.await
+			.map_err(action_error)?
+			.tag
+		} else {
+			// Removing a tag that was never defined is a no-op, not a reason
+			// to mint a definition nothing carries.
+			let path = sd_store::normalize_tag_path(&change.tag)
+				.map_err(|e| OpError::invalid_input(e.to_string()))?;
+			let Some(definition) = definitions::find_by_slug(
+				&self.library,
+				context.volume_index(),
+				sd_store::slug_for_path(&path),
+			)
+			.await
+			else {
+				return json(&serde_json::Value::Null);
+			};
+			Tag::from_definition(&definition)
+		};
+
+		let result = if add {
+			ApplyTagsAction::from_input(ApplyTagsInput {
+				targets,
+				tag_ids: vec![tag.id],
+			})
+			.map_err(OpError::invalid_input)?
+			.execute(self.library.clone(), context)
+			.await
+			.map(|_| ())
+		} else {
+			UnapplyTagsAction::from_input(UnapplyTagsInput {
+				targets,
+				tag_ids: vec![tag.id],
+			})
+			.map_err(OpError::invalid_input)?
+			.execute(self.library.clone(), context)
+			.await
+			.map(|_| ())
+		};
+		result.map_err(action_error)?;
+		json(&TagOut {
+			id: tag.id,
+			path: tag.path,
+			name: tag.name,
+		})
+	}
+
+	/// Records in one store that carry a tag, by path, in a stable order. A
+	/// tag nobody defined names no records; a store that cannot answer is
+	/// an error, not an empty match.
+	async fn records_with_tag(&self, store: &SourceStore, tag: &str) -> Result<Vec<Uuid>, OpError> {
+		let path =
+			sd_store::normalize_tag_path(tag).map_err(|e| OpError::invalid_input(e.to_string()))?;
+		let index = self.library.core_context().volume_index();
+		let Some(definition) =
+			definitions::find_by_slug(&self.library, index, sd_store::slug_for_path(&path)).await
+		else {
+			return Ok(Vec::new());
+		};
+		let mut records = store
+			.db()
+			.records_with_tag(definition.uuid)
+			.await
+			.map_err(|e| OpError::failed(format!("tagged records in {}: {e}", store.id())))?;
+		records.sort();
+		Ok(records)
 	}
 }
 

@@ -1,6 +1,6 @@
 # Spacedrive SDK API Reference
 
-**Status:** Records, sidecars, models, tasks, entropy, clock and config have a host side behind `spacedrive_op`; inference answers `Error::NotAvailable`; tags, custom fields, agents and actions remain stubs.
+**Status:** Records (with EXIF), sidecars, models, tasks, tags, custom fields, job dispatch, entropy, clock and config have a host side behind `spacedrive_op`; inference answers `Error::NotAvailable`; agents, actions and queries remain stubs.
 **Purpose:** The API surface extensions compile against, and what each part does at runtime.
 
 ---
@@ -19,10 +19,13 @@ block and answers JSON, or an error with a stable code the SDK maps onto
 |-----|-----|-----|
 | `Entry`, `EntryKind` | `Record`, `RecordKind` | The entry table is gone; files are records in a source store. |
 | `vdfs().get_entry(uuid)` | `vdfs().get_record(uuid)` | |
-| `vdfs().query_entries()` | `vdfs().query_records()` | Filters by source, path, extension and type. `with_tag` and `where_metadata` are refused by the host. |
+| `vdfs().query_entries()` | `vdfs().query_records()` | Filters by source, path, extension, type and tag. `where_metadata` is refused by the host. |
 | new | `vdfs().read_record(uuid)`, `Record::read()` | The bytes of a record, read from its source. |
 | `save_sidecar(content_uuid, kind, extension_id, data)` | `save_sidecar(content_uuid, kind, data)` | The host keys the sidecar by the calling extension. |
-| `add_tag(metadata_id, tag)` | `add_tag(record_uuid, tag)` | Tags attach to records; no host side yet. |
+| `add_tag(metadata_id, tag)` | `add_tag(record_uuid, tag)`, `add_tag_to_content(content_uuid, tag)` | Tags attach to a record or to its bytes, by path; a tag nobody defined is created. Needs `write_tags`. |
+| `update_custom_field(record, field, value)` | `update_custom_field(record, "namespace.name", value)`, `Record::custom_field("namespace.name")` | Fields live in the extension's own store; the namespace must be in `write_custom_fields`. |
+| new | `Record::exif()`, `vdfs().record_exif(uuid)` | Capture time, GPS and camera, read from the store's image facet or the file. |
+| `jobs().dispatch(job_fn, args)` | `jobs().dispatch("name", &state)` | By registered job name, this extension's only. Needs `dispatch_jobs`. |
 | new | `spacedrive_sdk::clock::now()` | Wall-clock time; `SystemTime::now` panics on wasm32-unknown-unknown. |
 | new | `#[model]` emits a definition the host registers | Models live in an extension-owned store under `<library>/extensions/<id>/`. |
 
@@ -93,13 +96,19 @@ impl VdfsContext {
     async fn get_model<T>(uuid) -> Result<T>
     fn query_models<T>() -> ModelQuery<T>
 
-    // Tagging (no host side yet, returns Error::NotAvailable)
-    async fn add_tag_to_content(content_uuid, tag) -> Result<()>
-    async fn add_tag_to_model(model_uuid, tag) -> Result<()>
-    async fn add_tag(record_uuid, tag) -> Result<()>
+    // Tagging (write_tags); a tag path nobody defined is created
+    async fn add_tag(record_uuid, tag) -> Result<Tag>
+    async fn remove_tag(record_uuid, tag) -> Result<Option<Tag>>
+    async fn add_tag_to_content(content_uuid, tag) -> Result<Tag>
+    async fn remove_tag_from_content(content_uuid, tag) -> Result<Option<Tag>>
+    async fn add_tag_to_model(model_uuid, tag) -> Result<()>   // Unsupported: models carry no tags
 
-    // Custom fields (no host side yet)
+    // Custom fields (write_custom_fields per namespace); field is "namespace.name"
     async fn update_custom_field<T>(record_uuid, field, value) -> Result<()>
+    async fn custom_field<T>(record_uuid, field) -> Result<Option<T>>
+
+    // EXIF (read_records)
+    async fn record_exif(uuid) -> Result<Option<Exif>>
 
     // Permissions
     fn in_granted_scope(path) -> bool
@@ -111,7 +120,7 @@ impl RecordQuery {
     fn in_location(path) -> Self
     fn with_extensions(extensions) -> Self
     fn of_type<T>() -> Self
-    fn with_tag(tag) -> Self          // refused by the host today
+    fn with_tag(tag) -> Self          // by tag path; an undefined tag matches nothing
     fn where_metadata(field, predicate) -> Self  // refused by the host today
     fn limit(n) -> Self
     async fn first() -> Result<Option<Record>>
@@ -185,14 +194,16 @@ impl AgentContext<M> {
 }
 
 impl JobDispatcher {
-    fn dispatch<J, A>(job, args) -> JobDispatchBuilder
+    // ctx.jobs(): one of this extension's jobs by registered name, with its
+    // starting state. Needs dispatch_jobs.
+    fn dispatch<S: Serialize>(job: &str, state: &S) -> JobDispatchBuilder
 }
 
 impl JobDispatchBuilder {
-    fn priority(priority) -> Self
-    fn when_idle() -> Self
-    fn on_device_with_capability(cap) -> Self
-    async fn await() -> Result<()>
+    fn priority(priority) -> Self                // not carried to the host yet
+    fn when_idle() -> Self                       // not carried to the host yet
+    fn on_device_with_capability(cap) -> Self    // not carried to the host yet
+    async fn execute() -> Result<Uuid>           // the job id
 }
 
 impl NotificationBuilder {
@@ -421,13 +432,13 @@ fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
 | `ffi.rs` | Implemented | `spacedrive_log`, `register_job`, `register_model`, `spacedrive_random`, `spacedrive_now_ms`, `spacedrive_op` |
 | `job_context.rs` | Implemented | Progress, checkpoints, interrupts, sidecars, `run` for tasks |
 | `types.rs` | Implemented | `Record`, `RecordKind`, `Error` with host codes |
-| `vdfs.rs` | Partly | Records, sidecars and models work; tags and custom fields return `NotAvailable` |
+| `vdfs.rs` | Implemented | Records (bytes, EXIF, tag filter), sidecars, models, tags, custom fields; `where_metadata` and model field filters are refused |
 | `clock.rs` | Implemented | `now()` over `spacedrive_now_ms` |
 | `tasks.rs` | Implemented | `#[task]` with retry policy and deadline; the host logs each attempt |
 | `models.rs` | Implemented | `#[model]` defines, `#[extension(models = [...])]` registers; rows in the extension's store |
 | `ai.rs` | Not available | `infer` checks the `use_models` grant on the host, then returns `Error::NotAvailable` |
 | `config.rs` | Implemented | `config.json` beside the manifest |
-| `agent.rs` | Stubs | Memory and notifications have no host side |
+| `agent.rs` | Partly | `JobDispatcher` queues this extension's jobs; memory and notifications have no host side |
 | `actions.rs` | Stubs | Preview and execute have no host side |
 | `query.rs` | Stubs | No host side |
 
@@ -435,13 +446,16 @@ fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
 
 ## What Works
 
-**Runtime:** The photos extension's `analyze_photos` runs end to end under the daemon's `wasm` feature; `core/tests/wasm_extension_test.rs` is the acceptance test.
+**Runtime:** The photos extension's `analyze_photos`, `create_moments`, `identify_places` and `analyze_scenes` run end to end under the daemon's `wasm` feature; `core/tests/wasm_extension_test.rs` is the acceptance test. `create_moments` needs no inference at all: it groups by EXIF capture time and GPS, writes `Moment` models, tags `Moments/<title>` and sets the `photos.moment_id` field.
+**Tags:** `add_tag` and `add_tag_to_content` create the tag by path when needed and apply it through the library's own tag ops, so an extension's tags are ordinary tags in the source store.
+**Custom fields:** `namespace.name` values of any JSON shape, kept in the extension's store keyed by record uuid; visible to the extension that wrote them.
+**Dispatch:** `ctx.jobs().dispatch("name", &state).execute()` queues another of the extension's jobs; it runs once the caller releases the plugin runtime.
 **Randomness:** `getrandom` is backed by `spacedrive_random`, so `Uuid::new_v4()` and `rand` work in the guest (each extension's `.cargo/config.toml` sets `--cfg getrandom_backend="custom"`).
 
 ## What Doesn't Work Yet
 
-**Inference:** The core has no provider for face detection, scene classification, embeddings or language models, so every `ai().infer` answers `NotAvailable`; photos' scenes, places and moments jobs have nothing to run on.
-**Tags, custom fields, dispatching jobs:** no host side.
+**Inference:** The core has no provider for face detection, scene classification, embeddings or language models, so every `ai().infer` answers `NotAvailable`; photos skips face detection and scene classification and leaves a new place named `Unknown Location`.
+**Dispatch options:** priority, idle scheduling and device placement are accepted and ignored.
 **Agents, actions, queries:** no host side.
 **File kinds and previews:** not registered by extensions.
 

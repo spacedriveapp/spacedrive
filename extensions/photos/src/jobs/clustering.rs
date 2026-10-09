@@ -35,28 +35,41 @@ pub async fn cluster_faces_into_people(ctx: TaskContext, photo_ids: Vec<Uuid>) -
 		let person_id = find_or_create_person(&ctx, &cluster).await?;
 
 		for (photo_id, _) in cluster.faces {
-			ctx.vdfs()
-				.update_custom_field(photo_id, "identified_people", person_id)
-				.await?;
+			let mut people = ctx
+				.vdfs()
+				.custom_field::<Vec<PersonId>>(photo_id, PEOPLE_FIELD)
+				.await?
+				.unwrap_or_default();
+			if !people.contains(&person_id) {
+				people.push(person_id);
+				ctx.vdfs()
+					.update_custom_field(photo_id, PEOPLE_FIELD, &people)
+					.await?;
+			}
 		}
 	}
 
 	Ok(())
 }
 
+/// The custom field listing the people identified in a photo.
+pub const PEOPLE_FIELD: &str = "photos.identified_people";
+
 #[task]
 pub async fn generate_face_tags(ctx: TaskContext, photo_ids: Vec<Uuid>) -> TaskResult<()> {
 	for photo_id in &photo_ids {
 		let photo = ctx.vdfs().get_record(*photo_id).await?;
 
-		if let Ok(people) = photo.custom_field::<Vec<PersonId>>("identified_people") {
-			for person_id in people {
-				if let Ok(person) = ctx.vdfs().get_model::<Person>(person_id).await {
-					if let Some(name) = person.name {
-						ctx.vdfs()
-							.add_tag(photo.id(), &format!("#person:{}", name))
-							.await?;
-					}
+		let people = photo
+			.custom_field::<Vec<PersonId>>(PEOPLE_FIELD)
+			.await?
+			.unwrap_or_default();
+		for person_id in people {
+			if let Ok(person) = ctx.vdfs().get_model::<Person>(person_id).await {
+				if let Some(name) = person.name {
+					ctx.vdfs()
+						.add_tag(photo.id(), &format!("People/{}", name))
+						.await?;
 				}
 			}
 		}
