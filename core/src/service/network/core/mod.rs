@@ -29,6 +29,33 @@ pub const JOB_ACTIVITY_ALPN: &[u8] = b"spacedrive/jobactivity/1";
 pub const BYTERANGE_ALPN: &[u8] = b"spacedrive/byterange/1";
 pub const REMOTE_OPS_ALPN: &[u8] = b"spacedrive/remoteops/1";
 
+/// Environment variable naming a relay server to use instead of the n0 defaults.
+///
+/// A self-hosted relay, or the local one the relay pairing suite starts, so
+/// a deployment or a CI job does not depend on the public relays.
+pub const RELAY_URL_ENV: &str = "SD_RELAY_URL";
+
+/// Environment variable that turns off mDNS discovery when set.
+///
+/// With mDNS on, two cores on one host find each other's direct addresses
+/// before a relay path is ever needed; the relay pairing suite sets this so
+/// the relay is the only way in.
+pub const DISABLE_MDNS_ENV: &str = "SD_DISABLE_MDNS";
+
+/// The relay `SD_RELAY_URL` names, if any.
+fn configured_relay_url() -> Option<RelayUrl> {
+	let value = std::env::var(RELAY_URL_ENV).ok()?;
+	match value.parse::<RelayUrl>() {
+		Ok(url) => Some(url),
+		Err(e) => {
+			tracing::warn!(
+				"{RELAY_URL_ENV}={value:?} is not a relay URL ({e}); using the default relays"
+			);
+			None
+		}
+	}
+}
+
 /// Central networking event types
 #[derive(Debug, Clone)]
 pub enum NetworkEvent {
@@ -233,7 +260,17 @@ impl NetworkingService {
 		// service can't bind and endpoint creation fails wholesale. Fall back to
 		// pkarr + DNS-only discovery in that case — remote pairing via node ID
 		// continues to work, we just lose local-network auto-discovery.
+		let relay_mode = match configured_relay_url() {
+			Some(url) => {
+				self.logger
+					.info(&format!("Using relay {url} from {RELAY_URL_ENV}"))
+					.await;
+				RelayMode::Custom(iroh::RelayMap::from(url))
+			}
+			None => RelayMode::Default,
+		};
 		let build_endpoint = |with_mdns: bool| {
+			let relay_mode = relay_mode.clone();
 			let mut builder = Endpoint::builder()
 				.secret_key(secret_key.clone())
 				.alpns(vec![
@@ -245,7 +282,7 @@ impl NetworkingService {
 					BYTERANGE_ALPN.to_vec(),
 					REMOTE_OPS_ALPN.to_vec(),
 				])
-				.relay_mode(iroh::RelayMode::Default)
+				.relay_mode(relay_mode)
 				.discovery(PkarrPublisher::n0_dns())
 				.discovery(DnsDiscovery::n0_dns())
 				.bind_addr_v4(std::net::SocketAddrV4::new(
@@ -264,10 +301,20 @@ impl NetworkingService {
 			builder.bind()
 		};
 
-		let endpoint = match build_endpoint(true).await {
+		let mdns_disabled = std::env::var_os(DISABLE_MDNS_ENV).is_some();
+		if mdns_disabled {
+			self.logger
+				.info(&format!("mDNS discovery disabled by {DISABLE_MDNS_ENV}"))
+				.await;
+		}
+		let endpoint = match build_endpoint(!mdns_disabled).await {
 			Ok(ep) => {
 				self.logger
-					.info("Endpoint bound successfully with mDNS + pkarr discovery enabled")
+					.info(if mdns_disabled {
+						"Endpoint bound successfully with pkarr + DNS discovery"
+					} else {
+						"Endpoint bound successfully with mDNS + pkarr discovery enabled"
+					})
 					.await;
 				ep
 			}
@@ -1268,7 +1315,13 @@ impl NetworkingService {
 		// 1. Query dns.iroh.link/pkarr for the node's published address info
 		// 2. Get the relay_url and any direct addresses
 		// 3. Try to connect via the best available path
-		let node_addr = EndpointAddr::new(node_id);
+		//
+		// A configured relay is shared by every device set up with it, so the
+		// initiator is dialed through it without waiting on pkarr.
+		let node_addr = match configured_relay_url() {
+			Some(url) => EndpointAddr::new(node_id).with_relay_url(url),
+			None => EndpointAddr::new(node_id),
+		};
 
 		self.logger
 			.debug("[Pkarr] Querying dns.iroh.link for node address...")

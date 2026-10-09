@@ -263,7 +263,13 @@ Before publishing:
 2. Exercise each supported upgrade path on copies of real prior-version state.
 3. Index and verify a real large source.
 4. Interrupt jobs and daemons during writes.
-5. Pair devices across local and relayed paths.
+5. Pair devices across local and relayed paths. CI covers both on every
+   pull request: `device_pairing_test` pairs over mDNS, and
+   `relay_only_pairing_test` pairs through an iroh relay the suite runs
+   in-process with mDNS off (`SD_RELAY_URL`, `SD_DISABLE_MDNS`) and checks
+   the relay's own counters saw the handshake. The public n0 relays and
+   pkarr discovery over `dns.iroh.link` are not exercised in CI; pair one
+   real device pair across networks before publishing.
 6. Exercise remote queries, ranges, mounts, and mutations.
 7. Restore the library and source stores from backup: `sd-cli library backup
    --to <dir>`, `sd-cli library backup verify --from <dir>`, then `sd-cli

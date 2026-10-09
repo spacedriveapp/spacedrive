@@ -114,6 +114,17 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		&["--test", "normalized_cache_fixtures_test"],
 	),
 	core("Device pairing test", &["--test", "device_pairing_test"]),
+	core(
+		"Device persistence test",
+		&["--test", "device_persistence_test"],
+	),
+	core("Proxy pairing test", &["--test", "proxy_pairing_test"]),
+	// Pairs through an iroh relay the suite runs in-process, so the relay
+	// path is covered without the public relays.
+	core(
+		"Relay only pairing test",
+		&["--test", "relay_only_pairing_test"],
+	),
 	core("File copy pull test", &["--test", "file_copy_pull_test"]),
 	core("File transfer test", &["--test", "file_transfer_test"]),
 	core(
