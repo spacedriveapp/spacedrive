@@ -10,7 +10,11 @@
 
 mod helpers;
 
-use std::{path::Path, sync::Arc};
+use std::{
+	io::Write,
+	path::Path,
+	sync::{Arc, Mutex},
+};
 
 use helpers::TestConfigBuilder;
 use sd_core::{
@@ -29,7 +33,68 @@ use sd_core::{
 	},
 	Core,
 };
+use tracing_subscriber::fmt::MakeWriter;
 use uuid::Uuid;
+
+/// Daemon log lines, kept in memory and printed only when the test fails.
+///
+/// The library manager logs a library it could not reopen and carries on,
+/// so without the log a missing library fails the count below with no
+/// reason attached. Debug level across the whole core is too much to print
+/// on every green run under `--nocapture`, so the buffer is dumped by
+/// `DumpOnPanic` as the test unwinds.
+#[derive(Clone, Default)]
+struct LogBuffer(Arc<Mutex<Vec<u8>>>);
+
+struct LogWriter(Arc<Mutex<Vec<u8>>>);
+
+impl Write for LogWriter {
+	fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+		self.0.lock().expect("log buffer").extend_from_slice(buf);
+		Ok(buf.len())
+	}
+
+	fn flush(&mut self) -> std::io::Result<()> {
+		Ok(())
+	}
+}
+
+impl<'a> MakeWriter<'a> for LogBuffer {
+	type Writer = LogWriter;
+
+	fn make_writer(&'a self) -> LogWriter {
+		LogWriter(self.0.clone())
+	}
+}
+
+struct DumpOnPanic(LogBuffer);
+
+impl Drop for DumpOnPanic {
+	fn drop(&mut self) {
+		if !std::thread::panicking() {
+			return;
+		}
+		let log = self.0 .0.lock().expect("log buffer");
+		eprintln!(
+			"--- daemon log ({} lines) ---\n{}--- end of daemon log ---",
+			log.iter().filter(|b| **b == b'\n').count(),
+			String::from_utf8_lossy(&log)
+		);
+	}
+}
+
+fn capture_logs() -> DumpOnPanic {
+	let buffer = LogBuffer::default();
+	let _ = tracing_subscriber::fmt()
+		.with_env_filter(
+			tracing_subscriber::EnvFilter::try_from_default_env()
+				.unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("sd_core=debug")),
+		)
+		.with_ansi(false)
+		.with_writer(buffer.clone())
+		.try_init();
+	DumpOnPanic(buffer)
+}
 
 /// A daemon over `data_dir`: detection on, watcher on, networking off.
 async fn boot(data_dir: &Path) -> Arc<Core> {
@@ -101,16 +166,7 @@ async fn open_library(core: &Arc<Core>, id: Uuid) -> Arc<Library> {
 
 #[tokio::test]
 async fn two_libraries_list_their_own_sources_across_a_restart() {
-	// The library manager logs a library it could not reopen and carries
-	// on, so without a subscriber a missing library fails the count below
-	// with no reason attached.
-	let _ = tracing_subscriber::fmt()
-		.with_env_filter(
-			tracing_subscriber::EnvFilter::try_from_default_env()
-				.unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("sd_core=warn")),
-		)
-		.with_test_writer()
-		.try_init();
+	let _logs = capture_logs();
 	let data_dir = tempfile::tempdir().expect("data dir");
 	let first_root = tempfile::tempdir().expect("first root");
 	let second_root = tempfile::tempdir().expect("second root");
