@@ -27,10 +27,11 @@ use crate::ops::indexing::{SourceStore, VolumeIndex};
 /// which is what makes the decoration a step before the sort rather than a
 /// finish on the page.
 pub fn wanted(filters: &SearchFilters, sort: &SortOptions) -> bool {
-	sort.field == SortField::CapturedAt || filters_capture(filters)
+	sort.field == SortField::CapturedAt || filtered(filters)
 }
 
-fn filters_capture(filters: &SearchFilters) -> bool {
+/// Whether a filter only the facet can judge is set.
+pub fn filtered(filters: &SearchFilters) -> bool {
 	filters.has_location.is_some()
 		|| filters
 			.date_range
@@ -65,7 +66,7 @@ pub fn passes(file: &File, filters: &SearchFilters) -> bool {
 
 /// Keep the results the capture filters admit.
 pub fn retain_matching(results: &mut Vec<FileSearchResult>, filters: &SearchFilters) {
-	if filters_capture(filters) {
+	if filtered(filters) {
 		results.retain(|result| passes(&result.file, filters));
 	}
 }

@@ -7,15 +7,18 @@
 //! store in the order its indexes already keep, directory path and then name,
 //! so a page reads its own rows and the next resumes from a cursor.
 //!
-//! Extension, kind and hidden narrow in SQL. The name, size, date and tag
-//! filters are judged per row exactly as the store backend of `search.files`
-//! judges them, so a search and the media in it answer the same question. Names
-//! match in Rust for the Unicode folding SQLite does not do.
+//! Extension, kind and hidden narrow in SQL. The name, size, date, tag and
+//! capture filters are judged per row exactly as the store backend of
+//! `search.files` judges them, so a search and the media in it answer the same
+//! question. Names match in Rust for the Unicode folding SQLite does not do;
+//! the capture filters read the image facet the row carries.
 //!
 //! Sources this device replicates from paired devices page after its own. Most
 //! arrive as index snapshots with no store beside them, so a replica pages from
 //! the index this device holds of it, in path order, judged as the arena
-//! backend of `search.files` judges its rows.
+//! backend of `search.files` judges its rows. A replica holds no facet, so
+//! under a capture filter its files are left out, as they are under a tag
+//! filter.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -25,6 +28,7 @@ use specta::Type;
 use uuid::Uuid;
 
 use super::arena_search::passes_arena_filters;
+use super::capture;
 use super::input::{SearchFilters, SearchScope};
 use super::store_search::passes_store_filters;
 use super::tag_scope::TagScope;
@@ -136,9 +140,10 @@ impl LibraryQuery for MediaSearchQuery {
 		let cache = context.volume_index();
 		let tags = TagScope::resolve_if_active(cache, input.filters.tags.as_ref()).await;
 		let mut partitions: Vec<Partition> = stores.into_iter().map(Partition::Store).collect();
-		// A replica's tags live with its owner, so under a tag filter its files
-		// are left out rather than passed through unfiltered.
-		if tags.is_none() {
+		// A replica's tags live with its owner and its facets with its store,
+		// so under a tag or capture filter its files are left out rather than
+		// passed through unfiltered.
+		if tags.is_none() && !capture::filtered(&input.filters) {
 			partitions.extend(replicas.into_iter().map(Partition::Replica));
 		}
 
@@ -427,7 +432,9 @@ impl Judge<'_> {
 				path: absolute,
 			},
 		);
-		matches!(file.content_kind, ContentKind::Image | ContentKind::Video).then_some(file)
+		(matches!(file.content_kind, ContentKind::Image | ContentKind::Video)
+			&& capture::passes(&file, self.filters))
+		.then_some(file)
 	}
 
 	/// Whether an entry of a replica's index is an image or a video the
@@ -570,6 +577,36 @@ mod tests {
 		assert!(judge.admit(&entry("trip/other.mov", false), root).is_none());
 		assert!(judge.admit(&entry("trip/élite.txt", false), root).is_none());
 		assert!(judge.admit(&entry("trip/.élite.mov", true), root).is_none());
+	}
+
+	/// The capture filters read the facet the row carries, so a row without
+	/// one fails `has_location` and a capture range as a search hit would.
+	#[test]
+	fn a_row_is_judged_by_its_facet_under_a_capture_filter() {
+		let registry = FileTypeRegistry::new();
+		let placed_only = SearchFilters {
+			has_location: Some(true),
+			..Default::default()
+		};
+		let extensions = media_extensions(&registry, &placed_only);
+		let judge = Judge {
+			needle: String::new(),
+			filters: &placed_only,
+			tags: None,
+			registry: &registry,
+			extensions: &extensions,
+			device_slug: "laptop".to_string(),
+		};
+		let root = Path::new("/vol/kept");
+
+		let mut placed = entry("trip/placed.jpg", false);
+		placed.image = Some(sd_store::ImageFacet {
+			latitude: Some(35.68),
+			longitude: Some(139.77),
+			..Default::default()
+		});
+		assert!(judge.admit(&placed, root).is_some());
+		assert!(judge.admit(&entry("trip/bare.jpg", false), root).is_none());
 	}
 
 	/// A replica's index holding these files beneath `root`.

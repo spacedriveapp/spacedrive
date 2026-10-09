@@ -267,11 +267,19 @@ impl DirectoryListingQuery {
 						_ => String::new(),
 					};
 					let mut files = self.files_from_index(&index, children, &device_slug).await;
-					// The capture time sorts, so the facet is read before
-					// the sort; assertions decorate after the cap, since
-					// they only label the page.
-					crate::ops::search::capture::decorate_files(&cache, &mut files).await;
+					// Decorate after the cap: assertions and facets live
+					// only in SQLite, so the arena's page still reads the
+					// store. Only a capture order needs the facet ahead of
+					// the sort, at the directory's cost rather than the page's.
+					let by_capture = matches!(self.input.sort_by, DirectorySortBy::DateTaken);
+					if by_capture {
+						crate::ops::search::capture::decorate_files(&cache, &mut files).await;
+					}
 					let mut listing = self.finalize_listing(files);
+					if !by_capture {
+						crate::ops::search::capture::decorate_files(&cache, &mut listing.files)
+							.await;
+					}
 					crate::ops::tags::decorate::decorate_files(&cache, &mut listing.files).await;
 					crate::ops::indexing::kinds::decorate_kinds(&cache, &mut listing.files).await;
 					return Ok(listing);
