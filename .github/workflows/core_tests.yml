@@ -176,6 +176,9 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: core-tests-windows
+          # The job is expected to be red while the gaps are worked through;
+          # a cache saved only on success would never warm.
+          cache-on-failure: "true"
 
       - name: Build sd-cli and sd-daemon
         run: cargo build --locked -p sd-cli -p sd-core --bin sd-cli --bin sd-daemon
