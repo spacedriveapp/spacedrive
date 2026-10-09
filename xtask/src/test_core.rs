@@ -24,8 +24,10 @@ pub struct TestSuite {
 }
 
 /// The CI job a suite belongs to. Each group is one runner, so the split is
-/// about wall time: the integration group sits near the hour and anything
-/// new goes in its own job rather than on top of it.
+/// about wall time: the integration group runs in about 10 minutes since
+/// #3149 against a 15 minute budget, so a suite that takes seconds goes
+/// there and anything that needs its own build (a feature flag, a kernel
+/// module) or adds minutes goes in another group.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Group {
 	/// The `--lib` suite
