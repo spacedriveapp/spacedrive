@@ -468,6 +468,11 @@ mod tests {
 
 	#[test]
 	fn an_absolute_root_is_accepted() {
-		assert!(TrackSourceAction::from_input(input("/Volumes/Archive")).is_ok());
+		let root = if cfg!(windows) {
+			r"D:\Archive"
+		} else {
+			"/Volumes/Archive"
+		};
+		assert!(TrackSourceAction::from_input(input(root)).is_ok());
 	}
 }

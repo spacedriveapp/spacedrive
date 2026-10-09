@@ -601,7 +601,7 @@ mod tests {
 		page.files
 			.iter()
 			.map(|file| match &file.sd_path {
-				SdPath::Physical { path, .. } => path.display().to_string(),
+				SdPath::Physical { path, .. } => path.display().to_string().replace('\\', "/"),
 				other => panic!("replica files have physical paths, got {other}"),
 			})
 			.collect()
