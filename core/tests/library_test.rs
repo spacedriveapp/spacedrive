@@ -211,7 +211,7 @@ async fn stopping_the_watcher_inside_its_debounce_reopens_nothing() {
 		#[cfg(windows)]
 		{
 			use std::os::windows::fs::OpenOptionsExt;
-			options.custom_flags(0x0200_0000);
+			options.write(true).custom_flags(0x0200_0000);
 		}
 		options
 			.open(path)
