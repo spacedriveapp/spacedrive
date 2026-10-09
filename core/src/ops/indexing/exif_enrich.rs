@@ -20,7 +20,7 @@ use sd_media_metadata::exif::{ExifMetadata, MediaDate, Orientation};
 use sd_store::{ImageFacet, PendingImage};
 use serde::{Deserialize, Serialize};
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	path::{Path, PathBuf},
 	sync::Arc,
 };
@@ -138,17 +138,20 @@ impl JobHandler for ExifEnrichJob {
 		// A record re-identified behind the cursor while this pass runs is
 		// pending again at a row id already passed. One more sweep from the
 		// start picks it up, since a second dispatch deduplicates onto this
-		// job rather than queueing behind it.
+		// job rather than queueing behind it. Rows the first sweep already
+		// attempted are skipped, so a file that could not be opened is
+		// neither opened nor counted twice.
 		let mut swept_again = false;
+		let mut attempted: HashSet<i64> = HashSet::new();
 
 		loop {
 			ctx.check_interrupt().await?;
 
-			let batch = store
+			let claimed = store
 				.files_needing_image_facets(cursor, BATCH_SIZE)
 				.await
 				.map_err(|e| e.to_string())?;
-			let Some(last) = batch.last() else {
+			let Some(last) = claimed.last() else {
 				if swept_again || cursor == 0 {
 					break;
 				}
@@ -157,6 +160,13 @@ impl JobHandler for ExifEnrichJob {
 				continue;
 			};
 			cursor = last.0.rowid;
+			let batch: Vec<_> = claimed
+				.into_iter()
+				.filter(|(image, _)| attempted.insert(image.rowid))
+				.collect();
+			if batch.is_empty() {
+				continue;
+			}
 			done += batch.len() as u64;
 
 			let (facets, failed) = read_batch(batch).await;
