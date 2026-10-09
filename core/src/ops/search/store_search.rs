@@ -123,12 +123,18 @@ pub(super) fn passes_store_filters(
 		}
 	}
 
-	if let Some(ref range) = filters.date_range {
+	// A capture range is judged on the built `File` by `capture::passes`,
+	// as it is for arena hits.
+	if let Some(range) = filters
+		.date_range
+		.as_ref()
+		.filter(|range| range.field != DateField::CapturedAt)
+	{
 		let millis = match range.field {
 			DateField::ModifiedAt => entry.mtime_ms,
 			DateField::CreatedAt => entry.created_ms,
 			DateField::AccessedAt => entry.atime_ms,
-			DateField::IndexedAt => None,
+			DateField::IndexedAt | DateField::CapturedAt => None,
 		};
 		let Some(date) = millis.and_then(chrono::DateTime::from_timestamp_millis) else {
 			return false;

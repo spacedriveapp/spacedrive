@@ -521,6 +521,13 @@ function MediaMetadataCard({file}: {file: File}) {
 	);
 }
 
+/** Decimal degrees to five places, about a metre, signed by hemisphere. */
+function formatCoordinates(latitude: number, longitude: number) {
+	const lat = `${Math.abs(latitude).toFixed(5)}° ${latitude < 0 ? 'S' : 'N'}`;
+	const lon = `${Math.abs(longitude).toFixed(5)}° ${longitude < 0 ? 'W' : 'E'}`;
+	return `${lat}, ${lon}`;
+}
+
 function OverviewTab({file}: {file: File}) {
 	const formatDate = (dateStr: string) => {
 		const date = new Date(dateStr);
@@ -530,6 +537,15 @@ function OverviewTab({file}: {file: File}) {
 			year: 'numeric'
 		});
 	};
+	// A capture time is a moment, not a day: the clock tells two frames apart.
+	const formatDateTime = (dateStr: string) =>
+		new Date(dateStr).toLocaleString('en-US', {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
 
 	// Tag mutations — refetch queries on success to update the UI
 	const refetchTagQueries = useRefetchTagQueries();
@@ -612,7 +628,7 @@ function OverviewTab({file}: {file: File}) {
 				{file.image_media_data?.date_taken && (
 					<InfoRow
 						label="Taken"
-						value={formatDate(file.image_media_data.date_taken)}
+						value={formatDateTime(file.image_media_data.date_taken)}
 					/>
 				)}
 				<InfoRow label="Created" value={formatDate(file.created_at)} />
@@ -631,10 +647,22 @@ function OverviewTab({file}: {file: File}) {
 			{/* Image Metadata */}
 			{file.image_media_data && (
 				<Section title="Image Info" icon={Image}>
-					<InfoRow
-						label="Dimensions"
-						value={`${file.image_media_data.width} × ${file.image_media_data.height}`}
-					/>
+					{file.image_media_data.width && file.image_media_data.height && (
+						<InfoRow
+							label="Dimensions"
+							value={`${file.image_media_data.width} × ${file.image_media_data.height}`}
+						/>
+					)}
+					{file.image_media_data.latitude != null &&
+						file.image_media_data.longitude != null && (
+							<InfoRow
+								label="Location"
+								value={formatCoordinates(
+									file.image_media_data.latitude,
+									file.image_media_data.longitude
+								)}
+							/>
+						)}
 					{file.image_media_data.camera_make && (
 						<InfoRow
 							label="Camera"

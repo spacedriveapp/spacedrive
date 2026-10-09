@@ -652,7 +652,11 @@ export type DataVolumeSnapshot = { entries_synced: { [key in string]: number }; 
 /**
  * Time-based fields that can be filtered
  */
-export type DateField = "CreatedAt" | "ModifiedAt" | "AccessedAt" | "IndexedAt";
+export type DateField = "CreatedAt" | "ModifiedAt" | "AccessedAt" | "IndexedAt" | 
+/**
+ * When the photo was taken, from its image facet.
+ */
+"CapturedAt";
 
 /**
  * Filter for a time-based field
@@ -957,7 +961,12 @@ export type DirectorySortBy =
 /**
  * Sort by type (directories first, then files)
  */
-"type";
+"type" | 
+/**
+ * Sort by capture time (newest first), from the image facet. Files
+ * without one come last.
+ */
+"datetaken";
 
 export type DiscoverRemoteLibrariesInput = { 
 /**
@@ -1990,7 +1999,7 @@ export type HealthState = "ok" | "failing" | "unknown";
 /**
  * Image metadata extracted from EXIF
  */
-export type ImageMediaData = { uuid: string; width: number; height: number; blurhash: string | null; date_taken: string | null; latitude: number | null; longitude: number | null; camera_make: string | null; camera_model: string | null; lens_model: string | null; focal_length: string | null; aperture: string | null; shutter_speed: string | null; iso: number | null; orientation: number | null; color_space: string | null; color_profile: string | null; bit_depth: string | null; artist: string | null; copyright: string | null; description: string | null };
+export type ImageMediaData = { uuid: string; width: number | null; height: number | null; blurhash: string | null; date_taken: string | null; latitude: number | null; longitude: number | null; camera_make: string | null; camera_model: string | null; lens_model: string | null; focal_length: string | null; aperture: string | null; shutter_speed: string | null; iso: number | null; orientation: number | null; color_space: string | null; color_profile: string | null; bit_depth: string | null; artist: string | null; copyright: string | null; description: string | null };
 
 /**
  * Canonical input for indexing requests from any interface (CLI, API, etc.)
@@ -4203,6 +4212,11 @@ kinds: { [key in string]: number }; tags: { [key in string]: number }; date_rang
  */
 export type SearchFilters = { file_types: string[] | null; tags: TagFilter | null; date_range: DateRangeFilter | null; size_range: SizeRangeFilter | null; content_types: ContentKind[] | null; include_hidden: boolean | null; include_archived: boolean | null; 
 /**
+ * Only photos whose EXIF places them (true) or does not (false). A
+ * file with no image facet has no place and fails `true`.
+ */
+has_location?: boolean | null; 
+/**
  * Only return files that are at risk (true) or redundant (false).
  * At risk = content exists on exactly one volume.
  */
@@ -4446,7 +4460,12 @@ export type SortDirection = "Asc" | "Desc";
 /**
  * Fields that can be used for sorting
  */
-export type SortField = "Relevance" | "Name" | "Size" | "ModifiedAt" | "CreatedAt" | "IndexedAt";
+export type SortField = "Relevance" | "Name" | "Size" | "ModifiedAt" | "CreatedAt" | "IndexedAt" | 
+/**
+ * When the photo was taken, from its image facet. Files without one
+ * sort last whichever way the order runs.
+ */
+"CapturedAt";
 
 /**
  * Sorting options for search results

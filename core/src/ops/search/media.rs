@@ -7,15 +7,18 @@
 //! store in the order its indexes already keep, directory path and then name,
 //! so a page reads its own rows and the next resumes from a cursor.
 //!
-//! Extension, kind and hidden narrow in SQL. The name, size, date and tag
-//! filters are judged per row exactly as the store backend of `search.files`
-//! judges them, so a search and the media in it answer the same question. Names
-//! match in Rust for the Unicode folding SQLite does not do.
+//! Extension, kind and hidden narrow in SQL. The name, size, date, tag and
+//! capture filters are judged per row exactly as the store backend of
+//! `search.files` judges them, so a search and the media in it answer the same
+//! question. Names match in Rust for the Unicode folding SQLite does not do;
+//! the capture filters read the image facet the row carries.
 //!
 //! Sources this device replicates from paired devices page after its own. Most
 //! arrive as index snapshots with no store beside them, so a replica pages from
 //! the index this device holds of it, in path order, judged as the arena
-//! backend of `search.files` judges its rows.
+//! backend of `search.files` judges its rows. A replica holds no facet, so
+//! its files read as undated and unplaced under a capture filter, as they do
+//! in `search.files`.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -25,6 +28,7 @@ use specta::Type;
 use uuid::Uuid;
 
 use super::arena_search::passes_arena_filters;
+use super::capture;
 use super::input::{SearchFilters, SearchScope};
 use super::store_search::passes_store_filters;
 use super::tag_scope::TagScope;
@@ -369,6 +373,11 @@ fn replica_files(
 			},
 		);
 		file.content_kind = content_kind;
+		// No facet here, so the file is undated and unplaced: it fails a
+		// capture range and `has_location: true`, and passes `false`.
+		if !capture::passes(&file, judge.filters) {
+			continue;
+		}
 		page.files.push(file);
 		if page.files.len() == wanted {
 			page.full_at = Some(cursor_at(root, path));
@@ -427,7 +436,9 @@ impl Judge<'_> {
 				path: absolute,
 			},
 		);
-		matches!(file.content_kind, ContentKind::Image | ContentKind::Video).then_some(file)
+		(matches!(file.content_kind, ContentKind::Image | ContentKind::Video)
+			&& capture::passes(&file, self.filters))
+		.then_some(file)
 	}
 
 	/// Whether an entry of a replica's index is an image or a video the
@@ -536,6 +547,7 @@ mod tests {
 			content_kind: None,
 			content_kind_name: None,
 			content_error: None,
+			image: None,
 		}
 	}
 
@@ -569,6 +581,36 @@ mod tests {
 		assert!(judge.admit(&entry("trip/other.mov", false), root).is_none());
 		assert!(judge.admit(&entry("trip/élite.txt", false), root).is_none());
 		assert!(judge.admit(&entry("trip/.élite.mov", true), root).is_none());
+	}
+
+	/// The capture filters read the facet the row carries, so a row without
+	/// one fails `has_location` and a capture range as a search hit would.
+	#[test]
+	fn a_row_is_judged_by_its_facet_under_a_capture_filter() {
+		let registry = FileTypeRegistry::new();
+		let placed_only = SearchFilters {
+			has_location: Some(true),
+			..Default::default()
+		};
+		let extensions = media_extensions(&registry, &placed_only);
+		let judge = Judge {
+			needle: String::new(),
+			filters: &placed_only,
+			tags: None,
+			registry: &registry,
+			extensions: &extensions,
+			device_slug: "laptop".to_string(),
+		};
+		let root = Path::new("/vol/kept");
+
+		let mut placed = entry("trip/placed.jpg", false);
+		placed.image = Some(sd_store::ImageFacet {
+			latitude: Some(35.68),
+			longitude: Some(139.77),
+			..Default::default()
+		});
+		assert!(judge.admit(&placed, root).is_some());
+		assert!(judge.admit(&entry("trip/bare.jpg", false), root).is_none());
 	}
 
 	/// A replica's index holding these files beneath `root`.
@@ -647,5 +689,28 @@ mod tests {
 
 		let missing = replica_files(&mut index, root, "absent", "titan", &judge, None, 10);
 		assert!(missing.files.is_empty() && missing.full_at.is_none());
+
+		// A replica holds no facet, so its files are unplaced: all of them
+		// under `has_location: false`, none under `true`, as in search.files.
+		let unplaced = SearchFilters {
+			has_location: Some(false),
+			..Default::default()
+		};
+		let judge = Judge {
+			filters: &unplaced,
+			..judge
+		};
+		let every = replica_files(&mut index, root, "", "titan", &judge, None, 10);
+		assert_eq!(every.files.len(), 3);
+		let placed = SearchFilters {
+			has_location: Some(true),
+			..Default::default()
+		};
+		let judge = Judge {
+			filters: &placed,
+			..judge
+		};
+		let none = replica_files(&mut index, root, "", "titan", &judge, None, 10);
+		assert!(none.files.is_empty());
 	}
 }

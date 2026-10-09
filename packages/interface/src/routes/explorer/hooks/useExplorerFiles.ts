@@ -13,6 +13,7 @@ import {
 	useSpacedriveClient,
 } from "../../../contexts/SpacedriveContext";
 import { useExplorer } from "../context";
+import { searchSortField } from "../sortOptions";
 import { isLapsedHandle, usePlanPreviewStore } from "./usePlanPreview";
 import { useVirtualListing } from "./useVirtualListing";
 
@@ -77,18 +78,6 @@ export function useSearchInput(): FileSearchInput | null {
 		// silently widening to the library.
 		if (scope === "source" && !sourceScopePath) return null;
 
-		// Map explorer sortBy to search SortField
-		const searchSortField = (() => {
-			if (!sortBy) return "Relevance" as const;
-			const sortMap: Record<string, "Relevance" | "Name" | "Size" | "ModifiedAt" | "CreatedAt"> = {
-				name: "Name",
-				size: "Size",
-				modified: "ModifiedAt",
-				type: "Relevance",
-			};
-			return sortMap[sortBy] || "Relevance";
-		})();
-
 		return {
 			query,
 			scope:
@@ -100,7 +89,7 @@ export function useSearchInput(): FileSearchInput | null {
 			filters: searchFilters,
 			mode: "Normal",
 			sort: {
-				field: searchSortField,
+				field: searchSortField(sortBy),
 				direction: "Desc",
 			},
 			pagination: {
@@ -143,7 +132,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 	const filteredQueryInput = useMemo<FileSearchInput | null>(() => {
 		if (!isFilteredMode || mode.type !== "filtered") return null;
 
-		const searchSortField = (() => {
+		const filteredSortField = (() => {
 			if (!sortBy) return "Size" as const;
 			const sortMap: Record<
 				string,
@@ -163,7 +152,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 			filters: mode.filters,
 			mode: "Fast",
 			sort: {
-				field: searchSortField,
+				field: filteredSortField,
 				direction: "Desc",
 			},
 			pagination: {

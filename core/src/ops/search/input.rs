@@ -59,6 +59,10 @@ pub struct SearchFilters {
 	pub content_types: Option<Vec<ContentKind>>,
 	pub include_hidden: Option<bool>,
 	pub include_archived: Option<bool>,
+	/// Only photos whose EXIF places them (true) or does not (false). A
+	/// file with no image facet has no place and fails `true`.
+	#[serde(default)]
+	pub has_location: Option<bool>,
 
 	// Redundancy filters
 	/// Only return files that are at risk (true) or redundant (false).
@@ -83,6 +87,7 @@ impl SearchFilters {
 			|| self.content_types.is_some()
 			|| self.size_range.is_some()
 			|| self.date_range.is_some()
+			|| self.has_location.is_some()
 			|| self
 				.tags
 				.as_ref()
@@ -114,6 +119,8 @@ pub enum DateField {
 	ModifiedAt,
 	AccessedAt,
 	IndexedAt,
+	/// When the photo was taken, from its image facet.
+	CapturedAt,
 }
 
 /// Filter for file size in bytes
@@ -139,6 +146,9 @@ pub enum SortField {
 	ModifiedAt,
 	CreatedAt,
 	IndexedAt,
+	/// When the photo was taken, from its image facet. Files without one
+	/// sort last whichever way the order runs.
+	CapturedAt,
 }
 
 /// Sort direction

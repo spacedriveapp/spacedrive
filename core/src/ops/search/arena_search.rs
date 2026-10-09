@@ -79,7 +79,7 @@ pub async fn search_arena(
 			let index = share.index.read().await;
 			matches_in(&index, query, Some(local_path), filters)
 		};
-		let results = collect_results(
+		let mut results = collect_results(
 			&share.index,
 			matching_paths,
 			query,
@@ -88,6 +88,9 @@ pub async fn search_arena(
 			file_type_registry,
 		)
 		.await?;
+		// A replica has no store here, so its hits read as undated and
+		// unplaced rather than passing a capture filter unjudged.
+		crate::ops::search::capture::retain_matching(&mut results, filters);
 		return Ok(SearchPage::single_partition(results, sort, pagination));
 	}
 
@@ -137,7 +140,7 @@ pub async fn search_arena(
 		matching_paths.retain(|path| scope.admits(path));
 	}
 
-	let results = collect_results(
+	let mut results = collect_results(
 		&index_arc,
 		matching_paths,
 		query,
@@ -146,6 +149,7 @@ pub async fn search_arena(
 		file_type_registry,
 	)
 	.await?;
+	crate::ops::search::capture::apply_to_arena_results(cache, &mut results, filters, sort).await;
 	Ok(SearchPage::single_partition(results, sort, pagination))
 }
 
@@ -185,6 +189,7 @@ async fn store_scoped_page(
 	)
 	.await?;
 	retain_tagged(&mut partition.results, tag_scope);
+	crate::ops::search::capture::retain_matching(&mut partition.results, filters);
 
 	Ok(Some(SearchPage::single_partition_with(
 		partition.results,
@@ -278,6 +283,8 @@ pub async fn search_every_index(
 			file_type_registry,
 		)
 		.await?;
+		crate::ops::search::capture::apply_to_arena_results(cache, &mut partition, filters, sort)
+			.await;
 		total += partition.len() as u64;
 		facets.absorb(&partition);
 		seen.extend(
@@ -320,6 +327,7 @@ pub async fn search_every_index(
 			file_type_registry,
 		)
 		.await?;
+		crate::ops::search::capture::retain_matching(&mut partition, filters);
 		total += partition.len() as u64;
 		facets.absorb(&partition);
 		pipeline::narrow(&mut partition, sort, window);
@@ -359,6 +367,7 @@ pub async fn search_every_index(
 		.await?;
 		let mut partition = store_partition.results;
 		retain_tagged(&mut partition, tag_scope.as_ref());
+		crate::ops::search::capture::retain_matching(&mut partition, filters);
 		partition.retain(|result| match result.file.sd_path.as_local_path() {
 			Some(path) => seen.insert(path.to_path_buf()),
 			None => true,
@@ -537,15 +546,20 @@ pub(super) fn passes_arena_filters(
 	// it: an entry that cannot prove it is in the range is not in the range.
 	// The index holds no access or indexed-at times, so those fields fail
 	// closed until a backend can answer them; the UI offers only the fields
-	// advertised as answerable.
-	if let Some(ref range) = filters.date_range {
+	// advertised as answerable. A capture range is judged after the facet
+	// is read, by `capture::passes`.
+	if let Some(ref range) = filters
+		.date_range
+		.as_ref()
+		.filter(|range| range.field != DateField::CapturedAt)
+	{
 		use chrono::{DateTime, Utc};
 
 		let system_time_opt = match range.field {
 			DateField::ModifiedAt => metadata.modified,
 			DateField::CreatedAt => metadata.created,
 			DateField::AccessedAt => metadata.accessed,
-			DateField::IndexedAt => None,
+			DateField::IndexedAt | DateField::CapturedAt => None,
 		};
 
 		let Some(system_time) = system_time_opt else {
@@ -576,8 +590,9 @@ pub(super) fn passes_arena_filters(
 		}
 	}
 
-	// Tags have no arena representation, so a tag filter is ignored rather
-	// than silently excluding everything.
+	// Tags and capture facts have no arena representation; a tag filter
+	// resolves its paths from the stores and a capture filter runs on the
+	// decorated results, so neither is judged here.
 
 	true
 }
@@ -735,33 +750,6 @@ mod tests {
 		];
 		let mtime_secs = 1_700_000_000u64;
 
-		// The arena's copy.
-		let mut index = crate::ops::indexing::Arena::new().expect("index");
-		for (name, size, hidden) in fixture {
-			let path = root.join(name);
-			index
-				.add_entry(
-					path.clone(),
-					Uuid::now_v7(),
-					EntryMetadata {
-						path,
-						kind: EntryKind::File,
-						size: *size,
-						modified: Some(UNIX_EPOCH + Duration::from_secs(mtime_secs)),
-						accessed: None,
-						created: None,
-						inode: None,
-						permissions: None,
-						uid: None,
-						gid: None,
-						link_target: None,
-						is_hidden: *hidden,
-					},
-				)
-				.expect("entry");
-		}
-		let index_arc = std::sync::Arc::new(tokio::sync::RwLock::new(index));
-
 		// The store's copy of the same capture.
 		let dir = tempfile::tempdir().expect("tempdir");
 		let manager = sd_store::SourceManager::new(dir.path().to_path_buf());
@@ -803,20 +791,98 @@ mod tests {
 		db.apply_files(&writes, &[], &[], None)
 			.await
 			.expect("apply");
+
+		// The EXIF pass has read two of the clips: one dated and placed, one
+		// dated only. The facet is keyed by content, so each gets a hash.
+		for (name, hash, date, place) in [
+			(
+				"Clip One.MOV",
+				"clip-one",
+				"2024-03-12T10:00:00+00:00",
+				Some((35.6812, 139.7671)),
+			),
+			("ÉLITE.mov", "elite", "2024-03-19T09:00:00+00:00", None),
+		] {
+			let record = sd_store::read::entry_by_path(db.pool(), name)
+				.await
+				.expect("lookup")
+				.expect("written")
+				.uuid;
+			db.set_content_identity(
+				record,
+				&sd_store::ContentIdentity {
+					sampled_hash: Some(hash.to_string()),
+					..Default::default()
+				},
+			)
+			.await
+			.expect("identity");
+			sd_store::set_image_facets(
+				db.pool(),
+				&[(
+					hash.to_string(),
+					sd_store::ImageFacet {
+						date_taken: Some(date.to_string()),
+						latitude: place.map(|(lat, _)| lat),
+						longitude: place.map(|(_, lon)| lon),
+						..Default::default()
+					},
+				)],
+			)
+			.await
+			.expect("facet");
+		}
+
+		// The arena's copy, under the identities the store assigned, which
+		// is what the ledger gives a walked source.
+		let mut index = crate::ops::indexing::Arena::new().expect("index");
+		for (name, size, hidden) in fixture {
+			let path = root.join(name);
+			let uuid = sd_store::read::entry_by_path(db.pool(), name)
+				.await
+				.expect("lookup")
+				.expect("written")
+				.uuid;
+			index
+				.add_entry(
+					path.clone(),
+					uuid,
+					EntryMetadata {
+						path,
+						kind: EntryKind::File,
+						size: *size,
+						modified: Some(UNIX_EPOCH + Duration::from_secs(mtime_secs)),
+						accessed: None,
+						created: None,
+						inode: None,
+						permissions: None,
+						uid: None,
+						gid: None,
+						link_target: None,
+						is_hidden: *hidden,
+					},
+				)
+				.expect("entry");
+		}
+		let index_arc = std::sync::Arc::new(tokio::sync::RwLock::new(index));
 		drop(db);
 		let db = manager.open_read_only("src-1").await.expect("read-only");
 
 		let registry = FileTypeRegistry::new();
+		type Seen = (String, u64, f32, Option<String>, bool);
+		let seen = |r: &FileSearchResult| -> Seen {
+			(
+				r.file.name.clone(),
+				r.file.size,
+				r.score,
+				r.file.captured_at().map(|t| t.to_rfc3339()),
+				r.file.has_location(),
+			)
+		};
 		let compare = |arena: Vec<FileSearchResult>,
 		               store: Vec<crate::ops::search::output::FileSearchResult>| {
-			let mut arena: Vec<(String, u64, f32)> = arena
-				.into_iter()
-				.map(|r| (r.file.name.clone(), r.file.size, r.score))
-				.collect();
-			let mut store: Vec<(String, u64, f32)> = store
-				.into_iter()
-				.map(|r| (r.file.name.clone(), r.file.size, r.score))
-				.collect();
+			let mut arena: Vec<Seen> = arena.iter().map(seen).collect();
+			let mut store: Vec<Seen> = store.iter().map(seen).collect();
 			arena.sort_by(|a, b| a.0.cmp(&b.0));
 			store.sort_by(|a, b| a.0.cmp(&b.0));
 			assert_eq!(arena, store);
@@ -833,16 +899,29 @@ mod tests {
 					let index = index_arc.read().await;
 					matches_in(&index, query, None, &filters)
 				};
-				let arena = collect_results(&index_arc, matching, query, "dev", &filters, registry)
+				let mut arena =
+					collect_results(&index_arc, matching, query, "dev", &filters, registry)
+						.await
+						.expect("arena results");
+				// What search_arena does with a cache: read the facet from
+				// the store, then judge the capture filters on both alike.
+				let mut files: Vec<File> = arena.iter().map(|r| r.file.clone()).collect();
+				let positions: Vec<usize> = (0..files.len()).collect();
+				crate::ops::search::capture::decorate_from_db(db, &mut files, &positions)
 					.await
-					.expect("arena results");
+					.expect("decorated");
+				for (result, file) in arena.iter_mut().zip(files) {
+					result.file.image_media_data = file.image_media_data;
+				}
+				crate::ops::search::capture::retain_matching(&mut arena, &filters);
 
-				let store = crate::ops::search::store_search::search_source_store(
+				let mut store = crate::ops::search::store_search::search_source_store(
 					db, &root, "dev", query, None, &filters, registry,
 				)
 				.await
 				.expect("store results");
 				assert!(!store.truncated);
+				crate::ops::search::capture::retain_matching(&mut store.results, &filters);
 				(arena, store.results)
 			}
 		};
@@ -893,6 +972,63 @@ mod tests {
 		// Without one, an empty query matches nothing on either.
 		let (arena, store) = run("", SearchFilters::default()).await;
 		assert!(compare(arena, store).is_empty());
+
+		// Capture facts come from the facet on both backends: the arena
+		// reads them from the store before it judges, the store joins them.
+		let (arena, store) = run("mov", SearchFilters::default()).await;
+		let matched = compare(arena, store);
+		assert_eq!(
+			matched
+				.iter()
+				.map(|(name, _, _, taken, placed)| (name.as_str(), taken.is_some(), *placed))
+				.collect::<Vec<_>>(),
+			vec![("Clip One", true, true), ("ÉLITE", true, false)]
+		);
+
+		let placed = SearchFilters {
+			has_location: Some(true),
+			..Default::default()
+		};
+		let (arena, store) = run("mov", placed).await;
+		assert_eq!(compare(arena, store).len(), 1);
+
+		let late_march = SearchFilters {
+			date_range: Some(DateRangeFilter {
+				field: DateField::CapturedAt,
+				start: Some(chrono::DateTime::from_timestamp(1_710_720_000, 0).unwrap()),
+				end: None,
+			}),
+			..Default::default()
+		};
+		let (arena, store) = run("mov", late_march).await;
+		let matched = compare(arena, store);
+		assert_eq!(matched.len(), 1);
+		assert_eq!(matched[0].0, "ÉLITE");
+
+		// The order is shared too: the same candidates, sorted by capture
+		// time through the one pipeline, page identically.
+		let by_capture = SortOptions {
+			field: crate::ops::search::input::SortField::CapturedAt,
+			direction: crate::ops::search::input::SortDirection::Desc,
+		};
+		let (mut arena, mut store) = run(
+			"",
+			SearchFilters {
+				file_types: Some(vec!["mov".to_string(), "txt".to_string()]),
+				..Default::default()
+			},
+		)
+		.await;
+		pipeline::order(&mut arena, &by_capture);
+		pipeline::order(&mut store, &by_capture);
+		let order = |results: &[FileSearchResult]| {
+			results
+				.iter()
+				.map(|r| r.file.name.clone())
+				.collect::<Vec<_>>()
+		};
+		assert_eq!(order(&arena), ["ÉLITE", "Clip One", "notes"]);
+		assert_eq!(order(&arena), order(&store));
 	}
 
 	/// A filter-only search in a folder reaches every entry beneath it, and

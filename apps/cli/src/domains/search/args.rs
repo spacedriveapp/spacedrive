@@ -80,6 +80,10 @@ pub struct FileSearchArgs {
 	/// Include archived files
 	#[arg(long)]
 	pub include_archived: bool,
+
+	/// Only photos whose EXIF places them (true) or does not (false)
+	#[arg(long)]
+	pub has_location: Option<bool>,
 }
 
 #[derive(clap::ValueEnum, Debug, Clone)]
@@ -94,6 +98,8 @@ pub enum DateFieldArg {
 	Created,
 	Modified,
 	Accessed,
+	/// When the photo was taken, from its EXIF
+	Captured,
 }
 
 #[derive(clap::ValueEnum, Debug, Clone)]
@@ -124,6 +130,8 @@ pub enum SortFieldArg {
 	Size,
 	Modified,
 	Created,
+	/// When the photo was taken, from its EXIF
+	Captured,
 }
 
 #[derive(clap::ValueEnum, Debug, Clone)]
@@ -172,6 +180,7 @@ impl From<FileSearchArgs> for FileSearchInput {
 						DateFieldArg::Created => DateField::CreatedAt,
 						DateFieldArg::Modified => DateField::ModifiedAt,
 						DateFieldArg::Accessed => DateField::AccessedAt,
+						DateFieldArg::Captured => DateField::CapturedAt,
 					},
 					start: args.date_start,
 					end: args.date_end,
@@ -213,6 +222,7 @@ impl From<FileSearchArgs> for FileSearchInput {
 			}),
 			include_hidden: Some(args.include_hidden),
 			include_archived: Some(args.include_archived),
+			has_location: args.has_location,
 			at_risk: None,
 			on_volumes: None,
 			not_on_volumes: None,
@@ -227,6 +237,7 @@ impl From<FileSearchArgs> for FileSearchInput {
 				SortFieldArg::Size => SortField::Size,
 				SortFieldArg::Modified => SortField::ModifiedAt,
 				SortFieldArg::Created => SortField::CreatedAt,
+				SortFieldArg::Captured => SortField::CapturedAt,
 			},
 			direction: match args.sort_direction {
 				SortDirectionArg::Asc => SortDirection::Asc,

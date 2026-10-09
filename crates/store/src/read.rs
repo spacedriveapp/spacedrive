@@ -16,6 +16,7 @@ use std::collections::HashMap;
 
 use crate::error::Result;
 use crate::file::FileKind;
+use crate::image::ImageFacet;
 use sqlx::{FromRow, SqlitePool};
 use uuid::Uuid;
 
@@ -57,6 +58,10 @@ pub struct FsEntry {
 	/// not; `content_kind` is then its parent.
 	pub content_kind_name: Option<String>,
 	pub content_error: Option<String>,
+	/// The image facet, when the EXIF pass has read these bytes. A row
+	/// keyed by other bytes than the record's current content is not
+	/// here: it describes an image the file no longer is.
+	pub image: Option<ImageFacet>,
 }
 
 impl FsEntry {
@@ -70,21 +75,51 @@ impl FsEntry {
 	}
 }
 
+/// The image facet's columns, over the alias `i`, in the order
+/// [`ImageFacet`] is read in.
+macro_rules! image_columns {
+	() => {
+		"i.record_uuid IS NOT NULL AS has_image, i.width AS image_width, \
+		 i.height AS image_height, i.date_taken AS date_taken, i.latitude AS latitude, \
+		 i.longitude AS longitude, i.camera_make AS camera_make, i.camera_model AS camera_model, \
+		 i.lens_model AS lens_model, i.focal_length AS focal_length, i.aperture AS aperture, \
+		 i.shutter_speed AS shutter_speed, i.iso AS iso, i.orientation AS orientation, \
+		 i.color_space AS color_space, i.color_profile AS color_profile, \
+		 i.bit_depth AS bit_depth, i.artist AS artist, i.copyright AS copyright, \
+		 i.description AS description"
+	};
+}
+
 /// Every column [`FsEntry`] is built from, over the aliases `r` (the record),
-/// `own` and `parent` (its own and its parent's `directory_path` rows), `f`
-/// and `c`. A directory's path comes from its own row; a file's from its
+/// `own` and `parent` (its own and its parent's `directory_path` rows), `f`,
+/// `c` and `i`. A directory's path comes from its own row; a file's from its
 /// parent's row plus its title, and a root-level entry from its title alone.
 macro_rules! entry_columns {
 	() => {
-		"r.rowid AS rowid, r.uuid AS uuid, r.type AS kind, \
-		 COALESCE(r.title, '') AS title, \
-		 COALESCE(own.path, parent.path || '/' || r.title, COALESCE(r.title, '')) AS rel_path, \
-		 f.size AS size, f.mtime AS mtime_ms, f.atime AS atime_ms, r.created_at AS created_ms, \
-		 COALESCE(f.is_hidden, 0) AS is_hidden, f.extension AS extension, \
-		 f.link_target AS link_target, f.inode AS inode, f.mode AS mode, f.uid AS uid, f.gid AS gid, \
-		 f.content_error AS content_error, c.uuid AS content_uuid, \
-		 c.sampled_hash AS sampled_hash, c.integrity_hash AS integrity_hash, c.kind AS content_kind, \
-		 c.kind_name AS content_kind_name"
+		concat!(
+			"r.rowid AS rowid, r.uuid AS uuid, r.type AS kind, \
+			 COALESCE(r.title, '') AS title, \
+			 COALESCE(own.path, parent.path || '/' || r.title, COALESCE(r.title, '')) AS rel_path, \
+			 f.size AS size, f.mtime AS mtime_ms, f.atime AS atime_ms, r.created_at AS created_ms, \
+			 COALESCE(f.is_hidden, 0) AS is_hidden, f.extension AS extension, \
+			 f.link_target AS link_target, f.inode AS inode, f.mode AS mode, f.uid AS uid, f.gid AS gid, \
+			 f.content_error AS content_error, c.uuid AS content_uuid, \
+			 c.sampled_hash AS sampled_hash, c.integrity_hash AS integrity_hash, c.kind AS content_kind, \
+			 c.kind_name AS content_kind_name, ",
+			image_columns!()
+		)
+	};
+}
+
+/// The image facet joined to the record whose bytes it was read from. The
+/// facet is keyed by record but describes content, so a row the EXIF pass
+/// wrote for bytes the file no longer holds joins as nothing, exactly as a
+/// missing row does; the pass rewrites it once identification lands.
+macro_rules! image_join {
+	() => {
+		"LEFT JOIN facet_image i ON i.record_uuid = r.uuid \
+		 AND i.content_hash IS NOT NULL \
+		 AND i.content_hash = COALESCE(c.sampled_hash, c.integrity_hash)"
 	};
 }
 
@@ -95,7 +130,8 @@ const ENTRY_SELECT: &str = concat!(
 	 LEFT JOIN directory_path own ON own.record_uuid = r.uuid \
 	 LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid \
 	 LEFT JOIN facet_file f ON f.record_uuid = r.uuid \
-	 LEFT JOIN content c ON c.id = r.content_id"
+	 LEFT JOIN content c ON c.id = r.content_id ",
+	image_join!()
 );
 
 /// The same columns, driven from the directories: `CROSS JOIN` holds
@@ -108,7 +144,8 @@ const BENEATH_SELECT: &str = concat!(
 	 CROSS JOIN record r ON r.parent_uuid = parent.record_uuid \
 	 LEFT JOIN directory_path own ON own.record_uuid = r.uuid \
 	 LEFT JOIN facet_file f ON f.record_uuid = r.uuid \
-	 LEFT JOIN content c ON c.id = r.content_id"
+	 LEFT JOIN content c ON c.id = r.content_id ",
+	image_join!()
 );
 
 #[derive(FromRow)]
@@ -135,6 +172,64 @@ struct EntryRow {
 	integrity_hash: Option<String>,
 	content_kind: Option<i64>,
 	content_kind_name: Option<String>,
+	#[sqlx(flatten)]
+	image: ImageRow,
+}
+
+/// [`image_columns!`] as sqlx reads them; `has_image` tells a row with no
+/// facet from a facet row whose every column is empty, which the pass writes
+/// for a photo that carried no EXIF.
+#[derive(FromRow)]
+struct ImageRow {
+	has_image: bool,
+	image_width: Option<i64>,
+	image_height: Option<i64>,
+	date_taken: Option<String>,
+	latitude: Option<f64>,
+	longitude: Option<f64>,
+	camera_make: Option<String>,
+	camera_model: Option<String>,
+	lens_model: Option<String>,
+	focal_length: Option<String>,
+	aperture: Option<String>,
+	shutter_speed: Option<String>,
+	iso: Option<i64>,
+	orientation: Option<i64>,
+	color_space: Option<String>,
+	color_profile: Option<String>,
+	bit_depth: Option<String>,
+	artist: Option<String>,
+	copyright: Option<String>,
+	description: Option<String>,
+}
+
+impl ImageRow {
+	fn into_facet(self) -> Option<ImageFacet> {
+		if !self.has_image {
+			return None;
+		}
+		Some(ImageFacet {
+			width: self.image_width,
+			height: self.image_height,
+			date_taken: self.date_taken,
+			latitude: self.latitude,
+			longitude: self.longitude,
+			camera_make: self.camera_make,
+			camera_model: self.camera_model,
+			lens_model: self.lens_model,
+			focal_length: self.focal_length,
+			aperture: self.aperture,
+			shutter_speed: self.shutter_speed,
+			iso: self.iso,
+			orientation: self.orientation,
+			color_space: self.color_space,
+			color_profile: self.color_profile,
+			bit_depth: self.bit_depth,
+			artist: self.artist,
+			copyright: self.copyright,
+			description: self.description,
+		})
+	}
 }
 
 fn entry_from_row(row: EntryRow) -> Option<FsEntry> {
@@ -162,7 +257,49 @@ fn entry_from_row(row: EntryRow) -> Option<FsEntry> {
 		content_kind: row.content_kind,
 		content_kind_name: row.content_kind_name,
 		content_error: row.content_error,
+		image: row.image.into_facet(),
 	})
+}
+
+/// The image facet of each of `record_uuids` whose row describes its
+/// current bytes, for a reader holding records from elsewhere (an arena)
+/// that needs what only the facet knows. Records without a current row are
+/// absent from the answer.
+pub async fn image_facets_for_records(
+	pool: &SqlitePool,
+	record_uuids: &[Uuid],
+) -> Result<Vec<(Uuid, ImageFacet)>> {
+	let mut facets = Vec::new();
+	// Bound each statement's parameter count well under SQLite's limit.
+	for chunk in record_uuids.chunks(2_000) {
+		let sql = format!(
+			"SELECT r.uuid AS uuid, {} FROM record r \
+			 LEFT JOIN content c ON c.id = r.content_id {} \
+			 WHERE i.record_uuid IS NOT NULL AND r.uuid IN ({})",
+			image_columns!(),
+			image_join!(),
+			vec!["?"; chunk.len()].join(", ")
+		);
+		let mut query = sqlx::query_as::<_, FacetRow>(&sql);
+		for id in chunk {
+			query = query.bind(*id);
+		}
+		facets.extend(
+			query
+				.fetch_all(pool)
+				.await?
+				.into_iter()
+				.filter_map(|row| Some((row.uuid, row.image.into_facet()?))),
+		);
+	}
+	Ok(facets)
+}
+
+#[derive(FromRow)]
+struct FacetRow {
+	uuid: Uuid,
+	#[sqlx(flatten)]
+	image: ImageRow,
 }
 
 /// File counts per content kind and kind name, from the content rows records
