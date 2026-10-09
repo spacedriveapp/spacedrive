@@ -107,6 +107,33 @@ Hashing and verification flush each claimed batch before asking the store for
 more work. This prevents the claim query from racing queued writes and hashing
 the same files indefinitely.
 
+## Photo metadata
+
+Identification says which records are images. A metadata pass follows every
+identification pass and reads EXIF for those records, so capture time, GPS,
+camera, lens, exposure, orientation and pixel geometry live in the store's
+`facet_image` row and nothing has to open the file to answer them. The
+extension host's `records.exif`, the rename resolver's capture time, and any
+inspector read the row first.
+
+The pass claims its work from the store. A row carries the hash of the bytes
+it was read from, so a record is pending when it has no row or its row names
+other bytes. A changed file loses its content identity in the walk, gains a
+new hash in identification, and reads as pending again without the two
+phases coordinating. A photo without EXIF gets an empty row under its hash
+and is never read twice. One row is written per content hash, to every
+record holding those bytes, so a source with three copies of a photo reads
+one header.
+
+The pass runs at low priority behind identification, reads four files at a
+time on the blocking pool (a raw or TIFF container is read whole, so the
+bound is memory rather than seeks), sweeps once more from the start before
+it exits so a photo re-identified behind its cursor is not left for the next
+pass, and is silent on the event bus when the
+identification it follows was a background one. A source added with content
+identification off is never enriched, since nothing names its images. The
+launch sweep backfills stores indexed before the pass existed.
+
 ## Watchers
 
 After the initial walk, filesystem watchers translate creates, modifications,

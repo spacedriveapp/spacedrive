@@ -435,15 +435,21 @@ impl JobOps {
 
 	/// A record's EXIF facts, or `null` when the file carries none.
 	///
-	/// The image facet is read first, for a store whose ingest wrote it.
-	/// No ingest writes it yet, so the usual path is a parse of the file
-	/// through the core's EXIF reader; the facet is not written back, since
-	/// that row belongs to the enricher that will own it.
+	/// The image facet is the answer wherever the metadata pass has written
+	/// it (`ops::indexing::exif_enrich`). A record the pass has not reached,
+	/// or one in a source added without content identification, is parsed
+	/// on demand instead; the facet is not written back, since that row
+	/// belongs to the pass and is keyed by a content hash this path may not
+	/// have.
 	async fn record_exif(&self, record: RecordRef) -> OpResult {
 		let (store, entry) = self.locate(record.uuid).await?;
 		self.check_read(&entry)?;
 
+		// The row's hash is compared with the record's current content so
+		// an edited photo whose row the pass has not rewritten yet is parsed
+		// rather than answered with the old image's facts.
 		let facet: Option<(
+			bool,
 			Option<String>,
 			Option<f64>,
 			Option<f64>,
@@ -452,30 +458,55 @@ impl JobOps {
 			Option<i64>,
 			Option<i64>,
 		)> = sqlx::query_as(
-			"SELECT date_taken, latitude, longitude, camera_make, camera_model, width, height \
-			 FROM facet_image WHERE record_uuid = ?",
+			"SELECT i.content_hash IS NOT NULL \
+			 AND i.content_hash IS COALESCE(c.sampled_hash, c.integrity_hash), \
+			 i.date_taken, i.latitude, i.longitude, i.camera_make, i.camera_model, \
+			 i.width, i.height \
+			 FROM facet_image i JOIN record r ON r.uuid = i.record_uuid \
+			 LEFT JOIN content c ON c.id = r.content_id WHERE i.record_uuid = ?",
 		)
 		.bind(entry.uuid)
 		.fetch_optional(store.db().pool())
 		.await
 		.map_err(|e| OpError::failed(e.to_string()))?;
-		if let Some((date_taken, latitude, longitude, camera_make, camera_model, width, height)) =
-			facet
+		if let Some((
+			read_by_pass,
+			date_taken,
+			latitude,
+			longitude,
+			camera_make,
+			camera_model,
+			width,
+			height,
+		)) = facet
 		{
-			if date_taken.is_some() || latitude.is_some() {
-				return json(&ExifOut {
-					date_taken,
-					latitude,
-					longitude,
-					camera_make,
-					camera_model,
-					width,
-					height,
-				});
+			// A row keyed by the record's bytes is the pass's verdict on
+			// them, even when the verdict is that there was nothing to read.
+			let out = ExifOut {
+				date_taken,
+				latitude,
+				longitude,
+				camera_make,
+				camera_model,
+				width,
+				height,
+			};
+			let empty = out.date_taken.is_none()
+				&& out.latitude.is_none()
+				&& out.camera_make.is_none()
+				&& out.camera_model.is_none()
+				&& out.width.is_none();
+			if read_by_pass {
+				return if empty {
+					json(&serde_json::Value::Null)
+				} else {
+					json(&out)
+				};
 			}
 		}
 
 		let path = store.root().join(&entry.relative_path);
+		tracing::info!(record = %record.uuid, "parsing EXIF on demand; no facet row");
 		let exif = match sd_media_metadata::exif::ExifMetadata::from_path(&path).await {
 			Ok(Some(exif)) => exif,
 			Ok(None) => return json(&serde_json::Value::Null),

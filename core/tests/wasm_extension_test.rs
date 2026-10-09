@@ -10,10 +10,13 @@
 //! whole file goes with it.
 #![cfg(feature = "wasm")]
 
+mod helpers;
+
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
+use helpers::exif_jpeg;
 use sd_core::{
 	domain::{ContentKind, File, SdPath},
 	filetype::{FileTypeRegistry, KindConflict, PreviewSpec},
@@ -431,7 +434,10 @@ impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for GuestLog {
 		_ctx: tracing_subscriber::layer::Context<'_, S>,
 	) {
 		let target = event.metadata().target();
-		if !target.ends_with("host_functions") && !target.ends_with("job::context") {
+		if !target.ends_with("host_functions")
+			&& !target.ends_with("job::context")
+			&& !target.ends_with("extension::ops")
+		{
 			return;
 		}
 		let mut line = String::new();
@@ -937,74 +943,6 @@ async fn extension_job_tags_records_sets_fields_and_dispatches() {
 	core.shutdown().await.unwrap();
 }
 
-/// A JPEG that is only a SOI, an APP1 EXIF segment and a trailing payload:
-/// enough for the EXIF reader, which walks markers and never decodes.
-/// `date` is `YYYY:MM:DD HH:MM:SS`; `gps` is signed decimal degrees.
-fn exif_jpeg(seed: u8, date: Option<&str>, gps: Option<(f64, f64)>) -> Vec<u8> {
-	fn entry(tiff: &mut Vec<u8>, tag: u16, kind: u16, count: u32, value: [u8; 4]) {
-		tiff.extend_from_slice(&tag.to_be_bytes());
-		tiff.extend_from_slice(&kind.to_be_bytes());
-		tiff.extend_from_slice(&count.to_be_bytes());
-		tiff.extend_from_slice(&value);
-	}
-	fn dms(degrees: f64) -> [u8; 24] {
-		let abs = degrees.abs();
-		let d = abs.floor();
-		let m = ((abs - d) * 60.0).floor();
-		let s = ((abs - d) * 60.0 - m) * 60.0;
-		let mut out = [0u8; 24];
-		for (i, (num, den)) in [(d as u32, 1u32), (m as u32, 1), ((s * 1000.0) as u32, 1000)]
-			.into_iter()
-			.enumerate()
-		{
-			out[i * 8..i * 8 + 4].copy_from_slice(&num.to_be_bytes());
-			out[i * 8 + 4..i * 8 + 8].copy_from_slice(&den.to_be_bytes());
-		}
-		out
-	}
-
-	let entries = date.is_some() as u32 + gps.is_some() as u32;
-	let ifd0_len = 2 + 12 * entries + 4;
-	let mut tiff = b"MM\x00\x2a".to_vec();
-	tiff.extend_from_slice(&8u32.to_be_bytes());
-	tiff.extend_from_slice(&(entries as u16).to_be_bytes());
-	let date_offset = 8 + ifd0_len;
-	let gps_offset = date_offset + if date.is_some() { 20 } else { 0 };
-	if date.is_some() {
-		entry(&mut tiff, 0x0132, 2, 20, date_offset.to_be_bytes());
-	}
-	if gps.is_some() {
-		entry(&mut tiff, 0x8825, 4, 1, gps_offset.to_be_bytes());
-	}
-	tiff.extend_from_slice(&0u32.to_be_bytes());
-	if let Some(date) = date {
-		assert_eq!(date.len(), 19);
-		tiff.extend_from_slice(date.as_bytes());
-		tiff.push(0);
-	}
-	if let Some((lat, lon)) = gps {
-		let rationals = gps_offset + 2 + 12 * 4 + 4;
-		tiff.extend_from_slice(&4u16.to_be_bytes());
-		let lat_ref = if lat < 0.0 { b"S\0\0\0" } else { b"N\0\0\0" };
-		let lon_ref = if lon < 0.0 { b"W\0\0\0" } else { b"E\0\0\0" };
-		entry(&mut tiff, 0x0001, 2, 2, *lat_ref);
-		entry(&mut tiff, 0x0002, 5, 3, rationals.to_be_bytes());
-		entry(&mut tiff, 0x0003, 2, 2, *lon_ref);
-		entry(&mut tiff, 0x0004, 5, 3, (rationals + 24).to_be_bytes());
-		tiff.extend_from_slice(&0u32.to_be_bytes());
-		tiff.extend_from_slice(&dms(lat));
-		tiff.extend_from_slice(&dms(lon));
-	}
-
-	let mut payload = b"Exif\x00\x00".to_vec();
-	payload.extend_from_slice(&tiff);
-	let mut out = vec![0xFF, 0xD8, 0xFF, 0xE1];
-	out.extend_from_slice(&((payload.len() + 2) as u16).to_be_bytes());
-	out.extend_from_slice(&payload);
-	out.extend(std::iter::repeat_n(seed, 1000 + seed as usize * 7));
-	out
-}
-
 /// Capture times and places of the moments fixture: three outings (a
 /// morning in Tokyo, a morning in Kyoto a week later, a spring day with no
 /// GPS) and one photo with no EXIF at all.
@@ -1044,18 +982,39 @@ async fn moments_library(
 		.unwrap();
 	}
 	std::fs::write(source_dir.join("IMG_9999.jpg"), exif_jpeg(99, None, None)).unwrap();
-	let (_, files) = track_and_identify(core, &library, source_dir, 13).await;
+	let (store, files) = track_and_identify(core, &library, source_dir, 13).await;
 	assert_eq!(files.len(), 13);
+
+	// The metadata pass runs behind identification and writes one facet
+	// row per photo, the no-EXIF one included, keyed by content hash.
+	let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+	loop {
+		let rows: i64 =
+			sqlx::query_scalar("SELECT COUNT(*) FROM facet_image WHERE content_hash IS NOT NULL")
+				.fetch_one(store.db().pool())
+				.await
+				.unwrap();
+		if rows == 13 {
+			break;
+		}
+		assert!(
+			tokio::time::Instant::now() < deadline,
+			"{rows} of 13 photos have a facet row"
+		);
+		tokio::time::sleep(Duration::from_millis(50)).await;
+	}
 	(library, files)
 }
 
 /// The photos extension's `create_moments` runs end to end from EXIF alone:
-/// capture times and GPS come through `records.exif`, the twelve dated
-/// photos fall into three moments as `Moment` models, each photo is tagged
-/// `Moments/<title>` and carries its moment id as a custom field, the
-/// undated photo belongs to none, and a second run groups nothing twice.
-/// `identify_places` and `analyze_scenes` do their non-inference parts and
-/// take the `not_available` path where they need a model.
+/// capture times and GPS come through `records.exif`, answered from the
+/// image facet the metadata pass wrote rather than by parsing the file; the
+/// twelve dated photos fall into three moments as `Moment` models, each
+/// photo is tagged `Moments/<title>` and carries its moment id as a custom
+/// field, the undated photo belongs to none, and a second run groups
+/// nothing twice. `identify_places` and `analyze_scenes` do their
+/// non-inference parts and take the `not_available` path where they need a
+/// model.
 #[tokio::test(flavor = "multi_thread")]
 async fn photos_create_moments_from_exif_without_inference() {
 	let guest_log = guest_log();
@@ -1083,6 +1042,10 @@ async fn photos_create_moments_from_exif_without_inference() {
 	assert!(
 		log.contains("Created 3 moments over 12 photos (1 undated, 0 already in a moment)"),
 		"{log}"
+	);
+	assert!(
+		!log.contains("parsing EXIF on demand"),
+		"every records.exif answered from the facet: {log}"
 	);
 
 	let ext_store = sd_store::SourceManager::open_file_read_only(

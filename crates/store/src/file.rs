@@ -1187,7 +1187,7 @@ pub(crate) fn candidate_column(schema_version: i64) -> &'static str {
 /// Only directories store a path. A file is addressed through the one above it,
 /// so this join is how any query that needs a path gets one, and why there is no
 /// column to read.
-fn address(
+pub(crate) fn address(
 	parent_uuid: Option<Uuid>,
 	parent_path: Option<String>,
 	title: Option<String>,
@@ -1218,9 +1218,11 @@ fn model(fields: &[(&str, FieldType)]) -> ModelDef {
 
 /// The image facet. Shape follows what an EXIF read yields: geometry, capture
 /// time and place, the camera and lens that took it, and the rendering hints a
-/// viewer needs before it has decoded anything.
+/// viewer needs before it has decoded anything. `content_hash` names the
+/// bytes the row was read from; see [`crate::image`].
 fn image_model() -> ModelDef {
 	model(&[
+		("content_hash", FieldType::String),
 		("width", FieldType::Integer),
 		("height", FieldType::Integer),
 		("blurhash", FieldType::String),
