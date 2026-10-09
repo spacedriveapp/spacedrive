@@ -142,9 +142,9 @@ fit before November 1 alongside the other gates.
 
 ## Keeping the job honest
 
-- `Core Tests (windows unit, continue-on-error until green twice)` runs on
-  every push to `main` and every PR. Drop `continue-on-error` and shorten the
-  name once it has been green twice on `main`.
+- `Core Tests (windows unit)` runs on every push to `main` and every PR and
+  gates the merge since it was green twice on `main` (15d7df1, e4b4cb7). It
+  takes 40 min cold and 21 min warm (build 6, lib tests 8, sd-cli 5).
 - A failing Windows test is a bug or a Unix-shaped test. Fix the test's shape
   only when what it asserts is platform-neutral; `cfg(windows)`-ignore only
   with the reason in the attribute, the way the FDA trash rows are.
