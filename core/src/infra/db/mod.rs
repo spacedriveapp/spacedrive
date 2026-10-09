@@ -1,6 +1,8 @@
 //! Database infrastructure using SeaORM
 
-use sea_orm::{ConnectOptions, Database as SeaDatabase, DatabaseConnection, DbErr};
+use sea_orm::{
+	ConnectOptions, Database as SeaDatabase, DatabaseConnection, DbErr, TransactionTrait,
+};
 use sea_orm_migration::MigratorTrait;
 use sqlx::sqlite::SqliteConnectOptions;
 use std::path::Path;
@@ -104,9 +106,20 @@ impl Database {
 		Ok(Self { conn })
 	}
 
-	/// Run migrations
+	/// Run migrations on one pinned connection.
+	///
+	/// sea-orm-migration only wraps the run in a transaction for Postgres. On
+	/// SQLite each statement would otherwise go to the pool, and the pool hands
+	/// statements round-robin to connections that each cache their own copy of
+	/// the schema. Most statements recover from a stale cache (SQLite re-prepares
+	/// on SQLITE_SCHEMA), but ALTER TABLE DROP COLUMN resolves the column at
+	/// prepare time against the cache and fails with "no such column" for good.
+	/// A transaction holds a single connection for the whole run, so every
+	/// statement sees the one it came after. Everything lands or nothing does.
 	pub async fn migrate(&self) -> Result<(), DbErr> {
-		migration::Migrator::up(&self.conn, None).await?;
+		let txn = self.conn.begin().await?;
+		migration::Migrator::up(&txn, None).await?;
+		txn.commit().await?;
 		info!("Database migrations completed successfully");
 		Ok(())
 	}
@@ -114,5 +127,38 @@ impl Database {
 	/// Get the database connection
 	pub fn conn(&self) -> &DatabaseConnection {
 		&self.conn
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// Every connection of a 30-connection pool opens before the first
+	/// statement. The migrator rotates through them, and the connection that
+	/// loaded the schema just before `m20251226` adds `entries.device_id` is
+	/// the one handed `m20260104`'s `DROP COLUMN device_id` fourteen statements
+	/// later, with a cache that never had the column. Running the migrations on
+	/// the pool failed this every time; pinned to one transaction it passes.
+	#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+	async fn migrate_fresh_database_on_eagerly_filled_pool() {
+		let dir = tempfile::tempdir().unwrap();
+		let url = format!(
+			"sqlite://{}?mode=rwc",
+			dir.path().join("library.db").display()
+		);
+		let pool = sqlx::pool::PoolOptions::<sqlx::Sqlite>::new()
+			.max_connections(30)
+			.min_connections(30)
+			.connect_with(sqlite_connect_options(&url).unwrap())
+			.await
+			.unwrap();
+		let db = Database {
+			conn: sea_orm::SqlxSqliteConnector::from_sqlx_sqlite_pool(pool),
+		};
+
+		db.migrate()
+			.await
+			.expect("migrations on a stale pooled connection");
 	}
 }
