@@ -311,7 +311,7 @@ async fn attempt(
 	let bin_dir = current_exe
 		.parent()
 		.ok_or_else(|| anyhow::anyhow!("Could not determine binary directory"))?;
-	let daemon_path = bin_dir.join("sd-daemon");
+	let daemon_path = bin_dir.join(sd_client::daemon_binary_name());
 
 	println!();
 	println!("Installing updates...");
@@ -725,9 +725,14 @@ fn discard_other_parts(part_dir: &Path, build_key: &str) {
 	}
 }
 
-/// Replaces `path` atomically: the new bytes land in a sibling temp file that
-/// is renamed over the target, so a running binary is never truncated or
-/// partially overwritten.
+/// Replaces `path` with `data` without ever truncating the running binary.
+///
+/// The new bytes land in a sibling `.update` file, the current binary is
+/// renamed to `.bak`, and the staged file is renamed into place. Moving the
+/// running binary aside instead of renaming over it is what Windows allows: a
+/// loaded executable can be renamed but not replaced or deleted, so the
+/// `.bak` of the running `sd` stays behind there until the next update
+/// removes it. A failed install renames the backup back.
 fn replace_binary(path: &Path, data: &[u8]) -> Result<()> {
 	use std::fs;
 
@@ -737,6 +742,7 @@ fn replace_binary(path: &Path, data: &[u8]) -> Result<()> {
 		.ok_or_else(|| anyhow::anyhow!("Invalid binary path: {}", path.display()))?;
 	let staged = path.with_file_name(format!("{}.update", file_name));
 	let backup = path.with_file_name(format!("{}.bak", file_name));
+	let _ = fs::remove_file(&backup);
 
 	fs::write(&staged, data).with_context(|| format!("writing {}", staged.display()))?;
 
@@ -746,8 +752,9 @@ fn replace_binary(path: &Path, data: &[u8]) -> Result<()> {
 		fs::set_permissions(&staged, fs::Permissions::from_mode(0o755))?;
 	}
 
-	if path.exists() {
-		fs::copy(path, &backup)?;
+	let had_previous = path.exists();
+	if had_previous {
+		fs::rename(path, &backup).with_context(|| format!("moving {} aside", path.display()))?;
 	}
 
 	match fs::rename(&staged, path) {
@@ -756,7 +763,7 @@ fn replace_binary(path: &Path, data: &[u8]) -> Result<()> {
 			Ok(())
 		}
 		Err(e) => {
-			if backup.exists() {
+			if had_previous {
 				let _ = fs::rename(&backup, path);
 			}
 			let _ = fs::remove_file(&staged);
@@ -856,6 +863,24 @@ mod tests {
 			browser_download_url: String::new(),
 			size: 0,
 		}
+	}
+
+	#[test]
+	fn replace_binary_swaps_the_file_and_leaves_no_backup() {
+		let dir = tempfile::tempdir().unwrap();
+		let name = format!("sd{}", std::env::consts::EXE_SUFFIX);
+		let path = dir.path().join(&name);
+		std::fs::write(&path, b"old").unwrap();
+		std::fs::write(dir.path().join(format!("{name}.bak")), b"stale").unwrap();
+
+		replace_binary(&path, b"new").unwrap();
+
+		assert_eq!(std::fs::read(&path).unwrap(), b"new");
+		let leftovers: Vec<_> = std::fs::read_dir(dir.path())
+			.unwrap()
+			.map(|e| e.unwrap().file_name())
+			.collect();
+		assert_eq!(leftovers, vec![std::ffi::OsString::from(name)]);
 	}
 
 	#[test]

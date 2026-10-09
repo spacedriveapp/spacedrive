@@ -45,7 +45,7 @@ async fn install_launchd_service(data_dir: PathBuf, instance: Option<String>) ->
 	let daemon_path = current_exe
 		.parent()
 		.ok_or_else(|| anyhow::anyhow!("Could not determine binary directory"))?
-		.join("sd-daemon");
+		.join(sd_client::daemon_binary_name());
 
 	if !daemon_path.exists() {
 		return Err(anyhow::anyhow!(
@@ -271,7 +271,7 @@ async fn install_launchd_service(data_dir: PathBuf, instance: Option<String>) ->
 	let daemon_path = current_exe
 		.parent()
 		.ok_or_else(|| anyhow::anyhow!("Could not determine binary directory"))?
-		.join("sd-daemon");
+		.join(sd_client::daemon_binary_name());
 
 	if !daemon_path.exists() {
 		return Err(anyhow::anyhow!(
