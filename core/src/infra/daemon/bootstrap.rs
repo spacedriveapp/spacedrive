@@ -39,26 +39,77 @@ pub async fn start_default_server(
 	info!("Socket address: {}", socket_addr);
 	info!("Networking enabled: {}", enable_networking);
 
-	// Log file descriptor limits for debugging
 	#[cfg(unix)]
-	{
-		use std::process::Command;
-		if let Ok(output) = Command::new("sh").arg("-c").arg("ulimit -n").output() {
-			if let Ok(limit_str) = String::from_utf8(output.stdout) {
-				if let Ok(limit) = limit_str.trim().parse::<u64>() {
-					info!("System file descriptor limit: {}", limit);
-					if limit < 10000 {
-						warn!("File descriptor limit is low ({}), consider increasing with 'ulimit -n 65536'", limit);
-					}
-				}
-			}
-		}
-	}
+	raise_fd_limit();
 
 	let mut server = RpcServer::new(socket_addr, core.clone());
 
 	// Start the server, which will initialize event streaming
 	server.start().await
+}
+
+/// Raises the soft file descriptor limit to the hard limit.
+///
+/// Watchers, stores and peer connections each hold descriptors, and a shell or
+/// launchd starts the daemon at 256 to 8192. The hard limit is the most a
+/// process may grant itself without privileges, so that is the target. macOS
+/// reports an unlimited hard limit but refuses a soft limit above
+/// kern.maxfilesperproc, so an unlimited hard limit falls back to 65536 and
+/// then to OPEN_MAX (10240), which macOS always accepts. The warning stays only
+/// when the limit is still low after the attempt.
+#[cfg(unix)]
+fn raise_fd_limit() {
+	const LOW_WATER: libc::rlim_t = 10000;
+
+	let mut limit = libc::rlimit {
+		rlim_cur: 0,
+		rlim_max: 0,
+	};
+	if unsafe { libc::getrlimit(libc::RLIMIT_NOFILE, &mut limit) } != 0 {
+		warn!(
+			"Could not read the file descriptor limit: {}",
+			std::io::Error::last_os_error()
+		);
+		return;
+	}
+	let before = limit.rlim_cur;
+	let hard = if limit.rlim_max == libc::RLIM_INFINITY {
+		"unlimited".to_string()
+	} else {
+		limit.rlim_max.to_string()
+	};
+
+	let mut targets = Vec::new();
+	if limit.rlim_max != libc::RLIM_INFINITY {
+		targets.push(limit.rlim_max);
+	}
+	targets.extend([65536, 10240]);
+
+	for target in targets {
+		if target <= before {
+			break;
+		}
+		let raised = libc::rlimit {
+			rlim_cur: target,
+			rlim_max: limit.rlim_max,
+		};
+		if unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &raised) } == 0 {
+			info!(
+				"File descriptor limit raised from {} to {} (hard limit {})",
+				before, target, hard
+			);
+			return;
+		}
+	}
+
+	if before < LOW_WATER {
+		warn!(
+			"File descriptor limit is low ({}) and could not be raised (hard limit {}); consider 'ulimit -n 65536' or a higher launchd NumberOfFiles",
+			before, hard
+		);
+	} else {
+		info!("File descriptor limit: {}", before);
+	}
 }
 
 /// Initialize tracing with file logging to {data_dir}/logs/daemon.log
