@@ -3,12 +3,16 @@
 //! This test demonstrates cross-device file sharing functionality where Alice
 //! (sender) pairs with Bob (receiver) and transfers multiple test files.
 
-use sd_core::{
-	domain::content_identity::ContentHashGenerator, service::file_sharing::TransferState,
-	testing::CargoTestRunner, Core,
-};
+use sd_core::{domain::content_identity::ContentHashGenerator, testing::CargoTestRunner, Core};
 use std::{env, path::PathBuf, time::Duration};
 use tokio::time::timeout;
+
+#[path = "helpers/wait.rs"]
+mod wait;
+use wait::{
+	wait_for_dir_entries, wait_for_file, wait_for_file_matching, wait_for_paired_device,
+	wait_for_transfer,
+};
 
 /// Alice's file transfer scenario - sender role
 #[tokio::test]
@@ -47,8 +51,6 @@ async fn alice_file_transfer_scenario() {
 		.unwrap()
 		.unwrap();
 
-	// Wait longer for networking to fully initialize and detect external addresses
-	tokio::time::sleep(Duration::from_secs(3)).await;
 	println!("Alice: Networking initialized successfully");
 
 	// Create directory for received files BEFORE adding as allowed path
@@ -114,53 +116,19 @@ async fn alice_file_transfer_scenario() {
 
 	// Wait for pairing completion
 	println!("Alice: Waiting for Bob to connect...");
-	let mut attempts = 0;
-	let max_attempts = 45; // 45 seconds
+	let receiver_id = wait_for_paired_device(&core, Duration::from_secs(45))
+		.await
+		.expect("Alice: Pairing timeout - Bob not connected");
+	println!("Alice: Bob connected! Device ID: {}", receiver_id);
 
-	let receiver_id = loop {
-		tokio::time::sleep(Duration::from_secs(1)).await;
-
-		let connected_devices = core.services.device.get_connected_devices().await.unwrap();
-		if !connected_devices.is_empty() {
-			println!("Alice: Bob connected! Device ID: {}", connected_devices[0]);
-
-			// Wait a bit longer to ensure session keys are properly established
-			println!("Alice: Allowing extra time for session key establishment...");
-			tokio::time::sleep(Duration::from_secs(2)).await;
-			break connected_devices[0];
-		}
-
-		// Also check if there are any paired devices (even if not currently connected)
-		if let Some(networking) = core.networking() {
-			let device_registry = networking.device_registry();
-			let registry = device_registry.read().await;
-			let paired_devices = registry.get_paired_devices();
-			if !paired_devices.is_empty() {
-				println!("Alice: Found {} paired devices!", paired_devices.len());
-				for device in &paired_devices {
-					println!(
-						"  Paired: {} (ID: {})",
-						device.device_name, device.device_id
-					);
-				}
-				// Use the first paired device as the receiver
-				println!(
-					"Alice: Using paired device as receiver: {}",
-					paired_devices[0].device_id
-				);
-				break paired_devices[0].device_id;
-			}
-		}
-
-		attempts += 1;
-		if attempts >= max_attempts {
-			panic!("Alice: Pairing timeout - Bob not connected");
-		}
-
-		if attempts % 5 == 0 {
-			println!("Alice: Pairing status check {} - waiting", attempts / 5);
-		}
-	};
+	// Bob's marker says his registry holds Alice too, so the transfer cannot
+	// race his side of the pairing.
+	wait_for_file(
+		"/tmp/spacedrive-file-transfer-test/bob_paired.txt",
+		Duration::from_secs(60),
+	)
+	.await
+	.expect("Alice: Bob never confirmed pairing");
 
 	// Create test files to transfer
 	println!("Alice: Creating test files for transfer...");
@@ -252,79 +220,21 @@ async fn alice_file_transfer_scenario() {
 
 			// Wait for transfer to complete
 			println!("Alice: Waiting for transfer to complete...");
-			let mut completed = false;
-			for _ in 0..30 {
-				// Wait up to 30 seconds
-				tokio::time::sleep(Duration::from_secs(1)).await;
-
-				match core
-					.services
-					.file_sharing
-					.get_transfer_status(&transfer_id)
-					.await
-				{
-					Ok(status) => {
-						match status.state {
-							TransferState::Completed => {
-								println!(
-									"Alice: Transfer {:?} completed successfully",
-									transfer_id
-								);
-								completed = true;
-								break;
-							}
-							TransferState::Failed => {
-								println!(
-									"Alice: Transfer {:?} failed: {:?}",
-									transfer_id, status.error
-								);
-								completed = false;
-								break;
-							}
-							_ => {
-								// Still in progress
-								if status.progress.bytes_transferred > 0 {
-									println!(
-										"Alice: Transfer progress: {} / {} bytes",
-										status.progress.bytes_transferred,
-										status.progress.total_bytes
-									);
-								}
-							}
-						}
-					}
-					Err(e) => {
-						println!("Alice: Could not get transfer status: {}", e);
-					}
-				}
-			}
-
+			let completed = wait_for_transfer(&core, &transfer_id, Duration::from_secs(30))
+				.await
+				.unwrap_or(false);
 			if completed {
+				println!("Alice: Transfer {:?} completed successfully", transfer_id);
 				println!("Alice: All transfers completed, now waiting for Bob's confirmation...");
 
 				// Wait for Bob to confirm receipt and verification
-				let mut bob_confirmed = false;
-				for attempt in 1..=60 {
-					// Wait up to 60 seconds for Bob's confirmation
-					if std::fs::read_to_string(
-						"/tmp/spacedrive-file-transfer-test/bob_received_confirmation.txt",
-					)
-					.map(|content| content.starts_with("received_and_verified:"))
-					.unwrap_or(false)
-					{
-						println!("Alice: Bob confirmed file receipt and verification!");
-						bob_confirmed = true;
-						break;
-					}
-
-					if attempt % 10 == 0 {
-						println!(
-							"Alice: Still waiting for Bob's confirmation... ({}s)",
-							attempt
-						);
-					}
-					tokio::time::sleep(Duration::from_secs(1)).await;
-				}
+				let bob_confirmed = wait_for_file_matching(
+					"/tmp/spacedrive-file-transfer-test/bob_received_confirmation.txt",
+					Duration::from_secs(60),
+					|content| content.starts_with("received_and_verified:"),
+				)
+				.await
+				.is_ok();
 
 				if bob_confirmed {
 					println!("FILE_TRANSFER_SUCCESS: Alice completed all file transfers and Bob confirmed receipt");
@@ -388,8 +298,6 @@ async fn bob_file_transfer_scenario() {
 		.unwrap()
 		.unwrap();
 
-	// Wait longer for networking to fully initialize and detect external addresses
-	tokio::time::sleep(Duration::from_secs(3)).await;
 	println!("Bob: Networking initialized successfully");
 
 	// Create directory for received files BEFORE pairing (security requirement from PR #2944)
@@ -427,14 +335,12 @@ async fn bob_file_transfer_scenario() {
 
 	// Wait for Alice to create pairing code
 	println!("Bob: Looking for pairing code from Alice...");
-	let pairing_code = loop {
-		if let Ok(code) =
-			std::fs::read_to_string("/tmp/spacedrive-file-transfer-test/pairing_code.txt")
-		{
-			break code.trim().to_string();
-		}
-		tokio::time::sleep(Duration::from_millis(500)).await;
-	};
+	let pairing_code = wait_for_file(
+		"/tmp/spacedrive-file-transfer-test/pairing_code.txt",
+		Duration::from_secs(60),
+	)
+	.await
+	.expect("Bob: Alice never wrote a pairing code");
 	println!("Bob: Found pairing code");
 
 	// Join pairing session
@@ -454,66 +360,30 @@ async fn bob_file_transfer_scenario() {
 
 	// Wait for pairing completion
 	println!("Bob: Waiting for pairing to complete...");
-	let mut attempts = 0;
-	let max_attempts = 30; // 30 seconds
+	wait_for_paired_device(&core, Duration::from_secs(30))
+		.await
+		.expect("Bob: Pairing timeout - no devices connected");
+	println!("Bob: Pairing completed successfully!");
 
-	loop {
-		tokio::time::sleep(Duration::from_secs(1)).await;
-
-		// Check pairing status by looking at connected devices
-		let connected_devices = core.services.device.get_connected_devices().await.unwrap();
-		if !connected_devices.is_empty() {
-			println!("Bob: Pairing completed successfully!");
-			println!("Bob: Connected {} devices", connected_devices.len());
-
-			// Debug: Show Bob's view of connected devices
-			let bob_devices = core
-				.services
-				.device
-				.get_connected_devices_info()
-				.await
-				.unwrap();
-			println!("Bob: Connected devices after pairing:");
-			for device in &bob_devices {
-				println!(
-					"  Device: {} (ID: {})",
-					device.device_name, device.device_id
-				);
-			}
-
-			// Wait a bit longer to ensure session keys are properly established
-			println!("Bob: Allowing extra time for session key establishment...");
-			tokio::time::sleep(Duration::from_secs(2)).await;
-			break;
-		}
-
-		// Also check if there are any paired devices (even if not currently connected)
-		if let Some(networking) = core.networking() {
-			let device_registry = networking.device_registry();
-			let registry = device_registry.read().await;
-			let paired_devices = registry.get_paired_devices();
-			if !paired_devices.is_empty() {
-				println!("Bob: Found {} paired devices!", paired_devices.len());
-				for device in &paired_devices {
-					println!(
-						"  Paired: {} (ID: {})",
-						device.device_name, device.device_id
-					);
-				}
-				// Even if not showing as "connected", we have paired devices, so pairing worked
-				break;
-			}
-		}
-
-		attempts += 1;
-		if attempts >= max_attempts {
-			panic!("Bob: Pairing timeout - no devices connected");
-		}
-
-		if attempts % 5 == 0 {
-			println!("Bob: Pairing status check {} - waiting", attempts / 5);
-		}
+	// Debug: Show Bob's view of connected devices
+	let bob_devices = core
+		.services
+		.device
+		.get_connected_devices_info()
+		.await
+		.unwrap();
+	println!("Bob: Connected devices after pairing:");
+	for device in &bob_devices {
+		println!(
+			"  Device: {} (ID: {})",
+			device.device_name, device.device_id
+		);
 	}
+	std::fs::write(
+		"/tmp/spacedrive-file-transfer-test/bob_paired.txt",
+		"paired",
+	)
+	.unwrap();
 
 	// Wait for file transfers
 	println!("Bob: Waiting for file transfers...");
@@ -521,20 +391,18 @@ async fn bob_file_transfer_scenario() {
 	// Directory and allowed path already configured before pairing
 
 	// Wait for expected files to arrive
-	let expected_files = loop {
-		if let Ok(content) =
-			std::fs::read_to_string("/tmp/spacedrive-file-transfer-test/expected_files.txt")
-		{
-			break content
-				.lines()
-				.map(|line| {
-					let parts: Vec<&str> = line.split(':').collect();
-					(parts[0].to_string(), parts[1].parse::<usize>().unwrap_or(0))
-				})
-				.collect::<Vec<(String, usize)>>();
-		}
-		tokio::time::sleep(Duration::from_millis(500)).await;
-	};
+	let expected_files = wait_for_file(
+		"/tmp/spacedrive-file-transfer-test/expected_files.txt",
+		Duration::from_secs(60),
+	)
+	.await
+	.expect("Bob: Alice never wrote the expected file list")
+	.lines()
+	.map(|line| {
+		let parts: Vec<&str> = line.split(':').collect();
+		(parts[0].to_string(), parts[1].parse::<usize>().unwrap_or(0))
+	})
+	.collect::<Vec<(String, usize)>>();
 
 	println!(
 		"Bob: Expecting {} files to be received",
@@ -545,49 +413,15 @@ async fn bob_file_transfer_scenario() {
 	}
 
 	// Monitor for received files
-	let mut received_files = Vec::new();
-	let start_time = std::time::Instant::now();
-	let timeout_duration = Duration::from_secs(60); // 1 minute timeout
-
-	while received_files.len() < expected_files.len() && start_time.elapsed() < timeout_duration {
-		tokio::time::sleep(Duration::from_secs(1)).await;
-
-		// Check for new files in received directory
-		if let Ok(entries) = std::fs::read_dir(received_dir) {
-			for entry in entries {
-				if let Ok(entry) = entry {
-					let filename = entry.file_name().to_string_lossy().to_string();
-					if !received_files.contains(&filename) {
-						if let Ok(metadata) = entry.metadata() {
-							received_files.push(filename.clone());
-							println!(
-								"Bob: Received file: {} ({} bytes)",
-								filename,
-								metadata.len()
-							);
-						}
-					}
-				}
-			}
-		}
-
-		// Debug: Show directory contents periodically
-		let elapsed = start_time.elapsed().as_secs();
-		if elapsed > 0 && elapsed % 10 == 0 && received_files.is_empty() {
-			println!("Bob: Still waiting for files... checking directory:");
-			if let Ok(entries) = std::fs::read_dir(received_dir) {
-				let file_count = entries.count();
-				println!("  Found {} items in {}", file_count, received_dir.display());
-			}
-		}
-
-		if received_files.len() > 0 && received_files.len() % 2 == 0 {
-			println!(
-				"Bob: Progress: {}/{} files received",
-				received_files.len(),
-				expected_files.len()
-			);
-		}
+	let received_files =
+		wait_for_dir_entries(received_dir, expected_files.len(), Duration::from_secs(60))
+			.await
+			.unwrap_or_default();
+	for filename in &received_files {
+		let size = std::fs::metadata(received_dir.join(filename))
+			.map(|metadata| metadata.len())
+			.unwrap_or(0);
+		println!("Bob: Received file: {} ({} bytes)", filename, size);
 	}
 
 	// Verify all expected files were received
@@ -658,6 +492,15 @@ async fn bob_file_transfer_scenario() {
 			)
 			.unwrap();
 			println!("Bob: Wrote confirmation signal for Alice");
+
+			// The sender's job still awaits the final ack for the last file;
+			// stay up until Alice reports it, or the ack dies with the process.
+			wait_for_file(
+				"/tmp/spacedrive-file-transfer-test/alice_success.txt",
+				Duration::from_secs(60),
+			)
+			.await
+			.expect("Bob: Alice never reported the transfer complete");
 		} else {
 			panic!("Bob: File verification failed");
 		}
@@ -695,10 +538,7 @@ async fn test_file_transfer() {
 		.await
 		.expect("Failed to spawn Alice");
 
-	// Wait for Alice to initialize and generate pairing code
-	tokio::time::sleep(Duration::from_secs(8)).await;
-
-	// Start Bob as receiver
+	// Bob waits for the pairing code file himself, so he can start at once.
 	println!("Starting Bob as file receiver...");
 	runner
 		.spawn_single_process("bob")

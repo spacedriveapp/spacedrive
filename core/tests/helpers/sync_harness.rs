@@ -529,23 +529,26 @@ impl TwoDeviceHarness {
 		uuids: &[Uuid],
 		max_duration: Duration,
 	) -> anyhow::Result<()> {
-		let deadline = tokio::time::Instant::now() + max_duration;
-		loop {
-			let present = entities::space::Entity::find()
+		let present = || async {
+			entities::space::Entity::find()
 				.filter(entities::space::Column::Uuid.is_in(uuids.to_vec()))
 				.count(self.library_bob.db().conn())
-				.await? as usize;
-			if present == uuids.len() {
-				return Ok(());
-			}
-			if tokio::time::Instant::now() >= deadline {
-				anyhow::bail!(
-					"Bob holds {present} of {} spaces after {max_duration:?}",
-					uuids.len()
-				);
-			}
-			tokio::time::sleep(Duration::from_millis(100)).await;
+				.await
+				.map(|count| count as usize)
+		};
+		if super::wait_until("Bob to hold every space", max_duration, || async {
+			(present().await.ok()? == uuids.len()).then_some(())
+		})
+		.await
+		.is_ok()
+		{
+			return Ok(());
 		}
+		anyhow::bail!(
+			"Bob holds {} of {} spaces after {max_duration:?}",
+			present().await?,
+			uuids.len()
+		)
 	}
 }
 

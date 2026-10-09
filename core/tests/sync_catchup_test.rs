@@ -11,8 +11,8 @@
 mod helpers;
 
 use helpers::{
-	create_snapshot_dir, create_test_volume, init_test_tracing, register_device, MockTransport,
-	TestConfigBuilder, TestDataDir,
+	create_snapshot_dir, create_test_volume, init_test_tracing, register_device, wait_until,
+	MockTransport, TestConfigBuilder, TestDataDir,
 };
 use sd_core::{
 	infra::{db::entities, sync::NetworkTransport},
@@ -140,9 +140,6 @@ async fn test_catch_up_with_empty_peer_runs_once() -> anyhow::Result<()> {
 		tokio::time::sleep(Duration::from_millis(200)).await;
 	}
 
-	// Let the loop run a few iterations past Bob's backfill. The default sync
-	// loop interval is 5 s; Alice's one catch-up with Bob is the ceiling.
-	tokio::time::sleep(Duration::from_secs(8)).await;
 	let sessions = |sync: &sd_core::service::sync::SyncService| {
 		sync.metrics()
 			.metrics()
@@ -150,6 +147,15 @@ async fn test_catch_up_with_empty_peer_runs_once() -> anyhow::Result<()> {
 			.backfill_sessions_completed
 			.load(Ordering::Relaxed)
 	};
+	// Bob's backfill counts itself after he turns Ready, and Alice's one
+	// catch-up with Bob runs on the next sync loop tick (5 s by default);
+	// wait for both instead of guessing when the tick lands.
+	wait_until(
+		"one session on each side",
+		Duration::from_secs(20),
+		|| async { (sessions(sync_alice) >= 1 && sessions(sync_bob) >= 1).then_some(()) },
+	)
+	.await?;
 	let alice_before = sessions(sync_alice);
 	let bob_before = sessions(sync_bob);
 	assert_eq!(
@@ -163,6 +169,8 @@ async fn test_catch_up_with_empty_peer_runs_once() -> anyhow::Result<()> {
 		bob_before
 	);
 
+	// A fixed window is the only way to observe that nothing happens: three
+	// loop ticks with no new session on either side.
 	tokio::time::sleep(Duration::from_secs(16)).await;
 	let alice_after = sessions(sync_alice);
 	let bob_after = sessions(sync_bob);

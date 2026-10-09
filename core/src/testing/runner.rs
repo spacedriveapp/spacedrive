@@ -75,60 +75,28 @@ impl CargoTestRunner {
 		self
 	}
 
-	/// Build the test binary once and cache the path
-	async fn build_test_binary(&mut self) -> Result<PathBuf, String> {
-		// Return cached path if already built
+	/// The binary the subprocesses run: this one.
+	///
+	/// The orchestrator and its roles are tests in the same integration test
+	/// binary, so the running executable is the right one by construction.
+	/// Shelling out to `cargo test --no-run` here used to cost a full rebuild
+	/// per suite: the test's working directory is `core/`, where a stray
+	/// `rust-toolchain.toml` selected a different compiler than the one the
+	/// outer cargo used, so each nested build invalidated the shared target
+	/// directory and the next suite built everything back.
+	fn test_binary(&mut self) -> Result<PathBuf, String> {
 		if let Some(ref path) = self.test_binary_path {
 			return Ok(path.clone());
 		}
-
-		println!("Building test binary for {}...", self.test_file_name);
-
-		// Run cargo test --no-run to build the test binary
-		let output = Command::new("cargo")
-			.args(&[
-				"test",
-				"--no-run",
-				"--test",
-				&self.test_file_name,
-				"--message-format=json",
-			])
-			.output()
-			.await
-			.map_err(|e| format!("Failed to run cargo test --no-run: {}", e))?;
-
-		if !output.status.success() {
-			return Err(format!(
-				"cargo test --no-run failed: {}",
-				String::from_utf8_lossy(&output.stderr)
-			));
-		}
-
-		// Parse JSON output to find the test binary
-		let stdout = String::from_utf8_lossy(&output.stdout);
-		for line in stdout.lines() {
-			if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
-				if json["reason"] == "compiler-artifact"
-					&& json["target"]["kind"]
-						.as_array()
-						.map(|arr| arr.iter().any(|v| v == "test"))
-						.unwrap_or(false)
-					&& json["target"]["name"] == self.test_file_name
-				{
-					if let Some(executable) = json["executable"].as_str() {
-						let path = PathBuf::from(executable);
-						println!("Test binary built: {}", path.display());
-						self.test_binary_path = Some(path.clone());
-						return Ok(path);
-					}
-				}
-			}
-		}
-
-		Err(format!(
-			"Could not find test binary path in cargo output for {}",
-			self.test_file_name
-		))
+		let path = std::env::current_exe()
+			.map_err(|e| format!("Failed to locate the running test binary: {}", e))?;
+		println!(
+			"Test binary for {}: {}",
+			self.test_file_name,
+			path.display()
+		);
+		self.test_binary_path = Some(path.clone());
+		Ok(path)
 	}
 
 	/// Run all subprocesses and wait until success condition is met
@@ -150,8 +118,7 @@ impl CargoTestRunner {
 
 	/// Spawn a single subprocess by name
 	pub async fn spawn_single_process(&mut self, name: &str) -> Result<(), String> {
-		// Build the test binary once (or use cached path)
-		let binary_path = self.build_test_binary().await?;
+		let binary_path = self.test_binary()?;
 
 		let process = self
 			.processes
@@ -208,8 +175,7 @@ impl CargoTestRunner {
 
 	/// Spawn all subprocesses using the test binary
 	async fn spawn_all_processes(&mut self) -> Result<(), String> {
-		// Build the test binary once (or use cached path)
-		let binary_path = self.build_test_binary().await?;
+		let binary_path = self.test_binary()?;
 
 		for process in &mut self.processes {
 			// Execute the test binary directly instead of running cargo test

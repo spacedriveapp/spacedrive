@@ -3,12 +3,16 @@
 //! This test demonstrates that session keys survive a daemon restart.
 //! Alice and Bob pair, then Alice restarts her daemon, and finally transfers files.
 
-use sd_core::{
-	domain::content_identity::ContentHashGenerator, service::file_sharing::TransferState,
-	testing::CargoTestRunner, Core,
-};
+use sd_core::{domain::content_identity::ContentHashGenerator, testing::CargoTestRunner, Core};
 use std::{env, path::PathBuf, time::Duration};
 use tokio::time::timeout;
+
+#[path = "helpers/wait.rs"]
+mod wait;
+use wait::{
+	wait_for_connected_device, wait_for_dir_entries, wait_for_file, wait_for_file_matching,
+	wait_for_paired_device, wait_for_peer, wait_for_transfer,
+};
 
 /// Alice's scenario - pairs, restarts, then sends files
 #[tokio::test]
@@ -35,7 +39,6 @@ async fn alice_restart_scenario() {
 		.await
 		.unwrap()
 		.unwrap();
-	tokio::time::sleep(Duration::from_secs(3)).await;
 
 	// Create library
 	println!("Alice: Creating library...");
@@ -71,35 +74,9 @@ async fn alice_restart_scenario() {
 
 	// Wait for Bob to connect
 	println!("Alice: Waiting for Bob to connect...");
-	let mut receiver_device_id = None;
-	for _ in 0..45 {
-		tokio::time::sleep(Duration::from_secs(1)).await;
-
-		let connected_devices = core.services.device.get_connected_devices().await.unwrap();
-		if !connected_devices.is_empty() {
-			receiver_device_id = Some(connected_devices[0]);
-			println!("Alice: Bob connected! Device ID: {}", connected_devices[0]);
-			tokio::time::sleep(Duration::from_secs(2)).await;
-			break;
-		}
-
-		// Check paired devices
-		if let Some(networking) = core.networking() {
-			let device_registry = networking.device_registry();
-			let registry = device_registry.read().await;
-			let paired_devices = registry.get_paired_devices();
-			if !paired_devices.is_empty() {
-				receiver_device_id = Some(paired_devices[0].device_id);
-				println!(
-					"Alice: Using paired device: {}",
-					paired_devices[0].device_id
-				);
-				break;
-			}
-		}
-	}
-
-	let receiver_id = receiver_device_id.expect("Bob never connected");
+	let receiver_id = wait_for_paired_device(&core, Duration::from_secs(45))
+		.await
+		.expect("Bob never connected");
 	println!("Alice: Pairing complete with device {}", receiver_id);
 
 	// Signal that pairing is complete
@@ -109,7 +86,6 @@ async fn alice_restart_scenario() {
 	println!("Alice: ========== RESTARTING DAEMON ==========");
 	println!("Alice: Shutting down Core to simulate daemon restart...");
 	core.shutdown().await.expect("shutdown");
-	tokio::time::sleep(Duration::from_secs(2)).await;
 
 	println!("Alice: Starting fresh Core instance with same data dir...");
 	let mut core = timeout(Duration::from_secs(10), Core::new(data_dir.clone()))
@@ -123,7 +99,6 @@ async fn alice_restart_scenario() {
 		.await
 		.unwrap()
 		.unwrap();
-	tokio::time::sleep(Duration::from_secs(3)).await;
 
 	// Re-create library (required for job dispatch)
 	println!("Alice: Re-creating library...");
@@ -207,6 +182,17 @@ async fn alice_restart_scenario() {
 	)
 	.unwrap();
 
+	// The transfer dials on demand, so a reconnection that has not happened
+	// yet is not fatal; waiting for one first keeps the send off the slow path.
+	if wait_for_peer(&core, receiver_id, Duration::from_secs(15))
+		.await
+		.is_ok()
+	{
+		println!("Alice: Bob reconnected after restart");
+	} else {
+		println!("Alice: Bob not reconnected yet, the transfer will dial");
+	}
+
 	// Initiate file transfer AFTER restart
 	println!("Alice: Initiating file transfer after restart...");
 	println!("Alice: Sending files to device ID: {}", receiver_id);
@@ -226,40 +212,15 @@ async fn alice_restart_scenario() {
 			println!("Alice: File transfer initiated successfully!");
 
 			// Wait for transfer to complete
-			let mut completed = false;
-			for _ in 0..30 {
-				tokio::time::sleep(Duration::from_secs(1)).await;
-
-				match core
-					.services
-					.file_sharing
-					.get_transfer_status(&transfer_id)
-					.await
-				{
-					Ok(status) => match status.state {
-						TransferState::Completed => {
-							println!("Alice: Transfer completed successfully");
-							completed = true;
-							break;
-						}
-						TransferState::Failed => {
-							println!("Alice: Transfer FAILED: {:?}", status.error);
-							panic!("Alice: File transfer failed after restart");
-						}
-						_ => {
-							if status.progress.bytes_transferred > 0 {
-								println!(
-									"Alice: Transfer progress: {} / {} bytes",
-									status.progress.bytes_transferred, status.progress.total_bytes
-								);
-							}
-						}
-					},
-					Err(e) => {
-						println!("Alice: Could not get transfer status: {}", e);
+			let completed =
+				match wait_for_transfer(&core, &transfer_id, Duration::from_secs(30)).await {
+					Ok(true) => {
+						println!("Alice: Transfer completed successfully");
+						true
 					}
-				}
-			}
+					Ok(false) => panic!("Alice: File transfer failed after restart"),
+					Err(_) => false,
+				};
 
 			if !completed {
 				panic!("Alice: Transfer did not complete in time");
@@ -267,27 +228,19 @@ async fn alice_restart_scenario() {
 
 			// Wait for Bob's confirmation
 			println!("Alice: Waiting for Bob's confirmation...");
-			for attempt in 1..=60 {
-				if std::fs::read_to_string(
-					"/tmp/spacedrive-restart-test/bob_received_confirmation.txt",
-				)
-				.map(|content| content.starts_with("received_and_verified:"))
-				.unwrap_or(false)
-				{
-					println!("Alice: Bob confirmed file receipt!");
-					std::fs::write("/tmp/spacedrive-restart-test/alice_success.txt", "success")
-						.unwrap();
-					println!("RESTART_TEST_SUCCESS: Files transferred successfully after restart!");
-					return;
-				}
-
-				if attempt % 10 == 0 {
-					println!(
-						"Alice: Still waiting for Bob's confirmation... ({}s)",
-						attempt
-					);
-				}
-				tokio::time::sleep(Duration::from_secs(1)).await;
+			if wait_for_file_matching(
+				"/tmp/spacedrive-restart-test/bob_received_confirmation.txt",
+				Duration::from_secs(60),
+				|content| content.starts_with("received_and_verified:"),
+			)
+			.await
+			.is_ok()
+			{
+				println!("Alice: Bob confirmed file receipt!");
+				std::fs::write("/tmp/spacedrive-restart-test/alice_success.txt", "success")
+					.unwrap();
+				println!("RESTART_TEST_SUCCESS: Files transferred successfully after restart!");
+				return;
 			}
 
 			panic!("Alice: Bob did not confirm file receipt");
@@ -326,7 +279,6 @@ async fn bob_restart_scenario() {
 		.await
 		.unwrap()
 		.unwrap();
-	tokio::time::sleep(Duration::from_secs(3)).await;
 
 	// Create library
 	println!("Bob: Creating library...");
@@ -338,12 +290,12 @@ async fn bob_restart_scenario() {
 
 	// Wait for Alice's pairing code
 	println!("Bob: Looking for pairing code from Alice...");
-	let pairing_code = loop {
-		if let Ok(code) = std::fs::read_to_string("/tmp/spacedrive-restart-test/pairing_code.txt") {
-			break code.trim().to_string();
-		}
-		tokio::time::sleep(Duration::from_millis(500)).await;
-	};
+	let pairing_code = wait_for_file(
+		"/tmp/spacedrive-restart-test/pairing_code.txt",
+		Duration::from_secs(60),
+	)
+	.await
+	.expect("Bob: Alice never wrote a pairing code");
 
 	// Join pairing
 	println!("Bob: Joining pairing with Alice...");
@@ -359,28 +311,19 @@ async fn bob_restart_scenario() {
 
 	// Wait for pairing to complete
 	println!("Bob: Waiting for pairing to complete...");
-	for _ in 0..30 {
-		tokio::time::sleep(Duration::from_secs(1)).await;
-
-		let connected_devices = core.services.device.get_connected_devices().await.unwrap();
-		if !connected_devices.is_empty() {
-			println!("Bob: Pairing completed!");
-			tokio::time::sleep(Duration::from_secs(2)).await;
-			break;
-		}
-	}
+	wait_for_connected_device(&core, Duration::from_secs(30))
+		.await
+		.expect("Bob: Pairing timeout - no devices connected");
+	println!("Bob: Pairing completed!");
 
 	// Wait for Alice to finish pairing
-	loop {
-		if std::fs::read_to_string("/tmp/spacedrive-restart-test/alice_paired.txt")
-			.map(|content| content == "paired")
-			.unwrap_or(false)
-		{
-			println!("Bob: Alice confirmed pairing complete");
-			break;
-		}
-		tokio::time::sleep(Duration::from_millis(500)).await;
-	}
+	wait_for_file(
+		"/tmp/spacedrive-restart-test/alice_paired.txt",
+		Duration::from_secs(60),
+	)
+	.await
+	.expect("Bob: Alice never confirmed pairing");
+	println!("Bob: Alice confirmed pairing complete");
 
 	println!("Bob: Waiting for Alice to restart and send files...");
 
@@ -403,48 +346,31 @@ async fn bob_restart_scenario() {
 	}
 
 	// Wait for expected files list
-	let expected_files = loop {
-		if let Ok(content) =
-			std::fs::read_to_string("/tmp/spacedrive-restart-test/expected_files.txt")
-		{
-			break content
-				.lines()
-				.map(|line| {
-					let parts: Vec<&str> = line.split(':').collect();
-					(parts[0].to_string(), parts[1].parse::<usize>().unwrap_or(0))
-				})
-				.collect::<Vec<(String, usize)>>();
-		}
-		tokio::time::sleep(Duration::from_millis(500)).await;
-	};
+	let expected_files = wait_for_file(
+		"/tmp/spacedrive-restart-test/expected_files.txt",
+		Duration::from_secs(120),
+	)
+	.await
+	.expect("Bob: Alice never wrote the expected file list")
+	.lines()
+	.map(|line| {
+		let parts: Vec<&str> = line.split(':').collect();
+		(parts[0].to_string(), parts[1].parse::<usize>().unwrap_or(0))
+	})
+	.collect::<Vec<(String, usize)>>();
 
 	println!("Bob: Expecting {} files", expected_files.len());
 
 	// Monitor for received files
-	let mut received_files = Vec::new();
-	let start_time = std::time::Instant::now();
-	let timeout_duration = Duration::from_secs(60);
-
-	while received_files.len() < expected_files.len() && start_time.elapsed() < timeout_duration {
-		tokio::time::sleep(Duration::from_secs(1)).await;
-
-		if let Ok(entries) = std::fs::read_dir(received_dir) {
-			for entry in entries {
-				if let Ok(entry) = entry {
-					let filename = entry.file_name().to_string_lossy().to_string();
-					if !received_files.contains(&filename) {
-						if let Ok(metadata) = entry.metadata() {
-							received_files.push(filename.clone());
-							println!(
-								"Bob: Received file: {} ({} bytes)",
-								filename,
-								metadata.len()
-							);
-						}
-					}
-				}
-			}
-		}
+	let received_files =
+		wait_for_dir_entries(received_dir, expected_files.len(), Duration::from_secs(60))
+			.await
+			.unwrap_or_default();
+	for filename in &received_files {
+		let size = std::fs::metadata(received_dir.join(filename))
+			.map(|metadata| metadata.len())
+			.unwrap_or(0);
+		println!("Bob: Received file: {} ({} bytes)", filename, size);
 	}
 
 	// Verify files
@@ -497,6 +423,15 @@ async fn bob_restart_scenario() {
 				format!("received_and_verified:{}", timestamp),
 			)
 			.unwrap();
+
+			// The sender's job still awaits the final ack for the last file;
+			// stay up until Alice reports it, or the ack dies with the process.
+			wait_for_file(
+				"/tmp/spacedrive-restart-test/alice_success.txt",
+				Duration::from_secs(60),
+			)
+			.await
+			.expect("Bob: Alice never reported the transfer complete");
 		} else {
 			panic!("Bob: File verification failed");
 		}
@@ -531,8 +466,7 @@ async fn test_file_transfer_with_restart() {
 		.await
 		.expect("Failed to spawn Alice");
 
-	tokio::time::sleep(Duration::from_secs(8)).await;
-
+	// Bob waits for the pairing code file himself, so he can start at once.
 	// Start Bob
 	println!("Starting Bob...");
 	runner

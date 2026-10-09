@@ -13,6 +13,12 @@ use sd_core::{
 use std::{env, path::PathBuf, time::Duration};
 use tokio::time::timeout;
 
+#[path = "helpers/wait.rs"]
+mod wait;
+use wait::{
+	wait_for_connected_device, wait_for_dir_entries, wait_for_file, wait_for_file_matching,
+};
+
 /// Alice's role in PULL test - file host (source device)
 #[tokio::test]
 #[ignore] // Only run when explicitly called via subprocess
@@ -44,8 +50,6 @@ async fn alice_pull_source_scenario() {
 		.await
 		.unwrap()
 		.unwrap();
-
-	tokio::time::sleep(Duration::from_secs(3)).await;
 	println!("Alice: Networking initialized successfully");
 
 	// Create a library
@@ -147,36 +151,10 @@ async fn alice_pull_source_scenario() {
 
 	// Wait for Bob to connect
 	println!("Alice: Waiting for Bob to connect...");
-	let mut attempts = 0;
-	let max_attempts = 45;
-
-	loop {
-		tokio::time::sleep(Duration::from_secs(1)).await;
-
-		let connected_devices = core
-			.services
-			.device
-			.get_connected_devices_info()
-			.await
-			.unwrap();
-		if !connected_devices.is_empty() {
-			println!(
-				"Alice: Bob connected! Device: {} ({})",
-				connected_devices[0].device_name, connected_devices[0].device_id
-			);
-			tokio::time::sleep(Duration::from_secs(2)).await;
-			break;
-		}
-
-		attempts += 1;
-		if attempts >= max_attempts {
-			panic!("Alice: Pairing timeout - Bob not connected");
-		}
-
-		if attempts % 5 == 0 {
-			println!("Alice: Pairing status check {} - waiting", attempts / 5);
-		}
-	}
+	let bob_id = wait_for_connected_device(&core, Duration::from_secs(45))
+		.await
+		.expect("Alice: Pairing timeout - Bob not connected");
+	println!("Alice: Bob connected! Device: {}", bob_id);
 
 	// Write ready signal for Bob
 	std::fs::write("/tmp/spacedrive-pull-test/alice_ready.txt", "ready").unwrap();
@@ -184,25 +162,13 @@ async fn alice_pull_source_scenario() {
 
 	// Wait for Bob to complete PULL transfers
 	println!("Alice: Waiting for Bob to complete PULL transfers...");
-	let mut bob_completed = false;
-	for attempt in 1..=90 {
-		if std::fs::read_to_string("/tmp/spacedrive-pull-test/bob_pull_success.txt")
-			.map(|content| content.starts_with("success"))
-			.unwrap_or(false)
-		{
-			println!("Alice: Bob completed PULL transfers successfully!");
-			bob_completed = true;
-			break;
-		}
-
-		if attempt % 10 == 0 {
-			println!(
-				"Alice: Still waiting for Bob's PULL completion... ({}s)",
-				attempt
-			);
-		}
-		tokio::time::sleep(Duration::from_secs(1)).await;
-	}
+	let bob_completed = wait_for_file_matching(
+		"/tmp/spacedrive-pull-test/bob_pull_success.txt",
+		Duration::from_secs(90),
+		|content| content.starts_with("success"),
+	)
+	.await
+	.is_ok();
 
 	if bob_completed {
 		println!("PULL_TEST_SUCCESS: Alice successfully served files for PULL");
@@ -250,8 +216,6 @@ async fn bob_pull_receiver_scenario() {
 		.await
 		.unwrap()
 		.unwrap();
-
-	tokio::time::sleep(Duration::from_secs(3)).await;
 	println!("Bob: Networking initialized");
 
 	// Create a library
@@ -266,12 +230,12 @@ async fn bob_pull_receiver_scenario() {
 
 	// Wait for Alice's pairing code
 	println!("Bob: Looking for pairing code from Alice...");
-	let pairing_code = loop {
-		if let Ok(code) = std::fs::read_to_string("/tmp/spacedrive-pull-test/pairing_code.txt") {
-			break code.trim().to_string();
-		}
-		tokio::time::sleep(Duration::from_millis(500)).await;
-	};
+	let pairing_code = wait_for_file(
+		"/tmp/spacedrive-pull-test/pairing_code.txt",
+		Duration::from_secs(60),
+	)
+	.await
+	.expect("Bob: Alice never wrote a pairing code");
 	println!("Bob: Found pairing code");
 
 	// Join pairing session
@@ -291,63 +255,38 @@ async fn bob_pull_receiver_scenario() {
 
 	// Wait for pairing completion
 	println!("Bob: Waiting for pairing to complete...");
-	let mut attempts = 0;
-	let max_attempts = 30;
-
-	loop {
-		tokio::time::sleep(Duration::from_secs(1)).await;
-
-		let connected_devices = core
-			.services
-			.device
-			.get_connected_devices_info()
-			.await
-			.unwrap();
-		if !connected_devices.is_empty() {
-			println!(
-				"Bob: Pairing completed! Connected to {} ({})",
-				connected_devices[0].device_name, connected_devices[0].device_id
-			);
-			tokio::time::sleep(Duration::from_secs(2)).await;
-			break;
-		}
-
-		attempts += 1;
-		if attempts >= max_attempts {
-			panic!("Bob: Pairing timeout - no devices connected");
-		}
-	}
+	let alice_id = wait_for_connected_device(&core, Duration::from_secs(30))
+		.await
+		.expect("Bob: Pairing timeout - no devices connected");
+	println!("Bob: Pairing completed! Connected to {}", alice_id);
 
 	// Wait for Alice to be ready
 	println!("Bob: Waiting for Alice to be ready...");
-	loop {
-		if std::fs::read_to_string("/tmp/spacedrive-pull-test/alice_ready.txt")
-			.map(|content| content.starts_with("ready"))
-			.unwrap_or(false)
-		{
-			break;
-		}
-		tokio::time::sleep(Duration::from_millis(500)).await;
-	}
+	wait_for_file(
+		"/tmp/spacedrive-pull-test/alice_ready.txt",
+		Duration::from_secs(60),
+	)
+	.await
+	.expect("Bob: Alice never became ready");
 	println!("Bob: Alice is ready, reading source file info...");
 
 	// Read source files info
-	let source_files_info = loop {
-		if let Ok(content) = std::fs::read_to_string("/tmp/spacedrive-pull-test/source_files.txt") {
-			break content
-				.lines()
-				.map(|line| {
-					let parts: Vec<&str> = line.split(':').collect();
-					(
-						parts[0].to_string(),
-						parts[1].parse::<usize>().unwrap_or(0),
-						parts[2].to_string(),
-					)
-				})
-				.collect::<Vec<(String, usize, String)>>();
-		}
-		tokio::time::sleep(Duration::from_millis(500)).await;
-	};
+	let source_files_info = wait_for_file(
+		"/tmp/spacedrive-pull-test/source_files.txt",
+		Duration::from_secs(60),
+	)
+	.await
+	.expect("Bob: Alice never wrote the source file list")
+	.lines()
+	.map(|line| {
+		let parts: Vec<&str> = line.split(':').collect();
+		(
+			parts[0].to_string(),
+			parts[1].parse::<usize>().unwrap_or(0),
+			parts[2].to_string(),
+		)
+	})
+	.collect::<Vec<(String, usize, String)>>();
 
 	println!(
 		"Bob: Found {} files to PULL from Alice",
@@ -436,63 +375,22 @@ async fn bob_pull_receiver_scenario() {
 				panic!("Failed to dispatch PULL action: {}", e);
 			}
 		}
-
-		tokio::time::sleep(Duration::from_millis(500)).await;
 	}
 
 	// Wait for files to arrive
 	println!("Bob: Waiting for PULL transfers to complete...");
-	let mut received_files = Vec::new();
-	let start_time = std::time::Instant::now();
-	let timeout_duration = Duration::from_secs(60);
-
-	while received_files.len() < source_files_info.len() && start_time.elapsed() < timeout_duration
-	{
-		tokio::time::sleep(Duration::from_secs(1)).await;
-
-		if let Ok(entries) = std::fs::read_dir(&pull_dest_dir) {
-			for entry in entries {
-				if let Ok(entry) = entry {
-					let filename = entry.file_name().to_string_lossy().to_string();
-					if !received_files.contains(&filename) {
-						if let Ok(metadata) = entry.metadata() {
-							received_files.push(filename.clone());
-							println!(
-								"Bob: PULL received: {} ({} bytes)",
-								filename,
-								metadata.len()
-							);
-
-							// Verify size
-							if let Some((_, expected_size, _)) = source_files_info
-								.iter()
-								.find(|(name, _, _)| name == &filename)
-							{
-								if metadata.len() == *expected_size as u64 {
-									println!("  Size verified: {} bytes", metadata.len());
-								} else {
-									println!(
-										"  Size mismatch: expected {}, got {}",
-										expected_size,
-										metadata.len()
-									);
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-		let elapsed = start_time.elapsed().as_secs();
-		if elapsed > 0 && elapsed % 10 == 0 && received_files.len() < source_files_info.len() {
-			println!(
-				"Bob: PULL progress: {}/{} files received ({}s elapsed)",
-				received_files.len(),
-				source_files_info.len(),
-				elapsed
-			);
-		}
+	let received_files = wait_for_dir_entries(
+		&pull_dest_dir,
+		source_files_info.len(),
+		Duration::from_secs(60),
+	)
+	.await
+	.unwrap_or_default();
+	for filename in &received_files {
+		let size = std::fs::metadata(pull_dest_dir.join(filename))
+			.map(|metadata| metadata.len())
+			.unwrap_or(0);
+		println!("Bob: PULL received: {} ({} bytes)", filename, size);
 	}
 
 	// Verify all files were pulled
@@ -569,9 +467,7 @@ async fn test_file_copy_pull() {
 		.await
 		.expect("Failed to spawn Alice");
 
-	// Wait for Alice to initialize and create files
-	tokio::time::sleep(Duration::from_secs(8)).await;
-
+	// Bob waits for the pairing code file himself, so he can start at once.
 	// Start Bob (PULL initiator)
 	println!("Starting Bob as PULL initiator...");
 	runner

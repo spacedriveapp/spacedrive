@@ -6,8 +6,8 @@
 mod helpers;
 
 use helpers::{
-	create_snapshot_dir, create_test_volume, init_test_tracing, register_device, MockTransport,
-	TestConfigBuilder, TestDataDir,
+	create_snapshot_dir, create_test_volume, init_test_tracing, register_device, wait_until,
+	MockTransport, TestConfigBuilder, TestDataDir,
 };
 use sd_core::{
 	infra::{db::entities, sync::NetworkTransport},
@@ -148,8 +148,6 @@ async fn test_bidirectional_volume_sync() -> anyhow::Result<()> {
 	library_bob.sync_service().unwrap().start().await?;
 
 	tracing::info!("Sync services started - backfill should begin");
-
-	tokio::time::sleep(Duration::from_millis(1000)).await;
 
 	tracing::info!("=== Phase 4: Wait for bidirectional sync ===");
 
@@ -487,11 +485,13 @@ async fn test_volume_resource_events_on_sync() -> anyhow::Result<()> {
 		tokio::time::sleep(Duration::from_millis(100)).await;
 	}
 
-	// Give the event system a moment to emit the event after DB insert
-	tokio::time::sleep(Duration::from_millis(500)).await;
-
-	// Check if the event was received
-	let event_was_received = *volume_event_received.lock().await;
+	// The event follows the row by a hop through the bus; wait for the
+	// listener to see it rather than guessing how long that takes.
+	let event_was_received = wait_until("the volume event", Duration::from_secs(10), || async {
+		(*volume_event_received.lock().await).then_some(())
+	})
+	.await
+	.is_ok();
 
 	// Abort the listener task
 	event_listener.abort();
