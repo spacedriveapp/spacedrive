@@ -34,6 +34,38 @@ the early `packages/drives` implementation described by previous handoffs is
 no longer in the checkout. See the register row before restarting that work.
 Physical-drive identity remains separate from product recognition and visuals.
 
+Linux first-clone setup (issue #3087) is fixed in this checkout, on `03efcad`.
+`just setup` and `just setup-native-deps` run `bun install`, then
+`cargo run -p xtask -- setup`. Setup no longer depends on the `cargo xtask`
+alias that xtask writes into gitignored `.cargo/config.toml`. The generated
+alias itself is unchanged. Only `setup-native-deps` passes `--native-deps`.
+`scripts/setup.sh` adds zlib and zstd development packages on each Linux
+branch: apt `zlib1g-dev` and `libzstd-dev`, pacman `zlib` and `zstd`, dnf
+`zlib-devel` and `libzstd-devel`, apk `zlib-dev` and `zstd-dev`, and eopkg
+`zlib-devel` and `zstd-devel`. README and CONTRIBUTING already install system
+packages before that Cargo command. The native bundle stays opt-in.
+
+Validation on this macOS host (bash 5.3) installed nothing and built no
+release daemon. `bash -n scripts/setup.sh` passed. `just --dry-run setup` and
+`just --dry-run setup-native-deps` list `bun install` first and the unaliased
+xtask command. Disposable stubs, left out of the diff, ran every Linux branch
+with `CI=true`. Each manager's install arguments included both compression
+packages together with the existing toolchain and FFmpeg packages, and CI
+skipped the Enter prompt. A stub that fails the install exits 1. `set -e`
+aborts the script. The ERR trap's "Setup failed." line stays unprinted because
+the failure is inside the `sudo` function and errtrace is off. Package names
+were checked against distro metadata. Ubuntu 24.04 noble publishes
+`zlib1g-dev` and `libzstd-dev`. Arch core publishes `zlib` and `zstd`. Fedora's
+zstd spec and package page name the devel subpackage `libzstd-devel`.
+`zlib-devel` is the real subpackage on CentOS Stream 9. On Fedora 41 through
+rawhide, and on CentOS Stream 10, `zlib-ng-compat-devel` provides it. Alpine
+3.22 main publishes `zlib-dev` and `zstd-dev`. Solus `zlib-ng` patterns an
+explicit `zlib-devel` package, and ypkg libsplit (on by default, and left on
+in the zstd recipe) places zstd headers in `zstd-devel`. The reported OpenSSL,
+Clang `limits.h`, `-lz`, and `-lzstd` failures were not reproduced here. This
+environment has no Ubuntu 24.04 install and no second `just setup` after
+config generation.
+
 ## Immediate register
 
 File System Intelligence is a flagship priority identified by James (Codex,
@@ -390,6 +422,10 @@ These are regression boundaries, not incidental fixes:
 
 ### Linux and archival correctness
 
+- Uncommitted, on `03efcad`: `just setup` calls `cargo run -p xtask -- setup`
+  after `bun install`, and `scripts/setup.sh` installs zlib and zstd
+  development packages on apt, pacman, dnf, apk, and eopkg. Checks and their
+  limits are in Current focus.
 - `c446235e6`: captured uid, gid, symlink targets, content errors, and invalid
   UTF-8 diagnostics.
 - `50ab6038e`: added source freezing and the `sd sources` CLI domain.
@@ -434,14 +470,11 @@ These are regression boundaries, not incidental fixes:
 
 ## Worktree handoff
 
-At this update, the only uncommitted work in the checkout is documentation:
+Uncommitted work is the Linux setup fix for issue #3087:
 
+- `justfile`
+- `scripts/setup.sh`
 - this file
-- `docs/plans/2026-09-15-entries-final-drop.md` (new, referenced by the Final
-  entries drop register row; commit it with this update)
-- plan updates in `docs/plans/2026-08-20-entries-teardown-execution.md`,
-  `docs/plans/2026-08-22-source-convergence.md`, and
-  `docs/plans/2026-09-08-locations-demoted.md`
 
 Run `git status --short` at the start of every session. Preserve unrelated
 changes and do not infer ownership from this list, which will age quickly.
