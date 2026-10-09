@@ -536,6 +536,7 @@ mod tests {
 			content_kind: None,
 			content_kind_name: None,
 			content_error: None,
+			image: None,
 		}
 	}
 

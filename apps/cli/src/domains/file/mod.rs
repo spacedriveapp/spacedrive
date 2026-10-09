@@ -92,9 +92,10 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 				"modified" => sd_core::ops::files::query::DirectorySortBy::Modified,
 				"size" => sd_core::ops::files::query::DirectorySortBy::Size,
 				"type" => sd_core::ops::files::query::DirectorySortBy::Type,
+				"datetaken" => sd_core::ops::files::query::DirectorySortBy::DateTaken,
 				_ => {
 					anyhow::bail!(
-						"Invalid sort option: {}. Valid options are: name, modified, size, type",
+						"Invalid sort option: {}. Valid options are: name, modified, size, type, datetaken",
 						args.sort_by
 					);
 				}

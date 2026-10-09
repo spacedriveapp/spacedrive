@@ -174,6 +174,9 @@ impl LibraryQuery for MediaListingQuery {
 		}
 		drop(index);
 
+		if matches!(self.input.sort_by, MediaSortBy::DateTaken) {
+			crate::ops::search::capture::decorate_files(cache, &mut files).await;
+		}
 		sort_media(&mut files, &self.input.sort_by);
 
 		let total_count = files.len() as u32;
@@ -193,11 +196,14 @@ impl LibraryQuery for MediaListingQuery {
 fn sort_media(files: &mut [File], sort_by: &MediaSortBy) {
 	match sort_by {
 		MediaSortBy::Modified => files.sort_by(|a, b| b.modified_at.cmp(&a.modified_at)),
-		// The arena carries no capture time; birth time is the closest thing
-		// it knows, and it is the one a photo library sorts by.
-		MediaSortBy::Created | MediaSortBy::DateTaken => {
-			files.sort_by(|a, b| b.created_at.cmp(&a.created_at))
-		}
+		MediaSortBy::Created => files.sort_by(|a, b| b.created_at.cmp(&a.created_at)),
+		// A photo without a capture time still belongs in the roll, so its
+		// birth time stands in rather than sending it to the end.
+		MediaSortBy::DateTaken => files.sort_by(|a, b| {
+			b.captured_at()
+				.unwrap_or(b.created_at)
+				.cmp(&a.captured_at().unwrap_or(a.created_at))
+		}),
 		MediaSortBy::Name => {
 			files.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
 		}

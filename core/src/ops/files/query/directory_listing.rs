@@ -55,6 +55,9 @@ pub enum DirectorySortBy {
 	Size,
 	/// Sort by type (directories first, then files)
 	Type,
+	/// Sort by capture time (newest first), from the image facet. Files
+	/// without one come last.
+	DateTaken,
 }
 
 /// Output containing directory contents
@@ -263,9 +266,11 @@ impl DirectoryListingQuery {
 						SdPath::Physical { device_slug, .. } => device_slug.clone(),
 						_ => String::new(),
 					};
-					let files = self.files_from_index(&index, children, &device_slug).await;
-					// Decorate after the cap: assertions live only in
-					// SQLite, so the arena's page still reads the store.
+					let mut files = self.files_from_index(&index, children, &device_slug).await;
+					// The capture time sorts, so the facet is read before
+					// the sort; assertions decorate after the cap, since
+					// they only label the page.
+					crate::ops::search::capture::decorate_files(&cache, &mut files).await;
 					let mut listing = self.finalize_listing(files);
 					crate::ops::tags::decorate::decorate_files(&cache, &mut listing.files).await;
 					crate::ops::indexing::kinds::decorate_kinds(&cache, &mut listing.files).await;
@@ -719,6 +724,13 @@ impl DirectoryListingQuery {
 				DirectorySortBy::Name => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
 				DirectorySortBy::Modified => b.modified_at.cmp(&a.modified_at),
 				DirectorySortBy::Size => b.size.cmp(&a.size),
+				// Dated files newest first, then the undated ones by name.
+				DirectorySortBy::DateTaken => match (a.captured_at(), b.captured_at()) {
+					(Some(a), Some(b)) => b.cmp(&a),
+					(Some(_), None) => std::cmp::Ordering::Less,
+					(None, Some(_)) => std::cmp::Ordering::Greater,
+					(None, None) => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+				},
 				DirectorySortBy::Type => {
 					// Sort by kind (directories first), then name
 					if !folders_first {

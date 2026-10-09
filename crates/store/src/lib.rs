@@ -72,7 +72,7 @@ pub use image::{
 	PendingImage,
 };
 pub use migrate::SCHEMA_VERSION;
-pub use read::{FsEntry, TitleMatches};
+pub use read::{image_facets_for_records, FsEntry, TitleMatches};
 pub use record::{ContentIdentity, Record, RECORD_SCHEMA};
 pub use revision::Revision;
 pub use schema::{DataTypeSchema, FieldType, ModelDef};

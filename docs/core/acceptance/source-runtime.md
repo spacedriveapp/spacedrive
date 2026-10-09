@@ -59,21 +59,30 @@ cargo test -p sd-core --lib repeated_clear_and_refill_keeps_allocation_bounded -
 | 16 | Continuous real writes | `core/tests/source_replication_test.rs` `test_source_replication` (Alice writes and re-walks; Bob lands a newer generation holding every record); `crates/store/tests/revision.rs` `file_changes_move_the_revision_and_nothing_else_does` | passing |
 | 17 | Repeated subtree clear and refill | `core/src/ops/indexing/arena.rs` `repeated_clear_and_refill_keeps_allocation_bounded` (slots bounded by the live tree across 100 cycles, snapshot carries live nodes), `a_shrunken_tree_compacts_once_vacancy_outgrows_it` (the compaction trigger), `a_snapshot_after_churn_carries_only_live_nodes` (round-trip after churn), `a_listing_cursor_taken_before_compaction_still_pages` (path cursors survive renumbering); `core/src/ops/indexing/nodes.rs` `a_vacated_slot_is_reused_and_unreadable_until_then` | fixed (see F4) |
 | 18 | Cold search across 100 stores | `crates/store/tests/scale.rs` `a_hundred_cold_stores_answer_without_writers` (CI size: 100 stores x 200 records); `a_cold_fan_out_across_many_stores` (the measurement, ignored, sized by `SD_SCALE_*`) | passing |
-| 19 | Same capture read through arena and SQLite | `core/src/ops/search/arena_search.rs` `the_store_backend_matches_the_arena_for_the_same_capture` (identities, matching, filters, scores); `core/src/ops/search/pipeline.rs` `every_sort_field_orders_and_reverses`, `equal_scores_tiebreak_deterministically`, `a_page_is_a_window_over_the_sorted_whole` (ordering and pagination shared by both backends) | passing |
+| 19 | Same capture read through arena and SQLite | `core/src/ops/search/arena_search.rs` `the_store_backend_matches_the_arena_for_the_same_capture` (identities, matching, filters, scores, and the capture time and place both backends read from `facet_image`); `core/src/ops/search/pipeline.rs` `every_sort_field_orders_and_reverses`, `a_capture_order_keeps_undated_files_last_in_both_directions`, `equal_scores_tiebreak_deterministically`, `a_page_is_a_window_over_the_sorted_whole` (ordering and pagination shared by both backends) | passing |
 | 20 | Suitable loaded arena returns no matches | `core/tests/source_runtime_acceptance_test.rs` `an_empty_answer_from_a_suitable_arena_is_final` | passing |
 | 21 | Loaded arena has insufficient coverage or query support | `core/tests/source_runtime_acceptance_test.rs` `an_unwalked_source_answers_from_its_store` | passing |
 | 22 | Five suitable arenas and 95 stores | `core/tests/source_runtime_acceptance_test.rs` `five_arenas_and_ninety_five_stores_page_the_same` | passing |
-| 23 | Arena candidates need store-only filter or sort fields | `core/tests/source_runtime_acceptance_test.rs` `a_store_only_filter_narrows_before_pagination` (tags are the store-only field) | passing |
+| 23 | Arena candidates need store-only filter or sort fields | `core/tests/source_runtime_acceptance_test.rs` `a_store_only_filter_narrows_before_pagination` (tags are the store-only field); row 29 for the image facet's capture time and place as sort and filter fields | passing |
 | 24 | Search with requested limit five | `core/tests/source_runtime_acceptance_test.rs` `a_limit_of_five_returns_five_with_an_honest_total` | passing |
 | 25 | Same record in multiple representations | `core/tests/source_runtime_acceptance_test.rs` `a_file_under_nested_sources_is_one_hit_from_the_arena` (loaded); `a_file_under_nested_sources_is_one_hit_from_the_stores` (store-backed) | passing / fixed (see F5) |
 | 26 | Replica replacement with local assertions | none | not automatable today: replicas open read-only and carry no receiver-owned assertions (R6 results, "receiver-owned assertions on replica databases" is a registered follow-on gated on FD2), so there is no local assertion to preserve. `crates/store/tests/files.rs` `a_moved_file_carries_its_assertions_with_it` and `a_removal_takes_the_facet_and_leaves_the_assertion` cover the owner-side contract the replica path will have to reuse |
 | 27 | Mapped volume with no source | `core/src/ops/indexing/volume_index.rs` `a_tracked_drive_maps_without_appearing_as_a_source` (browse and snapshot), `a_mapped_drive_without_a_source_is_watchable` (watcher); `core/src/ops/indexing/store.rs` `a_partition_with_no_store_still_browses` | passing |
 | 28 | Status query and resource event | `core/tests/source_runtime_acceptance_test.rs` `listing_status_and_store_agree_on_a_sources_count` (`sources.list`, `core.index_status` and the store report one count and one observation time for one source) | passing |
+| 29 | Capture time and place through arena and SQLite | `core/tests/source_runtime_acceptance_test.rs` `capture_facts_read_the_same_through_arena_and_store` (the EXIF fixture tracked and enriched; a `CapturedAt` order, a `CapturedAt` range and a `has_location` filter give one order, one total and the same capture facts per hit from the walked arena and, after the arenas drop, from the store; `crates/store/tests/read.rs` `an_entry_carries_the_image_facet_keyed_by_its_current_bytes` for the hash-guarded join underneath) | passing |
 
-Totals: 26 rows fully passing (21 at the commit that landed this file, plus
-rows 3, 10, 11, 17 and 25 fixed since); row 9 passing except its APFS half,
-which no Linux runner can produce; row 26 not automatable because the
-feature it names does not exist yet. No ignored test remains.
+Totals: 27 rows fully passing (21 at the commit that landed this file, plus
+rows 3, 10, 11, 17 and 25 fixed since, and row 29 added for the image
+facet); row 9 passing except its APFS half, which no Linux runner can
+produce; row 26 not automatable because the feature it names does not exist
+yet. No ignored test remains.
+
+Row 29 is not in the plan's table. It extends rows 19 and 23 to a facet:
+the arena holds no capture time or place, so the arena path reads them from
+the store before it sorts and filters (`core/src/ops/search/capture.rs`)
+and the store path joins `facet_image` into every entry read, guarded by
+the row's content hash. Neither backend needs the other to answer, and
+both hand the same `File` to one predicate and one order.
 
 ## Failing and fixed rows
 

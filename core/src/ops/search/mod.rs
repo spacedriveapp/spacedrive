@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 pub mod arena_search;
+pub mod capture;
 pub mod input;
 pub mod media;
 pub mod output;

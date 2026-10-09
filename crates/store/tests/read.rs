@@ -419,3 +419,139 @@ async fn contents_beneath_a_directory_answer_by_scope() {
 	holders.sort();
 	assert_eq!(holders, ["2019/b.jpg", "2019/trip/a.jpg"]);
 }
+
+/// An entry read carries the image facet only while the row describes the
+/// record's current bytes. A row the EXIF pass wrote for an earlier
+/// version of the file reads as no row at all, on a listing and on the
+/// by-record lookup an arena decorates from alike.
+#[tokio::test]
+async fn an_entry_carries_the_image_facet_keyed_by_its_current_bytes() {
+	let fixture = Fixture::new().await;
+	populate(
+		&fixture,
+		&[
+			("photos", FileKind::Directory, false),
+			("photos/dated.jpg", FileKind::File, false),
+			("photos/plain.jpg", FileKind::File, false),
+			("photos/notes.txt", FileKind::File, false),
+		],
+	)
+	.await;
+	let db = fixture.manager.open("drive-1").await.expect("open");
+	let record = |path: &'static str| {
+		let db = &db;
+		async move {
+			read::entry_by_path(db.pool(), path)
+				.await
+				.expect("lookup")
+				.expect("file exists")
+				.uuid
+		}
+	};
+	let dated = record("photos/dated.jpg").await;
+	let plain = record("photos/plain.jpg").await;
+	let text = record("photos/notes.txt").await;
+	for (uuid, hash) in [(dated, "dated-v1"), (plain, "plain-v1"), (text, "text")] {
+		db.set_content_identity(
+			uuid,
+			&ContentIdentity {
+				sampled_hash: Some(hash.to_string()),
+				kind: Some(1),
+				..Default::default()
+			},
+		)
+		.await
+		.expect("identity");
+	}
+	sd_store::set_image_facets(
+		db.pool(),
+		&[
+			(
+				"dated-v1".to_string(),
+				sd_store::ImageFacet {
+					date_taken: Some("2024-03-12T10:00:00+00:00".to_string()),
+					latitude: Some(35.68),
+					longitude: Some(139.77),
+					camera_make: Some("Fuji".to_string()),
+					..Default::default()
+				},
+			),
+			("plain-v1".to_string(), sd_store::ImageFacet::default()),
+		],
+	)
+	.await
+	.expect("facets");
+
+	let folder = read::entry_by_path(db.pool(), "photos")
+		.await
+		.expect("lookup")
+		.expect("dir")
+		.uuid;
+	let facet_of = |entries: &[read::FsEntry], name: &str| {
+		entries
+			.iter()
+			.find(|entry| entry.name == name)
+			.expect("listed")
+			.image
+			.clone()
+	};
+
+	let listed = read::children_of(db.pool(), Some(folder), false)
+		.await
+		.expect("children");
+	let facet = facet_of(&listed, "dated.jpg").expect("the dated photo has its facet");
+	assert_eq!(
+		facet.date_taken.as_deref(),
+		Some("2024-03-12T10:00:00+00:00")
+	);
+	assert_eq!(
+		(facet.latitude, facet.longitude),
+		(Some(35.68), Some(139.77))
+	);
+	assert_eq!(facet.camera_make.as_deref(), Some("Fuji"));
+	assert_eq!(
+		facet_of(&listed, "plain.jpg"),
+		Some(sd_store::ImageFacet::default()),
+		"a photo read and found to carry no EXIF has an empty facet, not none"
+	);
+	assert_eq!(facet_of(&listed, "notes.txt"), None);
+
+	let by_record = read::image_facets_for_records(db.pool(), &[dated, plain, text])
+		.await
+		.expect("facets by record");
+	assert_eq!(by_record.len(), 2);
+	assert_eq!(
+		by_record
+			.iter()
+			.find(|(uuid, _)| *uuid == dated)
+			.map(|(_, facet)| facet.date_taken.clone()),
+		Some(Some("2024-03-12T10:00:00+00:00".to_string()))
+	);
+
+	// The bytes change: identification gives the record a new hash and the
+	// old row no longer describes it, so both reads answer nothing until
+	// the pass rewrites the row.
+	db.set_content_identity(
+		dated,
+		&ContentIdentity {
+			sampled_hash: Some("dated-v2".to_string()),
+			kind: Some(1),
+			..Default::default()
+		},
+	)
+	.await
+	.expect("identity");
+	let listed = read::children_of(db.pool(), Some(folder), false)
+		.await
+		.expect("children");
+	assert_eq!(facet_of(&listed, "dated.jpg"), None);
+	assert!(read::image_facets_for_records(db.pool(), &[dated])
+		.await
+		.expect("facets by record")
+		.is_empty());
+	let page = read::files_beneath(db.pool(), "", read::Start::First, None, false, 10)
+		.await
+		.expect("beneath");
+	assert_eq!(facet_of(&page, "dated.jpg"), None);
+	assert!(facet_of(&page, "plain.jpg").is_some());
+}

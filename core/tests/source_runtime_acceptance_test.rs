@@ -9,6 +9,7 @@
 mod helpers;
 
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use helpers::*;
 use sd_core::{
@@ -19,8 +20,8 @@ use sd_core::{
 		indexing::{metadata::EntryMetadata, state::EntryKind, IndexScope, VolumeAnchor},
 		search::{
 			input::{
-				FileSearchInput, PaginationOptions, SearchFilters, SearchMode, SearchScope,
-				SortDirection, SortField, SortOptions, TagFilter,
+				DateField, DateRangeFilter, FileSearchInput, PaginationOptions, SearchFilters,
+				SearchMode, SearchScope, SortDirection, SortField, SortOptions, TagFilter,
 			},
 			output::FileSearchOutput,
 			query::FileSearchQuery,
@@ -492,6 +493,157 @@ async fn a_file_under_nested_sources_is_one_hit_from_the_stores() -> anyhow::Res
 		"one file, one hit, whichever stores hold it"
 	);
 	assert_eq!(names(&hits), vec!["unique-photo"]);
+
+	harness.shutdown().await?;
+	Ok(())
+}
+
+/// R8 "Same capture read through arena and SQLite", the capture half, and
+/// "Arena candidates need store-only filter or sort fields" for the image
+/// facet: a capture-time order, a capture-date range and a has-location
+/// filter answer the same whether the source's arena or its store serves
+/// the search. The arena holds none of it; it reads the facet from the
+/// store before it sorts and filters, and the store joins the facet into
+/// its rows.
+///
+/// One thread on purpose: the first search after the arenas drop starts a
+/// background refill from the store, and on one thread that refill cannot
+/// land before the search has chosen its backend, so every store-pass
+/// search is store-served and the arenas are dropped again before each.
+#[tokio::test]
+async fn capture_facts_read_the_same_through_arena_and_store() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("r8_capture_facts")
+		.disable_watcher()
+		.build()
+		.await?;
+	let photos = harness.create_test_dir("photos").await?;
+	std::fs::write(
+		photos.path().join("tokyo.jpg"),
+		exif_jpeg(1, Some("2024:03:12 10:00:00"), Some((35.6812, 139.7671))),
+	)?;
+	std::fs::write(
+		photos.path().join("later.jpg"),
+		exif_jpeg(2, Some("2024:03:19 09:00:00"), None),
+	)?;
+	std::fs::write(
+		photos.path().join("kyoto.jpg"),
+		exif_jpeg(3, Some("2023:06:01 12:00:00"), Some((35.0116, 135.7681))),
+	)?;
+	std::fs::write(photos.path().join("bare.jpg"), exif_jpeg(4, None, None))?;
+	photos.write_file("notes.txt", "not a photo").await?;
+	let tracked = photos.track().await?;
+	let cache = harness.core.context.volume_index();
+	assert!(cache.arena_answers(&tracked.root));
+
+	// The EXIF pass runs after identification; wait for it to settle.
+	let store = cache
+		.store_for(&tracked.root.join("tokyo.jpg"))
+		.await
+		.expect("store");
+	let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+	loop {
+		let rows: i64 =
+			sqlx::query_scalar("SELECT COUNT(*) FROM facet_image WHERE content_hash IS NOT NULL")
+				.fetch_one(store.db().pool())
+				.await?;
+		if rows == 4 && store.files_needing_image_facets_count().await? == 0 {
+			break;
+		}
+		assert!(
+			tokio::time::Instant::now() < deadline,
+			"the EXIF pass did not finish: {rows} rows"
+		);
+		tokio::time::sleep(Duration::from_millis(50)).await;
+	}
+	drop(store);
+
+	let jpegs = SearchFilters {
+		file_types: Some(vec!["jpg".to_string()]),
+		..SearchFilters::default()
+	};
+	let by_capture = |filters: SearchFilters| FileSearchInput {
+		query: String::new(),
+		scope: SearchScope::Path {
+			path: SdPath::local(tracked.root.clone()),
+		},
+		mode: SearchMode::Normal,
+		filters,
+		sort: SortOptions {
+			field: SortField::CapturedAt,
+			direction: SortDirection::Desc,
+		},
+		pagination: PaginationOptions {
+			limit: 10,
+			offset: 0,
+		},
+	};
+	let placed = SearchFilters {
+		has_location: Some(true),
+		..jpegs.clone()
+	};
+	let march_2024 = SearchFilters {
+		date_range: Some(DateRangeFilter {
+			field: DateField::CapturedAt,
+			start: Some(chrono::DateTime::from_timestamp(1_709_251_200, 0).unwrap()),
+			end: Some(chrono::DateTime::from_timestamp(1_711_929_599, 0).unwrap()),
+		}),
+		..jpegs.clone()
+	};
+	let inputs = || {
+		[
+			by_capture(jpegs.clone()),
+			by_capture(placed.clone()),
+			by_capture(march_2024.clone()),
+		]
+	};
+	type Answer = (
+		Vec<String>,
+		u64,
+		Vec<(Option<chrono::DateTime<chrono::Utc>>, bool)>,
+	);
+	let answer = |page: FileSearchOutput| -> Answer {
+		(
+			names(&page),
+			page.total_found,
+			page.results
+				.iter()
+				.map(|r| (r.file.captured_at(), r.file.has_location()))
+				.collect(),
+		)
+	};
+
+	let mut from_arena = Vec::new();
+	for input in inputs() {
+		assert!(cache.arena_answers(&tracked.root));
+		from_arena.push(answer(search(&harness, input).await?));
+	}
+	assert_eq!(from_arena[0].0, ["later", "tokyo", "kyoto", "bare"]);
+	assert_eq!(from_arena[0].1, 4);
+	assert_eq!(from_arena[1].0, ["tokyo", "kyoto"]);
+	assert_eq!(from_arena[2].0, ["later", "tokyo"]);
+	assert!(from_arena[0].2[0].0.is_some() && !from_arena[0].2[0].1);
+	assert!(from_arena[0].2[3].0.is_none());
+
+	// The daemon restarts with no snapshot, so the source answers from its
+	// store, the way the nested-store row drops its arenas.
+	let mut from_store = Vec::new();
+	for input in inputs() {
+		let ids: Vec<Uuid> = cache
+			.sources_of(harness.library.id())
+			.iter()
+			.map(|source| source.id)
+			.collect();
+		let targets = cache.quiesce_targets(&ids);
+		cache.detach_library(harness.library.id());
+		let (hold, _) = cache.quiesce_stores(&ids, &targets).await;
+		drop(hold);
+		cache
+			.attach_library(harness.library.id(), harness.library.db().clone())
+			.await?;
+		assert!(!cache.arena_answers(&tracked.root), "the store answers");
+		from_store.push(answer(search(&harness, input).await?));
+	}
+	assert_eq!(from_store, from_arena);
 
 	harness.shutdown().await?;
 	Ok(())
