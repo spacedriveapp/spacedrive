@@ -236,7 +236,7 @@ impl FileTypeRegistry {
 		&self.conflicts
 	}
 
-	/// The extension kinds whose magic patterns decide a file with this
+	/// The extension kinds and ambiguous built-ins whose magic patterns decide a file with this
 	/// extension: the kind holding the extension when it declares patterns,
 	/// and every contested kind for it. For an extension no type claims,
 	/// every extension kind with patterns, since the name says nothing.
@@ -255,7 +255,15 @@ impl FileTypeRegistry {
 				.filter(with_magic)
 				.collect();
 		}
-		let mut candidates: Vec<&FileType> = claimed.into_iter().filter(with_magic).collect();
+		// Built-in extension ties also need content checks during identification.
+		// Unambiguous built-ins keep the fast extension-only path.
+		let ambiguous_builtin = claimed.len() > 1;
+		let mut candidates: Vec<&FileType> = claimed
+			.into_iter()
+			.filter(|ft| {
+				!ft.magic_bytes.is_empty() && (ft.kind_name.is_some() || ambiguous_builtin)
+			})
+			.collect();
 		candidates.extend(
 			self.contested
 				.get(&ext)
@@ -655,6 +663,72 @@ mod tests {
 		// Test extension conflict
 		let ts_types = registry.get_by_extension("ts");
 		assert_eq!(ts_types.len(), 2); // TypeScript and MPEG-TS
+	}
+
+	#[test]
+	fn ambiguous_transport_extensions_need_bytes() {
+		let registry = FileTypeRegistry::new();
+		for name in ["module.ts", "module.TS", "module.mts", "module.MTS"] {
+			assert_eq!(
+				registry.identify_by_extension(Path::new(name)),
+				ContentKind::Code
+			);
+		}
+		assert_eq!(
+			registry.identify_by_extension(Path::new("module.tsx")),
+			ContentKind::Code
+		);
+		assert_eq!(
+			registry.identify_by_extension(Path::new("movie.mp4")),
+			ContentKind::Video
+		);
+		assert_eq!(
+			registry.identify_by_extension(Path::new("photo.jpg")),
+			ContentKind::Image
+		);
+	}
+
+	#[tokio::test]
+	async fn source_text_is_not_a_transport_stream() {
+		let dir = tempfile::tempdir().unwrap();
+		let registry = FileTypeRegistry::new();
+		for name in ["module.ts", "module.MTS"] {
+			let path = dir.path().join(name);
+			for text in [
+				"export const value = 1;",
+				"GetThing();",
+				"// G at byte four",
+				"",
+			] {
+				tokio::fs::write(&path, text).await.unwrap();
+				assert_eq!(
+					registry.identify(&path).await.unwrap().file_type.category,
+					ContentKind::Code
+				);
+			}
+		}
+	}
+
+	#[tokio::test]
+	async fn transport_packet_signatures_remain_video() {
+		let dir = tempfile::tempdir().unwrap();
+		let registry = FileTypeRegistry::new();
+		for (width, offset) in [(188, 0), (192, 4), (204, 0)] {
+			let mut bytes = vec![0xff; width * 3];
+			for packet in 0..3 {
+				bytes[packet * width + offset] = 0x47;
+			}
+			for extension in ["ts", "MTS", "m2ts"] {
+				let path = dir.path().join(format!("clip.{extension}"));
+				tokio::fs::write(&path, &bytes).await.unwrap();
+				let result = registry.identify(&path).await.unwrap();
+				assert_eq!(result.file_type.category, ContentKind::Video);
+				assert!(matches!(
+					result.method,
+					IdentificationMethod::MagicBytes | IdentificationMethod::Combined
+				));
+			}
+		}
 	}
 
 	fn kind(name: &str, parent: ContentKind, extensions: &[&str], magic: &[&str]) -> ExtensionKind {
