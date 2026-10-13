@@ -36,6 +36,8 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Visible scroll bars (2026-10-08): replace global hiding with thin, themed scroll bars. Explicit no-scrollbar utilities still hide bars where requested. Browser fixture check passed; production frontend build passed. Native app checks remain.
+
 File System Intelligence is a flagship priority identified by James (Codex,
 September 18). The product boundary now names persistent file and folder
 understanding as a first-class user benefit, with optional cloud acceleration.

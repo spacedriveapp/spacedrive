@@ -166,7 +166,7 @@ function VirtualizedGrid({
 		if (!element) return;
 
 		const updateWidth = () => {
-			const newWidth = element.offsetWidth;
+			const newWidth = element.clientWidth;
 
 			if (newWidth > 0) {
 				setContainerWidth(newWidth - 24);
