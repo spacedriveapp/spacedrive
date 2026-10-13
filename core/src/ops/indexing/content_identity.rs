@@ -195,33 +195,23 @@ impl JobHandler for ContentIdentityJob {
 				.volume_index()
 				.is_indexing(&self.root);
 			if batch.is_empty() {
-				if discovering {
-					ctx.progress(Progress::generic(
-						GenericProgress::new(
-							0.0,
-							"Identifying",
-							format!(
-								"{label} — {} files checked; waiting for discovery",
-								identified + unreadable
-							),
-						)
-						.with_completion(identified + unreadable, 0)
-						.with_performance(0.0, None, Some(estimator.elapsed())),
-					));
-					tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-					continue;
-				}
+				// Explicit tracking dispatches after its walk. Background discovery
+				// can overlap, but its next pass will dispatch newly pending files.
+				// Release this worker instead of waiting for discovery to finish.
 				break;
 			}
 			let done = identified + unreadable;
 			if !discovering && (!queue_known || done >= expected_total) {
-				expected_total = done
-					+ store
+				expected_total = expected_total.max(
+					done + store
 						.files_needing_content_count()
 						.await
-						.map_err(|e| e.to_string())?;
+						.map_err(|e| e.to_string())?,
+				);
 				queue_known = true;
 			}
+			// The estimate only grows. A queue drained by another job can remain
+			// below completion until the next empty batch ends this job.
 			expected_total = expected_total.max(done + batch.len() as u64);
 			estimator.set_length(expected_total);
 
