@@ -3,6 +3,7 @@ import {
 	invoke,
 	convertFileSrc as tauriConvertFileSrc
 } from '@tauri-apps/api/core';
+import {writeText, writeImage} from '@tauri-apps/plugin-clipboard-manager';
 import {listen} from '@tauri-apps/api/event';
 import {getCurrentWebviewWindow} from '@tauri-apps/api/webviewWindow';
 import {ask, open, save} from '@tauri-apps/plugin-dialog';
@@ -24,6 +25,9 @@ let _isDragging = false;
  */
 export const platform: Platform = {
 	platform: 'tauri',
+
+	writeClipboardText: writeText,
+	writeClipboardImage: writeImage,
 
 	async openDirectoryPickerDialog(opts) {
 		const result = await open({
