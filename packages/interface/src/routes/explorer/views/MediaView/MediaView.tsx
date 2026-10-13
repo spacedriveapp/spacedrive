@@ -1,24 +1,22 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
+import type {File} from '@sd/ts-client';
+import {useVirtualizer} from '@tanstack/react-virtual';
+import {useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
+import {useNormalizedQuery} from '../../../../contexts/SpacedriveContext';
+import {useExplorer} from '../../context';
+import {useExplorerFiles} from '../../hooks/useExplorerFiles';
+import {useSelection} from '../../SelectionContext';
+import {DateHeader} from './DateHeader';
 import {
-	useRef,
-	useMemo,
-	useState,
-	useEffect,
-	useLayoutEffect,
-} from "react";
-import { useExplorer } from "../../context";
-import { useSelection } from "../../SelectionContext";
-import { useNormalizedQuery } from "../../../../contexts/SpacedriveContext";
-import type { File } from "@sd/ts-client";
-import { MediaViewItem } from "./MediaViewItem";
-import { DateHeader } from "./DateHeader";
-import { formatDate, getItemDate, normalizeDateToMidnight } from "./utils";
-import { MediaTypeFilter, matchesMediaType, type MediaType } from "./MediaTypeFilter";
-import { useExplorerFiles } from "../../hooks/useExplorerFiles";
+	matchesMediaType,
+	MediaTypeFilter,
+	type MediaType
+} from './MediaTypeFilter';
+import {MediaViewItem} from './MediaViewItem';
+import {formatDate, getItemDate, normalizeDateToMidnight} from './utils';
 
 export function MediaView() {
 	const [mediaType, setMediaType] = useState<MediaType>('all');
-	const { setSelectedFiles, setFocusedIndex } = useSelection();
+	const {setSelectedFiles, setFocusedIndex} = useSelection();
 	const changeMediaType = (value: MediaType) => {
 		if (value === mediaType) return;
 		setSelectedFiles([]);
@@ -28,7 +26,7 @@ export function MediaView() {
 	return (
 		<div className="absolute inset-0 flex flex-col">
 			<MediaTypeFilter value={mediaType} onChange={changeMediaType} />
-			<div className="relative flex-1 min-h-0">
+			<div className="relative min-h-0 flex-1">
 				<MediaViewContent mediaType={mediaType} />
 			</div>
 		</div>
@@ -36,30 +34,36 @@ export function MediaView() {
 }
 
 function MediaViewContent({mediaType}: {mediaType: MediaType}) {
-	const { currentPath, viewSettings, sortBy, setSortBy, setCurrentFiles, mode } =
-		useExplorer();
+	const {
+		currentPath,
+		viewSettings,
+		sortBy,
+		setSortBy,
+		setCurrentFiles,
+		mode
+	} = useExplorer();
 	const {
 		selectFile,
 		focusedIndex,
 		setFocusedIndex,
 		setSelectedFiles,
 		selectedFileIds,
-		restoreSelectionFromFiles,
+		restoreSelectionFromFiles
 	} = useSelection();
 
 	// Set default sort to "datetaken" when entering media view
 	useEffect(() => {
 		if (
-			sortBy !== "datetaken" &&
-			sortBy !== "modified" &&
-			sortBy !== "created" &&
-			sortBy !== "name" &&
-			sortBy !== "size"
+			sortBy !== 'datetaken' &&
+			sortBy !== 'modified' &&
+			sortBy !== 'created' &&
+			sortBy !== 'name' &&
+			sortBy !== 'size'
 		) {
-			setSortBy("datetaken");
+			setSortBy('datetaken');
 		}
 	}, [sortBy, setSortBy]);
-	const { gridSize } = viewSettings;
+	const {gridSize} = viewSettings;
 	// Fixed 1px gap for Apple Photos style
 	const gapSize = 1;
 
@@ -71,29 +75,32 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 	// TODO: Preserve scroll position per tab using scrollPosition from context
 
 	// Get files from centralized hook (handles search mode automatically)
-	const { files: explorerFiles } = useExplorerFiles();
-	const isSearchMode = mode.type === "search";
+	const {files: explorerFiles} = useExplorerFiles();
+	const isSearchMode = mode.type === 'search';
 	// Modes whose file set comes from the centralized hook rather than a
 	// path-scoped media_listing (collections have no path to scope by).
 	const usesExplorerFiles =
-		isSearchMode || mode.type === "collection" || mode.type === "source";
+		isSearchMode || mode.type === 'collection' || mode.type === 'source';
 
 	// Query for all media files from current path with descendants (only when NOT in search mode)
 	const mediaQuery = useNormalizedQuery({
-		query: "files.media_listing",
+		query: 'files.media_listing',
 		input: currentPath
 			? {
 					path: currentPath,
 					include_descendants: true,
-					media_types: mediaType === "all" ? ["image", "video"] : [mediaType === "images" ? "image" : "video"],
+					media_types:
+						mediaType === 'all'
+							? ['image', 'video']
+							: [mediaType === 'images' ? 'image' : 'video'],
 					limit: 10000,
-					sort_by: sortBy as any, // MediaSortBy is a subset of DirectorySortBy
+					sort_by: sortBy as any // MediaSortBy is a subset of DirectorySortBy
 				}
 			: null!,
-		resourceType: "file",
+		resourceType: 'file',
 		pathScope: currentPath ?? undefined,
 		includeDescendants: true, // Recursive - show all media in subdirectories
-		enabled: !!currentPath && !usesExplorerFiles,
+		enabled: !!currentPath && !usesExplorerFiles
 		// No resourceFilter needed - the backend query already filters for media
 	});
 
@@ -102,14 +109,22 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 		if (usesExplorerFiles) {
 			// Hook-driven modes: filter to media (collections are already
 			// media-only; search results may not be)
-			return [...explorerFiles.filter((file: File) => matchesMediaType(file, mediaType))].reverse();
+			return [
+				...explorerFiles.filter((file: File) =>
+					matchesMediaType(file, mediaType)
+				)
+			].reverse();
 		}
 		// Normal mode: use media_listing query
-		return [...(mediaQuery.data?.files || []).filter((file: File) => matchesMediaType(file, mediaType))].reverse();
+		return [
+			...(mediaQuery.data?.files || []).filter((file: File) =>
+				matchesMediaType(file, mediaType)
+			)
+		].reverse();
 	}, [usesExplorerFiles, explorerFiles, mediaQuery.data?.files, mediaType]);
 	const hasFiles = files.length > 0;
 	const listingKey = `${mediaType}:${sortBy}:${JSON.stringify(
-		mode.type === "browse" ? currentPath : mode,
+		mode.type === 'browse' ? currentPath : mode
 	)}`;
 
 	// Measure before paint. A delayed width update briefly lays out a different
@@ -122,7 +137,7 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 			const newWidth = element.offsetWidth;
 			if (newWidth > 0) {
 				setContainerWidth((width) =>
-					width === newWidth ? width : newWidth,
+					width === newWidth ? width : newWidth
 				);
 			}
 		};
@@ -148,8 +163,8 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (
-				!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
-					e.key,
+				!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(
+					e.key
 				)
 			) {
 				return;
@@ -167,13 +182,13 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 
 			let newIndex = focusedIndex;
 
-			if (e.key === "ArrowUp") {
+			if (e.key === 'ArrowUp') {
 				newIndex = Math.max(0, focusedIndex - cols);
-			} else if (e.key === "ArrowDown") {
+			} else if (e.key === 'ArrowDown') {
 				newIndex = Math.min(files.length - 1, focusedIndex + cols);
-			} else if (e.key === "ArrowLeft") {
+			} else if (e.key === 'ArrowLeft') {
 				newIndex = Math.max(0, focusedIndex - 1);
-			} else if (e.key === "ArrowRight") {
+			} else if (e.key === 'ArrowRight') {
 				newIndex = Math.min(files.length - 1, focusedIndex + 1);
 			}
 
@@ -183,19 +198,19 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 
 				// Scroll selected item into view
 				const element = document.querySelector(
-					`[data-file-id="${files[newIndex].id}"]`,
+					`[data-file-id="${files[newIndex].id}"]`
 				);
 				if (element) {
 					element.scrollIntoView({
-						block: "nearest",
-						behavior: "smooth",
+						block: 'nearest',
+						behavior: 'smooth'
 					});
 				}
 			}
 		};
 
-		window.addEventListener("keydown", handleKeyDown);
-		return () => window.removeEventListener("keydown", handleKeyDown);
+		window.addEventListener('keydown', handleKeyDown);
+		return () => window.removeEventListener('keydown', handleKeyDown);
 	}, [
 		files,
 		focusedIndex,
@@ -203,19 +218,19 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 		gapSize,
 		containerWidth,
 		setFocusedIndex,
-		setSelectedFiles,
+		setSelectedFiles
 	]);
 
 	// Calculate columns and actual item size to fill available space
-	const { columns, actualItemSize } = useMemo(() => {
-		if (!containerWidth) return { columns: 8, actualItemSize: gridSize };
+	const {columns, actualItemSize} = useMemo(() => {
+		if (!containerWidth) return {columns: 8, actualItemSize: gridSize};
 		const itemWidth = gridSize + gapSize;
 		const cols = Math.max(4, Math.floor(containerWidth / itemWidth));
 		// Calculate actual size to perfectly fill the width
 		const totalGapWidth = (cols - 1) * gapSize;
 		const availableWidth = containerWidth - totalGapWidth;
 		const itemSize = Math.floor(availableWidth / cols);
-		return { columns: cols, actualItemSize: itemSize };
+		return {columns: cols, actualItemSize: itemSize};
 	}, [containerWidth, gridSize, gapSize]);
 
 	// Calculate row count
@@ -236,7 +251,7 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 		count: rowCount,
 		getScrollElement: () => parentRef.current,
 		estimateSize: () => actualItemSize + gapSize,
-		overscan: overscanCount,
+		overscan: overscanCount
 	});
 
 	// Cached row measurements only become stale when the fixed row size changes.
@@ -257,7 +272,7 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 			return;
 		}
 
-		rowVirtualizer.scrollToIndex(rowCount - 1, { align: "end" });
+		rowVirtualizer.scrollToIndex(rowCount - 1, {align: 'end'});
 		initializedListingRef.current = listingKey;
 	}, [containerWidth, listingKey, rowCount, rowVirtualizer]);
 
@@ -298,7 +313,7 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 		let firstItemIndex = firstRowIndex * columns;
 		let lastItemIndex = Math.min(
 			lastRowIndex * columns + columns,
-			files.length - 1,
+			files.length - 1
 		);
 
 		// Find first valid date
@@ -335,7 +350,7 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 			if (firstDate.getTime() === lastDate.getTime()) {
 				return formatDate(firstDate);
 			}
-			return formatDate({ from: firstDate, to: lastDate });
+			return formatDate({from: firstDate, to: lastDate});
 		}
 
 		return undefined;
@@ -345,7 +360,7 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 	// Show loading state (hook-driven modes never touch mediaQuery)
 	if (!usesExplorerFiles && mediaQuery.isLoading) {
 		return (
-			<div className="flex items-center justify-center h-full text-ink-dull">
+			<div className="text-ink-dull flex h-full items-center justify-center">
 				Loading media...
 			</div>
 		);
@@ -355,7 +370,7 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 	// no path to select; their file set defines emptiness below.
 	if (!currentPath && !usesExplorerFiles) {
 		return (
-			<div className="flex flex-col items-center justify-center h-full text-ink-dull gap-2">
+			<div className="text-ink-dull flex h-full flex-col items-center justify-center gap-2">
 				<div className="text-lg">No folder selected</div>
 				<div className="text-sm">
 					Select a place from the sidebar to view media
@@ -366,12 +381,12 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 
 	if (files.length === 0) {
 		return (
-			<div className="flex flex-col items-center justify-center h-full text-ink-dull gap-2">
+			<div className="text-ink-dull flex h-full flex-col items-center justify-center gap-2">
 				<div className="text-lg">No media files found</div>
 				<div className="text-sm">
 					{isSearchMode
-						? "No images or videos match your search"
-						: "No images or videos in this folder"}
+						? 'No images or videos match your search'
+						: 'No images or videos in this folder'}
 				</div>
 			</div>
 		);
@@ -382,18 +397,18 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 			ref={parentRef}
 			className="absolute inset-0 overflow-auto"
 			style={{
-				contain: "strict",
+				contain: 'strict'
 			}}
 		>
 			{/* Sticky date header in top-left corner */}
-			<div className="sticky top-3 left-3 z-20 pointer-events-none">
+			<div className="pointer-events-none sticky left-3 top-3 z-20">
 				<DateHeader date={dateRange} />
 			</div>
 
 			<div
 				className="relative w-full"
 				style={{
-					height: `${rowVirtualizer.getTotalSize()}px`,
+					height: `${rowVirtualizer.getTotalSize()}px`
 				}}
 			>
 				{virtualRows.flatMap((virtualRow) => {
@@ -401,14 +416,14 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 					const startIndex = virtualRow.index * columns;
 					const endIndex = Math.min(
 						startIndex + columns,
-						files.length,
+						files.length
 					);
 					const rowTop = virtualRow.start;
 
 					// Keep every file at the same React child level. Nested unkeyed
 					// row arrays remount the whole viewport when the first row changes.
 					return Array.from(
-						{ length: endIndex - startIndex },
+						{length: endIndex - startIndex},
 						(_, idx) => {
 							const i = startIndex + idx;
 							const file = files[i];
@@ -427,7 +442,7 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 										top: `${rowTop}px`,
 										left: `${left}px`,
 										width: `${actualItemSize}px`,
-										height: `${actualItemSize}px`,
+										height: `${actualItemSize}px`
 									}}
 								>
 									<MediaViewItem
@@ -440,7 +455,7 @@ function MediaViewContent({mediaType}: {mediaType: MediaType}) {
 									/>
 								</div>
 							);
-						},
+						}
 					);
 				})}
 			</div>
