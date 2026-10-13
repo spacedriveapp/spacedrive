@@ -9,7 +9,6 @@ import {
 	House,
 	Images,
 	ListBullets,
-	Lock,
 	ShieldCheck,
 	Trash
 } from '@phosphor-icons/react';
@@ -43,15 +42,11 @@ import {
 	useExplorer
 } from '../../routes/explorer/context';
 import {Thumb} from '../../routes/explorer/File/Thumb';
+import {JobProgressSummary} from '../JobManager/components/JobProgressSummary';
 import {useJobsContext} from '../JobManager/hooks/JobsContext';
 import {PairingModal} from '../modals/PairingModal';
-import {
-	availabilityBadge,
-	availabilityDescription,
-	sourceAvailability
-} from '../Sources/sourceAvailability';
 import {useSyncCount} from '../SyncMonitor/hooks/useSyncCount';
-import {TagDot, tagColor} from '../Tags';
+import {tagColor, TagDot} from '../Tags';
 import {resolveItemMetadata} from './hooks/spaceItemUtils';
 import {useSpaceItemContextMenu} from './hooks/useSpaceItemContextMenu';
 import {useSpaceLayout, useSpaces} from './hooks/useSpaces';
@@ -186,7 +181,15 @@ export function SpacesSidebar({
 		() => client.getCurrentLibraryId()
 	);
 	const [isPairingOpen, setIsPairingOpen] = useState(false);
-	const {activeJobCount, hasRunningJobs} = useJobsContext();
+	const {activeJobCount, hasRunningJobs, jobs} = useJobsContext();
+	const activeJob =
+		jobs.find(
+			(job) =>
+				job.status === 'running' &&
+				job.generic_progress?.completion.completed
+		) ??
+		jobs.find((job) => job.status === 'running' && job.generic_progress) ??
+		jobs.find((job) => job.status === 'running');
 	const {isSyncing} = useSyncCount();
 	const {currentSpaceId, setCurrentSpace} = useSidebarStore();
 	const {data: spacesData} = useSpaces();
@@ -289,7 +292,10 @@ export function SpacesSidebar({
 	};
 
 	const occupiedPlaceRoutes = useMemo(
-		() => new Set(systemFolders.map((folder) => routeForPath(folder.sd_path))),
+		() =>
+			new Set(
+				systemFolders.map((folder) => routeForPath(folder.sd_path))
+			),
 		[systemFolders]
 	);
 	const visibleSources = sources.filter(
@@ -449,10 +455,6 @@ export function SpacesSidebar({
 										deviceSlug,
 										deviceSlugById
 									);
-									const availability =
-										sourceAvailability(source);
-									const badge =
-										availabilityBadge(availability);
 									return (
 										<SidebarItem
 											key={source.id}
@@ -466,28 +468,21 @@ export function SpacesSidebar({
 											}
 											href={href}
 											tone={
-												availability === 'available'
+												source.attached
 													? 'default'
 													: 'muted'
 											}
-											badge={badge}
-											badgeIcon={
-												availability === 'locked'
-													? Lock
-													: undefined
+											badge={
+												source.attached
+													? undefined
+													: 'Offline'
 											}
 											badgeLabel={
-												badge &&
-												`${source.name} is ${badge.toLowerCase()}`
+												source.attached
+													? undefined
+													: `${source.name} is offline`
 											}
-											title={
-												availabilityDescription(
-													availability,
-													undefined
-												) ??
-												source.root ??
-												source.name
-											}
+											title={source.root ?? source.name}
 											onSelect={() => {
 												const [pathname, query] =
 													href.split('?');
@@ -595,6 +590,11 @@ export function SpacesSidebar({
 								</span>
 							)}
 						</div>
+						{activeJob && (
+							<div className="min-w-0 flex-1 px-2">
+								<JobProgressSummary job={activeJob} compact />
+							</div>
+						)}
 						<CircleButton
 							id="sidebar-item-settings"
 							type="button"

@@ -1,9 +1,10 @@
-import { Pause, Play, X } from "@phosphor-icons/react";
-import { useState } from "react";
-import clsx from "clsx";
-import type { JobListItem } from "../types";
-import { getJobDisplayName, formatDuration, timeAgo } from "../types";
-import { JobStatusIndicator } from "../components/JobStatusIndicator";
+import {Pause, Play, X} from '@phosphor-icons/react';
+import clsx from 'clsx';
+import {useState} from 'react';
+import {JobProgressSummary} from '../components/JobProgressSummary';
+import {JobStatusIndicator} from '../components/JobStatusIndicator';
+import type {JobListItem} from '../types';
+import {formatDuration, getJobDisplayName, timeAgo} from '../types';
 
 interface JobRowProps {
 	job: JobListItem;
@@ -12,15 +13,16 @@ interface JobRowProps {
 	onCancel?: (jobId: string) => void;
 }
 
-export function JobRow({ job, onPause, onResume, onCancel }: JobRowProps) {
+export function JobRow({job, onPause, onResume, onCancel}: JobRowProps) {
 	const [isHovered, setIsHovered] = useState(false);
 
 	const displayName = getJobDisplayName(job);
 	const showActionButton =
-		job.status === "running" || job.status === "paused";
-	const canPause = job.status === "running" && onPause;
-	const canResume = job.status === "paused" && onResume;
-	const canCancel = (job.status === "running" || job.status === "paused") && onCancel;
+		job.status === 'running' || job.status === 'paused';
+	const canPause = job.status === 'running' && onPause;
+	const canResume = job.status === 'paused' && onResume;
+	const canCancel =
+		(job.status === 'running' || job.status === 'paused') && onCancel;
 
 	const handleAction = (e: React.MouseEvent) => {
 		e.stopPropagation();
@@ -38,9 +40,6 @@ export function JobRow({ job, onPause, onResume, onCancel }: JobRowProps) {
 		}
 	};
 
-	// Format progress percentage
-	const progressPercent = Math.round(job.progress * 100);
-
 	// Get phase and message
 	const phase = job.current_phase;
 	const message = job.status_message;
@@ -57,8 +56,8 @@ export function JobRow({ job, onPause, onResume, onCancel }: JobRowProps) {
 	return (
 		<div
 			className={clsx(
-				"group relative flex items-center gap-4 px-4 py-3 border-b border-app-line/30",
-				"hover:bg-app-hover/20",
+				'border-app-line/30 group relative flex items-center gap-4 border-b px-4 py-3',
+				'hover:bg-app-hover/20'
 			)}
 			onMouseEnter={() => setIsHovered(true)}
 			onMouseLeave={() => setIsHovered(false)}
@@ -69,85 +68,74 @@ export function JobRow({ job, onPause, onResume, onCancel }: JobRowProps) {
 			</div>
 
 			{/* Main info */}
-			<div className="flex-1 min-w-0 flex items-center gap-6">
+			<div className="flex min-w-0 flex-1 items-center gap-6">
 				{/* Job name and details */}
-				<div className="flex-1 min-w-0">
-					<div className="flex items-center gap-2 mb-1">
-						<h3 className="text-sm mt-1 font-medium text-ink truncate">
+				<div className="min-w-0 flex-1">
+					<div className="mb-1 flex items-center gap-2">
+						<h3 className="text-ink mt-1 truncate text-sm font-medium">
 							{displayName}
 						</h3>
 						{phase && (
-							<span className="text-xs text-ink-dull px-2 py-0.5 rounded-full bg-app-box">
+							<span className="text-ink-dull bg-app-box rounded-full px-2 py-0.5 text-xs">
 								{phase}
 							</span>
 						)}
 					</div>
 					{message && (
-						<p className="text-xs text-ink-dull truncate">
+						<p className="text-ink-dull truncate text-xs">
 							{message}
 						</p>
 					)}
 				</div>
 
 				{/* Progress / Duration column */}
-				<div className="flex-shrink-0 w-32">
-					{job.status === "running" || job.status === "paused" ? (
-						// Show progress bar for active jobs
-						<div className="flex items-center gap-2">
-							<div className="flex-1 h-1.5 bg-app-line/30 rounded-full overflow-hidden">
-								<div
-									className="h-full bg-accent transition-all duration-300"
-									style={{ width: `${progressPercent}%` }}
-								/>
-							</div>
-							<span className="text-xs font-medium text-ink-dull w-8 text-right">
-								{progressPercent}%
-							</span>
-						</div>
-					) : job.status === "completed" ? (
+				<div className="w-44 flex-shrink-0">
+					{job.status === 'running' || job.status === 'paused' ? (
+						<JobProgressSummary job={job} />
+					) : job.status === 'completed' ? (
 						// Show duration for completed jobs
-						<span className="text-xs text-ink-dull">
+						<span className="text-ink-dull text-xs">
 							{formatDuration(duration)}
 						</span>
-					) : job.status === "queued" ? (
+					) : job.status === 'queued' ? (
 						// Show waiting status for queued jobs
-						<span className="text-xs text-ink-dull">
+						<span className="text-ink-dull text-xs">
 							Waiting...
 						</span>
 					) : (
 						// Show dash for failed/cancelled jobs
-						<span className="text-xs text-ink-dull">—</span>
+						<span className="text-ink-dull text-xs">—</span>
 					)}
 				</div>
 
 				{/* Completed/Started time */}
-				<div className="flex-shrink-0 w-24 text-right">
-					<span className="text-xs text-ink-dull">
-						{job.status === "completed" && job.completed_at
+				<div className="w-24 flex-shrink-0 text-right">
+					<span className="text-ink-dull text-xs">
+						{job.status === 'completed' && job.completed_at
 							? timeAgo(job.completed_at)
-							: job.status === "running" && job.started_at
+							: job.status === 'running' && job.started_at
 								? timeAgo(job.started_at)
 								: job.created_at
 									? timeAgo(job.created_at)
-									: "—"}
+									: '—'}
 					</span>
 				</div>
 
 				{/* Status */}
-				<div className="flex-shrink-0 w-20 text-right">
+				<div className="w-20 flex-shrink-0 text-right">
 					<span
 						className={clsx(
-							"inline-flex items-center px-2 py-1 rounded-md text-xs font-medium",
-							job.status === "running" &&
-								"bg-accent/10 text-accent",
-							job.status === "completed" &&
-								"bg-app-line/30 text-ink-dull",
-							job.status === "failed" &&
-								"bg-red-500/10 text-red-500",
-							job.status === "paused" &&
-								"bg-yellow-500/10 text-yellow-500",
-							job.status === "queued" &&
-								"bg-app-line/20 text-ink-dull",
+							'inline-flex items-center rounded-md px-2 py-1 text-xs font-medium',
+							job.status === 'running' &&
+								'bg-accent/10 text-accent',
+							job.status === 'completed' &&
+								'bg-app-line/30 text-ink-dull',
+							job.status === 'failed' &&
+								'bg-red-500/10 text-red-500',
+							job.status === 'paused' &&
+								'bg-yellow-500/10 text-yellow-500',
+							job.status === 'queued' &&
+								'bg-app-line/20 text-ink-dull'
 						)}
 					>
 						{job.status}
@@ -161,23 +149,35 @@ export function JobRow({ job, onPause, onResume, onCancel }: JobRowProps) {
 					{showActionButton && (canPause || canResume) && (
 						<button
 							onClick={handleAction}
-							className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-app-box hover:bg-app-selected transition-colors"
-							title={canPause ? "Pause job" : "Resume job"}
+							className="bg-app-box hover:bg-app-selected flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full transition-colors"
+							title={canPause ? 'Pause job' : 'Resume job'}
 						>
 							{canPause ? (
-								<Pause size={12} weight="fill" className="text-ink" />
+								<Pause
+									size={12}
+									weight="fill"
+									className="text-ink"
+								/>
 							) : (
-								<Play size={12} weight="fill" className="text-ink" />
+								<Play
+									size={12}
+									weight="fill"
+									className="text-ink"
+								/>
 							)}
 						</button>
 					)}
 					{canCancel && (
 						<button
 							onClick={handleCancel}
-							className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-app-box hover:bg-red-500 transition-colors"
+							className="bg-app-box flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full transition-colors hover:bg-red-500"
 							title="Cancel job"
 						>
-							<X size={12} weight="bold" className="text-ink hover:text-white" />
+							<X
+								size={12}
+								weight="bold"
+								className="text-ink hover:text-white"
+							/>
 						</button>
 					)}
 				</div>
