@@ -374,6 +374,78 @@ mod tests {
 	use super::*;
 
 	#[tokio::test]
+	async fn extension_raw_kind_survives_builtin_magic_and_unload() {
+		use crate::filetype::ExtensionKind;
+		let dir = tempfile::tempdir().unwrap();
+		let layered = FileTypeRegistry::with_extension_kinds(&[(
+			"photos".into(),
+			vec![ExtensionKind {
+				name: "raw".into(),
+				display_name: None,
+				parent: ContentKind::Image,
+				extensions: vec!["dng".into(), "cr2".into()],
+				mime_types: Vec::new(),
+				magic: Vec::new(),
+				preview: None,
+			}],
+		)]);
+		for (ext, bytes) in [
+			("dng", vec![0x49, 0x49, 0x2A, 0x00]),
+			(
+				"CR2",
+				vec![0x49, 0x49, 0x2A, 0x00, 0x10, 0x00, 0x00, 0x00, 0x43, 0x52],
+			),
+		] {
+			let path = dir.path().join(format!("photo.{ext}"));
+			tokio::fs::write(&path, bytes).await.unwrap();
+			assert_eq!(
+				identify_kind(&path, &layered).await,
+				(Some(ContentKind::Image as i64), Some("photos:raw".into()))
+			);
+			assert_eq!(
+				identify_kind(&path, &FileTypeRegistry::with_extension_kinds(&[])).await,
+				(Some(ContentKind::Image as i64), None)
+			);
+		}
+	}
+
+	#[tokio::test]
+	async fn ambiguous_builtin_types_are_stored_from_content() {
+		let dir = tempfile::tempdir().unwrap();
+		let registry = FileTypeRegistry::new();
+		for ext in ["ts", "MTS"] {
+			let path = dir.path().join(format!("source.{ext}"));
+			for text in [
+				"export const value = 1;",
+				"GetThing();",
+				"// G at byte four",
+				"",
+			] {
+				tokio::fs::write(&path, text).await.unwrap();
+				assert_eq!(
+					identify_kind(&path, &registry).await,
+					(Some(ContentKind::Code as i64), None)
+				);
+			}
+		}
+		for (width, offset) in [(188, 0), (192, 4), (204, 0)] {
+			let mut bytes = vec![0xff; width * 3];
+			for packet in 0..3 {
+				bytes[packet * width + offset] = 0x47;
+			}
+			for ext in ["ts", "MTS", "m2ts"] {
+				let path = dir.path().join(format!("video.{ext}"));
+				tokio::fs::write(&path, &bytes).await.unwrap();
+				assert_eq!(
+					identify_kind(&path, &registry).await,
+					(Some(ContentKind::Video as i64), None)
+				);
+			}
+		}
+		assert!(registry.magic_candidates(Some("jpg")).is_empty());
+	}
+
+	#[tokio::test]
 	async fn an_unreadable_file_does_not_stop_the_batch() {
 		let dir = tempfile::tempdir().unwrap();
 		let real = dir.path().join("real.bin");
