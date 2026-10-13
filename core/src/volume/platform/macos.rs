@@ -157,6 +157,7 @@ pub async fn detect_non_apfs_volumes(
 					available_space: available_bytes,
 					is_read_only: false,
 					is_mounted: true,
+					locked: false,
 					hardware_id: Some(filesystem.to_string()),
 					backend: None,
 					cloud_identifier: None,
