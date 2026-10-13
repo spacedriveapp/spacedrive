@@ -28,6 +28,8 @@ sd-tauri-core = { path = "../sd-tauri-core" }
 sd-sidecar-path = { path = "../../../crates/sidecar-path" }
 sd-extension-ui = { path = "../../../crates/extension-ui" }
 sd-pvcache = { path = "../../../crates/pvcache" }
+# Keep the image dependency: its default JPEG feature lets Tauri decode JPEG
+# clipboard images through Cargo feature unification with tauri/image-png.
 image = { workspace = true }
 
 # File opening

@@ -3,7 +3,7 @@ import {describe, expect, test} from 'bun:test';
 import {createCopyMenuItems} from './copyMenu';
 
 const file = {
-	name: 'صورة one.PNG',
+	name: 'صورة one',
 	extension: 'PNG',
 	kind: 'File',
 	is_local: true,
@@ -44,7 +44,10 @@ describe('Copy choices', () => {
 		const s = setup();
 		await s.menu.find((i) => i.label === 'Copy Name')!.onClick!();
 		await s.menu.find((i) => i.label === 'Copy Pathname')!.onClick!();
-		expect(s.writes).toEqual([file.name, file.sd_path.Physical.path]);
+		expect(s.writes).toEqual([
+			`${file.name}.${file.extension}`,
+			file.sd_path.Physical.path
+		]);
 		expect(s.state().cleared).toBe(2);
 	});
 	test('multiple names and paths preserve selection order with newline separators', async () => {
@@ -52,14 +55,14 @@ describe('Copy choices', () => {
 			file,
 			{
 				...file,
-				name: 'two.PNG',
+				name: 'two',
 				sd_path: {Physical: {device_slug: 'test', path: '/two.PNG'}}
 			}
 		]);
 		await s.menu.find((i) => i.label === 'Copy Names')!.onClick!();
 		await s.menu.find((i) => i.label === 'Copy Pathnames')!.onClick!();
 		expect(s.writes).toEqual([
-			`${file.name}\ntwo.PNG`,
+			`${file.name}.${file.extension}\ntwo.PNG`,
 			`${file.sd_path.Physical.path}\n/two.PNG`
 		]);
 		expect(s.menu.some((i) => i.label === 'Copy Image')).toBe(false);

@@ -54,7 +54,13 @@ export function createCopyMenuItems(
 			disabled: targets.length === 0,
 			onClick: copy(() =>
 				actions.writeText(
-					targets.map((target) => target.name).join('\n')
+					targets
+						.map((target) =>
+							target.kind === 'File' && target.extension
+								? `${target.name}.${target.extension}`
+								: target.name
+						)
+						.join('\n')
 				)
 			)
 		},
