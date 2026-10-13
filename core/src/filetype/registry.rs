@@ -257,7 +257,9 @@ impl FileTypeRegistry {
 		}
 		// Built-in extension ties also need content checks during identification.
 		// Unambiguous built-ins keep the fast extension-only path.
-		let ambiguous_builtin = claimed.len() > 1;
+		// An extension-provided kind keeps precedence over built-in signatures.
+		let ambiguous_builtin =
+			claimed.len() > 1 && claimed.iter().all(|ft| ft.kind_name.is_none());
 		let mut candidates: Vec<&FileType> = claimed
 			.into_iter()
 			.filter(|ft| {

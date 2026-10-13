@@ -374,6 +374,42 @@ mod tests {
 	use super::*;
 
 	#[tokio::test]
+	async fn extension_raw_kind_survives_builtin_magic_and_unload() {
+		use crate::filetype::ExtensionKind;
+		let dir = tempfile::tempdir().unwrap();
+		let layered = FileTypeRegistry::with_extension_kinds(&[(
+			"photos".into(),
+			vec![ExtensionKind {
+				name: "raw".into(),
+				display_name: None,
+				parent: ContentKind::Image,
+				extensions: vec!["dng".into(), "cr2".into()],
+				mime_types: Vec::new(),
+				magic: Vec::new(),
+				preview: None,
+			}],
+		)]);
+		for (ext, bytes) in [
+			("dng", vec![0x49, 0x49, 0x2A, 0x00]),
+			(
+				"CR2",
+				vec![0x49, 0x49, 0x2A, 0x00, 0x10, 0x00, 0x00, 0x00, 0x43, 0x52],
+			),
+		] {
+			let path = dir.path().join(format!("photo.{ext}"));
+			tokio::fs::write(&path, bytes).await.unwrap();
+			assert_eq!(
+				identify_kind(&path, &layered).await,
+				(Some(ContentKind::Image as i64), Some("photos:raw".into()))
+			);
+			assert_eq!(
+				identify_kind(&path, &FileTypeRegistry::with_extension_kinds(&[])).await,
+				(Some(ContentKind::Image as i64), None)
+			);
+		}
+	}
+
+	#[tokio::test]
 	async fn ambiguous_builtin_types_are_stored_from_content() {
 		let dir = tempfile::tempdir().unwrap();
 		let registry = FileTypeRegistry::new();
