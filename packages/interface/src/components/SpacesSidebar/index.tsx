@@ -9,6 +9,7 @@ import {
 	House,
 	Images,
 	ListBullets,
+	Lock,
 	ShieldCheck,
 	Trash
 } from '@phosphor-icons/react';
@@ -45,6 +46,11 @@ import {Thumb} from '../../routes/explorer/File/Thumb';
 import {JobProgressSummary} from '../JobManager/components/JobProgressSummary';
 import {useJobsContext} from '../JobManager/hooks/JobsContext';
 import {PairingModal} from '../modals/PairingModal';
+import {
+	availabilityBadge,
+	availabilityDescription,
+	sourceAvailability
+} from '../Sources/sourceAvailability';
 import {useSyncCount} from '../SyncMonitor/hooks/useSyncCount';
 import {tagColor, TagDot} from '../Tags';
 import {resolveItemMetadata} from './hooks/spaceItemUtils';
@@ -455,6 +461,10 @@ export function SpacesSidebar({
 										deviceSlug,
 										deviceSlugById
 									);
+									const availability =
+										sourceAvailability(source);
+									const badge =
+										availabilityBadge(availability);
 									return (
 										<SidebarItem
 											key={source.id}
@@ -468,21 +478,28 @@ export function SpacesSidebar({
 											}
 											href={href}
 											tone={
-												source.attached
+												availability === 'available'
 													? 'default'
 													: 'muted'
 											}
-											badge={
-												source.attached
-													? undefined
-													: 'Offline'
+											badge={badge}
+											badgeIcon={
+												availability === 'locked'
+													? Lock
+													: undefined
 											}
 											badgeLabel={
-												source.attached
-													? undefined
-													: `${source.name} is offline`
+												badge &&
+												`${source.name} is ${badge.toLowerCase()}`
 											}
-											title={source.root ?? source.name}
+											title={
+												availabilityDescription(
+													availability,
+													undefined
+												) ??
+												source.root ??
+												source.name
+											}
 											onSelect={() => {
 												const [pathname, query] =
 													href.split('?');
