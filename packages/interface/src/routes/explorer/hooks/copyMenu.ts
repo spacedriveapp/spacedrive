@@ -14,6 +14,20 @@ interface CopyActions {
 	onError(error: unknown): void;
 }
 
+function copyName(target: CopyTarget): string {
+	if (target.kind === 'File' && 'Physical' in target.sd_path) {
+		const path = target.sd_path.Physical.path;
+		// Only Windows drive and UNC paths treat a backslash as a separator.
+		// A Unix filename can contain a backslash.
+		const windows = /^[a-z]:[\\/]/i.test(path) || path.startsWith('\\\\');
+		const name = path.split(windows ? /[\\/]/ : '/').pop();
+		if (name) return name;
+	}
+	return target.kind === 'File' && target.extension
+		? `${target.name}.${target.extension}`
+		: target.name;
+}
+
 export function createCopyMenuItems(
 	targets: CopyTarget[],
 	actions: CopyActions
@@ -53,15 +67,7 @@ export function createCopyMenuItems(
 			label: targets.length > 1 ? 'Copy Names' : 'Copy Name',
 			disabled: targets.length === 0,
 			onClick: copy(() =>
-				actions.writeText(
-					targets
-						.map((target) =>
-							target.kind === 'File' && target.extension
-								? `${target.name}.${target.extension}`
-								: target.name
-						)
-						.join('\n')
-				)
+				actions.writeText(targets.map(copyName).join('\n'))
 			)
 		},
 		{

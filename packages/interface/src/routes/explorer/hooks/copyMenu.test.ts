@@ -4,7 +4,7 @@ import {createCopyMenuItems} from './copyMenu';
 
 const file = {
 	name: 'صورة one',
-	extension: 'PNG',
+	extension: 'png',
 	kind: 'File',
 	is_local: true,
 	sd_path: {
@@ -44,10 +44,7 @@ describe('Copy choices', () => {
 		const s = setup();
 		await s.menu.find((i) => i.label === 'Copy Name')!.onClick!();
 		await s.menu.find((i) => i.label === 'Copy Pathname')!.onClick!();
-		expect(s.writes).toEqual([
-			`${file.name}.${file.extension}`,
-			file.sd_path.Physical.path
-		]);
+		expect(s.writes).toEqual(['صورة one.PNG', file.sd_path.Physical.path]);
 		expect(s.state().cleared).toBe(2);
 	});
 	test('multiple names and paths preserve selection order with newline separators', async () => {
@@ -62,7 +59,7 @@ describe('Copy choices', () => {
 		await s.menu.find((i) => i.label === 'Copy Names')!.onClick!();
 		await s.menu.find((i) => i.label === 'Copy Pathnames')!.onClick!();
 		expect(s.writes).toEqual([
-			`${file.name}.${file.extension}\ntwo.PNG`,
+			'صورة one.PNG\ntwo.PNG',
 			`${file.sd_path.Physical.path}\n/two.PNG`
 		]);
 		expect(s.menu.some((i) => i.label === 'Copy Image')).toBe(false);
@@ -103,5 +100,47 @@ describe('Copy choices', () => {
 		item.onClick!();
 		expect(item.keybindId).toBe('explorer.copy');
 		expect(s.state()).toEqual({cleared: 0, files: 1, errors: 0});
+	});
+});
+
+describe('exact physical names', () => {
+	for (const [path, expected] of [
+		['/Test folder/صورة one.PNG', 'صورة one.PNG'],
+		['C:\\Test folder\\صورة one.PNG', 'صورة one.PNG'],
+		['\\\\server\\share\\صورة one.PNG', 'صورة one.PNG'],
+		['\\\\?\\C:\\Test folder\\صورة one.PNG', 'صورة one.PNG'],
+		[String.raw`/Test folder/a\b.PNG`, String.raw`a\b.PNG`]
+	]) {
+		test(`retains the exact name from ${path}`, async () => {
+			const s = setup([
+				{
+					...file,
+					name: expected.slice(0, -4),
+					extension: 'png',
+					sd_path: {Physical: {device_slug: 'test', path}}
+				}
+			]);
+			await s.menu.find((i) => i.label === 'Copy Name')!.onClick!();
+			expect(s.writes).toEqual([expected]);
+		});
+	}
+	test('content-only files retain the metadata fallback', async () => {
+		const s = setup([
+			{
+				...file,
+				name: 'remote',
+				extension: 'png',
+				sd_path: {Content: {content_id: 'test'}}
+			}
+		]);
+		await s.menu.find((i) => i.label === 'Copy Name')!.onClick!();
+		expect(s.writes).toEqual(['remote.png']);
+	});
+	test('directory names retain their spelling without adding an extension', async () => {
+		const s = setup([
+			{...file, name: 'Folder.Name', kind: 'Directory', extension: null}
+		]);
+		await s.menu.find((i) => i.label === 'Copy Name')!.onClick!();
+		expect(s.writes).toEqual(['Folder.Name']);
 	});
 });
