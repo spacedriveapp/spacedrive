@@ -2883,6 +2883,44 @@ impl PeerSync {
 		Ok(serde_json::Value::Object(response))
 	}
 
+	/// Return to Ready after an incremental catch-up and apply what was buffered
+	///
+	/// Changes received while `CatchingUp` are buffered; unlike
+	/// `transition_to_ready`, nothing else drains them on this path, so they
+	/// would never be applied.
+	pub async fn finish_catch_up(&self, peer: Uuid, reason: &'static str) {
+		let old_state = {
+			let mut state = self.state.write().await;
+			std::mem::replace(&mut *state, DeviceSyncState::Ready)
+		};
+		info!(
+			from_state = ?old_state,
+			to_state = ?DeviceSyncState::Ready,
+			peer = %peer,
+			reason,
+			"Sync state transition"
+		);
+
+		// Bounded: an update that cannot resolve its dependency is pushed back.
+		let pending = self.buffer.len().await;
+		for _ in 0..pending {
+			let Some(update) = self.buffer.pop_ordered().await else {
+				break;
+			};
+			let result = match update {
+				super::state::BufferedUpdate::StateChange(change) => {
+					self.apply_state_change(change).await
+				}
+				super::state::BufferedUpdate::SharedChange(entry) => {
+					self.apply_shared_change(entry).await
+				}
+			};
+			if let Err(e) = result {
+				warn!(peer = %peer, error = %e, "Failed to apply update buffered during catch-up");
+			}
+		}
+	}
+
 	/// Transition to ready state (after backfill)
 	pub async fn transition_to_ready(&self) -> Result<()> {
 		let current_state = self.state().await;

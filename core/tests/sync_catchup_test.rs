@@ -15,11 +15,14 @@ use helpers::{
 	MockTransport, TestConfigBuilder, TestDataDir,
 };
 use sd_core::{
-	infra::{db::entities, sync::NetworkTransport},
-	service::Service,
+	infra::{
+		db::entities,
+		sync::{ChangeType, NetworkTransport, SharedChangeEntry, SystemTimeSource, HLC},
+	},
+	service::{sync::state::DeviceSyncState, Service},
 	Core,
 };
-use sea_orm::{EntityTrait, PaginatorTrait};
+use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tokio::time::Duration;
@@ -200,6 +203,81 @@ async fn test_catch_up_with_empty_peer_runs_once() -> anyhow::Result<()> {
 		.await?;
 	assert_eq!(alice_volumes.len(), 1);
 	assert_eq!(alice_volumes[0].device_id, device_alice_id);
+
+	Ok(())
+}
+
+/// Changes received during an incremental catch-up are buffered, and the
+/// catch-up then returns to Ready without going through
+/// `transition_to_ready`, which is the only other place the buffer is
+/// drained. Ending the catch-up must apply them, or they are lost.
+#[tokio::test]
+async fn test_changes_buffered_during_catch_up_are_applied() -> anyhow::Result<()> {
+	let test_data = TestDataDir::new("catch_up_buffer")?;
+	let dir = test_data.core_data_path();
+	TestConfigBuilder::new(dir.clone()).build()?;
+
+	let core = Core::new(dir)
+		.await
+		.map_err(|e| anyhow::anyhow!("Failed to create core: {}", e))?;
+	let device_id = core.device.device_id()?;
+	let library = core
+		.libraries
+		.create_library_no_sync("Catch Up Buffer", None, core.context.clone())
+		.await?;
+	library
+		.init_sync_service(
+			device_id,
+			MockTransport::new_single(device_id) as Arc<dyn NetworkTransport>,
+		)
+		.await?;
+	let peer_sync = library.sync_service().unwrap().peer_sync();
+
+	let peer = Uuid::new_v4();
+	peer_sync
+		.set_state_for_test(DeviceSyncState::CatchingUp { buffered_count: 0 })
+		.await;
+
+	let space_uuid = Uuid::new_v4();
+	let now = chrono::Utc::now();
+	peer_sync
+		.on_shared_change_received(SharedChangeEntry {
+			hlc: HLC::now(peer, &SystemTimeSource),
+			model_type: "space".to_string(),
+			record_uuid: space_uuid,
+			change_type: ChangeType::Insert,
+			data: serde_json::json!({
+				"uuid": space_uuid,
+				"name": "From peer",
+				"icon": "Planet",
+				"color": "#000000",
+				"order": 0,
+				"created_at": now,
+				"updated_at": now,
+			}),
+		})
+		.await?;
+
+	let space_count = || async {
+		entities::space::Entity::find()
+			.filter(entities::space::Column::Uuid.eq(space_uuid))
+			.count(library.db().conn())
+			.await
+	};
+	assert_eq!(
+		space_count().await?,
+		0,
+		"the change must be buffered while catching up"
+	);
+
+	peer_sync.finish_catch_up(peer, "catchup_completed").await;
+
+	assert!(peer_sync.state().await.is_ready());
+	assert_eq!(
+		space_count().await?,
+		1,
+		"the change buffered during catch-up was never applied"
+	);
 
 	Ok(())
 }
