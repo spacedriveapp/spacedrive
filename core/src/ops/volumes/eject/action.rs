@@ -1,9 +1,13 @@
 //! Volume eject action
 
 use super::{VolumeEjectInput, VolumeEjectOutput};
-use crate::{context::CoreContext, infra::action::error::ActionError, volume::VolumeFingerprint};
+use crate::{
+	context::CoreContext,
+	infra::action::error::ActionError,
+	volume::{MountType, VolumeFingerprint},
+};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 use tracing::{error, info};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -15,6 +19,24 @@ impl VolumeEjectAction {
 	pub fn new(input: VolumeEjectInput) -> Self {
 		Self { input }
 	}
+}
+
+/// Why a volume must not be ejected, if it must not.
+///
+/// Unmounting the system volume, a filesystem root or `/home` takes the
+/// running system down with it, so these are refused before any platform
+/// call.
+fn protected_eject_reason(mount_point: &Path, mount_type: &MountType) -> Option<&'static str> {
+	if matches!(mount_type, MountType::System) {
+		return Some("System volumes cannot be ejected");
+	}
+	if mount_point.as_os_str().is_empty() || mount_point.parent().is_none() {
+		return Some("Filesystem roots cannot be ejected");
+	}
+	if mount_point == Path::new("/home") {
+		return Some("The system home mount cannot be ejected");
+	}
+	None
 }
 
 crate::register_library_action!(VolumeEjectAction, "volumes.eject");
@@ -49,6 +71,14 @@ impl crate::infra::action::LibraryAction for VolumeEjectAction {
 				fingerprint: self.input.fingerprint,
 				success: false,
 				message: Some("Volume is not mounted".to_string()),
+			});
+		}
+
+		if let Some(message) = protected_eject_reason(&volume.mount_point, &volume.mount_type) {
+			return Ok(VolumeEjectOutput {
+				fingerprint: self.input.fingerprint,
+				success: false,
+				message: Some(message.to_string()),
 			});
 		}
 
@@ -136,4 +166,25 @@ async fn eject_volume_platform(_mount_point: &str) -> Result<String, String> {
 #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
 async fn eject_volume_platform(_mount_point: &str) -> Result<String, String> {
 	Err("Volume ejection is not supported on this platform".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn protects_system_mounts_from_ejection() {
+		assert!(protected_eject_reason(Path::new("/"), &MountType::User).is_some());
+		assert!(protected_eject_reason(Path::new("/home"), &MountType::User).is_some());
+		assert!(protected_eject_reason(Path::new("/mnt/data"), &MountType::System).is_some());
+	}
+
+	#[test]
+	fn allows_external_and_network_mounts() {
+		assert!(
+			protected_eject_reason(Path::new("/run/media/user/usb"), &MountType::External)
+				.is_none()
+		);
+		assert!(protected_eject_reason(Path::new("/mnt/share"), &MountType::Network).is_none());
+	}
 }
