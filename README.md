@@ -30,7 +30,7 @@
 ---
 
 > [!IMPORTANT]
-> **Spacedrive 2.0 Beta is planned for November 1, 2026.**
+> **Spacedrive 2.0 Beta is planned for November 15, 2026.**
 >
 > Beta commits to Spacedrive's data model and to preserving your library as
 > it evolves. The release makes self-owned storage practical across
