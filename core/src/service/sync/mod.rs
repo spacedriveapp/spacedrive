@@ -556,32 +556,13 @@ impl SyncService {
 											Ok(()) => {
 												info!(peer = %partner_id, "Incremental catch-up completed");
 												retry_state.record_success();
-												// Transition back to Ready
-												let old_state = peer_sync.state().await;
-												let mut state = peer_sync.state.write().await;
-												*state = DeviceSyncState::Ready;
-												info!(
-													from_state = ?old_state,
-													to_state = ?DeviceSyncState::Ready,
-													peer = %partner_id,
-													reason = "catchup_completed",
-													"Sync state transition"
-												);
+												peer_sync.finish_catch_up(partner_id, "catchup_completed").await;
 											}
 											Err(e) => {
 												warn!(peer = %partner_id, error = %e, "Incremental catch-up failed");
 												retry_state.record_failure();
-												// Transition back to Ready even on error
-												let old_state = peer_sync.state().await;
-												let mut state = peer_sync.state.write().await;
-												*state = DeviceSyncState::Ready;
-												info!(
-													from_state = ?old_state,
-													to_state = ?DeviceSyncState::Ready,
-													peer = %partner_id,
-													reason = "catchup_failed_but_continuing",
-													"Sync state transition"
-												);
+												// Back to Ready even on error
+												peer_sync.finish_catch_up(partner_id, "catchup_failed_but_continuing").await;
 											}
 										}
 
