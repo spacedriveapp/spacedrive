@@ -119,7 +119,7 @@ R8 matrices and the mount, watcher, permission and removable drive rows to
 pass on Windows, and none of that has run once. The integration triage alone
 took the Linux side two threads (SPAC-2, SPAC-6) with a fast machine in the
 loop; on Windows the loop is a 50 minute hosted runner unless someone
-provides a Windows machine. With the beta on November 1 and Windows first on
+provides a Windows machine. With the beta on November 15 and Windows first on
 the cut list in `roadmap-to-beta.md`, the honest claim for beta.1 is what the
 CI job proves: it builds, the unit layer passes, the binaries install and
 update themselves.
@@ -138,7 +138,7 @@ If Jamie wants Windows in beta.1 instead: the path is a Windows machine with
 rustup (or a self-hosted runner), the integration job, then the trash and
 relative-path fixes, then the matrices; three weeks of one thread's time
 with the loop on a real machine, longer on the hosted runner. That does not
-fit before November 1 alongside the other gates.
+fit before November 15 alongside the other gates.
 
 ## Keeping the job honest
 

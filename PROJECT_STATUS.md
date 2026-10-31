@@ -66,8 +66,9 @@ schemas evolve. Keep the 2.0 generation and explain the skipped stable 1.0 and
 the rewrite honestly in the launch post. The README and release policy now
 name the beta target; `docs/plans/2026-09-17-beta-launch.md` records the rationale
 and draft launch wording. The target moved from October 1 to November 1, 2026
-on 2026-10-05 (Jamie). This is a release goal, not a claim that the gates
-have passed. No package versions, tags, builds or published releases changed.
+on 2026-10-05 (Jamie), and again to November 15, 2026 on 2026-10-31 (Jamie).
+This is a release goal, not a claim that the gates have passed. No package
+versions, tags, builds or published releases changed.
 
 Alternate shell composition is implemented (Codex, 2026-09-15, uncommitted).
 Inset content is the default; Settings > Appearance > Layout retains Floating
