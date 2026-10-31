@@ -3,12 +3,12 @@
 # Install JS dependencies and generate the cargo config
 setup:
     bun install
-    cargo xtask setup
+    cargo run -p xtask -- setup
 
 # Same, plus the prebuilt codec bundle (FFmpeg, libheif, Pdfium)
 setup-native-deps:
     bun install
-    cargo xtask setup --native-deps
+    cargo run -p xtask -- setup --native-deps
 
 # Run the daemon (default dev workflow: just dev-daemon + just dev-desktop)
 dev-daemon *ARGS:
