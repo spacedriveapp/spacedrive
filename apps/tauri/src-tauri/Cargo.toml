@@ -13,7 +13,7 @@ serde_json = "1.0"
 
 [dependencies]
 # Tauri
-tauri = { version = "2.1", features = ["macos-private-api", "devtools", "protocol-asset"] }
+tauri = { version = "2.1", features = ["macos-private-api", "devtools", "protocol-asset", "image-png"] }
 tauri-plugin-dialog = "2.0"
 tauri-plugin-fs = "2.0"
 tauri-plugin-shell = "2.0"
@@ -28,6 +28,8 @@ sd-tauri-core = { path = "../sd-tauri-core" }
 sd-sidecar-path = { path = "../../../crates/sidecar-path" }
 sd-extension-ui = { path = "../../../crates/extension-ui" }
 sd-pvcache = { path = "../../../crates/pvcache" }
+# Keep the image dependency: its default JPEG feature lets Tauri decode JPEG
+# clipboard images through Cargo feature unification with tauri/image-png.
 image = { workspace = true }
 
 # File opening

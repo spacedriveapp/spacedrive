@@ -27,6 +27,7 @@
 		"@sd/ts-client": "workspace:*",
 		"@spacedrive/primitives": "^0.2.3",
 		"@tauri-apps/api": "^2.1.1",
+		"@tauri-apps/plugin-clipboard-manager": "2.3.2",
 		"@tauri-apps/plugin-dialog": "^2.4.2",
 		"@tauri-apps/plugin-fs": "^2.0.1",
 		"@tauri-apps/plugin-shell": "^2.0.1",
