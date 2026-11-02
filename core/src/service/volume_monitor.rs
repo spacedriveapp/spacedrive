@@ -280,8 +280,8 @@ impl Service for VolumeMonitorService {
 /// `volumes.refresh` op or by the timer all reach the index the same way.
 /// When a drive returns, every source on it that had failed identifications
 /// while it was away has them put back in the pending set and a background
-/// identity pass dispatched, so a file that could not be read because its
-/// volume was locked is read once the key loads.
+/// walk dispatched. A new watch cannot report changes made while the drive
+/// was away, so the walk reconciles names before content identification resumes.
 pub fn follow_volume_events(context: Arc<CoreContext>) -> tokio::task::JoinHandle<()> {
 	let mut events = context.events.subscribe();
 	tokio::spawn(async move {
@@ -379,28 +379,21 @@ async fn apply_volume(context: &Arc<CoreContext>, volume: &Volume) {
 				warn!(source = %source_id, %error, "could not reset failed identifications")
 			}
 		}
-		let pending = store.files_needing_content_count().await.unwrap_or(0);
-		if pending == 0 {
-			continue;
-		}
-		if let Some(reason) = index.dispatch_refusal(&root) {
-			warn!(source = %source_id, %reason, "not identifying the returned source");
-			continue;
-		}
-		let job =
-			crate::ops::indexing::content_identity::ContentIdentityJob::background(root.clone());
-		match library
-			.jobs()
-			.dispatch_with_priority(job, crate::infra::job::types::JobPriority::LOW, None)
-			.await
+		// Re-arming the watcher covers future events, not changes made while
+		// the drive was away. Reuse the source walk so capture policy, stale
+		// record removal and follow-up identification stay consistent.
+		let whole_volume = root == volume.mount_point;
+		if let Some(job_id) = crate::ops::sources::track::action::dispatch_source_walk(
+			&library,
+			context,
+			source_id,
+			root,
+			whole_volume,
+			false,
+		)
+		.await
 		{
-			Ok(handle) => info!(
-				source = %source_id,
-				pending,
-				job = %handle.id(),
-				"identifying the contents of a returned source"
-			),
-			Err(error) => warn!(source = %source_id, %error, "could not resume identification"),
+			info!(source = %source_id, job = %job_id, "refreshing a returned source");
 		}
 	}
 }

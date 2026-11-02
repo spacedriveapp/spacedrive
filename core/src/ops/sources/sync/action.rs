@@ -1,4 +1,4 @@
-//! Source sync action — dispatches a SourceSyncJob
+//! Refresh a source through its filesystem walk or adapter.
 
 use super::job::SourceSyncJob;
 use crate::{
@@ -35,17 +35,35 @@ impl LibraryAction for SyncSourceAction {
 	async fn execute(
 		self,
 		library: Arc<Library>,
-		_context: Arc<CoreContext>,
+		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		// The name is for the job's own display; the job re-reads the row it
-		// needs when it runs.
-		let source_name = match uuid::Uuid::parse_str(&self.input.source_id) {
-			Ok(id) => registry::get(library.db().conn(), id)
-				.await
-				.map(|row| row.name)
-				.unwrap_or_else(|_| self.input.source_id.clone()),
-			Err(_) => self.input.source_id.clone(),
-		};
+		let id = uuid::Uuid::parse_str(&self.input.source_id)
+			.map_err(|e| ActionError::InvalidInput(format!("Invalid source ID: {e}")))?;
+		let source = registry::get(library.db().conn(), id)
+			.await
+			.map_err(|e| ActionError::InvalidInput(e.to_string()))?;
+
+		if source.data_type == registry::FILESYSTEM {
+			let root = context.volume_index().source_root(id).ok_or_else(|| {
+				ActionError::InvalidInput("Source has no root on this machine".to_string())
+			})?;
+			let output = crate::ops::sources::track::action::track_and_index(
+				&library,
+				&context,
+				root,
+				None,
+				&crate::library::config::AddOverrides::default(),
+			)
+			.await?;
+			let job_id = output.job_id.ok_or_else(|| {
+				ActionError::Internal("Could not start the source walk".to_string())
+			})?;
+			return Ok(crate::infra::job::handle::JobReceipt {
+				id: crate::infra::job::types::JobId(job_id),
+				job_name: "indexer".to_string(),
+			});
+		}
+		let source_name = source.name;
 
 		let job = SourceSyncJob::new(self.input.source_id, source_name);
 

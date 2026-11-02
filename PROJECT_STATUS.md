@@ -36,6 +36,19 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Local catalog reliability fixes (November 2, 2026): `sources.sync` routes a
+filesystem source through the existing track-and-index path while preserving
+its source identity and settings. Daemon startup respects the stored networking
+opt-out. App config updates share the running Core configuration so shutdown
+cannot overwrite them with startup values. Regression tests cover a filesystem
+refresh, unavailable-root retention, and config persistence through shutdown.
+Returned volumes also dispatch a catch-up walk, including when content
+identification has no pending files. Desktop CSP permits local asset fetches
+used by text previews. macOS mount detection uses statfs so the unified
+APFS Data volume is recognized even when it shares its parent device number.
+The focused regression suite and isolated daemon restart checks pass on macOS.
+
+
 File System Intelligence is a flagship priority identified by James (Codex,
 September 18). The product boundary now names persistent file and folder
 understanding as a first-class user benefit, with optional cloud acceleration.

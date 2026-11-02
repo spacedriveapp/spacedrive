@@ -162,6 +162,8 @@ impl Core {
 			data_dir.clone(),
 		);
 
+		context_inner.app_config = Some(config.clone());
+
 		// Enable per-job file logging by default
 		let mut app_config = config.write().await;
 		if !app_config.job_logging.enabled {

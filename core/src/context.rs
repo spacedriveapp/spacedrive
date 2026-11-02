@@ -1,7 +1,7 @@
 //! Shared context providing access to core application components.
 
 use crate::{
-	config::JobLoggingConfig,
+	config::{AppConfig, JobLoggingConfig},
 	crypto::key_manager::KeyManager,
 	device::DeviceManager,
 	filetype::FileTypeRegistry,
@@ -55,6 +55,8 @@ pub struct CoreContext {
 	pub job_logs_dir: Option<PathBuf>,
 	// Data directory path (for reset and cleanup operations)
 	pub data_dir: PathBuf,
+	// Shared with Core so API updates survive its shutdown save.
+	pub app_config: Option<Arc<RwLock<AppConfig>>>,
 	// Previewed plans kept under handles for browsing; in-memory, never persisted
 	pub plans: Arc<crate::ops::files::plan::PlanHandles>,
 }
@@ -110,6 +112,7 @@ impl CoreContext {
 			job_logging_config: None,
 			job_logs_dir: None,
 			data_dir,
+			app_config: None,
 			plans: Arc::new(crate::ops::files::plan::PlanHandles::default()),
 		}
 	}

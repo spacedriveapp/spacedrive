@@ -105,6 +105,10 @@ pub const CORE_TESTS: &[TestSuite] = &[
 	),
 	core("Volume tracking test", &["--test", "volume_tracking_test"]),
 	core(
+		"Local catalog reliability test",
+		&["--test", "local_catalog_reliability_test"],
+	),
+	core(
 		"Typescript bridge test",
 		&["--test", "typescript_bridge_test"],
 	),
