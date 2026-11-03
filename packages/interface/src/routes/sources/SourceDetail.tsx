@@ -188,7 +188,11 @@ export function SourceDetail() {
 				.subscribeFiltered(filter, (event) => {
 					if (
 						!cancelled &&
-						shouldRefreshSourceForEvent(event, volumeFingerprint)
+						shouldRefreshSourceForEvent(
+						event,
+						volumeFingerprint,
+						source.volume_uuid,
+					)
 					)
 						refresh();
 				})
@@ -226,6 +230,7 @@ export function SourceDetail() {
 		libraryId,
 		sourceId,
 		source?.root,
+		source?.volume_uuid,
 		volumeFingerprint,
 	]);
 

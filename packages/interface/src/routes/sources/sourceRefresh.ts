@@ -21,6 +21,7 @@ export function sourceFileEventFilter(libraryId: string, root: string | null) {
 export function shouldRefreshSourceForEvent(
 	event: Event,
 	volumeFingerprint?: string,
+	volumeId?: string | null,
 ): boolean {
 	if (typeof event === "string") return false;
 	if ("ResourceChanged" in event)
@@ -34,7 +35,17 @@ export function shouldRefreshSourceForEvent(
 			event.JobCompleted.job_type === "indexer" ||
 			event.JobCompleted.job_type === "source_sync"
 		);
-	if (!volumeFingerprint) return false;
+	// An absent drive may not be in volumes.list until it returns, so its
+	// fingerprint is unknown. Refresh this source on volume changes to learn it.
+	if (!volumeFingerprint) {
+		return (
+			!!volumeId &&
+			("VolumeAdded" in event ||
+				"VolumeRemoved" in event ||
+				"VolumeUpdated" in event ||
+				"VolumeMountChanged" in event)
+		);
+	}
 	if ("VolumeAdded" in event)
 		return event.VolumeAdded.fingerprint === volumeFingerprint;
 	if ("VolumeRemoved" in event)

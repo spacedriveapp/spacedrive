@@ -44,7 +44,8 @@ as the last completed sync. Source listings wait for pending writes from their
 matching local store, preserving job failure history, so a watcher event cannot
 trigger a stale read before the batch commits. Ancestor watches route each batch
 to the changed paths' source stores, preserving same-source event ordering and
-reconciling moves between stores. Search scopes reject invalid paths and recognize
+reconciling moves between stores. An offline source refreshes when its volume
+returns even if the initial volume list had no fingerprint. Search scopes reject invalid paths and recognize
 local aliases; source filters intersect and propagate store errors. Job JSON
 queries each library once. Rename handling recovers a destination when a prior
 remove already erased the old entry. macOS stale create events join the

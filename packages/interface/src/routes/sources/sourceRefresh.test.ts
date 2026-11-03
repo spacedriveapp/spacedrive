@@ -47,6 +47,19 @@ describe("source refresh events", () => {
 		).toBe(false);
 	});
 
+	test("refreshes an absent source when its volume fingerprint is not known", () => {
+		const mount = {
+			VolumeMountChanged: { fingerprint: "returned", is_mounted: true },
+		} as const;
+		expect(
+			shouldRefreshSourceForEvent(mount, undefined, "source-volume"),
+		).toBe(true);
+		expect(shouldRefreshSourceForEvent(mount, undefined, null)).toBe(false);
+		expect(
+			shouldRefreshSourceForEvent(mount, "other", "source-volume"),
+		).toBe(false);
+	});
+
 	test("refreshes on source jobs and only the matching volume", () => {
 		expect(
 			shouldRefreshSourceForEvent({
