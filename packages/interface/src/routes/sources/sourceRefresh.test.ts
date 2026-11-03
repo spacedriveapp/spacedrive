@@ -1,10 +1,42 @@
+import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, test } from "bun:test";
 import {
+	isSourceMetadataEvent,
 	shouldRefreshSourceForEvent,
 	sourceFileEventFilter,
+	sourceListQueryKey,
 } from "./sourceRefresh";
 
 describe("source refresh events", () => {
+	test("invalidates source lists only within the active library", async () => {
+		const client = new QueryClient();
+		const current = ["sources.list", "a", { data_type: null }];
+		const filtered = ["sources.list", "a", { data_type: "filesystem" }];
+		const other = ["sources.list", "b", { data_type: null }];
+		for (const key of [current, filtered, other])
+			client.setQueryData(key, []);
+		await client.invalidateQueries({
+			queryKey: sourceListQueryKey("a"),
+			refetchType: "none",
+		});
+		expect(client.getQueryState(current)?.isInvalidated).toBe(true);
+		expect(client.getQueryState(filtered)?.isInvalidated).toBe(true);
+		expect(client.getQueryState(other)?.isInvalidated).toBe(false);
+	});
+
+	test("distinguishes source metadata events from file changes", () => {
+		expect(
+			isSourceMetadataEvent({
+				VolumeMountChanged: { fingerprint: "a", is_mounted: true },
+			}),
+		).toBe(true);
+		expect(
+			isSourceMetadataEvent({
+				ResourceDeleted: { resource_type: "file", resource_id: "1" },
+			}),
+		).toBe(false);
+	});
+
 	test("scopes file subscriptions to the source root and library", () => {
 		expect(sourceFileEventFilter("library", "/drive/photos")).toEqual({
 			library_id: "library",

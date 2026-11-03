@@ -6,9 +6,9 @@ import {
 	Lock,
 	Trash,
 } from "@phosphor-icons/react";
+import type { SourceItem } from "@sd/ts-client";
 import { CircleButton, Popover, usePopover } from "@spacedrive/primitives";
 import { useQueryClient } from "@tanstack/react-query";
-import type { SourceItem } from "@sd/ts-client";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -29,8 +29,10 @@ import { TopBarItem, TopBarPortal } from "../../TopBar";
 import { ExpandableSearchButton } from "../explorer/components/ExpandableSearchButton";
 import { SourceMediaView } from "./SourceMediaView";
 import {
+	isSourceMetadataEvent,
 	shouldRefreshSourceForEvent,
 	sourceFileEventFilter,
+	sourceListQueryKey,
 } from "./sourceRefresh";
 
 const PAGE_SIZE = 100;
@@ -157,10 +159,18 @@ export function SourceDetail() {
 		let cancelled = false;
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		const unsubscribers: Array<() => void> = [];
-		const refresh = () => {
+		let refreshSourceList = false;
+		const refresh = (metadataChanged: boolean) => {
+			refreshSourceList ||= metadataChanged;
 			if (timer) return;
 			timer = setTimeout(() => {
 				timer = undefined;
+				if (refreshSourceList) {
+					refreshSourceList = false;
+					void queryClient.invalidateQueries({
+						queryKey: sourceListQueryKey(libraryId),
+					});
+				}
 				void queryClient.invalidateQueries({
 					predicate: (query) => {
 						const [type, id, input] = query.queryKey;
@@ -189,12 +199,12 @@ export function SourceDetail() {
 					if (
 						!cancelled &&
 						shouldRefreshSourceForEvent(
-						event,
-						volumeFingerprint,
-						source.volume_uuid,
+							event,
+							volumeFingerprint,
+							source.volume_uuid,
+						)
 					)
-					)
-						refresh();
+						refresh(isSourceMetadataEvent(event));
 				})
 				.then((unsubscribe) => {
 					if (cancelled) unsubscribe();

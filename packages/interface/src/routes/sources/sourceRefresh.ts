@@ -56,3 +56,18 @@ export function shouldRefreshSourceForEvent(
 		return event.VolumeMountChanged.fingerprint === volumeFingerprint;
 	return false;
 }
+
+export function sourceListQueryKey(libraryId: string) {
+	return ["sources.list", libraryId] as const;
+}
+
+export function isSourceMetadataEvent(event: Event): boolean {
+	return (
+		typeof event !== "string" &&
+		("JobCompleted" in event ||
+			"VolumeAdded" in event ||
+			"VolumeRemoved" in event ||
+			"VolumeUpdated" in event ||
+			"VolumeMountChanged" in event)
+	);
+}
