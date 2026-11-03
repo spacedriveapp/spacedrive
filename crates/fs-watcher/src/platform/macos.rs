@@ -156,13 +156,14 @@ impl MacOsHandler {
 		let Some(inode) = Self::get_inode(&path).await else {
 			// Can't get inode - check if path actually exists
 			if !path.exists() {
-				// File doesn't exist - this is likely a misreported Create event from FSEvents
-				// that should be a Remove. Emit Remove instead.
+				// A stale create can precede the two halves of a rename. Route it
+				// through the same inode buffer as a remove so it cannot delete
+				// the old identity before the matching destination arrives.
 				debug!(
 					"Create event for non-existent path (likely misreported by FSEvents): {}",
 					path.display()
 				);
-				return Ok(vec![FsEvent::remove(path)]);
+				return self.process_remove(path).await;
 			}
 
 			// Path exists but we couldn't get inode (permission issue?)
@@ -577,5 +578,80 @@ mod tests {
 		// Second modify - should mark as reincident
 		handler.process_modify(path.clone()).await.unwrap();
 		assert!(handler.reincident_updates.read().await.contains_key(&path));
+	}
+	fn raw(kind: RawEventKind, path: PathBuf) -> RawNotifyEvent {
+		RawNotifyEvent {
+			kind,
+			paths: vec![path],
+			timestamp: std::time::SystemTime::now(),
+		}
+	}
+
+	#[tokio::test]
+	async fn stale_create_is_buffered_until_single_path_rename_is_paired() {
+		use crate::event::{FsEventKind, RawRenameMode};
+		let dir = tempfile::tempdir().unwrap();
+		let old = dir.path().join("before.txt");
+		let new = dir.path().join("after.txt");
+		tokio::fs::write(&old, "file").await.unwrap();
+		let handler = MacOsHandler::new();
+		assert!(handler
+			.process(raw(RawEventKind::Create, old.clone()))
+			.await
+			.unwrap()
+			.is_empty());
+		assert_eq!(handler.evict_creates(Duration::ZERO).await.len(), 1);
+		tokio::fs::rename(&old, &new).await.unwrap();
+		assert!(handler
+			.process(raw(RawEventKind::Create, old.clone()))
+			.await
+			.unwrap()
+			.is_empty());
+		assert!(handler
+			.process(raw(RawEventKind::Rename(RawRenameMode::Any), old.clone()))
+			.await
+			.unwrap()
+			.is_empty());
+		let events = handler
+			.process(raw(RawEventKind::Rename(RawRenameMode::Any), new.clone()))
+			.await
+			.unwrap();
+		assert_eq!(events.len(), 1);
+		assert_eq!(events[0].kind, FsEventKind::Rename { from: old, to: new });
+		assert!(handler.evict_removes(Duration::ZERO).await.is_empty());
+	}
+
+	#[tokio::test]
+	async fn stale_create_without_a_matching_rename_still_removes_a_deleted_file() {
+		use crate::event::FsEventKind;
+		let dir = tempfile::tempdir().unwrap();
+		let path = dir.path().join("deleted.txt");
+		tokio::fs::write(&path, "file").await.unwrap();
+		let handler = MacOsHandler::new();
+		handler
+			.process(raw(RawEventKind::Create, path.clone()))
+			.await
+			.unwrap();
+		handler.evict_creates(Duration::ZERO).await;
+		tokio::fs::remove_file(&path).await.unwrap();
+		assert!(handler
+			.process(raw(RawEventKind::Create, path.clone()))
+			.await
+			.unwrap()
+			.is_empty());
+		let events = handler.evict_removes(Duration::ZERO).await;
+		assert_eq!(events.len(), 1);
+		assert_eq!(events[0].kind, FsEventKind::Remove);
+		assert_eq!(events[0].path, path);
+		// Without a cached inode, a deletion cannot be paired with a later
+		// single-path rename and is still reported immediately.
+		let uncached = dir.path().join("never-cached.txt");
+		let events = handler
+			.process(raw(RawEventKind::Create, uncached.clone()))
+			.await
+			.unwrap();
+		assert_eq!(events.len(), 1);
+		assert_eq!(events[0].kind, FsEventKind::Remove);
+		assert_eq!(events[0].path, uncached);
 	}
 }

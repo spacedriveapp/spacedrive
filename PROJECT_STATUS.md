@@ -43,7 +43,9 @@ checked. Source pages refresh from file, job and volume events and label counts
 as the last completed sync. Search scopes reject invalid paths and recognize
 local aliases; source filters intersect and propagate store errors. Job JSON
 queries each library once. Rename handling recovers a destination when a prior
-remove already erased the old entry. Library-wide filename search reads only the selected library's registered
+remove already erased the old entry. macOS stale create events join the
+rename buffer, and moves out of indexed territory remove the old arena row.
+Library-wide filename search reads only the selected library's registered
 roots; overlapping roots can belong to both libraries. Unattributed remote
 replicas remain available through explicitly scoped remote searches. Focused
 regressions and all 13 source-runtime acceptance tests pass on macOS. File
