@@ -40,7 +40,9 @@ Local hardening follow-up (November 2, 2026): desktop startup
 loads the saved selection asynchronously with a bounded wait and preserves an
 unreadable preference. Daemon child ownership is retained while readiness is
 checked. Source pages refresh from file, job and volume events and label counts
-as the last completed sync. Search scopes reject invalid paths and recognize
+as the last completed sync. Source listings wait for pending writes from their
+matching local store, preserving job failure history, so a watcher event cannot
+trigger a stale read before the batch commits. Search scopes reject invalid paths and recognize
 local aliases; source filters intersect and propagate store errors. Job JSON
 queries each library once. Rename handling recovers a destination when a prior
 remove already erased the old entry. macOS stale create events join the

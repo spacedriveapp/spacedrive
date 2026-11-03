@@ -75,6 +75,8 @@ enum Ingest {
 	/// Commit what is pending and answer with how many writes have failed to
 	/// land since the previous flush barrier. Zero is the only success.
 	Flush(oneshot::Sender<u64>),
+	/// Commit pending writes for a reader without consuming the job flush result.
+	ReadBarrier(oneshot::Sender<u64>),
 }
 
 /// What a source's store holds, as the store counts it.
@@ -595,6 +597,24 @@ impl SourceStore {
 		}
 	}
 
+	/// Make prior observations visible to a reader without consuming failures
+	/// that a job's next flush must still report.
+	pub async fn read_barrier(&self) -> Result<()> {
+		let (done, wait) = oneshot::channel();
+		self.send(Ingest::ReadBarrier(done)).await;
+		match wait.await {
+			Ok(0) => Ok(()),
+			Ok(failed) => anyhow::bail!(
+				"{failed} write(s) failed to commit in source store {}",
+				self.id
+			),
+			Err(_) => anyhow::bail!(
+				"source store {} writer is gone; queued writes are not durable",
+				self.id
+			),
+		}
+	}
+
 	async fn send(&self, ingest: Ingest) {
 		if self.tx.send(ingest).await.is_err() {
 			tracing::warn!(source = %self.id, "source store writer is gone; observation dropped");
@@ -902,6 +922,11 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 					failed_since_flush += facets.len() as u64;
 				}
 			}
+			Ingest::ReadBarrier(done) => {
+				failed_since_flush +=
+					commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
+				let _ = done.send(failed_since_flush);
+			}
 			Ingest::Flush(done) => {
 				failed_since_flush +=
 					commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
@@ -1193,6 +1218,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 			.expect("break the store");
 
 		fixture.create("lost.txt", b"cannot land").await;
+		assert!(fixture.store.read_barrier().await.is_err());
 		assert!(
 			fixture.store.flush().await.is_err(),
 			"a flush over a failed commit must not report success"
@@ -1286,6 +1312,55 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		assert_eq!(
 			resolved, docs,
 			"the real observation converges on the synthesized record"
+		);
+	}
+
+	#[tokio::test]
+	async fn source_listing_waits_for_announced_watcher_changes() {
+		let mut fixture = Fixture::new().await;
+		let path = fixture.create("visible-after-event.txt", b"fixture").await;
+		let list = || {
+			crate::ops::sources::list_items::query::filesystem_items(
+				fixture.store.db(),
+				Some(&fixture.store),
+				100,
+				0,
+			)
+		};
+		let items = list().await.expect("listing after create");
+		assert!(items
+			.iter()
+			.any(|item| item.title == "visible-after-event.txt"));
+
+		let entry = fixture
+			.adapter
+			.find_by_path(&path)
+			.await
+			.expect("lookup")
+			.expect("known");
+		fixture.adapter.delete(&entry).await.expect("delete");
+		let items = list().await.expect("listing after delete");
+		assert!(!items
+			.iter()
+			.any(|item| item.title == "visible-after-event.txt"));
+
+		let mut broken = Fixture::new().await;
+		sqlx::raw_sql("DROP TABLE facet_file; DROP TABLE record;")
+			.execute(broken.store.db().pool())
+			.await
+			.expect("break the store");
+		broken.create("cannot-land.txt", b"fixture").await;
+		assert!(crate::ops::sources::list_items::query::filesystem_items(
+			broken.store.db(),
+			Some(&broken.store),
+			100,
+			0,
+		)
+		.await
+		.is_err());
+		assert!(
+			broken.store.flush().await.is_err(),
+			"listing must not consume the job failure"
 		);
 	}
 

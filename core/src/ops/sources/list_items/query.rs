@@ -79,10 +79,16 @@ impl LibraryQuery for ListSourceItemsQuery {
 			.await
 			.map_err(|e| QueryError::Internal(format!("{e:#}")))?
 		{
-			Some(db) => db
-				.list_items(limit, offset)
-				.await
-				.map_err(|e| QueryError::Internal(e.to_string()))?,
+			Some(db) => {
+				let writable = context
+					.volume_index()
+					.open_stores()
+					.into_iter()
+					.find(|store| store.id().simple().to_string() == store_id);
+				filesystem_items(&db, writable.as_deref(), limit, offset)
+					.await
+					.map_err(|e| QueryError::Internal(format!("{e:#}")))?
+			}
 			None => source_manager
 				.list_items(&store_id, limit, offset)
 				.await
@@ -103,3 +109,17 @@ impl LibraryQuery for ListSourceItemsQuery {
 }
 
 crate::register_library_query!(ListSourceItemsQuery, "sources.list_items");
+
+/// A watcher announces an arena change before its store batch commits.
+/// Drain this source's writer before reading the durable listing.
+pub(crate) async fn filesystem_items(
+	db: &sd_store::SourceDb,
+	writable: Option<&crate::ops::indexing::store::SourceStore>,
+	limit: usize,
+	offset: usize,
+) -> anyhow::Result<Vec<sd_store::ItemRow>> {
+	if let Some(store) = writable {
+		store.read_barrier().await?;
+	}
+	Ok(db.list_items(limit, offset).await?)
+}
