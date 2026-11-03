@@ -1,30 +1,37 @@
-import { useParams, useNavigate } from "react-router-dom";
-import { SourceMediaView } from "./SourceMediaView";
-import { useState, useEffect, useMemo, useRef } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import {
 	ArrowLeft,
 	ArrowsClockwise,
+	ArrowSquareUp,
 	DotsThree,
 	Lock,
 	Trash,
-	ArrowSquareUp,
 } from "@phosphor-icons/react";
-import {
-	useLibraryQuery,
-	useLibraryMutation,
-} from "../../contexts/SpacedriveContext";
-import { useTabManager } from "../../components/TabManager/useTabManager";
-import { TopBarPortal, TopBarItem } from "../../TopBar";
 import { CircleButton, Popover, usePopover } from "@spacedrive/primitives";
-import { ExpandableSearchButton } from "../explorer/components/ExpandableSearchButton";
-import { SourcePathBar } from "../../components/Sources/SourcePathBar";
-import { SourceDataRow } from "../../components/Sources/SourceDataRow";
+import { useQueryClient } from "@tanstack/react-query";
+import type { SourceItem } from "@sd/ts-client";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
 	availabilityBadge,
 	availabilityDescription,
 	sourceAvailability,
 } from "../../components/Sources/sourceAvailability";
+import { SourceDataRow } from "../../components/Sources/SourceDataRow";
+import { SourcePathBar } from "../../components/Sources/SourcePathBar";
+import { useTabManager } from "../../components/TabManager/useTabManager";
+import {
+	useLibraryMutation,
+	useLibraryQuery,
+	useSpacedriveClient,
+} from "../../contexts/SpacedriveContext";
+import { TopBarItem, TopBarPortal } from "../../TopBar";
+import { ExpandableSearchButton } from "../explorer/components/ExpandableSearchButton";
+import { SourceMediaView } from "./SourceMediaView";
+import {
+	shouldRefreshSourceForEvent,
+	sourceFileEventFilter,
+} from "./sourceRefresh";
 
 const PAGE_SIZE = 100;
 
@@ -35,19 +42,10 @@ export function SourceDetail() {
 	const [searchValue, setSearchValue] = useState("");
 	const scrollRef = useRef<HTMLDivElement>(null);
 
-	// Infinite scroll state
-	const [allItems, setAllItems] = useState<
-		Array<{
-			id: string;
-			external_id: string;
-			title: string;
-			preview: string | null;
-			subtitle: string | null;
-		}>
-	>([]);
-	const [offset, setOffset] = useState(0);
-	const [hasMore, setHasMore] = useState(true);
-	const [loadingMore, setLoadingMore] = useState(false);
+	const [limit, setLimit] = useState(PAGE_SIZE);
+	const client = useSpacedriveClient();
+	const queryClient = useQueryClient();
+	const libraryId = client.getCurrentLibraryId();
 
 	const {
 		data: source,
@@ -58,27 +56,34 @@ export function SourceDetail() {
 		input: { source_id: sourceId ?? "" },
 	});
 
-	// Initial page
-	const { data: initialItems, isLoading: itemsLoading } = useLibraryQuery({
-		type: "sources.list_items",
-		input: { source_id: sourceId ?? "", limit: PAGE_SIZE, offset: 0 },
-	});
+	const {
+		data: items,
+		isLoading: itemsLoading,
+		isFetching: itemsFetching,
+		error: itemsError,
+	} = useLibraryQuery(
+		{
+			type: "sources.list_items",
+			input: { source_id: sourceId ?? "", limit, offset: 0 },
+		},
+		{
+			placeholderData: (previous, previousQuery) => {
+				const input = previousQuery?.queryKey[2];
+				return previousQuery?.queryKey[1] === libraryId &&
+					input &&
+					typeof input === "object" &&
+					"source_id" in input &&
+					input.source_id === sourceId
+					? previous
+					: undefined;
+			},
+		},
+	);
+	const allItems: SourceItem[] = items ?? [];
 
-	// Seed allItems from initial fetch
 	useEffect(() => {
-		if (initialItems) {
-			setAllItems(initialItems);
-			setOffset(initialItems.length);
-			setHasMore(initialItems.length >= PAGE_SIZE);
-		}
-	}, [initialItems]);
-
-	// Reset when sourceId changes
-	useEffect(() => {
-		setAllItems([]);
-		setOffset(0);
-		setHasMore(true);
-	}, [sourceId]);
+		setLimit(PAGE_SIZE);
+	}, [sourceId, libraryId]);
 
 	const { data: adapters } = useLibraryQuery({
 		type: "adapters.list",
@@ -91,9 +96,11 @@ export function SourceDetail() {
 		{ enabled: source?.data_type === "filesystem" },
 	);
 	const availability = source ? sourceAvailability(source) : "available";
-	const volumeName = volumeList?.volumes.find(
+	const volume = volumeList?.volumes.find(
 		(volume) => volume.id === source?.volume_uuid,
-	)?.name;
+	);
+	const volumeName = volume?.name;
+	const volumeFingerprint = volume?.fingerprint;
 	const availabilityNote =
 		source?.data_type === "filesystem"
 			? availabilityDescription(availability, volumeName)
@@ -143,49 +150,103 @@ export function SourceDetail() {
 		},
 	});
 
-	// Fetch next page
-	const { data: nextPage } = useLibraryQuery(
-		{
-			type: "sources.list_items",
-			input: {
-				source_id: sourceId ?? "",
-				limit: PAGE_SIZE,
-				offset,
-			},
-		},
-		{ enabled: loadingMore && offset > 0 },
-	);
-
+	// The daemon includes deletes without a path and jobs without a library ID.
+	// Those events can refresh this open source, but never invalidate other sources.
 	useEffect(() => {
-		if (nextPage && loadingMore) {
-			setAllItems((prev) => [...prev, ...nextPage]);
-			setOffset((prev) => prev + nextPage.length);
-			setHasMore(nextPage.length >= PAGE_SIZE);
-			setLoadingMore(false);
-		}
-	}, [nextPage, loadingMore]);
+		if (!sourceId || !libraryId || !source) return;
+		let cancelled = false;
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const unsubscribers: Array<() => void> = [];
+		const refresh = () => {
+			if (timer) return;
+			timer = setTimeout(() => {
+				timer = undefined;
+				void queryClient.invalidateQueries({
+					predicate: (query) => {
+						const [type, id, input] = query.queryKey;
+						return (
+							id === libraryId &&
+							(type === "sources.get" ||
+								type === "sources.list_items") &&
+							!!input &&
+							typeof input === "object" &&
+							"source_id" in input &&
+							input.source_id === sourceId
+						);
+					},
+				});
+				void queryClient.invalidateQueries({
+					queryKey: ["volumes.list", libraryId, { filter: "All" }],
+					exact: true,
+				});
+			}, 250);
+		};
+		const subscribe = (
+			filter: Parameters<typeof client.subscribeFiltered>[0],
+		) => {
+			client
+				.subscribeFiltered(filter, (event) => {
+					if (
+						!cancelled &&
+						shouldRefreshSourceForEvent(event, volumeFingerprint)
+					)
+						refresh();
+				})
+				.then((unsubscribe) => {
+					if (cancelled) unsubscribe();
+					else unsubscribers.push(unsubscribe);
+				})
+				.catch((error) => {
+					if (!cancelled)
+						console.error(
+							"Source event subscription failed",
+							error,
+						);
+				});
+		};
+		subscribe(sourceFileEventFilter(libraryId, source.root));
+		subscribe({
+			library_id: libraryId,
+			event_types: [
+				"JobCompleted",
+				"VolumeMountChanged",
+				"VolumeAdded",
+				"VolumeRemoved",
+				"VolumeUpdated",
+			],
+		});
+		return () => {
+			cancelled = true;
+			clearTimeout(timer);
+			unsubscribers.forEach((unsubscribe) => unsubscribe());
+		};
+	}, [
+		client,
+		queryClient,
+		libraryId,
+		sourceId,
+		source?.root,
+		volumeFingerprint,
+	]);
 
-	// Trigger load more when virtualizer reaches near the end
 	const lastVirtualItem =
-		virtualizer.getVirtualItems()[
-			virtualizer.getVirtualItems().length - 1
-		];
-
+		virtualizer.getVirtualItems()[virtualizer.getVirtualItems().length - 1];
 	useEffect(() => {
 		if (
 			lastVirtualItem &&
 			lastVirtualItem.index >= filteredItems.length - 10 &&
-			hasMore &&
-			!loadingMore &&
+			allItems.length >= limit &&
+			!itemsFetching &&
 			!searchValue
 		) {
-			setLoadingMore(true);
+			setLimit((previous) => previous + PAGE_SIZE);
 		}
 	}, [
 		lastVirtualItem?.index,
 		filteredItems.length,
-		hasMore,
-		loadingMore,
+		allItems.length,
+		limit,
+		itemsFetching,
 		searchValue,
 	]);
 
@@ -219,11 +280,7 @@ export function SourceDetail() {
 			<TopBarPortal
 				left={
 					<>
-						<TopBarItem
-							id="back"
-							label="Back"
-							priority="high"
-						>
+						<TopBarItem id="back" label="Back" priority="high">
 							<CircleButton
 								icon={ArrowLeft}
 								onClick={() => navigate("/sources")}
@@ -243,11 +300,7 @@ export function SourceDetail() {
 				}
 				right={
 					<>
-						<TopBarItem
-							id="search"
-							label="Search"
-							priority="high"
-						>
+						<TopBarItem id="search" label="Search" priority="high">
 							<ExpandableSearchButton
 								placeholder="Search items..."
 								value={searchValue}
@@ -255,11 +308,7 @@ export function SourceDetail() {
 								onClear={() => setSearchValue("")}
 							/>
 						</TopBarItem>
-						<TopBarItem
-							id="sync"
-							label="Sync"
-							priority="high"
-						>
+						<TopBarItem id="sync" label="Sync" priority="high">
 							<CircleButton
 								icon={ArrowsClockwise}
 								onClick={() =>
@@ -280,10 +329,15 @@ export function SourceDetail() {
 							priority="normal"
 						>
 							<MoreActionsMenu
-								adapterHasUpdate={updatableAdapterId !== undefined}
+								adapterHasUpdate={
+									updatableAdapterId !== undefined
+								}
 								onUpdate={() => {
-									if (updatableAdapterId === undefined) return;
-									updateMutation.mutate({ adapter_id: updatableAdapterId });
+									if (updatableAdapterId === undefined)
+										return;
+									updateMutation.mutate({
+										adapter_id: updatableAdapterId,
+									});
 								}}
 								isUpdating={updateMutation.isPending}
 								onDelete={() => setShowDeleteConfirm(true)}
@@ -305,7 +359,11 @@ export function SourceDetail() {
 							className="border-app-line bg-app-box flex items-center gap-2 rounded-lg border p-3"
 						>
 							{availability === "locked" && (
-								<Lock size={14} weight="bold" className="text-ink-dull" />
+								<Lock
+									size={14}
+									weight="bold"
+									className="text-ink-dull"
+								/>
 							)}
 							<p className="text-ink-dull text-xs">
 								<span className="text-ink font-medium">
@@ -351,7 +409,13 @@ export function SourceDetail() {
 					</div>
 				)}
 
-				{!itemsLoading && filteredItems.length === 0 && (
+				{!itemsLoading && itemsError && (
+					<div className="py-12 text-center text-sm text-red-400">
+						Failed to load items: {String(itemsError)}
+					</div>
+				)}
+
+				{!itemsLoading && !itemsError && filteredItems.length === 0 && (
 					<div className="text-ink-faint py-12 text-center text-sm">
 						{searchValue
 							? "No matching items"
@@ -392,9 +456,9 @@ export function SourceDetail() {
 					</div>
 				)}
 
-				{loadingMore && (
+				{itemsFetching && allItems.length > 0 && (
 					<div className="text-ink-faint py-4 text-center text-xs">
-						Loading more...
+						Updating items...
 					</div>
 				)}
 			</div>

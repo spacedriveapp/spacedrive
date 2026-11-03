@@ -302,9 +302,41 @@ impl SubscriptionManager {
 /// App state - stores global application state shared across all windows
 struct AppState {
 	current_library_id: Arc<RwLock<Option<String>>>,
+	persist_library_id: Arc<std::sync::atomic::AtomicBool>,
 	selected_file_ids: Arc<RwLock<Vec<String>>>,
 	connection_pool: Arc<DaemonConnectionPool>,
 	subscription_manager: SubscriptionManager,
+}
+
+fn load_current_library_id(
+	path: PathBuf,
+	wait: std::time::Duration,
+) -> (
+	Arc<RwLock<Option<String>>>,
+	Arc<std::sync::atomic::AtomicBool>,
+) {
+	use std::sync::atomic::{AtomicBool, Ordering};
+	let persist = Arc::new(AtomicBool::new(true));
+	let persist_on_load = persist.clone();
+	let current_library_id = Arc::new(RwLock::new(None));
+	let mut loading_library_id = current_library_id
+		.clone()
+		.try_write_owned()
+		.expect("new library state lock is uncontended");
+	tauri::async_runtime::spawn(async move {
+		match tokio::time::timeout(wait, tokio::fs::read_to_string(&path)).await {
+			Ok(Ok(id)) => {
+				tracing::info!("Loaded persisted library ID: {}", id);
+				*loading_library_id = Some(id.trim().to_string());
+			}
+			Ok(Err(e)) if e.kind() == std::io::ErrorKind::NotFound => {}
+			result => {
+				persist_on_load.store(false, Ordering::Release);
+				tracing::warn!("Saved library selection unavailable ({:?}); keeping it unchanged for this session", result);
+			}
+		}
+	});
+	(current_library_id, persist)
 }
 
 /// Daemon status for frontend
@@ -410,10 +442,15 @@ async fn set_current_library_id(
 		state.data_dir.clone()
 	};
 	let library_id_file = data_dir.join("current_library_id.txt");
-	if let Err(e) = tokio::fs::write(&library_id_file, &library_id).await {
-		tracing::warn!("Failed to persist library ID to disk: {}", e);
-	} else {
-		tracing::debug!("Persisted library ID to: {:?}", library_id_file);
+	if app_state
+		.persist_library_id
+		.load(std::sync::atomic::Ordering::Acquire)
+	{
+		if let Err(e) = tokio::fs::write(&library_id_file, &library_id).await {
+			tracing::warn!("Failed to persist library ID to disk: {}", e);
+		} else {
+			tracing::debug!("Persisted library ID to: {:?}", library_id_file);
+		}
 	}
 
 	// Also inject into all current windows for backwards compatibility
@@ -884,30 +921,12 @@ async fn start_daemon_process(
 	app: tauri::AppHandle,
 	state: tauri::State<'_, Arc<RwLock<DaemonState>>>,
 ) -> Result<(), String> {
-	let (data_dir, socket_addr) = {
-		let daemon_state = state.read().await;
-		(
-			daemon_state.data_dir.clone(),
-			daemon_state.socket_addr.clone(),
-		)
-	};
-
-	// Check if already running
-	if is_daemon_running(&socket_addr).await {
-		return Err("Daemon is already running".to_string());
-	}
-
 	// Emit starting event
 	let _ = app.emit("daemon-starting", ());
-
-	// Start the daemon
-	let child = start_daemon(&data_dir, &socket_addr).await?;
-
-	// Store the process handle
-	let mut daemon_state = state.write().await;
-	daemon_state.started_by_us = true;
-	daemon_state.daemon_process = Some(std::sync::Arc::new(tokio::sync::Mutex::new(Some(child))));
-
+	let (socket_addr, child) = acquire_daemon(state.inner(), start_daemon).await?;
+	if let Some(child) = child {
+		wait_for_daemon(&socket_addr, &child, std::time::Duration::from_secs(30)).await?;
+	}
 	Ok(())
 }
 
@@ -922,16 +941,33 @@ async fn stop_daemon_process(
 		return Err("Cannot stop daemon we didn't start".to_string());
 	}
 
-	if let Some(process_arc) = daemon_state.daemon_process.take() {
+	if let Some(process_arc) = daemon_state.daemon_process.as_ref() {
 		let mut process_lock = process_arc.lock().await;
-		if let Some(mut child) = process_lock.take() {
+		if let Some(child) = process_lock.as_mut() {
+			if child
+				.try_wait()
+				.map_err(|e| format!("Failed to check daemon process: {}", e))?
+				.is_none()
+			{
+				if let Err(e) = child.kill() {
+					if child
+						.try_wait()
+						.map_err(|e| format!("Failed to check daemon process: {}", e))?
+						.is_none()
+					{
+						return Err(format!("Failed to kill daemon: {}", e));
+					}
+				}
+			}
 			child
-				.kill()
-				.map_err(|e| format!("Failed to kill daemon: {}", e))?;
-			tracing::info!("Daemon process killed");
+				.wait()
+				.map_err(|e| format!("Failed to reap daemon: {}", e))?;
+			process_lock.take();
+			tracing::info!("Daemon process stopped and reaped");
 		}
 	}
 
+	daemon_state.daemon_process = None;
 	daemon_state.started_by_us = false;
 	Ok(())
 }
@@ -1517,7 +1553,8 @@ async fn is_daemon_running(socket_addr: &str) -> bool {
 	)
 	.await
 	{
-		Ok(Ok(_)) if !response_line.is_empty() => {
+		Ok(Ok(_)) if matches!(serde_json::from_str::<serde_json::Value>(&response_line), Ok(serde_json::Value::String(ref value)) if value == "Pong") =>
+		{
 			tracing::debug!("Daemon responded to ping: {}", response_line.trim());
 			true
 		}
@@ -1534,35 +1571,88 @@ fn find_daemon_binary() -> Result<std::path::PathBuf, String> {
 }
 
 /// Start the daemon as a background process
-async fn start_daemon(
-	data_dir: &PathBuf,
-	socket_addr: &str,
-) -> Result<std::process::Child, String> {
+fn start_daemon(data_dir: &Path) -> Result<std::process::Child, String> {
 	let daemon_path = find_daemon_binary()?;
 
 	tracing::info!("Starting daemon from: {:?}", daemon_path);
 
-	let child = std::process::Command::new(daemon_path)
+	std::process::Command::new(daemon_path)
 		.arg("--data-dir")
 		.arg(data_dir)
 		.stdout(std::process::Stdio::null())
 		.stderr(std::process::Stdio::null())
 		.spawn()
-		.map_err(|e| format!("Failed to start daemon: {}", e))?;
+		.map_err(|e| format!("Failed to start daemon: {}", e))
+}
 
-	// Wait for daemon to be ready
-	for i in 0..30 {
-		tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+// Serialize listener checks and process ownership across startup and retries.
+async fn acquire_daemon(
+	state: &Arc<RwLock<DaemonState>>,
+	spawn: impl FnOnce(&Path) -> Result<std::process::Child, String>,
+) -> Result<
+	(
+		String,
+		Option<Arc<tokio::sync::Mutex<Option<std::process::Child>>>>,
+	),
+	String,
+> {
+	let mut state = state.write().await;
+	let socket_addr = state.socket_addr.clone();
+	if let Some(process) = state.daemon_process.clone() {
+		let running = {
+			let mut child = process.lock().await;
+			match child.as_mut() {
+				Some(child) => child
+					.try_wait()
+					.map_err(|e| format!("Failed to check daemon process: {}", e))?
+					.is_none(),
+				None => false,
+			}
+		};
+		if running {
+			return Ok((socket_addr, Some(process)));
+		}
+		state.daemon_process = None;
+		state.started_by_us = false;
+	}
+	if is_daemon_running(&socket_addr).await {
+		return Ok((socket_addr, None));
+	}
+	let child = Arc::new(tokio::sync::Mutex::new(Some(spawn(&state.data_dir)?)));
+	state.started_by_us = true;
+	state.daemon_process = Some(child.clone());
+	Ok((socket_addr, Some(child)))
+}
+
+async fn wait_for_daemon(
+	socket_addr: &str,
+	child: &Arc<tokio::sync::Mutex<Option<std::process::Child>>>,
+	wait: std::time::Duration,
+) -> Result<(), String> {
+	let deadline = tokio::time::Instant::now() + wait;
+	loop {
+		{
+			let mut child = child.lock().await;
+			let child = child.as_mut().ok_or("Daemon was stopped while starting")?;
+			if let Some(status) = child
+				.try_wait()
+				.map_err(|e| format!("Failed to check daemon process: {}", e))?
+			{
+				return Err(format!("Daemon exited before becoming ready: {}", status));
+			}
+		}
 		if is_daemon_running(socket_addr).await {
 			tracing::info!("Daemon ready at {}", socket_addr);
-			return Ok(child);
+			return Ok(());
 		}
-		if i == 10 {
-			tracing::warn!("Daemon taking longer than expected to start...");
+		if tokio::time::Instant::now() >= deadline {
+			return Err(format!(
+				"Daemon has not responded within {:?}; it may still be starting",
+				wait
+			));
 		}
+		tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 	}
-
-	Err("Daemon failed to start (connection not available after 3 seconds)".to_string())
 }
 
 fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
@@ -2055,28 +2145,16 @@ fn main() {
 				daemon_process: None,
 			}));
 
-			// Initialize app state for library ID (shared across all windows)
-			// Try to load persisted library ID from disk
-			let persisted_library_id = {
-				let library_id_file = data_dir.join("current_library_id.txt");
-				if library_id_file.exists() {
-					match std::fs::read_to_string(&library_id_file) {
-						Ok(id) => {
-							tracing::info!("Loaded persisted library ID: {}", id);
-							Some(id.trim().to_string())
-						}
-						Err(e) => {
-							tracing::warn!("Failed to read persisted library ID: {}", e);
-							None
-						}
-					}
-				} else {
-					None
-				}
-			};
+			// Keep filesystem access off the window's main thread. Hold the new
+			// state lock while loading so a library switch cannot be overwritten.
+			let (current_library_id, persist_library_id) = load_current_library_id(
+				data_dir.join("current_library_id.txt"),
+				std::time::Duration::from_secs(2),
+			);
 
 			let app_state = AppState {
-				current_library_id: Arc::new(RwLock::new(persisted_library_id)),
+				current_library_id,
+				persist_library_id,
 				selected_file_ids: Arc::new(RwLock::new(Vec::new())),
 				connection_pool: Arc::new(DaemonConnectionPool::new(socket_addr.clone())),
 				subscription_manager: SubscriptionManager::new(),
@@ -2114,29 +2192,27 @@ fn main() {
 					}
 				}
 
-				// Ensure daemon directory exists
-
-				let (started_by_us, child_process) = if is_daemon_running(&socket_addr).await {
-					tracing::info!("Daemon already running, connecting to existing instance");
-					(false, None)
-				} else {
-					tracing::info!("No daemon running, starting new instance");
-					match start_daemon(&data_dir_clone, &socket_addr).await {
-						Ok(child) => (
-							true,
-							Some(std::sync::Arc::new(tokio::sync::Mutex::new(Some(child)))),
-						),
-						Err(e) => {
-							tracing::error!("Failed to start daemon: {}", e);
+				match acquire_daemon(&daemon_state, start_daemon).await {
+					Ok((_, Some(child))) => {
+						if let Err(e) = wait_for_daemon(
+							&socket_addr,
+							&child,
+							std::time::Duration::from_secs(30),
+						)
+						.await
+						{
+							tracing::error!("Daemon startup: {}", e);
 							return;
 						}
 					}
-				};
-
-				// Update daemon state
-				let mut state = daemon_state.write().await;
-				state.started_by_us = started_by_us;
-				state.daemon_process = child_process;
+					Ok((_, None)) => {
+						tracing::info!("Daemon already running, connecting to existing instance")
+					}
+					Err(e) => {
+						tracing::error!("Failed to start daemon: {}", e);
+						return;
+					}
+				}
 
 				tracing::info!("Daemon connection established");
 
@@ -2209,4 +2285,149 @@ fn main() {
 		})
 		.run(tauri::generate_context!())
 		.expect("error while running tauri application");
+}
+
+#[cfg(all(test, unix))]
+mod daemon_start_tests {
+	use super::*;
+	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+	#[tokio::test]
+	async fn blocked_saved_selection_does_not_block_startup_or_overwrite_it() {
+		use std::io::Write;
+		use std::sync::atomic::Ordering;
+		let dir = tempfile::tempdir().unwrap();
+		let path = dir.path().join("saved-id");
+		assert!(std::process::Command::new("mkfifo")
+			.arg(&path)
+			.status()
+			.unwrap()
+			.success());
+		let writer_path = path.clone();
+		let writer = std::thread::spawn(move || {
+			std::thread::sleep(std::time::Duration::from_millis(250));
+			let mut fifo = std::fs::OpenOptions::new()
+				.write(true)
+				.open(writer_path)
+				.unwrap();
+			let _ = fifo.write_all(b"old-library");
+		});
+		let (state, persist) = load_current_library_id(path, std::time::Duration::from_millis(50));
+		let mut selection = tokio::time::timeout(std::time::Duration::from_secs(2), state.write())
+			.await
+			.unwrap();
+		assert!(selection.is_none());
+		assert!(!persist.load(Ordering::Acquire));
+		*selection = Some("new-library".to_string());
+		drop(selection);
+		writer.join().unwrap();
+		assert_eq!(state.read().await.as_deref(), Some("new-library"));
+	}
+
+	fn child() -> Arc<tokio::sync::Mutex<Option<std::process::Child>>> {
+		Arc::new(tokio::sync::Mutex::new(Some(
+			std::process::Command::new("sleep")
+				.arg("10")
+				.spawn()
+				.unwrap(),
+		)))
+	}
+
+	async fn stop(child: &Arc<tokio::sync::Mutex<Option<std::process::Child>>>) {
+		let mut child = child.lock().await.take().unwrap();
+		child.kill().unwrap();
+		child.wait().unwrap();
+	}
+
+	#[tokio::test]
+	async fn concurrent_start_and_retry_reuse_the_live_child() {
+		use std::sync::atomic::{AtomicUsize, Ordering};
+		let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+		let addr = listener.local_addr().unwrap().to_string();
+		drop(listener);
+		let state = Arc::new(RwLock::new(DaemonState {
+			started_by_us: false,
+			socket_addr: addr.clone(),
+			data_dir: PathBuf::new(),
+			server_url: None,
+			server_shutdown: None,
+			daemon_process: None,
+		}));
+		let count = AtomicUsize::new(0);
+		let spawn = |_: &Path| {
+			count.fetch_add(1, Ordering::SeqCst);
+			std::process::Command::new("sleep")
+				.arg("10")
+				.spawn()
+				.map_err(|e| e.to_string())
+		};
+		let (first, second) =
+			tokio::join!(acquire_daemon(&state, spawn), acquire_daemon(&state, spawn));
+		let first = first.unwrap().1.unwrap();
+		let second = second.unwrap().1.unwrap();
+		assert!(Arc::ptr_eq(&first, &second));
+		assert_eq!(count.load(Ordering::SeqCst), 1);
+		assert!(
+			wait_for_daemon(&addr, &first, std::time::Duration::from_millis(20))
+				.await
+				.is_err()
+		);
+		let retry = acquire_daemon(&state, spawn).await.unwrap().1.unwrap();
+		assert!(Arc::ptr_eq(&first, &retry));
+		assert_eq!(count.load(Ordering::SeqCst), 1);
+		stop(&first).await;
+		let replacement = acquire_daemon(&state, spawn).await.unwrap().1.unwrap();
+		assert_eq!(count.load(Ordering::SeqCst), 2);
+		stop(&replacement).await;
+	}
+
+	#[tokio::test]
+	async fn rejects_non_pong_response() {
+		let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+		let addr = listener.local_addr().unwrap().to_string();
+		let server = tokio::spawn(async move {
+			let (mut stream, _) = listener.accept().await.unwrap();
+			stream.write_all(b"{\"other\":true}\n").await.unwrap();
+		});
+		assert!(!is_daemon_running(&addr).await);
+		server.await.unwrap();
+	}
+
+	#[tokio::test]
+	async fn retains_child_when_readiness_times_out() {
+		let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+		let addr = listener.local_addr().unwrap().to_string();
+		drop(listener);
+		let child = child();
+		let result = wait_for_daemon(&addr, &child, std::time::Duration::from_millis(150)).await;
+		assert!(result.unwrap_err().contains("may still be starting"));
+		assert!(child
+			.lock()
+			.await
+			.as_mut()
+			.unwrap()
+			.try_wait()
+			.unwrap()
+			.is_none());
+		stop(&child).await;
+	}
+
+	#[tokio::test]
+	async fn accepts_a_delayed_ping_response() {
+		let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+		let addr = listener.local_addr().unwrap().to_string();
+		let server = tokio::spawn(async move {
+			let (stream, _) = listener.accept().await.unwrap();
+			let mut stream = BufReader::new(stream);
+			let mut request = String::new();
+			stream.read_line(&mut request).await.unwrap();
+			tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+			stream.get_mut().write_all(b"\"Pong\"\n").await.unwrap();
+		});
+		let child = child();
+		let result = wait_for_daemon(&addr, &child, std::time::Duration::from_secs(2)).await;
+		assert!(result.is_ok(), "{result:?}");
+		server.await.unwrap();
+		stop(&child).await;
+	}
 }

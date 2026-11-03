@@ -34,7 +34,7 @@ impl LibraryQuery for FileSearchQuery {
 	async fn execute(
 		self,
 		context: Arc<CoreContext>,
-		_session: crate::infra::api::SessionContext,
+		session: crate::infra::api::SessionContext,
 	) -> QueryResult<Self::Output> {
 		let start_time = std::time::Instant::now();
 
@@ -53,7 +53,11 @@ impl LibraryQuery for FileSearchQuery {
 			self.input.pagination.offset
 		);
 
-		self.search_index(context, search_id, start_time).await
+		let library_id = session
+			.current_library_id
+			.ok_or_else(|| QueryError::Internal("No library in session".to_string()))?;
+		self.search_index(context, library_id, search_id, start_time)
+			.await
 	}
 }
 
@@ -63,6 +67,7 @@ impl FileSearchQuery {
 	async fn search_index(
 		&self,
 		context: Arc<CoreContext>,
+		library_id: Uuid,
 		search_id: Uuid,
 		start_time: std::time::Instant,
 	) -> QueryResult<FileSearchOutput> {
@@ -80,6 +85,7 @@ impl FileSearchQuery {
 					&self.input.sort,
 					&self.input.pagination,
 					&context,
+					library_id,
 					cache,
 					&registry,
 				)
@@ -92,6 +98,7 @@ impl FileSearchQuery {
 					&self.input.sort,
 					&self.input.pagination,
 					&context,
+					library_id,
 					cache,
 					&registry,
 				)

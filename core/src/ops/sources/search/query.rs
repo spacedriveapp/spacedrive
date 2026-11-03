@@ -22,6 +22,7 @@ pub struct SourceSearchInput {
 	/// Restrict to one data type ("note", "email", …).
 	#[serde(default)]
 	pub data_type: Option<String>,
+	/// Maximum number of results (1 to 1000).
 	#[serde(default)]
 	pub limit: Option<u32>,
 }
@@ -55,6 +56,15 @@ impl LibraryQuery for SourceSearchQuery {
 			return Err(QueryError::Validation {
 				field: "query".to_string(),
 				message: "query cannot be empty".to_string(),
+			});
+		}
+		if input
+			.limit
+			.is_some_and(|limit| !(1..=1000).contains(&limit))
+		{
+			return Err(QueryError::Validation {
+				field: "limit".to_string(),
+				message: "limit must be between 1 and 1000".to_string(),
 			});
 		}
 		Ok(Self { input })
@@ -135,3 +145,32 @@ impl LibraryQuery for SourceSearchQuery {
 }
 
 crate::register_library_query!(SourceSearchQuery, "sources.search");
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn search_limit_is_bounded() {
+		for limit in [Some(0), Some(1001), Some(u32::MAX)] {
+			let input = SourceSearchInput {
+				query: "test".into(),
+				source_id: None,
+				data_type: None,
+				limit,
+			};
+			assert!(
+				matches!(SourceSearchQuery::from_input(input), Err(QueryError::Validation { field, .. }) if field == "limit")
+			);
+		}
+		for limit in [None, Some(1), Some(1000)] {
+			let input = SourceSearchInput {
+				query: "test".into(),
+				source_id: None,
+				data_type: None,
+				limit,
+			};
+			assert!(SourceSearchQuery::from_input(input).is_ok());
+		}
+	}
+}

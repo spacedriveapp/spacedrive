@@ -100,5 +100,13 @@ files.copy.preview {"input": {...}}
 files.copy       {"input": {...}}
 ```
 
+Library-wide file search returns entries from the selected library's registered
+sources, including retained offline catalogs. Overlapping source roots can make
+a file a member of more than one library. A remote replica is included only
+when its source ID is registered in that library; replicas without a library
+association can still be searched by an explicit remote path. An explicit local
+path can include browsed, unregistered files, but excludes roots registered only
+to another library.
+
 `sd op <name> --json '<input>'` calls the same ops from a shell; see
 [Overview](/cli/overview).

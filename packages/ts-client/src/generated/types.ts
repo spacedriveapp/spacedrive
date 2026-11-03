@@ -1577,7 +1577,7 @@ new_name: string };
  */
 export type FileSearchInput = { 
 /**
- * Primary search query (filename, content, or natural language)
+ * Filename search query
  */
 query: string; 
 /**
@@ -4239,19 +4239,19 @@ min_volume_count: number | null;
 max_volume_count: number | null };
 
 /**
- * Defines the search mode and performance characteristics
+ * Search modes currently use the same filename search
  */
 export type SearchMode = 
 /**
- * Fast, metadata-only search (<10ms)
+ * Filename search
  */
 "Fast" | 
 /**
- * Normal search with semantic ranking (<100ms)
+ * Filename search
  */
 "Normal" | 
 /**
- * Full search with content analysis (<500ms)
+ * Filename search
  */
 "Full";
 
@@ -4603,7 +4603,11 @@ source_id?: string | null;
 /**
  * Restrict to one data type ("note", "email", …).
  */
-data_type?: string | null; limit?: number | null };
+data_type?: string | null;
+/**
+ * Maximum number of results (1 to 1000).
+ */
+limit?: number | null };
 
 export type SourceSearchResult = { id: string; external_id: string; record_type: string; title: string; preview: string; subtitle: string | null; snippet: string | null; rank: number; source_id: string; source_name: string; data_type: string };
 

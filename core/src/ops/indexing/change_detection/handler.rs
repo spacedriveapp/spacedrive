@@ -239,6 +239,11 @@ pub async fn apply_batch<H: ChangeHandler>(
 
 	// Process in order: removes, renames, creates, modifies
 	for path in removes {
+		if let Some((_, to)) = renames.iter().find(|(from, _)| from == &path) {
+			if matches!(path_exists_safe(to, config.volume_backend).await, Ok(true)) {
+				continue;
+			}
+		}
 		if let Err(e) = handle_remove(handler, &path).await {
 			tracing::error!("Failed to handle remove for {}: {}", path.display(), e);
 		}
@@ -469,6 +474,17 @@ pub async fn handle_rename<H: ChangeHandler>(
 ) -> Result<()> {
 	tracing::debug!("Rename: {} -> {}", from.display(), to.display());
 
+	if !to.starts_with(config.root)
+		|| to
+			.components()
+			.any(|part| matches!(part, std::path::Component::ParentDir))
+	{
+		if from.starts_with(config.root) {
+			return handle_remove(handler, from).await;
+		}
+		return Ok(());
+	}
+
 	match path_exists_safe(to, config.volume_backend).await {
 		Ok(true) => {}
 		Ok(false) => {
@@ -504,10 +520,104 @@ pub async fn handle_rename<H: ChangeHandler>(
 		tracing::debug!("Moved entry {} -> {}", from.display(), to.display());
 	} else {
 		tracing::debug!(
-			"Entry not found for old path {}, skipping rename",
-			from.display()
+			"Entry missing at {}; reconciling {}",
+			from.display(),
+			to.display()
 		);
+		reconcile_missing_rename(handler, to, config).await?;
 	}
 
 	Ok(())
+}
+
+/// Recover a destination whose old entry was already removed. Re-evaluate rules
+/// for every descendant because the old subtree is no longer available to move.
+async fn reconcile_missing_rename<H: ChangeHandler>(
+	handler: &mut H,
+	destination: &Path,
+	config: &ChangeConfig<'_>,
+) -> Result<()> {
+	let mut pending = vec![destination.to_path_buf()];
+	while let Some(path) = pending.pop() {
+		if should_filter_path(
+			&path,
+			config.rule_toggles,
+			config.root,
+			config.volume_backend,
+		)
+		.await?
+		{
+			continue;
+		}
+		let fs_metadata = tokio::fs::symlink_metadata(&path).await?;
+		if !fs_metadata.is_dir() {
+			handle_create(handler, &path, config).await?;
+			continue;
+		}
+		if handler.find_by_path(&path).await?.is_none() {
+			let metadata = build_dir_entry(&path, config.volume_backend).await?;
+			let entry = handler
+				.create(&metadata, path.parent().unwrap_or(config.root))
+				.await?;
+			handler
+				.emit_change_event(&entry, ChangeType::Created)
+				.await?;
+		}
+		let mut children = tokio::fs::read_dir(&path).await?;
+		while let Some(child) = children.next_entry().await? {
+			pending.push(child.path());
+		}
+	}
+	Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::infra::event::EventBus;
+	use crate::ops::indexing::{Arena, ArenaWriter};
+	use tokio::sync::RwLock;
+
+	#[tokio::test]
+	async fn rename_after_remove_recovers_filtered_directory_subtree() -> Result<()> {
+		let root = tempfile::Builder::new().prefix("watcher-test-").tempdir()?;
+		let old = root.path().join("old");
+		let destination = root.path().join("renamed");
+		tokio::fs::create_dir_all(old.join("nested/deeper")).await?;
+		tokio::fs::write(old.join("nested/deeper/visible.txt"), "visible").await?;
+		tokio::fs::write(old.join("nested/.hidden.txt"), "hidden").await?;
+		let index = Arc::new(RwLock::new(Arena::new()?));
+		let mut writer = ArenaWriter::new(index.clone(), Arc::new(EventBus::new(32)), None);
+		let config = ChangeConfig {
+			rule_toggles: RuleToggles {
+				no_hidden: true,
+				..RuleToggles::none()
+			},
+			root: root.path(),
+			volume_backend: None,
+		};
+		reconcile_missing_rename(&mut writer, &old, &config).await?;
+		assert!(index
+			.read()
+			.await
+			.has_entry(&old.join("nested/deeper/visible.txt")));
+		tokio::fs::rename(&old, &destination).await?;
+		handle_remove(&mut writer, &old).await?;
+		assert!(!index
+			.read()
+			.await
+			.has_entry(&old.join("nested/deeper/visible.txt")));
+		handle_rename(&mut writer, &old, &destination, &config).await?;
+		let arena = index.read().await;
+		assert!(arena.has_entry(&destination.join("nested/deeper/visible.txt")));
+		assert!(!arena.has_entry(&destination.join("nested/.hidden.txt")));
+		drop(arena);
+
+		let outside = tempfile::tempdir()?;
+		let outside_file = outside.path().join("outside.txt");
+		tokio::fs::write(&outside_file, "outside").await?;
+		handle_rename(&mut writer, &old, &outside_file, &config).await?;
+		assert!(!index.read().await.has_entry(&outside_file));
+		Ok(())
+	}
 }

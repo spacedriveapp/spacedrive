@@ -36,6 +36,20 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Local hardening follow-up (November 2, 2026): desktop startup
+loads the saved selection asynchronously with a bounded wait and preserves an
+unreadable preference. Daemon child ownership is retained while readiness is
+checked. Source pages refresh from file, job and volume events and label counts
+as the last completed sync. Search scopes reject invalid paths and recognize
+local aliases; source filters intersect and propagate store errors. Job JSON
+queries each library once. Rename handling recovers a destination when a prior
+remove already erased the old entry. Library-wide filename search reads only the selected library's registered
+roots; overlapping roots can belong to both libraries. Unattributed remote
+replicas remain available through explicitly scoped remote searches. Focused
+regressions and all 13 source-runtime acceptance tests pass on macOS. File
+search remains filename search; document-body extraction is not implemented.
+
+
 Local catalog reliability fixes (November 2, 2026): `sources.sync` routes a
 filesystem source through the existing track-and-index path while preserving
 its source identity and settings. Daemon startup respects the stored networking

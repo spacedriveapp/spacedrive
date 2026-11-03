@@ -39,13 +39,11 @@ impl SearchRouter {
 		let sources_to_search: Vec<_> = sources
 			.iter()
 			.filter(|s| {
-				if let Some(ref source_id) = filter.source_id {
-					return &s.id == source_id;
-				}
-				if let Some(ref dt) = filter.data_type {
-					return &s.data_type == dt;
-				}
-				true
+				filter.source_id.as_ref().is_none_or(|id| &s.id == id)
+					&& filter
+						.data_type
+						.as_ref()
+						.is_none_or(|dt| &s.data_type == dt)
 			})
 			.collect();
 
@@ -56,13 +54,12 @@ impl SearchRouter {
 		let mut all_results = Vec::new();
 
 		for source_info in &sources_to_search {
-			let db = match self.sources.open(&source_info.id).await {
-				Ok(db) => db,
-				Err(e) => {
-					tracing::warn!(source_id = %source_info.id, error = %e, "failed to open source for search");
-					continue;
-				}
-			};
+			let db = self.sources.open(&source_info.id).await.map_err(|e| {
+				crate::error::Error::Other(format!(
+					"failed to open source {} for search: {e}",
+					source_info.id
+				))
+			})?;
 
 			let temporal = if filter.date_after.is_some() || filter.date_before.is_some() {
 				Some(TemporalFilter {
@@ -73,13 +70,12 @@ impl SearchRouter {
 				None
 			};
 
-			let fts_hits = match db.fts_search(query, limit, temporal).await {
-				Ok(hits) => hits,
-				Err(e) => {
-					tracing::debug!(source_id = %source_info.id, error = %e, "FTS search failed");
-					Vec::new()
-				}
-			};
+			let fts_hits = db.fts_search(query, limit, temporal).await.map_err(|e| {
+				crate::error::Error::Other(format!(
+					"search failed for source {}: {e}",
+					source_info.id
+				))
+			})?;
 
 			if fts_hits.is_empty() {
 				continue;
@@ -127,5 +123,75 @@ impl SearchRouter {
 		all_results.truncate(limit);
 
 		Ok(all_results)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn source() -> SourceRef {
+		SourceRef {
+			id: "missing".into(),
+			name: "Missing".into(),
+			data_type: "note".into(),
+			adapter_id: "test".into(),
+			config: serde_json::Value::Null,
+			trust_tier: Default::default(),
+		}
+	}
+
+	#[tokio::test]
+	async fn source_and_type_filters_intersect_and_open_errors_surface() {
+		let dir = tempfile::tempdir().unwrap();
+		let router = SearchRouter::new(Arc::new(SourceManager::new(dir.path().to_path_buf())));
+		let filter = SearchFilter {
+			source_id: Some("missing".into()),
+			data_type: Some("email".into()),
+			..Default::default()
+		};
+		assert!(router
+			.search("test", Some(filter), &[source()])
+			.await
+			.unwrap()
+			.is_empty());
+		let filter = SearchFilter {
+			source_id: Some("missing".into()),
+			data_type: Some("note".into()),
+			..Default::default()
+		};
+		let error = router
+			.search("test", Some(filter), &[source()])
+			.await
+			.unwrap_err()
+			.to_string();
+		assert!(
+			error.contains("missing") && error.contains("failed to open source"),
+			"{error}"
+		);
+	}
+	#[tokio::test]
+	async fn fts_failure_is_reported_for_a_retained_store() {
+		let dir = tempfile::tempdir().unwrap();
+		let manager = Arc::new(SourceManager::new(dir.path().to_path_buf()));
+		use crate::adapter::{script::ScriptAdapter, Adapter};
+		let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../adapters/obsidian");
+		let adapter = ScriptAdapter::from_dir(&path).unwrap();
+		manager.create("missing", adapter.schema()).await.unwrap();
+		let router = SearchRouter::new(manager);
+		let error = router
+			.search("\"unterminated", None, &[source()])
+			.await
+			.unwrap_err()
+			.to_string();
+		assert!(
+			error.contains("search failed for source missing"),
+			"{error}"
+		);
+		assert!(router
+			.search("needle", None, &[source()])
+			.await
+			.unwrap()
+			.is_empty());
 	}
 }

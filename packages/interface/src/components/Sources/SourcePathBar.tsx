@@ -32,7 +32,7 @@ export function SourcePathBar({
 			</span>
 
 			<span className="text-ink-faint ml-1 whitespace-nowrap text-[11px]">
-				{itemCount.toLocaleString()} items
+				{itemCount.toLocaleString()} items at last completed sync
 			</span>
 		</div>
 	);

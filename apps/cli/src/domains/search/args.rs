@@ -13,7 +13,7 @@ pub struct FileSearchArgs {
 	/// Search query
 	pub query: String,
 
-	/// Search mode
+	/// Search mode (all modes currently search filenames)
 	#[arg(long, value_enum, default_value = "normal")]
 	pub mode: SearchModeArg,
 
@@ -140,28 +140,22 @@ pub enum SortDirectionArg {
 	Desc,
 }
 
-impl From<FileSearchArgs> for FileSearchInput {
-	fn from(args: FileSearchArgs) -> Self {
+impl TryFrom<FileSearchArgs> for FileSearchInput {
+	type Error = anyhow::Error;
+
+	fn try_from(args: FileSearchArgs) -> Result<Self, Self::Error> {
 		let mode = match args.mode {
 			SearchModeArg::Fast => SearchMode::Fast,
 			SearchModeArg::Normal => SearchMode::Normal,
 			SearchModeArg::Full => SearchMode::Full,
 		};
 
-		let scope = if let Some(sd_path_str) = args.sd_path {
-			// Parse SD path from string
-			match sd_core::domain::addressing::SdPath::from_uri(&sd_path_str) {
-				Ok(sd_path) => SearchScope::Path { path: sd_path },
-				Err(_) => {
-					eprintln!(
-						"Warning: Invalid SD path '{}', falling back to library search",
-						sd_path_str
-					);
-					SearchScope::Library
-				}
-			}
-		} else {
-			SearchScope::Library
+		let scope = match args.sd_path {
+			Some(path) => SearchScope::Path {
+				path: sd_core::domain::addressing::SdPath::from_uri(&path)
+					.map_err(|e| anyhow::anyhow!("Invalid SD path {path:?}: {e}"))?,
+			},
+			None => SearchScope::Library,
 		};
 
 		let filters = SearchFilters {
@@ -250,13 +244,41 @@ impl From<FileSearchArgs> for FileSearchInput {
 			offset: args.offset,
 		};
 
-		Self {
+		Ok(Self {
 			query: args.query,
 			scope,
 			mode,
 			filters,
 			sort,
 			pagination,
-		}
+		})
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use clap::Parser;
+
+	#[derive(Parser)]
+	struct TestCli {
+		#[command(flatten)]
+		args: FileSearchArgs,
+	}
+
+	#[test]
+	fn invalid_scope_is_rejected_instead_of_searching_the_library() {
+		let args = TestCli::try_parse_from(["test", "needle", "--sd-path", "content://invalid"])
+			.unwrap()
+			.args;
+		let err = FileSearchInput::try_from(args).unwrap_err().to_string();
+		assert!(err.contains("Invalid SD path"));
+		let args = TestCli::try_parse_from(["test", "needle", "--sd-path", "local://local/tmp"])
+			.unwrap()
+			.args;
+		assert!(matches!(
+			FileSearchInput::try_from(args).unwrap().scope,
+			SearchScope::Path { .. }
+		));
 	}
 }
