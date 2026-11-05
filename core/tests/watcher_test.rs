@@ -1133,6 +1133,38 @@ async fn run_test_scenarios(
 	// Clean up trash directory
 	tokio::fs::remove_dir_all(&trash_dir).await?;
 
+	println!("\n--- Scenario 9b: Trash inside the watched tree ---");
+	println!(
+		"A volume's own trash sits under its root in a hidden directory the index does not hold"
+	);
+
+	// The same rename as the trash above, except that its destination is a
+	// filtered path under the root rather than a path outside it.
+	let volume_trash = harness.path(".Trash-1000/files");
+	tokio::fs::create_dir_all(&volume_trash).await?;
+	let volume_trash_files = ["volume_trash1.txt", "volume_trash2.txt"];
+	harness.create_batch_files(&volume_trash_files).await?;
+	for file in &volume_trash_files {
+		harness.verify_entry_exists(file).await?;
+	}
+	for file in &volume_trash_files {
+		harness.move_to_trash(file, &volume_trash).await?;
+	}
+	for file in &volume_trash_files {
+		harness.verify_entry_not_exists(file).await?;
+	}
+	for file in &volume_trash_files {
+		harness.restore_from_trash(file, &volume_trash).await?;
+	}
+	for file in &volume_trash_files {
+		harness.verify_entry_exists(file).await?;
+	}
+	for file in &volume_trash_files {
+		harness.delete_file(file).await?;
+	}
+	tokio::fs::remove_dir_all(harness.path(".Trash-1000")).await?;
+	println!("✓ Trash inside the watched tree: removed on trash, back on restore");
+
 	// ========================================================================
 	// Scenario 10: Screenshot Pattern (rapid create + write)
 	// ========================================================================
