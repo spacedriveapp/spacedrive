@@ -220,29 +220,37 @@ async fn serve_sidecar(
 		.expect("sidecar response is well-formed")
 }
 
-/// Stream a file from the embedded daemon's mounts share.
+/// Stream a file from the daemon's mounts share.
 ///
 /// Viewers read originals from the share's `files.stream_url` URLs, but the
 /// share listens on loopback, where a browser on another machine cannot reach
 /// it. Proxying it here puts it behind this server's auth and origin. Range
 /// headers pass through both ways, so a video seeks without a full download.
 ///
-/// A daemon this server reused rather than embedded binds the share in its
-/// own process, so its address is only known by the preferred port it binds
-/// when that port is free.
+/// The share's address is this process's own when it embedded the daemon. A
+/// reused daemon may have bound any port, so it is asked over its socket.
 ///
 /// The bytes are untrusted files on the application's origin. A sandbox CSP
 /// gives a document opened from here an opaque origin with no scripts, and
 /// nosniff stops a file being read as a type the share did not name.
-async fn proxy_share(uri: Uri, headers: HeaderMap) -> Response {
+async fn proxy_share(State(state): State<AppState>, uri: Uri, headers: HeaderMap) -> Response {
 	static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
-	let addr = sd_core::service::mounts::bound_addr().unwrap_or_else(|| {
-		SocketAddr::from(([127, 0, 0, 1], sd_core::service::mounts::preferred_port()))
-	});
+	let origin = match sd_core::service::mounts::bound_addr() {
+		Some(addr) => format!("http://{addr}"),
+		None => match share_origin(&state.socket_addr).await {
+			Some(origin) => origin,
+			None => {
+				return plain_status(
+					StatusCode::SERVICE_UNAVAILABLE,
+					"the daemon's mounts share is not running",
+				)
+			}
+		},
+	};
 	let path = uri.path_and_query().map_or(uri.path(), |p| p.as_str());
 	let mut request = CLIENT
 		.get_or_init(reqwest::Client::new)
-		.get(format!("http://{addr}{path}"));
+		.get(format!("{origin}{path}"));
 	for name in [
 		header::RANGE,
 		header::IF_RANGE,
@@ -279,6 +287,24 @@ async fn proxy_share(uri: Uri, headers: HeaderMap) -> Response {
 	builder
 		.body(Body::from_stream(upstream.bytes_stream()))
 		.expect("proxied share response is well-formed")
+}
+
+/// The scheme and authority of a daemon's mounts share, from `mounts.status`.
+async fn share_origin(socket_addr: &str) -> Option<String> {
+	let mut stream = TcpStream::connect(socket_addr).await.ok()?;
+	let request = serde_json::json!({
+		"Query": { "method": "query:mounts.status", "library_id": null, "payload": {} }
+	});
+	stream
+		.write_all(format!("{request}\n").as_bytes())
+		.await
+		.ok()?;
+	let mut line = String::new();
+	BufReader::new(stream).read_line(&mut line).await.ok()?;
+	let response: serde_json::Value = serde_json::from_str(&line).ok()?;
+	let status = response.get("JsonOk").or_else(|| response.get("json"))?;
+	let base = status.get("base_url")?.as_str()?;
+	Some(base.strip_suffix("/dav")?.to_string())
 }
 
 /// Serve a tile that explicit regeneration can replace in place.
