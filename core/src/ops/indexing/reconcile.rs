@@ -11,7 +11,10 @@
 //! Unchanged files cost a `stat` and nothing else. Identity comes from the
 //! store's ledger, so a file renamed while the daemon was stopped keeps its
 //! record (and its tags) when its inode, size and modification time agree,
-//! and only new or modified files are queued for hashing.
+//! and only new or modified files are queued for hashing. One case resolves
+//! fresh: two paths of different kinds swapped through a temporary name. Each
+//! path still holds the other's old binding when the arrivals resolve, so
+//! the swapped entries get new records and are hashed again.
 //!
 //! Removals follow the sweep rules every walk follows. Nothing is removed
 //! unless the pass read every directory it needed to, a pass that would remove
@@ -182,7 +185,7 @@ pub async fn reconcile_source(
 	let mut changed: Vec<PathBuf> = Vec::new();
 	let mut added: Vec<PathBuf> = Vec::new();
 	let mut missing: Vec<(PathBuf, bool, u64)> = Vec::new();
-	let mut replaced: Vec<(PathBuf, bool)> = Vec::new();
+	let mut replaced: Vec<(PathBuf, bool, u64)> = Vec::new();
 	let mut unreadable = false;
 	let mut known_entries: u64 = 0;
 
@@ -243,7 +246,7 @@ pub async fn reconcile_source(
 						// A file replaced by a directory, or the reverse. The
 						// path is there, so this is no absence for the fuse to
 						// weigh, but the old entry and anything under it go.
-						replaced.push((held.path, held.kind == EntryKind::Directory));
+						replaced.push((held.path, held.kind == EntryKind::Directory, held.entries));
 					}
 					if should_filter_path(&entry.path, rule_toggles, root, None)
 						.await
@@ -279,47 +282,53 @@ pub async fn reconcile_source(
 	// replaced directory is rebound before that directory is forgotten.
 	let (after_replacement, added): (Vec<PathBuf>, Vec<PathBuf>) = added
 		.into_iter()
-		.partition(|path| replaced.iter().any(|(old, _)| path.starts_with(old)));
+		.partition(|path| replaced.iter().any(|(old, ..)| path.starts_with(old)));
 	let mut arrived: HashSet<Uuid> = HashSet::new();
 	report.added += arrive(&writer, &added, &mut arrived).await;
 	report.modified += arrive(&writer, &changed, &mut arrived).await;
-	for (path, is_directory) in replaced {
-		loud.apply(Seen::Lost { path, is_directory }).await;
-		report.removed += 1;
-	}
-	report.added += arrive(&writer, &after_replacement, &mut arrived).await;
 
-	// An old path whose record arrived somewhere else moved. Removing it
-	// silently is safe only when everything under it arrived too; whatever
-	// did not is leaving, and the fuse and the unreadable check weigh it like
-	// any other removal. A missing directory was never descended into, so
-	// its subtree counts toward what the map held only here.
+	// What leaves with each old path: every identity at or under it that did
+	// not arrive somewhere else. An old path all of whose identities arrived
+	// moved, and dropping it loses nothing. For a replaced path the path
+	// itself is affirmatively gone, so only what was under it counts. A
+	// missing directory was never descended into, so its subtree counts
+	// toward what the map held only here.
 	let mut doomed = 0u64;
 	let mut moved = Vec::new();
 	let mut leaving = Vec::new();
+	let mut replacing = Vec::new();
 	{
 		let index = index.read().await;
-		let arrived_at = |path: &Path| {
-			index
-				.get_entry_uuid(&path.to_path_buf())
-				.is_some_and(|uuid| arrived.contains(&uuid))
+		let not_arrived = |path: &Path| -> (bool, u64) {
+			let identities = index.subtree_identities(path);
+			let own = identities
+				.first()
+				.copied()
+				.flatten()
+				.is_some_and(|uuid| arrived.contains(&uuid));
+			let beneath = identities
+				.iter()
+				.skip(1)
+				.filter(|uuid| !uuid.is_some_and(|uuid| arrived.contains(&uuid)))
+				.count() as u64;
+			(own, beneath)
 		};
 		for (path, is_directory, entries) in missing {
 			known_entries += entries - 1;
-			let own = arrived_at(&path);
-			let mut lost = u64::from(!own);
-			if is_directory {
-				lost += match index.files_in_scope(&path, true) {
-					Some(files) => files.iter().filter(|file| !arrived_at(file)).count() as u64,
-					None => entries - 1,
-				};
-			}
+			let (own, beneath) = not_arrived(&path);
+			let lost = beneath + u64::from(!own);
 			doomed += lost;
 			if lost == 0 {
 				moved.push((path, is_directory));
 			} else {
 				leaving.push((path, is_directory, own));
 			}
+		}
+		for (path, is_directory, entries) in replaced {
+			known_entries += entries - 1;
+			let (own, beneath) = not_arrived(&path);
+			doomed += beneath;
+			replacing.push((path, is_directory, own, beneath));
 		}
 	}
 
@@ -330,47 +339,62 @@ pub async fn reconcile_source(
 		)
 	};
 
-	if cache.is_indexing(root) {
-		report.removals_refused = !(moved.is_empty() && leaving.is_empty());
+	let destructive = !leaving.is_empty() || replacing.iter().any(|(.., beneath)| *beneath > 0);
+	let walk_owns_removals = cache.is_indexing(root);
+	let refused = if walk_owns_removals {
 		debug!(root = %root.display(), "a walk started under the reconcile; its sweep owns removals");
+		true
+	} else if unreadable && destructive {
+		warn!(
+			root = %root.display(),
+			withheld = leaving.len() + replacing.len(),
+			"reconcile left removals alone: part of the source could not be read"
+		);
+		true
+	} else if known_entries > 100 && doomed * 2 > known_entries {
+		error!(
+			root = %root.display(),
+			doomed,
+			known = known_entries,
+			"reconcile refused its removals: it would remove more than half of the source"
+		);
+		true
 	} else {
-		// The record lives on at its new path, so the old entry is dropped
-		// without announcing it as deleted.
+		false
+	};
+
+	// The record of a clean move lives on at its new path, so the old entry
+	// is dropped without announcing it as deleted, whatever the safeguards
+	// say, unless a walk now owns every removal.
+	if !walk_owns_removals {
 		for (path, is_directory) in moved {
 			if still_gone(path.clone()).await {
 				quiet.apply(Seen::Lost { path, is_directory }).await;
 				report.moved += 1;
 			}
 		}
+	}
 
-		if unreadable && !leaving.is_empty() {
-			report.removals_refused = true;
-			warn!(
-				root = %root.display(),
-				withheld = leaving.len(),
-				"reconcile left removals alone: part of the source could not be read"
-			);
-		} else if known_entries > 100 && doomed * 2 > known_entries {
-			report.removals_refused = true;
-			error!(
-				root = %root.display(),
-				doomed,
-				known = known_entries,
-				"reconcile refused its removals: it would remove more than half of the source"
-			);
-		} else {
-			for (path, is_directory, own_moved) in leaving {
-				if still_gone(path.clone()).await {
-					let writer = if own_moved { &quiet } else { &loud };
-					writer.apply(Seen::Lost { path, is_directory }).await;
-					if own_moved {
-						report.moved += 1;
-					} else {
-						report.removed += 1;
-					}
+	if refused {
+		report.removals_refused = !leaving.is_empty() || !replacing.is_empty();
+	} else {
+		for (path, is_directory, own_moved) in leaving {
+			if still_gone(path.clone()).await {
+				let writer = if own_moved { &quiet } else { &loud };
+				writer.apply(Seen::Lost { path, is_directory }).await;
+				if own_moved {
+					report.moved += 1;
+				} else {
+					report.removed += 1;
 				}
 			}
 		}
+		for (path, is_directory, own_moved, _) in replacing {
+			let writer = if own_moved { &quiet } else { &loud };
+			writer.apply(Seen::Lost { path, is_directory }).await;
+			report.removed += 1;
+		}
+		report.added += arrive(&writer, &after_replacement, &mut arrived).await;
 	}
 
 	if let Some(store) = &store {

@@ -644,6 +644,25 @@ impl Arena {
 		)
 	}
 
+	/// The identity of an entry and of everything beneath it, `None` where an
+	/// entry has none. Walks the subtree's own nodes, so it costs the subtree
+	/// rather than the arena.
+	pub fn subtree_identities(&self, path: &Path) -> Vec<Option<Uuid>> {
+		let Some(&root) = self.path_index.get(path) else {
+			return Vec::new();
+		};
+		let mut pending = vec![root];
+		let mut identities = Vec::new();
+		while let Some(id) = pending.pop() {
+			let Some(node) = self.arena.get(id) else {
+				continue;
+			};
+			identities.push(self.entry_uuids.get(&id).copied());
+			pending.extend(node.children.iter().copied());
+		}
+		identities
+	}
+
 	/// Snapshot the known files in a scope without reading the filesystem.
 	/// Summarised and unvisited directories contribute no invented descendants.
 	pub fn files_in_scope(&self, root: &Path, recursive: bool) -> Option<Vec<PathBuf>> {

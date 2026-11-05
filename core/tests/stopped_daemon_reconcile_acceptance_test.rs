@@ -203,6 +203,8 @@ async fn walked_and_stopped(name: &str, empty: bool) -> Stopped {
 	let filler = if empty { 0 } else { FILLER };
 	if !empty {
 		std::fs::create_dir(root_dir.path().join("filler")).expect("mkdir");
+		// A folder that holds only another, empty folder.
+		std::fs::create_dir_all(root_dir.path().join("yankee/zulu")).expect("mkdir");
 	}
 	for index in 0..filler {
 		std::fs::write(
@@ -300,6 +302,7 @@ async fn restart_and_check(stopped: Stopped) {
 
 	let expected = vec![
 		"bravo", "charlie", "echo", "filler", "foxtrot", "golf", "india", "kilo", "lima", "quebec",
+		"yankee",
 	];
 	let mut listed = Vec::new();
 	for _ in 0..300 {
@@ -639,7 +642,11 @@ async fn an_unreadable_moved_folder_keeps_its_records() {
 	let moved = stopped.root.join("moved");
 	std::fs::rename(stopped.root.join("filler"), &moved).expect("rename");
 	std::fs::set_permissions(&moved, std::fs::Permissions::from_mode(0o000)).expect("chmod");
+	let folders = stopped.root.join("yankee-moved");
+	std::fs::rename(stopped.root.join("yankee"), &folders).expect("rename");
+	std::fs::set_permissions(&folders, std::fs::Permissions::from_mode(0o000)).expect("chmod");
 	if std::fs::read_dir(&moved).is_ok() {
+		std::fs::set_permissions(&folders, std::fs::Permissions::from_mode(0o755)).expect("chmod");
 		std::fs::set_permissions(&moved, std::fs::Permissions::from_mode(0o755)).expect("chmod");
 		eprintln!("skipping: this user can read a mode 000 directory");
 		return;
@@ -683,10 +690,26 @@ async fn an_unreadable_moved_folder_keeps_its_records() {
 			kept += 1;
 		}
 	}
+	let db = store.db();
+	let zulu = db
+		.resolve_path("yankee/zulu")
+		.await
+		.expect("query")
+		.is_some()
+		|| db
+			.resolve_path("yankee-moved/zulu")
+			.await
+			.expect("query")
+			.is_some();
 	std::fs::set_permissions(&moved, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+	std::fs::set_permissions(&folders, std::fs::Permissions::from_mode(0o755)).expect("chmod");
 	assert_eq!(
 		kept, FILLER,
 		"no record under the unreadable folder was removed"
+	);
+	assert!(
+		zulu,
+		"a folder under an unreadable moved folder keeps its record"
 	);
 
 	drop(store);
