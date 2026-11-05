@@ -486,7 +486,7 @@ pub fn enhance_volume_with_cached_output(volume: &mut Volume, zfs_list_output: &
 ///
 /// TrueNAS Scale uses `boot-pool` for its OS. Other appliances may add more
 /// entries here as we encounter them.
-fn is_system_zfs_pool(pool_name: &str) -> bool {
+pub(crate) fn is_system_zfs_pool(pool_name: &str) -> bool {
 	matches!(pool_name, "boot-pool" | "rpool" | "zroot")
 }
 
