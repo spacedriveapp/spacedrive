@@ -37,6 +37,9 @@ export type Platform = {
 	/** Convert a file path to a URL that can be loaded in the webview */
 	convertFileSrc?(filePath: string): string;
 
+	/** Rewrite a mounts share URL from `files.stream_url` to one this client can reach */
+	shareUrl?(url: string): string;
+
 	/** Reveal a file in the native file manager (Finder on macOS, Explorer on Windows, etc.) */
 	revealFile?(filePath: string): Promise<void>;
 

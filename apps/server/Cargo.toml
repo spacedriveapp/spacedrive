@@ -30,6 +30,7 @@ uuid = "1.10"
 tower      = "0.4"
 tower-http = { version = "0.5", features = ["fs", "cors"] }
 futures    = "0.3"
+reqwest    = { version = "0.12", default-features = false, features = ["stream"] }
 
 # Embedded web UI
 rust-embed = { version = "8", features = ["include-exclude"] }

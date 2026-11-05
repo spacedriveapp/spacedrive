@@ -12,9 +12,9 @@ const ORIGINAL_DELAY_MS = 50;
  * A file on this device loads through the asset protocol, which reads the disk
  * directly. A file on another device streams from the daemon's share, which
  * answers the byte ranges a viewer asks for and keeps what it fetched in its
- * block cache, so a video plays and seeks without being downloaded first. Both
- * need a client on the daemon's machine, so a platform without file access
- * gets no URL.
+ * block cache, so a video plays and seeks without being downloaded first. A
+ * platform without file access reads local files from the share too, through
+ * the URL its `shareUrl` rewrites; one with neither gets no URL.
  *
  * The URL arrives shortly after a file is shown, so its thumbnail draws first,
  * and is `null` until then, while `enabled` is false, or when neither way can
@@ -32,18 +32,25 @@ export function useOriginalUrl(file: File, enabled = true): string | null {
 
 	const physicalPath = "Physical" in file.sd_path ? file.sd_path.Physical.path : null;
 	const wanted =
-		enabled && readyFor === fileKey && physicalPath !== null && !!platform.convertFileSrc;
+		enabled &&
+		readyFor === fileKey &&
+		physicalPath !== null &&
+		(!!platform.convertFileSrc || !!platform.shareUrl);
+	const fromDisk = file.is_local && !!platform.convertFileSrc;
 
 	const { data: stream } = useCoreQuery(
 		{ type: "files.stream_url", input: { path: file.sd_path } },
-		{ enabled: wanted && !file.is_local },
+		{ enabled: wanted && !fromDisk },
 	);
 
-	if (!wanted || !platform.convertFileSrc || physicalPath === null) {
+	if (!wanted || physicalPath === null) {
 		return null;
 	}
-	if (file.is_local) {
+	if (fromDisk && platform.convertFileSrc) {
 		return platform.convertFileSrc(physicalPath);
 	}
-	return stream?.url ?? null;
+	if (!stream) {
+		return null;
+	}
+	return platform.shareUrl ? platform.shareUrl(stream.url) : stream.url;
 }
