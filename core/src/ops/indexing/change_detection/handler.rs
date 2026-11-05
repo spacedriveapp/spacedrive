@@ -345,7 +345,32 @@ pub async fn handle_create<H: ChangeHandler>(
 	let entry = handler.create(&metadata, parent_path).await?;
 
 	if entry.is_directory() {
-		handler.handle_new_directory(path).await?;
+		// A directory moved in whole, from outside the watched tree or back
+		// from a trash, arrives as one event, so its subtree is read here.
+		let mut pending = vec![path.to_path_buf()];
+		while let Some(dir) = pending.pop() {
+			handler.handle_new_directory(&dir).await?;
+			let Ok(mut children) = tokio::fs::read_dir(&dir).await else {
+				continue;
+			};
+			while let Ok(Some(child)) = children.next_entry().await {
+				let child = child.path();
+				let is_dir = tokio::fs::symlink_metadata(&child)
+					.await
+					.is_ok_and(|m| m.is_dir());
+				if is_dir
+					&& !should_filter_path(
+						&child,
+						config.rule_toggles,
+						config.root,
+						config.volume_backend,
+					)
+					.await?
+				{
+					pending.push(child);
+				}
+			}
+		}
 	} else {
 		handler.run_processors(&entry, true).await?;
 	}

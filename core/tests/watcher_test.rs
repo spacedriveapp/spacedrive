@@ -1133,10 +1133,7 @@ async fn run_test_scenarios(
 	// Clean up trash directory
 	tokio::fs::remove_dir_all(&trash_dir).await?;
 
-	println!("\n--- Scenario 9b: Trash inside the watched tree ---");
-	println!(
-		"A volume's own trash sits under its root in a hidden directory the index does not hold"
-	);
+	tracing::info!("Scenario 9b: trash inside the watched tree");
 
 	// The same rename as the trash above, except that its destination is a
 	// filtered path under the root rather than a path outside it.
@@ -1162,8 +1159,24 @@ async fn run_test_scenarios(
 	for file in &volume_trash_files {
 		harness.delete_file(file).await?;
 	}
+
+	// A folder comes back as one rename, and everything under it with it.
+	let deep_file = "trash_folder/sub/deep.txt";
+	tokio::fs::create_dir_all(harness.path("trash_folder/sub")).await?;
+	tokio::fs::write(harness.path(deep_file), b"deep").await?;
+	harness.verify_entry_exists(deep_file).await?;
+	harness.move_to_trash("trash_folder", &volume_trash).await?;
+	harness.verify_entry_not_exists(deep_file).await?;
+	harness
+		.restore_from_trash("trash_folder", &volume_trash)
+		.await?;
+	harness.verify_entry_exists("trash_folder/sub").await?;
+	harness.verify_entry_exists(deep_file).await?;
+	tokio::fs::remove_dir_all(harness.path("trash_folder")).await?;
+	harness.verify_entry_not_exists("trash_folder").await?;
+
 	tokio::fs::remove_dir_all(harness.path(".Trash-1000")).await?;
-	println!("✓ Trash inside the watched tree: removed on trash, back on restore");
+	tracing::info!("Trash inside the watched tree: removed on trash, back on restore");
 
 	// ========================================================================
 	// Scenario 10: Screenshot Pattern (rapid create + write)
