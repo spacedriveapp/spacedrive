@@ -188,6 +188,13 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Hidden volume heal acceptance test",
 		&["--test", "hidden_volume_heal_acceptance_test"],
 	),
+	// Candidate validation step 4: changes made while the daemon is stopped
+	// reach the index on restart.
+	acceptance(
+		"sd-core",
+		"Stopped daemon reconcile acceptance test",
+		&["--test", "stopped_daemon_reconcile_acceptance_test"],
+	),
 	acceptance(
 		"sd-core",
 		"Folder rename test",

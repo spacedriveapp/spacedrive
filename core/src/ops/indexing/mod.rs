@@ -26,6 +26,7 @@ pub mod name;
 pub mod nodes;
 pub mod phases;
 pub mod progress;
+pub mod reconcile;
 pub mod registry;
 pub mod responder;
 pub mod rules;

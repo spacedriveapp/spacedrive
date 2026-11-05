@@ -7,7 +7,10 @@
 Implementation began on 2026-09-15. Library loading no longer starts a new
 filesystem discovery pass. The desktop requests one idempotent pass after its
 connected shell renders, and `sd index start --defaults` exposes the same pass
-to headless clients. Startup profiles, typed permission coverage, and the
+to headless clients. Warm start step 2 is built: once the maps are restored,
+every attached source is reconciled with its disk in the background
+(`core/src/ops/indexing/reconcile.rs`), one source after another and not yet
+visible-first or budgeted. Startup profiles, typed permission coverage, and the
 complete macOS affordance remain open.
 
 ## The promise
