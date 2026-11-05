@@ -307,6 +307,25 @@ async fn share_origin(socket_addr: &str) -> Option<String> {
 	Some(base.strip_suffix("/dav")?.to_string())
 }
 
+/// The data directory of the daemon listening at `socket_addr`, from `core.status`.
+async fn daemon_data_dir(socket_addr: &str) -> Option<PathBuf> {
+	let mut stream = TcpStream::connect(socket_addr).await.ok()?;
+	let request = serde_json::json!({
+		"Query": { "method": "query:core.status", "library_id": null, "payload": null }
+	});
+	stream
+		.write_all(format!("{request}\n").as_bytes())
+		.await
+		.ok()?;
+	let mut line = String::new();
+	BufReader::new(stream).read_line(&mut line).await.ok()?;
+	let response: serde_json::Value = serde_json::from_str(&line).ok()?;
+	let status = response.get("JsonOk").or_else(|| response.get("json"))?;
+	let dir = PathBuf::from(status.get("system")?.get("data_directory")?.as_str()?);
+	// Daemons before this field was filled in report the placeholder "default".
+	dir.is_absolute().then_some(dir)
+}
+
 /// Serve a tile that explicit regeneration can replace in place.
 async fn serve_hot_thumb(
 	State(state): State<AppState>,
@@ -672,6 +691,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Start the daemon if not already running
 	let daemon_handle =
 		start_daemon_if_needed(socket_addr.clone(), data_dir.clone(), args.p2p).await?;
+
+	// Tiles, sidecars and extension bundles are read from the daemon's data
+	// directory, which is not ours when we reused a daemon another client
+	// started, such as the desktop app's.
+	let data_dir = match daemon_handle {
+		Some(_) => data_dir,
+		None => match daemon_data_dir(&socket_addr).await {
+			Some(daemon_dir) => {
+				if daemon_dir != data_dir {
+					info!(
+						"Reading daemon files from its data directory {:?}",
+						daemon_dir
+					);
+				}
+				daemon_dir
+			}
+			None => {
+				warn!(
+					"The running daemon did not report its data directory; using {:?}",
+					data_dir
+				);
+				data_dir
+			}
+		},
+	};
 
 	// Build HTTP router
 	let state = AppState {
