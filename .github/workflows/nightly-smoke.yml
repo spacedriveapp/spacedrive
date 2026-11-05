@@ -1,0 +1,172 @@
+# Smoke test of the published nightly CLI and daemon on clean runners.
+#
+# Release candidate validation step 1 (docs/core/releases.mdx) installs clean
+# artifacts on every platform. This downloads the binaries the nightly
+# workflow published, checks them against their .sha256 assets, installs them
+# side by side the way `sd update` expects (`start` launches the sd-daemon next
+# to the CLI), then indexes a generated folder and checks the counts through a
+# daemon restart. It builds nothing, so it tests exactly what users download.
+name: Nightly smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/nightly-smoke.yml
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - host: windows-latest
+            platform: windows-x86_64
+            exe: .exe
+          - host: ubuntu-latest
+            platform: linux-x86_64
+            exe: ""
+    name: Smoke ${{ matrix.platform }}
+    runs-on: ${{ matrix.host }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXE: ${{ matrix.exe }}
+      PLATFORM: ${{ matrix.platform }}
+    steps:
+      - name: Download and verify nightly binaries
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/dl" "$RUNNER_TEMP/sd/bin"
+          cd "$RUNNER_TEMP/dl"
+          gh release download nightly -R "$GITHUB_REPOSITORY" \
+            -p "sd-$PLATFORM$EXE*" -p "sd-daemon-$PLATFORM$EXE*" -p nightly.sha
+          cat nightly.sha ./*.sha256
+          sha256sum -c ./*.sha256
+          cp "sd-$PLATFORM$EXE" "$RUNNER_TEMP/sd/bin/sd-cli$EXE"
+          cp "sd-daemon-$PLATFORM$EXE" "$RUNNER_TEMP/sd/bin/sd-daemon$EXE"
+          chmod +x "$RUNNER_TEMP/sd/bin/"*
+          echo "NIGHTLY_SHA=$(cat nightly.sha)" >> "$GITHUB_ENV"
+
+      - name: Smoke
+        run: |
+          set -euo pipefail
+          native() { if command -v cygpath >/dev/null; then cygpath -w "$1"; else echo "$1"; fi; }
+          daemon_running() {
+            if [ -n "$EXE" ]; then
+              tasklist //FI "IMAGENAME eq sd-daemon.exe" //NH | grep -qi sd-daemon
+            else
+              pgrep -x sd-daemon >/dev/null
+            fi
+          }
+          fail() { echo "::error::$*"; exit 1; }
+          DATA="$(native "$RUNNER_TEMP/sd/data")"
+          SRC="$RUNNER_TEMP/smoke-src"
+          sd() { "$RUNNER_TEMP/sd/bin/sd-cli$EXE" --data-dir "$DATA" "$@"; }
+          sdj() { sd --format json "$@"; }
+
+          start() {
+            local t0=$SECONDS
+            sd start --no-default-sources
+            for _ in $(seq 60); do
+              sdj status >/dev/null 2>&1 && break
+              sleep 1
+            done
+            sdj status | jq -c '{version, library_count}' || fail "daemon never answered status"
+            echo "daemon ready in $((SECONDS - t0))s"
+          }
+          stop() {
+            local t0=$SECONDS
+            sd stop
+            for _ in $(seq 60); do
+              daemon_running || { echo "daemon exited in $((SECONDS - t0))s"; return; }
+              sleep 1
+            done
+            fail "daemon still running 60s after stop"
+          }
+          check() {
+            local sources stats files dirs
+            # Library statistics are cached and refreshed in the background
+            # after a job completes, so give them a bounded time to catch up.
+            for _ in $(seq 30); do
+              sources=$(sdj sources list | jq -c '[.[] | {name, item_count, status, root}]')
+              stats=$(sdj library info | jq -c .statistics)
+              jq -e 'length == 1 and .[0].item_count == 224' <<<"$sources" >/dev/null \
+                && jq -e '.total_files == 200 and .source_count == 1' <<<"$stats" >/dev/null \
+                && break
+              sleep 1
+            done
+            echo "$sources"
+            echo "$stats"
+            jq -e 'length == 1 and .[0].item_count == 224' <<<"$sources" >/dev/null \
+              || fail "expected 1 source holding 224 items"
+            jq -e '.total_files == 200 and .source_count == 1' <<<"$stats" >/dev/null \
+              || fail "expected library total_files 200 and source_count 1"
+            files=0 dirs=0
+            while IFS= read -r d; do
+              listing=$(sdj file list "$(native "$d")")
+              files=$((files + $(jq '[.files[] | select(.kind == "File")] | length' <<<"$listing")))
+              dirs=$((dirs + $(jq '[.files[] | select(.kind != "File")] | length' <<<"$listing")))
+            done < <(find "$SRC" -type d)
+            echo "file list: $files files, $dirs directories"
+            [ "$files" = 200 ] || fail "file list found $files files, expected 200"
+            [ "$dirs" = 24 ] || fail "file list found $dirs directories, expected 24"
+          }
+          check_tag() {
+            sdj file info "$(native "$SRC/d1/e1/f1.txt")" | jq -e --arg id "$TAG" '.tags | any(.id == $id)' \
+              || fail "tag $TAG is not on d1/e1/f1.txt"
+          }
+
+          sd --version
+          sd --version | grep -q "$NIGHTLY_SHA" || fail "binary is not built from $NIGHTLY_SHA"
+
+          for d in 1 2 3 4; do for e in 1 2 3 4 5; do
+            mkdir -p "$SRC/d$d/e$e"
+            for f in $(seq 10); do echo "smoke $d $e $f" > "$SRC/d$d/e$e/f$f.txt"; done
+          done; done
+
+          start
+          sdj library create Smoke
+          track=$(sdj sources track "$(native "$SRC")")
+          echo "$track"
+          job=$(jq -r .job_id <<<"$track")
+          t0=$SECONDS
+          for _ in $(seq 120); do
+            status=$(sdj job list | jq -rs --arg id "$job" '[.[].jobs[] | select(.id == $id) | .status][0] // "missing"')
+            case "$status" in
+              completed) break ;;
+              failed|cancelled) fail "walk job $job ended $status" ;;
+            esac
+            sleep 1
+          done
+          [ "$status" = completed ] || fail "walk job $job still $status after 120s"
+          echo "walk completed in $((SECONDS - t0))s"
+
+          check
+          TAG=$(sdj tag create Smoke/Checked | jq -r .tag.id)
+          info=$(sdj file info "$(native "$SRC/d1/e1/f1.txt")")
+          echo "$info"
+          file=$(jq -r '.id // empty' <<<"$info")
+          [ -n "$file" ] || fail "file info has no record for d1/e1/f1.txt"
+          sdj tag apply "$file" --tags "$TAG" | jq -e '.targets_tagged == 1' || fail "tag apply did not tag 1 target"
+          check_tag
+
+          stop
+          start
+          check
+          check_tag
+          stop
+
+      - name: Upload daemon logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daemon-logs-${{ matrix.platform }}
+          path: ${{ runner.temp }}/sd/data/logs
+          if-no-files-found: warn
