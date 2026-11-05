@@ -134,7 +134,11 @@ const cli = process.env.SD_CLI;
 if (cli && home) {
 	await row("cli-index-start", async () => {
 		const { execSync } = await import("node:child_process");
-		const out = execSync(`${cli} --format json index start ${JSON.stringify(home)}`, { encoding: "utf8" });
+		// The path goes through the environment so the shell never parses it.
+		const out = execSync(`${cli} --format json index start "$SD_HOME"`, {
+			encoding: "utf8",
+			env: { ...process.env, SD_HOME: home },
+		});
 		const receipt = JSON.parse(out);
 		expect(/^[0-9a-f-]{36}$/.test(receipt.id ?? ""), `no job id in ${out}`);
 		return receipt;
