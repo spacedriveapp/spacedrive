@@ -26,7 +26,7 @@ names a fix branch.
 | 1. Clean install | Linux passes on Ubuntu 24.04, Ubuntu 22.04 and Debian 12. Windows fails on `26b57e1` (`file list` returns nothing under a tracked folder) and passes on nightly `fc630d1`, which includes the fix (#3169). |
 | 2. Upgrade path | Passes from three earlier nightlies. From v2.0.0-alpha.2, the library opens, but its locations, files, tags and collections are dropped. See the table in step 2. |
 | 3. Large source | Passes at 1,000,000 files. Five thumbnail, statistics and logging bugs found and fixed (#3173, #3174, #3175, #3182, #3183). |
-| 4. Interrupts | Fails. A killed copy left a truncated file (fixed, #3170). A killed or disk-full first walk is never healed (fixed in #3172, `68dc227`, and on Linux root and home volumes since). A full disk hangs the indexer. Files changed while the daemon is stopped are not picked up. |
+| 4. Interrupts | Fails. A killed copy left a truncated file (fixed, #3170). A killed or disk-full first walk is never healed (fixed in #3172, `68dc227`, and on Linux root and home volumes since). A full disk hangs the indexer. Files changed while the daemon is stopped are reconciled at the next start (fixed since this run). |
 | 5. Pairing | Covered by CI on every pull request. One real cross-network pair remains. |
 | 6. Remote operations | Remaining. Needs two paired devices. |
 | 7. Backup and restore | Passes: backup, verify, `--replace` (also under SIGKILL), and `--as-new` into a fresh data directory. |
@@ -335,13 +335,28 @@ The test tree has 240,000 files (240,630 entries) of 0 to 20 KB.
   binary is stripped, so no stack was captured. Reproduce it with a debug
   build: put the data directory on a nearly full loop device, track a
   240,000-file tree, and attach a debugger to the stalled daemon.
-- Changes made while the daemon is stopped are not reconciled. At
-  startup the map is restored from the snapshot and the watcher is armed,
-  but nothing compares the map with the disk.
-  `docs/core/design/zero-onboarding-startup.md` plans a background mtime
-  reconcile per source on warm start. It is not built. Until it is, a file
-  created, changed or deleted while the daemon was not running is not seen
-  until something walks that folder again.
+- Changes made while the daemon was stopped were not reconciled. At
+  startup the map was restored from the snapshot and the watcher armed,
+  but nothing compared the map with the disk. Fixed: after the restore,
+  each attached source runs the warm-start reconcile from
+  `docs/core/design/zero-onboarding-startup.md`
+  (`core/src/ops/indexing/reconcile.rs`). It reads every directory,
+  compares size and modification time with the map, and applies adds,
+  modifications, renames and removals through the writer the watcher uses.
+  A rename keeps its record when inode, size and modification time agree,
+  and only new or modified files are queued for hashing. Removals follow
+  the sweep rules: none when a directory could not be read, none when the
+  pass would remove more than half of what it compared, and each is checked
+  against the disk again before it lands. On the 1,000,000-file tree of
+  step 3 (1,001,000 entries, 4 vCPU cloud machine, release build) the
+  reconcile takes 16.1 s with a cold page cache and 9.7 s warm when nothing
+  changed, against 125 s for a cold first walk without hashing on the same
+  machine. With 1,000 files added in a new folder, 1,000 deleted, 1,000
+  modified and 1,000 renamed, it takes 11.8 s and applies all of them
+  (1,000 moves keep their records), and `sources list`, `file list` and
+  `search files` show the result. `stopped_daemon_reconcile_acceptance_test`
+  covers a map restored from its snapshot, a map rebuilt from its store, and
+  the half-removal fuse.
 - Writes before the watcher is armed are missed. A copy job that
   resumed 2 s after a restart wrote 9 files into a tracked folder. The
   folder's store held 4 of its 13 entries afterwards.
