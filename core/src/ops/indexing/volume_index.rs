@@ -50,9 +50,9 @@ pub struct Partition {
 	/// covers everything beneath its root and the store answers for all of
 	/// it, which a walk in `indexing_in_progress` does not promise.
 	filling_from_store: RwLock<HashSet<PathBuf>>,
-	/// Walks that failed after clearing what they were rebuilding. The arena
-	/// holds part of that tree until a later walk of it completes.
-	failed_walks: RwLock<HashSet<PathBuf>>,
+	/// Trees cleared for a walk that has not completed since. The arena holds
+	/// part of each one until a walk of it lands.
+	cleared_trees: RwLock<HashSet<PathBuf>>,
 	watched_paths: RwLock<HashSet<PathBuf>>,
 	/// A detached source's root is not present on disk; its index is served
 	/// read-only from a restored snapshot and must never trigger indexing.
@@ -94,7 +94,7 @@ impl Partition {
 			indexed_paths: RwLock::new(HashSet::new()),
 			indexing_in_progress: RwLock::new(HashSet::new()),
 			filling_from_store: RwLock::new(HashSet::new()),
-			failed_walks: RwLock::new(HashSet::new()),
+			cleared_trees: RwLock::new(HashSet::new()),
 			watched_paths: RwLock::new(HashSet::new()),
 			detached: AtomicBool::new(false),
 			restored: AtomicBool::new(false),
@@ -2497,7 +2497,7 @@ impl VolumeIndex {
 	}
 
 	/// Save the owning partition's snapshot only if its arena is whole: no
-	/// walk or store fill running, and no failed walk since the last good one.
+	/// walk or store fill running, and nothing cleared that a walk has not rebuilt.
 	///
 	/// A walk clears the arena before rebuilding it, so a save in between
 	/// would replace a complete snapshot with part of the drive. The check
@@ -2547,10 +2547,10 @@ impl VolumeIndex {
 			if require_settled
 				&& !(slot.indexing_in_progress.read().is_empty()
 					&& slot.filling_from_store.read().is_empty()
-					&& slot.failed_walks.read().is_empty())
+					&& slot.cleared_trees.read().is_empty())
 			{
 				tracing::debug!(
-					"Snapshot for {} held: a walk or fill is running or failed",
+					"Snapshot for {} held: a walk has not rebuilt what it cleared",
 					volume_root.display()
 				);
 				return Ok(());
@@ -2682,6 +2682,9 @@ impl VolumeIndex {
 		let indexed = slot.indexed_paths.read().clone();
 		let mut index = slot.index.write().await;
 		let (cleared, deleted_browsed_dirs) = index.clear_directory_children(path, &indexed);
+		if cleared > 0 {
+			slot.cleared_trees.write().insert(path.to_path_buf());
+		}
 
 		if !deleted_browsed_dirs.is_empty() {
 			let mut indexed_paths = slot.indexed_paths.write();
@@ -2698,9 +2701,9 @@ impl VolumeIndex {
 		let slot = self.resolve(path);
 		slot.indexing_in_progress.write().remove(path);
 		slot.indexed_paths.write().insert(path.to_path_buf());
-		slot.failed_walks
+		slot.cleared_trees
 			.write()
-			.retain(|failed| !failed.starts_with(path));
+			.retain(|cleared| !cleared.starts_with(path));
 	}
 
 	/// Indexing ended without producing a result. Clearing the in-progress
@@ -2711,7 +2714,6 @@ impl VolumeIndex {
 		let slot = self.resolve(path);
 		slot.indexing_in_progress.write().remove(path);
 		slot.indexed_paths.write().remove(path);
-		slot.failed_walks.write().insert(path.to_path_buf());
 	}
 
 	pub fn invalidate_path(&self, path: &Path) {
