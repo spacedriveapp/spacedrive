@@ -263,21 +263,21 @@ Checks:
 
 ### Findings
 
-- The thumbnail job submits every file in scope, not only images. It reports
+- The thumbnail job submits every file in scope, not only images (fixed in #3174). It reports
   "4000 generated, 0 skipped, 996000 failed", and most of its 202 s goes to
   files that cannot have a thumbnail. Fixed in #3174 (`e15fe24`).
 - `library info` reports `unique_content_count` 0 after hashing. The
   number is read from the registry row, and that row is written by the
   snapshot save at the end of the walk, before hashing starts. Nothing
-  refreshes it later. Fixed in #3183 (`69108a0`).
+  refreshes it later (fixed in #3183). Fixed in #3183 (`69108a0`).
 - `library info` reports `tag_count` 0 after a tag is created and applied
-  (Linux and Windows, and after a restart). The recount read only the tag
+  (Linux and Windows, and after a restart). Fixed in #3182. The recount read only the tag
   staging table. Fixed in #3182 (`d3926fb`).
 - `total_size` includes the sizes of directories (25 MB over the file bytes
-  here), although "Total files" leaves directories out. Fixed in #3173
+  here), although "Total files" leaves directories out. Fixed in #3173. Fixed in #3173
   (`25fe4d4`).
 - `sd logs show` reads a fixed macOS path (`~/Library/Application
-  Support/spacedrive`) on every platform. Fixed in #3175 (`990b85f`).
+  Support/spacedrive`) on every platform. Fixed in #3175. Fixed in #3175 (`990b85f`).
 - `file info` returns `content_identity: null` for hashed files.
 - The thumbnail cache stores raw RGBA tiles: about 435 KB on disk per
   thumbnail.
@@ -355,6 +355,24 @@ the library id already exists, as documented.
 Covered by CI on every pull request (`device_pairing_test` over mDNS,
 `relay_only_pairing_test` through an in-process relay). Not repeated here.
 One real device pair across networks remains, as `releases.mdx` says.
+
+## Fixes from this run
+
+| PR | Fix | Merge |
+|---|---|---|
+| #3168 | Log store migrations by default | `74da11c` |
+| #3169 | Strip the Windows verbatim prefix before locating a volume | `b6cd7fb` |
+| #3170 | Stage local copies and rename them into place | `a313420` |
+| #3171 | Pass the base data directory with `--instance` | `f07010c` |
+| #3172 | Heal a source whose first walk never finished | `68dc227` |
+| #3173 | Leave directories out of `total_size` | `25fe4d4` |
+| #3174 | Skip files no thumbnail producer can draw | `e15fe24` |
+| #3175 | Read logs from the resolved data directory | `990b85f` |
+| #3182 | Count tags from source stores | `d3926fb` |
+| #3183 | Refresh source counts after content identification | `69108a0` |
+| #3186 | Queue nightly builds instead of cancelling them | `79e38ea` |
+| #3188 | End the CLI quietly when its output pipe closes | open |
+| #3166 | Nightly smoke workflow for Linux and Windows | open, waits on a published nightly |
 
 ## Remaining
 
