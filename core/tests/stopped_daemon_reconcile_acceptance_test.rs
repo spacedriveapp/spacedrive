@@ -41,7 +41,7 @@ use sd_core::{
 use tempfile::TempDir;
 use uuid::Uuid;
 
-const FILES: [&str; 8] = [
+const FILES: [&str; 10] = [
 	"alpha.txt",
 	"bravo.txt",
 	"charlie.txt",
@@ -50,6 +50,8 @@ const FILES: [&str; 8] = [
 	"lima/mike/november.txt",
 	"lima/oscar.txt",
 	"quebec/romeo.txt",
+	"victor.txt",
+	"whiskey",
 ];
 
 /// Enough unchanged files that the removals stay well under the sweep fuse.
@@ -293,6 +295,9 @@ fn change_while_stopped(root: &Path) {
 	std::fs::write(root.join("india"), "a file where the moved folder was").expect("reuse path");
 	std::fs::remove_dir_all(root.join("quebec")).expect("replace dir");
 	std::fs::write(root.join("quebec"), "a file where a folder was").expect("replace dir");
+	std::fs::remove_file(root.join("whiskey")).expect("replace file");
+	std::fs::create_dir(root.join("whiskey")).expect("replace file");
+	std::fs::rename(root.join("victor.txt"), root.join("whiskey/victor.txt")).expect("move in");
 }
 
 async fn restart_and_check(stopped: Stopped) {
@@ -302,7 +307,7 @@ async fn restart_and_check(stopped: Stopped) {
 
 	let expected = vec![
 		"bravo", "charlie", "echo", "filler", "foxtrot", "golf", "india", "kilo", "lima", "quebec",
-		"yankee",
+		"whiskey", "yankee",
 	];
 	let mut listed = Vec::new();
 	for _ in 0..300 {
@@ -320,6 +325,11 @@ async fn restart_and_check(stopped: Stopped) {
 		list_dir(&core, &library, root.join("golf")).await,
 		vec!["hotel"],
 		"a folder created while stopped lists its file"
+	);
+	assert_eq!(
+		list_dir(&core, &library, root.join("whiskey")).await,
+		vec!["victor"],
+		"a file moved into a folder that replaced a file lists there"
 	);
 	assert_eq!(
 		list_dir(&core, &library, root.join("kilo")).await,
@@ -396,6 +406,11 @@ async fn restart_and_check(stopped: Stopped) {
 		db.resolve_path("echo.txt").await.expect("query"),
 		Some(stopped.record("delta.txt")),
 		"the store moved the renamed file's record"
+	);
+	assert_eq!(
+		db.resolve_path("whiskey/victor.txt").await.expect("query"),
+		Some(stopped.record("victor.txt")),
+		"a file moved into a replacement folder keeps its record"
 	);
 	let foxtrot = db
 		.resolve_path("foxtrot.txt")

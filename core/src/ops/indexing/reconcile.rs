@@ -101,6 +101,26 @@ fn read_directory(dir: &Path) -> std::io::Result<Vec<OnDisk>> {
 	Ok(entries)
 }
 
+/// How an old path's identities fared against what arrived.
+struct Weighed {
+	/// Entries at and under the path.
+	held: u64,
+	/// The path's own identity arrived somewhere else.
+	own_arrived: bool,
+	/// Entries under the path whose identity did not arrive.
+	beneath: u64,
+}
+
+fn weigh(index: &crate::ops::indexing::Arena, path: &Path, arrived: &HashSet<Uuid>) -> Weighed {
+	let identities = index.subtree_identities(path);
+	let came = |uuid: &Option<Uuid>| uuid.is_some_and(|uuid| arrived.contains(&uuid));
+	Weighed {
+		held: identities.len().max(1) as u64,
+		own_arrived: identities.first().is_some_and(came),
+		beneath: identities.iter().skip(1).filter(|uuid| !came(uuid)).count() as u64,
+	}
+}
+
 /// Hand paths to the writer in batches and note the identities they resolve
 /// to. Returns how many were still there to observe.
 async fn arrive(writer: &ArenaWriter, paths: &[PathBuf], arrived: &mut HashSet<Uuid>) -> u64 {
@@ -287,59 +307,31 @@ pub async fn reconcile_source(
 	report.added += arrive(&writer, &added, &mut arrived).await;
 	report.modified += arrive(&writer, &changed, &mut arrived).await;
 
-	// What leaves with each old path: every identity at or under it that did
-	// not arrive somewhere else. An old path all of whose identities arrived
-	// moved, and dropping it loses nothing. For a replaced path the path
-	// itself is affirmatively gone, so only what was under it counts. A
-	// missing directory was never descended into, so its subtree counts
-	// toward what the map held only here.
-	let mut doomed = 0u64;
-	let mut moved = Vec::new();
-	let mut leaving = Vec::new();
-	let mut replacing = Vec::new();
-	{
+	// What leaves with an old path is every identity at or under it that did
+	// not arrive somewhere else. For a replaced path the path itself is
+	// affirmatively gone, so only what was under it counts. A missing
+	// directory was never descended into, so its subtree counts toward what
+	// the map held only here. Weighed now, before the arrivals that wait on a
+	// replacement, the count can only overstate what leaves.
+	let (doomed, replacing) = {
 		let index = index.read().await;
-		let not_arrived = |path: &Path| -> (bool, u64) {
-			let identities = index.subtree_identities(path);
-			let own = identities
-				.first()
-				.copied()
-				.flatten()
-				.is_some_and(|uuid| arrived.contains(&uuid));
-			let beneath = identities
-				.iter()
-				.skip(1)
-				.filter(|uuid| !uuid.is_some_and(|uuid| arrived.contains(&uuid)))
-				.count() as u64;
-			(own, beneath)
-		};
-		for (path, is_directory, entries) in missing {
-			known_entries += entries - 1;
-			let (own, beneath) = not_arrived(&path);
-			let lost = beneath + u64::from(!own);
-			doomed += lost;
-			if lost == 0 {
-				moved.push((path, is_directory));
-			} else {
-				leaving.push((path, is_directory, own));
-			}
+		let mut doomed = 0u64;
+		for (path, ..) in &missing {
+			let weighed = weigh(&index, path, &arrived);
+			known_entries += weighed.held - 1;
+			doomed += weighed.beneath + u64::from(!weighed.own_arrived);
 		}
-		for (path, is_directory, entries) in replaced {
-			known_entries += entries - 1;
-			let (own, beneath) = not_arrived(&path);
-			doomed += beneath;
-			replacing.push((path, is_directory, own, beneath));
+		let mut replacing = Vec::new();
+		for (path, is_directory, _) in replaced {
+			let weighed = weigh(&index, &path, &arrived);
+			known_entries += weighed.held - 1;
+			doomed += weighed.beneath;
+			replacing.push((path, is_directory, weighed));
 		}
-	}
-
-	let still_gone = |path: PathBuf| async move {
-		matches!(
-			tokio::fs::symlink_metadata(&path).await,
-			Err(ref error) if error.kind() == std::io::ErrorKind::NotFound
-		)
+		(doomed, replacing)
 	};
 
-	let destructive = !leaving.is_empty() || replacing.iter().any(|(.., beneath)| *beneath > 0);
+	let destructive = doomed > 0;
 	let walk_owns_removals = cache.is_indexing(root);
 	let refused = if walk_owns_removals {
 		debug!(root = %root.display(), "a walk started under the reconcile; its sweep owns removals");
@@ -347,7 +339,7 @@ pub async fn reconcile_source(
 	} else if unreadable && destructive {
 		warn!(
 			root = %root.display(),
-			withheld = leaving.len() + replacing.len(),
+			withheld = missing.len() + replacing.len(),
 			"reconcile left removals alone: part of the source could not be read"
 		);
 		true
@@ -363,38 +355,64 @@ pub async fn reconcile_source(
 		false
 	};
 
-	// The record of a clean move lives on at its new path, so the old entry
-	// is dropped without announcing it as deleted, whatever the safeguards
-	// say, unless a walk now owns every removal.
-	if !walk_owns_removals {
-		for (path, is_directory) in moved {
-			if still_gone(path.clone()).await {
-				quiet.apply(Seen::Lost { path, is_directory }).await;
-				report.moved += 1;
-			}
-		}
-	}
-
-	if refused {
-		report.removals_refused = !leaving.is_empty() || !replacing.is_empty();
-	} else {
-		for (path, is_directory, own_moved) in leaving {
-			if still_gone(path.clone()).await {
-				let writer = if own_moved { &quiet } else { &loud };
-				writer.apply(Seen::Lost { path, is_directory }).await;
-				if own_moved {
-					report.moved += 1;
-				} else {
-					report.removed += 1;
-				}
-			}
-		}
-		for (path, is_directory, own_moved, _) in replacing {
-			let writer = if own_moved { &quiet } else { &loud };
-			writer.apply(Seen::Lost { path, is_directory }).await;
+	// The old entry at a replaced path is cleared before its replacement
+	// arrives, or a directory's old children would stay under a path that is
+	// now a file. Missing paths are forgotten only after every arrival,
+	// including those under a replacement, so a file that moved into one
+	// keeps its record.
+	if !refused {
+		for (path, is_directory, weighed) in &replacing {
+			let writer = if weighed.own_arrived { &quiet } else { &loud };
+			writer
+				.apply(Seen::Lost {
+					path: path.clone(),
+					is_directory: *is_directory,
+				})
+				.await;
 			report.removed += 1;
 		}
 		report.added += arrive(&writer, &after_replacement, &mut arrived).await;
+	}
+
+	let still_gone = |path: PathBuf| async move {
+		matches!(
+			tokio::fs::symlink_metadata(&path).await,
+			Err(ref error) if error.kind() == std::io::ErrorKind::NotFound
+		)
+	};
+
+	// A path all of whose identities arrived elsewhere moved, and its record
+	// lives on at the new path, so the old entry is dropped without
+	// announcing it as deleted, whatever the safeguards say, unless a walk
+	// now owns every removal. Anything else is a removal the safeguards
+	// decided on above.
+	if !walk_owns_removals {
+		let weighed: Vec<_> = {
+			let index = index.read().await;
+			missing
+				.into_iter()
+				.map(|(path, is_directory, _)| {
+					let weighed = weigh(&index, &path, &arrived);
+					(path, is_directory, weighed)
+				})
+				.collect()
+		};
+		for (path, is_directory, weighed) in weighed {
+			let clean_move = weighed.own_arrived && weighed.beneath == 0;
+			if (refused && !clean_move) || !still_gone(path.clone()).await {
+				continue;
+			}
+			let writer = if weighed.own_arrived { &quiet } else { &loud };
+			writer.apply(Seen::Lost { path, is_directory }).await;
+			if weighed.own_arrived {
+				report.moved += 1;
+			} else {
+				report.removed += 1;
+			}
+		}
+	}
+	if refused {
+		report.removals_refused = destructive || !replacing.is_empty();
 	}
 
 	if let Some(store) = &store {
