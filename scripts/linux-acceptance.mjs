@@ -173,6 +173,38 @@ if (device) {
 	});
 }
 
+// SD_RAW is a folder of camera raw files: one with an embedded preview, such as
+// a CR2, and one named like a raw that holds none. Quick Preview must show the
+// embedded JPEG or the kind's icon for each, never a broken image.
+const raw = process.env.SD_RAW;
+if (device && raw) {
+	await row("raw-preview", async (snap) => {
+		const { readdirSync } = await import("node:fs");
+		const files = readdirSync(raw).filter((name) =>
+			/\.(3fr|arw|cr2|cr3|dng|nef|orf|pef|raf|rw2|srw)$/i.test(name),
+		);
+		expect(files.length > 0, `${raw} holds no raw files`);
+		await go(explorer(raw));
+		const results = [];
+		for (const name of files) {
+			await page.getByText(name.replace(/\.[^.]+$/, ""), { exact: false }).first().click();
+			await page.keyboard.press("Space");
+			await page.waitForTimeout(5000);
+			const images = await page.evaluate(() =>
+				[...document.querySelectorAll("img")]
+					.filter((i) => i.getBoundingClientRect().width >= 200 && getComputedStyle(i).opacity !== "0")
+					.map((i) => ({ ok: i.complete && i.naturalWidth > 0, width: i.naturalWidth, src: i.src.slice(-60) })),
+			);
+			await snap();
+			await page.keyboard.press("Escape");
+			await page.waitForTimeout(1000);
+			expect(images.length > 0 && images.every((i) => i.ok), `${name} previews as ${JSON.stringify(images)}`);
+			results.push({ name, images });
+		}
+		return results;
+	});
+}
+
 await row("settings-tab", async (snap) => {
 	const [tab] = await Promise.all([
 		page.context().waitForEvent("page", { timeout: 8000 }),
