@@ -12,6 +12,7 @@ use tracing::{debug, warn};
 use uuid::Uuid;
 
 use crate::domain::resource::Identifiable;
+use crate::domain::ContentKind;
 use crate::infra::event::{Event, EventBus, ResourceMetadata};
 use crate::infra::source_dirs::SourceDirs;
 use crate::infra::source_version::source_version;
@@ -429,6 +430,15 @@ impl ThumbService {
 		path: &PathBuf,
 		mode: ThumbnailGenerationMode,
 	) -> GenerationOutcome {
+		let kind = self
+			.volume_index
+			.resolve_index(path)
+			.read()
+			.await
+			.get_content_kind(path);
+		if !thumbnailable(kind) {
+			return GenerationOutcome::Skipped;
+		}
 		let Some(identity) = self.thumbnail_identity(path).await else {
 			return GenerationOutcome::Failed;
 		};
@@ -1225,6 +1235,17 @@ pub(super) fn priority_for(rank: usize, total: usize) -> u32 {
 /// proportions, and a square view crops back out of that. Baking the crop
 /// instead would throw away the shape and leave the grid nothing to recover it
 /// from. Icon tiles are square by nature and unaffected.
+/// Whether a file of this kind can bake a tile on this platform.
+///
+/// A file every producer declines still takes a queue slot, a worker and a
+/// decode attempt before it fails, and a recursive pass over a source holds
+/// far more of those than images: 996,000 of a million files in a mixed tree.
+/// The kind comes from the name, as the arena assigns it. macOS renders a
+/// Quick Look preview or an icon for any file, so every kind qualifies there.
+fn thumbnailable(kind: ContentKind) -> bool {
+	cfg!(target_os = "macos") || matches!(kind, ContentKind::Image | ContentKind::Video)
+}
+
 fn producer_chain(external_tools: Arc<ExternalTools>) -> Vec<Box<dyn Producer>> {
 	let mut chain: Vec<Box<dyn Producer>> = vec![Box::new(ImageProducer::new(ScaleMode::Fit))];
 	#[cfg(target_os = "macos")]
@@ -1368,6 +1389,58 @@ pub(super) mod tests {
 		tokio::time::timeout(Duration::from_secs(5), service.generate_one(path, mode))
 			.await
 			.unwrap()
+	}
+
+	/// A file no producer here can draw is skipped before it reaches the
+	/// pool, so a recursive pass over a mixed source does not spend a bake on
+	/// every text file and report each one as a failure.
+	#[cfg(not(target_os = "macos"))]
+	#[tokio::test]
+	async fn unthumbnailable_files_are_skipped_without_a_bake() {
+		let (temp, service, _, calls, _) = fixture().await;
+		let text = temp.path().join("notes.dat");
+		tokio::fs::write(&text, b"not a picture").await.unwrap();
+		service
+			.volume_index
+			.resolve_index(&text)
+			.write()
+			.await
+			.add_entry(
+				text.clone(),
+				Uuid::new_v4(),
+				EntryMetadata {
+					path: text.clone(),
+					kind: EntryKind::File,
+					size: 13,
+					modified: None,
+					accessed: None,
+					created: None,
+					inode: None,
+					permissions: None,
+					uid: None,
+					gid: None,
+					link_target: None,
+					is_hidden: false,
+				},
+			)
+			.unwrap();
+
+		assert_eq!(
+			generate(&service, &text, ThumbnailGenerationMode::Force).await,
+			GenerationOutcome::Skipped
+		);
+		assert_eq!(calls.load(Ordering::SeqCst), 0);
+	}
+
+	#[test]
+	fn images_and_videos_are_thumbnailable() {
+		assert!(thumbnailable(ContentKind::Image));
+		assert!(thumbnailable(ContentKind::Video));
+		assert_eq!(thumbnailable(ContentKind::Text), cfg!(target_os = "macos"));
+		assert_eq!(
+			thumbnailable(ContentKind::Unknown),
+			cfg!(target_os = "macos")
+		);
 	}
 
 	#[tokio::test]
