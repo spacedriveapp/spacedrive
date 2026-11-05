@@ -226,14 +226,19 @@ async fn serve_sidecar(
 /// share listens on loopback, where a browser on another machine cannot reach
 /// it. Proxying it here puts it behind this server's auth and origin. Range
 /// headers pass through both ways, so a video seeks without a full download.
+///
+/// A daemon this server reused rather than embedded binds the share in its
+/// own process, so its address is only known by the preferred port it binds
+/// when that port is free.
+///
+/// The bytes are untrusted files on the application's origin. A sandbox CSP
+/// gives a document opened from here an opaque origin with no scripts, and
+/// nosniff stops a file being read as a type the share did not name.
 async fn proxy_share(uri: Uri, headers: HeaderMap) -> Response {
 	static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
-	let Some(addr) = sd_core::service::mounts::bound_addr() else {
-		return plain_status(
-			StatusCode::SERVICE_UNAVAILABLE,
-			"the mounts share is not running in this process",
-		);
-	};
+	let addr = sd_core::service::mounts::bound_addr().unwrap_or_else(|| {
+		SocketAddr::from(([127, 0, 0, 1], sd_core::service::mounts::preferred_port()))
+	});
 	let path = uri.path_and_query().map_or(uri.path(), |p| p.as_str());
 	let mut request = CLIENT
 		.get_or_init(reqwest::Client::new)
@@ -255,7 +260,10 @@ async fn proxy_share(uri: Uri, headers: HeaderMap) -> Response {
 			return plain_status(StatusCode::BAD_GATEWAY, "the mounts share did not answer");
 		}
 	};
-	let mut builder = Response::builder().status(upstream.status());
+	let mut builder = Response::builder()
+		.status(upstream.status())
+		.header(header::CONTENT_SECURITY_POLICY, "sandbox")
+		.header(header::X_CONTENT_TYPE_OPTIONS, "nosniff");
 	for name in [
 		header::CONTENT_TYPE,
 		header::CONTENT_LENGTH,

@@ -38,14 +38,19 @@ pub fn bound_addr() -> Option<SocketAddr> {
 
 const DEFAULT_PORT: u16 = 7764;
 
-/// Bind the share on loopback and serve it for the life of the process.
-/// The port comes from `SD_MOUNT_HTTP_PORT`, falling back to 7764, falling
-/// back to an ephemeral port if the preferred one is taken.
-pub async fn start(context: Arc<CoreContext>, cache_max_bytes: u64) -> anyhow::Result<SocketAddr> {
-	let port = std::env::var("SD_MOUNT_HTTP_PORT")
+/// The port the share binds when it is free: `SD_MOUNT_HTTP_PORT`, else 7764.
+pub fn preferred_port() -> u16 {
+	std::env::var("SD_MOUNT_HTTP_PORT")
 		.ok()
 		.and_then(|p| p.parse::<u16>().ok())
-		.unwrap_or(DEFAULT_PORT);
+		.unwrap_or(DEFAULT_PORT)
+}
+
+/// Bind the share on loopback and serve it for the life of the process.
+/// The port is `preferred_port`, falling back to an ephemeral port if the
+/// preferred one is taken.
+pub async fn start(context: Arc<CoreContext>, cache_max_bytes: u64) -> anyhow::Result<SocketAddr> {
+	let port = preferred_port();
 
 	let listener = match tokio::net::TcpListener::bind(("127.0.0.1", port)).await {
 		Ok(l) => l,
