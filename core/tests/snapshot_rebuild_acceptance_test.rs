@@ -345,3 +345,78 @@ async fn a_corrupt_snapshot_is_quarantined_and_the_map_rebuilt_from_the_store() 
 		.into_owned();
 	restart_and_check(&walked, Some(&format!("{name}.corrupt-"))).await;
 }
+
+/// A change the watcher applied after the walk reaches the snapshot, so a
+/// restart lists the directory as it was when the daemon stopped rather
+/// than as the walk left it.
+#[tokio::test]
+async fn a_live_change_survives_a_restart() {
+	let _ = tracing_subscriber::fmt::try_init();
+	let walked = walked_source("sd-snapshot-live-change").await;
+
+	let core = boot(walked.data_dir.path()).await;
+	let library = core
+		.libraries
+		.list()
+		.await
+		.into_iter()
+		.find(|library| library.path() == walked.library_path)
+		.expect("the library reloads");
+	let cache = core.context.volume_index();
+	for _ in 0..600 {
+		if cache.is_watched(&walked.root) && cache.arena_answers(&walked.root) {
+			break;
+		}
+		tokio::time::sleep(Duration::from_millis(50)).await;
+	}
+	assert!(
+		cache.is_watched(&walked.root),
+		"the restored source is watched"
+	);
+
+	std::fs::write(walked.root.join("g.txt"), "g").expect("create");
+	std::fs::remove_file(walked.root.join("a.txt")).expect("delete");
+	let expected = vec!["b", "g", "notes", "photos"];
+	let mut listed = Vec::new();
+	for _ in 0..200 {
+		listed = list_dir(&core, &library, walked.root.clone()).await;
+		if listed == expected {
+			break;
+		}
+		tokio::time::sleep(Duration::from_millis(100)).await;
+	}
+	assert_eq!(listed, expected, "the watcher applied both changes");
+
+	drop(library);
+	core.shutdown().await.expect("shutdown");
+	drop(core);
+	tokio::time::sleep(Duration::from_secs(2)).await;
+
+	let core = boot(walked.data_dir.path()).await;
+	let library = core
+		.libraries
+		.list()
+		.await
+		.into_iter()
+		.find(|library| library.path() == walked.library_path)
+		.expect("the library reloads");
+	let cache = core.context.volume_index();
+	for _ in 0..600 {
+		if cache.arena_answers(&walked.root) {
+			break;
+		}
+		tokio::time::sleep(Duration::from_millis(50)).await;
+	}
+	assert!(
+		cache.restored_from_snapshot(&walked.root),
+		"the map came from the snapshot file"
+	);
+	assert_eq!(
+		list_dir(&core, &library, walked.root.clone()).await,
+		expected,
+		"the restart lists the changes the watcher applied"
+	);
+
+	drop(library);
+	core.shutdown().await.expect("shutdown");
+}

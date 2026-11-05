@@ -50,6 +50,9 @@ pub struct Partition {
 	/// covers everything beneath its root and the store answers for all of
 	/// it, which a walk in `indexing_in_progress` does not promise.
 	filling_from_store: RwLock<HashSet<PathBuf>>,
+	/// Trees a walk cleared or stopped partway through. The arena holds part
+	/// of each one until a walk of it lands.
+	incomplete_trees: RwLock<HashSet<PathBuf>>,
 	watched_paths: RwLock<HashSet<PathBuf>>,
 	/// A detached source's root is not present on disk; its index is served
 	/// read-only from a restored snapshot and must never trigger indexing.
@@ -91,6 +94,7 @@ impl Partition {
 			indexed_paths: RwLock::new(HashSet::new()),
 			indexing_in_progress: RwLock::new(HashSet::new()),
 			filling_from_store: RwLock::new(HashSet::new()),
+			incomplete_trees: RwLock::new(HashSet::new()),
 			watched_paths: RwLock::new(HashSet::new()),
 			detached: AtomicBool::new(false),
 			restored: AtomicBool::new(false),
@@ -2515,6 +2519,22 @@ impl VolumeIndex {
 	/// Save the owning partition to its drive's snapshot file. A path on no
 	/// tracked drive has no snapshot and skips silently.
 	pub async fn save_snapshot(&self, path: &Path) -> anyhow::Result<()> {
+		self.save_snapshot_inner(path, false).await
+	}
+
+	/// Save the owning partition's snapshot only if its arena is whole: no
+	/// walk or store fill running, and no tree a walk cleared or left partway
+	/// that a later walk has not rebuilt.
+	///
+	/// A walk clears the arena before rebuilding it, so a save in between
+	/// would replace a complete snapshot with part of the drive. The check
+	/// runs under the arena's write lock, which a walk needs to clear it, so
+	/// a walk starting after the check finds the save already done.
+	pub async fn save_settled_snapshot(&self, path: &Path) -> anyhow::Result<()> {
+		self.save_snapshot_inner(path, true).await
+	}
+
+	async fn save_snapshot_inner(&self, path: &Path, require_settled: bool) -> anyhow::Result<()> {
 		let Some(resolved) = self.locate(path) else {
 			tracing::debug!("No tracked drive for {}; skipping snapshot", path.display());
 			return Ok(());
@@ -2551,6 +2571,17 @@ impl VolumeIndex {
 		let _save_guard = slot.save_lock.lock().await;
 		let (entry_count, total_bytes) = {
 			let mut index = slot.index.write().await;
+			if require_settled
+				&& !(slot.indexing_in_progress.read().is_empty()
+					&& slot.filling_from_store.read().is_empty()
+					&& slot.incomplete_trees.read().is_empty())
+			{
+				tracing::debug!(
+					"Snapshot for {} held: a walk left the tree partway",
+					volume_root.display()
+				);
+				return Ok(());
+			}
 			let stats = index.get_stats();
 			let entry_count = stats.total_entries as u64;
 
@@ -2678,6 +2709,9 @@ impl VolumeIndex {
 		let indexed = slot.indexed_paths.read().clone();
 		let mut index = slot.index.write().await;
 		let (cleared, deleted_browsed_dirs) = index.clear_directory_children(path, &indexed);
+		if cleared > 0 {
+			slot.incomplete_trees.write().insert(path.to_path_buf());
+		}
 
 		if !deleted_browsed_dirs.is_empty() {
 			let mut indexed_paths = slot.indexed_paths.write();
@@ -2694,6 +2728,9 @@ impl VolumeIndex {
 		let slot = self.resolve(path);
 		slot.indexing_in_progress.write().remove(path);
 		slot.indexed_paths.write().insert(path.to_path_buf());
+		slot.incomplete_trees
+			.write()
+			.retain(|cleared| !cleared.starts_with(path));
 	}
 
 	/// Indexing ended without producing a result. Clearing the in-progress
@@ -2704,6 +2741,17 @@ impl VolumeIndex {
 		let slot = self.resolve(path);
 		slot.indexing_in_progress.write().remove(path);
 		slot.indexed_paths.write().remove(path);
+	}
+
+	/// A walk ran and failed. Whatever it wrote is part of the tree, so the
+	/// snapshot keeps its last whole copy until a walk of the tree lands.
+	pub fn mark_walk_failed(&self, path: &Path) {
+		// Mark before releasing the walk so a flush never sees neither.
+		self.resolve(path)
+			.incomplete_trees
+			.write()
+			.insert(path.to_path_buf());
+		self.mark_indexing_failed(path);
 	}
 
 	pub fn invalidate_path(&self, path: &Path) {
