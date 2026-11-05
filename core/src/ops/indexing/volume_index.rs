@@ -2720,11 +2720,12 @@ impl VolumeIndex {
 	/// A walk ran and failed. Whatever it wrote is part of the tree, so the
 	/// snapshot keeps its last whole copy until a walk of the tree lands.
 	pub fn mark_walk_failed(&self, path: &Path) {
-		self.mark_indexing_failed(path);
+		// Mark before releasing the walk so a flush never sees neither.
 		self.resolve(path)
 			.incomplete_trees
 			.write()
 			.insert(path.to_path_buf());
+		self.mark_indexing_failed(path);
 	}
 
 	pub fn invalidate_path(&self, path: &Path) {
