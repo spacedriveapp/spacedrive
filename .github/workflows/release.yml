@@ -26,6 +26,7 @@ jobs:
   # Server builds for self-hosting
   server-build:
     strategy:
+      fail-fast: false
       matrix:
         settings:
           - host: blacksmith-4vcpu-ubuntu-2204
@@ -49,8 +50,10 @@ jobs:
         if: matrix.settings.target == 'aarch64-unknown-linux-gnu'
         run: sudo apt-get update && sudo apt-get install -y libva-dev libva-drm2
 
+      # The heif and ffmpeg features link the codec bundle, which xtask only
+      # downloads on request.
       - name: Setup native dependencies
-        run: cargo run -p xtask -- setup
+        run: cargo run -p xtask -- setup --native-deps
         env:
           TARGET_TRIPLE: ${{ matrix.settings.target }}
 
@@ -260,6 +263,8 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           target: ${{ matrix.settings.target }}
+          # The bundles ship apps/.deps/lib (Linux) and its DLLs (Windows).
+          native-deps: 'true'
 
       - name: Setup Bun and dependencies
         uses: ./.github/actions/setup-bun
