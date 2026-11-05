@@ -39,7 +39,6 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       EXE: ${{ matrix.exe }}
       PLATFORM: ${{ matrix.platform }}
-      EXPERIMENT: "1"
     steps:
       - name: Download and verify nightly binaries
         run: |
@@ -133,12 +132,8 @@ jobs:
           done; done
 
           start
-          LIB=$(sdj library create Smoke | jq -r .library_id)
-          if [ -n "$EXE" ] && [ -n "${EXPERIMENT:-}" ]; then
-            track=$(sdj op sources.track --library "$LIB" --json "$(jq -nc --arg p "$(native "$SRC")" '{path: $p, name: null}')")
-          else
-            track=$(sdj sources track "$(native "$SRC")")
-          fi
+          sdj library create Smoke
+          track=$(sdj sources track "$(native "$SRC")")
           echo "$track"
           job=$(jq -r .job_id <<<"$track")
           t0=$SECONDS
