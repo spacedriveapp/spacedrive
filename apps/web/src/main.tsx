@@ -22,7 +22,9 @@ const client = new SpacedriveClient(new HttpTransport());
 const webPlatform: Platform = {
 	...platform,
 	async showWindow(window: { type: string; page?: string }) {
-		if (window.type !== "Settings") return;
+		if (window.type !== "Settings") {
+			throw new Error(`The web client has no ${window.type} window`);
+		}
 		const library = client.getCurrentLibraryId();
 		const query = library ? `?library=${encodeURIComponent(library)}` : "";
 		globalThis.open(`/settings/${window.page ?? "general"}${query}`, "_blank");
