@@ -2101,6 +2101,16 @@ impl VolumeIndex {
 			.contains(path)
 	}
 
+	/// Whether no walk or store fill is running anywhere on `path`'s drive.
+	/// A walk clears the arena before rebuilding it, so a snapshot saved
+	/// partway through would replace a complete one with part of the drive.
+	pub fn is_settled(&self, path: &Path) -> bool {
+		let partition = self.resolve(path);
+		let walking = !partition.indexing_in_progress.read().is_empty();
+		let filling = !partition.filling_from_store.read().is_empty();
+		!walking && !filling
+	}
+
 	/// Whether `path` sits under a source root being filled from its store.
 	/// The fill covers everything beneath the root and the store answers for
 	/// all of it, so a browse dispatched into that tree would only clear what

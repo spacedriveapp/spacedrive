@@ -143,10 +143,12 @@ impl FsWatcherService {
 	}
 
 	/// Save the snapshot of every attached source whose arena has changed.
+	/// A drive with a walk or store fill running keeps its last snapshot; the
+	/// walk saves its own when it lands.
 	pub async fn flush_snapshots(&self) {
 		let cache = self.context.volume_index();
 		for source in cache.sources() {
-			if !source.attached {
+			if !source.attached || !cache.is_settled(&source.root) {
 				continue;
 			}
 			// Best-effort: the next flush or walk retries a failed save.
