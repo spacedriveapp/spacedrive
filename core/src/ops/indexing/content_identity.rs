@@ -229,6 +229,20 @@ impl JobHandler for ContentIdentityJob {
 			"Identified {identified} files, {unreadable} unreadable"
 		));
 
+		// Statistics read the registry row, which the walk wrote before any
+		// content existed. A stale count costs a wrong figure, not the pass.
+		if identified + unreadable > 0 {
+			if let Err(error) = ctx
+				.library()
+				.core_context()
+				.volume_index()
+				.refresh_source_counts(&self.root)
+				.await
+			{
+				ctx.log(format!("Could not record content counts: {error}"));
+			}
+		}
+
 		// Images now have a kind, which is what the metadata pass claims by.
 		super::exif_enrich::enrich_after_identification(
 			&ctx.library_arc(),

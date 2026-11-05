@@ -1597,6 +1597,32 @@ impl VolumeIndex {
 		Some(store)
 	}
 
+	/// Persist what a source's store now holds on its registry row.
+	///
+	/// Listings and library statistics read these figures off the row, and a
+	/// snapshot save is not the only thing that changes them: content
+	/// identification fills in contents and unique bytes after the walk's save
+	/// has run, so without this the row reports no contents until the next
+	/// walk. A store holding nothing leaves the row as it is, the same rule a
+	/// snapshot save applies.
+	pub async fn refresh_source_counts(&self, root: &Path) -> anyhow::Result<()> {
+		let Some(located) = self.resolve_source(root) else {
+			return Ok(());
+		};
+		let Some(store) = self.store_for(root).await else {
+			return Ok(());
+		};
+		let Some(counts) = store.counts().await.filter(|counts| counts.records > 0) else {
+			return Ok(());
+		};
+		let id = located.record.id;
+		let Some(updated) = self.update_registry(id, |registry| registry.update_stats(id, counts))
+		else {
+			return Ok(());
+		};
+		self.persist(&updated).await
+	}
+
 	/// Every writable store this machine has opened so far.
 	pub fn open_stores(&self) -> Vec<Arc<SourceStore>> {
 		self.stores.read().values().cloned().collect()
