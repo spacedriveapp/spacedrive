@@ -181,6 +181,13 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		&["--test", "delete_strategy_test"],
 	),
 	acceptance("sd-core", "Search test", &["--test", "search_test"]),
+	// Candidate validation step 4 (docs/core/acceptance/candidate-validation.md):
+	// a killed first walk heals on a volume the volume list hides.
+	acceptance(
+		"sd-core",
+		"Hidden volume heal acceptance test",
+		&["--test", "hidden_volume_heal_acceptance_test"],
+	),
 	acceptance(
 		"sd-core",
 		"Folder rename test",
