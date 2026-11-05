@@ -2102,7 +2102,7 @@ fn main() {
 				tracing::info!("Socket address: {:?}", socket_addr);
 
 				// Start HTTP server for serving files/sidecars
-				match server::start_server(data_dir_clone.clone()).await {
+				match server::start_server(data_dir_clone.clone(), socket_addr.clone()).await {
 					Ok((server_url, shutdown_tx)) => {
 						tracing::info!("HTTP server started at {}", server_url);
 						let mut state = daemon_state.write().await;
