@@ -73,6 +73,39 @@ await row("sources", async (snap) => {
 	return text.match(/(unmounted|locked|offline copy)[^\n]*/gi);
 });
 
+// Every Media view cell is a hot-tier tile. SD_EXTERNAL needs a few images for
+// this row. Point SD_URL at an sd-server that reused a daemon another client
+// started with a different --data-dir to cover that case too.
+if (device) {
+	await row("media-view-thumbnails", async (snap) => {
+		const tiles = new Map();
+		const record = (response) => {
+			const [, tile] = response.url().split("/hot-thumb/");
+			if (tile) tiles.set(tile.split("/").slice(0, 2).join("/"), response.status());
+		};
+		page.on("response", record);
+		await go(explorer(external));
+		await page.getByText("Views").first().click();
+		await page.getByText("Media", { exact: true }).first().click();
+		await page.waitForTimeout(10000);
+		page.off("response", record);
+		const broken = await page.evaluate(
+			() =>
+				[...document.querySelectorAll("img")].filter(
+					(i) => i.src.includes("/hot-thumb/") && !(i.complete && i.naturalWidth > 0),
+				).length,
+		);
+		await snap();
+		await page.getByText("Views").first().click();
+		await page.getByText("Grid", { exact: true }).first().click();
+		const failed = [...tiles.values()].filter((status) => status !== 200).length;
+		expect(tiles.size > 0, "the Media view requested no tiles");
+		expect(failed === 0, `${failed} of ${tiles.size} tiles did not load`);
+		expect(broken === 0, `${broken} cells show a broken image`);
+		return { tiles: tiles.size };
+	});
+}
+
 await row("trash", async (snap) => {
 	await page.click("text=Recents");
 	await page.waitForTimeout(1500);
