@@ -303,36 +303,36 @@ The test tree has 240,000 files (240,630 entries) of 0 to 20 KB.
 
 ### Findings and status
 
-- **Killed copy leaves a truncated file.** Local copies now write to a
+- Killed copy leaves a truncated file. Local copies now write to a
   hidden, exclusively created `.sd-<uuid>.sdpart` sibling and rename it
   into place when complete. Fixed in #3170 (`a313420`). The receiving side
   of a remote transfer still writes in place.
-- **A first walk that never finished is never healed.**
+- A first walk that never finished is never healed.
   `heal_uncovered_sources` skipped every source without a record count,
   and only a completed walk writes one. #3172 (`68dc227`) heals such a source. A debug
   build of #3172 healed a killed first walk on a loop-mounted volume, and
   the store then matched the disk exactly.
-- **The heal never runs on Linux root and home volumes.**
+- The heal never runs on Linux root and home volumes.
   `map_attached_volumes` skips volumes that are not user-visible, and
   `is_system_mount_point` hides `/` and `/home`. On a typical Linux
   install a home folder is on one of those, so no coverage heal reaches it,
   with or without #3172. Fixing this means deciding how registered sources
   on hidden volumes are healed without walking the hidden volume itself. On
   macOS, check whether sources under `/Users` reach the heal.
-- **Disk full hangs the indexer.** After the store's batch write fails, the
+- Disk full hangs the indexer. After the store's batch write fails, the
   salvage writes rows one by one. Five rows log `row failed to land`, and
   then the job blocks with no further log lines or CPU use. The nightly
   binary is stripped, so no stack was captured. Reproduce it with a debug
   build: put the data directory on a nearly full loop device, track a
   240,000-file tree, and attach a debugger to the stalled daemon.
-- **Changes made while the daemon is stopped are not reconciled.** At
+- Changes made while the daemon is stopped are not reconciled. At
   startup the map is restored from the snapshot and the watcher is armed,
   but nothing compares the map with the disk.
   `docs/core/design/zero-onboarding-startup.md` plans a background mtime
   reconcile per source on warm start. It is not built. Until it is, a file
   created, changed or deleted while the daemon was not running is not seen
   until something walks that folder again.
-- **Writes before the watcher is armed are missed.** A copy job that
+- Writes before the watcher is armed are missed. A copy job that
   resumed 2 s after a restart wrote 9 files into a tracked folder. The
   folder's store held 4 of its 13 entries afterwards.
 - The daemon logs `DEBUG: JobExecutor ...` lines at WARN level on every
