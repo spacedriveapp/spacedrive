@@ -67,7 +67,8 @@ await row("sidebar", async (snap) => {
 await row("sources", async (snap) => {
 	await go("/sources");
 	const text = await body();
-	expect(/sd-external/i.test(text), "the external volume is not listed");
+	const volume = external.split("/").filter(Boolean).pop();
+	expect(text.includes(volume), `the external volume ${volume} is not listed`);
 	await snap();
 	return text.match(/(unmounted|locked|offline copy)[^\n]*/gi);
 });
