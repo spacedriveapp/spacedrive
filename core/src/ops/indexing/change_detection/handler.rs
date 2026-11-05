@@ -496,18 +496,23 @@ pub async fn handle_rename<H: ChangeHandler>(
 		return handle_remove(handler, from).await;
 	}
 
-	if let Some(entry) = handler.find_by_path(from).await? {
-		handler
-			.move_entry(&entry, from, to, to.parent().unwrap_or(Path::new("/")))
-			.await?;
-		handler.emit_change_event(&entry, ChangeType::Moved).await?;
-		tracing::debug!("Moved entry {} -> {}", from.display(), to.display());
-	} else {
+	let Some(entry) = handler.find_by_path(from).await? else {
+		// An atomic save writes a temporary file and renames it over the
+		// original; the temporary was never indexed, so what changed is the
+		// destination.
 		tracing::debug!(
-			"Entry not found for old path {}, skipping rename",
-			from.display()
+			"Rename from unindexed {}, treating {} as written",
+			from.display(),
+			to.display()
 		);
-	}
+		return handle_create(handler, to, config).await;
+	};
+
+	handler
+		.move_entry(&entry, from, to, to.parent().unwrap_or(Path::new("/")))
+		.await?;
+	handler.emit_change_event(&entry, ChangeType::Moved).await?;
+	tracing::debug!("Moved entry {} -> {}", from.display(), to.display());
 
 	Ok(())
 }

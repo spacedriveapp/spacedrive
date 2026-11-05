@@ -790,6 +790,46 @@ mod tests {
 			.has_entry(&root.path().join(".hidden")));
 	}
 
+	/// An atomic save writes a temporary file and renames it over the
+	/// original. When the temporary's creation lands in the same batch as the
+	/// rename, the index never held it, and the original's new size must still
+	/// arrive.
+	#[tokio::test]
+	async fn a_rename_over_a_file_from_an_unindexed_temporary_updates_it() {
+		let root = TempDir::new().unwrap();
+		let photo = root.path().join("photo.jpg");
+		let temporary = root.path().join("photo.jpg_exiftool_tmp");
+		std::fs::write(&photo, b"old").unwrap();
+		let (mut writer, _bus) = writer(root.path(), Notify::Each);
+		writer.apply(Seen::Entries(vec![file(&photo, 3)])).await;
+
+		std::fs::write(&temporary, b"rewritten with metadata").unwrap();
+		std::fs::rename(&temporary, &photo).unwrap();
+		let config = crate::ops::indexing::ChangeConfig {
+			rule_toggles: Default::default(),
+			root: root.path(),
+			volume_backend: None,
+		};
+		crate::ops::indexing::apply_change_batch(
+			&mut writer,
+			vec![
+				sd_fs_watcher::FsEvent::create(temporary.clone()),
+				sd_fs_watcher::FsEvent::rename(temporary.clone(), photo.clone()),
+			],
+			&config,
+		)
+		.await
+		.unwrap();
+
+		let index = writer.index.read().await;
+		assert!(!index.has_entry(&temporary));
+		assert_eq!(
+			index.get_entry_ref(&photo).map(|entry| entry.size),
+			Some(23),
+			"the original carries the bytes the save wrote"
+		);
+	}
+
 	/// Mapping a drive nobody asked to see: the arena fills and nothing is
 	/// said, which is also why those entries can defer their identities.
 	#[tokio::test]
