@@ -20,6 +20,7 @@ use sea_orm::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
+use std::collections::HashMap;
 use std::path::Path;
 
 pub mod jobs {
@@ -205,11 +206,60 @@ async fn create_tables(db: &DatabaseConnection) -> JobResult<()> {
 /// Job database operations
 pub struct JobDb {
 	conn: DatabaseConnection,
+	/// Outcomes of finished jobs whose row could not be written, keyed by job
+	/// id. The jobs database lives in the data directory, so a full disk that
+	/// fails a job also refuses the row that says so; without this the job
+	/// would read as running until the process exits.
+	unsettled: parking_lot::Mutex<HashMap<String, Unsettled>>,
+}
+
+/// A finished job's outcome that is waiting for its row to be written.
+#[derive(Debug, Clone)]
+pub struct Unsettled {
+	pub status: JobStatus,
+	pub error_message: Option<String>,
+	pub completed_at: DateTime<Utc>,
 }
 
 impl JobDb {
 	pub fn new(conn: DatabaseConnection) -> Self {
-		Self { conn }
+		Self {
+			conn,
+			unsettled: Default::default(),
+		}
+	}
+
+	/// The outcome of a finished job that its row does not hold yet.
+	pub fn unsettled(&self, id: &str) -> Option<Unsettled> {
+		self.unsettled.lock().get(id).cloned()
+	}
+
+	/// Whether any finished job's outcome is waiting for its row.
+	pub fn has_unsettled(&self) -> bool {
+		!self.unsettled.lock().is_empty()
+	}
+
+	/// Write the outcomes that could not be written before, now that a write
+	/// is being attempted anyway.
+	async fn settle(&self) {
+		let pending: Vec<(String, Unsettled)> = self
+			.unsettled
+			.lock()
+			.iter()
+			.map(|(id, outcome)| (id.clone(), outcome.clone()))
+			.collect();
+		for (id, outcome) in pending {
+			let Ok(uuid) = id.parse::<uuid::Uuid>() else {
+				continue;
+			};
+			if self
+				.write_status(JobId(uuid), outcome.status, None, outcome.error_message)
+				.await
+				.is_ok()
+			{
+				self.unsettled.lock().remove(&id);
+			}
+		}
 	}
 
 	pub fn conn(&self) -> &DatabaseConnection {
@@ -286,8 +336,35 @@ impl JobDb {
 		Ok(())
 	}
 
-	/// Update job status and optionally progress atomically
+	/// Update job status and optionally progress atomically.
+	///
+	/// A finished job's outcome that cannot be written is held in memory,
+	/// where listings read it, and written with the next status update.
 	pub async fn update_status_and_progress(
+		&self,
+		job_id: JobId,
+		status: JobStatus,
+		progress: Option<&Progress>,
+		error_message: Option<String>,
+	) -> JobResult<()> {
+		self.settle().await;
+		let result = self
+			.write_status(job_id, status, progress, error_message.clone())
+			.await;
+		if result.is_err() && status.is_terminal() {
+			self.unsettled.lock().insert(
+				job_id.to_string(),
+				Unsettled {
+					status,
+					error_message,
+					completed_at: Utc::now(),
+				},
+			);
+		}
+		result
+	}
+
+	async fn write_status(
 		&self,
 		job_id: JobId,
 		status: JobStatus,

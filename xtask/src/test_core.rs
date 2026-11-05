@@ -223,6 +223,15 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Offline copy acceptance test",
 		&["--test", "offline_copy_acceptance_test"],
 	),
+	// Candidate validation step 4, disk full: a walk whose store runs out of
+	// space on a loop-mounted volume fails as disk full instead of hanging,
+	// and the heal finishes it once there is room. Skips like the locked
+	// volumes suite.
+	acceptance(
+		"sd-core",
+		"Disk full acceptance test",
+		&["--test", "disk_full_acceptance_test"],
+	),
 	// A source whose drive snapshot is missing or unusable at restart lists
 	// from a map rebuilt out of its store before any walk runs.
 	acceptance(

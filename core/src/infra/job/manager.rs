@@ -1194,10 +1194,13 @@ impl JobManager {
 		}
 		drop(running_jobs_map);
 
-		// Now query database for jobs not in memory
+		// Now query database for jobs not in memory. A finished job whose row
+		// could not be written reads its outcome from memory, so the filter
+		// runs here rather than in SQL while any are waiting.
+		let filter = status;
 		let mut query = database::jobs::Entity::find();
 
-		if let Some(status) = status {
+		if let Some(status) = filter.filter(|_| !self.db.has_unsettled()) {
 			use sea_orm::ColumnTrait;
 			query = query.filter(database::jobs::Column::Status.eq(status.to_string()));
 		}
@@ -1228,6 +1231,11 @@ impl JobManager {
 				"cancelled" => JobStatus::Cancelled,
 				_ => continue,
 			};
+			let unsettled = self.db.unsettled(&j.id);
+			let status = unsettled.as_ref().map_or(status, |outcome| outcome.status);
+			if filter.is_some_and(|wanted| wanted != status) {
+				continue;
+			}
 
 			// Parse progress from database
 			let progress = if let Some(progress_data) = &j.progress_data {
@@ -1257,6 +1265,11 @@ impl JobManager {
 				None
 			};
 
+			let (completed_at, error_message) = match unsettled {
+				Some(outcome) => (Some(outcome.completed_at), outcome.error_message),
+				None => (j.completed_at, j.error_message),
+			};
+
 			all_jobs.push(JobInfo {
 				id,
 				name: j.name,
@@ -1265,8 +1278,8 @@ impl JobManager {
 				progress,
 				created_at: j.created_at,
 				started_at: j.started_at,
-				completed_at: j.completed_at,
-				error_message: j.error_message,
+				completed_at,
+				error_message,
 				parent_job_id: j.parent_job_id.and_then(|s| s.parse::<Uuid>().ok()),
 				action_type: j.action_type,
 				action_context,
@@ -1337,6 +1350,12 @@ impl JobManager {
 				"cancelled" => JobStatus::Cancelled,
 				_ => return None,
 			};
+			let unsettled = self.db.unsettled(&j.id);
+			let status = unsettled.as_ref().map_or(status, |outcome| outcome.status);
+			let (completed_at, error_message) = match unsettled {
+				Some(outcome) => (Some(outcome.completed_at), outcome.error_message),
+				None => (j.completed_at, j.error_message),
+			};
 
 			let progress = if let Some(progress_data) = &j.progress_data {
 				rmp_serde::from_slice::<Progress>(progress_data)
@@ -1355,8 +1374,8 @@ impl JobManager {
 				progress,
 				created_at: j.created_at,
 				started_at: j.started_at,
-				completed_at: j.completed_at,
-				error_message: j.error_message,
+				completed_at,
+				error_message,
 				parent_job_id: j.parent_job_id.and_then(|s| s.parse::<Uuid>().ok()),
 				action_type: j.action_type,
 				action_context: None, // TODO: Parse action context from j.action_context

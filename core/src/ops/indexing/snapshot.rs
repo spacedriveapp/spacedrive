@@ -176,7 +176,7 @@ pub(super) fn save_snapshot_impl(
 	// per writer: concurrent saves sharing one tmp path interleave their
 	// writes, and the atomic rename then publishes a corrupt snapshot.
 	let tmp_path = snapshot_path.with_extension(format!("tmp.{}", Uuid::now_v7().simple()));
-	{
+	let written = (|| -> Result<()> {
 		let file = File::create(&tmp_path).context("Failed to create temporary snapshot file")?;
 
 		// Create zstd encoder with multithreading
@@ -197,6 +197,13 @@ pub(super) fn save_snapshot_impl(
 		// the page cache, leaving a truncated snapshot at the final name.
 		let file = encoder.finish().context("Failed to finish zstd stream")?;
 		file.sync_all().context("Failed to sync snapshot data")?;
+		Ok(())
+	})();
+	// A half-written temporary file is worth nothing, and on a full disk it
+	// holds the space the next write needs.
+	if let Err(error) = written {
+		let _ = fs::remove_file(&tmp_path);
+		return Err(error);
 	}
 
 	// Atomically rename temporary file
