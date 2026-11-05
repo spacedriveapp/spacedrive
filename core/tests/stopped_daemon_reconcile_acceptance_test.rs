@@ -288,6 +288,7 @@ fn change_while_stopped(root: &Path) {
 	std::fs::write(root.join("bravo.txt"), "bravo, rewritten longer").expect("modify");
 	std::fs::rename(root.join("delta.txt"), root.join("echo.txt")).expect("rename");
 	std::fs::rename(root.join("india"), root.join("kilo")).expect("rename dir");
+	std::fs::write(root.join("india"), "a file where the moved folder was").expect("reuse path");
 	std::fs::remove_dir_all(root.join("quebec")).expect("replace dir");
 	std::fs::write(root.join("quebec"), "a file where a folder was").expect("replace dir");
 }
@@ -298,7 +299,7 @@ async fn restart_and_check(stopped: Stopped) {
 	let root = stopped.root.clone();
 
 	let expected = vec![
-		"bravo", "charlie", "echo", "filler", "foxtrot", "golf", "kilo", "lima", "quebec",
+		"bravo", "charlie", "echo", "filler", "foxtrot", "golf", "india", "kilo", "lima", "quebec",
 	];
 	let mut listed = Vec::new();
 	for _ in 0..300 {
@@ -624,4 +625,71 @@ async fn stopped_record(stopped: &Stopped, path: &str) -> Uuid {
 	core.shutdown().await.expect("shutdown");
 	tokio::time::sleep(Duration::from_secs(2)).await;
 	uuid
+}
+
+/// A folder moved while stopped whose new home cannot be read: its own
+/// identity resolves, but its files cannot arrive, so they are not removed.
+#[cfg(unix)]
+#[tokio::test]
+async fn an_unreadable_moved_folder_keeps_its_records() {
+	use std::os::unix::fs::PermissionsExt;
+
+	let _ = tracing_subscriber::fmt::try_init();
+	let stopped = walked_and_stopped("sd-reconcile-unreadable-move", false).await;
+	let moved = stopped.root.join("moved");
+	std::fs::rename(stopped.root.join("filler"), &moved).expect("rename");
+	std::fs::set_permissions(&moved, std::fs::Permissions::from_mode(0o000)).expect("chmod");
+	if std::fs::read_dir(&moved).is_ok() {
+		std::fs::set_permissions(&moved, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+		eprintln!("skipping: this user can read a mode 000 directory");
+		return;
+	}
+
+	let core = boot(stopped.data_dir.path()).await;
+	let library = library_at(&core, &stopped.library_path).await;
+	let root = stopped.root.clone();
+	for _ in 0..300 {
+		if list_dir(&core, &library, root.clone())
+			.await
+			.contains(&"moved".to_string())
+		{
+			break;
+		}
+		tokio::time::sleep(Duration::from_millis(100)).await;
+	}
+	tokio::time::sleep(Duration::from_secs(1)).await;
+
+	let store = core
+		.context
+		.volume_index()
+		.store_for(&root)
+		.await
+		.expect("store");
+	store.flush().await.expect("flush");
+	let mut kept = 0;
+	for index in 0..FILLER {
+		let db = store.db();
+		if db
+			.resolve_path(&format!("filler/papa{index:03}.txt"))
+			.await
+			.expect("query")
+			.is_some()
+			|| db
+				.resolve_path(&format!("moved/papa{index:03}.txt"))
+				.await
+				.expect("query")
+				.is_some()
+		{
+			kept += 1;
+		}
+	}
+	std::fs::set_permissions(&moved, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+	assert_eq!(
+		kept, FILLER,
+		"no record under the unreadable folder was removed"
+	);
+
+	drop(store);
+	drop(library);
+	core.shutdown().await.expect("shutdown");
 }

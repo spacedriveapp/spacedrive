@@ -98,6 +98,26 @@ fn read_directory(dir: &Path) -> std::io::Result<Vec<OnDisk>> {
 	Ok(entries)
 }
 
+/// Hand paths to the writer in batches and note the identities they resolve
+/// to. Returns how many were still there to observe.
+async fn arrive(writer: &ArenaWriter, paths: &[PathBuf], arrived: &mut HashSet<Uuid>) -> u64 {
+	let mut count = 0;
+	for chunk in paths.chunks(BATCH) {
+		let mut batch: Vec<EntryMetadata> = Vec::with_capacity(chunk.len());
+		for path in chunk {
+			// Gone again since the read; the watcher answers for it.
+			if let Ok(metadata) = extract_metadata(path, None).await {
+				batch.push(metadata);
+			}
+		}
+		count += batch.len() as u64;
+		for change in writer.apply(Seen::Entries(batch)).await {
+			arrived.insert(change.uuid);
+		}
+	}
+	count
+}
+
 /// Reconcile every attached source with the disk, one after another.
 ///
 /// Runs at startup once the maps are restored. A source with no map coverage
@@ -251,61 +271,57 @@ pub async fn reconcile_source(
 		.notifying(Notify::Silent);
 	let loud = ArenaWriter::new(index.clone(), context.events.clone(), store.clone());
 
-	// Cleared before the replacement arrives, or a directory's old children
-	// would stay under a path that is now a file.
+	// Parents come before their children in breadth-first order, so a new
+	// directory's record exists before the files under it resolve. Arrivals
+	// at or under a path whose kind changed wait until the old entry is
+	// cleared, or a directory's old children would stay under a path that is
+	// now a file. The rest arrive first, so a file that moved out of a
+	// replaced directory is rebound before that directory is forgotten.
+	let (after_replacement, added): (Vec<PathBuf>, Vec<PathBuf>) = added
+		.into_iter()
+		.partition(|path| replaced.iter().any(|(old, _)| path.starts_with(old)));
+	let mut arrived: HashSet<Uuid> = HashSet::new();
+	report.added += arrive(&writer, &added, &mut arrived).await;
+	report.modified += arrive(&writer, &changed, &mut arrived).await;
 	for (path, is_directory) in replaced {
 		loud.apply(Seen::Lost { path, is_directory }).await;
 		report.removed += 1;
 	}
+	report.added += arrive(&writer, &after_replacement, &mut arrived).await;
 
-	// Parents come before their children in breadth-first order, so a new
-	// directory's record exists before the files under it resolve.
-	let mut arrived: HashSet<Uuid> = HashSet::new();
-	for (paths, counter) in [
-		(&added, &mut report.added),
-		(&changed, &mut report.modified),
-	] {
-		for chunk in paths.chunks(BATCH) {
-			let mut batch: Vec<EntryMetadata> = Vec::with_capacity(chunk.len());
-			for path in chunk {
-				// Gone again since the read; the watcher answers for it.
-				if let Ok(metadata) = extract_metadata(path, None).await {
-					batch.push(metadata);
-				}
-			}
-			*counter += batch.len() as u64;
-			for change in writer.apply(Seen::Entries(batch)).await {
-				arrived.insert(change.uuid);
-			}
-		}
-	}
-
-	// An old path whose record arrived somewhere else moved; the fuse weighs
-	// only what is really leaving, which is every entry under a missing path
-	// whose identity did not arrive. A missing directory was never descended
-	// into, so its subtree counts toward what the map held only here.
-	let (moved, gone, doomed) = {
+	// An old path whose record arrived somewhere else moved. Removing it
+	// silently is safe only when everything under it arrived too; whatever
+	// did not is leaving, and the fuse and the unreadable check weigh it like
+	// any other removal. A missing directory was never descended into, so
+	// its subtree counts toward what the map held only here.
+	let mut doomed = 0u64;
+	let mut moved = Vec::new();
+	let mut leaving = Vec::new();
+	{
 		let index = index.read().await;
 		let arrived_at = |path: &Path| {
 			index
 				.get_entry_uuid(&path.to_path_buf())
 				.is_some_and(|uuid| arrived.contains(&uuid))
 		};
-		let mut doomed = 0u64;
-		for (path, is_directory, entries) in &missing {
+		for (path, is_directory, entries) in missing {
 			known_entries += entries - 1;
-			doomed += u64::from(!arrived_at(path));
-			if *is_directory {
-				doomed += match index.files_in_scope(path, true) {
+			let own = arrived_at(&path);
+			let mut lost = u64::from(!own);
+			if is_directory {
+				lost += match index.files_in_scope(&path, true) {
 					Some(files) => files.iter().filter(|file| !arrived_at(file)).count() as u64,
 					None => entries - 1,
 				};
 			}
+			doomed += lost;
+			if lost == 0 {
+				moved.push((path, is_directory));
+			} else {
+				leaving.push((path, is_directory, own));
+			}
 		}
-		let (moved, gone): (Vec<_>, Vec<_>) =
-			missing.into_iter().partition(|(path, ..)| arrived_at(path));
-		(moved, gone, doomed)
-	};
+	}
 
 	let still_gone = |path: PathBuf| async move {
 		matches!(
@@ -315,23 +331,23 @@ pub async fn reconcile_source(
 	};
 
 	if cache.is_indexing(root) {
-		report.removals_refused = !(moved.is_empty() && gone.is_empty());
+		report.removals_refused = !(moved.is_empty() && leaving.is_empty());
 		debug!(root = %root.display(), "a walk started under the reconcile; its sweep owns removals");
 	} else {
 		// The record lives on at its new path, so the old entry is dropped
 		// without announcing it as deleted.
-		for (path, is_directory, _) in moved {
+		for (path, is_directory) in moved {
 			if still_gone(path.clone()).await {
 				quiet.apply(Seen::Lost { path, is_directory }).await;
 				report.moved += 1;
 			}
 		}
 
-		if unreadable && !gone.is_empty() {
+		if unreadable && !leaving.is_empty() {
 			report.removals_refused = true;
 			warn!(
 				root = %root.display(),
-				withheld = gone.len(),
+				withheld = leaving.len(),
 				"reconcile left removals alone: part of the source could not be read"
 			);
 		} else if known_entries > 100 && doomed * 2 > known_entries {
@@ -343,10 +359,15 @@ pub async fn reconcile_source(
 				"reconcile refused its removals: it would remove more than half of the source"
 			);
 		} else {
-			for (path, is_directory, _) in gone {
+			for (path, is_directory, own_moved) in leaving {
 				if still_gone(path.clone()).await {
-					loud.apply(Seen::Lost { path, is_directory }).await;
-					report.removed += 1;
+					let writer = if own_moved { &quiet } else { &loud };
+					writer.apply(Seen::Lost { path, is_directory }).await;
+					if own_moved {
+						report.moved += 1;
+					} else {
+						report.removed += 1;
+					}
 				}
 			}
 		}
