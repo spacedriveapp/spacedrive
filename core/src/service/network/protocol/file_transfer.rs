@@ -2225,10 +2225,11 @@ mod tests {
 			!destination.exists(),
 			"corrupted file must not be left at the destination"
 		);
-		assert!(
-			partials(&root).is_empty(),
-			"the corrupted partial is removed"
-		);
+		crate::service::network::protocol::staged_receive::tests::eventually(
+			"the corrupted partial to be removed",
+			|| partials(&root).is_empty(),
+		)
+		.await;
 	}
 
 	#[tokio::test]
@@ -2252,7 +2253,11 @@ mod tests {
 			.await;
 		assert!(result.is_err(), "missing bytes must fail the size check");
 		assert_eq!(tokio::fs::read(&destination).await.unwrap(), b"old");
-		assert!(partials(&root).is_empty());
+		crate::service::network::protocol::staged_receive::tests::eventually(
+			"the short partial to be removed",
+			|| partials(&root).is_empty(),
+		)
+		.await;
 	}
 
 	#[tokio::test]
@@ -2271,7 +2276,11 @@ mod tests {
 			transfer_ids: vec![transfer_id],
 		});
 
-		assert!(partials(&root).is_empty());
+		crate::service::network::protocol::staged_receive::tests::eventually(
+			"the partial to go",
+			|| partials(&root).is_empty(),
+		)
+		.await;
 		assert!(!destination.exists());
 		assert!(matches!(
 			handler.get_session(&transfer_id).unwrap().state,

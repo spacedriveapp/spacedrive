@@ -599,7 +599,7 @@ async fn alice_kill_receive_scenario() {
 	.unwrap();
 	drop(content);
 
-	println!("Alice: Sending the first copy, which Bob will not live to finish");
+	tracing::info!("Alice: Sending the first copy, which Bob will not live to finish");
 	core.services
 		.file_sharing
 		.share_with_device(
@@ -617,10 +617,10 @@ async fn alice_kill_receive_scenario() {
 		.await
 		.is_err()
 	{
-		println!("Alice: Bob not reconnected yet, the transfer will dial");
+		tracing::info!("Alice: Bob not reconnected yet, the transfer will dial");
 	}
 
-	println!("Alice: Sending the file again to the restarted Bob");
+	tracing::info!("Alice: Sending the file again to the restarted Bob");
 	let transfer_id = core
 		.services
 		.file_sharing
@@ -739,7 +739,7 @@ async fn test_file_transfer_kill_mid_receive() {
 		tokio::time::sleep(Duration::from_millis(2)).await;
 	}
 	runner.kill_process("bob").await.unwrap();
-	println!("Orchestrator: killed Bob mid-receive");
+	tracing::info!("Orchestrator: killed Bob mid-receive");
 
 	assert_eq!(
 		std::fs::read(&destination).unwrap(),

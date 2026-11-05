@@ -107,21 +107,42 @@ impl StagedReceive {
 
 impl Drop for StagedReceive {
 	fn drop(&mut self) {
-		// Drop cannot await, and one unlink is cheap enough to run inline.
-		if !self.settled {
-			if let Err(e) = std::fs::remove_file(&self.partial) {
-				if e.kind() != std::io::ErrorKind::NotFound {
-					warn!(
-						path = %self.partial.display(),
-						error = %e,
-						"Failed to remove an unfinished receive"
-					);
-				}
+		let partial = (!self.settled).then(|| std::mem::take(&mut self.partial));
+		let entry = self.journal_entry.take();
+		if partial.is_none() && entry.is_none() {
+			return;
+		}
+		// Unlinking can stall on slow or network storage, so it runs on the
+		// blocking pool. A cleanup that never runs, because the runtime shut
+		// down first, keeps its journal entry for the next start's sweep.
+		match tokio::runtime::Handle::try_current() {
+			Ok(runtime) => {
+				runtime.spawn_blocking(move || discard(partial, entry));
+			}
+			Err(_) => discard(partial, entry),
+		}
+	}
+}
+
+/// Remove an unfinished partial, then the journal entry that names it.
+///
+/// The entry outlives a failed removal so the next start's sweep retries it
+/// once the filesystem answers again.
+fn discard(partial: Option<PathBuf>, entry: Option<PathBuf>) {
+	if let Some(partial) = partial {
+		if let Err(e) = std::fs::remove_file(&partial) {
+			if e.kind() != std::io::ErrorKind::NotFound {
+				warn!(
+					path = %partial.display(),
+					error = %e,
+					"Failed to remove an unfinished receive"
+				);
+				return;
 			}
 		}
-		if let Some(entry) = self.journal_entry.take() {
-			let _ = std::fs::remove_file(entry);
-		}
+	}
+	if let Some(entry) = entry {
+		let _ = std::fs::remove_file(entry);
 	}
 }
 
@@ -171,8 +192,19 @@ fn is_staging_name(path: &Path) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
 	use super::*;
+
+	/// Wait for a drop's cleanup, which runs on the blocking pool.
+	pub(crate) async fn eventually(what: &str, check: impl Fn() -> bool) {
+		for _ in 0..200 {
+			if check() {
+				return;
+			}
+			tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+		}
+		panic!("timed out waiting for {}", what);
+	}
 
 	#[tokio::test]
 	async fn uncommitted_receive_removes_its_partial() {
@@ -187,9 +219,11 @@ mod tests {
 		assert!(partial.exists());
 		drop(staged);
 
-		assert!(!partial.exists());
+		eventually("the partial and its journal entry to go", || {
+			!partial.exists() && std::fs::read_dir(&journal).unwrap().count() == 0
+		})
+		.await;
 		assert!(!destination.exists());
-		assert_eq!(std::fs::read_dir(&journal).unwrap().count(), 0);
 	}
 
 	#[tokio::test]
