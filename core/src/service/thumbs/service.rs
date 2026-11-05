@@ -60,6 +60,11 @@ const REMOTE_CLAIMS_RETAINED: usize = 65_536;
 /// Bump when the tile recipe changes, independently of the source file.
 const THUMBNAIL_RECIPE: u64 = 2;
 
+/// The recipe for camera raw files. They gained a decoder for their embedded
+/// preview, so tiles baked before it (an icon, or nothing) are stale, while
+/// every other file's tile stays valid.
+const RAW_THUMBNAIL_RECIPE: u64 = 3;
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum ThumbnailGenerationMode {
@@ -871,7 +876,12 @@ impl ThumbService {
 		} else {
 			false
 		};
-		identity.version = thumbnail_version(identity.version, THUMBNAIL_RECIPE, ffmpeg);
+		let recipe = if sd_images::is_raw(path) {
+			RAW_THUMBNAIL_RECIPE
+		} else {
+			THUMBNAIL_RECIPE
+		};
+		identity.version = thumbnail_version(identity.version, recipe, ffmpeg);
 		Some(identity)
 	}
 

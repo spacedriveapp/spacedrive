@@ -46,6 +46,7 @@ pub use consts::{all_compatible_extensions, ConvertibleExtension};
 pub use error::{Error, Result};
 pub use handler::{convert_image, format_image};
 pub use image::DynamicImage;
+pub use raw::is_raw;
 
 pub trait ImageHandler {
 	#[inline]

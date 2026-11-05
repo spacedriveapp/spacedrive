@@ -1,11 +1,20 @@
-//! Camera raw files, drawn from the JPEG preview the camera embedded.
+//! # Camera raw previews
 //!
+//! Camera raw files are drawn from the JPEG preview the camera embedded.
 //! No raw decoder ships with Spacedrive, but nearly every raw format carries a
 //! full or near-full size JPEG rendered by the camera. TIFF-based formats (CR2,
 //! NEF, ARW, DNG, ORF, RW2, PEF and most others) point at it from an IFD, so
 //! those are walked. Formats with their own container (CR3, RAF) are scanned for
 //! JPEG start markers instead. The largest preview that decodes wins, since the
 //! small ones are 160px EXIF thumbnails.
+//!
+//! ## Example
+//! ```rust,no_run
+//! // A raw extension routes `format_image` to the embedded preview.
+//! let preview = sd_images::format_image("/photos/IMG_0001.CR2")?;
+//! assert!(sd_images::is_raw(std::path::Path::new("/photos/IMG_0001.CR2")));
+//! # Ok::<(), sd_images::Error>(())
+//! ```
 
 use std::{collections::HashSet, io::Cursor, path::Path};
 
@@ -17,6 +26,19 @@ use crate::{
 };
 
 pub struct RawHandler {}
+
+/// Whether `path` names a camera raw format this module draws from its
+/// embedded preview.
+#[must_use]
+pub fn is_raw(path: &Path) -> bool {
+	path.extension()
+		.and_then(|ext| ext.to_str())
+		.is_some_and(|ext| {
+			crate::consts::RAW_EXTENSIONS
+				.iter()
+				.any(|raw| raw.eq_ignore_ascii_case(ext))
+		})
+}
 
 impl ImageHandler for RawHandler {
 	fn handle_image(&self, path: &Path) -> Result<DynamicImage> {
