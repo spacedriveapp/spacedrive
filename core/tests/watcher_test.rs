@@ -1167,6 +1167,11 @@ async fn run_test_scenarios(
 	harness.verify_entry_exists(deep_file).await?;
 	let excluded_file = "trash_folder/sub/.DS_Store";
 	tokio::fs::write(harness.path(excluded_file), b"system").await?;
+	#[cfg(unix)]
+	std::os::unix::fs::symlink(
+		harness.path("trash_folder/missing-target"),
+		harness.path("trash_folder/dangling"),
+	)?;
 	harness.move_to_trash("trash_folder", &volume_trash).await?;
 	harness.verify_entry_not_exists(deep_file).await?;
 	harness

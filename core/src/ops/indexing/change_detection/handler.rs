@@ -122,7 +122,7 @@ pub async fn should_filter_path(
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to get metadata via backend: {}", e))?
 	} else {
-		let fs_meta = tokio::fs::metadata(path).await?;
+		let fs_meta = tokio::fs::symlink_metadata(path).await?;
 		crate::volume::backend::RawMetadata {
 			kind: if fs_meta.is_dir() {
 				EntryKind::Directory
@@ -363,15 +363,25 @@ pub async fn handle_create<H: ChangeHandler>(
 			let mut kept = Vec::new();
 			while let Ok(Some(child)) = children.next_entry().await {
 				let child = child.path();
-				if should_filter_path(
+				match should_filter_path(
 					&child,
 					config.rule_toggles,
 					config.root,
 					config.volume_backend,
 				)
-				.await?
+				.await
 				{
-					continue;
+					Ok(false) => {}
+					Ok(true) => continue,
+					// Skip only this child so one unreadable entry does not cost the rest of the subtree.
+					Err(e) => {
+						tracing::warn!(
+							"Skipping {} while indexing a new directory: {}",
+							child.display(),
+							e
+						);
+						continue;
+					}
 				}
 				if tokio::fs::symlink_metadata(&child)
 					.await
