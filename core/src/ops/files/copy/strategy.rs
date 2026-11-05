@@ -219,21 +219,31 @@ impl CopyStrategy for FastCopyStrategy {
 			fs::create_dir_all(parent).await?;
 		}
 
-		let bytes_copied = tokio::task::spawn_blocking({
+		let partial = partial_path(dest_path);
+		let copied = tokio::task::spawn_blocking({
 			let source_path = source_path.to_path_buf();
-			let dest_path = dest_path.to_path_buf();
-			move || -> Result<u64, std::io::Error> { std::fs::copy(&source_path, &dest_path) }
+			let partial = partial.clone();
+			move || -> Result<u64, std::io::Error> { std::fs::copy(&source_path, &partial) }
 		})
-		.await??;
+		.await?;
+		let bytes_copied = match copied {
+			Ok(bytes) => bytes,
+			Err(error) => {
+				let _ = fs::remove_file(&partial).await;
+				return Err(error.into());
+			}
+		};
 
 		// Post-copy verification detects CoW bugs and hardware errors (bit flips, bad sectors).
 		if verify_checksum {
 			let source_checksum = calculate_file_checksum(source_path).await?;
-			let dest_checksum = calculate_file_checksum(dest_path).await?;
+			let dest_checksum = calculate_file_checksum(&partial).await?;
 			if source_checksum != dest_checksum {
+				let _ = fs::remove_file(&partial).await;
 				return Err(anyhow::anyhow!("Checksum verification failed"));
 			}
 		}
+		fs::rename(&partial, dest_path).await?;
 
 		// Signal file completion to aggregator
 		if let Some(callback) = progress_callback {
@@ -868,6 +878,54 @@ async fn copy_single_file_with_offset<'a>(
 		fs::create_dir_all(parent).await?;
 	}
 
+	let partial = partial_path(destination);
+	let result = stream_into(
+		source,
+		&partial,
+		volume_info,
+		ctx,
+		verify_checksum,
+		file_size,
+		progress_callback,
+	)
+	.await;
+	match result {
+		Ok(total_copied) => {
+			fs::rename(&partial, destination).await?;
+			Ok(total_copied)
+		}
+		Err(error) => {
+			let _ = fs::remove_file(&partial).await;
+			Err(error)
+		}
+	}
+}
+
+/// Where a copy writes before it is complete: a hidden sibling of the
+/// destination, renamed into place only once every byte has landed.
+///
+/// A process killed mid-copy then leaves a partial file under a name no one
+/// mistakes for the destination, so a resumed or repeated copy never skips a
+/// truncated file as one that is already there.
+pub(crate) fn partial_path(destination: &Path) -> PathBuf {
+	let name = destination
+		.file_name()
+		.map(|name| name.to_string_lossy().into_owned())
+		.unwrap_or_default();
+	destination.with_file_name(format!(".{name}.sdpart"))
+}
+
+/// Stream one file's bytes to `destination`, verifying and setting the
+/// source's permissions on the way.
+async fn stream_into<'a>(
+	source: &Path,
+	destination: &Path,
+	volume_info: Option<(&crate::volume::Volume, &crate::volume::Volume)>,
+	ctx: &JobContext<'a>,
+	verify_checksum: bool,
+	file_size: u64,
+	progress_callback: Option<&ProgressCallback<'a>>,
+) -> Result<u64, std::io::Error> {
 	let mut source_file = fs::File::open(source).await?;
 	let mut dest_file = fs::File::create(destination).await?;
 
@@ -898,8 +956,6 @@ async fn copy_single_file_with_offset<'a>(
 
 	loop {
 		if let Err(_) = ctx.check_interrupt().await {
-			// Clean up partial file so resume doesn't see corrupted data.
-			let _ = fs::remove_file(destination).await;
 			return Err(std::io::Error::new(
 				std::io::ErrorKind::Interrupted,
 				"Operation cancelled",
@@ -958,7 +1014,6 @@ async fn copy_single_file_with_offset<'a>(
 			let dest_hash = dest_hasher.finalize();
 
 			if source_hash != dest_hash {
-				let _ = fs::remove_file(destination).await;
 				return Err(std::io::Error::new(
 					std::io::ErrorKind::InvalidData,
 					format!(

@@ -201,3 +201,53 @@ fn test_copy_options_defaults() {
 
 	println!("Copy options defaults test passed!");
 }
+
+/// A copy killed mid-file leaves its bytes under a hidden partial name, never
+/// under the destination's. The next copy over the half-built folder then
+/// writes the file in full instead of skipping a truncated one as already
+/// there, and no partial name survives a completed copy.
+#[tokio::test]
+async fn an_interrupted_copy_leaves_no_truncated_file_at_its_final_name() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("copy_partial").build().await?;
+	let test_root = harness.temp_path();
+	let source_dir = test_root.join("big");
+	let dest_root = test_root.join("dst");
+	let dest_dir = dest_root.join("big");
+	fs::create_dir_all(&source_dir).await?;
+	fs::create_dir_all(&dest_dir).await?;
+
+	let full: Vec<u8> = (0..4 * 1024 * 1024).map(|i| (i % 251) as u8).collect();
+	fs::write(source_dir.join("blob.bin"), &full).await?;
+	fs::write(source_dir.join("other.bin"), b"other").await?;
+	// What a killed copy leaves behind under the new scheme.
+	fs::write(dest_dir.join(".blob.bin.sdpart"), &full[..1024]).await?;
+
+	let copy_job = FileCopyJob::new(
+		SdPathBatch::new(vec![SdPath::local(source_dir.clone())]),
+		SdPath::local(dest_root.clone()),
+	)
+	.with_options(CopyOptions {
+		conflict_resolution: None,
+		overwrite: false,
+		copy_method: CopyMethod::Auto,
+		verify_checksum: false,
+		preserve_timestamps: true,
+		delete_after_copy: false,
+		move_mode: None,
+	});
+	harness
+		.library
+		.jobs()
+		.dispatch(copy_job)
+		.await?
+		.wait()
+		.await?;
+
+	assert_eq!(fs::read(dest_dir.join("blob.bin")).await?, full);
+	assert_eq!(fs::read(dest_dir.join("other.bin")).await?, b"other");
+	assert!(!fs::try_exists(dest_dir.join(".blob.bin.sdpart")).await?);
+	assert!(!fs::try_exists(dest_dir.join(".other.bin.sdpart")).await?);
+
+	harness.shutdown().await?;
+	Ok(())
+}
