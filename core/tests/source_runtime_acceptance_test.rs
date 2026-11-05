@@ -706,6 +706,15 @@ async fn listing_status_and_store_agree_on_a_sources_count() -> anyhow::Result<(
 		listed.item_count as u64, committed.records,
 		"sources.list reports the committed count"
 	);
+	assert_eq!(
+		committed.bytes, 3,
+		"bytes are the three one-byte files, without the directory's size"
+	);
+	assert_eq!(
+		listed.total_bytes,
+		Some(3),
+		"sources.list reports file bytes only"
+	);
 
 	let status = IndexStatusQuery::from_input(IndexStatusInput::default())?
 		.execute(harness.core.context.clone(), session(&harness))
