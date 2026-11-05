@@ -778,11 +778,13 @@ impl IndexerJob {
 			// Stop at the batch that found the volume full. The walk would
 			// otherwise read the rest of the tree into a store that keeps
 			// none of it.
-			if let Some(reason) = source_store
-				.as_ref()
-				.and_then(|store| store.disk_full_since(disk_full_mark))
-			{
-				return Err(JobError::execution(reason));
+			if let Some(store) = &source_store {
+				if let Some(reason) = store.disk_full_since(disk_full_mark) {
+					// Drain the writer's failure count with this walk, so the
+					// next walk's flush answers for its own writes only.
+					let _ = store.flush().await;
+					return Err(JobError::execution(reason));
+				}
 			}
 		}
 

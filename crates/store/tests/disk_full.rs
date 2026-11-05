@@ -1,3 +1,5 @@
+//! # Disk full
+//!
 //! A full disk must cost the write that hit it, never the store.
 //!
 //! SQLite rolls a transaction back by itself when a write fails for lack of

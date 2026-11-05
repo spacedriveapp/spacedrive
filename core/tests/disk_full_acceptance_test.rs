@@ -1,3 +1,5 @@
+//! # Disk full acceptance
+//!
 //! Acceptance for the disk-full finding in step 4 of the candidate
 //! validation (docs/core/acceptance/candidate-validation.md, "Disk full hangs
 //! the indexer"): a walk whose source store runs out of space fails, with an
@@ -9,6 +11,8 @@
 //! volume, filled until the store cannot hold the walk. Freeing the filler is
 //! then all it takes to give the store room again. The helper skips with a
 //! reason where there is no passwordless sudo or no loop device.
+
+#![cfg(target_os = "linux")]
 
 mod helpers;
 
@@ -79,6 +83,16 @@ async fn fill(path: &Path, bytes: u64) {
 	);
 }
 
+/// Records the store holds, read without a flush. A flush answers for the
+/// failed walk's writes and would hide whether the walk itself drained them
+/// before the heal's walk ran.
+async fn committed(pool: &sqlx::SqlitePool) -> u64 {
+	sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM record")
+		.fetch_one(pool)
+		.await
+		.expect("count") as u64
+}
+
 async fn boot(data_dir: &Path) -> Arc<Core> {
 	let config = TestConfigBuilder::new(data_dir.to_path_buf())
 		.build()
@@ -108,13 +122,18 @@ async fn a_full_disk_fails_the_walk_and_the_heal_finishes_it_once_there_is_room(
 	sudo(&["chown", "-R", &whoami::username(), mount.to_str().unwrap()]).await;
 
 	let tree = mount.join("tree");
-	for directory in 0..DIRECTORIES {
-		let directory = tree.join(format!("d{directory:03}"));
-		std::fs::create_dir_all(&directory).expect("directory");
-		for file in 0..FILES_PER_DIRECTORY {
-			std::fs::write(directory.join(format!("f{file:03}.txt")), b"").expect("file");
+	let root = tree.clone();
+	tokio::task::spawn_blocking(move || {
+		for directory in 0..DIRECTORIES {
+			let directory = root.join(format!("d{directory:03}"));
+			std::fs::create_dir_all(&directory).expect("directory");
+			for file in 0..FILES_PER_DIRECTORY {
+				std::fs::write(directory.join(format!("f{file:03}.txt")), b"").expect("file");
+			}
 		}
-	}
+	})
+	.await
+	.expect("tree");
 	let expected_records = (DIRECTORIES * (FILES_PER_DIRECTORY + 1)) as u64;
 
 	let data_dir = mount.join("data");
@@ -181,7 +200,7 @@ async fn a_full_disk_fails_the_walk_and_the_heal_finishes_it_once_there_is_room(
 		.await
 		.expect("integrity check");
 	assert_eq!(integrity, "ok");
-	let partial = store.counts().await.map_or(0, |counts| counts.records);
+	let partial = committed(store.db().pool()).await;
 	assert!(partial < expected_records, "{partial} records");
 	assert!(
 		store.walk_unfinished().await,
@@ -205,7 +224,7 @@ async fn a_full_disk_fails_the_walk_and_the_heal_finishes_it_once_there_is_room(
 
 	let mut records = 0;
 	for _ in 0..1200 {
-		records = store.counts().await.map_or(0, |counts| counts.records);
+		records = committed(store.db().pool()).await;
 		if records == expected_records && !store.walk_unfinished().await {
 			break;
 		}

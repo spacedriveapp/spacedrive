@@ -94,6 +94,31 @@ struct SerializableFileNode {
 }
 
 /// Internal implementation for saving snapshots (called from index.rs)
+/// A writer that keeps the first error it hit, for callers above it that
+/// replace the error with their own.
+struct Recording<W> {
+	inner: W,
+	error: Option<std::io::Error>,
+}
+
+impl<W: std::io::Write> std::io::Write for Recording<W> {
+	fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+		self.inner.write(buf).inspect_err(|error| self.keep(error))
+	}
+
+	fn flush(&mut self) -> std::io::Result<()> {
+		self.inner.flush().inspect_err(|error| self.keep(error))
+	}
+}
+
+impl<W> Recording<W> {
+	fn keep(&mut self, error: &std::io::Error) {
+		if self.error.is_none() {
+			self.error = Some(std::io::Error::new(error.kind(), error.to_string()));
+		}
+	}
+}
+
 pub(super) fn save_snapshot_impl(
 	index: &super::Arena,
 	snapshot_path: &Path,
@@ -186,8 +211,19 @@ pub(super) fn save_snapshot_impl(
 			.context("Failed to enable zstd multithreading")?;
 
 		{
-			let mut writer = BufWriter::new(&mut encoder);
-			postcard::to_io(&snapshot, &mut writer).context("Failed to serialize snapshot")?;
+			let mut writer = BufWriter::new(Recording {
+				inner: &mut encoder,
+				error: None,
+			});
+			// postcard reports any write failure as a full buffer, so the
+			// write error itself, a full disk among them, comes from the
+			// writer underneath.
+			if let Err(error) = postcard::to_io(&snapshot, &mut writer) {
+				return Err(match writer.get_mut().error.take() {
+					Some(io) => anyhow::Error::new(io).context("Failed to write snapshot"),
+					None => anyhow::Error::new(error).context("Failed to serialize snapshot"),
+				});
+			}
 			use std::io::Write;
 			writer.flush().context("Failed to flush snapshot")?;
 		}
