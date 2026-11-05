@@ -91,14 +91,23 @@ jobs:
             fail "daemon still running 60s after stop"
           }
           check() {
-            local stats files dirs
-            sdj sources list | jq -c '.[] | {name, item_count, status, root}'
-            [ "$(sdj sources list | jq length)" = 1 ] || fail "expected 1 source"
-            [ "$(sdj sources list | jq '.[0].item_count')" = 224 ] || fail "source item_count is not 224"
-            stats=$(sdj library info | jq -c .statistics)
+            local sources stats files dirs
+            # Library statistics are cached and refreshed in the background
+            # after a job completes, so give them a bounded time to catch up.
+            for _ in $(seq 30); do
+              sources=$(sdj sources list | jq -c '[.[] | {name, item_count, status, root}]')
+              stats=$(sdj library info | jq -c .statistics)
+              jq -e 'length == 1 and .[0].item_count == 224' <<<"$sources" >/dev/null \
+                && jq -e '.total_files == 200 and .source_count == 1' <<<"$stats" >/dev/null \
+                && break
+              sleep 1
+            done
+            echo "$sources"
             echo "$stats"
-            [ "$(jq .total_files <<<"$stats")" = 200 ] || fail "library total_files is not 200"
-            [ "$(jq .source_count <<<"$stats")" = 1 ] || fail "library source_count is not 1"
+            jq -e 'length == 1 and .[0].item_count == 224' <<<"$sources" >/dev/null \
+              || fail "expected 1 source holding 224 items"
+            jq -e '.total_files == 200 and .source_count == 1' <<<"$stats" >/dev/null \
+              || fail "expected library total_files 200 and source_count 1"
             files=0 dirs=0
             while IFS= read -r d; do
               listing=$(sdj file list "$(native "$d")")
@@ -122,7 +131,9 @@ jobs:
 
           start
           sdj library create Smoke
-          job=$(sdj sources track "$(native "$SRC")" | tee /dev/stderr | jq -r .job_id)
+          track=$(sdj sources track "$(native "$SRC")")
+          echo "$track"
+          job=$(jq -r .job_id <<<"$track")
           t0=$SECONDS
           for _ in $(seq 120); do
             status=$(sdj job list | jq -rs --arg id "$job" '[.[].jobs[] | select(.id == $id) | .status][0] // "missing"')
