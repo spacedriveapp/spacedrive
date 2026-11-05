@@ -117,6 +117,8 @@ jobs:
             echo "file list: $files files, $dirs directories"
             [ "$files" = 200 ] || fail "file list found $files files, expected 200"
             [ "$dirs" = 24 ] || fail "file list found $dirs directories, expected 24"
+          }
+          check_tag() {
             sdj file info "$(native "$SRC/d1/e1/f1.txt")" | jq -e --arg id "$TAG" '.tags | any(.id == $id)' \
               || fail "tag $TAG is not on d1/e1/f1.txt"
           }
@@ -146,14 +148,19 @@ jobs:
           [ "$status" = completed ] || fail "walk job $job still $status after 120s"
           echo "walk completed in $((SECONDS - t0))s"
 
-          TAG=$(sdj tag create Smoke/Checked | jq -r .tag.id)
-          file=$(sdj file info "$(native "$SRC/d1/e1/f1.txt")" | jq -r .id)
-          sdj tag apply "$file" --tags "$TAG" | jq -e '.targets_tagged == 1' || fail "tag apply did not tag 1 target"
-
           check
+          TAG=$(sdj tag create Smoke/Checked | jq -r .tag.id)
+          info=$(sdj file info "$(native "$SRC/d1/e1/f1.txt")")
+          echo "$info"
+          file=$(jq -r '.id // empty' <<<"$info")
+          [ -n "$file" ] || fail "file info has no record for d1/e1/f1.txt"
+          sdj tag apply "$file" --tags "$TAG" | jq -e '.targets_tagged == 1' || fail "tag apply did not tag 1 target"
+          check_tag
+
           stop
           start
           check
+          check_tag
           stop
 
       - name: Upload daemon logs
