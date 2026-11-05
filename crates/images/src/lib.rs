@@ -36,6 +36,7 @@ mod handler;
 #[cfg(feature = "heif")]
 mod heif;
 mod pdf;
+mod raw;
 mod svg;
 
 use consts::MAXIMUM_FILE_SIZE;
