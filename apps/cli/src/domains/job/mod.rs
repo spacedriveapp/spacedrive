@@ -51,25 +51,36 @@ pub async fn run(ctx: &Context, cmd: JobCmd) -> Result<()> {
 					include_stats: false
 				}
 			);
-			if libs.is_empty() {
+			if libs.is_empty() && matches!(ctx.format, crate::context::OutputFormat::Human) {
 				println!("No libraries found");
 				return Ok(());
 			}
-
+			let mut combined = JobListOutput { jobs: Vec::new() };
 			for lib in libs {
-				let out: JobListOutput = execute_query!(ctx, args.to_input(lib.id));
-				print_output!(ctx, &out, |o: &JobListOutput| {
-					for j in &o.jobs {
-						println!(
-							"- {} {} {} {:?}",
-							j.id,
-							j.name,
-							(j.progress * 100.0) as u32,
-							j.status
-						);
-					}
-				});
+				let library_id = if ctx.core.device().is_some() {
+					None
+				} else {
+					Some(lib.id)
+				};
+				let response = ctx
+					.core
+					.query(&args.to_input(lib.id), library_id)
+					.await
+					.map_err(|e| crate::util::error::improve_core_error(e.to_string()))?;
+				let out: JobListOutput = serde_json::from_value(response)?;
+				combined.jobs.extend(out.jobs);
 			}
+			print_output!(ctx, &combined, |o: &JobListOutput| {
+				for j in &o.jobs {
+					println!(
+						"- {} {} {} {:?}",
+						j.id,
+						j.name,
+						(j.progress * 100.0) as u32,
+						j.status
+					);
+				}
+			});
 		}
 		JobCmd::Info(args) => {
 			let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_core_query!(

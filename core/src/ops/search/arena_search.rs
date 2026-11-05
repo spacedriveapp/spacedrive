@@ -43,6 +43,7 @@ pub async fn search_arena(
 	sort: &SortOptions,
 	pagination: &PaginationOptions,
 	context: &std::sync::Arc<crate::context::CoreContext>,
+	library_id: Uuid,
 	cache: &VolumeIndex,
 	file_type_registry: &FileTypeRegistry,
 ) -> Result<SearchPage, QueryError> {
@@ -58,7 +59,7 @@ pub async fn search_arena(
 		crate::ops::search::tag_scope::TagScope::resolve_if_active(cache, filters.tags.as_ref())
 			.await;
 
-	if *device_slug != crate::device::get_current_device_slug() {
+	if !path_scope.is_local() {
 		// A replica's assertion state lives with its owner, so a tag filter
 		// removes replica hits rather than passing them through unfiltered.
 		if tag_scope.is_some() {
@@ -119,6 +120,7 @@ pub async fn search_arena(
 			tag_scope.as_ref(),
 			sort,
 			pagination,
+			library_id,
 			cache,
 			file_type_registry,
 		)
@@ -136,6 +138,8 @@ pub async fn search_arena(
 		let index = index_arc.read().await;
 		matches_in(&index, query, Some(&local_path), filters)
 	};
+	let all_sources = cache.sources();
+	matching_paths.retain(|path| belongs_to_library(path, &all_sources, library_id, true));
 	if let Some(scope) = &tag_scope {
 		matching_paths.retain(|path| scope.admits(path));
 	}
@@ -163,11 +167,12 @@ async fn store_scoped_page(
 	tag_scope: Option<&crate::ops::search::tag_scope::TagScope>,
 	sort: &SortOptions,
 	pagination: &PaginationOptions,
+	library_id: Uuid,
 	cache: &VolumeIndex,
 	file_type_registry: &FileTypeRegistry,
 ) -> Result<Option<SearchPage>, QueryError> {
 	let Some(source) = cache
-		.sources()
+		.sources_of(library_id)
 		.into_iter()
 		.filter(|source| scope.starts_with(&source.root))
 		.max_by_key(|source| source.root.as_os_str().len())
@@ -188,6 +193,14 @@ async fn store_scoped_page(
 		file_type_registry,
 	)
 	.await?;
+	let all_sources = cache.sources();
+	partition.results.retain(|result| {
+		result
+			.file
+			.sd_path
+			.as_local_path()
+			.is_some_and(|path| belongs_to_library(path, &all_sources, library_id, true))
+	});
 	retain_tagged(&mut partition.results, tag_scope);
 	crate::ops::search::capture::retain_matching(&mut partition.results, filters);
 
@@ -235,9 +248,8 @@ impl SearchPage {
 	}
 }
 
-/// Search every partition, which is what a library-wide search is now that
-/// every attached drive is mapped — including paired devices' sources,
-/// whose replicated indexes answer from memory just like the local ones.
+/// Search the selected library's sources across shared volume partitions.
+/// A replica participates only when its source ID belongs to the library.
 /// Returns the requested page and the true pre-pagination match count. Each
 /// partition contributes its full filtered match count to the total and only
 /// its page-window of candidates to the merge.
@@ -247,6 +259,7 @@ pub async fn search_every_index(
 	sort: &SortOptions,
 	pagination: &PaginationOptions,
 	context: &std::sync::Arc<crate::context::CoreContext>,
+	library_id: Uuid,
 	cache: &VolumeIndex,
 	file_type_registry: &FileTypeRegistry,
 ) -> Result<SearchPage, QueryError> {
@@ -261,6 +274,8 @@ pub async fn search_every_index(
 	// without undercounting what fell outside the page.
 	let mut seen: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
 	let local_slug = crate::device::get_current_device_slug();
+	let sources = cache.sources_of(library_id);
+	let all_sources = cache.sources();
 	let tag_scope =
 		crate::ops::search::tag_scope::TagScope::resolve_if_active(cache, filters.tags.as_ref())
 			.await;
@@ -270,6 +285,7 @@ pub async fn search_every_index(
 			let index = index_arc.read().await;
 			matches_in(&index, query, None, filters)
 		};
+		matching_paths.retain(|path| belongs_to_library(path, &all_sources, library_id, false));
 		if let Some(scope) = &tag_scope {
 			matching_paths.retain(|path| scope.admits(path));
 		}
@@ -297,6 +313,10 @@ pub async fn search_every_index(
 	}
 
 	for share in crate::service::mounts::peer::remote_shares().await {
+		// Shares without a registration in this library have no membership evidence.
+		if !sources.iter().any(|source| source.id == share.info.id) {
+			continue;
+		}
 		// A replica's assertion state lives with its owner; under a tag
 		// filter its hits are removed rather than passed through unfiltered.
 		if tag_scope.is_some() {
@@ -315,7 +335,7 @@ pub async fn search_every_index(
 
 		let matching_paths = {
 			let index = share.index.read().await;
-			matches_in(&index, query, None, filters)
+			matches_in(&index, query, Some(&share.info.root), filters)
 		};
 
 		let mut partition = collect_results(
@@ -345,7 +365,7 @@ pub async fn search_every_index(
 	// stays the number of distinct files. `seen` also carries the arenas'
 	// hits, for a source nested across a volume boundary whose outer arena
 	// holds paths under the inner root.
-	let mut sources = cache.sources();
+	let mut sources = sources;
 	sources.sort_by_key(|source| std::cmp::Reverse(source.root.components().count()));
 	for source in sources {
 		if cache.arena_answers(&source.root) {
@@ -369,7 +389,10 @@ pub async fn search_every_index(
 		retain_tagged(&mut partition, tag_scope.as_ref());
 		crate::ops::search::capture::retain_matching(&mut partition, filters);
 		partition.retain(|result| match result.file.sd_path.as_local_path() {
-			Some(path) => seen.insert(path.to_path_buf()),
+			Some(path) => {
+				belongs_to_library(path, &all_sources, library_id, false)
+					&& seen.insert(path.to_path_buf())
+			}
 			None => true,
 		});
 		approximate |= store_partition.truncated;
@@ -386,6 +409,27 @@ pub async fn search_every_index(
 		facets,
 		approximate,
 	})
+}
+
+/// A path belongs to every library with a source root covering it. Explicit
+/// path searches also admit paths with no registered source.
+fn belongs_to_library(
+	path: &Path,
+	sources: &[crate::ops::indexing::volume_index::SourceStatus],
+	library_id: Uuid,
+	allow_unowned: bool,
+) -> bool {
+	let mut has_owner = false;
+	for source in sources
+		.iter()
+		.filter(|source| path.starts_with(&source.root))
+	{
+		has_owner = true;
+		if source.library == Some(library_id) {
+			return true;
+		}
+	}
+	allow_unowned && !has_owner
 }
 
 /// Keep the results a tag scope admits, matched by their local path.

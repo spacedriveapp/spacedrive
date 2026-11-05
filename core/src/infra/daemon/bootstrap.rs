@@ -30,8 +30,10 @@ pub async fn start_default_server(
 		core.context.startup_indexing.skip_default_sources();
 	}
 
-	// Initialize networking if enabled
-	if enable_networking {
+	// A caller may permit networking, but must not override the saved opt-out.
+	let networking_enabled =
+		enable_networking && core.config().read().await.services.networking_enabled;
+	if networking_enabled {
 		core.init_networking()
 			.await
 			.map_err(|e| format!("Failed to initialize networking: {}", e))?;
@@ -42,7 +44,7 @@ pub async fn start_default_server(
 	info!("Starting Spacedrive daemon");
 	info!("Data directory: {:?}", data_dir);
 	info!("Socket address: {}", socket_addr);
-	info!("Networking enabled: {}", enable_networking);
+	info!("Networking enabled: {}", networking_enabled);
 
 	let mut server = RpcServer::new(socket_addr, core.clone());
 

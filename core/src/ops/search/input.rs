@@ -10,7 +10,7 @@ use uuid::Uuid;
 /// Main input structure for file search operations
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct FileSearchInput {
-	/// Primary search query (filename, content, or natural language)
+	/// Filename search query
 	pub query: String,
 
 	/// Search scope (library or a specific path)
@@ -38,14 +38,14 @@ pub enum SearchScope {
 	Path { path: SdPath },
 }
 
-/// Defines the search mode and performance characteristics
+/// Search modes currently use the same filename search
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub enum SearchMode {
-	/// Fast, metadata-only search (<10ms)
+	/// Filename search
 	Fast,
-	/// Normal search with semantic ranking (<100ms)
+	/// Filename search
 	Normal,
-	/// Full search with content analysis (<500ms)
+	/// Filename search
 	Full,
 }
 
@@ -184,7 +184,7 @@ impl FileSearchInput {
 		}
 	}
 
-	/// Create a fast search input for quick results
+	/// Create a filename search with a smaller default page
 	pub fn fast(query: String) -> Self {
 		Self {
 			query,
@@ -202,7 +202,7 @@ impl FileSearchInput {
 		}
 	}
 
-	/// Create a comprehensive search input
+	/// Create a filename search with a larger default page
 	pub fn comprehensive(query: String) -> Self {
 		Self {
 			query,

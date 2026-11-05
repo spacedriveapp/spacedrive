@@ -36,6 +36,41 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Local hardening follow-up (November 2, 2026): desktop startup
+loads the saved selection asynchronously with a bounded wait and preserves an
+unreadable preference. Daemon child ownership is retained while readiness is
+checked. Source pages refresh from file, job and volume events and label counts
+as the last completed sync. Source listings wait for pending writes from their
+matching local store, preserving job failure history, so a watcher event cannot
+trigger a stale read before the batch commits. Ancestor watches route each batch
+to the changed paths' source stores, preserving same-source event ordering and
+reconciling moves between stores. An offline source refreshes when its volume
+returns even if the initial volume list had no fingerprint, including its library
+source-list/sidebar status. Search scopes reject invalid paths and recognize
+local aliases; source filters intersect and propagate store errors. Job JSON
+queries each library once. Rename handling recovers a destination when a prior
+remove already erased the old entry. macOS stale create events join the
+rename buffer, and moves out of indexed territory remove the old arena row.
+Library-wide filename search reads only the selected library's registered
+roots; overlapping roots can belong to both libraries. Unattributed remote
+replicas remain available through explicitly scoped remote searches. Focused
+regressions and all 13 source-runtime acceptance tests pass on macOS. File
+search remains filename search; document-body extraction is not implemented.
+
+
+Local catalog reliability fixes (November 2, 2026): `sources.sync` routes a
+filesystem source through the existing track-and-index path while preserving
+its source identity and settings. Daemon startup respects the stored networking
+opt-out. App config updates share the running Core configuration so shutdown
+cannot overwrite them with startup values. Regression tests cover a filesystem
+refresh, unavailable-root retention, and config persistence through shutdown.
+Returned volumes also dispatch a catch-up walk, including when content
+identification has no pending files. Desktop CSP permits local asset fetches
+used by text previews. macOS mount detection uses statfs so the unified
+APFS Data volume is recognized even when it shares its parent device number.
+The focused regression suite and isolated daemon restart checks pass on macOS.
+
+
 File System Intelligence is a flagship priority identified by James (Codex,
 September 18). The product boundary now names persistent file and folder
 understanding as a first-class user benefit, with optional cloud acceleration.

@@ -10,7 +10,7 @@ use crate::ops::indexing::responder;
 use crate::ops::indexing::rules::RuleToggles;
 use crate::service::watcher::FsWatcherService;
 use anyhow::Result;
-use sd_fs_watcher::FsEvent;
+use sd_fs_watcher::{FsEvent, FsEventKind};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
@@ -173,7 +173,9 @@ impl FsEventHandler {
 						// hash. Without this a store's SQLite journals dirty
 						// the source, the nudged hashing job writes the store,
 						// and the loop feeds itself every interval.
-						if crate::config::is_managed(&event.path) {
+						if crate::config::is_managed(&event.path)
+							&& !matches!(&event.kind, FsEventKind::Rename { from, .. } if !crate::config::is_managed(from))
+						{
 							continue;
 						}
 						if let Err(e) = Self::handle_event(&context, &event, rule_toggles).await {
@@ -218,16 +220,30 @@ impl FsEventHandler {
 		event: &FsEvent,
 		rule_toggles: RuleToggles,
 	) -> Result<()> {
-		let Some(root_path) = context
-			.volume_index()
-			.watched_root_for_change(&event.path)
-			.await
+		let destination_root = if crate::config::is_managed(&event.path) {
+			None
+		} else {
+			context
+				.volume_index()
+				.watched_root_for_change(&event.path)
+				.await
+		};
+		let source_root = if destination_root.is_none() {
+			match &event.kind {
+				FsEventKind::Rename { from, .. } => {
+					context.volume_index().watched_root_for_change(from).await
+				}
+				_ => None,
+			}
+		} else {
+			None
+		};
+		let Some((root_path, routed_event)) = route_event(event, destination_root, source_root)
 		else {
 			trace!("Event not under a watched root: {}", event.path.display());
 			return Ok(());
 		};
 		let root_path = &root_path;
-
 		debug!(
 			"Event matched: {} (root: {})",
 			event.path.display(),
@@ -250,14 +266,46 @@ impl FsEventHandler {
 		// archival source keeps everything its walk keeps, live changes
 		// included.
 		let rule_toggles = context.volume_index().rule_toggles_for(root_path);
-		responder::apply(context, root_path, event.clone(), rule_toggles).await
+		responder::apply(context, root_path, routed_event, rule_toggles).await
+	}
+}
+
+/// If only the old end is watched, remove it without indexing the destination.
+fn route_event(
+	event: &FsEvent,
+	destination_root: Option<std::path::PathBuf>,
+	source_root: Option<std::path::PathBuf>,
+) -> Option<(std::path::PathBuf, FsEvent)> {
+	if let Some(root) = destination_root {
+		return Some((root, event.clone()));
+	}
+	match (&event.kind, source_root) {
+		(FsEventKind::Rename { from, .. }, Some(root)) => {
+			Some((root, FsEvent::remove(from.clone())))
+		}
+		_ => None,
 	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use std::path::PathBuf;
 
-	// Integration tests would require full context setup
-	// The handler logic is straightforward - subscribe, filter, route
+	#[test]
+	fn rename_routes_to_watched_destination_or_removes_watched_source() {
+		let root = PathBuf::from("/source");
+		let old = root.join("old.txt");
+		let new = PathBuf::from("/outside/new.txt");
+		let rename = FsEvent::rename(old.clone(), new.clone());
+		let (routed_root, event) = route_event(&rename, None, Some(root.clone())).unwrap();
+		assert_eq!(routed_root, root);
+		assert_eq!(event.kind, FsEventKind::Remove);
+		assert_eq!(event.path, old);
+		let (routed_root, event) = route_event(&rename, Some(root.clone()), None).unwrap();
+		assert_eq!(routed_root, root);
+		assert_eq!(event.kind, rename.kind);
+		assert_eq!(event.path, new);
+		assert!(route_event(&rename, None, None).is_none());
+	}
 }

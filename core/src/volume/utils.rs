@@ -482,15 +482,36 @@ mod tests {
 ///
 /// An unmounted drive leaves its mount point behind as an empty directory on
 /// the parent filesystem, and that directory passes every existence check.
-/// What tells the two apart is the device: a mount point's device differs
-/// from its parent's, or it is the filesystem root. Windows answers the same
+/// Most Unix filesystems differ from their parent's device at a mount point.
+/// macOS's unified APFS volumes can share that device number, so macOS uses
+/// the mount root reported by statfs instead. Windows answers the same
 /// question through `GetVolumePathNameW`, which names the mount point of the
 /// volume holding a path: a path that is its own volume root is a mount point
 /// (a drive letter or a folder a volume is mounted at), while the directory a
 /// drive left behind resolves to the parent volume's root. Platforms with
 /// neither answer by existence, which is the check this replaces.
 pub fn is_mount_point(path: &Path) -> bool {
-	#[cfg(unix)]
+	#[cfg(target_os = "macos")]
+	{
+		use std::ffi::{CStr, CString, OsStr};
+		use std::os::unix::ffi::OsStrExt;
+
+		let Ok(path) = std::fs::canonicalize(path) else {
+			return false;
+		};
+		let Ok(c_path) = CString::new(path.as_os_str().as_bytes()) else {
+			return false;
+		};
+		let mut stats = std::mem::MaybeUninit::<libc::statfs>::uninit();
+		// statfs fills the structure on success, including a terminated mount name.
+		if unsafe { libc::statfs(c_path.as_ptr(), stats.as_mut_ptr()) } != 0 {
+			return false;
+		}
+		let stats = unsafe { stats.assume_init() };
+		let mount = unsafe { CStr::from_ptr(stats.f_mntonname.as_ptr()) };
+		Path::new(OsStr::from_bytes(mount.to_bytes())) == path
+	}
+	#[cfg(all(unix, not(target_os = "macos")))]
 	{
 		use std::os::unix::fs::MetadataExt;
 		let Ok(meta) = std::fs::metadata(path) else {
@@ -575,5 +596,20 @@ mod mount_point_tests {
 		std::fs::create_dir(&left_behind).unwrap();
 		assert!(!is_mount_point(&left_behind));
 		assert!(!is_mount_point(&dir.path().join("missing")));
+	}
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod apfs_mount_point_tests {
+	use super::is_mount_point;
+	use std::path::Path;
+
+	#[test]
+	fn the_unified_data_volume_is_still_a_mount_point() {
+		let data = Path::new("/System/Volumes/Data");
+		if data.is_dir() {
+			assert!(is_mount_point(data));
+			assert!(!is_mount_point(&data.join("Users")));
+		}
 	}
 }

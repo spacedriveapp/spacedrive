@@ -802,3 +802,90 @@ async fn a_refused_watch_is_not_reported_active() -> anyhow::Result<()> {
 	harness.shutdown().await?;
 	Ok(())
 }
+
+/// Two source registrations on one drive share an arena, but not a library.
+#[tokio::test]
+async fn search_respects_library_sources_on_a_shared_volume() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("search_library_isolation")
+		.disable_watcher()
+		.build()
+		.await?;
+	let first = harness.create_test_dir("first-source").await?;
+	let second = harness.create_test_dir("second-source").await?;
+	first.write_file("shared-first.txt", "first").await?;
+	second.write_file("shared-second.txt", "second").await?;
+	first
+		.write_file("nested/shared-nested.txt", "nested")
+		.await?;
+	let other_library = harness
+		.core
+		.libraries
+		.create_library_no_sync("Other search library", None, harness.core.context.clone())
+		.await?;
+	let cache = harness.core.context.volume_index();
+	let (first_root, first_anchor) = anchor_for(&harness, first.path()).await;
+	let (second_root, second_anchor) = anchor_for(&harness, second.path()).await;
+	cache
+		.register_source_in(Some(harness.library.id()), &first_root, first_anchor)
+		.await?;
+	cache
+		.register_source_in(Some(other_library.id()), &second_root, second_anchor)
+		.await?;
+	// Overlapping registrations may be present from older libraries. A nested
+	// root is a member of both the parent and child library.
+	let (nested_root, nested_anchor) = anchor_for(&harness, &first_root.join("nested")).await;
+	cache
+		.register_source_in(Some(other_library.id()), &nested_root, nested_anchor)
+		.await?;
+	// One walk makes both sources answer from the same arena.
+	harness
+		.index_dir(harness.temp_path(), IndexScope::Recursive)
+		.await?;
+
+	for (library_id, expected) in [
+		(harness.library.id(), vec!["shared-first", "shared-nested"]),
+		(other_library.id(), vec!["shared-nested", "shared-second"]),
+	] {
+		let mut current = session(&harness);
+		current.current_library_id = Some(library_id);
+		let output = FileSearchQuery::new(by_name("shared", SearchScope::Library, 10, 0))
+			.execute(harness.core.context.clone(), current.clone())
+			.await?;
+		assert_eq!(names(&output), expected);
+		assert_eq!(output.total_found, 2);
+		let scoped = FileSearchQuery::new(by_name(
+			"shared",
+			SearchScope::Path {
+				path: SdPath::local(harness.temp_path()),
+			},
+			10,
+			0,
+		))
+		.execute(harness.core.context.clone(), current)
+		.await?;
+		assert_eq!(names(&scoped), expected);
+	}
+	// Equal roots are attributed to both libraries as well.
+	let (_, anchor) = anchor_for(&harness, &first_root).await;
+	cache
+		.register_source_in(Some(other_library.id()), &first_root, anchor)
+		.await?;
+	let mut current = session(&harness);
+	current.current_library_id = Some(other_library.id());
+	let shared = FileSearchQuery::new(by_name("shared", SearchScope::Library, 10, 0))
+		.execute(harness.core.context.clone(), current)
+		.await?;
+	assert_eq!(
+		names(&shared),
+		vec!["shared-first", "shared-nested", "shared-second"]
+	);
+	assert_eq!(shared.total_found, 3);
+	harness
+		.core
+		.libraries
+		.close_library(other_library.id())
+		.await?;
+	drop(other_library);
+	harness.shutdown().await?;
+	Ok(())
+}

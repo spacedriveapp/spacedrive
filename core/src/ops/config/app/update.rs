@@ -164,8 +164,15 @@ impl CoreAction for UpdateAppConfigAction {
 	}
 
 	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
-		let mut config = AppConfig::load_from(&context.data_dir)
-			.map_err(|e| ActionError::Internal(format!("Failed to load config: {}", e)))?;
+		let mut shared_config = match &context.app_config {
+			Some(config) => Some(config.write().await),
+			None => None,
+		};
+		let mut config = match &shared_config {
+			Some(config) => (*config).clone(),
+			None => AppConfig::load_from(&context.data_dir)
+				.map_err(|e| ActionError::Internal(format!("Failed to load config: {}", e)))?,
+		};
 
 		let mut requires_restart = false;
 		let mut changes = Vec::new();
@@ -317,6 +324,11 @@ impl CoreAction for UpdateAppConfigAction {
 		config
 			.save()
 			.map_err(|e| ActionError::Internal(format!("Failed to save config: {}", e)))?;
+
+		if let Some(shared) = shared_config.as_mut() {
+			**shared = config.clone();
+		}
+		drop(shared_config);
 
 		if let Some(networking) = context.get_networking().await {
 			let registry = networking.protocol_registry();

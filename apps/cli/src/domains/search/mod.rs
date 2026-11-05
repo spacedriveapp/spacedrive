@@ -19,7 +19,7 @@ pub enum SearchCmd {
 pub async fn run(ctx: &Context, cmd: SearchCmd) -> Result<()> {
 	match cmd {
 		SearchCmd::Files(args) => {
-			let input: sd_core::ops::search::input::FileSearchInput = args.into();
+			let input: sd_core::ops::search::input::FileSearchInput = args.try_into()?;
 			let out: FileSearchOutput = execute_query!(ctx, input);
 			print_output!(ctx, &out, |o: &FileSearchOutput| {
 				if o.results.is_empty() {
