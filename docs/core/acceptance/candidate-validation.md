@@ -26,7 +26,7 @@ names a fix branch.
 | 1. Clean install | Linux passes on Ubuntu 24.04, Ubuntu 22.04 and Debian 12. Windows fails on this build: `file list` returns nothing under a tracked folder (fixed in #3169, `b6cd7fb`; confirm on the next published nightly). |
 | 2. Upgrade path | Passes from three earlier nightlies. From v2.0.0-alpha.2, the library opens, but its locations, files, tags and collections are dropped. See the table in step 2. |
 | 3. Large source | Passes at 1,000,000 files. Five thumbnail, statistics and logging bugs found and fixed (#3173, #3174, #3175, #3182, #3183). |
-| 4. Interrupts | Fails. A killed copy left a truncated file (fixed, #3170). A killed or disk-full first walk is never healed (fixed in #3172, `68dc227`, except on Linux root and home volumes). A full disk hangs the indexer. Files changed while the daemon is stopped are not picked up. |
+| 4. Interrupts | Fails. A killed copy left a truncated file (fixed, #3170). A killed or disk-full first walk is never healed (fixed in #3172, `68dc227`, and on Linux root and home volumes since). A full disk hangs the indexer. Files changed while the daemon is stopped are not picked up. |
 | 5. Pairing | Covered by CI on every pull request. One real cross-network pair remains. |
 | 6. Remote operations | Remaining. Needs two paired devices. |
 | 7. Backup and restore | Passes: backup, verify, `--replace` (also under SIGKILL), and `--as-new` into a fresh data directory. |
@@ -312,13 +312,16 @@ The test tree has 240,000 files (240,630 entries) of 0 to 20 KB.
   and only a completed walk writes one. #3172 (`68dc227`) heals such a source. A debug
   build of #3172 healed a killed first walk on a loop-mounted volume, and
   the store then matched the disk exactly.
-- The heal never runs on Linux root and home volumes.
-  `map_attached_volumes` skips volumes that are not user-visible, and
+- The heal never ran on Linux root and home volumes.
+  `map_attached_volumes` skipped volumes that are not user-visible, and
   `is_system_mount_point` hides `/` and `/home`. On a typical Linux
-  install a home folder is on one of those, so no coverage heal reaches it,
-  with or without #3172. Fixing this means deciding how registered sources
-  on hidden volumes are healed without walking the hidden volume itself. On
-  macOS, check whether sources under `/Users` reach the heal.
+  install a home folder is on one of those, so no coverage heal reached it.
+  Fixed: the heal now resolves registered sources directly, whatever their
+  volume's visibility, and never walks the hidden volume itself. Visibility
+  is a display rule, not an indexing rule. The same change covers sources
+  under `/Users` on macOS. `hidden_volume_heal_acceptance_test` stops a
+  first walk of 30,300 entries on a hidden volume and checks that the launch
+  pass heals it; on the old code the store stays at 0 records.
 - Disk full hangs the indexer. After the store's batch write fails, the
   salvage writes rows one by one. Five rows log `row failed to land`, and
   then the job blocks with no further log lines or CPU use. The nightly

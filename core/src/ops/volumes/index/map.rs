@@ -150,7 +150,7 @@ pub async fn map_volume(
 	Ok(handle.id())
 }
 
-/// Re-walk registered sources on this volume whose map coverage is missing.
+/// Re-walk registered sources whose map coverage is missing.
 ///
 /// The volume map summarises registered source subtrees, and only the
 /// source's own walk fills them. An interrupted walk, a lost snapshot, or a
@@ -164,23 +164,23 @@ pub async fn map_volume(
 /// a crash or a stop, and nothing else walks it again, so it is walked here
 /// whenever the map holds nothing under its root. A completed walk of an
 /// empty folder records zero and is left alone.
-async fn heal_uncovered_sources(
-	library: &Arc<Library>,
-	context: &Arc<CoreContext>,
-	volume: &crate::domain::Volume,
-) {
+///
+/// Every registered source is considered, whatever its volume. Visibility
+/// decides what the volume list shows, not what is indexed: a Linux home
+/// folder sits on `/` or `/home`, which the list hides, and is still a
+/// source someone chose to keep.
+async fn heal_uncovered_sources(library: &Arc<Library>, context: &Arc<CoreContext>) {
 	let cache = context.volume_index();
 	for source in cache.sources_of(library.id()) {
-		if !source.root.starts_with(&volume.mount_point)
-			|| !source.attached
-			|| cache.is_indexing(&source.root)
-		{
+		if !source.attached || cache.is_indexing(&source.root) {
 			continue;
 		}
 		if source.entry_count == Some(0) {
 			continue;
 		}
 
+		// A snapshot not yet loaded reads as an empty map.
+		cache.ensure_restored(&source.root).await;
 		let covered = match cache.get_for_search(&source.root) {
 			Some(index) => index
 				.read()
@@ -193,6 +193,11 @@ async fn heal_uncovered_sources(
 			continue;
 		}
 
+		let whole_volume = context
+			.volume_manager
+			.locate_path(&source.root)
+			.await
+			.is_some_and(|(volume, _)| volume.mount_point == source.root);
 		tracing::warn!(
 			source = %source.id,
 			root = %source.root.display(),
@@ -204,7 +209,7 @@ async fn heal_uncovered_sources(
 			context,
 			source.id,
 			source.root.clone(),
-			source.root == volume.mount_point,
+			whole_volume,
 			false,
 		)
 		.await;
@@ -218,13 +223,16 @@ async fn heal_uncovered_sources(
 /// source covers the part someone kept, and a directory listing covers the one
 /// folder in front of them.
 ///
-/// Without `whole_drives`, each drive is restored and its sources' coverage
-/// healed, and nothing else on it is walked.
+/// Registered sources are healed first, on whatever volume they sit. Without
+/// `whole_drives`, each drive is then restored and nothing else on it is
+/// walked.
 pub async fn map_attached_volumes(
 	library: &Arc<Library>,
 	context: &Arc<CoreContext>,
 	whole_drives: bool,
 ) {
+	heal_uncovered_sources(library, context).await;
+
 	for volume in context.volume_manager.get_all_volumes().await {
 		if !volume.is_mounted || volume.mount_type == MountType::Network {
 			continue;
@@ -243,12 +251,6 @@ pub async fn map_attached_volumes(
 		let cache = context.volume_index();
 		cache.track_detected_volume(&volume);
 		cache.ensure_restored(&volume.mount_point).await;
-
-		// Runs whether or not the volume restored: a restored snapshot can
-		// faithfully persist a coverage hole, which is exactly the state
-		// this repairs. A drive whose sources were rebuilt from their stores
-		// is covered and skipped here the same way.
-		heal_uncovered_sources(library, context, &volume).await;
 
 		if !whole_drives {
 			continue;
