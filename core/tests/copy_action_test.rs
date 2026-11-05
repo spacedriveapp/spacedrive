@@ -202,12 +202,14 @@ fn test_copy_options_defaults() {
 	println!("Copy options defaults test passed!");
 }
 
-/// A copy killed mid-file leaves its bytes under a hidden partial name, never
-/// under the destination's. The next copy over the half-built folder then
-/// writes the file in full instead of skipping a truncated one as already
-/// there, and no partial name survives a completed copy.
+/// A copy stages each file under a hidden name of its own and renames it into
+/// place, so a killed copy never leaves a truncated file under the
+/// destination's name. The staging name never touches a file someone keeps
+/// beside the destination, even one named like a staging file, and nothing
+/// staged survives a completed copy.
 #[tokio::test]
-async fn an_interrupted_copy_leaves_no_truncated_file_at_its_final_name() -> anyhow::Result<()> {
+async fn a_copy_stages_beside_the_destination_and_leaves_its_neighbours_alone() -> anyhow::Result<()>
+{
 	let harness = IndexingHarnessBuilder::new("copy_partial").build().await?;
 	let test_root = harness.temp_path();
 	let source_dir = test_root.join("big");
@@ -219,8 +221,7 @@ async fn an_interrupted_copy_leaves_no_truncated_file_at_its_final_name() -> any
 	let full: Vec<u8> = (0..4 * 1024 * 1024).map(|i| (i % 251) as u8).collect();
 	fs::write(source_dir.join("blob.bin"), &full).await?;
 	fs::write(source_dir.join("other.bin"), b"other").await?;
-	// What a killed copy leaves behind under the new scheme.
-	fs::write(dest_dir.join(".blob.bin.sdpart"), &full[..1024]).await?;
+	fs::write(dest_dir.join(".blob.bin.sdpart"), b"keep me").await?;
 
 	let copy_job = FileCopyJob::new(
 		SdPathBatch::new(vec![SdPath::local(source_dir.clone())]),
@@ -245,8 +246,17 @@ async fn an_interrupted_copy_leaves_no_truncated_file_at_its_final_name() -> any
 
 	assert_eq!(fs::read(dest_dir.join("blob.bin")).await?, full);
 	assert_eq!(fs::read(dest_dir.join("other.bin")).await?, b"other");
-	assert!(!fs::try_exists(dest_dir.join(".blob.bin.sdpart")).await?);
-	assert!(!fs::try_exists(dest_dir.join(".other.bin.sdpart")).await?);
+	assert_eq!(
+		fs::read(dest_dir.join(".blob.bin.sdpart")).await?,
+		b"keep me"
+	);
+	let mut names = Vec::new();
+	let mut entries = fs::read_dir(&dest_dir).await?;
+	while let Some(entry) = entries.next_entry().await? {
+		names.push(entry.file_name().to_string_lossy().into_owned());
+	}
+	names.sort();
+	assert_eq!(names, [".blob.bin.sdpart", "blob.bin", "other.bin"]);
 
 	harness.shutdown().await?;
 	Ok(())

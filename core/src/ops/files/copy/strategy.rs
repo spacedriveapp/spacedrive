@@ -223,7 +223,13 @@ impl CopyStrategy for FastCopyStrategy {
 		let copied = tokio::task::spawn_blocking({
 			let source_path = source_path.to_path_buf();
 			let partial = partial.clone();
-			move || -> Result<u64, std::io::Error> { std::fs::copy(&source_path, &partial) }
+			move || -> Result<u64, std::io::Error> {
+				std::fs::OpenOptions::new()
+					.write(true)
+					.create_new(true)
+					.open(&partial)?;
+				std::fs::copy(&source_path, &partial)
+			}
 		})
 		.await?;
 		let bytes_copied = match copied {
@@ -906,13 +912,13 @@ async fn copy_single_file_with_offset<'a>(
 ///
 /// A process killed mid-copy then leaves a partial file under a name no one
 /// mistakes for the destination, so a resumed or repeated copy never skips a
-/// truncated file as one that is already there.
+/// truncated file as one that is already there. The name is random and short
+/// rather than derived from the destination's, so it never collides with a
+/// file someone keeps beside it, which the caller enforces by creating it
+/// exclusively, and it stays within filename limits whatever the
+/// destination is called.
 pub(crate) fn partial_path(destination: &Path) -> PathBuf {
-	let name = destination
-		.file_name()
-		.map(|name| name.to_string_lossy().into_owned())
-		.unwrap_or_default();
-	destination.with_file_name(format!(".{name}.sdpart"))
+	destination.with_file_name(format!(".sd-{}.sdpart", uuid::Uuid::new_v4().simple()))
 }
 
 /// Stream one file's bytes to `destination`, verifying and setting the
@@ -927,7 +933,11 @@ async fn stream_into<'a>(
 	progress_callback: Option<&ProgressCallback<'a>>,
 ) -> Result<u64, std::io::Error> {
 	let mut source_file = fs::File::open(source).await?;
-	let mut dest_file = fs::File::create(destination).await?;
+	let mut dest_file = fs::OpenOptions::new()
+		.write(true)
+		.create_new(true)
+		.open(destination)
+		.await?;
 
 	// Use smaller of source/dest optimal sizes to avoid overwhelming slower device.
 	let chunk_size = if let Some((source_vol, dest_vol)) = volume_info {
