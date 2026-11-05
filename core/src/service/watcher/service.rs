@@ -30,6 +30,8 @@ pub struct FsWatcherServiceConfig {
 	pub debug_mode: bool,
 	/// How often a refused watch is retried
 	pub watch_retry_interval: Duration,
+	/// How often live changes in a watched arena are written to its snapshot
+	pub snapshot_flush_interval: Duration,
 }
 
 impl Default for FsWatcherServiceConfig {
@@ -39,6 +41,7 @@ impl Default for FsWatcherServiceConfig {
 			tick_interval: Duration::from_millis(100),
 			debug_mode: false,
 			watch_retry_interval: Duration::from_secs(30),
+			snapshot_flush_interval: Duration::from_secs(30),
 		}
 	}
 }
@@ -113,6 +116,44 @@ impl FsWatcherService {
 		self.clone().arm_restored_sources();
 		self.clone().restore_registered_sources();
 		self.clone().retry_refused_watches_periodically();
+		self.clone().flush_snapshots_periodically();
+	}
+
+	/// Write watched changes to each arena snapshot on a fixed interval.
+	///
+	/// Only a walk saved a snapshot, so every change the watcher applied after
+	/// it lived in memory alone. A restart restored the walk's arena, and the
+	/// listing showed deleted files and hid created ones until the next walk.
+	/// The save skips a clean arena, so an idle source costs nothing.
+	fn flush_snapshots_periodically(self: Arc<Self>) {
+		let interval = self.config.snapshot_flush_interval;
+		let service = Arc::downgrade(&self);
+		drop(self);
+		tokio::spawn(async move {
+			loop {
+				tokio::time::sleep(interval).await;
+				let Some(service) = service.upgrade() else {
+					return;
+				};
+				if service.is_running() {
+					service.flush_snapshots().await;
+				}
+			}
+		});
+	}
+
+	/// Save the snapshot of every attached source whose arena has changed.
+	pub async fn flush_snapshots(&self) {
+		let cache = self.context.volume_index();
+		for source in cache.sources() {
+			if !source.attached {
+				continue;
+			}
+			// Best-effort: the next flush or walk retries a failed save.
+			if let Err(e) = cache.save_snapshot(&source.root).await {
+				warn!("Failed to save snapshot for {}: {e}", source.root.display());
+			}
+		}
 	}
 
 	/// Retry every refused watch on a fixed interval while the service runs.
@@ -386,6 +427,9 @@ impl Service for FsWatcherService {
 
 		// Then stop the watcher
 		self.watcher.stop().await?;
+
+		// With no more events arriving, the arenas hold their final state.
+		self.flush_snapshots().await;
 
 		info!("FsWatcher service stopped");
 
