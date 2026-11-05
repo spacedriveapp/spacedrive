@@ -24,7 +24,7 @@ async fn run_logs_show(ctx: &Context, args: LogsShowArgs) -> Result<()> {
 	println!("Recent logs (last {} lines)", args.lines);
 
 	// Get the daemon log file path
-	let log_file_path = get_daemon_log_path(ctx).await?;
+	let log_file_path = daemon_log_path(&ctx.data_dir);
 
 	if !log_file_path.exists() {
 		println!("No log file found at: {}", log_file_path.display());
@@ -166,14 +166,12 @@ fn colorize_level(level: &str) -> String {
 	}
 }
 
-/// Get the daemon log file path by querying the daemon's data directory
-async fn get_daemon_log_path(_ctx: &Context) -> Result<std::path::PathBuf> {
-	// Try to get the data directory from the daemon
-	// For now, use the standard location
-	let home_dir = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-	let data_dir =
-		std::path::PathBuf::from(home_dir).join("Library/Application Support/spacedrive");
-
+/// The daemon log to read under a data directory.
+///
+/// The daemon writes its logs to `<data dir>/logs`, and the CLI resolves the
+/// same data directory from `--data-dir` and `--instance` that it hands the
+/// daemon at launch, so it reads what that daemon wrote on every platform.
+fn daemon_log_path(data_dir: &std::path::Path) -> std::path::PathBuf {
 	let logs_dir = data_dir.join("logs");
 
 	// Check for today's log file first (with date suffix due to daily rotation)
@@ -181,13 +179,13 @@ async fn get_daemon_log_path(_ctx: &Context) -> Result<std::path::PathBuf> {
 	let today_log = logs_dir.join(format!("daemon.log.{}", today));
 
 	if today_log.exists() {
-		return Ok(today_log);
+		return today_log;
 	}
 
 	// Fall back to the base log file name
 	let base_log = logs_dir.join("daemon.log");
 	if base_log.exists() {
-		return Ok(base_log);
+		return base_log;
 	}
 
 	// If neither exists, find the most recent log file
@@ -216,12 +214,12 @@ async fn get_daemon_log_path(_ctx: &Context) -> Result<std::path::PathBuf> {
 		});
 
 		if let Some(most_recent) = log_files.first() {
-			return Ok(most_recent.path());
+			return most_recent.path();
 		}
 	}
 
 	// Default to today's log file path even if it doesn't exist yet
-	Ok(today_log)
+	today_log
 }
 
 /// Read the last N lines from a file efficiently
@@ -298,7 +296,7 @@ fn format_log_line(line: &str, args: &LogsShowArgs) -> Option<String> {
 
 /// Show recent historical logs before starting real-time streaming
 async fn show_recent_historical_logs(ctx: &Context, args: &LogsFollowArgs) -> Result<()> {
-	let log_file_path = get_daemon_log_path(ctx).await?;
+	let log_file_path = daemon_log_path(&ctx.data_dir);
 
 	if !log_file_path.exists() {
 		println!("No historical logs found");
@@ -331,4 +329,27 @@ async fn show_recent_historical_logs(ctx: &Context, args: &LogsFollowArgs) -> Re
 	println!("Now streaming live logs...");
 
 	Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn reads_logs_from_the_data_directory() {
+		let data_dir = tempfile::tempdir().unwrap();
+		let logs_dir = data_dir.path().join("logs");
+		std::fs::create_dir_all(&logs_dir).unwrap();
+		let older = logs_dir.join("daemon.log.2020-01-01");
+		std::fs::write(&older, "line\n").unwrap();
+
+		assert_eq!(daemon_log_path(data_dir.path()), older);
+
+		let today = logs_dir.join(format!(
+			"daemon.log.{}",
+			chrono::Utc::now().format("%Y-%m-%d")
+		));
+		std::fs::write(&today, "line\n").unwrap();
+		assert_eq!(daemon_log_path(data_dir.path()), today);
+	}
 }
