@@ -3,6 +3,7 @@
 use crate::volume::{
 	classification::{get_classifier, VolumeDetectionInfo},
 	error::{VolumeError, VolumeResult},
+	fs::zfs,
 	types::{DiskType, FileSystem, MountType, Volume, VolumeDetectionConfig, VolumeFingerprint},
 	utils,
 };
@@ -99,7 +100,7 @@ fn parse_df_line(
 			.to_string()
 	};
 
-	let mount_type = determine_mount_type(mount_point, filesystem_device);
+	let mount_type = determine_mount_type(mount_point, filesystem_device, filesystem_type);
 	let disk_type = detect_disk_type_linux(filesystem_device)?;
 	let file_system = utils::parse_filesystem_type(filesystem_type);
 	let volume_type = classify_volume(&mount_path, &file_system, &name);
@@ -190,7 +191,7 @@ pub fn volume_for_unmounted_dataset(
 	let fingerprint = VolumeFingerprint::from_primary_volume(&mount_path, device_id);
 
 	let mut volume = Volume::new(device_id, fingerprint, name, mount_path);
-	volume.mount_type = determine_mount_type(&mount_point, &dataset.name);
+	volume.mount_type = determine_mount_type(&mount_point, &dataset.name, "zfs");
 	volume.volume_type = volume_type;
 	volume.file_system = file_system;
 	volume.total_capacity = dataset.used_bytes.saturating_add(dataset.available_bytes);
@@ -269,17 +270,36 @@ fn detect_disk_type_linux(device: &str) -> VolumeResult<DiskType> {
 	Ok(DiskType::Unknown)
 }
 
-/// Determine mount type based on mount point and device
-fn determine_mount_type(mount_point: &str, device: &str) -> MountType {
-	if mount_point == "/" || mount_point.starts_with("/boot") {
-		MountType::System
-	} else if device.starts_with("//") || device.contains("nfs") {
-		MountType::Network
-	} else if mount_point.starts_with("/media/") || mount_point.starts_with("/mnt/") {
-		MountType::External
-	} else {
-		MountType::System
+/// Where desktops and administrators mount drives that come and go: udisks2
+/// uses `/run/media/<user>` on Fedora and Arch and `/media/<user>` on Debian
+/// derivatives, and `/mnt` is the conventional manual mount root.
+const REMOVABLE_MOUNT_PREFIXES: [&str; 3] = ["/run/media/", "/media/", "/mnt/"];
+
+/// Determine mount type based on mount point and device.
+///
+/// A mount is System only when its path is a system path or it is a dataset
+/// on a system ZFS pool. Anything else that is not removable or network is
+/// User, so a data disk or a ZFS dataset mounted at its own path is never
+/// mistaken for the operating system.
+fn determine_mount_type(mount_point: &str, device: &str, filesystem_type: &str) -> MountType {
+	if filesystem_type == "zfs"
+		&& zfs::is_system_zfs_pool(device.split('/').next().unwrap_or(device))
+	{
+		return MountType::System;
 	}
+	if device.starts_with("//") || device.contains("nfs") {
+		return MountType::Network;
+	}
+	if REMOVABLE_MOUNT_PREFIXES
+		.iter()
+		.any(|prefix| mount_point.starts_with(prefix))
+	{
+		return MountType::External;
+	}
+	if utils::is_system_mount_point(std::path::Path::new(mount_point)) {
+		return MountType::System;
+	}
+	MountType::User
 }
 
 /// Parse /proc/mounts for detailed mount information
@@ -356,7 +376,8 @@ pub fn create_volume_from_mount(mount: MountInfo, device_id: Uuid) -> VolumeResu
 			.to_string()
 	};
 
-	let mount_type = determine_mount_type(&mount.mount_point, &mount.device);
+	let mount_type =
+		determine_mount_type(&mount.mount_point, &mount.device, &mount.filesystem_type);
 	let disk_type = detect_disk_type_linux(&mount.device)?;
 	let volume_type = classify_volume(&mount_path, &file_system, &name);
 
@@ -412,4 +433,92 @@ pub fn create_volume_from_mount(mount: MountInfo, device_id: Uuid) -> VolumeResu
 	volume.auto_track_eligible = auto_track_eligible;
 
 	Ok(volume)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn udisks2_mounts_under_run_media_are_external() {
+		assert_eq!(
+			determine_mount_type("/run/media/alice/USB", "/dev/sdb1", "vfat"),
+			MountType::External
+		);
+	}
+
+	#[test]
+	fn mounts_under_media_are_external() {
+		assert_eq!(
+			determine_mount_type("/media/alice/Backup", "/dev/sdc1", "exfat"),
+			MountType::External
+		);
+	}
+
+	#[test]
+	fn mounts_under_mnt_are_external() {
+		assert_eq!(
+			determine_mount_type("/mnt/archive", "/dev/sdd1", "ext4"),
+			MountType::External
+		);
+		assert_eq!(
+			determine_mount_type("/mnt/tank", "tank", "zfs"),
+			MountType::External
+		);
+	}
+
+	#[test]
+	fn system_paths_are_system() {
+		for mount_point in ["/", "/boot", "/boot/efi", "/home", "/var", "/run/user/1000"] {
+			assert_eq!(
+				determine_mount_type(mount_point, "/dev/nvme0n1p2", "ext4"),
+				MountType::System,
+				"{mount_point}"
+			);
+		}
+	}
+
+	#[test]
+	fn network_mounts_are_network() {
+		assert_eq!(
+			determine_mount_type("/srv/share", "//nas/share", "cifs"),
+			MountType::Network
+		);
+	}
+
+	#[test]
+	fn a_data_disk_at_its_own_path_is_user() {
+		assert_eq!(
+			determine_mount_type("/data2", "/dev/sde1", "xfs"),
+			MountType::User
+		);
+	}
+
+	#[test]
+	fn zfs_datasets_off_the_system_pool_are_not_system() {
+		assert_eq!(
+			determine_mount_type("/tank/photos", "tank/photos", "zfs"),
+			MountType::User
+		);
+		assert_eq!(
+			determine_mount_type("/mnt/tank/footage", "tank/footage", "zfs"),
+			MountType::External
+		);
+	}
+
+	#[test]
+	fn zfs_datasets_on_a_system_pool_are_system() {
+		assert_eq!(
+			determine_mount_type("/", "rpool/ROOT/ubuntu", "zfs"),
+			MountType::System
+		);
+		assert_eq!(
+			determine_mount_type("/home/alice", "rpool/USERDATA/alice", "zfs"),
+			MountType::System
+		);
+		assert_eq!(
+			determine_mount_type("/mnt/boot-pool", "boot-pool", "zfs"),
+			MountType::System
+		);
+	}
 }
