@@ -42,6 +42,9 @@ const BATCH_LINGER: Duration = Duration::from_millis(250);
 /// Depth of the queue between the arena and the writer.
 const QUEUE_DEPTH: usize = 8192;
 
+/// `_sync_state` key present while a walk of the whole source is unfinished.
+const WALK_UNFINISHED: &str = "walk_unfinished";
+
 /// The content kind the image facet is read for, as the store holds it.
 const IMAGE_KIND: i64 = crate::domain::ContentKind::Image as i64;
 
@@ -72,9 +75,40 @@ enum Ingest {
 	Unreadable(Vec<(Uuid, String)>),
 	/// What an EXIF read of some bytes said, keyed by content hash.
 	ImageFacets(Vec<(String, ImageFacet)>),
-	/// Commit what is pending and answer with how many writes have failed to
-	/// land since the previous flush barrier. Zero is the only success.
-	Flush(oneshot::Sender<u64>),
+	/// Commit what is pending and answer with what has failed to land since
+	/// the previous flush barrier. Nothing is the only success.
+	Flush(oneshot::Sender<Failures>),
+}
+
+/// Writes that failed to land since the last flush barrier, and why the last
+/// of them did.
+#[derive(Debug, Default)]
+struct Failures {
+	count: u64,
+	last: Option<String>,
+}
+
+impl Failures {
+	fn add(&mut self, count: u64, reason: String) {
+		self.count += count;
+		self.last = Some(reason);
+	}
+}
+
+/// The store's record of running out of disk space. A walk reads it after
+/// every batch, so it stops at the batch that hit a full volume instead of
+/// finishing over writes that went nowhere.
+type DiskFull = Arc<parking_lot::Mutex<DiskFullState>>;
+
+#[derive(Debug, Default)]
+struct DiskFullState {
+	/// How many times a write has failed for lack of space, ever. A walk
+	/// compares it with the count when it started, so a failure from before
+	/// it, which nothing has written over yet, is not its own.
+	raised: u64,
+	/// Why the last write failed for lack of space, until a later commit
+	/// lands.
+	reason: Option<String>,
 }
 
 /// What a source's store holds, as the store counts it.
@@ -113,6 +147,9 @@ pub struct SourceStore {
 	/// Dropping this ends the writer loop, which commits what it holds before
 	/// it returns.
 	tx: mpsc::Sender<Ingest>,
+	/// The store's database file, which a disk-full failure names.
+	path: PathBuf,
+	disk_full: DiskFull,
 }
 
 impl std::fmt::Debug for SourceStore {
@@ -134,6 +171,7 @@ impl SourceStore {
 	/// `.spacedrive/sources/` for one placed on the source.
 	pub async fn open(stores_dir: &Path, id: Uuid, root: PathBuf) -> Result<Arc<Self>> {
 		let manager = SourceManager::new(stores_dir.to_path_buf());
+		let path = manager.source_dir(&id.simple().to_string()).join("data.db");
 		let db = manager
 			.ensure(&id.simple().to_string(), &filesystem_schema())
 			.await
@@ -160,9 +198,96 @@ impl SourceStore {
 		}
 
 		let (tx, rx) = mpsc::channel(QUEUE_DEPTH);
-		tokio::spawn(write_loop(db.clone(), ledger, rx));
+		let disk_full = DiskFull::default();
+		tokio::spawn(write_loop(
+			db.clone(),
+			path.clone(),
+			ledger,
+			rx,
+			disk_full.clone(),
+		));
 
-		Ok(Arc::new(Self { id, root, db, tx }))
+		Ok(Arc::new(Self {
+			id,
+			root,
+			db,
+			tx,
+			path,
+			disk_full,
+		}))
+	}
+
+	/// Why the last commit failed for lack of disk space, while no commit
+	/// has landed since. The reason names the store's file.
+	pub fn disk_full(&self) -> Option<String> {
+		self.disk_full.lock().reason.clone()
+	}
+
+	/// A mark to pass to [`Self::disk_full_since`] later.
+	pub fn disk_full_mark(&self) -> u64 {
+		self.disk_full.lock().raised
+	}
+
+	/// Why a write failed for lack of disk space after `mark` was taken,
+	/// unless a commit has landed since.
+	pub fn disk_full_since(&self, mark: u64) -> Option<String> {
+		let state = self.disk_full.lock();
+		if state.raised > mark {
+			state.reason.clone()
+		} else {
+			None
+		}
+	}
+
+	/// Record that a walk of the whole source has started.
+	///
+	/// The mark lives in the store, so it outlasts the process: a walk that
+	/// fails, or a daemon that dies under it, leaves a store holding part of
+	/// the source and a mark that sends the next coverage heal back to walk
+	/// it. Only [`Self::finish_walk`] after a clean flush removes it.
+	pub async fn begin_walk(&self) -> Result<()> {
+		self.db
+			.set_cursor(WALK_UNFINISHED, &chrono::Utc::now().to_rfc3339())
+			.await
+			.map_err(|error| self.write_failed(error, "mark its walk unfinished"))
+	}
+
+	/// Clear the mark [`Self::begin_walk`] set, once every write of the walk
+	/// has landed.
+	pub async fn finish_walk(&self) -> Result<()> {
+		sqlx::query("DELETE FROM _sync_state WHERE key = ?")
+			.bind(WALK_UNFINISHED)
+			.execute(self.db.pool())
+			.await
+			.map_err(|error| self.write_failed(error.into(), "mark its walk finished"))?;
+		Ok(())
+	}
+
+	/// A write this store refused, named as a full disk when that is why,
+	/// because a full disk is what someone has to act on.
+	fn write_failed(&self, error: sd_store::Error, doing: &str) -> anyhow::Error {
+		if error.is_disk_full() {
+			anyhow::anyhow!(
+				"disk full: source store {} could not {doing} ({error})",
+				self.path.display()
+			)
+		} else {
+			anyhow::anyhow!(
+				"source store {} could not {doing}: {error}",
+				self.path.display()
+			)
+		}
+	}
+
+	/// Whether a walk of the whole source started and never finished.
+	pub async fn walk_unfinished(&self) -> bool {
+		match self.db.get_cursor(WALK_UNFINISHED).await {
+			Ok(mark) => mark.is_some(),
+			Err(error) => {
+				tracing::warn!(source = %self.id, %error, "could not read the walk mark");
+				false
+			}
+		}
 	}
 
 	pub fn id(&self) -> Uuid {
@@ -587,10 +712,11 @@ impl SourceStore {
 		let (done, wait) = oneshot::channel();
 		self.send(Ingest::Flush(done)).await;
 		match wait.await {
-			Ok(0) => Ok(()),
-			Ok(failed) => anyhow::bail!(
-				"{failed} write(s) failed to commit in source store {}",
-				self.id
+			Ok(Failures { count: 0, .. }) => Ok(()),
+			Ok(Failures { count, last }) => anyhow::bail!(
+				"{count} write(s) failed to commit in source store {}: {}",
+				self.id,
+				last.unwrap_or_default()
 			),
 			Err(_) => anyhow::bail!(
 				"source store {} writer is gone; queued writes are not durable",
@@ -743,13 +869,25 @@ fn ensure_ancestors(ledger: &mut Ledger, external_id: &str, writes: &mut Vec<Fil
 }
 
 /// Resolve, batch and commit, until the last sender goes away.
-async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receiver<Ingest>) {
+async fn write_loop(
+	db: Arc<SourceDb>,
+	path: PathBuf,
+	mut ledger: Ledger,
+	mut rx: mpsc::Receiver<Ingest>,
+	disk_full: DiskFull,
+) {
+	let store = Committer {
+		db,
+		path,
+		disk_full,
+	};
+	let db = &store.db;
 	let mut writes: Vec<FileWrite> = Vec::with_capacity(BATCH_SIZE);
 	let mut removals: Vec<Uuid> = Vec::new();
 	let mut renames: Vec<SubtreeRename> = Vec::new();
 	// Writes that failed to land since the last flush barrier. The next
 	// flush reports them so no job can mistake drainage for durability.
-	let mut failed_since_flush: u64 = 0;
+	let mut failures = Failures::default();
 
 	loop {
 		// A partial batch waits out the linger; an empty one waits forever, so
@@ -760,19 +898,33 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 			match tokio::time::timeout(BATCH_LINGER, rx.recv()).await {
 				Ok(next) => next,
 				Err(_) => {
-					failed_since_flush +=
-						commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
+					store
+						.commit(
+							&mut ledger,
+							&mut writes,
+							&mut removals,
+							&mut renames,
+							&mut failures,
+						)
+						.await;
 					continue;
 				}
 			}
 		};
 
 		let Some(ingest) = next else {
-			let failed = failed_since_flush
-				+ commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
-			if failed > 0 {
+			store
+				.commit(
+					&mut ledger,
+					&mut writes,
+					&mut removals,
+					&mut renames,
+					&mut failures,
+				)
+				.await;
+			if failures.count > 0 {
 				tracing::error!(
-					failed,
+					failed = failures.count,
 					"source store writer exited with writes that never landed"
 				);
 			}
@@ -863,24 +1015,45 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 			Ingest::BeginSweep => {
 				// A sweep's verdict is "everything this walk did not see", so
 				// anything still pending has to count as seen before it opens.
-				failed_since_flush +=
-					commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
+				store
+					.commit(
+						&mut ledger,
+						&mut writes,
+						&mut removals,
+						&mut renames,
+						&mut failures,
+					)
+					.await;
 				ledger.begin_sweep();
 			}
 			Ingest::FinishSweep { unreachable } => {
 				removals.extend(ledger.finish_sweep(&unreachable));
-				failed_since_flush +=
-					commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
+				store
+					.commit(
+						&mut ledger,
+						&mut writes,
+						&mut removals,
+						&mut renames,
+						&mut failures,
+					)
+					.await;
 			}
 			Ingest::Identified(identities) => {
 				// Ordered behind whatever is staged: a record has to exist
 				// before its content can point at it, and the batch that
 				// created it may still be sitting here.
-				failed_since_flush +=
-					commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
+				store
+					.commit(
+						&mut ledger,
+						&mut writes,
+						&mut removals,
+						&mut renames,
+						&mut failures,
+					)
+					.await;
 				if let Err(error) = db.set_content_identities(&identities).await {
 					tracing::error!(%error, "content identities failed to land");
-					failed_since_flush += identities.len() as u64;
+					store.failed(&mut failures, identities.len(), &error);
 				} else {
 					// A tag applied before hashing reached the file is
 					// record-keyed only; the content key is what reaches the
@@ -890,77 +1063,141 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 					}
 				}
 			}
-			Ingest::Unreadable(failures) => {
-				failed_since_flush +=
-					commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
-				if let Err(error) = sd_store::mark_content_unreadable(db.pool(), &failures).await {
+			Ingest::Unreadable(unreadable) => {
+				store
+					.commit(
+						&mut ledger,
+						&mut writes,
+						&mut removals,
+						&mut renames,
+						&mut failures,
+					)
+					.await;
+				if let Err(error) = sd_store::mark_content_unreadable(db.pool(), &unreadable).await
+				{
 					tracing::error!(%error, "content errors failed to land");
-					failed_since_flush += failures.len() as u64;
+					store.failed(&mut failures, unreadable.len(), &error);
 				}
 			}
 			Ingest::ImageFacets(facets) => {
-				failed_since_flush +=
-					commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
+				store
+					.commit(
+						&mut ledger,
+						&mut writes,
+						&mut removals,
+						&mut renames,
+						&mut failures,
+					)
+					.await;
 				if let Err(error) = sd_store::set_image_facets(db.pool(), &facets).await {
 					tracing::error!(%error, "image facets failed to land");
-					failed_since_flush += facets.len() as u64;
+					store.failed(&mut failures, facets.len(), &error);
 				}
 			}
 			Ingest::Flush(done) => {
-				failed_since_flush +=
-					commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
-				let _ = done.send(failed_since_flush);
-				failed_since_flush = 0;
+				store
+					.commit(
+						&mut ledger,
+						&mut writes,
+						&mut removals,
+						&mut renames,
+						&mut failures,
+					)
+					.await;
+				let _ = done.send(std::mem::take(&mut failures));
 			}
 		}
 
 		if writes.len() >= BATCH_SIZE {
-			failed_since_flush +=
-				commit(&db, &mut ledger, &mut writes, &mut removals, &mut renames).await;
+			store
+				.commit(
+					&mut ledger,
+					&mut writes,
+					&mut removals,
+					&mut renames,
+					&mut failures,
+				)
+				.await;
 		}
 	}
 }
 
-/// Commit a batch, and drain it either way. Returns how many writes failed
-/// to land, so the flush barrier can refuse to call the pass durable.
-///
-/// A failed batch is dropped rather than retried. Each row it loses is
-/// unsettled in the ledger, which keeps the identity the arena may already
-/// hold but makes the next observation of that path resolve `Changed`, so a
-/// later walk repairs the hole once the storage recovers.
-async fn commit(
-	db: &SourceDb,
-	ledger: &mut Ledger,
-	writes: &mut Vec<FileWrite>,
-	removals: &mut Vec<Uuid>,
-	renames: &mut Vec<SubtreeRename>,
-) -> u64 {
-	if writes.is_empty() && removals.is_empty() && renames.is_empty() {
-		return 0;
-	}
+/// The writer's handle on its store, and where it reports a full disk.
+struct Committer {
+	db: Arc<SourceDb>,
+	/// The store's file, which a disk-full report names.
+	path: PathBuf,
+	disk_full: DiskFull,
+}
 
-	let mut failed: u64 = 0;
-	match db.apply_files(writes, removals, renames, None).await {
-		Ok(applied) => tracing::trace!(applied, removed = removals.len(), "source store batch"),
-		Err(error) => {
-			// One bad row must not take the batch with it. Salvage row by
-			// row, and name the row that actually failed, because a
-			// batch-sized error message hides the bug.
-			tracing::error!(%error, rows = writes.len(), "source store batch failed; salvaging row by row");
-			if let Err(error) = db.apply_files(&[], removals, renames, None).await {
-				tracing::error!(%error, "removals and renames failed to land");
-				failed += (removals.len() + renames.len()) as u64;
+impl Committer {
+	/// Commit a batch, and drain it either way. What failed to land is added
+	/// to `failures`, so the flush barrier can refuse to call the pass
+	/// durable.
+	///
+	/// A failed batch is dropped rather than retried. Each row it loses is
+	/// unsettled in the ledger, which keeps the identity the arena may already
+	/// hold but makes the next observation of that path resolve `Changed`, so a
+	/// later walk repairs the hole once the storage recovers.
+	///
+	/// A full disk drops the batch whole. Every row would fail the same way,
+	/// and the transaction that failed has already rolled back, so the store
+	/// holds exactly what it held before the batch.
+	async fn commit(
+		&self,
+		ledger: &mut Ledger,
+		writes: &mut Vec<FileWrite>,
+		removals: &mut Vec<Uuid>,
+		renames: &mut Vec<SubtreeRename>,
+		failures: &mut Failures,
+	) {
+		if writes.is_empty() && removals.is_empty() && renames.is_empty() {
+			return;
+		}
+
+		match self.db.apply_files(writes, removals, renames, None).await {
+			Ok(applied) => {
+				tracing::trace!(applied, removed = removals.len(), "source store batch");
+				self.disk_full.lock().reason = None;
 			}
-			// A removal wins over a write staged for the same record, here
-			// as in the whole batch, or the salvage resurrects the row.
-			for write in writes
-				.iter()
-				.filter(|write| !removals.contains(&write.uuid()))
-			{
-				if let Err(error) = db
-					.apply_files(std::slice::from_ref(write), &[], &[], None)
-					.await
-				{
+			Err(error) if error.is_disk_full() => {
+				tracing::error!(
+					%error,
+					store = %self.path.display(),
+					rows = writes.len(),
+					"source store is out of disk space; batch dropped"
+				);
+				for write in writes.iter() {
+					ledger.unsettle(write.uuid());
+				}
+				self.failed(
+					failures,
+					writes.len() + removals.len() + renames.len(),
+					&error,
+				);
+			}
+			Err(error) => {
+				// One bad row must not take the batch with it. Salvage row by
+				// row, and name the row that actually failed, because a
+				// batch-sized error message hides the bug.
+				tracing::error!(%error, rows = writes.len(), "source store batch failed; salvaging row by row");
+				if let Err(error) = self.db.apply_files(&[], removals, renames, None).await {
+					tracing::error!(%error, "removals and renames failed to land");
+					self.failed(failures, removals.len() + renames.len(), &error);
+				}
+				// A removal wins over a write staged for the same record, here
+				// as in the whole batch, or the salvage resurrects the row.
+				let mut salvage = writes
+					.iter()
+					.filter(|write| !removals.contains(&write.uuid()));
+				while let Some(write) = salvage.next() {
+					let Err(error) = self
+						.db
+						.apply_files(std::slice::from_ref(write), &[], &[], None)
+						.await
+					else {
+						continue;
+					};
 					tracing::error!(
 						external_id = %write.observation.external_id,
 						kind = write.observation.kind.as_str(),
@@ -970,16 +1207,57 @@ async fn commit(
 						"row failed to land"
 					);
 					ledger.unsettle(write.uuid());
-					failed += 1;
+					self.failed(failures, 1, &error);
+					// The volume filled up under the salvage. The rest would
+					// fail the same way, so they wait for the next walk.
+					if error.is_disk_full() {
+						for write in salvage.by_ref() {
+							ledger.unsettle(write.uuid());
+							failures.count += 1;
+						}
+					}
 				}
 			}
 		}
+
+		writes.clear();
+		removals.clear();
+		renames.clear();
 	}
 
-	writes.clear();
-	removals.clear();
-	renames.clear();
-	failed
+	/// Count writes that did not land, and raise the disk-full report when
+	/// that is why.
+	fn failed(&self, failures: &mut Failures, count: usize, error: &sd_store::Error) {
+		let reason = if error.is_disk_full() {
+			let reason = format!(
+				"disk full: source store {} could not commit ({error})",
+				self.path.display()
+			);
+			let mut state = self.disk_full.lock();
+			state.raised += 1;
+			state.reason = Some(reason.clone());
+			reason
+		} else {
+			error.to_string()
+		};
+		failures.add(count as u64, reason);
+	}
+}
+
+/// Whether an error, or anything in its chain, is a write that failed because
+/// the volume is full.
+pub(crate) fn is_disk_full(error: &anyhow::Error) -> bool {
+	error.chain().any(|cause| {
+		cause
+			.downcast_ref::<sd_store::Error>()
+			.is_some_and(sd_store::Error::is_disk_full)
+			|| cause
+				.downcast_ref::<sqlx::Error>()
+				.is_some_and(sd_store::error::sqlx_disk_full)
+			|| cause
+				.downcast_ref::<std::io::Error>()
+				.is_some_and(sd_store::error::io_disk_full)
+	})
 }
 
 #[cfg(test)]
@@ -2128,6 +2406,115 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 			.expect("drop trigger");
 	}
 
+	/// Cap every connection the store's pool holds at `pages`, the page count
+	/// `PRAGMA max_page_count` enforces, or at what the file already holds.
+	/// SQLite then reports `SQLITE_FULL` as a full volume would.
+	async fn cap_pages(db: &SourceDb, pages: Option<i64>) {
+		let pool = db.pool();
+		while pool.num_idle() as u32 != pool.size() {
+			tokio::time::sleep(Duration::from_millis(10)).await;
+		}
+		let mut held = Vec::new();
+		for _ in 0..pool.size() {
+			held.push(pool.acquire().await.expect("connection"));
+		}
+		for conn in &mut held {
+			let pages = match pages {
+				Some(pages) => pages,
+				None => sqlx::query_scalar("PRAGMA page_count")
+					.fetch_one(&mut **conn)
+					.await
+					.expect("page count"),
+			};
+			sqlx::query(&format!("PRAGMA max_page_count = {pages}"))
+				.execute(&mut **conn)
+				.await
+				.expect("cap");
+		}
+	}
+
+	async fn committed_paths(db: &SourceDb) -> Vec<String> {
+		sqlx::query_scalar(&format!("SELECT {PATH_OF_RECORD} ORDER BY 1"))
+			.fetch_all(db.pool())
+			.await
+			.expect("records")
+	}
+
+	/// A full disk fails the batch whole and says so. Nothing of the batch
+	/// lands, the store stays intact, the flush names the store's file, and
+	/// once there is room again the next walk's observations land it all.
+	#[tokio::test]
+	async fn a_full_disk_drops_the_batch_whole_and_says_so() {
+		let mut fixture = Fixture::new().await;
+		fixture.create("docs/before.txt", b"before").await;
+		fixture.store.flush().await.expect("the first batch lands");
+
+		cap_pages(fixture.store.db(), None).await;
+		let mut created = Vec::new();
+		for index in 0..200 {
+			created.push(
+				fixture
+					.create(&format!("docs/file_{index:03}.txt"), b"x")
+					.await,
+			);
+		}
+
+		let error = fixture
+			.store
+			.flush()
+			.await
+			.expect_err("a full disk cannot be a clean flush");
+		assert!(
+			error.to_string().contains("disk full") && error.to_string().contains("data.db"),
+			"the failure says disk full and names the store: {error}"
+		);
+		assert!(fixture.store.disk_full().is_some());
+		assert_eq!(
+			committed_paths(fixture.store.db()).await,
+			vec!["docs", "docs/before.txt"],
+			"nothing of the failed batch is half-written"
+		);
+		let integrity: String = sqlx::query_scalar("PRAGMA integrity_check")
+			.fetch_one(fixture.store.db().pool())
+			.await
+			.expect("integrity check");
+		assert_eq!(integrity, "ok");
+
+		cap_pages(fixture.store.db(), Some(1_073_741_823)).await;
+		for path in &created {
+			fixture
+				.adapter
+				.create(&dir_entry(path), fixture.root.path())
+				.await
+				.expect("re-observe");
+		}
+		fixture.store.flush().await.expect("the repeat walk lands");
+		assert!(fixture.store.disk_full().is_none());
+		assert_eq!(fixture.paths().await.len(), 202);
+	}
+
+	/// The mark a whole-source walk leaves until it finishes is durable, so a
+	/// walk stopped by a full disk or a dead daemon is found again.
+	#[tokio::test]
+	async fn an_unfinished_walk_is_marked_until_it_finishes() {
+		let fixture = Fixture::new().await;
+		assert!(!fixture.store.walk_unfinished().await);
+		fixture.store.begin_walk().await.expect("mark");
+		assert!(fixture.store.walk_unfinished().await);
+
+		let reopened = SourceStore::open(
+			&fixture._data.path().join("sources"),
+			fixture.store.id(),
+			fixture.root.path().to_path_buf(),
+		)
+		.await
+		.expect("reopen");
+		assert!(reopened.walk_unfinished().await, "the mark is in the store");
+
+		fixture.store.finish_walk().await.expect("clear");
+		assert!(!reopened.walk_unfinished().await);
+	}
+
 	/// R8 "One failed row and successful siblings".
 	///
 	/// A batch with one bad row is salvaged row by row: the siblings land,
@@ -2232,6 +2619,8 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 					.expect("open"),
 			),
 			tx,
+			path: PathBuf::new(),
+			disk_full: DiskFull::default(),
 		};
 
 		let metadata = EntryMetadata::from(dir_entry(&root.join("late.txt")));

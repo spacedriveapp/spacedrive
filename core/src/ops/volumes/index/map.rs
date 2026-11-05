@@ -169,28 +169,38 @@ pub async fn map_volume(
 /// decides what the volume list shows, not what is indexed: a Linux home
 /// folder sits on `/` or `/home`, which the list hides, and is still a
 /// source someone chose to keep.
+///
+/// A walk that stopped partway, on a full disk or a killed daemon, leaves a
+/// map that does cover the root and a store holding part of the source. The
+/// store's unfinished-walk mark is the evidence there, so such a source is
+/// walked again whatever the map holds.
 async fn heal_uncovered_sources(library: &Arc<Library>, context: &Arc<CoreContext>) {
 	let cache = context.volume_index();
 	for source in cache.sources_of(library.id()) {
 		if !source.attached || cache.is_indexing(&source.root) {
 			continue;
 		}
-		if source.entry_count == Some(0) {
-			continue;
-		}
-
-		// A snapshot not yet loaded reads as an empty map.
-		cache.ensure_restored(&source.root).await;
-		let covered = match cache.get_for_search(&source.root) {
-			Some(index) => index
-				.read()
-				.await
-				.list_directory(&source.root)
-				.is_some_and(|children| !children.is_empty()),
+		let unfinished = match cache.store_for(&source.root).await {
+			Some(store) => store.walk_unfinished().await,
 			None => false,
 		};
-		if covered {
-			continue;
+		if !unfinished {
+			if source.entry_count == Some(0) {
+				continue;
+			}
+			// A snapshot not yet loaded reads as an empty map.
+			cache.ensure_restored(&source.root).await;
+			let covered = match cache.get_for_search(&source.root) {
+				Some(index) => index
+					.read()
+					.await
+					.list_directory(&source.root)
+					.is_some_and(|children| !children.is_empty()),
+				None => false,
+			};
+			if covered {
+				continue;
+			}
 		}
 
 		let whole_volume = context
@@ -202,7 +212,8 @@ async fn heal_uncovered_sources(library: &Arc<Library>, context: &Arc<CoreContex
 			source = %source.id,
 			root = %source.root.display(),
 			records = ?source.entry_count,
-			"source has no map coverage; dispatching its walk"
+			unfinished,
+			"source has no map coverage or an unfinished walk; dispatching its walk"
 		);
 		crate::ops::sources::track::action::dispatch_source_walk(
 			library,

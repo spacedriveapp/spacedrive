@@ -2628,7 +2628,11 @@ impl VolumeIndex {
 				);
 				return Ok(());
 			}
-			index.save_snapshot(&snapshot_path, volume_index_id, &volume_root)?;
+			index
+				.save_snapshot(&snapshot_path, volume_index_id, &volume_root)
+				.map_err(|error| {
+					error.context(format!("save snapshot {}", snapshot_path.display()))
+				})?;
 			index.clear_dirty();
 			slot.last_saved_entries
 				.store(entry_count, Ordering::Release);

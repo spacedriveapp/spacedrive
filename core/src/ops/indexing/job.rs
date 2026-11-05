@@ -27,6 +27,7 @@ use super::{
 	metrics::{IndexerMetrics, PhaseTimer},
 	phases,
 	state::{IndexError, IndexPhase, IndexerProgress, IndexerState, IndexerStats, Phase},
+	store::is_disk_full,
 	summary::Retention,
 	Arena, ArenaWriter, Notify, Rollup, Seen,
 };
@@ -331,9 +332,23 @@ impl IndexerJob {
 						JobError::execution("Volume index not initialized".to_string())
 					})?;
 
+					// A walk over the whole source marks the store before its
+					// first write and clears the mark once the last one has
+					// landed, so a walk that stops anywhere between leaves a
+					// store the coverage heal knows to walk again.
+					let walks_whole_source = self.config.scope == IndexScope::Recursive
+						&& self.config.max_depth.is_none()
+						&& self
+							.source_store
+							.as_ref()
+							.is_some_and(|store| store.root() == root_path);
+
 					// Discovery has finished by now, so the walk's full reach,
 					// and everything it failed to read, is known.
 					if let Some(store) = &self.source_store {
+						if walks_whole_source {
+							store.begin_walk().await.map_err(store_failure)?;
+						}
 						if self.config.enumerates_whole_source() && !state.sweep_open {
 							store.begin_sweep().await;
 							state.sweep_open = true;
@@ -358,6 +373,13 @@ impl IndexerJob {
 						if state.sweep_open {
 							store.finish_sweep(&state.unreachable_paths()).await;
 							state.sweep_open = false;
+						}
+						// The walk is only done once what it wrote has
+						// landed. A batch that did not is this walk's
+						// failure, not a later reader's surprise.
+						store.flush().await.map_err(store_failure)?;
+						if walks_whole_source {
+							store.finish_walk().await.map_err(store_failure)?;
 						}
 					}
 
@@ -457,11 +479,12 @@ impl JobHandler for IndexerJob {
 			}
 		}
 
-		let result = self.run_job_phases(&ctx).await;
+		let mut result = self.run_job_phases(&ctx).await;
 
 		// Settle the indexing flags either way: leaving a path in progress
 		// blocks every future attempt at it, and recording a failed run as
 		// indexed serves a partial arena as if it were complete.
+		let mut snapshot_failure = None;
 		{
 			if let Some(local_path) = self.config.path.as_local_path() {
 				let cache = ctx.library().core_context().volume_index();
@@ -485,10 +508,19 @@ impl JobHandler for IndexerJob {
 							.await
 						{
 							ctx.log(format!(
-								"Warning: Failed to save snapshot for {}: {}",
+								"Warning: Failed to save snapshot for {}: {:#}",
 								local_path.display(),
 								e
 							));
+							// The store holds the walk and the map rebuilds
+							// from it, but a full disk stops whatever writes
+							// next, so it fails the job where someone sees it.
+							if is_disk_full(&e) {
+								snapshot_failure = Some(JobError::execution(format!(
+									"disk full: the walk of {} landed but its snapshot could not be saved ({e:#})",
+									local_path.display()
+								)));
+							}
 						} else {
 							ctx.log(format!("Saved snapshot for: {}", local_path.display()));
 						}
@@ -516,6 +548,9 @@ impl JobHandler for IndexerJob {
 			}
 		}
 
+		if let Some(failure) = snapshot_failure {
+			result = Err(failure);
+		}
 		result
 	}
 
@@ -704,6 +739,9 @@ impl IndexerJob {
 
 		let total_batches = state.entry_batches.len();
 		let mut batch_number = 0;
+		let disk_full_mark = source_store
+			.as_ref()
+			.map_or(0, |store| store.disk_full_mark());
 
 		while let Some(batch) = state.entry_batches.pop_front() {
 			ctx.check_interrupt().await?;
@@ -736,6 +774,18 @@ impl IndexerJob {
 					batch.into_iter().map(EntryMetadata::from).collect(),
 				))
 				.await;
+
+			// Stop at the batch that found the volume full. The walk would
+			// otherwise read the rest of the tree into a store that keeps
+			// none of it.
+			if let Some(store) = &source_store {
+				if let Some(reason) = store.disk_full_since(disk_full_mark) {
+					// Drain the writer's failure count with this walk, so the
+					// next walk's flush answers for its own writes only.
+					let _ = store.flush().await;
+					return Err(JobError::execution(reason));
+				}
+			}
 		}
 
 		// The directories the walk turned back at are in the arena by now, so
@@ -762,6 +812,12 @@ impl IndexerJob {
 		ctx.log("Arena processing complete");
 		Ok(())
 	}
+}
+
+/// A store failure as the job reports it, with every cause in the chain, so a
+/// full disk reads as one and names the store.
+fn store_failure(error: anyhow::Error) -> JobError {
+	JobError::execution(format!("{error:#}"))
 }
 
 /// Job output with comprehensive results

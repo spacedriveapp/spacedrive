@@ -5,6 +5,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePool, SqlitePoolOptions};
+use sqlx::Connection;
 
 use crate::db::SourceDb;
 use crate::error::{Error, Result};
@@ -23,6 +24,16 @@ pub struct SourceManager {
 /// Foreign keys are enabled per connection — SQLite defaults them off, and the
 /// record table relies on `ON DELETE CASCADE` to take facet rows and edges with a
 /// deleted record.
+///
+/// A connection that comes back to the pool still counting an open
+/// transaction is closed rather than reused. SQLite rolls a transaction back
+/// by itself when a write fails for lack of disk space, sqlx does not notice,
+/// and its own rollback then fails and leaves the count at one. The next
+/// transaction on that connection opens as a savepoint, a failure inside it
+/// rolls back to the savepoint without ending the transaction, and the
+/// connection sits idle holding the write lock: every other writer waits out
+/// the busy timeout and fails, long after the disk has room again. Closing
+/// the connection ends whatever SQLite still holds.
 async fn open_pool(db_path: &Path, create: bool) -> Result<SqlitePool> {
 	let options = SqliteConnectOptions::from_str(&format!("sqlite:{}", db_path.display()))
 		.map_err(|e| Error::Other(format!("invalid database path: {e}")))?
@@ -31,7 +42,10 @@ async fn open_pool(db_path: &Path, create: bool) -> Result<SqlitePool> {
 		.journal_mode(SqliteJournalMode::Wal)
 		.busy_timeout(Duration::from_secs(5));
 
-	Ok(SqlitePoolOptions::new().connect_with(options).await?)
+	Ok(SqlitePoolOptions::new()
+		.after_release(|conn, _meta| Box::pin(async move { Ok(!conn.is_in_transaction()) }))
+		.connect_with(options)
+		.await?)
 }
 
 /// A pool that can only read. No journal-mode pragma runs: the store's own
