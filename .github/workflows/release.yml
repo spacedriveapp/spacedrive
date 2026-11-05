@@ -5,6 +5,16 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build every artifact without signing, tagging or creating a release; results are workflow artifacts only
+        type: boolean
+        default: true
+
+# Every job reads the repository only; the release job alone gets write access,
+# and it never runs in a dry run.
+permissions:
+  contents: read
 
 # From: https://github.com/rust-lang/rust-analyzer/blob/master/.github/workflows/release.yaml#L13-L21
 env:
@@ -86,40 +96,126 @@ jobs:
           name: server-${{ matrix.settings.platform }}
           path: dist/sd-server-${{ matrix.settings.platform }}.tar.gz
 
-  # V2 Desktop builds
-  desktop-main:
+  # Standalone CLI and daemon for every platform. The names match what
+  # `sd update` looks for on the stable channel (see nightly.yml and
+  # docs/core/releases.mdx). They carry no Developer ID or Authenticode
+  # signature; the checksum beside each one is what the updater verifies.
+  cli-build:
     strategy:
       fail-fast: false
       matrix:
         settings:
-          # macOS builds
-          - host: macos-26
+          - host: macos-15
             target: aarch64-apple-darwin
-            bundles: dmg,app
-            os: darwin
-            arch: aarch64
-          - host: macos-26
+            platform: macos-aarch64
+          - host: macos-15-intel
             target: x86_64-apple-darwin
-            bundles: dmg,app
-            os: darwin
-            arch: x86_64
-          # Windows builds
-          - host: blacksmith-4vcpu-windows-2025
-            target: x86_64-pc-windows-msvc
-            bundles: nsis
-            os: windows
-            arch: x86_64
-          # Linux builds
-          - host: blacksmith-16vcpu-ubuntu-2404
+            platform: macos-x86_64
+          - host: blacksmith-4vcpu-ubuntu-2204
             target: x86_64-unknown-linux-gnu
-            bundles: deb
-            os: linux
-            arch: x86_64
-          - host: blacksmith-8vcpu-ubuntu-2404-arm
+            platform: linux-x86_64
+          - host: blacksmith-4vcpu-ubuntu-2204-arm
             target: aarch64-unknown-linux-gnu
-            bundles: deb
-            os: linux
-            arch: aarch64
+            platform: linux-aarch64
+          # Blacksmith has no Windows runners.
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows-x86_64
+    name: CLI - ${{ matrix.settings.platform }}
+    runs-on: ${{ matrix.settings.host }}
+    timeout-minutes: 120
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          target: ${{ matrix.settings.target }}
+
+      # The runner's preinstalled libunwind blocks libgstreamer1.0-dev, which
+      # setup.sh installs.
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get remove libunwind-* || true
+          ./scripts/setup.sh
+
+      - name: Build sd-cli and sd-daemon
+        shell: bash
+        env:
+          SD_GIT_SHA: ${{ github.sha }}
+          OPENSSL_STATIC: '1'
+          OPENSSL_NO_VENDOR: '0'
+        run: |
+          cargo build --release --locked \
+            -p sd-cli -p sd-core --bin sd-cli --bin sd-daemon \
+            --target ${{ matrix.settings.target }}
+
+      - name: Prepare binaries and checksums
+        shell: bash
+        run: |
+          set -eux
+          mkdir -p dist
+          platform=${{ matrix.settings.platform }}
+          exe=""
+          if [ "${{ runner.os }}" = "Windows" ]; then exe=".exe"; fi
+          cp "target/${{ matrix.settings.target }}/release/sd-cli$exe" "dist/sd-$platform$exe"
+          cp "target/${{ matrix.settings.target }}/release/sd-daemon$exe" "dist/sd-daemon-$platform$exe"
+          chmod +x dist/*
+          cd dist
+          for f in "sd-$platform$exe" "sd-daemon-$platform$exe"; do
+            if command -v sha256sum >/dev/null; then
+              sha256sum "$f" > "$f.sha256"
+            else
+              shasum -a 256 "$f" > "$f.sha256"
+            fi
+          done
+          cat ./*.sha256
+
+      - name: Smoke test
+        shell: bash
+        run: |
+          exe=""
+          if [ "${{ runner.os }}" = "Windows" ]; then exe=".exe"; fi
+          "./dist/sd-${{ matrix.settings.platform }}$exe" --version
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.settings.platform }}
+          path: dist/*
+          if-no-files-found: error
+
+  # A dry run builds the desktop app for Linux only: the macOS and Windows
+  # bundles are only worth building when they can be signed.
+  desktop-plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - id: plan
+        env:
+          DRY_RUN: ${{ inputs.dry_run == true }}
+        run: |
+          all='[
+            {"host":"macos-26","target":"aarch64-apple-darwin","bundles":"dmg,app","os":"darwin","arch":"aarch64"},
+            {"host":"macos-26","target":"x86_64-apple-darwin","bundles":"dmg,app","os":"darwin","arch":"x86_64"},
+            {"host":"blacksmith-4vcpu-windows-2025","target":"x86_64-pc-windows-msvc","bundles":"nsis","os":"windows","arch":"x86_64"},
+            {"host":"blacksmith-16vcpu-ubuntu-2404","target":"x86_64-unknown-linux-gnu","bundles":"deb","os":"linux","arch":"x86_64"},
+            {"host":"blacksmith-8vcpu-ubuntu-2404-arm","target":"aarch64-unknown-linux-gnu","bundles":"deb","os":"linux","arch":"aarch64"}
+          ]'
+          filter='.'
+          if [ "$DRY_RUN" = "true" ]; then filter='map(select(.os == "linux"))'; fi
+          echo "matrix=$(echo "$all" | jq -c "$filter")" >> "$GITHUB_OUTPUT"
+
+  # V2 Desktop builds
+  desktop-main:
+    needs: desktop-plan
+    strategy:
+      fail-fast: false
+      matrix:
+        settings: ${{ fromJSON(needs.desktop-plan.outputs.matrix) }}
     name: Desktop - Main ${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.host }}
     steps:
@@ -142,7 +238,7 @@ jobs:
         uses: ilammy/setup-nasm@v1
 
       - name: Install Apple API key
-        if: ${{ runner.os == 'macOS' }}
+        if: ${{ runner.os == 'macOS' && inputs.dry_run != true }}
         run: |
           mkdir -p ~/.appstoreconnect/private_keys/
           cd ~/.appstoreconnect/private_keys/
@@ -151,7 +247,7 @@ jobs:
           rm AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64
 
       - name: Install Codesigning Certificate
-        if: ${{ runner.os == 'macOS' }}
+        if: ${{ runner.os == 'macOS' && inputs.dry_run != true }}
         uses: apple-actions/import-codesign-certs@v2
         with:
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
@@ -199,12 +295,15 @@ jobs:
           echo "CFLAGS=-march=armv8.2-a+crypto" >> $GITHUB_ENV
           echo "CXXFLAGS=-march=armv8.2-a+crypto" >> $GITHUB_ENV
 
+      # A dry run passes no signing secrets and turns off the updater
+      # artifacts, which cannot be produced without the Tauri key. Without a
+      # tag or release id tauri-action only builds, it never uploads.
       - name: Build with tauri-action
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.dry_run != true && secrets.TAURI_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.dry_run != true && secrets.TAURI_KEY_PASSWORD || '' }}
           ENABLE_CODE_SIGNING: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -221,6 +320,7 @@ jobs:
             --target ${{ matrix.settings.target }}
             --bundles ${{ matrix.settings.bundles }}
             ${{ matrix.settings.os == 'windows' && '--config src-tauri/tauri.windows.conf.json' || '' }}
+            ${{ inputs.dry_run == true && '--config ''{"bundle":{"createUpdaterArtifacts":false}}''' || '' }}
           includeUpdaterJson: true
 
       - name: Package frontend
@@ -243,10 +343,10 @@ jobs:
 
   # Create unified release with Server, CLI, and Desktop artifacts
   release:
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') && inputs.dry_run != true
     runs-on: blacksmith-4vcpu-ubuntu-2404
     name: Create Release
-    needs: [server-build, desktop-main]
+    needs: [server-build, cli-build, desktop-main]
     permissions:
       contents: write
     steps:
@@ -259,6 +359,7 @@ jobs:
           draft: true
           files: |
             server-*/*
+            cli-*/*
             */*.dmg
             */*.exe
             */*.nsis.zip
