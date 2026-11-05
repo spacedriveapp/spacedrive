@@ -53,6 +53,19 @@ fn systemd_unavailable(
 	None
 }
 
+/// Quotes an argument for a POSIX shell so the printed command can be pasted as is.
+#[cfg(any(target_os = "linux", target_os = "macos", test))]
+fn shell_quote(arg: &str) -> String {
+	let plain = !arg.is_empty()
+		&& arg
+			.chars()
+			.all(|c| c.is_ascii_alphanumeric() || "/._-+:=@,".contains(c));
+	if plain {
+		return arg.to_string();
+	}
+	format!("'{}'", arg.replace('\'', "'\\''"))
+}
+
 #[cfg(any(target_os = "linux", target_os = "macos", test))]
 fn no_service_manager_error(
 	reason: &str,
@@ -62,11 +75,11 @@ fn no_service_manager_error(
 ) -> anyhow::Error {
 	let mut run = format!(
 		"{} --data-dir {}",
-		daemon_path.display(),
-		base_data_dir.display()
+		shell_quote(&daemon_path.to_string_lossy()),
+		shell_quote(&base_data_dir.to_string_lossy())
 	);
 	if let Some(inst) = instance {
-		run.push_str(&format!(" --instance {}", inst));
+		run.push_str(&format!(" --instance {}", shell_quote(inst)));
 	}
 	anyhow::anyhow!(
 		"Cannot install the daemon as a service: {reason}.\n\n\
@@ -364,9 +377,10 @@ async fn install_launchd_service(
 
 	// A container or SSH session can have systemd as init but no user manager
 	// to own a --user unit, so probe it before writing anything.
-	let probe = std::process::Command::new("systemctl")
+	let probe = tokio::process::Command::new("systemctl")
 		.args(["--user", "show-environment"])
-		.output()?;
+		.output()
+		.await?;
 	if !probe.status.success() {
 		let stderr = String::from_utf8_lossy(&probe.stderr);
 		return Err(no_service_manager_error(
@@ -652,5 +666,18 @@ mod tests {
 		assert!(message.contains("/opt/sd/sd-daemon --data-dir /data/spacedrive --instance work"));
 		assert!(message.contains("sd start"));
 		assert!(message.contains(DOCS_URL));
+	}
+
+	#[test]
+	fn fallback_command_quotes_paths_for_the_shell() {
+		let message = no_service_manager_error(
+			"launchctl was not found on PATH",
+			std::path::Path::new("/opt/sd/sd-daemon"),
+			std::path::Path::new("/mnt/My Drive/it's $HOME"),
+			None,
+		)
+		.to_string();
+
+		assert!(message.contains(r#"/opt/sd/sd-daemon --data-dir '/mnt/My Drive/it'\''s $HOME'"#));
 	}
 }
