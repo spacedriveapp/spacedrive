@@ -722,6 +722,7 @@ async fn register_default_protocol_handlers(
 	// The handler will query all libraries for registered locations at runtime.
 	// This ensures file transfers can only target directories that are managed by Spacedrive.
 	file_transfer_handler.set_context(context.clone());
+	file_transfer_handler.sweep_abandoned_receives().await;
 
 	// Get device ID for job activity handler
 	let device_id = context

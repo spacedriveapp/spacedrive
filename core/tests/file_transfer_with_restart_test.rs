@@ -503,3 +503,284 @@ async fn test_file_transfer_with_restart() {
 		}
 	}
 }
+
+const KILL_TEST_DIR: &str = "/tmp/spacedrive-kill-receive-test";
+const KILL_RECEIVED_DIR: &str = "/tmp/received_files_kill";
+const KILL_FILE_NAME: &str = "big.bin";
+const KILL_OLD_CONTENTS: &[u8] = b"old contents, kept until the new file verifies";
+/// Large enough that the receive is still in flight when the receiver dies.
+const KILL_FILE_SIZE: usize = 256 * 1024 * 1024;
+
+fn kill_marker(name: &str) -> PathBuf {
+	PathBuf::from(KILL_TEST_DIR).join(name)
+}
+
+/// Names in the received directory, split into staging partials and the rest.
+fn received_entries() -> (Vec<String>, Vec<String>) {
+	let names: Vec<String> = std::fs::read_dir(KILL_RECEIVED_DIR)
+		.unwrap()
+		.filter_map(|entry| entry.ok())
+		.map(|entry| entry.file_name().to_string_lossy().to_string())
+		.collect();
+	names
+		.into_iter()
+		.partition(|name| name.ends_with(".sdpart"))
+}
+
+async fn allow_kill_received_dir(core: &Core) {
+	let networking = core.networking().expect("networking initialized");
+	let protocol_registry = networking.protocol_registry();
+	let registry = protocol_registry.read().await;
+	let handler = registry
+		.get_handler("file_transfer")
+		.expect("file transfer handler registered");
+	handler
+		.as_any()
+		.downcast_ref::<sd_core::service::network::protocol::FileTransferProtocolHandler>()
+		.expect("file transfer handler type")
+		.add_allowed_path(PathBuf::from(KILL_RECEIVED_DIR));
+}
+
+/// Alice sends a large file, and sends it again once Bob is back.
+#[tokio::test]
+#[ignore]
+async fn alice_kill_receive_scenario() {
+	if env::var("TEST_ROLE").unwrap_or_default() != "alice" {
+		return;
+	}
+	env::set_var("SPACEDRIVE_TEST_DIR", KILL_TEST_DIR);
+	let data_dir = PathBuf::from(KILL_TEST_DIR).join("alice");
+
+	let mut core = timeout(Duration::from_secs(10), Core::new(data_dir.clone()))
+		.await
+		.unwrap()
+		.unwrap();
+	core.device
+		.set_name("Alice's Test Device".to_string())
+		.unwrap();
+	timeout(Duration::from_secs(10), core.init_networking())
+		.await
+		.unwrap()
+		.unwrap();
+	let _library = core
+		.libraries
+		.create_library("Alice Kill Library", None, core.context.clone())
+		.await
+		.unwrap();
+
+	let (pairing_code, _) = timeout(
+		Duration::from_secs(15),
+		core.networking()
+			.expect("networking initialized")
+			.start_pairing_as_initiator(false),
+	)
+	.await
+	.unwrap()
+	.unwrap();
+	std::fs::write(kill_marker("pairing_code.txt"), &pairing_code).unwrap();
+	let receiver_id = wait_for_paired_device(&core, Duration::from_secs(45))
+		.await
+		.expect("Alice: Bob never connected");
+	wait_for_file(kill_marker("bob_paired.txt"), Duration::from_secs(60))
+		.await
+		.expect("Alice: Bob never confirmed pairing");
+
+	let source_dir = data_dir.join("test_files");
+	std::fs::create_dir_all(&source_dir).unwrap();
+	let source = source_dir.join(KILL_FILE_NAME);
+	let content: Vec<u8> = (0..KILL_FILE_SIZE / 4)
+		.flat_map(|i| (i as u32).wrapping_mul(2_654_435_761).to_le_bytes())
+		.collect();
+	std::fs::write(&source, &content).unwrap();
+	std::fs::write(
+		kill_marker("expected_hash.txt"),
+		blake3::hash(&content).to_hex().as_str(),
+	)
+	.unwrap();
+	drop(content);
+
+	println!("Alice: Sending the first copy, which Bob will not live to finish");
+	core.services
+		.file_sharing
+		.share_with_device(
+			vec![source.clone()],
+			receiver_id,
+			Some(PathBuf::from(KILL_RECEIVED_DIR)),
+		)
+		.await
+		.expect("Alice: first share failed to start");
+
+	wait_for_file(kill_marker("bob_restarted.txt"), Duration::from_secs(120))
+		.await
+		.expect("Alice: Bob never came back");
+	if wait_for_peer(&core, receiver_id, Duration::from_secs(30))
+		.await
+		.is_err()
+	{
+		println!("Alice: Bob not reconnected yet, the transfer will dial");
+	}
+
+	println!("Alice: Sending the file again to the restarted Bob");
+	let transfer_id = core
+		.services
+		.file_sharing
+		.share_with_device(
+			vec![source],
+			receiver_id,
+			Some(PathBuf::from(KILL_RECEIVED_DIR)),
+		)
+		.await
+		.expect("Alice: second share failed to start");
+	let completed = wait_for_transfer(&core, &transfer_id, Duration::from_secs(180))
+		.await
+		.unwrap_or(false);
+	assert!(completed, "Alice: the second transfer did not complete");
+	std::fs::write(kill_marker("alice_success.txt"), "success").unwrap();
+
+	let _ = wait_for_file(kill_marker("done.txt"), Duration::from_secs(60)).await;
+}
+
+/// Bob receives. The orchestrator kills the first instance mid-receive and
+/// starts a second one on the same data directory.
+#[tokio::test]
+#[ignore]
+async fn bob_kill_receive_scenario() {
+	let role = env::var("TEST_ROLE").unwrap_or_default();
+	if role != "bob" && role != "bob_restarted" {
+		return;
+	}
+	env::set_var("SPACEDRIVE_TEST_DIR", KILL_TEST_DIR);
+	let data_dir = PathBuf::from(KILL_TEST_DIR).join("bob");
+
+	let mut core = timeout(Duration::from_secs(10), Core::new(data_dir))
+		.await
+		.unwrap()
+		.unwrap();
+	core.device
+		.set_name("Bob's Test Device".to_string())
+		.unwrap();
+	timeout(Duration::from_secs(10), core.init_networking())
+		.await
+		.unwrap()
+		.unwrap();
+	allow_kill_received_dir(&core).await;
+
+	if role == "bob" {
+		let _library = core
+			.libraries
+			.create_library("Bob Kill Library", None, core.context.clone())
+			.await
+			.unwrap();
+		let pairing_code = wait_for_file(kill_marker("pairing_code.txt"), Duration::from_secs(60))
+			.await
+			.expect("Bob: Alice never wrote a pairing code");
+		timeout(
+			Duration::from_secs(15),
+			core.networking()
+				.expect("networking initialized")
+				.start_pairing_as_joiner(&pairing_code, false),
+		)
+		.await
+		.unwrap()
+		.unwrap();
+		wait_for_paired_device(&core, Duration::from_secs(30))
+			.await
+			.expect("Bob: pairing timeout");
+		std::fs::write(kill_marker("bob_paired.txt"), "paired").unwrap();
+	} else {
+		std::fs::write(kill_marker("bob_restarted.txt"), "restarted").unwrap();
+	}
+
+	let _ = wait_for_file(kill_marker("done.txt"), Duration::from_secs(300)).await;
+}
+
+/// A receiver killed mid-transfer leaves the destination as it was, and a
+/// fresh send after its restart lands the complete file.
+///
+/// Peer transfers do not resume, so the restart is expected to remove the
+/// partial the kill left and the second send starts from the first byte.
+#[tokio::test]
+async fn test_file_transfer_kill_mid_receive() {
+	let _ = std::fs::remove_dir_all(KILL_TEST_DIR);
+	let _ = std::fs::remove_dir_all(KILL_RECEIVED_DIR);
+	std::fs::create_dir_all(KILL_TEST_DIR).unwrap();
+	std::fs::create_dir_all(KILL_RECEIVED_DIR).unwrap();
+	let destination = PathBuf::from(KILL_RECEIVED_DIR).join(KILL_FILE_NAME);
+	std::fs::write(&destination, KILL_OLD_CONTENTS).unwrap();
+
+	let mut runner = CargoTestRunner::for_test_file("file_transfer_with_restart_test")
+		.with_timeout(Duration::from_secs(300))
+		.add_subprocess("alice", "alice_kill_receive_scenario")
+		.add_subprocess("bob", "bob_kill_receive_scenario")
+		.add_subprocess("bob_restarted", "bob_kill_receive_scenario");
+	runner.spawn_single_process("alice").await.unwrap();
+	runner.spawn_single_process("bob").await.unwrap();
+
+	// Kill Bob as soon as received bytes exist on disk.
+	let started = std::time::Instant::now();
+	loop {
+		let (partials, _) = received_entries();
+		let receiving = partials.iter().any(|name| {
+			std::fs::metadata(PathBuf::from(KILL_RECEIVED_DIR).join(name))
+				.is_ok_and(|meta| meta.len() > 0)
+		});
+		if receiving {
+			break;
+		}
+		assert_eq!(
+			std::fs::read(&destination).unwrap(),
+			KILL_OLD_CONTENTS,
+			"the transfer replaced the destination before the kill landed"
+		);
+		if started.elapsed() > Duration::from_secs(180) {
+			runner.kill_all().await;
+			panic!("no receive started within 180s");
+		}
+		tokio::time::sleep(Duration::from_millis(2)).await;
+	}
+	runner.kill_process("bob").await.unwrap();
+	println!("Orchestrator: killed Bob mid-receive");
+
+	assert_eq!(
+		std::fs::read(&destination).unwrap(),
+		KILL_OLD_CONTENTS,
+		"a killed receive must leave the old destination untouched"
+	);
+	let (partials, others) = received_entries();
+	assert_eq!(others, vec![KILL_FILE_NAME.to_string()]);
+	assert_eq!(
+		partials.len(),
+		1,
+		"the kill leaves exactly one hidden partial for the restart to remove"
+	);
+
+	runner.spawn_single_process("bob_restarted").await.unwrap();
+	wait_for_file(kill_marker("bob_restarted.txt"), Duration::from_secs(60))
+		.await
+		.expect("restarted Bob never came up");
+	let (partials, _) = received_entries();
+	assert!(
+		partials.is_empty(),
+		"the restart must remove the partial the kill left: {:?}",
+		partials
+	);
+
+	let result = runner
+		.wait_for_success(|_| kill_marker("alice_success.txt").exists())
+		.await;
+	std::fs::write(kill_marker("done.txt"), "done").unwrap();
+	if let Err(e) = result {
+		panic!("the transfer after the restart did not complete: {}", e);
+	}
+
+	let expected_hash = std::fs::read_to_string(kill_marker("expected_hash.txt")).unwrap();
+	let received = std::fs::read(&destination).unwrap();
+	assert_eq!(received.len(), KILL_FILE_SIZE);
+	assert_eq!(
+		blake3::hash(&received).to_hex().as_str(),
+		expected_hash.trim()
+	);
+	let (partials, others) = received_entries();
+	assert!(partials.is_empty(), "no partial may remain: {:?}", partials);
+	assert_eq!(others, vec![KILL_FILE_NAME.to_string()]);
+}

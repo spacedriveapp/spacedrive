@@ -312,6 +312,26 @@ impl CargoTestRunner {
 		}
 	}
 
+	/// Kill one subprocess at once and reap it.
+	///
+	/// The kill is SIGKILL on Unix, so the process runs no destructors and
+	/// flushes nothing, which is what a crash or power cut leaves behind.
+	pub async fn kill_process(&mut self, name: &str) -> Result<(), String> {
+		let process = self
+			.processes
+			.iter_mut()
+			.find(|p| p.name == name)
+			.ok_or_else(|| format!("Process '{}' not found", name))?;
+		let Some(mut child) = process.child.take() else {
+			return Err(format!("Process '{}' was not spawned", name));
+		};
+		child
+			.kill()
+			.await
+			.map_err(|e| format!("Failed to kill process '{}': {}", name, e))?;
+		Ok(())
+	}
+
 	/// Kill all processes
 	pub async fn kill_all(&mut self) {
 		for process in &mut self.processes {
