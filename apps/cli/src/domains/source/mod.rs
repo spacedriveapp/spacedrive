@@ -119,6 +119,7 @@ pub async fn run(ctx: &Context, cmd: SourceCmd) -> Result<()> {
 			let path = args
 				.path
 				.canonicalize()
+				.map(sd_core::common::utils::strip_windows_extended_prefix)
 				.map_err(|e| anyhow::anyhow!("{}: {e}", args.path.display()))?;
 			let input = TrackSourceInput {
 				path,
