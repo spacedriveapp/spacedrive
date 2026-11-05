@@ -12,16 +12,25 @@ pub enum DaemonCmd {
 	Status,
 }
 
-pub async fn run(data_dir: PathBuf, instance: Option<String>, cmd: DaemonCmd) -> Result<()> {
+pub async fn run(
+	data_dir: PathBuf,
+	base_data_dir: PathBuf,
+	instance: Option<String>,
+	cmd: DaemonCmd,
+) -> Result<()> {
 	match cmd {
-		DaemonCmd::Install => install_launchd_service(data_dir, instance).await,
+		DaemonCmd::Install => install_launchd_service(data_dir, base_data_dir, instance).await,
 		DaemonCmd::Uninstall => uninstall_launchd_service(instance).await,
 		DaemonCmd::Status => check_launchd_status(instance).await,
 	}
 }
 
 #[cfg(target_os = "macos")]
-async fn install_launchd_service(data_dir: PathBuf, instance: Option<String>) -> Result<()> {
+async fn install_launchd_service(
+	data_dir: PathBuf,
+	base_data_dir: PathBuf,
+	instance: Option<String>,
+) -> Result<()> {
 	use std::fs;
 	use std::io::Write;
 
@@ -64,7 +73,7 @@ async fn install_launchd_service(data_dir: PathBuf, instance: Option<String>) ->
 	let mut program_args = vec![
 		daemon_path.to_string_lossy().to_string(),
 		"--data-dir".to_string(),
-		data_dir.to_string_lossy().to_string(),
+		base_data_dir.to_string_lossy().to_string(),
 	];
 
 	if let Some(ref inst) = instance {
@@ -247,7 +256,11 @@ async fn check_launchd_status(instance: Option<String>) -> Result<()> {
 }
 
 #[cfg(target_os = "linux")]
-async fn install_launchd_service(data_dir: PathBuf, instance: Option<String>) -> Result<()> {
+async fn install_launchd_service(
+	_data_dir: PathBuf,
+	base_data_dir: PathBuf,
+	instance: Option<String>,
+) -> Result<()> {
 	use std::fs;
 	use std::io::Write;
 
@@ -284,7 +297,7 @@ async fn install_launchd_service(data_dir: PathBuf, instance: Option<String>) ->
 	let mut exec_start = format!(
 		"{} --data-dir {}",
 		daemon_path.display(),
-		data_dir.display()
+		base_data_dir.display()
 	);
 	if let Some(ref inst) = instance {
 		exec_start.push_str(&format!(" --instance {}", inst));
@@ -466,7 +479,11 @@ async fn check_launchd_status(instance: Option<String>) -> Result<()> {
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-async fn install_launchd_service(_data_dir: PathBuf, _instance: Option<String>) -> Result<()> {
+async fn install_launchd_service(
+	_data_dir: PathBuf,
+	_base_data_dir: PathBuf,
+	_instance: Option<String>,
+) -> Result<()> {
 	Err(anyhow::anyhow!(
 		"Daemon auto-start is currently only supported on macOS and Linux."
 	))

@@ -19,8 +19,10 @@ pub fn daemon_binary_name() -> String {
 pub struct DaemonLaunchConfig {
 	/// Path to the daemon executable.
 	pub daemon_path: PathBuf,
-	/// Data directory passed to the daemon via `--data-dir`.
-	pub data_dir: PathBuf,
+	/// Base data directory passed via `--data-dir`. The daemon resolves
+	/// `instance` under it itself, so this is never the instance's own
+	/// directory; passing that nests the instance a second time.
+	pub base_data_dir: PathBuf,
 	/// Instance name passed via `--instance`, if any.
 	pub instance: Option<String>,
 	/// Passed as `--no-default-sources`: index only the sources added to the
@@ -33,7 +35,7 @@ impl DaemonLaunchConfig {
 	/// leaving stdio configuration to the caller.
 	pub fn command(&self) -> std::io::Result<Command> {
 		let mut command = Command::new(&self.daemon_path);
-		command.arg("--data-dir").arg(&self.data_dir);
+		command.arg("--data-dir").arg(&self.base_data_dir);
 		if let Some(instance) = &self.instance {
 			command.arg("--instance").arg(instance);
 		}
@@ -94,4 +96,35 @@ pub async fn ensure_daemon(
 		pid,
 		responsive: is_daemon_running(client).await,
 	})
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	use sd_core::infra::daemon::addr::instance_data_dir;
+
+	/// A named instance's daemon resolves its directory from the base it is
+	/// given; handed the instance's own directory it nested a second
+	/// `instances/<name>` and its state left the CLI's view.
+	#[test]
+	fn the_daemon_resolves_the_instance_once() {
+		let base = PathBuf::from("/data/spacedrive");
+		let launch = DaemonLaunchConfig {
+			daemon_path: PathBuf::from("sd-daemon"),
+			base_data_dir: base.clone(),
+			instance: Some("smoke".to_string()),
+			no_default_sources: false,
+		};
+		let command = launch.command().unwrap();
+		let args: Vec<_> = command.get_args().collect();
+		assert_eq!(
+			args,
+			["--data-dir", "/data/spacedrive", "--instance", "smoke"].map(std::ffi::OsStr::new)
+		);
+		assert_eq!(
+			instance_data_dir(PathBuf::from(args[1]), Some("smoke")),
+			base.join("instances").join("smoke")
+		);
+	}
 }
