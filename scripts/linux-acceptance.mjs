@@ -185,6 +185,22 @@ await row("settings-tab", async (snap) => {
 	}
 });
 
+// SD_CLI is the sd-cli command, with its --data-dir, for the daemon behind SD_URL.
+const cli = process.env.SD_CLI;
+if (cli && home) {
+	await row("cli-index-start", async () => {
+		const { execSync } = await import("node:child_process");
+		// The path goes through the environment so the shell never parses it.
+		const out = execSync(`${cli} --format json index start "$SD_HOME"`, {
+			encoding: "utf8",
+			env: { ...process.env, SD_HOME: home },
+		});
+		const receipt = JSON.parse(out);
+		expect(/^[0-9a-f-]{36}$/.test(receipt.id ?? ""), `no job id in ${out}`);
+		return receipt;
+	});
+}
+
 console.log(JSON.stringify(results, null, 1));
 await browser.close();
 process.exit(results.every((r) => r.ok) ? 0 : 1);
