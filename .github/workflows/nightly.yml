@@ -38,10 +38,12 @@ env:
   RUSTUP_MAX_RETRIES: 10
   NIGHTLY_TAG: nightly
 
-# A second push while a build is running makes the first result stale.
+# A build takes about 45 minutes, so cancelling on every push means a busy
+# main never publishes. Queue instead: the running build finishes, and GitHub
+# keeps only the newest pending run, which builds the latest commit next.
 concurrency:
   group: nightly
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
