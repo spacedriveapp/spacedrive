@@ -1,5 +1,6 @@
 //! File transfer protocol for cross-device file operations
 
+use super::staged_receive::{self, StagedReceive};
 use crate::service::network::utils::logging::NetworkLogger;
 use crate::service::network::{NetworkingError, Result};
 use async_trait::async_trait;
@@ -33,6 +34,9 @@ pub struct SessionKeys {
 pub struct FileTransferProtocolHandler {
 	/// Active transfer sessions
 	sessions: Arc<RwLock<HashMap<Uuid, TransferSession>>>,
+	/// Partials for pushes this device is receiving, keyed by transfer id.
+	/// Removing an entry without committing it deletes the partial.
+	staged: Arc<std::sync::Mutex<HashMap<Uuid, StagedReceive>>>,
 	/// Protocol configuration
 	config: TransferConfig,
 	/// Device registry for session keys
@@ -232,6 +236,7 @@ impl FileTransferProtocolHandler {
 	pub fn new(config: TransferConfig, logger: Arc<dyn NetworkLogger>) -> Self {
 		Self {
 			sessions: Arc::new(RwLock::new(HashMap::new())),
+			staged: Arc::new(std::sync::Mutex::new(HashMap::new())),
 			config,
 			device_registry: None,
 			logger,
@@ -364,6 +369,118 @@ impl FileTransferProtocolHandler {
 	/// This enables the handler to allow every registered source root.
 	pub fn set_context(&mut self, context: std::sync::Arc<crate::context::CoreContext>) {
 		self.core_context = Some(context);
+	}
+
+	/// The journal that names open partials, when a data directory is known.
+	fn receive_journal(&self) -> Option<PathBuf> {
+		self.core_context
+			.as_ref()
+			.map(|context| context.data_dir.join(staged_receive::JOURNAL_DIR))
+	}
+
+	/// Remove partials that receives killed with an earlier process left.
+	///
+	/// Call this once, before the handler is registered, so no receive of
+	/// this process has written a journal entry yet.
+	pub async fn sweep_abandoned_receives(&self) {
+		if let Some(journal) = self.receive_journal() {
+			staged_receive::sweep(&journal).await;
+		}
+	}
+
+	/// Open a partial beside `destination` for a file arriving from a peer.
+	pub(crate) async fn stage_receive(&self, destination: &Path) -> std::io::Result<StagedReceive> {
+		StagedReceive::create(destination, self.receive_journal().as_deref()).await
+	}
+
+	/// Stage a push this device has accepted, so its chunks have a file to land in.
+	async fn stage_push(&self, transfer_id: Uuid, destination: &Path) -> Result<()> {
+		let staged = self.stage_receive(destination).await.map_err(|e| {
+			NetworkingError::file_system_error(format!("Failed to stage received file: {}", e))
+		})?;
+		self.staged.lock().unwrap().insert(transfer_id, staged);
+		Ok(())
+	}
+
+	/// Verify a received push and move it to its destination.
+	///
+	/// The partial must hold exactly `total_bytes` and, when checksums are on
+	/// and the sender sent one, hash to `final_checksum`. Only then is it
+	/// renamed over the destination. On any failure the partial is removed and
+	/// the destination is left as it was.
+	async fn finish_push(
+		&self,
+		transfer_id: Uuid,
+		final_checksum: &str,
+		total_bytes: u64,
+	) -> Result<()> {
+		let result = self
+			.verify_and_commit_push(transfer_id, final_checksum, total_bytes)
+			.await;
+		match &result {
+			Ok(()) => self.update_session_state(&transfer_id, TransferState::Completed)?,
+			Err(e) => {
+				let _ =
+					self.update_session_state(&transfer_id, TransferState::Failed(e.to_string()));
+			}
+		}
+		result
+	}
+
+	async fn verify_and_commit_push(
+		&self,
+		transfer_id: Uuid,
+		final_checksum: &str,
+		total_bytes: u64,
+	) -> Result<()> {
+		let destination = self
+			.get_session(&transfer_id)
+			.map(|session| PathBuf::from(session.destination_path))
+			.ok_or_else(|| NetworkingError::transfer_not_found_error(transfer_id))?;
+		let staged = self
+			.staged
+			.lock()
+			.unwrap()
+			.remove(&transfer_id)
+			.ok_or_else(|| NetworkingError::transfer_not_found_error(transfer_id))?;
+
+		let landed = tokio::fs::metadata(staged.path())
+			.await
+			.map_err(|e| NetworkingError::file_system_error(e.to_string()))?
+			.len();
+		if landed != total_bytes {
+			return Err(NetworkingError::Protocol(format!(
+				"Size mismatch: expected {} bytes, received {}",
+				total_bytes, landed
+			)));
+		}
+
+		if self.config.verify_checksums {
+			if final_checksum.is_empty() {
+				self.logger
+					.warn(&format!(
+						"Transfer {}: sender provided no checksum, skipping verification",
+						transfer_id
+					))
+					.await;
+			} else {
+				let received_checksum = self.calculate_integrity_checksum(staged.path()).await?;
+				if received_checksum != final_checksum {
+					return Err(NetworkingError::Protocol(format!(
+						"Final checksum mismatch: expected {}, got {}",
+						final_checksum, received_checksum
+					)));
+				}
+				tracing::debug!("File checksum verified: {}", received_checksum);
+			}
+		}
+
+		staged.commit(&destination).await.map_err(|e| {
+			NetworkingError::file_system_error(format!(
+				"Failed to move received file into place: {}",
+				e
+			))
+		})
 	}
 
 	/// Get all allowed paths by combining static allowed_paths with every
@@ -704,6 +821,15 @@ impl FileTransferProtocolHandler {
 			};
 
 			if accepted {
+				if let Err(e) = self.stage_push(transfer_id, dest_path).await {
+					return Ok(FileTransferMessage::TransferResponse {
+						transfer_id,
+						accepted: false,
+						reason: Some(e.to_string()),
+						supported_resume: false,
+					});
+				}
+
 				// Create session for incoming transfer
 				let session = TransferSession {
 					id: transfer_id,
@@ -834,46 +960,17 @@ impl FileTransferProtocolHandler {
 			total_bytes,
 		} = completion
 		{
-			// Verify final checksum if configured
-			if self.config.verify_checksums {
-				// Get the received file path
-				let received_file_path = {
-					let sessions = self.sessions.read().unwrap();
-					if let Some(session) = sessions.get(&transfer_id) {
-						let destination_path = PathBuf::from(&session.destination_path);
-						destination_path.join(&session.file_metadata.name)
-					} else {
-						return Err(NetworkingError::transfer_not_found_error(transfer_id));
-					}
-				};
-
-				let received_checksum = self
-					.calculate_integrity_checksum(&received_file_path)
-					.await?;
-
-				// Compare with sender's checksum
-				if received_checksum != final_checksum {
-					self.update_session_state(
-						&transfer_id,
-						TransferState::Failed(format!(
-							"Final checksum mismatch: expected {}, got {}",
-							final_checksum, received_checksum
-						)),
-					)?;
-
-					return Ok(FileTransferMessage::TransferError {
-						transfer_id,
-						error_type: TransferErrorType::ChecksumMismatch,
-						message: "Final file checksum verification failed".to_string(),
-						recoverable: false,
-					});
-				}
-
-				tracing::debug!("File checksum verified: {}", received_checksum);
+			if let Err(e) = self
+				.finish_push(transfer_id, &final_checksum, total_bytes)
+				.await
+			{
+				return Ok(FileTransferMessage::TransferError {
+					transfer_id,
+					error_type: TransferErrorType::ChecksumMismatch,
+					message: e.to_string(),
+					recoverable: false,
+				});
 			}
-
-			// Mark transfer as completed
-			self.update_session_state(&transfer_id, TransferState::Completed)?;
 
 			tracing::info!(
 				"File transfer {} completed: {} bytes",
@@ -930,32 +1027,19 @@ impl FileTransferProtocolHandler {
 	) -> std::result::Result<(), String> {
 		use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 
-		// Get session info to determine file path and chunk size
-		let (file_path, chunk_size) = {
-			let sessions = self.sessions.read().unwrap();
-			let session = sessions
-				.get(transfer_id)
-				.ok_or_else(|| "Transfer session not found".to_string())?;
+		// Chunks land in the transfer's partial, never at the destination, so
+		// a receive that stops early leaves the destination as it was.
+		let file_path = self
+			.staged
+			.lock()
+			.unwrap()
+			.get(transfer_id)
+			.map(|staged| staged.path().to_path_buf())
+			.ok_or_else(|| "Transfer session not found".to_string())?;
+		let chunk_size = 64 * 1024u32;
 
-			// Use the destination path as the full file path (sender joins filename)
-			let file_path = PathBuf::from(&session.destination_path);
-
-			(file_path, 64 * 1024u32) // 64KB chunk size
-		};
-
-		// Ensure parent directory exists
-		if let Some(parent) = file_path.parent() {
-			tokio::fs::create_dir_all(parent)
-				.await
-				.map_err(|e| format!("Failed to create parent directory: {}", e))?;
-		}
-
-		// The first chunk truncates so a longer file already at the destination
-		// cannot leave stale bytes past the end of what the sender sent.
 		let mut file = tokio::fs::OpenOptions::new()
-			.create(true)
 			.write(true)
-			.truncate(chunk_index == 0)
 			.open(&file_path)
 			.await
 			.map_err(|e| format!("Failed to open file for writing: {}", e))?;
@@ -973,9 +1057,6 @@ impl FileTransferProtocolHandler {
 		file.flush()
 			.await
 			.map_err(|e| format!("Failed to flush file: {}", e))?;
-
-		// Note: Using println for chunk writing as this is detailed debug info
-		// that might be too verbose for standard logging
 
 		Ok(())
 	}
@@ -1011,26 +1092,11 @@ impl FileTransferProtocolHandler {
 			)));
 		}
 
-		// A zero-byte source sends no chunks, so nothing else would replace
-		// what sits at the destination or give the final hash a file to check.
-		// Larger files wait for chunk 0 to truncate, so a push that dies before
-		// sending anything leaves the old file intact.
-		if file_metadata.size == 0 {
-			if let Some(parent) = dest_path_buf.parent() {
-				tokio::fs::create_dir_all(parent).await.map_err(|e| {
-					NetworkingError::file_system_error(format!(
-						"Failed to create destination directory: {}",
-						e
-					))
-				})?;
-			}
-			tokio::fs::File::create(&dest_path_buf).await.map_err(|e| {
-				NetworkingError::file_system_error(format!(
-					"Failed to create destination file: {}",
-					e
-				))
-			})?;
-		}
+		// Every byte lands in a partial that replaces the destination only once
+		// the completion verifies, so a push that stops early leaves the old
+		// file intact. A zero-byte source sends no chunks and commits the
+		// empty partial.
+		self.stage_push(transfer_id, &dest_path_buf).await?;
 
 		// Create new transfer session
 		let session = TransferSession {
@@ -1173,42 +1239,8 @@ impl FileTransferProtocolHandler {
 			))
 			.await;
 
-		if self.config.verify_checksums {
-			if final_checksum.is_empty() {
-				self.logger
-					.warn(&format!(
-						"Transfer {}: sender provided no checksum, skipping verification",
-						transfer_id
-					))
-					.await;
-			} else {
-				let received_file_path = {
-					let sessions = self.sessions.read().unwrap();
-					let session = sessions
-						.get(&transfer_id)
-						.ok_or_else(|| NetworkingError::transfer_not_found_error(transfer_id))?;
-					PathBuf::from(&session.destination_path)
-				};
-
-				let received_checksum = self
-					.calculate_integrity_checksum(&received_file_path)
-					.await?;
-				if received_checksum != final_checksum {
-					let message = format!(
-						"Final checksum mismatch: expected {}, got {}",
-						final_checksum, received_checksum
-					);
-					self.update_session_state(
-						&transfer_id,
-						TransferState::Failed(message.clone()),
-					)?;
-					let _ = tokio::fs::remove_file(&received_file_path).await;
-					return Err(NetworkingError::Protocol(message));
-				}
-			}
-		}
-
-		self.update_session_state(&transfer_id, TransferState::Completed)?;
+		self.finish_push(transfer_id, &final_checksum, total_bytes)
+			.await?;
 
 		self.logger
 			.info(&format!("Transfer {} completed successfully", transfer_id))
@@ -1529,6 +1561,11 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
 				// Keep reading messages until stream closes or TransferComplete received
 				// Note: The first type byte (0) was already read above
 				let mut first_message = true;
+				let mut receives = StreamReceives {
+					staged: self.staged.clone(),
+					sessions: self.sessions.clone(),
+					transfer_ids: Vec::new(),
+				};
 
 				loop {
 					// For messages after the first, read the type byte
@@ -1614,7 +1651,7 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
 								destination_path,
 								..
 							} => {
-								// Handle transfer request
+								receives.transfer_ids.push(transfer_id);
 								if let Err(e) = self
 									.handle_incoming_transfer_request(
 										device_id,
@@ -1920,6 +1957,50 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
 }
 
 /// Error extensions for file transfer
+/// The pushes one stream carried, abandoned when the stream ends.
+///
+/// A sender streams a whole push over one stream, so a push whose
+/// completion has not arrived by the time the stream closes, errors or is
+/// dropped with its task will never finish. Dropping its partial here keeps
+/// it from sitting beside the destination until the next start.
+struct StreamReceives {
+	staged: Arc<std::sync::Mutex<HashMap<Uuid, StagedReceive>>>,
+	sessions: Arc<RwLock<HashMap<Uuid, TransferSession>>>,
+	transfer_ids: Vec<Uuid>,
+}
+
+impl Drop for StreamReceives {
+	fn drop(&mut self) {
+		let abandoned: Vec<StagedReceive> = {
+			let Ok(mut staged) = self.staged.lock() else {
+				return;
+			};
+			self.transfer_ids
+				.iter()
+				.filter_map(|id| staged.remove(id))
+				.collect()
+		};
+		if abandoned.is_empty() {
+			return;
+		}
+		if let Ok(mut sessions) = self.sessions.write() {
+			for id in &self.transfer_ids {
+				if let Some(session) = sessions.get_mut(id) {
+					if session.state == TransferState::Active {
+						session.state = TransferState::Failed(
+							"stream closed before the transfer completed".into(),
+						);
+					}
+				}
+			}
+		}
+		tracing::warn!(
+			count = abandoned.len(),
+			"Discarding partial receives from a stream that closed early"
+		);
+	}
+}
+
 impl NetworkingError {
 	pub fn transfer_not_found(transfer_id: Uuid) -> Self {
 		Self::Protocol(format!("Transfer not found: {}", transfer_id))
@@ -1970,91 +2051,19 @@ mod tests {
 			.is_err());
 	}
 
-	fn session_for_received_file(transfer_id: Uuid, path: &Path) -> TransferSession {
-		TransferSession {
-			id: transfer_id,
-			file_metadata: FileMetadata {
-				name: path.file_name().unwrap().to_string_lossy().to_string(),
-				size: 0,
-				modified: None,
-				is_directory: false,
-				checksum: None,
-				mime_type: None,
-			},
-			mode: TransferMode::TrustedCopy,
-			state: TransferState::Active,
-			created_at: SystemTime::now(),
-			bytes_transferred: 0,
-			chunks_received: Vec::new(),
-			source_device: Some(Uuid::new_v4()),
-			destination_device: None,
-			destination_path: path.to_string_lossy().to_string(),
-		}
-	}
-
-	#[tokio::test]
-	async fn test_push_completion_verifies_full_file_hash() {
-		let handler = FileTransferProtocolHandler::new_default(Arc::new(SilentLogger));
-		let dir = tempfile::tempdir().unwrap();
-		let received = dir.path().join("received.bin");
-		let payload = vec![7u8; 3 * 1024 * 1024];
-		tokio::fs::write(&received, &payload).await.unwrap();
-
-		let transfer_id = Uuid::new_v4();
-		handler.sessions.write().unwrap().insert(
-			transfer_id,
-			session_for_received_file(transfer_id, &received),
-		);
-
-		let good = blake3::hash(&payload).to_hex().to_string();
-		handler
-			.handle_incoming_transfer_complete(transfer_id, good, payload.len() as u64)
-			.await
-			.expect("matching full hash completes the transfer");
-		assert_eq!(
-			handler.get_session(&transfer_id).unwrap().state,
-			TransferState::Completed
-		);
-	}
-
-	#[tokio::test]
-	async fn test_first_chunk_truncates_existing_destination() {
-		let handler = FileTransferProtocolHandler::new_default(Arc::new(SilentLogger));
-		let dir = tempfile::tempdir().unwrap();
-		let destination = dir.path().join("shrunk.bin");
-		tokio::fs::write(&destination, vec![1u8; 10 * 1024])
-			.await
-			.unwrap();
-
-		let transfer_id = Uuid::new_v4();
-		handler.sessions.write().unwrap().insert(
-			transfer_id,
-			session_for_received_file(transfer_id, &destination),
-		);
-
-		let payload = vec![2u8; 1024];
-		handler
-			.write_chunk_to_file(&transfer_id, 0, &payload)
-			.await
-			.unwrap();
-		assert_eq!(tokio::fs::read(&destination).await.unwrap(), payload);
-	}
-
-	#[tokio::test]
-	async fn test_accepted_request_lands_empty_destination() {
-		let handler = FileTransferProtocolHandler::new_default(Arc::new(SilentLogger));
-		let dir = tempfile::tempdir().unwrap();
-		let root = dir.path().canonicalize().unwrap();
-		handler.set_allowed_paths(vec![root.clone()]);
-		let destination = root.join("emptied.bin");
-		tokio::fs::write(&destination, vec![1u8; 10 * 1024])
-			.await
-			.unwrap();
-
+	/// Accept a push of `size` bytes to `name` under an allowed root.
+	async fn accept_push(
+		handler: &FileTransferProtocolHandler,
+		root: &Path,
+		name: &str,
+		size: u64,
+	) -> (Uuid, PathBuf) {
+		handler.add_allowed_path(root.to_path_buf());
+		let destination = root.join(name);
 		let transfer_id = Uuid::new_v4();
 		let metadata = FileMetadata {
-			name: "emptied.bin".to_string(),
-			size: 0,
+			name: name.to_string(),
+			size,
 			modified: None,
 			is_directory: false,
 			checksum: None,
@@ -2069,66 +2078,137 @@ mod tests {
 			)
 			.await
 			.unwrap();
-		assert_eq!(tokio::fs::metadata(&destination).await.unwrap().len(), 0);
+		(transfer_id, destination)
+	}
+
+	async fn push_chunks(handler: &FileTransferProtocolHandler, transfer_id: Uuid, payload: &[u8]) {
+		for (index, chunk) in payload.chunks(64 * 1024).enumerate() {
+			handler
+				.write_chunk_to_file(&transfer_id, index as u32, chunk)
+				.await
+				.unwrap();
+		}
+	}
+
+	fn partials(dir: &Path) -> Vec<String> {
+		std::fs::read_dir(dir)
+			.unwrap()
+			.filter_map(|entry| entry.ok())
+			.map(|entry| entry.file_name().to_string_lossy().to_string())
+			.filter(|name| name.ends_with(".sdpart"))
+			.collect()
+	}
+
+	fn temp_root() -> (tempfile::TempDir, PathBuf) {
+		let dir = tempfile::tempdir().unwrap();
+		let root = dir.path().canonicalize().unwrap();
+		(dir, root)
+	}
+
+	#[tokio::test]
+	async fn test_push_completion_verifies_full_file_hash() {
+		let handler = FileTransferProtocolHandler::new_default(Arc::new(SilentLogger));
+		let (_dir, root) = temp_root();
+		let payload = vec![7u8; 3 * 1024 * 1024];
+		let (transfer_id, destination) =
+			accept_push(&handler, &root, "received.bin", payload.len() as u64).await;
+		push_chunks(&handler, transfer_id, &payload).await;
+		assert!(
+			!destination.exists(),
+			"chunks must not land at the destination before verification"
+		);
+
+		let good = blake3::hash(&payload).to_hex().to_string();
+		handler
+			.handle_incoming_transfer_complete(transfer_id, good, payload.len() as u64)
+			.await
+			.expect("matching full hash completes the transfer");
+		assert_eq!(
+			handler.get_session(&transfer_id).unwrap().state,
+			TransferState::Completed
+		);
+		assert_eq!(tokio::fs::read(&destination).await.unwrap(), payload);
+		assert!(partials(&root).is_empty());
+	}
+
+	#[tokio::test]
+	async fn test_push_replaces_longer_destination_without_stale_bytes() {
+		let handler = FileTransferProtocolHandler::new_default(Arc::new(SilentLogger));
+		let (_dir, root) = temp_root();
+		let payload = vec![2u8; 1024];
+		let (transfer_id, destination) =
+			accept_push(&handler, &root, "shrunk.bin", payload.len() as u64).await;
+		tokio::fs::write(&destination, vec![1u8; 10 * 1024])
+			.await
+			.unwrap();
+
+		push_chunks(&handler, transfer_id, &payload).await;
+		let hash = blake3::hash(&payload).to_hex().to_string();
+		handler
+			.handle_incoming_transfer_complete(transfer_id, hash, payload.len() as u64)
+			.await
+			.unwrap();
+		assert_eq!(tokio::fs::read(&destination).await.unwrap(), payload);
+	}
+
+	#[tokio::test]
+	async fn test_zero_byte_push_lands_empty_destination_on_completion() {
+		let handler = FileTransferProtocolHandler::new_default(Arc::new(SilentLogger));
+		let (_dir, root) = temp_root();
+		let destination = root.join("emptied.bin");
+		tokio::fs::write(&destination, vec![1u8; 10 * 1024])
+			.await
+			.unwrap();
+
+		let (transfer_id, destination) = accept_push(&handler, &root, "emptied.bin", 0).await;
+		assert_eq!(
+			tokio::fs::metadata(&destination).await.unwrap().len(),
+			10 * 1024,
+			"the old file stays until the empty push verifies"
+		);
 
 		let empty_hash = blake3::hash(&[]).to_hex().to_string();
 		handler
 			.handle_incoming_transfer_complete(transfer_id, empty_hash, 0)
 			.await
-			.expect("a zero-byte push verifies against the landed empty file");
+			.expect("a zero-byte push verifies against the empty partial");
+		assert_eq!(tokio::fs::metadata(&destination).await.unwrap().len(), 0);
+		assert!(partials(&root).is_empty());
 	}
 
 	#[tokio::test]
-	async fn test_accepted_request_keeps_destination_until_first_chunk() {
+	async fn test_push_keeps_destination_until_verified() {
 		let handler = FileTransferProtocolHandler::new_default(Arc::new(SilentLogger));
-		let dir = tempfile::tempdir().unwrap();
-		let root = dir.path().canonicalize().unwrap();
-		handler.set_allowed_paths(vec![root.clone()]);
+		let (_dir, root) = temp_root();
 		let destination = root.join("kept.bin");
 		let existing = vec![1u8; 10 * 1024];
 		tokio::fs::write(&destination, &existing).await.unwrap();
 
-		let metadata = FileMetadata {
-			name: "kept.bin".to_string(),
-			size: 2048,
-			modified: None,
-			is_directory: false,
-			checksum: None,
-			mime_type: None,
-		};
-		handler
-			.handle_incoming_transfer_request(
-				Uuid::new_v4(),
-				Uuid::new_v4(),
-				metadata,
-				destination.to_string_lossy().to_string(),
-			)
-			.await
-			.unwrap();
+		let payload = vec![3u8; 200 * 1024];
+		let (transfer_id, destination) =
+			accept_push(&handler, &root, "kept.bin", payload.len() as u64).await;
+		push_chunks(&handler, transfer_id, &payload[..128 * 1024]).await;
+
 		assert_eq!(
 			tokio::fs::read(&destination).await.unwrap(),
 			existing,
-			"a push that has not sent a chunk must not touch the old file"
+			"a push that has not completed must not touch the old file"
 		);
+		assert_eq!(partials(&root).len(), 1);
 	}
 
 	#[tokio::test]
 	async fn test_push_completion_rejects_corrupted_file() {
 		let handler = FileTransferProtocolHandler::new_default(Arc::new(SilentLogger));
-		let dir = tempfile::tempdir().unwrap();
-		let received = dir.path().join("received.bin");
+		let (_dir, root) = temp_root();
 		// Large enough that the sampled content hash would skip the middle.
 		let mut payload = vec![7u8; 3 * 1024 * 1024];
 		let sent_hash = blake3::hash(&payload).to_hex().to_string();
 		let middle = payload.len() / 2;
 		payload[middle] ^= 0xff;
-		tokio::fs::write(&received, &payload).await.unwrap();
-
-		let transfer_id = Uuid::new_v4();
-		handler.sessions.write().unwrap().insert(
-			transfer_id,
-			session_for_received_file(transfer_id, &received),
-		);
+		let (transfer_id, destination) =
+			accept_push(&handler, &root, "received.bin", payload.len() as u64).await;
+		push_chunks(&handler, transfer_id, &payload).await;
 
 		let result = handler
 			.handle_incoming_transfer_complete(transfer_id, sent_hash, payload.len() as u64)
@@ -2142,9 +2222,70 @@ mod tests {
 			"session must record the failure"
 		);
 		assert!(
-			!received.exists(),
+			!destination.exists(),
 			"corrupted file must not be left at the destination"
 		);
+		crate::service::network::protocol::staged_receive::tests::eventually(
+			"the corrupted partial to be removed",
+			|| partials(&root).is_empty(),
+		)
+		.await;
+	}
+
+	#[tokio::test]
+	async fn test_short_push_keeps_old_destination() {
+		let handler = FileTransferProtocolHandler::new_default(Arc::new(SilentLogger));
+		let (_dir, root) = temp_root();
+		let destination = root.join("short.bin");
+		tokio::fs::write(&destination, b"old").await.unwrap();
+
+		let payload = vec![5u8; 100 * 1024];
+		let (transfer_id, destination) =
+			accept_push(&handler, &root, "short.bin", payload.len() as u64).await;
+		push_chunks(&handler, transfer_id, &payload[..64 * 1024]).await;
+
+		let result = handler
+			.handle_incoming_transfer_complete(
+				transfer_id,
+				blake3::hash(&payload).to_hex().to_string(),
+				payload.len() as u64,
+			)
+			.await;
+		assert!(result.is_err(), "missing bytes must fail the size check");
+		assert_eq!(tokio::fs::read(&destination).await.unwrap(), b"old");
+		crate::service::network::protocol::staged_receive::tests::eventually(
+			"the short partial to be removed",
+			|| partials(&root).is_empty(),
+		)
+		.await;
+	}
+
+	#[tokio::test]
+	async fn test_stream_end_discards_unfinished_push() {
+		let handler = FileTransferProtocolHandler::new_default(Arc::new(SilentLogger));
+		let (_dir, root) = temp_root();
+		let payload = vec![9u8; 200 * 1024];
+		let (transfer_id, destination) =
+			accept_push(&handler, &root, "dropped.bin", payload.len() as u64).await;
+		push_chunks(&handler, transfer_id, &payload[..64 * 1024]).await;
+		assert_eq!(partials(&root).len(), 1);
+
+		drop(StreamReceives {
+			staged: handler.staged.clone(),
+			sessions: handler.sessions.clone(),
+			transfer_ids: vec![transfer_id],
+		});
+
+		crate::service::network::protocol::staged_receive::tests::eventually(
+			"the partial to go",
+			|| partials(&root).is_empty(),
+		)
+		.await;
+		assert!(!destination.exists());
+		assert!(matches!(
+			handler.get_session(&transfer_id).unwrap().state,
+			TransferState::Failed(_)
+		));
 	}
 
 	// Path validation security tests
