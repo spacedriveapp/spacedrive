@@ -41,7 +41,7 @@ use sd_core::{
 use tempfile::TempDir;
 use uuid::Uuid;
 
-const FILES: [&str; 7] = [
+const FILES: [&str; 8] = [
 	"alpha.txt",
 	"bravo.txt",
 	"charlie.txt",
@@ -49,6 +49,7 @@ const FILES: [&str; 7] = [
 	"india/juliet.txt",
 	"lima/mike/november.txt",
 	"lima/oscar.txt",
+	"quebec/romeo.txt",
 ];
 
 /// Enough unchanged files that the removals stay well under the sweep fuse.
@@ -186,19 +187,24 @@ async fn wait_for_hashing(core: &Core, root: &Path) {
 	store.flush().await.expect("flush");
 }
 
-/// Walk and hash a source, then stop the daemon cleanly.
-async fn walked_and_stopped(name: &str) -> Stopped {
+/// Walk and hash a source, then stop the daemon cleanly. An empty source
+/// holds nothing at all, not even the filler.
+async fn walked_and_stopped(name: &str, empty: bool) -> Stopped {
 	let root_dir = tempfile::Builder::new()
 		.prefix(name)
 		.tempdir()
 		.expect("root dir");
-	for file in FILES {
+	let files: &[&'static str] = if empty { &[] } else { &FILES };
+	for file in files {
 		let path = root_dir.path().join(file);
 		std::fs::create_dir_all(path.parent().unwrap()).expect("mkdir");
 		std::fs::write(&path, file).expect("write");
 	}
-	std::fs::create_dir(root_dir.path().join("filler")).expect("mkdir");
-	for index in 0..FILLER {
+	let filler = if empty { 0 } else { FILLER };
+	if !empty {
+		std::fs::create_dir(root_dir.path().join("filler")).expect("mkdir");
+	}
+	for index in 0..filler {
 		std::fs::write(
 			root_dir.path().join(format!("filler/papa{index:03}.txt")),
 			format!("filler {index}"),
@@ -241,7 +247,7 @@ async fn walked_and_stopped(name: &str) -> Stopped {
 	let cache = core.context.volume_index();
 	let store = cache.store_for(&root).await.expect("store");
 	let mut records = Vec::new();
-	for file in FILES {
+	for &file in files {
 		let uuid = store
 			.db()
 			.resolve_path(file)
@@ -282,6 +288,8 @@ fn change_while_stopped(root: &Path) {
 	std::fs::write(root.join("bravo.txt"), "bravo, rewritten longer").expect("modify");
 	std::fs::rename(root.join("delta.txt"), root.join("echo.txt")).expect("rename");
 	std::fs::rename(root.join("india"), root.join("kilo")).expect("rename dir");
+	std::fs::remove_dir_all(root.join("quebec")).expect("replace dir");
+	std::fs::write(root.join("quebec"), "a file where a folder was").expect("replace dir");
 }
 
 async fn restart_and_check(stopped: Stopped) {
@@ -290,7 +298,7 @@ async fn restart_and_check(stopped: Stopped) {
 	let root = stopped.root.clone();
 
 	let expected = vec![
-		"bravo", "charlie", "echo", "filler", "foxtrot", "golf", "kilo", "lima",
+		"bravo", "charlie", "echo", "filler", "foxtrot", "golf", "kilo", "lima", "quebec",
 	];
 	let mut listed = Vec::new();
 	for _ in 0..300 {
@@ -329,6 +337,7 @@ async fn restart_and_check(stopped: Stopped) {
 		("alpha", vec![]),
 		("delta", vec![]),
 		("november", vec![]),
+		("romeo", vec![]),
 		("bravo", vec!["bravo.txt"]),
 		("echo", vec!["echo.txt"]),
 		("foxtrot", vec!["foxtrot.txt"]),
@@ -371,6 +380,7 @@ async fn restart_and_check(stopped: Stopped) {
 		"delta.txt",
 		"india/juliet.txt",
 		"lima/mike/november.txt",
+		"quebec/romeo.txt",
 	] {
 		assert_eq!(
 			db.resolve_path(gone).await.expect("query"),
@@ -422,7 +432,7 @@ async fn restart_and_check(stopped: Stopped) {
 #[tokio::test]
 async fn changes_while_stopped_reach_a_map_restored_from_its_snapshot() {
 	let _ = tracing_subscriber::fmt::try_init();
-	let stopped = walked_and_stopped("sd-reconcile-snapshot").await;
+	let stopped = walked_and_stopped("sd-reconcile-snapshot", false).await;
 	assert!(
 		stopped.snapshot_path.exists(),
 		"the fixture left a snapshot"
@@ -434,7 +444,7 @@ async fn changes_while_stopped_reach_a_map_restored_from_its_snapshot() {
 #[tokio::test]
 async fn changes_while_stopped_reach_a_map_rebuilt_from_the_store() {
 	let _ = tracing_subscriber::fmt::try_init();
-	let stopped = walked_and_stopped("sd-reconcile-store").await;
+	let stopped = walked_and_stopped("sd-reconcile-store", false).await;
 	std::fs::remove_file(&stopped.snapshot_path).expect("delete snapshot");
 	change_while_stopped(&stopped.root);
 	restart_and_check(stopped).await;
@@ -446,7 +456,7 @@ async fn changes_while_stopped_reach_a_map_rebuilt_from_the_store() {
 #[tokio::test]
 async fn a_reconcile_that_would_remove_most_of_a_source_removes_nothing() {
 	let _ = tracing_subscriber::fmt::try_init();
-	let stopped = walked_and_stopped("sd-reconcile-fuse").await;
+	let stopped = walked_and_stopped("sd-reconcile-fuse", false).await;
 	std::fs::remove_dir_all(stopped.root.join("filler")).expect("delete most of the source");
 	std::fs::write(stopped.root.join("foxtrot.txt"), "new while stopped").expect("add");
 
@@ -490,4 +500,128 @@ async fn a_reconcile_that_would_remove_most_of_a_source_removes_nothing() {
 	drop(store);
 	drop(library);
 	core.shutdown().await.expect("shutdown");
+}
+
+/// Moves are not removals. Renaming the folder that holds most of the source
+/// moves every record in it, and the fuse that guards against a pass that
+/// lost its footing must not hold the old paths in place.
+#[tokio::test]
+async fn renaming_most_of_a_source_is_not_a_mass_removal() {
+	let _ = tracing_subscriber::fmt::try_init();
+	let stopped = walked_and_stopped("sd-reconcile-bulk-move", false).await;
+	let papa = stopped_record(&stopped, "filler/papa000.txt").await;
+	std::fs::rename(stopped.root.join("filler"), stopped.root.join("moved"))
+		.expect("rename most of the source");
+
+	let core = boot(stopped.data_dir.path()).await;
+	let library = library_at(&core, &stopped.library_path).await;
+	let root = stopped.root.clone();
+
+	let mut listed = Vec::new();
+	for _ in 0..300 {
+		listed = list_dir(&core, &library, root.clone()).await;
+		if listed.contains(&"moved".to_string()) && !listed.contains(&"filler".to_string()) {
+			break;
+		}
+		tokio::time::sleep(Duration::from_millis(100)).await;
+	}
+	assert!(
+		listed.contains(&"moved".to_string()) && !listed.contains(&"filler".to_string()),
+		"the renamed folder replaces the old one: {listed:?}"
+	);
+	assert_eq!(
+		list_dir(&core, &library, root.join("moved")).await.len(),
+		FILLER,
+		"every moved file lists under the new name"
+	);
+	assert_eq!(
+		search(&core, &library, &root, "papa000").await,
+		vec!["moved/papa000.txt"],
+		"search finds the file once, at its new path"
+	);
+	let index = core
+		.context
+		.volume_index()
+		.get_for_search(&root)
+		.expect("map");
+	assert_eq!(
+		index
+			.read()
+			.await
+			.get_entry_uuid(&root.join("moved/papa000.txt")),
+		Some(papa),
+		"a moved file keeps its record"
+	);
+
+	drop(library);
+	core.shutdown().await.expect("shutdown");
+}
+
+/// A source whose walk found it empty is covered, not a gap, so what was
+/// added to it while the daemon was stopped is picked up.
+#[tokio::test]
+async fn an_empty_source_picks_up_files_added_while_stopped() {
+	let _ = tracing_subscriber::fmt::try_init();
+	let stopped = walked_and_stopped("sd-reconcile-empty", true).await;
+	std::fs::write(stopped.root.join("sierra.txt"), "added while stopped").expect("add");
+	std::fs::create_dir(stopped.root.join("tango")).expect("add dir");
+	std::fs::write(
+		stopped.root.join("tango/uniform.txt"),
+		"added while stopped",
+	)
+	.expect("add");
+
+	let core = boot(stopped.data_dir.path()).await;
+	let library = library_at(&core, &stopped.library_path).await;
+	let root = stopped.root.clone();
+
+	let expected = vec!["sierra", "tango"];
+	let mut listed = Vec::new();
+	for _ in 0..300 {
+		listed = list_dir(&core, &library, root.clone()).await;
+		if listed == expected {
+			break;
+		}
+		tokio::time::sleep(Duration::from_millis(100)).await;
+	}
+	assert_eq!(listed, expected, "the empty source lists what was added");
+	// A restore of an empty root browses it one level, so the root lists
+	// before the reconcile has reached the folder below it.
+	let mut found = Vec::new();
+	for _ in 0..300 {
+		found = search(&core, &library, &root, "uniform").await;
+		if !found.is_empty() {
+			break;
+		}
+		tokio::time::sleep(Duration::from_millis(100)).await;
+	}
+	assert_eq!(
+		found,
+		vec!["tango/uniform.txt"],
+		"search finds a file added to an empty source"
+	);
+
+	drop(library);
+	core.shutdown().await.expect("shutdown");
+}
+
+/// A filler record's uuid from the stopped fixture's store.
+async fn stopped_record(stopped: &Stopped, path: &str) -> Uuid {
+	let core = boot(stopped.data_dir.path()).await;
+	let store = core
+		.context
+		.volume_index()
+		.store_for(&stopped.root)
+		.await
+		.expect("store");
+	let uuid = store
+		.db()
+		.resolve_path(path)
+		.await
+		.expect("query")
+		.expect("the record is in the store");
+	drop(store);
+	core.shutdown().await.expect("shutdown");
+	tokio::time::sleep(Duration::from_secs(2)).await;
+	uuid
 }

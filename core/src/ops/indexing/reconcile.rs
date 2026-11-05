@@ -109,26 +109,38 @@ pub async fn reconcile_attached_sources(context: Arc<CoreContext>) {
 		if !source.attached {
 			continue;
 		}
-		reconcile_source(&context, source.library, &source.root).await;
+		reconcile_source(
+			&context,
+			source.library,
+			&source.root,
+			source.entry_count == Some(0),
+		)
+		.await;
 	}
 }
 
 /// Bring one source's map and store in line with its disk.
+///
+/// `walked_empty` says a completed walk found the source empty, so a map
+/// with nothing under the root is coverage rather than a gap.
 pub async fn reconcile_source(
 	context: &Arc<CoreContext>,
 	library: Option<Uuid>,
 	root: &Path,
+	walked_empty: bool,
 ) -> Option<ReconcileReport> {
 	let cache = context.volume_index();
 	cache.ensure_restored(root).await;
 
-	// A store rebuild fills the map in the background; comparing against a
-	// half-filled map would read the rest as new.
+	// A store rebuild fills the map in the background, and a restore can
+	// start a browse of a root it holds nothing under; comparing against a
+	// half-built map would read the rest as new.
+	let busy = || cache.is_filling_from_store(root) || cache.is_indexing(root);
 	let waited = Instant::now();
-	while cache.is_filling_from_store(root) && waited.elapsed() < FILL_WAIT {
+	while busy() && waited.elapsed() < FILL_WAIT {
 		tokio::time::sleep(Duration::from_millis(200)).await;
 	}
-	if cache.is_filling_from_store(root) || cache.is_indexing(root) {
+	if busy() {
 		debug!(root = %root.display(), "not reconciling: the map is still being built");
 		return None;
 	}
@@ -139,7 +151,7 @@ pub async fn reconcile_source(
 		.await
 		.known_children(root)
 		.is_some_and(|children| !children.is_empty());
-	if !covered {
+	if !covered && !walked_empty {
 		debug!(root = %root.display(), "not reconciling: no map coverage, left to the heal");
 		return None;
 	}
@@ -150,6 +162,7 @@ pub async fn reconcile_source(
 	let mut changed: Vec<PathBuf> = Vec::new();
 	let mut added: Vec<PathBuf> = Vec::new();
 	let mut missing: Vec<(PathBuf, bool, u64)> = Vec::new();
+	let mut replaced: Vec<(PathBuf, bool)> = Vec::new();
 	let mut unreadable = false;
 	let mut known_entries: u64 = 0;
 
@@ -207,8 +220,10 @@ pub async fn reconcile_source(
 				}
 				held => {
 					if let Some(held) = held {
-						// A file replaced by a directory, or the reverse.
-						missing.push((held.path, held.kind == EntryKind::Directory, held.entries));
+						// A file replaced by a directory, or the reverse. The
+						// path is there, so this is no absence for the fuse to
+						// weigh, but the old entry and anything under it go.
+						replaced.push((held.path, held.kind == EntryKind::Directory));
 					}
 					if should_filter_path(&entry.path, rule_toggles, root, None)
 						.await
@@ -232,6 +247,16 @@ pub async fn reconcile_source(
 	let store = cache.store_for(root).await;
 	let writer = ArenaWriter::new(index.clone(), context.events.clone(), store.clone())
 		.notifying(Notify::Batched);
+	let quiet = ArenaWriter::new(index.clone(), context.events.clone(), store.clone())
+		.notifying(Notify::Silent);
+	let loud = ArenaWriter::new(index.clone(), context.events.clone(), store.clone());
+
+	// Cleared before the replacement arrives, or a directory's old children
+	// would stay under a path that is now a file.
+	for (path, is_directory) in replaced {
+		loud.apply(Seen::Lost { path, is_directory }).await;
+		report.removed += 1;
+	}
 
 	// Parents come before their children in breadth-first order, so a new
 	// directory's record exists before the files under it resolve.
@@ -255,49 +280,74 @@ pub async fn reconcile_source(
 		}
 	}
 
-	// A missing directory was never descended into, so its subtree counts
-	// toward what the map held only here.
-	let doomed: u64 = missing.iter().map(|(_, _, entries)| *entries).sum();
-	known_entries += doomed - missing.len() as u64;
-	if unreadable {
-		report.removals_refused = !missing.is_empty();
-		warn!(
-			root = %root.display(),
-			withheld = missing.len(),
-			"reconcile left removals alone: part of the source could not be read"
-		);
-	} else if known_entries > 100 && doomed * 2 > known_entries {
-		report.removals_refused = true;
-		error!(
-			root = %root.display(),
-			doomed,
-			known = known_entries,
-			"reconcile refused its removals: it would remove more than half of the source"
-		);
-	} else if cache.is_indexing(root) {
-		report.removals_refused = !missing.is_empty();
+	// An old path whose record arrived somewhere else moved; the fuse weighs
+	// only what is really leaving, which is every entry under a missing path
+	// whose identity did not arrive. A missing directory was never descended
+	// into, so its subtree counts toward what the map held only here.
+	let (moved, gone, doomed) = {
+		let index = index.read().await;
+		let arrived_at = |path: &Path| {
+			index
+				.get_entry_uuid(&path.to_path_buf())
+				.is_some_and(|uuid| arrived.contains(&uuid))
+		};
+		let mut doomed = 0u64;
+		for (path, is_directory, entries) in &missing {
+			known_entries += entries - 1;
+			doomed += u64::from(!arrived_at(path));
+			if *is_directory {
+				doomed += match index.files_in_scope(path, true) {
+					Some(files) => files.iter().filter(|file| !arrived_at(file)).count() as u64,
+					None => entries - 1,
+				};
+			}
+		}
+		let (moved, gone): (Vec<_>, Vec<_>) =
+			missing.into_iter().partition(|(path, ..)| arrived_at(path));
+		(moved, gone, doomed)
+	};
+
+	let still_gone = |path: PathBuf| async move {
+		matches!(
+			tokio::fs::symlink_metadata(&path).await,
+			Err(ref error) if error.kind() == std::io::ErrorKind::NotFound
+		)
+	};
+
+	if cache.is_indexing(root) {
+		report.removals_refused = !(moved.is_empty() && gone.is_empty());
 		debug!(root = %root.display(), "a walk started under the reconcile; its sweep owns removals");
 	} else {
-		// A path that left for a new one keeps its identity there, so its old
-		// entry is dropped without announcing the record as deleted.
-		let quiet = ArenaWriter::new(index.clone(), context.events.clone(), store.clone())
-			.notifying(Notify::Silent);
-		let loud = ArenaWriter::new(index.clone(), context.events.clone(), store.clone());
-		for (path, is_directory, _) in missing {
-			if !matches!(
-				tokio::fs::symlink_metadata(&path).await,
-				Err(ref error) if error.kind() == std::io::ErrorKind::NotFound
-			) {
-				continue;
-			}
-			let uuid = index.read().await.get_entry_uuid(&path);
-			let moved = uuid.is_some_and(|uuid| arrived.contains(&uuid));
-			let writer = if moved { &quiet } else { &loud };
-			writer.apply(Seen::Lost { path, is_directory }).await;
-			if moved {
+		// The record lives on at its new path, so the old entry is dropped
+		// without announcing it as deleted.
+		for (path, is_directory, _) in moved {
+			if still_gone(path.clone()).await {
+				quiet.apply(Seen::Lost { path, is_directory }).await;
 				report.moved += 1;
-			} else {
-				report.removed += 1;
+			}
+		}
+
+		if unreadable && !gone.is_empty() {
+			report.removals_refused = true;
+			warn!(
+				root = %root.display(),
+				withheld = gone.len(),
+				"reconcile left removals alone: part of the source could not be read"
+			);
+		} else if known_entries > 100 && doomed * 2 > known_entries {
+			report.removals_refused = true;
+			error!(
+				root = %root.display(),
+				doomed,
+				known = known_entries,
+				"reconcile refused its removals: it would remove more than half of the source"
+			);
+		} else {
+			for (path, is_directory, _) in gone {
+				if still_gone(path.clone()).await {
+					loud.apply(Seen::Lost { path, is_directory }).await;
+					report.removed += 1;
+				}
 			}
 		}
 	}
