@@ -25,6 +25,70 @@ pub async fn run(
 	}
 }
 
+const DOCS_URL: &str = "https://docs.spacedrive.com";
+
+#[cfg(any(target_os = "linux", target_os = "macos", test))]
+fn find_in_path(program: &str, path_var: &std::ffi::OsStr) -> Option<PathBuf> {
+	std::env::split_paths(path_var)
+		.map(|dir| dir.join(program))
+		.find(|candidate| candidate.is_file())
+}
+
+/// Explains why systemd cannot run the daemon here, or `None` when it can.
+///
+/// A container or a non-systemd distribution has no `systemctl`, and a host
+/// can carry the binary without booting systemd. `/run/systemd/system` is the
+/// marker `sd_booted(3)` checks for the second case.
+#[cfg(any(target_os = "linux", test))]
+fn systemd_unavailable(
+	path_var: &std::ffi::OsStr,
+	run_dir: &std::path::Path,
+) -> Option<&'static str> {
+	if find_in_path("systemctl", path_var).is_none() {
+		return Some("systemctl was not found on PATH, so this system does not use systemd");
+	}
+	if !run_dir.join("systemd/system").is_dir() {
+		return Some("systemd is not running as the init system on this host");
+	}
+	None
+}
+
+/// Quotes an argument for a POSIX shell so the printed command can be pasted as is.
+#[cfg(any(target_os = "linux", target_os = "macos", test))]
+fn shell_quote(arg: &str) -> String {
+	let plain = !arg.is_empty()
+		&& arg
+			.chars()
+			.all(|c| c.is_ascii_alphanumeric() || "/._-+:=@,".contains(c));
+	if plain {
+		return arg.to_string();
+	}
+	format!("'{}'", arg.replace('\'', "'\\''"))
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos", test))]
+fn no_service_manager_error(
+	reason: &str,
+	daemon_path: &std::path::Path,
+	base_data_dir: &std::path::Path,
+	instance: Option<&str>,
+) -> anyhow::Error {
+	let mut run = format!(
+		"{} --data-dir {}",
+		shell_quote(&daemon_path.to_string_lossy()),
+		shell_quote(&base_data_dir.to_string_lossy())
+	);
+	if let Some(inst) = instance {
+		run.push_str(&format!(" --instance {}", shell_quote(inst)));
+	}
+	anyhow::anyhow!(
+		"Cannot install the daemon as a service: {reason}.\n\n\
+		Start the daemon yourself instead, with 'sd start' or directly:\n  {run}\n\n\
+		To start it at boot, add that command to your init system or process supervisor. \
+		See the deployment guide at {DOCS_URL}."
+	)
+}
+
 #[cfg(target_os = "macos")]
 async fn install_launchd_service(
 	data_dir: PathBuf,
@@ -60,6 +124,15 @@ async fn install_launchd_service(
 		return Err(anyhow::anyhow!(
 			"Daemon binary not found at {}. Ensure both 'sd-cli' and 'sd-daemon' are in the same directory.",
 			daemon_path.display()
+		));
+	}
+
+	if find_in_path("launchctl", &std::env::var_os("PATH").unwrap_or_default()).is_none() {
+		return Err(no_service_manager_error(
+			"launchctl was not found on PATH",
+			&daemon_path,
+			&base_data_dir,
+			instance.as_deref(),
 		));
 	}
 
@@ -268,9 +341,6 @@ async fn install_launchd_service(
 		dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
 	let systemd_user_dir = home.join(".config/systemd/user");
 
-	// Create systemd user directory if it doesn't exist
-	fs::create_dir_all(&systemd_user_dir)?;
-
 	// Determine service filename based on instance
 	let service_name = if let Some(ref inst) = instance {
 		format!("spacedrive-daemon@{}.service", inst)
@@ -290,6 +360,37 @@ async fn install_launchd_service(
 		return Err(anyhow::anyhow!(
 			"Daemon binary not found at {}. Ensure both 'sd-cli' and 'sd-daemon' are in the same directory.",
 			daemon_path.display()
+		));
+	}
+
+	if let Some(reason) = systemd_unavailable(
+		&std::env::var_os("PATH").unwrap_or_default(),
+		std::path::Path::new("/run"),
+	) {
+		return Err(no_service_manager_error(
+			reason,
+			&daemon_path,
+			&base_data_dir,
+			instance.as_deref(),
+		));
+	}
+
+	// A container or SSH session can have systemd as init but no user manager
+	// to own a --user unit, so probe it before writing anything.
+	let probe = tokio::process::Command::new("systemctl")
+		.args(["--user", "show-environment"])
+		.output()
+		.await?;
+	if !probe.status.success() {
+		let stderr = String::from_utf8_lossy(&probe.stderr);
+		return Err(no_service_manager_error(
+			&format!(
+				"the systemd user manager is not reachable ({})",
+				stderr.trim()
+			),
+			&daemon_path,
+			&base_data_dir,
+			instance.as_deref(),
 		));
 	}
 
@@ -328,7 +429,7 @@ WantedBy=default.target
 		exec_start
 	);
 
-	// Write the service file
+	fs::create_dir_all(&systemd_user_dir)?;
 	let mut file = fs::File::create(&service_path)?;
 	file.write_all(service_content.as_bytes())?;
 
@@ -457,7 +558,8 @@ async fn check_launchd_status(instance: Option<String>) -> Result<()> {
 		.arg("--user")
 		.arg("is-active")
 		.arg(&service_name)
-		.output()?;
+		.output()
+		.map_err(|e| anyhow::anyhow!("Could not run systemctl to read the service status: {e}"))?;
 
 	let status = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
@@ -501,4 +603,81 @@ async fn check_launchd_status(_instance: Option<String>) -> Result<()> {
 	Err(anyhow::anyhow!(
 		"Daemon auto-start is currently only supported on macOS and Linux."
 	))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn fake_bin(dir: &std::path::Path, name: &str) {
+		std::fs::create_dir_all(dir).unwrap();
+		std::fs::write(dir.join(name), b"").unwrap();
+	}
+
+	#[test]
+	fn systemd_missing_when_systemctl_is_not_on_path() {
+		let tmp = tempfile::tempdir().unwrap();
+		let bin = tmp.path().join("bin");
+		fake_bin(&bin, "ls");
+		std::fs::create_dir_all(tmp.path().join("run/systemd/system")).unwrap();
+
+		let reason = systemd_unavailable(bin.as_os_str(), &tmp.path().join("run"));
+		assert!(reason.unwrap().contains("systemctl was not found"));
+	}
+
+	#[test]
+	fn systemd_missing_when_not_booted_with_systemd() {
+		let tmp = tempfile::tempdir().unwrap();
+		let bin = tmp.path().join("bin");
+		fake_bin(&bin, "systemctl");
+		std::fs::create_dir_all(tmp.path().join("run")).unwrap();
+
+		let reason = systemd_unavailable(bin.as_os_str(), &tmp.path().join("run"));
+		assert!(reason.unwrap().contains("not running as the init system"));
+	}
+
+	#[test]
+	fn systemd_available_with_systemctl_and_boot_marker() {
+		let tmp = tempfile::tempdir().unwrap();
+		let empty = tmp.path().join("empty");
+		let bin = tmp.path().join("bin");
+		std::fs::create_dir_all(&empty).unwrap();
+		fake_bin(&bin, "systemctl");
+		std::fs::create_dir_all(tmp.path().join("run/systemd/system")).unwrap();
+
+		let path_var = std::env::join_paths([&empty, &bin]).unwrap();
+		assert_eq!(
+			systemd_unavailable(&path_var, &tmp.path().join("run")),
+			None
+		);
+	}
+
+	#[test]
+	fn error_names_the_cause_and_the_command_to_run() {
+		let message = no_service_manager_error(
+			"systemctl was not found on PATH, so this system does not use systemd",
+			std::path::Path::new("/opt/sd/sd-daemon"),
+			std::path::Path::new("/data/spacedrive"),
+			Some("work"),
+		)
+		.to_string();
+
+		assert!(message.contains("systemctl was not found on PATH"));
+		assert!(message.contains("/opt/sd/sd-daemon --data-dir /data/spacedrive --instance work"));
+		assert!(message.contains("sd start"));
+		assert!(message.contains(DOCS_URL));
+	}
+
+	#[test]
+	fn fallback_command_quotes_paths_for_the_shell() {
+		let message = no_service_manager_error(
+			"launchctl was not found on PATH",
+			std::path::Path::new("/opt/sd/sd-daemon"),
+			std::path::Path::new("/mnt/My Drive/it's $HOME"),
+			None,
+		)
+		.to_string();
+
+		assert!(message.contains(r#"/opt/sd/sd-daemon --data-dir '/mnt/My Drive/it'\''s $HOME'"#));
+	}
 }
