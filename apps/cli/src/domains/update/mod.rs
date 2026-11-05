@@ -137,6 +137,7 @@ impl UpdateState {
 
 pub async fn run(
 	data_dir: PathBuf,
+	base_data_dir: PathBuf,
 	instance: Option<String>,
 	socket_addr: String,
 	options: UpdateOptions,
@@ -152,6 +153,7 @@ pub async fn run(
 	let mut available = None;
 	let outcome = attempt(
 		&data_dir,
+		&base_data_dir,
 		instance,
 		socket_addr,
 		&config,
@@ -208,6 +210,7 @@ fn record_attempt(data_dir: &Path, state: &UpdateState) -> Result<()> {
 
 async fn attempt(
 	data_dir: &Path,
+	base_data_dir: &Path,
 	instance: Option<String>,
 	socket_addr: String,
 	config: &CliConfig,
@@ -343,7 +346,7 @@ async fn attempt(
 
 	if daemon_was_running {
 		println!("Starting daemon...");
-		restart_daemon(&client, &daemon_path, data_dir, instance.as_deref()).await?;
+		restart_daemon(&client, &daemon_path, base_data_dir, instance.as_deref()).await?;
 	}
 
 	println!();
@@ -428,7 +431,7 @@ fn format_age(age: chrono::Duration) -> String {
 async fn restart_daemon(
 	client: &sd_client::CoreClient,
 	daemon_path: &Path,
-	data_dir: &Path,
+	base_data_dir: &Path,
 	instance: Option<&str>,
 ) -> Result<()> {
 	#[cfg(target_os = "macos")]
@@ -451,7 +454,7 @@ async fn restart_daemon(
 
 	let launch = sd_client::DaemonLaunchConfig {
 		daemon_path: daemon_path.to_path_buf(),
-		data_dir: data_dir.to_path_buf(),
+		base_data_dir: base_data_dir.to_path_buf(),
 		instance: instance.map(str::to_string),
 		no_default_sources: false,
 	};

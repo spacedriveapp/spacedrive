@@ -158,6 +158,12 @@ pub async fn map_volume(
 /// store that holds records under a root whose node in the map has no
 /// children. Store evidence contradicting arena emptiness is the trigger, so
 /// a genuinely empty source is never rewalked.
+///
+/// A source with no record count at all never finished a walk, because only a
+/// completed walk's snapshot save writes one. Its first walk was cut short by
+/// a crash or a stop, and nothing else walks it again, so it is walked here
+/// whenever the map holds nothing under its root. A completed walk of an
+/// empty folder records zero and is left alone.
 async fn heal_uncovered_sources(
 	library: &Arc<Library>,
 	context: &Arc<CoreContext>,
@@ -171,7 +177,7 @@ async fn heal_uncovered_sources(
 		{
 			continue;
 		}
-		if source.entry_count.unwrap_or(0) == 0 {
+		if source.entry_count == Some(0) {
 			continue;
 		}
 
@@ -190,8 +196,8 @@ async fn heal_uncovered_sources(
 		tracing::warn!(
 			source = %source.id,
 			root = %source.root.display(),
-			records = source.entry_count.unwrap_or(0),
-			"source has records but no map coverage; dispatching its walk"
+			records = ?source.entry_count,
+			"source has no map coverage; dispatching its walk"
 		);
 		crate::ops::sources::track::action::dispatch_source_walk(
 			library,

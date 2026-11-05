@@ -44,7 +44,10 @@
       },
       "assetProtocol": {
         "enable": true,
-        "scope": ["$HOME/**", "/Volumes/**"]
+        "scope": {
+          "allow": ["$HOME/**", "/Volumes/**", "/mnt/**", "/media/**", "/run/media/**"],
+          "requireLiteralLeadingDot": false
+        }
       }
     }
   },

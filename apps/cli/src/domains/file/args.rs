@@ -322,7 +322,7 @@ fn local_path(path: &PathBuf) -> anyhow::Result<SdPath> {
 	path.canonicalize()
 		.map(|path| SdPath::Physical {
 			device_slug: "local".into(),
-			path,
+			path: sd_core::common::utils::strip_windows_extended_prefix(path),
 		})
 		.map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))
 }

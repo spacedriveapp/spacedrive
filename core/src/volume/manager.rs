@@ -1055,24 +1055,7 @@ impl VolumeManager {
 	pub async fn volume_for_path(&self, path: &Path) -> Option<Volume> {
 		// Canonicalize the path to handle relative paths properly
 		let canonical_path = match path.canonicalize() {
-			Ok(p) => {
-				// On Windows, canonicalize() returns UNC extended paths (\\?\D:\)
-				// which breaks starts_with() matching against normal mount points (D:\).
-				// Strip the \\?\ prefix to get a normal path.
-				#[cfg(windows)]
-				{
-					let s = p.to_string_lossy();
-					if let Some(stripped) = s.strip_prefix(r"\\?\") {
-						PathBuf::from(stripped)
-					} else {
-						p
-					}
-				}
-				#[cfg(not(windows))]
-				{
-					p
-				}
-			}
+			Ok(p) => crate::common::utils::strip_windows_extended_prefix(p),
 			Err(e) => {
 				debug!("Failed to canonicalize path {}: {}", path.display(), e);
 				// If canonicalization fails, try with the original path
@@ -1149,7 +1132,11 @@ impl VolumeManager {
 	///
 	/// Comparing inodes settles it without a platform-specific table.
 	pub async fn locate_path(&self, path: &Path) -> Option<(Volume, PathBuf)> {
-		let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+		// Mount points are written without the `\\?\` prefix Windows'
+		// canonicalize adds, so a verbatim path would never sit under one.
+		let canonical = crate::common::utils::strip_windows_extended_prefix(
+			path.canonicalize().unwrap_or_else(|_| path.to_path_buf()),
+		);
 
 		// Finding the volume is not the same as being able to strip its mount
 		// point off. `contains_path` knows about firmlinks and answers yes for
@@ -2472,6 +2459,39 @@ mod tests {
 			.same_volume(&PathBuf::from("/path1"), &PathBuf::from("/path2"))
 			.await;
 		assert!(!same);
+	}
+
+	/// A source tracked from a canonicalized path keeps its volume anchor.
+	/// Windows' canonicalize spells `D:\a` as `\\?\D:\a`, which sits under no
+	/// mount point; left that way the source was registered with a null
+	/// volume and a root no listing path ever matched.
+	#[cfg(windows)]
+	#[tokio::test]
+	async fn a_verbatim_path_is_located_under_its_mount_point() {
+		let manager = Arc::new(VolumeManager::new(
+			Uuid::new_v4(),
+			VolumeDetectionConfig::default(),
+			create_test_events(),
+		));
+		manager.refresh_volumes().await.unwrap();
+
+		let dir = tempfile::tempdir().unwrap();
+		let verbatim = dir.path().canonicalize().unwrap();
+		assert!(verbatim.to_string_lossy().starts_with(r"\\?\"));
+
+		let (volume, located) = manager
+			.locate_path(&verbatim)
+			.await
+			.expect("a temp directory is on a detected volume");
+		assert!(!located.to_string_lossy().starts_with(r"\\?\"));
+		assert!(located.starts_with(&volume.mount_point));
+		assert_eq!(
+			located,
+			dir.path()
+				.canonicalize()
+				.map(crate::common::utils::strip_windows_extended_prefix)
+				.unwrap()
+		);
 	}
 }
 

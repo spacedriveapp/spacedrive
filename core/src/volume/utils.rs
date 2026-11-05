@@ -127,7 +127,7 @@ pub fn is_system_mount_point(mount_point: &Path) -> bool {
 		|| path_str.starts_with("/sys/")
 		|| path_str.starts_with("/proc/")
 		|| path_str.starts_with("/dev/")
-		|| path_str.starts_with("/run/")
+		|| (path_str.starts_with("/run/") && !path_str.starts_with("/run/media/"))
 		|| path_str.starts_with("/var/log")
 		|| path_str.starts_with("/var/db/")
 		|| path_str.starts_with("/var/lib/systemd")
@@ -452,6 +452,7 @@ mod tests {
 			"/var/db/system/netdata"
 		)));
 		assert!(should_hide_by_mount_path(Path::new("/sys/firmware/efi")));
+		assert!(should_hide_by_mount_path(Path::new("/run/user/1000/gvfs")));
 
 		// TrueNAS Scale app-managed datasets
 		assert!(should_hide_by_mount_path(Path::new("/mnt/.ix-apps")));
@@ -468,6 +469,11 @@ mod tests {
 		assert!(!should_hide_by_mount_path(Path::new("/mnt/pool/footage")));
 		assert!(!should_hide_by_mount_path(Path::new(
 			"/mnt/pool/calvin-nas"
+		)));
+
+		// udisks2 removable drives on Fedora and Arch
+		assert!(!should_hide_by_mount_path(Path::new(
+			"/run/media/alice/USB"
 		)));
 	}
 }
