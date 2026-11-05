@@ -50,6 +50,9 @@ pub struct Partition {
 	/// covers everything beneath its root and the store answers for all of
 	/// it, which a walk in `indexing_in_progress` does not promise.
 	filling_from_store: RwLock<HashSet<PathBuf>>,
+	/// Walks that failed after clearing what they were rebuilding. The arena
+	/// holds part of that tree until a later walk of it completes.
+	failed_walks: RwLock<HashSet<PathBuf>>,
 	watched_paths: RwLock<HashSet<PathBuf>>,
 	/// A detached source's root is not present on disk; its index is served
 	/// read-only from a restored snapshot and must never trigger indexing.
@@ -91,6 +94,7 @@ impl Partition {
 			indexed_paths: RwLock::new(HashSet::new()),
 			indexing_in_progress: RwLock::new(HashSet::new()),
 			filling_from_store: RwLock::new(HashSet::new()),
+			failed_walks: RwLock::new(HashSet::new()),
 			watched_paths: RwLock::new(HashSet::new()),
 			detached: AtomicBool::new(false),
 			restored: AtomicBool::new(false),
@@ -2101,16 +2105,6 @@ impl VolumeIndex {
 			.contains(path)
 	}
 
-	/// Whether no walk or store fill is running anywhere on `path`'s drive.
-	/// A walk clears the arena before rebuilding it, so a snapshot saved
-	/// partway through would replace a complete one with part of the drive.
-	pub fn is_settled(&self, path: &Path) -> bool {
-		let partition = self.resolve(path);
-		let walking = !partition.indexing_in_progress.read().is_empty();
-		let filling = !partition.filling_from_store.read().is_empty();
-		!walking && !filling
-	}
-
 	/// Whether `path` sits under a source root being filled from its store.
 	/// The fill covers everything beneath the root and the store answers for
 	/// all of it, so a browse dispatched into that tree would only clear what
@@ -2499,6 +2493,21 @@ impl VolumeIndex {
 	/// Save the owning partition to its drive's snapshot file. A path on no
 	/// tracked drive has no snapshot and skips silently.
 	pub async fn save_snapshot(&self, path: &Path) -> anyhow::Result<()> {
+		self.save_snapshot_inner(path, false).await
+	}
+
+	/// Save the owning partition's snapshot only if its arena is whole: no
+	/// walk or store fill running, and no failed walk since the last good one.
+	///
+	/// A walk clears the arena before rebuilding it, so a save in between
+	/// would replace a complete snapshot with part of the drive. The check
+	/// runs under the arena's write lock, which a walk needs to clear it, so
+	/// a walk starting after the check finds the save already done.
+	pub async fn save_settled_snapshot(&self, path: &Path) -> anyhow::Result<()> {
+		self.save_snapshot_inner(path, true).await
+	}
+
+	async fn save_snapshot_inner(&self, path: &Path, require_settled: bool) -> anyhow::Result<()> {
 		let Some(resolved) = self.locate(path) else {
 			tracing::debug!("No tracked drive for {}; skipping snapshot", path.display());
 			return Ok(());
@@ -2535,6 +2544,17 @@ impl VolumeIndex {
 		let _save_guard = slot.save_lock.lock().await;
 		let (entry_count, total_bytes) = {
 			let mut index = slot.index.write().await;
+			if require_settled
+				&& !(slot.indexing_in_progress.read().is_empty()
+					&& slot.filling_from_store.read().is_empty()
+					&& slot.failed_walks.read().is_empty())
+			{
+				tracing::debug!(
+					"Snapshot for {} held: a walk or fill is running or failed",
+					volume_root.display()
+				);
+				return Ok(());
+			}
 			let stats = index.get_stats();
 			let entry_count = stats.total_entries as u64;
 
@@ -2678,6 +2698,9 @@ impl VolumeIndex {
 		let slot = self.resolve(path);
 		slot.indexing_in_progress.write().remove(path);
 		slot.indexed_paths.write().insert(path.to_path_buf());
+		slot.failed_walks
+			.write()
+			.retain(|failed| !failed.starts_with(path));
 	}
 
 	/// Indexing ended without producing a result. Clearing the in-progress
@@ -2688,6 +2711,7 @@ impl VolumeIndex {
 		let slot = self.resolve(path);
 		slot.indexing_in_progress.write().remove(path);
 		slot.indexed_paths.write().remove(path);
+		slot.failed_walks.write().insert(path.to_path_buf());
 	}
 
 	pub fn invalidate_path(&self, path: &Path) {
