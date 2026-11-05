@@ -8,7 +8,7 @@ use super::types::{ChangeConfig, ChangeType, EntryRef};
 use crate::ops::indexing::rules::{build_default_ruler, RuleToggles, RulerDecision};
 use crate::ops::indexing::state::{DirEntry, EntryKind};
 use anyhow::Result;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 /// Abstracts storage operations for filesystem change handling, so the change
@@ -45,9 +45,9 @@ pub trait ChangeHandler: Send + Sync {
 	/// Emit appropriate events for UI updates.
 	async fn emit_change_event(&self, entry: &EntryRef, change_type: ChangeType) -> Result<()>;
 
-	/// Handle directory recursion after creation: index the new directory's
-	/// contents inline, one level deep.
-	async fn handle_new_directory(&self, path: &Path) -> Result<()>;
+	/// Index entries found inside a directory that arrived in one event. The
+	/// caller has already applied the indexing rules to every path.
+	async fn handle_new_entries(&self, paths: &[PathBuf]) -> Result<()>;
 }
 
 /// Check if a path exists, distinguishing between "doesn't exist" and "can't access".
@@ -349,27 +349,39 @@ pub async fn handle_create<H: ChangeHandler>(
 		// from a trash, arrives as one event, so its subtree is read here.
 		let mut pending = vec![path.to_path_buf()];
 		while let Some(dir) = pending.pop() {
-			handler.handle_new_directory(&dir).await?;
-			let Ok(mut children) = tokio::fs::read_dir(&dir).await else {
-				continue;
+			let mut children = match tokio::fs::read_dir(&dir).await {
+				Ok(children) => children,
+				Err(e) => {
+					tracing::warn!(
+						"Failed to read directory {} to index it: {}",
+						dir.display(),
+						e
+					);
+					continue;
+				}
 			};
+			let mut kept = Vec::new();
 			while let Ok(Some(child)) = children.next_entry().await {
 				let child = child.path();
-				let is_dir = tokio::fs::symlink_metadata(&child)
-					.await
-					.is_ok_and(|m| m.is_dir());
-				if is_dir
-					&& !should_filter_path(
-						&child,
-						config.rule_toggles,
-						config.root,
-						config.volume_backend,
-					)
-					.await?
+				if should_filter_path(
+					&child,
+					config.rule_toggles,
+					config.root,
+					config.volume_backend,
+				)
+				.await?
 				{
-					pending.push(child);
+					continue;
 				}
+				if tokio::fs::symlink_metadata(&child)
+					.await
+					.is_ok_and(|m| m.is_dir())
+				{
+					pending.push(child.clone());
+				}
+				kept.push(child);
 			}
+			handler.handle_new_entries(&kept).await?;
 		}
 	} else {
 		handler.run_processors(&entry, true).await?;

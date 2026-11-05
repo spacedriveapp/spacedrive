@@ -1165,6 +1165,8 @@ async fn run_test_scenarios(
 	tokio::fs::create_dir_all(harness.path("trash_folder/sub")).await?;
 	tokio::fs::write(harness.path(deep_file), b"deep").await?;
 	harness.verify_entry_exists(deep_file).await?;
+	let excluded_file = "trash_folder/sub/.DS_Store";
+	tokio::fs::write(harness.path(excluded_file), b"system").await?;
 	harness.move_to_trash("trash_folder", &volume_trash).await?;
 	harness.verify_entry_not_exists(deep_file).await?;
 	harness
@@ -1172,6 +1174,7 @@ async fn run_test_scenarios(
 		.await?;
 	harness.verify_entry_exists("trash_folder/sub").await?;
 	harness.verify_entry_exists(deep_file).await?;
+	harness.verify_entry_not_exists(excluded_file).await?;
 	tokio::fs::remove_dir_all(harness.path("trash_folder")).await?;
 	harness.verify_entry_not_exists("trash_folder").await?;
 

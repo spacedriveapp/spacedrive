@@ -581,25 +581,10 @@ impl ChangeHandler for ArenaWriter {
 		Ok(())
 	}
 
-	async fn handle_new_directory(&self, path: &Path) -> Result<()> {
-		use crate::ops::indexing::metadata;
-
-		let mut entries = match tokio::fs::read_dir(path).await {
-			Ok(entries) => entries,
-			Err(e) => {
-				tracing::warn!(
-					"Failed to read directory {} to index it: {}",
-					path.display(),
-					e
-				);
-				return Ok(());
-			}
-		};
-
+	async fn handle_new_entries(&self, paths: &[PathBuf]) -> Result<()> {
 		let mut observed = Vec::new();
-		while let Ok(Some(entry)) = entries.next_entry().await {
-			let entry_path = entry.path();
-			let Ok(metadata) = entry.metadata().await else {
+		for entry_path in paths {
+			let Ok(metadata) = tokio::fs::symlink_metadata(entry_path).await else {
 				continue;
 			};
 			let kind = if metadata.is_dir() {
@@ -616,13 +601,13 @@ impl ChangeHandler for ArenaWriter {
 				size: metadata.len(),
 				modified: metadata.modified().ok(),
 				accessed: metadata.accessed().ok(),
-				created: crate::ops::indexing::metadata::birth_time(&entry_path, &metadata),
-				inode: crate::ops::indexing::metadata::get_inode(&entry_path, &metadata),
+				created: crate::ops::indexing::metadata::birth_time(entry_path, &metadata),
+				inode: crate::ops::indexing::metadata::get_inode(entry_path, &metadata),
 				permissions: None,
 				uid: None,
 				gid: None,
 				link_target: None,
-				is_hidden: is_hidden_path(&entry_path),
+				is_hidden: is_hidden_path(entry_path),
 			});
 		}
 
