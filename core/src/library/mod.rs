@@ -25,6 +25,7 @@ use crate::infra::{
 	job::manager::JobManager,
 	sync::{SyncEventBus, TransactionManager},
 };
+use crate::ops::indexing::VolumeIndex;
 use once_cell::sync::OnceCell;
 use sea_orm::ConnectionTrait;
 use std::collections::HashMap;
@@ -627,6 +628,7 @@ impl Library {
 		let config_lock = Arc::clone(&self.config);
 		let live_capacity =
 			Self::live_capacity_by_fingerprint(&self.core_context.volume_manager).await;
+		let volume_index = self.core_context.volume_index().clone();
 
 		debug!(
 			library_id = %library_id,
@@ -650,6 +652,7 @@ impl Library {
 				config,
 				config_lock,
 				live_capacity,
+				volume_index,
 			)
 			.await
 			{
@@ -679,6 +682,7 @@ impl Library {
 		mut config: LibraryConfig,
 		config_lock: Arc<RwLock<LibraryConfig>>,
 		live_capacity: std::collections::HashMap<String, (u64, u64)>,
+		volume_index: Arc<VolumeIndex>,
 	) -> Result<()> {
 		debug!(
 			library_id = %library_id,
@@ -686,7 +690,9 @@ impl Library {
 			"Starting statistics calculation from database"
 		);
 
-		let mut stats = Self::calculate_all_statistics_static(&db, &path, &live_capacity).await?;
+		let mut stats =
+			Self::calculate_all_statistics_static(&db, &path, &live_capacity, &volume_index)
+				.await?;
 		stats.updated_at = chrono::Utc::now();
 
 		debug!(
@@ -839,6 +845,7 @@ impl Library {
 		db: &Arc<Database>,
 		path: &PathBuf,
 		live_capacity: &std::collections::HashMap<String, (u64, u64)>,
+		volume_index: &VolumeIndex,
 	) -> Result<LibraryStatistics> {
 		let db_conn = db.conn();
 
@@ -860,7 +867,7 @@ impl Library {
 
 		debug!("Starting tag count calculation");
 		// Calculate tag count
-		let tag_count = Self::calculate_tag_count_static(&db_conn).await?;
+		let tag_count = Self::calculate_tag_count_static(&db_conn, volume_index).await?;
 		debug!(tag_count = tag_count, "Completed tag count calculation");
 
 		debug!("Starting device count calculation");
@@ -989,11 +996,8 @@ impl Library {
 
 	/// Calculate tag count: every definition this machine can name, staged
 	/// ones included, deduplicated across the stores that carry them.
-	async fn calculate_tag_count(&self, _db: &sea_orm::DatabaseConnection) -> Result<u32> {
-		let cache = self.core_context.volume_index();
-		let count = crate::ops::tags::definitions::all(self, cache).await.len() as u32;
-		debug!(tag_count = count, "Completed tag count calculation");
-		Ok(count)
+	async fn calculate_tag_count(&self, db: &sea_orm::DatabaseConnection) -> Result<u32> {
+		Self::calculate_tag_count_static(db, self.core_context.volume_index()).await
 	}
 
 	/// Calculate device count
@@ -1155,17 +1159,19 @@ impl Library {
 		Ok(count as u32)
 	}
 
-	/// Calculate tag count (static version). Definitions live in source
-	/// stores, which need the cache the instance path has; before a library
-	/// is constructed only the staging table is reachable, and the instance
-	/// recount replaces this number once the library is open.
-	async fn calculate_tag_count_static(db: &sea_orm::DatabaseConnection) -> Result<u32> {
-		use crate::infra::db::entities::tag_staging;
-		use sea_orm::{EntityTrait, PaginatorTrait};
-
-		let count = tag_staging::Entity::find().count(db).await?;
-		debug!(tag_count = count, "Tag count query completed successfully");
-		Ok(count as u32)
+	/// Calculate tag count (static version). A definition leaves the staging
+	/// table for the source stores once something applies it, so counting
+	/// staging alone loses every tag in use; the stores are read through the
+	/// volume index, as tag listings read them.
+	async fn calculate_tag_count_static(
+		db: &sea_orm::DatabaseConnection,
+		volume_index: &VolumeIndex,
+	) -> Result<u32> {
+		let count = crate::ops::tags::definitions::all_in(db, volume_index)
+			.await
+			.len() as u32;
+		debug!(tag_count = count, "Completed tag count calculation");
+		Ok(count)
 	}
 
 	/// Calculate device count (static version)
