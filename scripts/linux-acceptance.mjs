@@ -116,6 +116,11 @@ await row("trash", async (snap) => {
 		"the Trash view shows neither items nor its empty state",
 	);
 	await snap();
+	// A cold load mounts the page before the app restores its library.
+	await page.reload();
+	await page.waitForTimeout(6000);
+	const reloaded = (await body()).match(/\d+ items? Spacedrive trashed|Nothing Spacedrive trashed/)?.[0];
+	expect(reloaded === match, `after a reload the Trash view shows "${reloaded}", not "${match}"`);
 	return match;
 });
 
