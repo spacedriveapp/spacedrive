@@ -23,7 +23,7 @@ names a fix branch.
 
 | Step | Result |
 |---|---|
-| 1. Clean install | Linux passes on Ubuntu 24.04, Ubuntu 22.04 and Debian 12. Windows fails on this build: `file list` returns nothing under a tracked folder (fixed in #3169, `b6cd7fb`; confirm on the next published nightly). |
+| 1. Clean install | Linux passes on Ubuntu 24.04, Ubuntu 22.04 and Debian 12. Windows fails on `26b57e1` (`file list` returns nothing under a tracked folder) and passes on nightly `fc630d1`, which includes the fix (#3169). |
 | 2. Upgrade path | Passes from three earlier nightlies. From v2.0.0-alpha.2, the library opens, but its locations, files, tags and collections are dropped. See the table in step 2. |
 | 3. Large source | Passes at 1,000,000 files. Five thumbnail, statistics and logging bugs found and fixed (#3173, #3174, #3175, #3182, #3183). |
 | 4. Interrupts | Fails. A killed copy left a truncated file (fixed, #3170). A killed or disk-full first walk is never healed (fixed in #3172, `68dc227`, except on Linux root and home volumes). A full disk hangs the indexer. Files changed while the daemon is stopped are not picked up. |
@@ -73,8 +73,15 @@ point without stripping the prefix, so the source registered under the
 verbatim spelling and with no volume. `file list` sends the plain spelling,
 which matches no source. Tracking the plain path through `sd op
 sources.track` made every check pass, restart included. #3169 strips the
-prefix in `locate_path` and in the CLI (merged as `b6cd7fb`). Rerun #3166
-once a nightly that includes it is published.
+prefix in `locate_path` and in the CLI (merged as `b6cd7fb`).
+
+The smoke passes on nightly `fc630d1`, the first published build with #3169
+(run 41970748320). Windows takes 40 s: the daemon is ready in 5 s, the source
+has a volume, `file list` finds 200 files and 24 directories, and the counts
+and the tag hold after a restart. Linux takes 28 s. `sources list` on Windows
+prints the root with mixed separators (`D:\a/_temp/smoke-src`), while
+`sources track` returns `D:\a\_temp\smoke-src`. Listing and counts work
+either way.
 
 ### Findings
 
@@ -371,8 +378,8 @@ One real device pair across networks remains, as `releases.mdx` says.
 | #3182 | Count tags from source stores | `d3926fb` |
 | #3183 | Refresh source counts after content identification | `69108a0` |
 | #3186 | Queue nightly builds instead of cancelling them | `79e38ea` |
-| #3188 | End the CLI quietly when its output pipe closes | open |
-| #3166 | Nightly smoke workflow for Linux and Windows | open, waits on a published nightly |
+| #3188 | End the CLI quietly when its output pipe closes | `b31c2ab` |
+| #3166 | Nightly smoke workflow for Linux and Windows | `d3892f1` |
 
 ## Remaining
 
@@ -381,7 +388,6 @@ These steps need hardware, accounts or keys a cloud machine does not have:
 - Step 1 on macOS (Apple Silicon): install from a browser download
   (quarantine attribute), `sd daemon install` under launchd, and the
   update timer.
-- Step 1 on Windows: rerun #3166 on a published nightly that includes #3169.
 - Step 2 on real prior-version state: copies of the Macs' libraries,
   including the 3-million-file library.
 - Step 5: one device pair across networks.
