@@ -64,6 +64,22 @@ use uuid::Uuid;
 /// arena from rebuilding over a few hundred bytes of slack.
 pub const COMPACT_MIN_VACANT: usize = 4_096;
 
+/// One entry the arena holds under a directory, as `Arena::known_children`
+/// reports it.
+#[derive(Debug, Clone)]
+pub struct KnownChild {
+	pub path: PathBuf,
+	pub kind: EntryKind,
+	pub size: u64,
+	/// Whole seconds, the precision the arena keeps.
+	pub modified: Option<std::time::SystemTime>,
+	/// A directory the walk counted rather than kept, so it has no children
+	/// to compare.
+	pub summarised: bool,
+	/// The entry plus, for a directory, the files beneath it.
+	pub entries: u64,
+}
+
 /// Memory-efficient index for browsing unmanaged paths.
 pub struct Arena {
 	arena: NodeArena,
@@ -596,6 +612,34 @@ impl Arena {
 			node.children
 				.iter()
 				.filter_map(|&child_id| self.reconstruct_path(child_id))
+				.collect(),
+		)
+	}
+
+	/// What the arena holds directly under a directory, for comparing with a
+	/// fresh read of it. `None` when the directory is not in the arena.
+	pub fn known_children(&self, dir: &Path) -> Option<Vec<KnownChild>> {
+		let id = *self.path_index.get(dir)?;
+		let node = self.arena.get(id)?;
+		Some(
+			node.children
+				.iter()
+				.filter_map(|&child_id| {
+					let child = self.arena.get(child_id)?;
+					let kind = EntryKind::from(child.meta.file_type());
+					Some(KnownChild {
+						path: self.reconstruct_path(child_id)?,
+						kind,
+						size: child.meta.size(),
+						modified: child.meta.mtime_as_system_time(),
+						summarised: self.stubs.contains_key(&child_id),
+						entries: if kind == EntryKind::Directory {
+							u64::from(child.file_count) + 1
+						} else {
+							1
+						},
+					})
+				})
 				.collect(),
 		)
 	}

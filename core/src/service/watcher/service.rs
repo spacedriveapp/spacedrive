@@ -282,6 +282,9 @@ impl FsWatcherService {
 			if restored > 0 {
 				info!("Restored {restored} registered source arena(s) at startup");
 			}
+			// The maps hold what was true when the daemon stopped; this is
+			// where what changed since reaches them.
+			crate::ops::indexing::reconcile::reconcile_attached_sources(self.context.clone()).await;
 		});
 	}
 
