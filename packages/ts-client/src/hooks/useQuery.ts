@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useQuery, type UseQueryOptions, type UseQueryResult } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useReducer } from "react";
 import { useSpacedriveClient } from "./useClient";
 import type { CoreQuery, LibraryQuery } from "../generated/types";
 import { WIRE_METHODS } from "../generated/types";
@@ -68,16 +68,17 @@ export function useLibraryQuery<T extends LibraryQuery["type"]>(
 ): UseQueryResult<Extract<LibraryQuery, { type: T }>["output"]> {
 	const client = useSpacedriveClient();
 	const wireMethod = WIRE_METHODS.libraryQueries[query.type];  // ← Auto-generated!
-	// A page that mounts before the app restores its library would otherwise
-	// keep a disabled query until something else re-renders it.
-	const [libraryId, setLibraryId] = useState<string | null>(() =>
-		client.getCurrentLibraryId(),
-	);
+	// The selection is read on every render, since some paths restore it
+	// without an event. A page that mounts before the app restores its
+	// library would otherwise keep a disabled query until something else
+	// re-renders it, so a change also forces a render.
+	const libraryId = client.getCurrentLibraryId();
+	const [, rerender] = useReducer((count: number) => count + 1, 0);
 	useEffect(() => {
-		setLibraryId(client.getCurrentLibraryId());
-		client.on("library-changed", setLibraryId);
+		if (client.getCurrentLibraryId() !== libraryId) rerender();
+		client.on("library-changed", rerender);
 		return () => {
-			client.off("library-changed", setLibraryId);
+			client.off("library-changed", rerender);
 		};
 	}, [client]);
 
