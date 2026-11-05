@@ -265,6 +265,13 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+	// Rust ignores SIGPIPE, so `sd status | head` panicked on the closed pipe.
+	// Restoring the default ends the CLI quietly, like other Unix tools.
+	#[cfg(unix)]
+	unsafe {
+		libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+	}
+
 	let cli = Cli::parse();
 	let base_data_dir = cli.data_dir.unwrap_or(sd_core::config::default_data_dir()?);
 	let instance = cli.instance;
