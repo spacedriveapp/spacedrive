@@ -278,7 +278,7 @@ async fn main() -> Result<()> {
 	// Same rule the daemon applies, so a client addressing an instance reads
 	// the state that instance actually owns.
 	let data_dir =
-		sd_core::infra::daemon::addr::instance_data_dir(base_data_dir, instance.as_deref());
+		sd_core::infra::daemon::addr::instance_data_dir(base_data_dir.clone(), instance.as_deref());
 	let socket_addr = daemon_socket_addr(instance.as_deref()).to_string();
 
 	match cli.command {
@@ -296,7 +296,7 @@ async fn main() -> Result<()> {
 					.parent()
 					.unwrap()
 					.join(sd_client::daemon_binary_name()),
-				data_dir: data_dir.clone(),
+				base_data_dir: base_data_dir.clone(),
 				instance: instance.clone(),
 				no_default_sources,
 			};
@@ -429,7 +429,7 @@ async fn main() -> Result<()> {
 					.parent()
 					.unwrap()
 					.join(sd_client::daemon_binary_name()),
-				data_dir: data_dir.clone(),
+				base_data_dir: base_data_dir.clone(),
 				instance: instance.clone(),
 				no_default_sources,
 			};
@@ -485,7 +485,7 @@ async fn main() -> Result<()> {
 		}
 		Commands::Daemon(cmd) => {
 			// Daemon management doesn't need the client, handle directly
-			daemon::run(data_dir, instance, cmd).await?;
+			daemon::run(data_dir, base_data_dir, instance, cmd).await?;
 		}
 		Commands::Mcp => {
 			// Serves without a daemon so an MCP client can list tools; each
@@ -493,10 +493,11 @@ async fn main() -> Result<()> {
 			domains::mcp::run(data_dir, socket_addr, cli.device).await?;
 		}
 		Commands::Update { force, yes, timer } => match timer {
-			Some(cmd) => update::run_timer(data_dir, instance, cmd).await?,
+			Some(cmd) => update::run_timer(data_dir, base_data_dir, instance, cmd).await?,
 			None => {
 				update::run(
 					data_dir,
+					base_data_dir,
 					instance,
 					socket_addr,
 					update::UpdateOptions { force, yes },
