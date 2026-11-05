@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useQuery, type UseQueryOptions, type UseQueryResult } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { useSpacedriveClient } from "./useClient";
 import type { CoreQuery, LibraryQuery } from "../generated/types";
 import { WIRE_METHODS } from "../generated/types";
@@ -67,7 +68,18 @@ export function useLibraryQuery<T extends LibraryQuery["type"]>(
 ): UseQueryResult<Extract<LibraryQuery, { type: T }>["output"]> {
 	const client = useSpacedriveClient();
 	const wireMethod = WIRE_METHODS.libraryQueries[query.type];  // ← Auto-generated!
-	const libraryId = client.getCurrentLibraryId();
+	// A page that mounts before the app restores its library would otherwise
+	// keep a disabled query until something else re-renders it.
+	const [libraryId, setLibraryId] = useState<string | null>(() =>
+		client.getCurrentLibraryId(),
+	);
+	useEffect(() => {
+		setLibraryId(client.getCurrentLibraryId());
+		client.on("library-changed", setLibraryId);
+		return () => {
+			client.off("library-changed", setLibraryId);
+		};
+	}, [client]);
 
 	return useQuery({
 		queryKey: [query.type, libraryId, query.input],
