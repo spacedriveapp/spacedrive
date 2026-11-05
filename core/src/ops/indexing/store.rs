@@ -86,6 +86,8 @@ enum Ingest {
 pub struct SourceCounts {
 	pub records: u64,
 	pub directories: u64,
+	/// Bytes of everything `records` counts but directories, whose size is
+	/// the filesystem's bookkeeping rather than anything a person stored.
 	pub bytes: u64,
 	pub contents: u64,
 	/// Bytes that remain if every within-source duplicate collapsed to one
@@ -552,7 +554,9 @@ impl SourceStore {
 		let row: (i64, i64, Option<i64>, i64, Option<i64>, Option<i64>) = sqlx::query_as(
 			"SELECT (SELECT COUNT(*) FROM record),
 			        (SELECT COUNT(*) FROM record WHERE type = 'directory'),
-			        (SELECT SUM(size) FROM facet_file),
+			        (SELECT SUM(f.size) FROM facet_file f
+			          JOIN record r ON r.uuid = f.record_uuid
+			         WHERE r.type <> 'directory'),
 			        (SELECT COUNT(*) FROM content),
 			        (SELECT SUM(c.size) FROM content c
 			          JOIN (SELECT DISTINCT content_id FROM record
