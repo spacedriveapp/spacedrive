@@ -59,6 +59,21 @@ git push origin v2.0.0-beta.1
 Pushing the tag starts release builds. It does not by itself publish a stable
 release.
 
+## Dry run
+
+Run the release workflow without a tag to check that it still builds:
+
+~~~bash
+gh workflow run release.yml --ref <branch> -f dry_run=true
+~~~
+
+`dry_run` defaults to true for a manual run. A dry run builds the server
+tarballs, the standalone `sd` and `sd-daemon` binaries for every platform, and
+the Linux desktop packages. It skips the macOS and Windows desktop bundles,
+passes no signing secrets, turns off the Tauri updater artifacts, and never
+runs the release job. The workflow's token is read-only for every build job,
+so the results exist only as workflow artifacts.
+
 ## Artifacts
 
 The release pipeline builds:
@@ -67,7 +82,7 @@ The release pipeline builds:
 | --- | --- |
 | Desktop | macOS ARM64 and x86-64, Windows x86-64, Linux x86-64 and ARM64 |
 | Headless server | Linux x86-64 and ARM64 |
-| CLI and daemon | Every supported desktop and server platform |
+| CLI and daemon | macOS ARM64 and x86-64, Windows x86-64, Linux x86-64 and ARM64 |
 | Mobile | iOS and Android |
 | Container | Linux amd64 and arm64 |
 
