@@ -436,7 +436,7 @@ impl ThumbService {
 			.read()
 			.await
 			.get_content_kind(path);
-		if !thumbnailable(kind) {
+		if !thumbnailable(path, kind) {
 			return GenerationOutcome::Skipped;
 		}
 		let Some(identity) = self.thumbnail_identity(path).await else {
@@ -1228,6 +1228,23 @@ pub(super) fn priority_for(rank: usize, total: usize) -> u32 {
 	(total.saturating_sub(rank)) as u32
 }
 
+/// Whether a file can bake a tile on this platform.
+///
+/// A file every producer declines still takes a queue slot, a worker and a
+/// decode attempt before it fails, and a recursive pass over a source holds
+/// far more of those than images: 996,000 of a million files in a mixed tree.
+/// A file qualifies when its kind, which the arena takes from the name, is an
+/// image or a video, or when its extension is one `sd-images` decodes. The
+/// second covers what the registry files elsewhere, PDFs as documents and
+/// `.qoi` or `.svgz` as nothing. macOS renders a Quick Look preview or an
+/// icon for any file, so every file qualifies there.
+fn thumbnailable(path: &Path, kind: ContentKind) -> bool {
+	cfg!(target_os = "macos")
+		|| matches!(kind, ContentKind::Image | ContentKind::Video)
+		|| is_video(path)
+		|| sd_images::ConvertibleExtension::try_from(path).is_ok()
+}
+
 /// Raster decode, then (on macOS) the platform icon tile so a file no decoder
 /// recognizes still gets a real cell instead of a permanent placeholder.
 ///
@@ -1235,17 +1252,6 @@ pub(super) fn priority_for(rank: usize, total: usize) -> u32 {
 /// proportions, and a square view crops back out of that. Baking the crop
 /// instead would throw away the shape and leave the grid nothing to recover it
 /// from. Icon tiles are square by nature and unaffected.
-/// Whether a file of this kind can bake a tile on this platform.
-///
-/// A file every producer declines still takes a queue slot, a worker and a
-/// decode attempt before it fails, and a recursive pass over a source holds
-/// far more of those than images: 996,000 of a million files in a mixed tree.
-/// The kind comes from the name, as the arena assigns it. macOS renders a
-/// Quick Look preview or an icon for any file, so every kind qualifies there.
-fn thumbnailable(kind: ContentKind) -> bool {
-	cfg!(target_os = "macos") || matches!(kind, ContentKind::Image | ContentKind::Video)
-}
-
 fn producer_chain(external_tools: Arc<ExternalTools>) -> Vec<Box<dyn Producer>> {
 	let mut chain: Vec<Box<dyn Producer>> = vec![Box::new(ImageProducer::new(ScaleMode::Fit))];
 	#[cfg(target_os = "macos")]
@@ -1433,12 +1439,19 @@ pub(super) mod tests {
 	}
 
 	#[test]
-	fn images_and_videos_are_thumbnailable() {
-		assert!(thumbnailable(ContentKind::Image));
-		assert!(thumbnailable(ContentKind::Video));
-		assert_eq!(thumbnailable(ContentKind::Text), cfg!(target_os = "macos"));
+	fn images_videos_and_decodable_formats_are_thumbnailable() {
+		let path = |name: &str| PathBuf::from(name);
+		assert!(thumbnailable(&path("a.jpg"), ContentKind::Image));
+		assert!(thumbnailable(&path("a.mkv"), ContentKind::Video));
+		assert!(thumbnailable(&path("a.pdf"), ContentKind::Document));
+		assert!(thumbnailable(&path("a.QOI"), ContentKind::Unknown));
+		assert!(thumbnailable(&path("a.svgz"), ContentKind::Unknown));
 		assert_eq!(
-			thumbnailable(ContentKind::Unknown),
+			thumbnailable(&path("a.txt"), ContentKind::Text),
+			cfg!(target_os = "macos")
+		);
+		assert_eq!(
+			thumbnailable(&path("a.dat"), ContentKind::Unknown),
 			cfg!(target_os = "macos")
 		);
 	}
