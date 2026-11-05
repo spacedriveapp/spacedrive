@@ -1133,6 +1133,60 @@ async fn run_test_scenarios(
 	// Clean up trash directory
 	tokio::fs::remove_dir_all(&trash_dir).await?;
 
+	tracing::info!("Scenario 9b: trash inside the watched tree");
+
+	// The same rename as the trash above, except that its destination is a
+	// filtered path under the root rather than a path outside it.
+	let volume_trash = harness.path(".Trash-1000/files");
+	tokio::fs::create_dir_all(&volume_trash).await?;
+	let volume_trash_files = ["volume_trash1.txt", "volume_trash2.txt"];
+	harness.create_batch_files(&volume_trash_files).await?;
+	for file in &volume_trash_files {
+		harness.verify_entry_exists(file).await?;
+	}
+	for file in &volume_trash_files {
+		harness.move_to_trash(file, &volume_trash).await?;
+	}
+	for file in &volume_trash_files {
+		harness.verify_entry_not_exists(file).await?;
+	}
+	for file in &volume_trash_files {
+		harness.restore_from_trash(file, &volume_trash).await?;
+	}
+	for file in &volume_trash_files {
+		harness.verify_entry_exists(file).await?;
+	}
+	for file in &volume_trash_files {
+		harness.delete_file(file).await?;
+	}
+
+	// A folder comes back as one rename, and everything under it with it.
+	let deep_file = "trash_folder/sub/deep.txt";
+	tokio::fs::create_dir_all(harness.path("trash_folder/sub")).await?;
+	tokio::fs::write(harness.path(deep_file), b"deep").await?;
+	harness.verify_entry_exists(deep_file).await?;
+	let excluded_file = "trash_folder/sub/.DS_Store";
+	tokio::fs::write(harness.path(excluded_file), b"system").await?;
+	#[cfg(unix)]
+	tokio::fs::symlink(
+		harness.path("trash_folder/missing-target"),
+		harness.path("trash_folder/dangling"),
+	)
+	.await?;
+	harness.move_to_trash("trash_folder", &volume_trash).await?;
+	harness.verify_entry_not_exists(deep_file).await?;
+	harness
+		.restore_from_trash("trash_folder", &volume_trash)
+		.await?;
+	harness.verify_entry_exists("trash_folder/sub").await?;
+	harness.verify_entry_exists(deep_file).await?;
+	harness.verify_entry_not_exists(excluded_file).await?;
+	tokio::fs::remove_dir_all(harness.path("trash_folder")).await?;
+	harness.verify_entry_not_exists("trash_folder").await?;
+
+	tokio::fs::remove_dir_all(harness.path(".Trash-1000")).await?;
+	tracing::info!("Trash inside the watched tree: removed on trash, back on restore");
+
 	// ========================================================================
 	// Scenario 10: Screenshot Pattern (rapid create + write)
 	// ========================================================================

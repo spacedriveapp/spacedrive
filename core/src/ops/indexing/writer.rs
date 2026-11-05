@@ -581,25 +581,10 @@ impl ChangeHandler for ArenaWriter {
 		Ok(())
 	}
 
-	async fn handle_new_directory(&self, path: &Path) -> Result<()> {
-		use crate::ops::indexing::metadata;
-
-		let mut entries = match tokio::fs::read_dir(path).await {
-			Ok(entries) => entries,
-			Err(e) => {
-				tracing::warn!(
-					"Failed to read directory {} to index it: {}",
-					path.display(),
-					e
-				);
-				return Ok(());
-			}
-		};
-
+	async fn handle_new_entries(&self, paths: &[PathBuf]) -> Result<()> {
 		let mut observed = Vec::new();
-		while let Ok(Some(entry)) = entries.next_entry().await {
-			let entry_path = entry.path();
-			let Ok(metadata) = entry.metadata().await else {
+		for entry_path in paths {
+			let Ok(metadata) = tokio::fs::symlink_metadata(entry_path).await else {
 				continue;
 			};
 			let kind = if metadata.is_dir() {
@@ -616,13 +601,13 @@ impl ChangeHandler for ArenaWriter {
 				size: metadata.len(),
 				modified: metadata.modified().ok(),
 				accessed: metadata.accessed().ok(),
-				created: crate::ops::indexing::metadata::birth_time(&entry_path, &metadata),
-				inode: crate::ops::indexing::metadata::get_inode(&entry_path, &metadata),
+				created: crate::ops::indexing::metadata::birth_time(entry_path, &metadata),
+				inode: crate::ops::indexing::metadata::get_inode(entry_path, &metadata),
 				permissions: None,
 				uid: None,
 				gid: None,
 				link_target: None,
-				is_hidden: is_hidden_path(&entry_path),
+				is_hidden: is_hidden_path(entry_path),
 			});
 		}
 
@@ -788,6 +773,46 @@ mod tests {
 			.read()
 			.await
 			.has_entry(&root.path().join(".hidden")));
+	}
+
+	/// An atomic save writes a temporary file and renames it over the
+	/// original. When the temporary's creation lands in the same batch as the
+	/// rename, the index never held it, and the original's new size must still
+	/// arrive.
+	#[tokio::test]
+	async fn a_rename_over_a_file_from_an_unindexed_temporary_updates_it() {
+		let root = TempDir::new().unwrap();
+		let photo = root.path().join("photo.jpg");
+		let temporary = root.path().join("photo.jpg_exiftool_tmp");
+		std::fs::write(&photo, b"old").unwrap();
+		let (mut writer, _bus) = writer(root.path(), Notify::Each);
+		writer.apply(Seen::Entries(vec![file(&photo, 3)])).await;
+
+		std::fs::write(&temporary, b"rewritten with metadata").unwrap();
+		std::fs::rename(&temporary, &photo).unwrap();
+		let config = crate::ops::indexing::ChangeConfig {
+			rule_toggles: Default::default(),
+			root: root.path(),
+			volume_backend: None,
+		};
+		crate::ops::indexing::apply_change_batch(
+			&mut writer,
+			vec![
+				sd_fs_watcher::FsEvent::create(temporary.clone()),
+				sd_fs_watcher::FsEvent::rename(temporary.clone(), photo.clone()),
+			],
+			&config,
+		)
+		.await
+		.unwrap();
+
+		let index = writer.index.read().await;
+		assert!(!index.has_entry(&temporary));
+		assert_eq!(
+			index.get_entry_ref(&photo).map(|entry| entry.size),
+			Some(23),
+			"the original carries the bytes the save wrote"
+		);
 	}
 
 	/// Mapping a drive nobody asked to see: the arena fills and nothing is

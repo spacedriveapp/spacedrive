@@ -8,7 +8,7 @@ use super::types::{ChangeConfig, ChangeType, EntryRef};
 use crate::ops::indexing::rules::{build_default_ruler, RuleToggles, RulerDecision};
 use crate::ops::indexing::state::{DirEntry, EntryKind};
 use anyhow::Result;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 /// Abstracts storage operations for filesystem change handling, so the change
@@ -45,9 +45,9 @@ pub trait ChangeHandler: Send + Sync {
 	/// Emit appropriate events for UI updates.
 	async fn emit_change_event(&self, entry: &EntryRef, change_type: ChangeType) -> Result<()>;
 
-	/// Handle directory recursion after creation: index the new directory's
-	/// contents inline, one level deep.
-	async fn handle_new_directory(&self, path: &Path) -> Result<()>;
+	/// Index entries found inside a directory that arrived in one event. The
+	/// caller has already applied the indexing rules to every path.
+	async fn handle_new_entries(&self, paths: &[PathBuf]) -> Result<()>;
 }
 
 /// Check if a path exists, distinguishing between "doesn't exist" and "can't access".
@@ -122,7 +122,7 @@ pub async fn should_filter_path(
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to get metadata via backend: {}", e))?
 	} else {
-		let fs_meta = tokio::fs::metadata(path).await?;
+		let fs_meta = tokio::fs::symlink_metadata(path).await?;
 		crate::volume::backend::RawMetadata {
 			kind: if fs_meta.is_dir() {
 				EntryKind::Directory
@@ -345,7 +345,54 @@ pub async fn handle_create<H: ChangeHandler>(
 	let entry = handler.create(&metadata, parent_path).await?;
 
 	if entry.is_directory() {
-		handler.handle_new_directory(path).await?;
+		// A directory moved in whole, from outside the watched tree or back
+		// from a trash, arrives as one event, so its subtree is read here.
+		let mut pending = vec![path.to_path_buf()];
+		while let Some(dir) = pending.pop() {
+			let mut children = match tokio::fs::read_dir(&dir).await {
+				Ok(children) => children,
+				Err(e) => {
+					tracing::warn!(
+						"Failed to read directory {} to index it: {}",
+						dir.display(),
+						e
+					);
+					continue;
+				}
+			};
+			let mut kept = Vec::new();
+			while let Ok(Some(child)) = children.next_entry().await {
+				let child = child.path();
+				match should_filter_path(
+					&child,
+					config.rule_toggles,
+					config.root,
+					config.volume_backend,
+				)
+				.await
+				{
+					Ok(false) => {}
+					Ok(true) => continue,
+					// Skip only this child so one unreadable entry does not cost the rest of the subtree.
+					Err(e) => {
+						tracing::warn!(
+							"Skipping {} while indexing a new directory: {}",
+							child.display(),
+							e
+						);
+						continue;
+					}
+				}
+				if tokio::fs::symlink_metadata(&child)
+					.await
+					.is_ok_and(|m| m.is_dir())
+				{
+					pending.push(child.clone());
+				}
+				kept.push(child);
+			}
+			handler.handle_new_entries(&kept).await?;
+		}
 	} else {
 		handler.run_processors(&entry, true).await?;
 	}
@@ -496,18 +543,23 @@ pub async fn handle_rename<H: ChangeHandler>(
 		return handle_remove(handler, from).await;
 	}
 
-	if let Some(entry) = handler.find_by_path(from).await? {
-		handler
-			.move_entry(&entry, from, to, to.parent().unwrap_or(Path::new("/")))
-			.await?;
-		handler.emit_change_event(&entry, ChangeType::Moved).await?;
-		tracing::debug!("Moved entry {} -> {}", from.display(), to.display());
-	} else {
+	let Some(entry) = handler.find_by_path(from).await? else {
+		// An atomic save writes a temporary file and renames it over the
+		// original; the temporary was never indexed, so what changed is the
+		// destination.
 		tracing::debug!(
-			"Entry not found for old path {}, skipping rename",
-			from.display()
+			"Rename from unindexed {}, treating {} as written",
+			from.display(),
+			to.display()
 		);
-	}
+		return handle_create(handler, to, config).await;
+	};
+
+	handler
+		.move_entry(&entry, from, to, to.parent().unwrap_or(Path::new("/")))
+		.await?;
+	handler.emit_change_event(&entry, ChangeType::Moved).await?;
+	tracing::debug!("Moved entry {} -> {}", from.display(), to.display());
 
 	Ok(())
 }

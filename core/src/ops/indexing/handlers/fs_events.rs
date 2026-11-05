@@ -10,7 +10,7 @@ use crate::ops::indexing::responder;
 use crate::ops::indexing::rules::RuleToggles;
 use crate::service::watcher::FsWatcherService;
 use anyhow::Result;
-use sd_fs_watcher::FsEvent;
+use sd_fs_watcher::{FsEvent, FsEventKind};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
@@ -218,13 +218,30 @@ impl FsEventHandler {
 		event: &FsEvent,
 		rule_toggles: RuleToggles,
 	) -> Result<()> {
-		let Some(root_path) = context
-			.volume_index()
-			.watched_root_for_change(&event.path)
-			.await
-		else {
-			trace!("Event not under a watched root: {}", event.path.display());
-			return Ok(());
+		let index = context.volume_index();
+		let (root_path, event) = match index.watched_root_for_change(&event.path).await {
+			Some(root) => (root, event.clone()),
+			None => {
+				// A move into a directory the index does not hold, such as a
+				// trash folder, still takes the file away from where it was.
+				let from = match &event.kind {
+					FsEventKind::Rename { from, .. } => from,
+					_ => {
+						trace!("Event not under a watched root: {}", event.path.display());
+						return Ok(());
+					}
+				};
+				let Some(root) = index.watched_root_for_change(from).await else {
+					trace!("Rename outside every watched root: {}", from.display());
+					return Ok(());
+				};
+				debug!(
+					"Rename into unindexed {}, removing {}",
+					event.path.display(),
+					from.display()
+				);
+				(root, FsEvent::remove(from.clone()))
+			}
 		};
 		let root_path = &root_path;
 
@@ -250,7 +267,7 @@ impl FsEventHandler {
 		// archival source keeps everything its walk keeps, live changes
 		// included.
 		let rule_toggles = context.volume_index().rule_toggles_for(root_path);
-		responder::apply(context, root_path, event.clone(), rule_toggles).await
+		responder::apply(context, root_path, event, rule_toggles).await
 	}
 }
 
