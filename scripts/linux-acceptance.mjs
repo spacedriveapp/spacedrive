@@ -87,6 +87,29 @@ await row("trash", async (snap) => {
 });
 
 if (device && home) {
+	await row("video-thumbstrip", async (snap) => {
+		await go(explorer(`${home}/Videos`));
+		const box = expect(
+			await page.locator("img[src*='/hot-thumb/']").first().boundingBox(),
+			"no video poster to hover",
+		);
+		const strip = page.waitForResponse((r) => r.url().includes("/hot-thumbstrip/"), {
+			timeout: 20000,
+		});
+		for (let step = 0; step <= 10; step++) {
+			await page.mouse.move(box.x + 2 + ((box.width - 4) * step) / 10, box.y + box.height / 2);
+			await page.waitForTimeout(150);
+		}
+		const response = await strip;
+		await page.waitForTimeout(500);
+		await snap();
+		await page.mouse.move(0, 0);
+		expect(response.status() === 200, `the thumbstrip answered ${response.status()}`);
+		return response.url().split("/hot-thumbstrip/")[1];
+	});
+}
+
+if (device && home) {
 	await row("quick-preview-video", async (snap) => {
 		await go(explorer(`${home}/Videos`));
 		await page.getByText("clip-00", { exact: false }).first().click();

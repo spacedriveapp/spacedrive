@@ -76,6 +76,9 @@ export function useHotThumbstrip(path: SdPath, enabled: boolean) {
 	useEffect(() => {
 		if (!enabled || !pathKey) return;
 		let active = true;
+		// Listen before asking, so a sheet that finishes before the answer
+		// arrives is still seen.
+		listen(client);
 		client
 			.execute<ThumbstripRequestInput, ThumbstripRequestOutput>(
 				"action:thumbstrips.request.input",
@@ -107,12 +110,12 @@ export function useHotThumbstrip(path: SdPath, enabled: boolean) {
 
 	useEffect(() => {
 		if (!enabled || !identity || identity.ready || !identity.pending) return;
-		listen(client);
 		const key = identityKey(identity);
 		const notify = (_epoch: number, ok: boolean) => setReady(ok);
 		const cells = listeners.get(key) ?? new Set();
 		cells.add(notify);
 		listeners.set(key, cells);
+		if (completions.get(key)?.ok) setReady(true);
 		return () => {
 			const cells = listeners.get(key);
 			cells?.delete(notify);
