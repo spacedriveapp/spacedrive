@@ -467,7 +467,7 @@ impl JobHandler for IndexerJob {
 				let cache = ctx.library().core_context().volume_index();
 				match &result {
 					Ok(_) => cache.mark_indexing_complete(local_path),
-					Err(_) => cache.mark_indexing_failed(local_path),
+					Err(_) => cache.mark_walk_failed(local_path),
 				}
 				match &result {
 					Ok(_) => {
