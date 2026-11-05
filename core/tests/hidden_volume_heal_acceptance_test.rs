@@ -1,13 +1,13 @@
 //! A source whose first walk was killed heals on a volume the volume list
-//! hides (\`docs/core/acceptance/candidate-validation.md\`, step 4).
+//! hides (`docs/core/acceptance/candidate-validation.md`, step 4).
 //!
-//! On Linux \`/\`, \`/home\` and \`/tmp\` are system mounts the volume list hides,
+//! On Linux `/`, `/home` and `/tmp` are system mounts the volume list hides,
 //! and a home folder source sits on one of them. The heal resolves registered
 //! sources directly, so visibility does not decide whether a source is
 //! repaired. The fixture lives in a temporary directory, which on Linux is on
 //! one of those hidden mounts.
 //!
-//! One \`Core\` over temporary directories, stopped mid-walk and restarted. No
+//! One `Core` over temporary directories, stopped mid-walk and restarted. No
 //! loop device, no network.
 
 mod helpers;
@@ -150,7 +150,7 @@ async fn a_killed_first_walk_heals_on_a_hidden_volume() {
 		"the first walk finished before the stop, so this run proves nothing"
 	);
 
-	// The heal runs in the launch pass a desktop or \`sd index start\` requests.
+	// The heal runs in the launch pass a desktop or `sd index start` requests.
 	StartupIndexingAction::from_input(StartupIndexingInput { force: true })
 		.expect("input")
 		.execute(library.clone(), core.context.clone())
