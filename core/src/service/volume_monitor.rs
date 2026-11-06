@@ -361,16 +361,17 @@ async fn apply_volume(context: &Arc<CoreContext>, volume: &Volume) {
 	}
 	// The watch hears changes from the return on. Whatever was written to the
 	// drive while it was away, on another machine or before this daemon
-	// started, only a comparison with the disk can find.
-	for (library_id, _, root) in &returned {
+	// started, only a comparison with the disk can find. It runs before the
+	// failed identifications are retried: a hash pass reading a renamed
+	// file's old path would write its failure onto the record the reconcile
+	// has just moved.
+	for (library_id, source_id, root) in returned {
 		let walked_empty = index
 			.sources()
 			.into_iter()
-			.find(|source| &source.root == root)
+			.find(|source| source.root == root)
 			.is_some_and(|source| source.entry_count == Some(0));
 		let context = context.clone();
-		let library_id = *library_id;
-		let root = root.clone();
 		tokio::spawn(async move {
 			crate::ops::indexing::reconcile::reconcile_source(
 				&context,
@@ -379,51 +380,59 @@ async fn apply_volume(context: &Arc<CoreContext>, volume: &Volume) {
 				walked_empty,
 			)
 			.await;
+			if let Some(library_id) = library_id {
+				identify_returned(&context, library_id, source_id, &root).await;
+			}
 		});
 	}
-	let libraries = context.libraries().await;
-	for (library_id, source_id, root) in returned {
-		let Some(library_id) = library_id else {
-			continue;
-		};
-		let Some(library) = libraries.get_library(library_id).await else {
-			continue;
-		};
-		let Some(store) = index.store_for(&root).await else {
-			continue;
-		};
-		match store.retry_failed_identifications().await {
-			Ok(0) => {}
-			Ok(reset) => {
-				info!(source = %source_id, reset, "failed identifications are pending again")
-			}
-			Err(error) => {
-				warn!(source = %source_id, %error, "could not reset failed identifications")
-			}
+}
+
+/// Retry what failed to hash while the drive was away and hash what is
+/// pending.
+async fn identify_returned(
+	context: &Arc<CoreContext>,
+	library_id: uuid::Uuid,
+	source_id: uuid::Uuid,
+	root: &std::path::Path,
+) {
+	let index = context.volume_index();
+	let Some(library) = context.libraries().await.get_library(library_id).await else {
+		return;
+	};
+	let Some(store) = index.store_for(root).await else {
+		return;
+	};
+	match store.retry_failed_identifications().await {
+		Ok(0) => {}
+		Ok(reset) => {
+			info!(source = %source_id, reset, "failed identifications are pending again")
 		}
-		let pending = store.files_needing_content_count().await.unwrap_or(0);
-		if pending == 0 {
-			continue;
+		Err(error) => {
+			warn!(source = %source_id, %error, "could not reset failed identifications")
 		}
-		if let Some(reason) = index.dispatch_refusal(&root) {
-			warn!(source = %source_id, %reason, "not identifying the returned source");
-			continue;
-		}
-		let job =
-			crate::ops::indexing::content_identity::ContentIdentityJob::background(root.clone());
-		match library
-			.jobs()
-			.dispatch_with_priority(job, crate::infra::job::types::JobPriority::LOW, None)
-			.await
-		{
-			Ok(handle) => info!(
-				source = %source_id,
-				pending,
-				job = %handle.id(),
-				"identifying the contents of a returned source"
-			),
-			Err(error) => warn!(source = %source_id, %error, "could not resume identification"),
-		}
+	}
+	let pending = store.files_needing_content_count().await.unwrap_or(0);
+	if pending == 0 {
+		return;
+	}
+	if let Some(reason) = index.dispatch_refusal(root) {
+		warn!(source = %source_id, %reason, "not identifying the returned source");
+		return;
+	}
+	let job =
+		crate::ops::indexing::content_identity::ContentIdentityJob::background(root.to_path_buf());
+	match library
+		.jobs()
+		.dispatch_with_priority(job, crate::infra::job::types::JobPriority::LOW, None)
+		.await
+	{
+		Ok(handle) => info!(
+			source = %source_id,
+			pending,
+			job = %handle.id(),
+			"identifying the contents of a returned source"
+		),
+		Err(error) => warn!(source = %source_id, %error, "could not resume identification"),
 	}
 }
 
