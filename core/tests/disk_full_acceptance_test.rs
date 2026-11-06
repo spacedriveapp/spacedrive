@@ -145,8 +145,12 @@ async fn a_full_disk_fails_the_walk_and_the_heal_finishes_it_once_there_is_room(
 	let data = tempfile::TempDir::new().expect("data dir");
 	let data_dir = data.path().to_path_buf();
 	let sources = mount.join("sources");
-	std::fs::create_dir_all(&sources).expect("sources dir");
-	std::os::unix::fs::symlink(&sources, data_dir.join("sources")).expect("sources link");
+	tokio::fs::create_dir_all(&sources)
+		.await
+		.expect("sources dir");
+	tokio::fs::symlink(&sources, data_dir.join("sources"))
+		.await
+		.expect("sources link");
 	let core = boot(&data_dir).await;
 	let library = core
 		.libraries
