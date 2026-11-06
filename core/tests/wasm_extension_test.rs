@@ -23,7 +23,10 @@ use sd_core::{
 	infra::{
 		action::LibraryAction,
 		api::SessionContext,
-		job::{database::checkpoint, types::JobStatus},
+		job::{
+			database::{self, checkpoint},
+			types::JobStatus,
+		},
 		query::CoreQuery,
 	},
 	ops::{
@@ -343,8 +346,12 @@ async fn counter_checkpoint(
 	library: &sd_core::library::Library,
 	job_id: Uuid,
 ) -> Option<CounterState> {
+	checkpoint_in(library.jobs().database().conn(), job_id).await
+}
+
+async fn checkpoint_in(conn: &sea_orm::DatabaseConnection, job_id: Uuid) -> Option<CounterState> {
 	let row = checkpoint::Entity::find_by_id(job_id.to_string())
-		.one(library.jobs().database().conn())
+		.one(conn)
 		.await
 		.unwrap()?;
 	let state_json: String = rmp_serde::from_slice(&row.checkpoint_data).unwrap();
@@ -508,17 +515,27 @@ async fn extension_job_resumes_after_restart() {
 		library.jobs().pause_job(job_id.into()).await.unwrap();
 		wait_for_status(&library, job_id, JobStatus::Paused, Duration::from_secs(30)).await;
 
-		let paused = counter_checkpoint(&library, job_id)
+		let seen_paused = counter_checkpoint(&library, job_id)
 			.await
 			.expect("paused job keeps its checkpoint");
+
+		// Paused is reported when the pause is requested, while the guest can
+		// still land a checkpoint before it sees the interrupt and saves its
+		// last one. Shutdown waits for that last save and closes the jobs
+		// database, so read it after, from the file.
+		core.shutdown().await.unwrap();
+		let jobs_db = database::init_database(&library.path().join("jobs.db"))
+			.await
+			.unwrap();
+		let paused = checkpoint_in(&jobs_db, job_id)
+			.await
+			.expect("paused job keeps its checkpoint");
+		jobs_db.close().await.unwrap();
 		assert!(
-			paused.current > 0 && paused.current < target,
-			"paused mid-way, got {paused:?}"
+			paused.current >= seen_paused.current && paused.current < target,
+			"paused mid-way, got {paused:?} after {seen_paused:?}"
 		);
 		assert_eq!(paused.processed.len(), paused.current as usize);
-		println!("paused at {}/{}", paused.current, target);
-
-		core.shutdown().await.unwrap();
 		(library.id(), job_id, paused.current)
 	};
 
