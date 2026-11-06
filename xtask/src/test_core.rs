@@ -239,6 +239,14 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Disk full acceptance test",
 		&["--test", "disk_full_acceptance_test"],
 	),
+	// A track on a nearly full data disk whose first walk cannot start
+	// fails visibly, keeps the source registered, and the heal walks it once
+	// there is room. Skips like the locked volumes suite.
+	acceptance(
+		"sd-core",
+		"Track on a full data disk acceptance test",
+		&["--test", "track_full_data_disk_acceptance_test"],
+	),
 	// A source whose drive snapshot is missing or unusable at restart lists
 	// from a map rebuilt out of its store before any walk runs.
 	acceptance(
