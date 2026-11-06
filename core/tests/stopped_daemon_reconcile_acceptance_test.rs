@@ -809,6 +809,20 @@ async fn a_non_utf8_name_from_the_watcher_or_the_reconcile_keeps_its_directory_l
 		listed_within(&core, &library, &root, "live\u{FFFD}name", false).await,
 		"removing it on disk removes it from the listing"
 	);
+	let folder = root.join(std::ffi::OsStr::from_bytes(b"folder\xFDname"));
+	std::fs::create_dir(&folder).expect("mkdir");
+	std::fs::write(folder.join("inside.txt"), "inside").expect("write");
+	assert!(
+		listed_within(
+			&core,
+			&library,
+			&root.join("folder\u{FFFD}name"),
+			"inside",
+			true
+		)
+		.await,
+		"a non-UTF-8 folder lists its file"
+	);
 
 	let record = {
 		let cache = core.context.volume_index();
@@ -848,12 +862,43 @@ async fn a_non_utf8_name_from_the_watcher_or_the_reconcile_keeps_its_directory_l
 	tokio::time::sleep(Duration::from_secs(2)).await;
 
 	std::fs::remove_file(&offline).expect("remove");
+	std::fs::remove_dir_all(&folder).expect("remove folder");
+	std::fs::write(&folder, "a file where the folder was").expect("replace folder");
 	let core = boot(stopped.data_dir.path()).await;
 	let library = library_at(&core, &stopped.library_path).await;
 	assert!(
 		listed_within(&core, &library, &root, "offline\u{FFFD}name", false).await,
 		"a non-UTF-8 name deleted while stopped leaves the listing"
 	);
+	let cache = core.context.volume_index();
+	let index = cache.get_for_search(&root).expect("map");
+	let lossy_folder = root.join("folder\u{FFFD}name");
+	let mut kind = None;
+	for _ in 0..100 {
+		kind = index
+			.read()
+			.await
+			.get_entry_ref(&lossy_folder)
+			.map(|entry| entry.kind);
+		if kind == Some(sd_core::ops::indexing::state::EntryKind::File) {
+			break;
+		}
+		tokio::time::sleep(Duration::from_millis(100)).await;
+	}
+	assert_eq!(
+		kind,
+		Some(sd_core::ops::indexing::state::EntryKind::File),
+		"a non-UTF-8 folder replaced by a file while stopped is the file"
+	);
+	assert!(
+		index
+			.read()
+			.await
+			.get_entry_ref(&lossy_folder.join("inside.txt"))
+			.is_none(),
+		"the replaced folder's child is gone"
+	);
+	drop(index);
 	drop(library);
 	core.shutdown().await.expect("shutdown");
 }

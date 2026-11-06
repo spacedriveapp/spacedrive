@@ -301,9 +301,11 @@ pub async fn reconcile_source(
 	// cleared, or a directory's old children would stay under a path that is
 	// now a file. The rest arrive first, so a file that moved out of a
 	// replaced directory is rebound before that directory is forgotten.
-	let (after_replacement, added): (Vec<PathBuf>, Vec<PathBuf>) = added
-		.into_iter()
-		.partition(|path| replaced.iter().any(|(old, ..)| path.starts_with(old)));
+	let (after_replacement, added): (Vec<PathBuf>, Vec<PathBuf>) =
+		added.into_iter().partition(|path| {
+			let key = map_spelling(path);
+			replaced.iter().any(|(old, ..)| key.starts_with(old))
+		});
 	let mut arrived: HashSet<Uuid> = HashSet::new();
 	report.added += arrive(&writer, &added, &mut arrived).await;
 	report.modified += arrive(&writer, &changed, &mut arrived).await;
