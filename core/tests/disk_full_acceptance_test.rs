@@ -7,10 +7,14 @@
 //! as running. The store stays intact, and once there is room again the
 //! coverage heal walks the source to completion.
 //!
-//! The data directory and the tree both live on a small loop-backed ext4
-//! volume, filled until the store cannot hold the walk. Freeing the filler is
-//! then all it takes to give the store room again. The helper skips with a
-//! reason where there is no passwordless sudo or no loop device.
+//! The tree and the source stores live on a small loop-backed ext4 volume,
+//! filled until the store cannot hold the walk. The rest of the data
+//! directory, with the library and jobs databases, stays on the regular disk:
+//! the walk's job row is written before the walk starts, and on a full disk
+//! that insert fails first, at a point that depends on how much slack SQLite
+//! happens to hold. Freeing the filler is then all it takes to give the store
+//! room again. The helper skips with a reason where there is no passwordless
+//! sudo or no loop device.
 
 #![cfg(target_os = "linux")]
 
@@ -136,7 +140,17 @@ async fn a_full_disk_fails_the_walk_and_the_heal_finishes_it_once_there_is_room(
 	.expect("tree");
 	let expected_records = (DIRECTORIES * (FILES_PER_DIRECTORY + 1)) as u64;
 
-	let data_dir = mount.join("data");
+	// Only the stores go on the volume, through a link where the daemon
+	// looks for them.
+	let data = tempfile::TempDir::new().expect("data dir");
+	let data_dir = data.path().to_path_buf();
+	let sources = mount.join("sources");
+	tokio::fs::create_dir_all(&sources)
+		.await
+		.expect("sources dir");
+	tokio::fs::symlink(&sources, data_dir.join("sources"))
+		.await
+		.expect("sources link");
 	let core = boot(&data_dir).await;
 	let library = core
 		.libraries
@@ -173,8 +187,7 @@ async fn a_full_disk_fails_the_walk_and_the_heal_finishes_it_once_there_is_room(
 		.expect("the walk ends instead of hanging");
 	outcome.expect_err("a walk into a full disk cannot succeed");
 
-	// The job reads as failed, even though the jobs database shares the full
-	// disk and could not record it.
+	// The job reads as failed, in memory and in the jobs database.
 	let info = library
 		.jobs()
 		.get_job_info(job_id)
@@ -246,9 +259,9 @@ async fn a_full_disk_fails_the_walk_and_the_heal_finishes_it_once_there_is_room(
 	drop(library);
 	core.shutdown().await.expect("shutdown");
 	drop(core);
-	// The data directory is on the volume, and pools that outlive shutdown
-	// keep it busy for the helper's plain unmount; a lazy one detaches it now
-	// so the next suite's volume does not mount over it.
+	// The stores are on the volume, and pools that outlive shutdown keep it
+	// busy for the helper's plain unmount; a lazy one detaches it now so the
+	// next suite's volume does not mount over it.
 	tokio::time::sleep(Duration::from_secs(2)).await;
 	sudo(&["umount", "-l", mount.to_str().unwrap()]).await;
 	drop(volume);
