@@ -307,7 +307,17 @@ pub async fn track_and_index(
 		.await
 		.map_err(|e| ActionError::Internal(e.to_string()))?;
 
-	let job_id = dispatch_source_walk(library, context, id, root.clone(), whole_volume, true).await;
+	// The source stays registered when its walk cannot start: it is marked
+	// unfinished, so the next heal walks it. The caller still has to hear
+	// that nothing is indexing it yet.
+	let job_id = dispatch_source_walk(library, context, id, root.clone(), whole_volume, true)
+		.await
+		.map_err(|e| {
+			ActionError::Internal(format!(
+				"{} is tracked, but its first walk could not start: {e}. Spacedrive walks it the next time it starts, or when you track it again",
+				root.display()
+			))
+		})?;
 
 	Ok(TrackSourceOutput {
 		id,
@@ -328,6 +338,12 @@ pub async fn track_and_index(
 /// both honor the persisted capture policy, source retention, and the store
 /// wiring the same way. `announce` distinguishes a person tracking a source
 /// from a background repair.
+///
+/// The store is marked walk-unfinished before anything is queued, so a walk
+/// that never starts, whether the mark's own write, the job row, or the
+/// daemon fails first, leaves the same evidence as one that stopped partway,
+/// and the coverage heal walks the source again. `Ok(None)` is a refusal to
+/// walk the directory an unmounted drive left behind.
 pub(crate) async fn dispatch_source_walk(
 	library: &Arc<crate::library::Library>,
 	context: &Arc<CoreContext>,
@@ -335,12 +351,25 @@ pub(crate) async fn dispatch_source_walk(
 	root: PathBuf,
 	whole_volume: bool,
 	announce: bool,
-) -> Option<uuid::Uuid> {
+) -> anyhow::Result<Option<uuid::Uuid>> {
 	// Whatever the stored state says, the directory left behind by an
 	// unmounted drive is never walked as the drive.
 	if let Some(reason) = context.volume_index().dispatch_refusal(&root) {
 		tracing::warn!(source = %id, %reason, "not walking the source");
-		return None;
+		return Ok(None);
+	}
+
+	// A walk with nowhere to write would index into memory only. Where the
+	// store cannot open, the registry's missing record count is what tells
+	// the heal this source never finished a walk.
+	let store = context.volume_index().store_for(&root).await;
+	if store.is_none() {
+		if let Some(dir) = context.volume_index().store_dir(id) {
+			anyhow::bail!("source store at {} could not be opened", dir.display());
+		}
+	}
+	if let Some(store) = store.as_ref().filter(|store| store.root() == root) {
+		store.begin_walk().await?;
 	}
 
 	let source_config = context.volume_index().source_config(id).unwrap_or_default();
@@ -380,7 +409,7 @@ pub(crate) async fn dispatch_source_walk(
 
 	let mut job = IndexerJob::new(config);
 	job.set_arena(index);
-	if let Some(store) = context.volume_index().store_for(&root).await {
+	if let Some(store) = store {
 		job.set_source_store(store);
 	}
 
@@ -389,8 +418,11 @@ pub(crate) async fn dispatch_source_walk(
 	let handle = match library.jobs().dispatch(job).await {
 		Ok(handle) => handle,
 		Err(e) => {
-			tracing::error!(source = %id, %e, "tracked the source but could not start indexing");
-			return None;
+			// Nothing will finish this walk, so the root must not read as being
+			// indexed, or the heal passes it over.
+			context.volume_index().mark_indexing_failed(&root);
+			tracing::error!(source = %id, %e, "could not start the source's walk");
+			return Err(e.into());
 		}
 	};
 	let job_id = handle.id().0;
@@ -427,7 +459,7 @@ pub(crate) async fn dispatch_source_walk(
 		}
 	});
 
-	Some(job_id)
+	Ok(Some(job_id))
 }
 
 #[cfg(test)]

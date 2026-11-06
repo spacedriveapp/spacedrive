@@ -215,7 +215,7 @@ async fn heal_uncovered_sources(library: &Arc<Library>, context: &Arc<CoreContex
 			unfinished,
 			"source has no map coverage or an unfinished walk; dispatching its walk"
 		);
-		crate::ops::sources::track::action::dispatch_source_walk(
+		if let Err(error) = crate::ops::sources::track::action::dispatch_source_walk(
 			library,
 			context,
 			source.id,
@@ -223,7 +223,10 @@ async fn heal_uncovered_sources(library: &Arc<Library>, context: &Arc<CoreContex
 			whole_volume,
 			false,
 		)
-		.await;
+		.await
+		{
+			tracing::warn!(source = %source.id, %error, "could not start the heal's walk");
+		}
 	}
 }
 
