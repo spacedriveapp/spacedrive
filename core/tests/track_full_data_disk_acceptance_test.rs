@@ -107,6 +107,21 @@ async fn boot(data_dir: &Path) -> Arc<Core> {
 	Arc::new(Core::new(data_dir.to_path_buf()).await.expect("core"))
 }
 
+async fn write_tree(tree: &Path) {
+	let root = tree.to_path_buf();
+	tokio::task::spawn_blocking(move || {
+		for directory in 0..DIRECTORIES {
+			let directory = root.join(format!("d{directory:03}"));
+			std::fs::create_dir_all(&directory).expect("directory");
+			for file in 0..FILES_PER_DIRECTORY {
+				std::fs::write(directory.join(format!("f{file:03}.txt")), b"").expect("file");
+			}
+		}
+	})
+	.await
+	.expect("tree");
+}
+
 fn track(tree: &Path) -> TrackSourceAction {
 	TrackSourceAction::from_input(TrackSourceInput {
 		path: tree.to_path_buf(),
@@ -177,18 +192,7 @@ impl Disk {
 		sudo(&["chown", "-R", &whoami::username(), mount.to_str().unwrap()]).await;
 
 		let tree = mount.join("tree");
-		let root = tree.clone();
-		tokio::task::spawn_blocking(move || {
-			for directory in 0..DIRECTORIES {
-				let directory = root.join(format!("d{directory:03}"));
-				std::fs::create_dir_all(&directory).expect("directory");
-				for file in 0..FILES_PER_DIRECTORY {
-					std::fs::write(directory.join(format!("f{file:03}.txt")), b"").expect("file");
-				}
-			}
-		})
-		.await
-		.expect("tree");
+		write_tree(&tree).await;
 
 		let core = boot(&mount.join("data")).await;
 		let library = core
@@ -289,13 +293,7 @@ async fn a_walk_that_cannot_be_queued_leaves_its_store_marked_for_the_heal() {
 	let _ = tracing_subscriber::fmt::try_init();
 	let temp = tempfile::tempdir().expect("tempdir");
 	let tree = temp.path().join("tree");
-	for directory in 0..DIRECTORIES {
-		let directory = tree.join(format!("d{directory:03}"));
-		std::fs::create_dir_all(&directory).expect("directory");
-		for file in 0..FILES_PER_DIRECTORY {
-			std::fs::write(directory.join(format!("f{file:03}.txt")), b"").expect("file");
-		}
-	}
+	write_tree(&tree).await;
 	let core = boot(&temp.path().join("data")).await;
 	let library = core
 		.libraries
