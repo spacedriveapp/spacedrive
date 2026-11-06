@@ -731,3 +731,129 @@ async fn an_unreadable_moved_folder_keeps_its_records() {
 	drop(library);
 	core.shutdown().await.expect("shutdown");
 }
+
+/// A name that is not UTF-8, whichever writer brings it in, is kept under
+/// the walk's lossy spelling, so listings and search still serialize. The
+/// CLI and the clients read every listing as JSON, and serde refuses a path
+/// that is not UTF-8, which used to fail the whole directory.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_non_utf8_name_from_the_watcher_or_the_reconcile_keeps_its_directory_listable() {
+	use std::os::unix::ffi::OsStrExt;
+
+	async fn names(core: &Arc<Core>, library: &Arc<Library>, path: PathBuf) -> Vec<String> {
+		let listing = DirectoryListingQuery::from_input(DirectoryListingInput {
+			path: SdPath::Physical {
+				device_slug: sd_core::device::get_current_device_slug(),
+				path,
+			},
+			limit: None,
+			include_hidden: Some(false),
+			sort_by: DirectorySortBy::Name,
+			folders_first: Some(false),
+			overlay: None,
+		})
+		.expect("input")
+		.execute(core.context.clone(), session(library))
+		.await
+		.expect("listing");
+		serde_json::to_string(&listing).expect("the listing serializes");
+		let mut names: Vec<String> = listing.files.iter().map(|file| file.name.clone()).collect();
+		names.sort();
+		names
+	}
+
+	async fn listed_within(
+		core: &Arc<Core>,
+		library: &Arc<Library>,
+		path: &Path,
+		name: &str,
+		present: bool,
+	) -> bool {
+		for _ in 0..100 {
+			if names(core, library, path.to_path_buf())
+				.await
+				.iter()
+				.any(|listed| listed == name)
+				== present
+			{
+				return true;
+			}
+			tokio::time::sleep(Duration::from_millis(100)).await;
+		}
+		false
+	}
+
+	let stopped = walked_and_stopped("sd-reconcile-non-utf8", false).await;
+	let root = stopped.root.clone();
+	let offline = root.join(std::ffi::OsStr::from_bytes(b"offline\xFFname.txt"));
+	std::fs::write(&offline, "added while stopped").expect("write");
+
+	let core = boot(stopped.data_dir.path()).await;
+	let library = library_at(&core, &stopped.library_path).await;
+	assert!(
+		listed_within(&core, &library, &root, "offline\u{FFFD}name", true).await,
+		"a non-UTF-8 name added while stopped lists under its lossy spelling"
+	);
+	let found = search(&core, &library, &root, "offline").await;
+	assert_eq!(found, vec!["offline\u{FFFD}name.txt"], "search finds it");
+
+	let live = root.join(std::ffi::OsStr::from_bytes(b"live\xFEname.txt"));
+	std::fs::write(&live, "added while running").expect("write");
+	assert!(
+		listed_within(&core, &library, &root, "live\u{FFFD}name", true).await,
+		"a non-UTF-8 name the watcher hears about lists under its lossy spelling"
+	);
+	std::fs::remove_file(&live).expect("remove");
+	assert!(
+		listed_within(&core, &library, &root, "live\u{FFFD}name", false).await,
+		"removing it on disk removes it from the listing"
+	);
+
+	let record = {
+		let cache = core.context.volume_index();
+		let index = cache.get_for_search(&root).expect("map");
+		let index = index.read().await;
+		index
+			.get_entry_uuid(&root.join("offline\u{FFFD}name.txt"))
+			.expect("the lossy spelling holds the record")
+	};
+
+	drop(library);
+	core.shutdown().await.expect("shutdown");
+	drop(core);
+	tokio::time::sleep(Duration::from_secs(2)).await;
+
+	let core = boot(stopped.data_dir.path()).await;
+	let library = library_at(&core, &stopped.library_path).await;
+	assert!(
+		listed_within(&core, &library, &root, "offline\u{FFFD}name", true).await,
+		"an unchanged non-UTF-8 name survives a restart"
+	);
+	tokio::time::sleep(Duration::from_secs(2)).await;
+	{
+		let cache = core.context.volume_index();
+		let index = cache.get_for_search(&root).expect("map");
+		let index = index.read().await;
+		assert_eq!(
+			index.get_entry_uuid(&root.join("offline\u{FFFD}name.txt")),
+			Some(record),
+			"the reconcile matches the lossy spelling instead of replacing the record"
+		);
+	}
+
+	drop(library);
+	core.shutdown().await.expect("shutdown");
+	drop(core);
+	tokio::time::sleep(Duration::from_secs(2)).await;
+
+	std::fs::remove_file(&offline).expect("remove");
+	let core = boot(stopped.data_dir.path()).await;
+	let library = library_at(&core, &stopped.library_path).await;
+	assert!(
+		listed_within(&core, &library, &root, "offline\u{FFFD}name", false).await,
+		"a non-UTF-8 name deleted while stopped leaves the listing"
+	);
+	drop(library);
+	core.shutdown().await.expect("shutdown");
+}

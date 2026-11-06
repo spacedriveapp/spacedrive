@@ -32,7 +32,7 @@ use uuid::Uuid;
 
 use crate::context::CoreContext;
 use crate::ops::indexing::change_detection::handler::should_filter_path;
-use crate::ops::indexing::metadata::{extract_metadata, EntryMetadata};
+use crate::ops::indexing::metadata::{extract_metadata, map_spelling, EntryMetadata};
 use crate::ops::indexing::state::EntryKind;
 use crate::ops::indexing::{ArenaWriter, Notify, Seen};
 
@@ -230,7 +230,7 @@ pub async fn reconcile_source(
 		};
 		report.directories += 1;
 
-		let known = index.read().await.known_children(&dir);
+		let known = index.read().await.known_children(&map_spelling(&dir));
 		let mut known: std::collections::HashMap<PathBuf, crate::ops::indexing::arena::KnownChild> =
 			known
 				.unwrap_or_default()
@@ -240,15 +240,16 @@ pub async fn reconcile_source(
 		known_entries += known.len() as u64;
 
 		for entry in on_disk {
+			let key = map_spelling(&entry.path).into_owned();
 			if crate::config::is_managed(&entry.path) {
-				known.remove(&entry.path);
+				known.remove(&key);
 				continue;
 			}
 			let Some(kind) = entry.kind else {
-				known.remove(&entry.path);
+				known.remove(&key);
 				continue;
 			};
-			match known.remove(&entry.path) {
+			match known.remove(&key) {
 				Some(held) if held.kind == kind => {
 					report.compared += 1;
 					if kind == EntryKind::Directory {
