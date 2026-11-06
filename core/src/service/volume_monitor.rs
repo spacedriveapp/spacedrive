@@ -359,6 +359,28 @@ async fn apply_volume(context: &Arc<CoreContext>, volume: &Volume) {
 	if returned.is_empty() {
 		return;
 	}
+	// The watch hears changes from the return on. Whatever was written to the
+	// drive while it was away, on another machine or before this daemon
+	// started, only a comparison with the disk can find.
+	for (library_id, _, root) in &returned {
+		let walked_empty = index
+			.sources()
+			.into_iter()
+			.find(|source| &source.root == root)
+			.is_some_and(|source| source.entry_count == Some(0));
+		let context = context.clone();
+		let library_id = *library_id;
+		let root = root.clone();
+		tokio::spawn(async move {
+			crate::ops::indexing::reconcile::reconcile_source(
+				&context,
+				library_id,
+				&root,
+				walked_empty,
+			)
+			.await;
+		});
+	}
 	let libraries = context.libraries().await;
 	for (library_id, source_id, root) in returned {
 		let Some(library_id) = library_id else {
