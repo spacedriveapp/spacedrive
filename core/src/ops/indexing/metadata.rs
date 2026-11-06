@@ -38,6 +38,19 @@ pub fn is_hidden_path(path: &Path) -> bool {
 	}
 }
 
+/// The spelling the map keeps a path under.
+///
+/// The walk records a name that is not UTF-8 lossily, under the replacement
+/// character, because clients read paths as JSON and serde refuses one that is
+/// not UTF-8. The watcher and the reconcile hear the real bytes, so they key
+/// the entry the same lossy way or the map holds a path no listing can send.
+pub fn map_spelling(path: &Path) -> std::borrow::Cow<'_, Path> {
+	if path.to_str().is_some() {
+		return std::borrow::Cow::Borrowed(path);
+	}
+	std::borrow::Cow::Owned(PathBuf::from(path.to_string_lossy().into_owned()))
+}
+
 /// Snapshot of filesystem metadata for a single entry.
 ///
 /// `inode` is populated on Unix and on Windows NTFS, where it is the 64-bit

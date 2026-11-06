@@ -22,7 +22,7 @@ use crate::domain::ContentKind;
 use crate::infra::event::{Event, EventBus};
 use crate::ops::indexing::change_detection::handler::{build_dir_entry, ChangeHandler};
 use crate::ops::indexing::change_detection::types::{ChangeType, EntryRef};
-use crate::ops::indexing::metadata::{is_hidden_path, EntryMetadata};
+use crate::ops::indexing::metadata::{is_hidden_path, map_spelling, EntryMetadata};
 use crate::ops::indexing::state::{DirEntry, EntryKind};
 
 use super::store::SourceStore;
@@ -193,6 +193,10 @@ impl ArenaWriter {
 				entries
 					.into_iter()
 					.filter(|entry| !crate::config::is_managed(&entry.path))
+					.map(|mut entry| {
+						entry.path = map_spelling(&entry.path).into_owned();
+						entry
+					})
 					.collect(),
 			),
 			Seen::Renamed { from, to } if crate::config::is_managed(&to.path) => {
@@ -202,6 +206,24 @@ impl ArenaWriter {
 				return Vec::new();
 			}
 			other => other,
+		};
+		let seen = match seen {
+			Seen::Entries(entries) => Seen::Entries(entries),
+			Seen::Renamed { from, mut to } => {
+				to.path = map_spelling(&to.path).into_owned();
+				Seen::Renamed {
+					from: map_spelling(&from).into_owned(),
+					to,
+				}
+			}
+			Seen::Lost { path, is_directory } => Seen::Lost {
+				path: map_spelling(&path).into_owned(),
+				is_directory,
+			},
+			Seen::Counted { path, totals } => Seen::Counted {
+				path: map_spelling(&path).into_owned(),
+				totals,
+			},
 		};
 
 		let changes = match seen {
@@ -507,7 +529,7 @@ impl ArenaWriter {
 impl ChangeHandler for ArenaWriter {
 	async fn find_by_path(&self, path: &Path) -> Result<Option<EntryRef>> {
 		let index = self.index.read().await;
-		let key = path.to_path_buf();
+		let key = map_spelling(path).into_owned();
 
 		Ok(index.get_entry_ref(&key).map(|metadata| EntryRef {
 			uuid: index.get_entry_uuid(&key),
