@@ -164,7 +164,8 @@ name = "TypeScript"
 extensions = ["ts", "mts"]
 mime_types = ["text/typescript", "application/typescript"]
 category = "code"
-priority = 50
+# The ts/mts extensions belong to source code unless bytes prove a video.
+priority = 95
 
 [file_types.metadata]
 language = "typescript"
