@@ -312,6 +312,7 @@ pub async fn track_and_index(
 	// that nothing is indexing it yet.
 	let job_id = dispatch_source_walk(library, context, id, root.clone(), whole_volume, true)
 		.await
+		.map(Some)
 		.map_err(|e| {
 			ActionError::Internal(format!(
 				"{} is tracked, but its first walk could not start: {e}. Spacedrive walks it the next time it starts, or when you track it again",
@@ -342,8 +343,9 @@ pub async fn track_and_index(
 /// The store is marked walk-unfinished before anything is queued, so a walk
 /// that never starts, whether the mark's own write, the job row, or the
 /// daemon fails first, leaves the same evidence as one that stopped partway,
-/// and the coverage heal walks the source again. `Ok(None)` is a refusal to
-/// walk the directory an unmounted drive left behind.
+/// and the coverage heal walks the source again. A refusal to walk, such as
+/// the directory an unmounted drive left behind, is an error too, and leaves
+/// the same mark where the store can be written without touching the root.
 pub(crate) async fn dispatch_source_walk(
 	library: &Arc<crate::library::Library>,
 	context: &Arc<CoreContext>,
@@ -351,12 +353,27 @@ pub(crate) async fn dispatch_source_walk(
 	root: PathBuf,
 	whole_volume: bool,
 	announce: bool,
-) -> anyhow::Result<Option<uuid::Uuid>> {
+) -> anyhow::Result<uuid::Uuid> {
 	// Whatever the stored state says, the directory left behind by an
 	// unmounted drive is never walked as the drive.
 	if let Some(reason) = context.volume_index().dispatch_refusal(&root) {
-		tracing::warn!(source = %id, %reason, "not walking the source");
-		return Ok(None);
+		// A store kept in the library is marked so the heal walks the source
+		// once the refusal clears. One kept on the source is left closed:
+		// opening it would write into the directory being refused, and a
+		// source that never finished a walk has no record count, which the
+		// heal already treats as unfinished.
+		let in_library = context
+			.volume_index()
+			.store_dir(id)
+			.is_some_and(|dir| !dir.starts_with(&root));
+		if in_library {
+			if let Some(store) = context.volume_index().store_for(&root).await {
+				if store.root() == root {
+					store.begin_walk().await?;
+				}
+			}
+		}
+		anyhow::bail!("{reason}");
 	}
 
 	// A walk with nowhere to write would index into memory only. Where the
@@ -459,7 +476,7 @@ pub(crate) async fn dispatch_source_walk(
 		}
 	});
 
-	Ok(Some(job_id))
+	Ok(job_id)
 }
 
 #[cfg(test)]
