@@ -381,10 +381,13 @@ pub async fn reconcile_source(
 
 	// A stat alone would keep the old spelling of a case-only rename on a
 	// case-insensitive volume, so a path that still stats is checked against
-	// the names its directory stores. Each directory is listed once per pass,
-	// so recasing a folder of N files costs N stats and one listing. An error
-	// reads as present, so nothing is removed on a guess.
-	let mut listings: std::collections::HashMap<PathBuf, Option<HashSet<std::ffi::OsString>>> =
+	// the names its directory stores. A listing is reused while the
+	// directory's modification time is unchanged, so recasing a folder of N
+	// files costs N stats of the path and its parent and one listing, and a
+	// rename the watcher applies in between invalidates it. An error reads as
+	// present, so nothing is removed on a guess.
+	type Listing = (SystemTime, HashSet<std::ffi::OsString>);
+	let mut listings: std::collections::HashMap<PathBuf, Listing> =
 		std::collections::HashMap::new();
 	let mut still_gone = async |path: PathBuf| -> bool {
 		match tokio::fs::symlink_metadata(&path).await {
@@ -395,26 +398,31 @@ pub async fn reconcile_source(
 		let (Some(parent), Some(name)) = (path.parent(), path.file_name()) else {
 			return false;
 		};
-		if !listings.contains_key(parent) {
+		let Ok(changed) = tokio::fs::metadata(parent)
+			.await
+			.and_then(|metadata| metadata.modified())
+		else {
+			return false;
+		};
+		if listings.get(parent).is_none_or(|(at, _)| *at != changed) {
 			let dir = parent.to_path_buf();
 			let names = tokio::task::spawn_blocking(move || {
-				std::fs::read_dir(&dir)
-					.and_then(|entries| {
-						entries
-							.map(|entry| entry.map(|entry| entry.file_name()))
-							.collect::<std::io::Result<HashSet<_>>>()
-					})
-					.ok()
+				std::fs::read_dir(&dir).and_then(|entries| {
+					entries
+						.map(|entry| entry.map(|entry| entry.file_name()))
+						.collect::<std::io::Result<HashSet<_>>>()
+				})
 			})
-			.await
-			.ok()
-			.flatten();
-			listings.insert(parent.to_path_buf(), names);
+			.await;
+			let Ok(Ok(names)) = names else {
+				listings.remove(parent);
+				return false;
+			};
+			listings.insert(parent.to_path_buf(), (changed, names));
 		}
 		listings
 			.get(parent)
-			.and_then(Option::as_ref)
-			.is_some_and(|names| !names.contains(name))
+			.is_some_and(|(_, names)| !names.contains(name))
 	};
 
 	// A path all of whose identities arrived elsewhere moved, and its record
