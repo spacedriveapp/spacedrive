@@ -1,6 +1,6 @@
 import {
-	ArrowSquareOut,
 	ArrowClockwise,
+	ArrowSquareOut,
 	Books,
 	Browsers,
 	Copy,
@@ -24,24 +24,32 @@ import {
 } from '@phosphor-icons/react';
 import type {File} from '@sd/ts-client';
 import {isVirtualFile} from '@sd/ts-client';
-import { toast } from '@spacedrive/primitives';
+import {toast} from '@spacedrive/primitives';
+import {
+	isArchiveName,
+	useArchiveDialog,
+	useExtractDialog
+} from '../../../components/modals/ArchiveModal';
+import {useAttributesDialog} from '../../../components/modals/AttributesModal';
+import {useDeleteDialog} from '../../../components/modals/DeleteModal';
 import {useFileOperationDialog} from '../../../components/modals/FileOperationModal';
 import {useMergeFoldersDialog} from '../../../components/modals/MergeFoldersModal';
-import {useDeleteDialog} from '../../../components/modals/DeleteModal';
+import {
+	useFlattenDialog,
+	useOrganizeDialog
+} from '../../../components/modals/RearrangeModal';
 import {useBatchRenameDialog} from '../../../components/modals/RenameModal';
-import {useFlattenDialog, useOrganizeDialog} from '../../../components/modals/RearrangeModal';
-import {isArchiveName, useArchiveDialog, useExtractDialog} from '../../../components/modals/ArchiveModal';
-import {useAttributesDialog} from '../../../components/modals/AttributesModal';
-import {useAddToLibraryDialog} from '../components/AddToLibraryModal';
+import {useTabManager} from '../../../components/TabManager';
 import {usePlatform} from '../../../contexts/PlatformContext';
 import {useLibraryMutation} from '../../../contexts/SpacedriveContext';
 import {useClipboard} from '../../../hooks/useClipboard';
 import {useContextMenu} from '../../../hooks/useContextMenu';
 import {useOpenWith} from '../../../hooks/useOpenWith';
 import {useRefetchTagQueries} from '../../../hooks/useRefetchTagQueries';
-import {useTabManager} from '../../../components/TabManager';
+import {useAddToLibraryDialog} from '../components/AddToLibraryModal';
 import {targetToUrl, useExplorer} from '../context';
 import {useSelection} from '../SelectionContext';
+import {createCopyMenuItems} from './copyMenu';
 import {useDuplicateFiles} from './useDuplicateFiles';
 import {useMakeLink} from './useMakeLink';
 
@@ -82,8 +90,11 @@ export function useFileContextMenu({
 	const openAttributes = useAttributesDialog();
 	const {startRename} = useSelection();
 
-	const openTargets = (selected && selectedFiles.length > 0 ? selectedFiles : [file]).filter(
-		(f): f is File => f != null && f.sd_path != null && 'Physical' in f.sd_path
+	const openTargets = (
+		selected && selectedFiles.length > 0 ? selectedFiles : [file]
+	).filter(
+		(f): f is File =>
+			f != null && f.sd_path != null && 'Physical' in f.sd_path
 	);
 
 	// Paths on this machine, for the platform calls that take one. Another
@@ -111,6 +122,8 @@ export function useFileContextMenu({
 		return targets.filter((f): f is File => f != null && !isVirtualFile(f));
 	};
 
+	const copyTargets = getTargetFiles();
+
 	// Check if any selected files are virtual (to disable certain operations)
 	const hasVirtualFiles = selected
 		? selectedFiles.some((f) => isVirtualFile(f))
@@ -123,7 +136,10 @@ export function useFileContextMenu({
 			{
 				icon: ArrowClockwise,
 				label: 'Regenerate Thumbnails',
-				condition: () => getTargetFiles().some((target) => 'Physical' in target.sd_path),
+				condition: () =>
+					getTargetFiles().some(
+						(target) => 'Physical' in target.sd_path
+					),
 				onClick: async () => {
 					try {
 						for (const target of getTargetFiles()) {
@@ -136,7 +152,9 @@ export function useFileContextMenu({
 						}
 						toast.success('Thumbnail regeneration started');
 					} catch (error) {
-						toast.error(`Could not regenerate thumbnails: ${error}`);
+						toast.error(
+							`Could not regenerate thumbnails: ${error}`
+						);
 					}
 				}
 			},
@@ -303,7 +321,8 @@ export function useFileContextMenu({
 							.map((target) => target.sd_path)
 					}),
 				keybindId: 'explorer.renameFile',
-				condition: () => selected && selectedFiles.length > 1 && !hasVirtualFiles
+				condition: () =>
+					selected && selectedFiles.length > 1 && !hasVirtualFiles
 			},
 			{
 				icon: FolderPlus,
@@ -355,25 +374,28 @@ export function useFileContextMenu({
 			{type: 'separator'},
 			{
 				icon: Copy,
-				label:
-					selected && selectedFiles.length > 1
-						? `Copy ${selectedFiles.length} items`
-						: 'Copy',
-				onClick: () => {
-					const targets = getTargetFiles();
-					if (targets.length === 0) {
-						console.warn('Cannot copy virtual files');
-						return;
-					}
-					const sdPaths = targets.map((f) => f.sd_path);
-					clipboard.copyFiles(
-						sdPaths,
-						currentPath,
-						targets.every((f) => f.kind === 'Directory')
-					);
-				},
-				keybindId: 'explorer.copy',
-				condition: () => !hasVirtualFiles
+				label: 'Copy',
+				type: 'submenu',
+				submenu: createCopyMenuItems(copyTargets, {
+					copyFiles: () => {
+						const targets = copyTargets;
+						clipboard.copyFiles(
+							targets.map((target) => target.sd_path),
+							currentPath,
+							targets.every(
+								(target) => target.kind === 'Directory'
+							)
+						);
+					},
+					writeText: (text) =>
+						platform.writeClipboardText
+							? platform.writeClipboardText(text)
+							: navigator.clipboard.writeText(text),
+					writeImage: platform.writeClipboardImage,
+					clearFiles: clipboard.clearClipboard,
+					onError: (error) => toast.error(`Failed to copy: ${error}`)
+				}),
+				condition: () => !hasVirtualFiles && copyTargets.length > 0
 			},
 			{
 				icon: Scissors,
@@ -484,7 +506,9 @@ export function useFileContextMenu({
 				keybindId: 'explorer.duplicate',
 				condition: () =>
 					!hasVirtualFiles &&
-					getTargetFiles().some((target) => 'Physical' in target.sd_path)
+					getTargetFiles().some(
+						(target) => 'Physical' in target.sd_path
+					)
 			},
 			{
 				icon: TagIconComponent,
@@ -498,7 +522,10 @@ export function useFileContextMenu({
 					if (targets.length === 0) return;
 					try {
 						await unapplyTags.mutateAsync({
-							targets: { type: 'File', ids: targets.map((f) => f.id) },
+							targets: {
+								type: 'File',
+								ids: targets.map((f) => f.id)
+							},
 							tag_ids: [mode.tagId]
 						});
 					} catch (err) {
@@ -612,7 +639,10 @@ export function useFileContextMenu({
 				label: 'Extract here…',
 				onClick: () => {
 					if (!file || !currentPath) return;
-					openExtract({archive: file.sd_path, directory: currentPath});
+					openExtract({
+						archive: file.sd_path,
+						directory: currentPath
+					});
 				},
 				condition: () =>
 					!!file &&
@@ -621,7 +651,9 @@ export function useFileContextMenu({
 					selectedFiles.length <= 1 &&
 					'Physical' in file.sd_path &&
 					isArchiveName(
-						file.extension ? `${file.name}.${file.extension}` : file.name
+						file.extension
+							? `${file.name}.${file.extension}`
+							: file.name
 					) &&
 					!hasVirtualFiles
 			},
@@ -680,7 +712,8 @@ export function useFileContextMenu({
 					file.kind === 'Directory' &&
 					'Physical' in file.sd_path &&
 					!hasVirtualFiles &&
-					JSON.stringify(clipboard.files[0]) !== JSON.stringify(file.sd_path)
+					JSON.stringify(clipboard.files[0]) !==
+						JSON.stringify(file.sd_path)
 			},
 			{
 				icon: Trash,

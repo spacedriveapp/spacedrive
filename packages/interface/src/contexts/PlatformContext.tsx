@@ -10,6 +10,12 @@ export type Platform = {
 	/** Platform discriminator */
 	platform: "web" | "tauri";
 
+	/** Write plain text to the system clipboard. */
+	writeClipboardText?(text: string): Promise<void>;
+
+	/** Copy a local PNG or JPEG image to the system clipboard. */
+	writeClipboardImage?(path: string): Promise<void>;
+
 	/** Open native directory picker dialog (Tauri only) */
 	openDirectoryPickerDialog?(opts?: {
 		title?: string;
