@@ -67,12 +67,15 @@ Run the release workflow without a tag to check that it still builds:
 gh workflow run release.yml --ref <branch> -f dry_run=true
 ~~~
 
-`dry_run` defaults to true for a manual run. A dry run builds the server
-tarballs, the standalone `sd` and `sd-daemon` binaries for every platform, and
-the Linux desktop packages. It skips the macOS and Windows desktop bundles,
-passes no signing secrets, turns off the Tauri updater artifacts, and never
-runs the release job. The workflow's token is read-only for every build job,
-so the results exist only as workflow artifacts.
+`dry_run` defaults to true for a manual run. A dry run builds everything a
+release ships: the server tarballs, the standalone `sd` and `sd-daemon`
+binaries, the macOS desktop app and disk image, and the Linux desktop
+packages. It passes no signing secrets, so the macOS app carries only an
+ad-hoc signature and is not notarized. It turns off the Tauri updater
+artifacts and never runs the release job. The workflow's token is read-only
+for every build job, so the results exist only as workflow artifacts. The
+first job lists which signing secrets are set, without their values, and
+warns about any that a real release would stop on.
 
 ## Artifacts
 
@@ -80,14 +83,44 @@ The release pipeline builds:
 
 | Product | Platforms |
 | --- | --- |
-| Desktop | macOS ARM64 and x86-64, Windows x86-64, Linux x86-64 and ARM64 |
+| Desktop | macOS ARM64 and x86-64, Linux x86-64 and ARM64 |
 | Headless server | Linux x86-64 and ARM64 |
-| CLI and daemon | macOS ARM64 and x86-64, Windows x86-64, Linux x86-64 and ARM64 |
+| CLI and daemon | macOS ARM64 and x86-64, Linux x86-64 and ARM64 |
 | Mobile | iOS and Android |
 | Container | Linux amd64 and arm64 |
 
+Spacedrive 2.0 beta.1 supports macOS and Linux. Windows is not part of beta.1:
+the release workflow builds no Windows artifacts, and Windows x86-64 builds of
+the CLI and daemon stay in the [nightly channel](#nightly-channel).
+
+Release and nightly builds do not enable the `wasm` cargo feature, so beta.1
+ships without the extension runtime.
+
 Each downloadable archive includes a checksum. Executable packages and update
 metadata are signed with the platform or Spacedrive release key.
+
+### Signing secrets
+
+A release build reads these repository secrets:
+
+| Secret | Holds |
+| --- | --- |
+| `APPLE_CERTIFICATE` | Developer ID Application certificate and its private key, as a base64 `.p12` |
+| `APPLE_CERTIFICATE_PASSWORD` | Password of that `.p12` |
+| `APPLE_SIGNING_IDENTITY` | Certificate name, for example `Developer ID Application: <Team> (<Team ID>)` |
+| `APPLE_API_ISSUER` | App Store Connect API issuer ID, used for notarization |
+| `APPLE_API_KEY` | App Store Connect API key ID |
+| `APPLE_API_KEY_BASE64` | That key's `AuthKey_<id>.p8` file, base64 encoded |
+| `APPLE_PROVIDER_SHORT_NAME` | Team provider short name |
+| `TAURI_PRIVATE_KEY` | Tauri updater signing key |
+| `TAURI_KEY_PASSWORD` | Password of the updater key |
+
+The first job of a real release checks that every secret is set and stops the
+run before anything builds if one is missing. After the macOS build, the
+workflow checks that `Spacedrive.app` has a Developer ID signature and a
+stapled notarization ticket. Tauri only warns when it cannot notarize, so this
+check is what keeps an unsigned or unnotarized app out of a release. A failed
+macOS job also stops the release job, so nothing is published.
 
 Stable container releases update the **latest** tag. Prereleases keep their
 explicit version tag.
@@ -223,9 +256,10 @@ sd update
 
 The stable channel follows the repository's latest release and installs it
 only when its tag is a newer semantic version than the installed package
-version. The repository's latest release is still a v1 desktop build, so a
-2.0 nightly on the stable channel reports that it is up to date until the
-first 2.0 release ships standalone `sd` and `sd-daemon` assets.
+version. Until beta.1 is published, the repository's latest release is the v1
+desktop build 0.4.3, so a 2.0 nightly on the stable channel reports that it is
+up to date. beta.1 is published as the latest release, so the stable channel
+installs it from then on.
 
 ## Required gates
 
@@ -268,6 +302,7 @@ first 2.0 release ships standalone `sd` and `sd-daemon` assets.
 - A client can query, stream, mount, and operate an authorized remote source.
 - Source and library state remain understandable while an origin is offline.
 - Extensions can add one real file kind and preview without core changes.
+  This is checked with the `wasm` feature; beta.1 builds do not enable it.
 - Desktop, web, CLI, and MCP exercise the same operation semantics.
 
 ## Candidate validation
@@ -303,8 +338,19 @@ the build, what each step ran, and the result.
 
 ## Publishing
 
-The workflow creates a draft GitHub release. A maintainer verifies artifacts,
-checksums, signatures, and gate evidence before publishing it.
+The workflow creates a draft GitHub release that is not a prerelease. A
+maintainer verifies artifacts, checksums, signatures, and gate evidence before
+publishing it as the repository's latest release:
+
+~~~bash
+gh release edit v2.0.0-beta.1 --draft=false --latest
+~~~
+
+`sd update` and the desktop updater read GitHub's latest release, which never
+returns a prerelease, so beta.1 must be marked latest. It replaces the v1
+desktop app 0.4.3 as the latest release. The release notes link
+[0.4.3](https://github.com/spacedriveapp/spacedrive/releases/tag/0.4.3) for
+anyone who needs the v1 app.
 
 Release notes state:
 
