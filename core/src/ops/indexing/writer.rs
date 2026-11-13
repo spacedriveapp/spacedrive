@@ -837,6 +837,58 @@ mod tests {
 		);
 	}
 
+	/// A file renamed twice before the watcher's batch is applied, as a
+	/// case-only rename on Linux casefold has to be, keeps its identity and
+	/// leaves nothing at its first name, whether both renames land in one
+	/// batch or the second arrives later.
+	#[tokio::test]
+	async fn a_chain_of_renames_moves_the_entry_once() {
+		for one_batch in [true, false] {
+			let root = TempDir::new().unwrap();
+			let first = root.path().join("f01.txt");
+			let middle = root.path().join("recasing");
+			let last = root.path().join("F01.txt");
+			std::fs::write(&first, b"x").unwrap();
+			let (mut writer, _bus) = writer(root.path(), Notify::Each);
+			let uuid = writer.apply(Seen::Entries(vec![file(&first, 1)])).await[0].uuid;
+
+			std::fs::rename(&first, &middle).unwrap();
+			std::fs::rename(&middle, &last).unwrap();
+			let config = crate::ops::indexing::ChangeConfig {
+				rule_toggles: Default::default(),
+				root: root.path(),
+				volume_backend: None,
+			};
+			let events = vec![
+				sd_fs_watcher::FsEvent::rename(first.clone(), middle.clone()),
+				sd_fs_watcher::FsEvent::rename(middle.clone(), last.clone()),
+			];
+			if one_batch {
+				crate::ops::indexing::apply_change_batch(&mut writer, events, &config)
+					.await
+					.unwrap();
+			} else {
+				for event in events {
+					crate::ops::indexing::apply_change_batch(&mut writer, vec![event], &config)
+						.await
+						.unwrap();
+				}
+			}
+
+			let index = writer.index.read().await;
+			assert!(!index.has_entry(&first), "nothing left at the first name");
+			assert!(!index.has_entry(&middle));
+			assert!(index.has_entry(&last));
+			if one_batch {
+				assert_eq!(
+					index.get_entry_uuid(&last),
+					Some(uuid),
+					"one move keeps the identity"
+				);
+			}
+		}
+	}
+
 	/// Mapping a drive nobody asked to see: the arena fills and nothing is
 	/// said, which is also why those entries can defer their identities.
 	#[tokio::test]

@@ -229,9 +229,23 @@ pub async fn apply_batch<H: ChangeHandler>(
 			FsEventKind::Create => creates.push(event.path),
 			FsEventKind::Modify => modifies.push(event.path),
 			FsEventKind::Remove => removes.push(event.path),
-			FsEventKind::Rename { from, to } => renames.push((from, to)),
+			FsEventKind::Rename { from, to } => {
+				// A file renamed twice in quick succession (a to b, then b to
+				// c) is gone from b before the first rename is applied, which
+				// would leave the record at a. Following the chain moves it
+				// once, from a to c. A case-only rename on Linux casefold has
+				// to go through a temporary name, so it always takes this path.
+				match renames
+					.iter_mut()
+					.find(|(_, earlier_to): &&mut (PathBuf, PathBuf)| *earlier_to == from)
+				{
+					Some((_, earlier_to)) => *earlier_to = to,
+					None => renames.push((from, to)),
+				}
+			}
 		}
 	}
+	renames.retain(|(from, to)| from != to);
 
 	// Deduplicate
 	creates.sort();
@@ -531,10 +545,21 @@ pub async fn handle_rename<H: ChangeHandler>(
 	match path_exists_safe(to, config.volume_backend).await {
 		Ok(true) => {}
 		Ok(false) => {
+			// Renamed again before this event was applied. If the source is
+			// gone too, its record is not to be left behind; whatever the
+			// file became arrives as its own event.
+			let source = from.to_path_buf();
+			let left =
+				tokio::task::spawn_blocking(move || sd_fs_watcher::present_as_spelled(&source))
+					.await
+					.is_ok_and(|present| matches!(present, Ok(false)));
 			tracing::debug!(
 				"Destination path doesn't exist, skipping rename: {}",
 				to.display()
 			);
+			if left {
+				return handle_remove(handler, from).await;
+			}
 			return Ok(());
 		}
 		Err(e) => {
