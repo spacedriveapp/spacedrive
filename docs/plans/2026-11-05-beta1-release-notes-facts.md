@@ -20,16 +20,22 @@ decision before the notes are written.
   rewritten `sources` branch on 2026-10-05, so "changes since alpha.2" is the
   whole data model, not a list of commits.
 - GitHub's "Latest" release is still `0.4.3` (v1 desktop, 2025-03-24).
+  Decided (Jamie, 2026-11-13): beta.1 is published as a full release marked
+  Latest, not as a prerelease, and replaces `0.4.3` as Latest. The notes link
+  https://github.com/spacedriveapp/spacedrive/releases/tag/0.4.3 for anyone
+  who needs the v1 app.
 
 ## Supported platforms
 
-Recommendation from the Windows gap doc, unless Jamie decides otherwise:
+Decided (Jamie, 2026-11-13): beta.1 supports Linux and macOS only. Windows is
+out of beta.1; the release workflow builds no Windows artifacts, and Windows
+builds of the CLI and daemon stay in the nightly.
 
 | Platform | beta.1 status | Evidence |
 |---|---|---|
 | macOS, Apple silicon | supported | macOS cargo check gates `main` (#3154); live runs on a Mac |
 | Linux x86-64 | supported | unit, integration and acceptance suites in `core_tests.yml` run here |
-| Windows x86-64 | preview: CLI and daemon only | builds and passes the unit layer (`Core Tests (windows unit)`, #3148, #3153); nightly binaries published; no desktop app; FDA, R8 and volume acceptance suites have not run on Windows |
+| Windows x86-64 | not in beta.1; CLI and daemon in the nightly only | builds and passes the unit layer (`Core Tests (windows unit)`, #3148, #3153); nightly binaries published; no desktop app; FDA, R8 and volume acceptance suites have not run on Windows |
 | macOS x86-64, Linux ARM64 | built, not tested | `release.yml` builds them; no test suite runs on either |
 
 Proposed Windows wording (verbatim from the gap doc):
@@ -49,9 +55,8 @@ From the `release.yml` dry run (see "Release workflow dry run" below):
 | Product | Platforms | Signed |
 |---|---|---|
 | Desktop `.deb` | Linux x86-64, ARM64 | no (Debian packages carry no signature in this pipeline) |
-| Desktop `.dmg` / `.app` | macOS ARM64, x86-64 | needs the Apple Developer ID and notarization secrets; not built in the dry run |
-| Desktop NSIS installer | Windows x86-64 | needs Authenticode, which nobody has; not built in the dry run |
-| `sd` and `sd-daemon` | macOS ARM64 and x86-64, Linux x86-64 and ARM64, Windows x86-64 | no Developer ID or Authenticode; a `.sha256` beside each, which `sd update` verifies |
+| Desktop `.dmg` / `.app` | macOS ARM64, x86-64 | Developer ID and notarized in a release (the job fails otherwise); ad-hoc signed in a dry run |
+| `sd` and `sd-daemon` | macOS ARM64 and x86-64, Linux x86-64 and ARM64 | no Developer ID; a `.sha256` beside each, which `sd update` verifies |
 | `sd-server` and `sd-cli` tarball | Linux x86-64, ARM64 | no; `.sha256` inside the tarball |
 
 - Linux desktop packages are built on Ubuntu 24.04 runners, so the `.deb`
@@ -152,7 +157,8 @@ Migration behaviour for an alpha.2 library, as the code reads:
 - Extensions: the WASM extension host is behind the `wasm` cargo feature,
   which the release builds do not enable (`core/Cargo.toml`; the desktop
   build runs `cargo build --release --bin sd-daemon` with default features).
-  open: Jamie's call whether the shipped daemon turns it on.
+  Decided (Jamie, 2026-11-13): the `wasm` feature stays off in nightly and
+  release builds until after beta, so beta.1 ships no extension runtime.
 - Live-hardware rows still pending (CI covers the automatable half of each):
   - remote job watch and remote log stream (FDA P4: live only);
   - merge-preview time on a large source and the consuming merge of a real
@@ -217,7 +223,8 @@ sd --version
 - `sd update` stops the daemon, swaps `sd` and `sd-daemon` through a
   `.bak` copy after checking the `.sha256`, and starts the daemon again
   (`docs/core/releases.mdx`, Opting in). Libraries migrate on first open.
-- open, blocking this path: the stable channel reads
+- Decided (Jamie, 2026-11-13): beta.1 is published as Latest, so this path
+  works. The stable channel reads
   `/repos/spacedriveapp/spacedrive/releases/latest`
   (`apps/cli/src/domains/update/mod.rs`, `fetch_release(.., "latest")`).
   GitHub's latest-release endpoint never returns a prerelease or a draft, so

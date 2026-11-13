@@ -35,7 +35,8 @@
 > Beta commits to Spacedrive's data model and to preserving your library as
 > it evolves. The release makes self-owned storage practical across
 > your devices. It brings portable source indexes, private remote access, mounts, history,
-> extensions, and one API for people and software.
+> and one API for people and software. beta.1 supports macOS and Linux;
+> Windows builds stay in the nightly.
 >
 > Nightly CLI and daemon builds are available now from the
 > [nightly release](https://github.com/spacedriveapp/spacedrive/releases/tag/nightly).

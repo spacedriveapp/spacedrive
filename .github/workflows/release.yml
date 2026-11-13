@@ -23,8 +23,49 @@ env:
   RUSTUP_MAX_RETRIES: 10
 
 jobs:
+  # A release must never publish an unsigned macOS app or desktop bundles
+  # without updater signatures, so a real run stops here before any build when
+  # a signing secret is missing. A dry run only reports which ones are set.
+  # Only presence flags reach the shell, never the values.
+  signing-preflight:
+    runs-on: ubuntu-latest
+    name: Signing secrets
+    steps:
+      - name: Check release signing secrets
+        env:
+          DRY_RUN: ${{ inputs.dry_run == true }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE != '' }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD != '' }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY != '' }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER != '' }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY != '' }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 != '' }}
+          APPLE_PROVIDER_SHORT_NAME: ${{ secrets.APPLE_PROVIDER_SHORT_NAME != '' }}
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY != '' }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD != '' }}
+        run: |
+          missing=()
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY \
+            APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_BASE64 APPLE_PROVIDER_SHORT_NAME \
+            TAURI_PRIVATE_KEY TAURI_KEY_PASSWORD; do
+            if [ "${!name}" = "true" ]; then
+              echo "$name: set"
+            else
+              echo "$name: missing"
+              missing+=("$name")
+            fi
+          done
+          if [ ${#missing[@]} -eq 0 ]; then exit 0; fi
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "::warning::A real release would stop here. Missing secrets: ${missing[*]}"
+            exit 0
+          fi
+          echo "::error::Release signing secrets are missing: ${missing[*]}. Add them under Settings, Secrets and variables, Actions. Nothing was built or published."
+          exit 1
+
   # Server builds for self-hosting
   server-build:
+    needs: signing-preflight
     strategy:
       fail-fast: false
       matrix:
@@ -104,6 +145,7 @@ jobs:
   # docs/core/releases.mdx). They carry no Developer ID or Authenticode
   # signature; the checksum beside each one is what the updater verifies.
   cli-build:
+    needs: signing-preflight
     strategy:
       fail-fast: false
       matrix:
@@ -120,10 +162,6 @@ jobs:
           - host: blacksmith-4vcpu-ubuntu-2204-arm
             target: aarch64-unknown-linux-gnu
             platform: linux-aarch64
-          # Blacksmith has no Windows runners.
-          - host: windows-latest
-            target: x86_64-pc-windows-msvc
-            platform: windows-x86_64
     name: CLI - ${{ matrix.settings.platform }}
     runs-on: ${{ matrix.settings.host }}
     timeout-minutes: 120
@@ -161,13 +199,11 @@ jobs:
           set -eux
           mkdir -p dist
           platform=${{ matrix.settings.platform }}
-          exe=""
-          if [ "${{ runner.os }}" = "Windows" ]; then exe=".exe"; fi
-          cp "target/${{ matrix.settings.target }}/release/sd-cli$exe" "dist/sd-$platform$exe"
-          cp "target/${{ matrix.settings.target }}/release/sd-daemon$exe" "dist/sd-daemon-$platform$exe"
+          cp "target/${{ matrix.settings.target }}/release/sd-cli" "dist/sd-$platform"
+          cp "target/${{ matrix.settings.target }}/release/sd-daemon" "dist/sd-daemon-$platform"
           chmod +x dist/*
           cd dist
-          for f in "sd-$platform$exe" "sd-daemon-$platform$exe"; do
+          for f in "sd-$platform" "sd-daemon-$platform"; do
             if command -v sha256sum >/dev/null; then
               sha256sum "$f" > "$f.sha256"
             else
@@ -177,11 +213,7 @@ jobs:
           cat ./*.sha256
 
       - name: Smoke test
-        shell: bash
-        run: |
-          exe=""
-          if [ "${{ runner.os }}" = "Windows" ]; then exe=".exe"; fi
-          "./dist/sd-${{ matrix.settings.platform }}$exe" --version
+        run: ./dist/sd-${{ matrix.settings.platform }} --version
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -190,45 +222,40 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
-  # A dry run builds the desktop app for Linux only: the macOS and Windows
-  # bundles are only worth building when they can be signed.
-  desktop-plan:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.plan.outputs.matrix }}
-    steps:
-      - id: plan
-        env:
-          DRY_RUN: ${{ inputs.dry_run == true }}
-        run: |
-          all='[
-            {"host":"macos-26","target":"aarch64-apple-darwin","bundles":"dmg,app","os":"darwin","arch":"aarch64"},
-            {"host":"macos-26","target":"x86_64-apple-darwin","bundles":"dmg,app","os":"darwin","arch":"x86_64"},
-            {"host":"blacksmith-4vcpu-windows-2025","target":"x86_64-pc-windows-msvc","bundles":"nsis","os":"windows","arch":"x86_64"},
-            {"host":"blacksmith-16vcpu-ubuntu-2404","target":"x86_64-unknown-linux-gnu","bundles":"deb","os":"linux","arch":"x86_64"},
-            {"host":"blacksmith-8vcpu-ubuntu-2404-arm","target":"aarch64-unknown-linux-gnu","bundles":"deb","os":"linux","arch":"aarch64"}
-          ]'
-          filter='.'
-          if [ "$DRY_RUN" = "true" ]; then filter='map(select(.os == "linux"))'; fi
-          echo "matrix=$(echo "$all" | jq -c "$filter")" >> "$GITHUB_OUTPUT"
-
-  # V2 Desktop builds
+  # V2 Desktop builds. A dry run builds every bundle a release ships, unsigned:
+  # it passes no Apple or updater secrets, so tauri ad-hoc signs the app and
+  # skips notarization and updater artifacts.
   desktop-main:
-    needs: desktop-plan
+    needs: signing-preflight
     strategy:
       fail-fast: false
       matrix:
-        settings: ${{ fromJSON(needs.desktop-plan.outputs.matrix) }}
+        settings:
+          - host: macos-26
+            target: aarch64-apple-darwin
+            bundles: dmg,app
+            os: darwin
+            arch: aarch64
+          - host: macos-26
+            target: x86_64-apple-darwin
+            bundles: dmg,app
+            os: darwin
+            arch: x86_64
+          - host: blacksmith-16vcpu-ubuntu-2404
+            target: x86_64-unknown-linux-gnu
+            bundles: deb
+            os: linux
+            arch: x86_64
+          - host: blacksmith-8vcpu-ubuntu-2404-arm
+            target: aarch64-unknown-linux-gnu
+            bundles: deb
+            os: linux
+            arch: aarch64
     name: Desktop - Main ${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.host }}
+    env:
+      SIGN_MACOS: ${{ inputs.dry_run != true && matrix.settings.os == 'darwin' }}
     steps:
-      - name: Symlink target to C:\
-        if: ${{ runner.os == 'Windows' }}
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force -Path C:\spacedrive_target
-          New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -236,21 +263,24 @@ jobs:
         if: matrix.settings.target == 'aarch64-unknown-linux-gnu'
         run: sudo apt-get update && sudo apt-get install -y libva-dev libva-drm2
 
-      - name: Install NASM
-        if: ${{ runner.os == 'Windows' }}
-        uses: ilammy/setup-nasm@v1
-
+      # tauri only warns and skips notarization when it cannot find the key, so
+      # the path is passed explicitly and a missing key fails the build.
       - name: Install Apple API key
-        if: ${{ runner.os == 'macOS' && inputs.dry_run != true }}
+        if: env.SIGN_MACOS == 'true'
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
         run: |
-          mkdir -p ~/.appstoreconnect/private_keys/
-          cd ~/.appstoreconnect/private_keys/
-          echo ${{ secrets.APPLE_API_KEY_BASE64 }} >> AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64
-          base64 --decode -i AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64 -o AuthKey_${{ secrets.APPLE_API_KEY }}.p8
-          rm AuthKey_${{ secrets.APPLE_API_KEY }}.p8.base64
+          set -euo pipefail
+          dir=~/.appstoreconnect/private_keys
+          mkdir -p "$dir"
+          key="$dir/AuthKey_$APPLE_API_KEY.p8"
+          echo "$APPLE_API_KEY_BASE64" | base64 --decode > "$key"
+          test -s "$key"
+          echo "APPLE_API_KEY_PATH=$key" >> "$GITHUB_ENV"
 
       - name: Install Codesigning Certificate
-        if: ${{ runner.os == 'macOS' && inputs.dry_run != true }}
+        if: env.SIGN_MACOS == 'true'
         uses: apple-actions/import-codesign-certs@v2
         with:
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
@@ -259,11 +289,11 @@ jobs:
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
         env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_SIGNING_IDENTITY: ${{ env.SIGN_MACOS == 'true' && secrets.APPLE_SIGNING_IDENTITY || '' }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           target: ${{ matrix.settings.target }}
-          # The bundles ship apps/.deps/lib (Linux) and its DLLs (Windows).
+          # The Linux bundles ship apps/.deps/lib.
           native-deps: 'true'
 
       - name: Setup Bun and dependencies
@@ -300,6 +330,25 @@ jobs:
           echo "CFLAGS=-march=armv8.2-a+crypto" >> $GITHUB_ENV
           echo "CXXFLAGS=-march=armv8.2-a+crypto" >> $GITHUB_ENV
 
+      # tauri treats a set but empty APPLE_CERTIFICATE as a certificate to
+      # import, so the Apple variables exist only in a signed build.
+      - name: Export macOS signing environment
+        if: env.SIGN_MACOS == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_PROVIDER_SHORT_NAME: ${{ secrets.APPLE_PROVIDER_SHORT_NAME }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          set -euo pipefail
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY \
+            APPLE_PROVIDER_SHORT_NAME APPLE_API_ISSUER APPLE_API_KEY; do
+            delimiter="EOF_$(openssl rand -hex 16)"
+            printf '%s<<%s\n%s\n%s\n' "$name" "$delimiter" "${!name}" "$delimiter" >> "$GITHUB_ENV"
+          done
+
       # A dry run passes no signing secrets and turns off the updater
       # artifacts, which cannot be produced without the Tauri key. Without a
       # tag or release id tauri-action only builds, it never uploads.
@@ -309,13 +358,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.dry_run != true && secrets.TAURI_PRIVATE_KEY || '' }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.dry_run != true && secrets.TAURI_KEY_PASSWORD || '' }}
-          ENABLE_CODE_SIGNING: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_PROVIDER_SHORT_NAME: ${{ secrets.APPLE_PROVIDER_SHORT_NAME }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           CPATH: ${{ github.workspace }}/apps/.deps/include
           C_INCLUDE_PATH: ${{ github.workspace }}/apps/.deps/include
@@ -324,9 +366,31 @@ jobs:
           args: >-
             --target ${{ matrix.settings.target }}
             --bundles ${{ matrix.settings.bundles }}
-            ${{ matrix.settings.os == 'windows' && '--config src-tauri/tauri.windows.conf.json' || '' }}
             ${{ inputs.dry_run == true && '--config ''{"bundle":{"createUpdaterArtifacts":false}}''' || '' }}
           includeUpdaterJson: true
+
+      # tauri warns and carries on when it cannot sign or notarize, so a real
+      # release checks the result itself and fails rather than ship an app
+      # Gatekeeper rejects.
+      - name: Verify macOS signature and notarization
+        if: env.SIGN_MACOS == 'true'
+        run: |
+          set -euo pipefail
+          app="target/${{ matrix.settings.target }}/release/bundle/macos/Spacedrive.app"
+          if [ ! -d "$app" ]; then
+            echo "::error::$app was not built"
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "$app"
+          if ! codesign -dvv "$app" 2>&1 | grep -q "^Authority=Developer ID Application"; then
+            echo "::error::Spacedrive.app is not signed with a Developer ID Application certificate"
+            exit 1
+          fi
+          if ! xcrun stapler validate "$app"; then
+            echo "::error::Spacedrive.app has no notarization ticket. Check the notarization output of the build step; an unaccepted Apple Developer agreement fails there."
+            exit 1
+          fi
+          spctl --assess --type execute --verbose=2 "$app"
 
       - name: Package frontend
         if: ${{ runner.os == 'Linux' }}
@@ -362,12 +426,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           draft: true
+          prerelease: false
+          make_latest: true
           files: |
             server-*/*
             cli-*/*
             */*.dmg
-            */*.exe
-            */*.nsis.zip
             */*.deb
             */*.tar.xz
             */*.tar.gz
