@@ -88,7 +88,9 @@ async fn start_daemon_and_confirm(
 	match spawn_daemon(client, launch, &stderr_log, DAEMON_READY_TIMEOUT).await? {
 		SpawnedDaemon::Ready { pid } => Ok(pid),
 		SpawnedDaemon::Exited { pid, status } => {
-			let stderr = std::fs::read_to_string(&stderr_log).unwrap_or_default();
+			let stderr = tokio::fs::read_to_string(&stderr_log)
+				.await
+				.unwrap_or_default();
 			let lines: Vec<&str> = stderr.lines().collect();
 			let tail = &lines[lines.len().saturating_sub(20)..];
 			anyhow::bail!(

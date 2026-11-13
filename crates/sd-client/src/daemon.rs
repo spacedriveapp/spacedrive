@@ -147,11 +147,15 @@ pub async fn spawn_daemon(
 	limit: Duration,
 ) -> Result<SpawnedDaemon> {
 	if let Some(dir) = stderr_log.parent() {
-		std::fs::create_dir_all(dir)
+		tokio::fs::create_dir_all(dir)
+			.await
 			.with_context(|| format!("failed to create {}", dir.display()))?;
 	}
-	let stderr = std::fs::File::create(stderr_log)
-		.with_context(|| format!("failed to create {}", stderr_log.display()))?;
+	let stderr = tokio::fs::File::create(stderr_log)
+		.await
+		.with_context(|| format!("failed to create {}", stderr_log.display()))?
+		.into_std()
+		.await;
 
 	let mut command = launch.command()?;
 	command.stdout(Stdio::null());
