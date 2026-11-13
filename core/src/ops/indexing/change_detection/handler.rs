@@ -241,7 +241,7 @@ pub async fn apply_batch<H: ChangeHandler>(
 	// remove at its destination ends that file's stay there, so a later rename
 	// from the same path is a different file.
 	let mut open: Vec<bool> = Vec::new();
-	let mut deleted: Vec<PathBuf> = Vec::new();
+	let mut deleted: Vec<bool> = Vec::new();
 	for event in events {
 		match event.kind {
 			FsEventKind::Create => {
@@ -252,9 +252,9 @@ pub async fn apply_batch<H: ChangeHandler>(
 			FsEventKind::Remove => {
 				// A file renamed and then deleted is a deletion of the file
 				// where the index still holds it.
-				for (index, (from, to)) in renames.iter().enumerate() {
+				for (index, (_, to)) in renames.iter().enumerate() {
 					if open[index] && *to == event.path {
-						deleted.push(from.clone());
+						deleted[index] = true;
 					}
 				}
 				close_at(&renames, &mut open, &event.path);
@@ -278,13 +278,21 @@ pub async fn apply_batch<H: ChangeHandler>(
 					None => {
 						renames.push((from, to));
 						open.push(true);
+						deleted.push(false);
 					}
 				}
 			}
 		}
 	}
-	renames.retain(|(from, to)| from != to && !deleted.contains(from));
-	removes.extend(deleted);
+	let mut kept = Vec::with_capacity(renames.len());
+	for ((from, to), deleted) in renames.into_iter().zip(deleted) {
+		if deleted {
+			removes.push(from);
+		} else if from != to {
+			kept.push((from, to));
+		}
+	}
+	let renames = kept;
 
 	// Deduplicate
 	creates.sort();

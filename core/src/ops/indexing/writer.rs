@@ -941,6 +941,47 @@ mod tests {
 		);
 	}
 
+	/// A file renamed away and deleted, then a new file at its old name renamed
+	/// on: the deletion takes the first file and the second still arrives.
+	#[tokio::test]
+	async fn a_new_file_at_a_deleted_files_name_still_arrives() {
+		let root = TempDir::new().unwrap();
+		let first = root.path().join("a.txt");
+		let middle = root.path().join("t.txt");
+		let last = root.path().join("c.txt");
+		std::fs::write(&first, b"x").unwrap();
+		let (mut writer, _bus) = writer(root.path(), Notify::Each);
+		let uuid = writer.apply(Seen::Entries(vec![file(&first, 1)])).await[0].uuid;
+
+		std::fs::rename(&first, &middle).unwrap();
+		std::fs::remove_file(&middle).unwrap();
+		std::fs::write(&first, b"the replacement").unwrap();
+		std::fs::rename(&first, &last).unwrap();
+		let config = crate::ops::indexing::ChangeConfig {
+			rule_toggles: Default::default(),
+			root: root.path(),
+			volume_backend: None,
+		};
+		crate::ops::indexing::apply_change_batch(
+			&mut writer,
+			vec![
+				sd_fs_watcher::FsEvent::rename(first.clone(), middle.clone()),
+				sd_fs_watcher::FsEvent::remove(middle.clone()),
+				sd_fs_watcher::FsEvent::create(first.clone()),
+				sd_fs_watcher::FsEvent::rename(first.clone(), last.clone()),
+			],
+			&config,
+		)
+		.await
+		.unwrap();
+
+		let index = writer.index.read().await;
+		assert!(!index.has_entry(&first));
+		assert!(!index.has_entry(&middle));
+		assert!(index.has_entry(&last), "the replacement arrives");
+		assert_ne!(index.get_entry_uuid(&last), Some(uuid));
+	}
+
 	/// A chain ends where its file stopped living: a file removed from the
 	/// middle name and replaced by another is not the one that moved on, so
 	/// the last name never takes the first file's identity.
