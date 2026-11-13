@@ -11,10 +11,12 @@ decision before the notes are written.
 
 ## Version
 
-- Every package is still `2.0.0-alpha.2` (`core/Cargo.toml`,
-  `apps/cli/Cargo.toml`, `apps/tauri/src-tauri/tauri.conf.json`).
-  `cargo xtask bump 2.0.0-beta.1` sets the version, commits and tags
-  (`docs/core/releases.mdx`, Version bump).
+- Every product package is `2.0.0-beta.1`, the files `cargo xtask bump`
+  edits: `core`, `apps/cli`, `apps/server`, `apps/tauri/src-tauri`,
+  `apps/tauri/sd-tauri-core`, `tauri.conf.json` and `apps/tauri/package.json`.
+  `sd --version` prints `2.0.0-beta.1 (<sha>)`. The tag is `v2.0.0-beta.1`;
+  the release workflow's updater manifest job fails if the tag and
+  `tauri.conf.json` disagree.
 - The previous 2.0 release is `v2.0.0-alpha.2` (prerelease, 2026-02-07). Its
   tag is not an ancestor of `main`: `main` was fast-forwarded to the
   rewritten `sources` branch on 2026-10-05, so "changes since alpha.2" is the
@@ -211,7 +213,11 @@ sd library backup verify --from ~/backups/spacedrive-before-beta1
 
 ### From nightly (CLI and daemon)
 
-Nightly reports `2.0.0-alpha.2 (<sha>)`; beta.1 is a newer semantic version.
+A nightly built before the version bump reports `2.0.0-alpha.2 (<sha>)`, and
+the stable channel sees beta.1 as newer. A nightly built after the bump
+reports `2.0.0-beta.1 (<sha>)`; the stable channel treats beta.1 as the same
+version and reports it is up to date, since that nightly already runs beta.1
+or newer code.
 
 ~~~bash
 sd library backup --to ~/backups/spacedrive-before-beta1
