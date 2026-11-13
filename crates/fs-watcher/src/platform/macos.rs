@@ -100,8 +100,13 @@ impl MacOsHandler {
 	/// Whether the path is there under exactly this spelling. APFS answers a
 	/// stat for any case of a name, so after a case-only rename the old
 	/// spelling would still read as present.
-	fn present(path: &Path) -> bool {
-		crate::spelling::present_as_spelled(path).unwrap_or_else(|_| path.exists())
+	async fn present(path: &Path) -> bool {
+		let path = path.to_path_buf();
+		tokio::task::spawn_blocking(move || {
+			crate::spelling::present_as_spelled(&path).unwrap_or_else(|_| path.exists())
+		})
+		.await
+		.unwrap_or(true)
 	}
 
 	/// Check if path is a directory
@@ -132,7 +137,7 @@ impl MacOsHandler {
 	async fn process_create(&self, path: PathBuf) -> Result<Vec<FsEvent>> {
 		// FSEvents flags a renamed-away name as created too when both landed
 		// in one batch. Its inode would be the file's under the new name.
-		if !Self::present(&path) {
+		if !Self::present(&path).await {
 			return self.process_remove(path).await;
 		}
 
@@ -518,7 +523,7 @@ impl EventHandler for MacOsHandler {
 				} else if let Some(path) = event.primary_path() {
 					// Single path rename event - treat as create (file appeared) or remove (file gone)
 					// Check if path exists to determine which
-					if Self::present(path) {
+					if Self::present(path).await {
 						debug!("Rename event with single path (exists): {}", path.display());
 						return self.process_create(path.clone()).await;
 					} else {

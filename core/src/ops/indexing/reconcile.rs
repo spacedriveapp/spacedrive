@@ -380,13 +380,41 @@ pub async fn reconcile_source(
 	}
 
 	// A stat alone would keep the old spelling of a case-only rename on a
-	// case-insensitive volume, so the name has to be the one the directory
-	// stores. An error reads as present, so nothing is removed on a guess.
-	let still_gone = |path: PathBuf| async move {
-		matches!(
-			tokio::task::spawn_blocking(move || sd_fs_watcher::present_as_spelled(&path)).await,
-			Ok(Ok(false))
-		)
+	// case-insensitive volume, so a path that still stats is checked against
+	// the names its directory stores. Each directory is listed once per pass,
+	// so recasing a folder of N files costs N stats and one listing. An error
+	// reads as present, so nothing is removed on a guess.
+	let mut listings: std::collections::HashMap<PathBuf, Option<HashSet<std::ffi::OsString>>> =
+		std::collections::HashMap::new();
+	let mut still_gone = async |path: PathBuf| -> bool {
+		match tokio::fs::symlink_metadata(&path).await {
+			Err(error) if error.kind() == std::io::ErrorKind::NotFound => return true,
+			Err(_) => return false,
+			Ok(_) => {}
+		}
+		let (Some(parent), Some(name)) = (path.parent(), path.file_name()) else {
+			return false;
+		};
+		if !listings.contains_key(parent) {
+			let dir = parent.to_path_buf();
+			let names = tokio::task::spawn_blocking(move || {
+				std::fs::read_dir(&dir)
+					.and_then(|entries| {
+						entries
+							.map(|entry| entry.map(|entry| entry.file_name()))
+							.collect::<std::io::Result<HashSet<_>>>()
+					})
+					.ok()
+			})
+			.await
+			.ok()
+			.flatten();
+			listings.insert(parent.to_path_buf(), names);
+		}
+		listings
+			.get(parent)
+			.and_then(Option::as_ref)
+			.is_some_and(|names| !names.contains(name))
 	};
 
 	// A path all of whose identities arrived elsewhere moved, and its record

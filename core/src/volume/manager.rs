@@ -1180,8 +1180,8 @@ impl VolumeManager {
 		let parent = match self.locate_path(parent).await {
 			Some((_, spelled)) => spelled,
 			None => crate::common::utils::strip_windows_extended_prefix(
-				parent
-					.canonicalize()
+				tokio::fs::canonicalize(parent)
+					.await
 					.unwrap_or_else(|_| parent.to_path_buf()),
 			),
 		};
