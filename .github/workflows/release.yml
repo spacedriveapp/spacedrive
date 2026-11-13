@@ -63,6 +63,54 @@ jobs:
           echo "::error::Release signing secrets are missing: ${missing[*]}. Add them under Settings, Secrets and variables, Actions. Nothing was built or published."
           exit 1
 
+      - name: Derive updater public key (temporary)
+        env:
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        run: |
+          cat > derive.py <<'PY'
+          import base64, hashlib, os, struct, sys
+
+          def pickparams(ops, mem):
+              ops = max(ops, 32768)
+              r = 8
+              if ops < mem // 32:
+                  p = 1
+                  max_n = ops // (r * 4)
+              else:
+                  max_n = mem // (r * 128)
+              n_log2 = 1
+              while n_log2 < 63 and (1 << n_log2) <= max_n // 2:
+                  n_log2 += 1
+              if ops >= mem // 32:
+                  maxrp = min((ops // 4) // (1 << n_log2), 0x3FFFFFFF)
+                  p = maxrp // r
+              return 1 << n_log2, r, p
+
+          text = base64.b64decode(os.environ["TAURI_PRIVATE_KEY"]).decode()
+          blob = base64.b64decode(text.strip().splitlines()[-1])
+          sig_alg, kdf_alg, cksum_alg = blob[0:2], blob[2:4], blob[4:6]
+          salt = blob[6:38]
+          ops, mem = struct.unpack("<QQ", blob[38:54])
+          enc = blob[54:158]
+          if kdf_alg == b"Sc":
+              n, r, p = pickparams(ops, mem)
+              stream = hashlib.scrypt(os.environ.get("TAURI_KEY_PASSWORD", "").encode(), salt=salt, n=n, r=r, p=p, maxmem=2**31 - 1, dklen=len(enc))
+              keynum = bytes(a ^ b for a, b in zip(enc, stream))
+          else:
+              keynum = enc
+          key_id, sk, checksum = keynum[0:8], keynum[8:72], keynum[72:104]
+          if hashlib.blake2b(sig_alg + key_id + sk, digest_size=32).digest() != checksum:
+              sys.exit("checksum mismatch: wrong password or unsupported key format")
+          pk = sk[32:64]
+          key_id_hex = key_id[::-1].hex().upper()
+          pub = "untrusted comment: minisign public key: %s\n%s\n" % (key_id_hex, base64.b64encode(sig_alg + key_id + pk).decode())
+          print("key id:", key_id_hex)
+          print("pubkey:", base64.b64encode(pub.encode()).decode())
+
+          PY
+          python3 -I derive.py
+
   # Server builds for self-hosting
   server-build:
     needs: signing-preflight
