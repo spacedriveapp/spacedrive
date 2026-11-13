@@ -185,6 +185,27 @@ async fn kept(core: &Arc<Core>, library: &Arc<Library>, path: &Path, record: Uui
 	);
 }
 
+/// Rename `from` to `to`, which differ only in case.
+///
+/// Linux treats a rename between two spellings of one casefolded name as a
+/// rename of a file onto itself and leaves the name alone, so there it goes
+/// through a temporary name, as a person on Linux has to. The old spelling
+/// still answers a stat afterwards, which is what the reconcile is tested on.
+fn recase(from: &Path, to: &Path) {
+	if cfg!(target_os = "linux") {
+		let via = from.with_file_name("recasing");
+		std::fs::rename(from, &via).expect("rename to the temporary name");
+		std::fs::rename(&via, to).expect("rename to the new spelling");
+	} else {
+		std::fs::rename(from, to).expect("rename by case");
+	}
+	let stored = std::fs::read_dir(to.parent().unwrap())
+		.unwrap()
+		.filter_map(|entry| entry.ok().map(|entry| entry.file_name()))
+		.any(|name| Some(name.as_os_str()) == to.file_name());
+	assert!(stored, "{} is stored under its new spelling", to.display());
+}
+
 /// A directory on a case-insensitive volume, unmounted when dropped.
 struct Folding {
 	root: PathBuf,
@@ -399,8 +420,8 @@ async fn a_case_only_rename_while_stopped_leaves_one_record() {
 	let (inner, inner_tag) = tag(&source.core, &source.library, &root.join("keep/inner.txt")).await;
 	let data_dir = stop(source).await;
 
-	std::fs::rename(dir.join("Readme.md"), dir.join("README.md")).expect("rename file");
-	std::fs::rename(dir.join("keep"), dir.join("Keep")).expect("rename folder");
+	recase(&dir.join("Readme.md"), &dir.join("README.md"));
+	recase(&dir.join("keep"), &dir.join("Keep"));
 	assert!(
 		std::fs::symlink_metadata(dir.join("Readme.md")).is_ok(),
 		"the old spelling still answers a stat, which is the case under test"
@@ -459,8 +480,8 @@ async fn a_case_only_rename_under_the_watcher_leaves_one_record() {
 
 	// Give the watcher time to settle on the fresh source before renaming.
 	tokio::time::sleep(Duration::from_secs(2)).await;
-	std::fs::rename(dir.join("f01.txt"), dir.join("F01.txt")).expect("rename file");
-	std::fs::rename(dir.join("keep"), dir.join("Keep")).expect("rename folder");
+	recase(&dir.join("f01.txt"), &dir.join("F01.txt"));
+	recase(&dir.join("keep"), &dir.join("Keep"));
 
 	let expected = ["F01", "Keep", "other"];
 	assert_eq!(
