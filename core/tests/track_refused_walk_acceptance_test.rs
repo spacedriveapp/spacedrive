@@ -4,7 +4,7 @@
 //! because the directory an unmounted drive leaves behind must never be walked
 //! as the drive. `sources.track` used to register such a source, skip the
 //! walk with a log line, and report success. It has to fail visibly instead,
-//! keep the source registered and marked unfinished, and let the heal walk it
+//! and keep the source registered and marked unfinished so the heal walks it
 //! once the refusal clears.
 //!
 //! On macOS a second case tracks a temporary directory on the Data volume and
@@ -24,7 +24,7 @@ use std::{
 
 use helpers::TestConfigBuilder;
 use sd_core::{
-	domain::volume::{Volume, VolumeFingerprint},
+	domain::volume::{MountType, Volume, VolumeFingerprint},
 	infra::action::LibraryAction,
 	library::{AddOverrides, Library},
 	ops::{
@@ -76,31 +76,50 @@ async fn committed(store: &SourceStore) -> u64 {
 		.expect("count") as u64
 }
 
-/// A detected drive mounted at `mount_point`, which is a plain directory.
+/// A drive the volume manager reports mounted at `mount_point`, which is a
+/// plain directory, the way detection reports a drive in the refresh
+/// interval after it went away.
 fn drive_at(mount_point: PathBuf) -> Volume {
-	Volume::new(
+	let mut drive = Volume::new(
 		Uuid::nil(),
 		VolumeFingerprint("refused-walk-drive".into()),
 		"Away".into(),
 		mount_point,
-	)
+	);
+	drive.mount_type = MountType::External;
+	drive.is_mounted = true;
+	drive
 }
 
+async fn wait_for_records(store: &SourceStore, expected: u64) -> u64 {
+	let mut records = 0;
+	for _ in 0..600 {
+		records = committed(store).await;
+		if records == expected && !store.walk_unfinished().await {
+			break;
+		}
+		tokio::time::sleep(Duration::from_millis(100)).await;
+	}
+	records
+}
+
+/// A first track whose walk the index refuses. The heal walking a store
+/// left marked unfinished is proven by `track_full_data_disk_acceptance_test`;
+/// here the heal must also keep refusing while the refusal stands.
 #[tokio::test]
-async fn a_refused_first_walk_fails_the_track_and_the_heal_walks_it_later() {
+async fn a_refused_first_walk_fails_the_track_and_leaves_the_source_for_the_heal() {
 	let _ = tracing_subscriber::fmt::try_init();
 	let temp = tempfile::tempdir().expect("tempdir");
 	let temp = std::fs::canonicalize(temp.path()).expect("canonical tempdir");
 	let (core, library) = boot(&temp.join("data")).await;
 	let cache = core.context.volume_index();
 
-	// A drive detection reports at a directory that is not a mount point,
-	// the way it does for a drive in the refresh interval after it went away.
 	let drive = temp.join("drive");
 	let tree = drive.join("tree");
 	write_tree(&tree);
-	cache.track_detected_volume(&drive_at(drive.clone()));
-	assert!(cache.dispatch_refusal(&tree).is_some());
+	core.volumes
+		.register_cloud_volume(drive_at(drive.clone()))
+		.await;
 
 	// 1. The add says the walk did not start, why, and that it will retry.
 	let message = track(&tree)
@@ -115,8 +134,8 @@ async fn a_refused_first_walk_fails_the_track_and_the_heal_walks_it_later() {
 		"the error names the refusal and the retry: {message}"
 	);
 
-	// 2. The source stays registered and marked unfinished, and nothing
-	// reads it as being indexed.
+	// 2. The source stays registered on its drive and marked unfinished,
+	// and nothing reads it as being indexed.
 	let source = cache
 		.sources_of(library.id())
 		.into_iter()
@@ -124,6 +143,7 @@ async fn a_refused_first_walk_fails_the_track_and_the_heal_walks_it_later() {
 		.expect("the source stays registered");
 	assert_eq!(source.entry_count, None);
 	assert!(!cache.is_indexing(&tree));
+	assert!(cache.dispatch_refusal(&tree).is_some());
 	let store = cache.store_for(&tree).await.expect("store");
 	assert_eq!(store.id(), source.id);
 	assert!(
@@ -131,24 +151,20 @@ async fn a_refused_first_walk_fails_the_track_and_the_heal_walks_it_later() {
 		"a refused walk leaves the store marked for the heal"
 	);
 
-	// 3. Once the drive no longer claims the tree, the heal walks it.
-	cache.track_detected_volume(&drive_at(temp.join("elsewhere")));
-	assert!(cache.dispatch_refusal(&tree).is_none());
+	// 3. The heal tries again and is refused the same way: nothing is
+	// walked into the directory, and the mark stays for the next pass.
 	sd_core::ops::volumes::index::map_attached_volumes(&library, &core.context, false).await;
-	let expected = FILES as u64 + 1;
-	let mut records = 0;
-	for _ in 0..600 {
-		records = committed(&store).await;
-		if records == expected && !store.walk_unfinished().await {
-			break;
-		}
-		tokio::time::sleep(Duration::from_millis(100)).await;
-	}
-	assert_eq!(records, expected, "the heal lands the whole tree");
-	assert!(
-		!store.walk_unfinished().await,
-		"the healed walk clears its mark"
+	tokio::time::sleep(Duration::from_secs(1)).await;
+	assert_eq!(
+		committed(&store).await,
+		0,
+		"the refused directory is not walked"
 	);
+	assert!(
+		store.walk_unfinished().await,
+		"the mark waits for the next heal"
+	);
+	assert!(!cache.is_indexing(&tree));
 
 	drop(store);
 	drop(library);
@@ -179,16 +195,8 @@ async fn a_folder_on_the_macos_data_volume_is_walked() {
 	);
 
 	let store = cache.store_for(&output.root).await.expect("store");
-	let expected = FILES as u64 + 1;
-	let mut records = 0;
-	for _ in 0..600 {
-		records = committed(&store).await;
-		if records == expected && !store.walk_unfinished().await {
-			break;
-		}
-		tokio::time::sleep(Duration::from_millis(100)).await;
-	}
-	assert_eq!(records, expected, "the walk lands the whole tree");
+	let records = wait_for_records(&store, FILES as u64).await;
+	assert_eq!(records, FILES as u64, "the walk lands the whole tree");
 
 	drop(store);
 	drop(library);
