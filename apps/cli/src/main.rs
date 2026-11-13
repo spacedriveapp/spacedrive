@@ -3,8 +3,8 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use comfy_table::{presets::UTF8_BORDERS_ONLY, Attribute, Cell, Table};
 use sd_client::{
-	daemon_socket_addr, ensure_daemon, is_daemon_running, CoreClient, DaemonLaunchConfig,
-	EnsureDaemonOutcome,
+	daemon_socket_addr, is_daemon_running, spawn_daemon, CoreClient, DaemonLaunchConfig,
+	SpawnedDaemon,
 };
 use std::path::Path;
 
@@ -64,9 +64,49 @@ use config_cmd::ConfigCmd;
 /// running jobs first, which is what makes it slow.
 const RESTART_EXIT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
 
-/// How long `sd restart` waits for the new daemon to answer. Opening
-/// libraries and sources comes before the daemon binds its port.
-const RESTART_READY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+/// How long `sd start` and `sd restart` wait for a new daemon to answer.
+/// Opening libraries and sources comes before the daemon binds its port.
+const DAEMON_READY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// Start the daemon in the background and return its PID once it answers.
+///
+/// A daemon that dies on launch writes its reason only to stderr, so stderr
+/// goes to `<data dir>/logs/daemon-stderr.log` and a failure names that file
+/// and the daemon's log directory instead of passing silently.
+async fn start_daemon_and_confirm(
+	client: &CoreClient,
+	launch: &DaemonLaunchConfig,
+	data_dir: &Path,
+) -> Result<u32> {
+	let logs_dir = data_dir.join("logs");
+	let stderr_log = logs_dir.join("daemon-stderr.log");
+	let where_to_look = format!(
+		"Its stderr is in {}, and its log is daemon.log.<date> in {}.",
+		stderr_log.display(),
+		logs_dir.display()
+	);
+	match spawn_daemon(client, launch, &stderr_log, DAEMON_READY_TIMEOUT).await? {
+		SpawnedDaemon::Ready { pid } => Ok(pid),
+		SpawnedDaemon::Exited { pid, status } => {
+			let stderr = std::fs::read_to_string(&stderr_log).unwrap_or_default();
+			let lines: Vec<&str> = stderr.lines().collect();
+			let tail = &lines[lines.len().saturating_sub(20)..];
+			anyhow::bail!(
+				"The daemon (PID {}) exited with {} before it answered. {}\n{}",
+				pid,
+				status,
+				where_to_look,
+				tail.join("\n")
+			)
+		}
+		SpawnedDaemon::Unresponsive { pid } => anyhow::bail!(
+			"The daemon (PID {}) is running but did not answer within {} s. {}",
+			pid,
+			DAEMON_READY_TIMEOUT.as_secs(),
+			where_to_look
+		),
+	}
+}
 
 /// Safely reset only Spacedrive v2 specific files and directories
 /// This preserves any user data that might be in the data directory (like v1 backups)
@@ -340,26 +380,14 @@ async fn main() -> Result<()> {
 					}
 				}
 			} else {
-				// Background mode: ping first, spawn only if not running
-				match ensure_daemon(&client, &launch).await {
-					Ok(EnsureDaemonOutcome::AlreadyRunning) => {
-						println!("Daemon is already running");
-						return Ok(());
-					}
-					Ok(EnsureDaemonOutcome::Started { pid, responsive }) => {
-						println!("Daemon started (PID: {})", pid);
-						if responsive {
-							println!("Daemon is ready and responding");
-							println!("Use 'sd logs follow' to view daemon logs");
-						} else {
-							println!("Warning: Daemon may not be fully initialized yet");
-							println!("Use 'sd logs follow' to check daemon status");
-						}
-					}
-					Err(e) => {
-						return Err(anyhow::anyhow!("Failed to start daemon: {}", e));
-					}
+				if is_daemon_running(&client).await {
+					println!("Daemon is already running");
+					return Ok(());
 				}
+				let pid = start_daemon_and_confirm(&client, &launch, &data_dir).await?;
+				println!("Daemon started (PID: {})", pid);
+				println!("Daemon is ready and responding");
+				println!("Use 'sd logs follow' to view daemon logs");
 			}
 		}
 		Commands::Stop { reset } => {
@@ -475,40 +503,8 @@ async fn main() -> Result<()> {
 					}
 				}
 			} else {
-				let logs_dir = data_dir.join("logs");
-				let stderr_log = logs_dir.join("daemon-stderr.log");
-				let where_to_look = format!(
-					"Its stderr is in {}, and its log is daemon.log.<date> in {}.",
-					stderr_log.display(),
-					logs_dir.display()
-				);
-				match sd_client::spawn_daemon(&core, &launch, &stderr_log, RESTART_READY_TIMEOUT)
-					.await?
-				{
-					sd_client::SpawnedDaemon::Ready { pid } => {
-						println!("Daemon restarted (PID: {})", pid);
-					}
-					sd_client::SpawnedDaemon::Exited { pid, status } => {
-						let stderr = std::fs::read_to_string(&stderr_log).unwrap_or_default();
-						let lines: Vec<&str> = stderr.lines().collect();
-						let tail = &lines[lines.len().saturating_sub(20)..];
-						anyhow::bail!(
-							"The new daemon (PID {}) exited with {} before it answered. {}\n{}",
-							pid,
-							status,
-							where_to_look,
-							tail.join("\n")
-						);
-					}
-					sd_client::SpawnedDaemon::Unresponsive { pid } => {
-						anyhow::bail!(
-							"The new daemon (PID {}) is running but did not answer within {} s. {}",
-							pid,
-							RESTART_READY_TIMEOUT.as_secs(),
-							where_to_look
-						);
-					}
-				}
+				let pid = start_daemon_and_confirm(&core, &launch, &data_dir).await?;
+				println!("Daemon restarted (PID: {})", pid);
 			}
 		}
 		Commands::Config(cmd) => {
