@@ -349,15 +349,15 @@ jobs:
             printf '%s<<%s\n%s\n%s\n' "$name" "$delimiter" "${!name}" "$delimiter" >> "$GITHUB_ENV"
           done
 
-      # A dry run passes no signing secrets and turns off the updater
-      # artifacts, which cannot be produced without the Tauri key. Without a
+      # The updater key signs in a dry run too, so a dry run proves the
+      # signatures verify against the public key the app ships with. Without a
       # tag or release id tauri-action only builds, it never uploads.
       - name: Build with tauri-action
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.dry_run != true && secrets.TAURI_PRIVATE_KEY || '' }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.dry_run != true && secrets.TAURI_KEY_PASSWORD || '' }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           CPATH: ${{ github.workspace }}/apps/.deps/include
           C_INCLUDE_PATH: ${{ github.workspace }}/apps/.deps/include
@@ -366,8 +366,6 @@ jobs:
           args: >-
             --target ${{ matrix.settings.target }}
             --bundles ${{ matrix.settings.bundles }}
-            ${{ inputs.dry_run == true && '--config ''{"bundle":{"createUpdaterArtifacts":false}}''' || '' }}
-          includeUpdaterJson: true
 
       # tauri warns and carries on when it cannot sign or notarize, so a real
       # release checks the result itself and fails rather than ship an app
@@ -406,16 +404,115 @@ jobs:
           target: ${{ matrix.settings.target }}
           profile: release
 
+      # The updater installs the macOS .app.tar.gz, and on Linux the .deb that
+      # Publish Artifacts already uploads; tauri signs both. A missing
+      # signature fails here rather than ship an update the app refuses.
+      - name: Collect updater bundle and signature
+        run: |
+          set -euo pipefail
+          bundle=target/${{ matrix.settings.target }}/release/bundle
+          base=Spacedrive-${{ matrix.settings.os }}-${{ matrix.settings.arch }}
+          mkdir -p updater
+          if [ "${{ matrix.settings.os }}" = darwin ]; then
+            cp "$bundle/macos/Spacedrive.app.tar.gz" "updater/$base.app.tar.gz"
+            cp "$bundle/macos/Spacedrive.app.tar.gz.sig" "updater/$base.app.tar.gz.sig"
+          else
+            deb=$(ls "$bundle"/deb/*.deb)
+            cp "$deb.sig" "updater/$base.deb.sig"
+          fi
+          ls -l updater
+
+      - name: Upload updater bundle and signature
+        uses: actions/upload-artifact@v4
+        with:
+          name: updater-${{ matrix.settings.os }}-${{ matrix.settings.arch }}
+          path: updater/*
+          if-no-files-found: error
+
       - name: Cleanup keychain
         if: always() && runner.os == 'macOS'
         run: security delete-keychain signing_temp.keychain || true
+
+  # latest.json is what the desktop updater reads from the latest release.
+  # Every signature is checked against the public key in tauri.conf.json
+  # before the manifest is written, so a key mismatch fails the run.
+  updater-manifest:
+    needs: desktop-main
+    runs-on: ubuntu-24.04
+    name: Updater manifest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download updater signatures and macOS bundles
+        uses: actions/download-artifact@v4
+        with:
+          pattern: updater-*
+          path: updater
+          merge-multiple: true
+
+      - name: Download Linux packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: Spacedrive-linux-*.deb
+          path: updater
+          merge-multiple: true
+
+      - name: Install minisign
+        run: sudo apt-get update && sudo apt-get install -y minisign
+
+      - name: Verify signatures and write latest.json
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          set -euo pipefail
+          conf=apps/tauri/src-tauri/tauri.conf.json
+          version=$(jq -r .version "$conf")
+          tag="v$version"
+          if [ "$IS_TAG" = "true" ] && [ "$REF_NAME" != "$tag" ]; then
+            echo "::error::Tag $REF_NAME does not match tauri.conf.json version $version"
+            exit 1
+          fi
+          jq -r .plugins.updater.pubkey "$conf" | base64 --decode > updater.pub
+          echo "Updater public key: $(head -1 updater.pub)"
+
+          platforms='{}'
+          for entry in darwin-aarch64:app.tar.gz darwin-x86_64:app.tar.gz linux-x86_64:deb linux-aarch64:deb; do
+            platform=${entry%%:*}
+            asset="Spacedrive-$platform.${entry#*:}"
+            base64 --decode "updater/$asset.sig" > "$asset.minisig"
+            minisign -V -p updater.pub -m "updater/$asset" -x "$asset.minisig"
+            platforms=$(jq -c \
+              --arg p "$platform" \
+              --arg sig "$(cat "updater/$asset.sig")" \
+              --arg url "https://github.com/spacedriveapp/spacedrive/releases/download/$tag/$asset" \
+              '. + {($p): {signature: $sig, url: $url}}' <<< "$platforms")
+          done
+
+          mkdir -p manifest
+          jq -n \
+            --arg version "$version" \
+            --arg notes "https://github.com/spacedriveapp/spacedrive/releases/tag/$tag" \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --argjson platforms "$platforms" \
+            '{version: $version, notes: $notes, pub_date: $pub_date, platforms: $platforms}' \
+            > manifest/latest.json
+          cat manifest/latest.json
+
+      - name: Upload latest.json
+        uses: actions/upload-artifact@v4
+        with:
+          name: updater-manifest
+          path: manifest/latest.json
+          if-no-files-found: error
 
   # Create unified release with Server, CLI, and Desktop artifacts
   release:
     if: startsWith(github.ref, 'refs/tags/') && inputs.dry_run != true
     runs-on: blacksmith-4vcpu-ubuntu-2404
     name: Create Release
-    needs: [server-build, cli-build, desktop-main]
+    needs: [server-build, cli-build, desktop-main, updater-manifest]
     permissions:
       contents: write
     steps:
