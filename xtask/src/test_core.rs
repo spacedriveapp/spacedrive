@@ -195,6 +195,14 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Stopped daemon reconcile acceptance test",
 		&["--test", "stopped_daemon_reconcile_acceptance_test"],
 	),
+	// Case-only renames on a case-insensitive volume and alternate spellings
+	// of a tracked folder. The case-insensitive half needs ext4 casefold and
+	// skips with a reason on a kernel without it.
+	acceptance(
+		"sd-core",
+		"Path spelling acceptance test",
+		&["--test", "path_spelling_acceptance_test"],
+	),
 	acceptance(
 		"sd-core",
 		"Folder rename test",

@@ -139,6 +139,11 @@ jobs:
       - name: Run the ZFS locked volumes suite
         run: RUST_LOG=sd_core=info cargo test -p sd-core --test zfs_locked_volumes_acceptance_test -- --test-threads=1 --nocapture
 
+      # GitHub's kernel folds case on ext4, which the Blacksmith kernel in the
+      # acceptance job does not, so the case-only rename tests run for real here.
+      - name: Run the path spelling suite on a casefold volume
+        run: RUST_LOG=sd_core=info cargo test -p sd-core --test path_spelling_acceptance_test -- --test-threads=1 --nocapture
+
   # Windows is the one supported desktop platform the rewrite has never been
   # built on, so this job is the evidence for the cross-platform gate in
   # docs/core/releases.mdx. It runs on GitHub's hosted image because

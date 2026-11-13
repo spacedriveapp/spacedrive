@@ -93,7 +93,19 @@ pub async fn path_exists_safe(
 			}
 		}
 	} else {
-		match tokio::fs::try_exists(path).await {
+		// FSEvents can name a path by the spelling a case-only rename just
+		// retired, and APFS answers a stat for it. Reading the stored name is
+		// one call there; elsewhere the watcher reports the names it saw.
+		#[cfg(target_os = "macos")]
+		let exists = {
+			let path = path.to_path_buf();
+			tokio::task::spawn_blocking(move || sd_fs_watcher::present_as_spelled(&path))
+				.await
+				.unwrap_or_else(|error| Err(std::io::Error::other(error)))
+		};
+		#[cfg(not(target_os = "macos"))]
+		let exists = tokio::fs::try_exists(path).await;
+		match exists {
 			Ok(exists) => Ok(exists),
 			Err(e) => {
 				tracing::warn!(

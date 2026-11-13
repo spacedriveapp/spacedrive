@@ -20,7 +20,9 @@
 //! unless the pass read every directory it needed to, a pass that would remove
 //! more than half of what it compared removes nothing, and each removal is
 //! checked against the disk once more before it is applied, since the watcher
-//! is live while this runs.
+//! is live while this runs. That check reads the name the directory stores,
+//! because a case-insensitive volume answers a stat for the old spelling of a
+//! case-only rename.
 
 use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
@@ -377,10 +379,13 @@ pub async fn reconcile_source(
 		report.added += arrive(&writer, &after_replacement, &mut arrived).await;
 	}
 
+	// A stat alone would keep the old spelling of a case-only rename on a
+	// case-insensitive volume, so the name has to be the one the directory
+	// stores. An error reads as present, so nothing is removed on a guess.
 	let still_gone = |path: PathBuf| async move {
 		matches!(
-			tokio::fs::symlink_metadata(&path).await,
-			Err(ref error) if error.kind() == std::io::ErrorKind::NotFound
+			tokio::task::spawn_blocking(move || sd_fs_watcher::present_as_spelled(&path)).await,
+			Ok(Ok(false))
 		)
 	};
 

@@ -18,9 +18,23 @@ pub enum SearchCmd {
 
 pub async fn run(ctx: &Context, cmd: SearchCmd) -> Result<()> {
 	match cmd {
-		SearchCmd::Files(args) => {
+		SearchCmd::Files(mut args) => {
+			if let Some(scope) = args.sd_path.as_mut().filter(|scope| !scope.contains("://")) {
+				let path = crate::domains::file::requested_path(ctx, std::path::Path::new(scope))?;
+				*scope = path.to_string_lossy().into_owned();
+			}
 			let input: sd_core::ops::search::input::FileSearchInput = args.into();
-			let out: FileSearchOutput = execute_query!(ctx, input);
+			let mut out: FileSearchOutput = execute_query!(ctx, input);
+			// The index answers in the volume's spelling. On this machine a
+			// result reads the way its source was tracked, through the firmlink.
+			if ctx.core.device().is_none() {
+				for result in &mut out.results {
+					if let sd_core::domain::SdPath::Physical { path, .. } = &mut result.file.sd_path
+					{
+						*path = sd_fs_watcher::short_spelling(path);
+					}
+				}
+			}
 			print_output!(ctx, &out, |o: &FileSearchOutput| {
 				if o.results.is_empty() {
 					println!("No files found");

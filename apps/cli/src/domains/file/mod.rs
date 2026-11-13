@@ -74,16 +74,15 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 			copy_files(ctx, input, dry_run, yes).await?;
 		}
 		FileCmd::Info(args) => {
-			let file_info = get_file_info(ctx, &args.path).await?;
-			print_output!(ctx, &file_info, |info: &Option<sd_core::domain::File>| {
-				match info {
-					Some(file) => {
-						println!("{}", serde_json::to_string_pretty(file).unwrap());
-					}
-					None => {
-						println!("File not found or not indexed in Spacedrive");
-					}
-				}
+			let path = requested_path(ctx, &args.path)?;
+			let Some(file) = get_file_info(ctx, &path).await? else {
+				anyhow::bail!(
+					"{} is not found or not indexed in Spacedrive",
+					path.display()
+				);
+			};
+			print_output!(ctx, &file, |file: &sd_core::domain::File| {
+				println!("{}", serde_json::to_string_pretty(file).unwrap());
 			});
 		}
 		FileCmd::List(args) => {
@@ -100,8 +99,9 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 					);
 				}
 			};
+			let path = requested_path(ctx, &args.path)?;
 			let directory_listing =
-				list_directory(ctx, &args.path, args.limit, args.include_hidden, sort_by).await?;
+				list_directory(ctx, &path, args.limit, args.include_hidden, sort_by).await?;
 			print_output!(
 				ctx,
 				&directory_listing,
@@ -972,6 +972,19 @@ fn print_entry(out: &mut impl Write, entry: &CompareEntry, header: bool) -> std:
 }
 
 /// Get file information using the FileByPathQuery
+/// A path as the daemon has to receive it. The daemon has its own working
+/// directory, so a relative path is made absolute here, against the shell's.
+/// Another device's paths cannot be, so those must be absolute already.
+pub(crate) fn requested_path(ctx: &Context, path: &std::path::Path) -> Result<std::path::PathBuf> {
+	if path.is_absolute() {
+		return Ok(path.to_path_buf());
+	}
+	if ctx.core.device().is_some() {
+		anyhow::bail!("Use an absolute path when targeting another device");
+	}
+	std::path::absolute(path).map_err(|e| anyhow::anyhow!("resolve {}: {e}", path.display()))
+}
+
 async fn get_file_info(
 	ctx: &Context,
 	path: &std::path::Path,
