@@ -234,8 +234,11 @@ async fn folding_dir(name: &str) -> Result<Folding, String> {
 		if !folds_case(temp.path()) {
 			return Err("the temporary directory is on a case-sensitive volume".into());
 		}
+		// FSEvents reports /var/folders as /private/var/folders, so the
+		// source is tracked under the spelling its events arrive in.
+		let root = temp.path().canonicalize().map_err(|e| e.to_string())?;
 		Ok(Folding {
-			root: temp.path().to_path_buf(),
+			root,
 			_temp: Some(temp),
 		})
 	}
