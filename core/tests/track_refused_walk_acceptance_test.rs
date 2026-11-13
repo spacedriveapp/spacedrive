@@ -33,7 +33,6 @@ use sd_core::{
 	},
 	Core,
 };
-use uuid::Uuid;
 
 const FILES: usize = 50;
 
@@ -81,7 +80,7 @@ async fn committed(store: &SourceStore) -> u64 {
 /// interval after it went away.
 fn drive_at(mount_point: PathBuf) -> Volume {
 	let mut drive = Volume::new(
-		Uuid::nil(),
+		sd_core::device::get_current_device_id(),
 		VolumeFingerprint("refused-walk-drive".into()),
 		"Away".into(),
 		mount_point,
