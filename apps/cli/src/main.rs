@@ -60,6 +60,14 @@ use config_cmd::ConfigCmd;
 
 // OutputFormat is defined in context.rs and shared across domains
 
+/// How long `sd restart` waits for the old daemon to exit. Shutdown pauses
+/// running jobs first, which is what makes it slow.
+const RESTART_EXIT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
+
+/// How long `sd restart` waits for the new daemon to answer. Opening
+/// libraries and sources comes before the daemon binds its port.
+const RESTART_READY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+
 /// Safely reset only Spacedrive v2 specific files and directories
 /// This preserves any user data that might be in the data directory (like v1 backups)
 fn reset_spacedrive_v2_data(data_dir: &Path) -> Result<()> {
@@ -413,10 +421,20 @@ async fn main() -> Result<()> {
 				Ok(_) => {
 					println!("Daemon shutdown initiated.");
 					println!("Waiting for daemon to fully shut down before restart...");
-					// Give some time for shutdown to complete
-					tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 				}
 				Err(_) => println!(" Daemon was not running or already stopped."),
+			}
+
+			// The old daemon holds the port until its core has shut down, and
+			// pausing jobs can take far longer than any fixed sleep; a new
+			// daemon started before then fails to bind and exits.
+			if !sd_client::wait_for_daemon_exit(&socket_addr, RESTART_EXIT_TIMEOUT).await {
+				anyhow::bail!(
+					"The daemon at {} is still running {} s after shutdown was requested, so no new daemon was started. \
+					 It may be pausing jobs: check 'sd logs follow', then run 'sd start' once it has exited.",
+					socket_addr,
+					RESTART_EXIT_TIMEOUT.as_secs()
+				);
 			}
 
 			// Reset data if requested
@@ -424,9 +442,6 @@ async fn main() -> Result<()> {
 				println!("Resetting Spacedrive v2 data...");
 				reset_spacedrive_v2_data(&data_dir)?;
 			}
-
-			// Wait a moment for cleanup
-			tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
 			// Start the daemon again
 			println!("Starting daemon...");
@@ -440,9 +455,8 @@ async fn main() -> Result<()> {
 				instance: instance.clone(),
 				no_default_sources,
 			};
-			let mut cmd = launch.command()?;
-
 			if foreground {
+				let mut cmd = launch.command()?;
 				// Foreground mode: inherit stdout/stderr so logs are visible
 				println!("Starting daemon in foreground mode...");
 				println!("Press Ctrl+C to stop the daemon");
@@ -461,26 +475,38 @@ async fn main() -> Result<()> {
 					}
 				}
 			} else {
-				// Run in background
-				cmd.stdout(std::process::Stdio::null());
-				cmd.stderr(std::process::Stdio::null());
-
-				let child = cmd.spawn()?;
-				println!("Daemon restarted (PID: {})", child.id());
-
-				// Wait a moment and check if it's still running
-				tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
-
-				// Try to connect to verify it started successfully
-				let core = CoreClient::new(socket_addr.clone());
-				match core
-					.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Ping)
-					.await
+				let logs_dir = data_dir.join("logs");
+				let stderr_log = logs_dir.join("daemon-stderr.log");
+				let where_to_look = format!(
+					"Its stderr is in {}, and its log is daemon.log.<date> in {}.",
+					stderr_log.display(),
+					logs_dir.display()
+				);
+				match sd_client::spawn_daemon(&core, &launch, &stderr_log, RESTART_READY_TIMEOUT)
+					.await?
 				{
-					Ok(_) => println!("Daemon restart successful"),
-					Err(e) => {
-						println!(" Warning: Could not verify daemon status: {}", e);
-						println!("Use 'sd status' to check daemon status");
+					sd_client::SpawnedDaemon::Ready { pid } => {
+						println!("Daemon restarted (PID: {})", pid);
+					}
+					sd_client::SpawnedDaemon::Exited { pid, status } => {
+						let stderr = std::fs::read_to_string(&stderr_log).unwrap_or_default();
+						let lines: Vec<&str> = stderr.lines().collect();
+						let tail = &lines[lines.len().saturating_sub(20)..];
+						anyhow::bail!(
+							"The new daemon (PID {}) exited with {} before it answered. {}\n{}",
+							pid,
+							status,
+							where_to_look,
+							tail.join("\n")
+						);
+					}
+					sd_client::SpawnedDaemon::Unresponsive { pid } => {
+						anyhow::bail!(
+							"The new daemon (PID {}) is running but did not answer within {} s. {}",
+							pid,
+							RESTART_READY_TIMEOUT.as_secs(),
+							where_to_look
+						);
 					}
 				}
 			}

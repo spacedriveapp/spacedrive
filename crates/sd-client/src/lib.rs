@@ -19,7 +19,8 @@ mod library;
 pub use broker::{BrokerOptions, BrokerSubscription, SubscriptionBroker};
 pub use client::{CoreClient, EventStream, LogStream};
 pub use daemon::{
-	daemon_binary_name, ensure_daemon, is_daemon_running, DaemonLaunchConfig, EnsureDaemonOutcome,
+	daemon_binary_name, ensure_daemon, is_daemon_running, spawn_daemon, wait_for_daemon_exit,
+	DaemonLaunchConfig, EnsureDaemonOutcome, SpawnedDaemon,
 };
 pub use library::LibraryContext;
 pub use sd_core::infra::daemon::addr::daemon_socket_addr;

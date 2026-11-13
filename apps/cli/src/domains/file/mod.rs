@@ -10,7 +10,7 @@ use crate::util::prelude::*;
 use std::io::Write;
 
 use crate::context::{Context, OutputFormat};
-use sd_core::domain::SdPath;
+use sd_core::domain::{EntryKind, SdPath};
 use sd_core::infra::action::preflight::{Severity, Validation};
 use sd_core::infra::job::handle::JobReceipt;
 use sd_core::infra::query::LibraryQuery;
@@ -116,17 +116,7 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 					table.set_header(vec!["Name", "Type", "Size", "Modified"]);
 
 					for file in &listing.files {
-						// Determine if this is a directory by checking if size is None
-						// In Spacedrive, directories typically have size = 0 or None
-						let is_directory = file.size == 0;
-						let file_type = if is_directory { "Directory" } else { "File" };
-
-						let size_str = if is_directory {
-							"-".to_string()
-						} else {
-							format_bytes(file.size)
-						};
-
+						let (file_type, size_str) = listing_type_and_size(file);
 						table.add_row(vec![
 							file.name.clone(),
 							file_type.to_string(),
@@ -971,6 +961,18 @@ fn print_entry(out: &mut impl Write, entry: &CompareEntry, header: bool) -> std:
 	writeln!(out, "{}   {}", cells.join("   "), entry.path)
 }
 
+/// The Type and Size cells of a directory listing row.
+///
+/// The type comes from the entry's kind, since a directory carries a size
+/// too. A directory prints "-" for size so the column compares files only.
+fn listing_type_and_size(file: &sd_core::domain::File) -> (&'static str, String) {
+	match file.kind {
+		EntryKind::Directory => ("Directory", "-".to_string()),
+		EntryKind::Symlink => ("Symlink", format_bytes(file.size)),
+		EntryKind::File => ("File", format_bytes(file.size)),
+	}
+}
+
 /// Get file information using the FileByPathQuery
 async fn get_file_info(
 	ctx: &Context,
@@ -1018,4 +1020,26 @@ async fn list_directory(
 		serde_json::from_value(json_response)?;
 
 	Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	use sd_core::domain::File;
+
+	/// Directories carry a size of their own now, so a non-empty folder
+	/// printed as "File 2 B" when the listing guessed its type from size.
+	#[test]
+	fn a_listing_types_rows_by_kind_not_size() {
+		let mut folder = File::planned(SdPath::local("/data/photos"), 0, true);
+		folder.size = 2;
+		assert_eq!(
+			listing_type_and_size(&folder),
+			("Directory", "-".to_string())
+		);
+
+		let empty = File::planned(SdPath::local("/data/empty.txt"), 0, false);
+		assert_eq!(listing_type_and_size(&empty).0, "File");
+	}
 }
