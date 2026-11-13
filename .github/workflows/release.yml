@@ -330,6 +330,25 @@ jobs:
           echo "CFLAGS=-march=armv8.2-a+crypto" >> $GITHUB_ENV
           echo "CXXFLAGS=-march=armv8.2-a+crypto" >> $GITHUB_ENV
 
+      # tauri treats a set but empty APPLE_CERTIFICATE as a certificate to
+      # import, so the Apple variables exist only in a signed build.
+      - name: Export macOS signing environment
+        if: env.SIGN_MACOS == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_PROVIDER_SHORT_NAME: ${{ secrets.APPLE_PROVIDER_SHORT_NAME }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          set -euo pipefail
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY \
+            APPLE_PROVIDER_SHORT_NAME APPLE_API_ISSUER APPLE_API_KEY; do
+            delimiter="EOF_$(openssl rand -hex 16)"
+            printf '%s<<%s\n%s\n%s\n' "$name" "$delimiter" "${!name}" "$delimiter" >> "$GITHUB_ENV"
+          done
+
       # A dry run passes no signing secrets and turns off the updater
       # artifacts, which cannot be produced without the Tauri key. Without a
       # tag or release id tauri-action only builds, it never uploads.
@@ -339,12 +358,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.dry_run != true && secrets.TAURI_PRIVATE_KEY || '' }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.dry_run != true && secrets.TAURI_KEY_PASSWORD || '' }}
-          APPLE_CERTIFICATE: ${{ env.SIGN_MACOS == 'true' && secrets.APPLE_CERTIFICATE || '' }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ env.SIGN_MACOS == 'true' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
-          APPLE_SIGNING_IDENTITY: ${{ env.SIGN_MACOS == 'true' && secrets.APPLE_SIGNING_IDENTITY || '' }}
-          APPLE_PROVIDER_SHORT_NAME: ${{ env.SIGN_MACOS == 'true' && secrets.APPLE_PROVIDER_SHORT_NAME || '' }}
-          APPLE_API_ISSUER: ${{ env.SIGN_MACOS == 'true' && secrets.APPLE_API_ISSUER || '' }}
-          APPLE_API_KEY: ${{ env.SIGN_MACOS == 'true' && secrets.APPLE_API_KEY || '' }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           CPATH: ${{ github.workspace }}/apps/.deps/include
           C_INCLUDE_PATH: ${{ github.workspace }}/apps/.deps/include
