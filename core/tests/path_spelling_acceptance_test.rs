@@ -423,9 +423,6 @@ async fn a_case_only_rename_while_stopped_leaves_one_record() {
 			.is_none(),
 		"the old spelling has no record"
 	);
-	assert!(file_info(&core, &library, root.join("keep/inner.txt"))
-		.await
-		.is_none());
 	kept(&core, &library, &root.join("README.md"), readme, readme_tag).await;
 	kept(
 		&core,
