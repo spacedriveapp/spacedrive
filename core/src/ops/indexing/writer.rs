@@ -581,6 +581,20 @@ impl ChangeHandler for ArenaWriter {
 		Ok(())
 	}
 
+	async fn relocate(&mut self, from: &Path, to: &Path) -> Result<()> {
+		let key = map_spelling(from).into_owned();
+		let Some(mut metadata) = self.index.read().await.get_entry_ref(&key) else {
+			return Ok(());
+		};
+		metadata.path = to.to_path_buf();
+		self.apply(Seen::Renamed {
+			from: from.to_path_buf(),
+			to: metadata,
+		})
+		.await;
+		Ok(())
+	}
+
 	async fn delete(&mut self, entry: &EntryRef) -> Result<()> {
 		self.apply(Seen::Lost {
 			path: entry.path.clone(),
@@ -834,6 +848,181 @@ mod tests {
 			index.get_entry_ref(&photo).map(|entry| entry.size),
 			Some(23),
 			"the original carries the bytes the save wrote"
+		);
+	}
+
+	/// A file renamed twice before the watcher's batch is applied, as a
+	/// case-only rename on Linux casefold has to be, keeps its identity and
+	/// leaves nothing at its first name.
+	#[tokio::test]
+	async fn a_chain_of_renames_moves_the_entry_once() {
+		let root = TempDir::new().unwrap();
+		let first = root.path().join("f01.txt");
+		let middle = root.path().join("recasing");
+		let last = root.path().join("F01.txt");
+		std::fs::write(&first, b"x").unwrap();
+		let (mut writer, _bus) = writer(root.path(), Notify::Each);
+		let uuid = writer.apply(Seen::Entries(vec![file(&first, 1)])).await[0].uuid;
+
+		std::fs::rename(&first, &middle).unwrap();
+		std::fs::rename(&middle, &last).unwrap();
+		let config = crate::ops::indexing::ChangeConfig {
+			rule_toggles: Default::default(),
+			root: root.path(),
+			volume_backend: None,
+		};
+		crate::ops::indexing::apply_change_batch(
+			&mut writer,
+			vec![
+				sd_fs_watcher::FsEvent::rename(first.clone(), middle.clone()),
+				sd_fs_watcher::FsEvent::rename(middle.clone(), last.clone()),
+			],
+			&config,
+		)
+		.await
+		.unwrap();
+
+		let index = writer.index.read().await;
+		assert!(!index.has_entry(&first), "nothing left at the first name");
+		assert!(!index.has_entry(&middle));
+		assert_eq!(
+			index.get_entry_uuid(&last),
+			Some(uuid),
+			"one move keeps the identity"
+		);
+	}
+
+	/// The same chain when each rename arrives in its own batch, which is how
+	/// the watcher delivers them.
+	#[tokio::test]
+	async fn a_chain_of_renames_one_event_at_a_time_keeps_the_identity() {
+		let root = TempDir::new().unwrap();
+		let first = root.path().join("keep");
+		let middle = root.path().join("recasing");
+		let last = root.path().join("Keep");
+		std::fs::create_dir(&first).unwrap();
+		std::fs::write(first.join("inner.txt"), b"x").unwrap();
+		let (mut writer, _bus) = writer(root.path(), Notify::Each);
+		let mut folder = file(&first, 0);
+		folder.kind = EntryKind::Directory;
+		let uuid = writer.apply(Seen::Entries(vec![folder])).await[0].uuid;
+		writer
+			.apply(Seen::Entries(vec![file(&first.join("inner.txt"), 1)]))
+			.await;
+
+		std::fs::rename(&first, &middle).unwrap();
+		std::fs::rename(&middle, &last).unwrap();
+		let config = crate::ops::indexing::ChangeConfig {
+			rule_toggles: Default::default(),
+			root: root.path(),
+			volume_backend: None,
+		};
+		for event in [
+			sd_fs_watcher::FsEvent::rename_with_dir_flag(first.clone(), middle.clone(), true),
+			sd_fs_watcher::FsEvent::rename_with_dir_flag(middle.clone(), last.clone(), true),
+		] {
+			crate::ops::indexing::apply_change_batch(&mut writer, vec![event], &config)
+				.await
+				.unwrap();
+		}
+
+		let index = writer.index.read().await;
+		assert!(!index.has_entry(&first), "nothing left at the first name");
+		assert!(!index.has_entry(&first.join("inner.txt")));
+		assert!(!index.has_entry(&middle));
+		assert_eq!(
+			index.get_entry_uuid(&last),
+			Some(uuid),
+			"the folder keeps its identity"
+		);
+		assert!(
+			index.has_entry(&last.join("inner.txt")),
+			"its file moves with it"
+		);
+	}
+
+	/// A file renamed away and deleted, then a new file at its old name renamed
+	/// on: the deletion takes the first file and the second still arrives.
+	#[tokio::test]
+	async fn a_new_file_at_a_deleted_files_name_still_arrives() {
+		let root = TempDir::new().unwrap();
+		let first = root.path().join("a.txt");
+		let middle = root.path().join("t.txt");
+		let last = root.path().join("c.txt");
+		std::fs::write(&first, b"x").unwrap();
+		let (mut writer, _bus) = writer(root.path(), Notify::Each);
+		let uuid = writer.apply(Seen::Entries(vec![file(&first, 1)])).await[0].uuid;
+
+		std::fs::rename(&first, &middle).unwrap();
+		std::fs::remove_file(&middle).unwrap();
+		std::fs::write(&first, b"the replacement").unwrap();
+		std::fs::rename(&first, &last).unwrap();
+		let config = crate::ops::indexing::ChangeConfig {
+			rule_toggles: Default::default(),
+			root: root.path(),
+			volume_backend: None,
+		};
+		crate::ops::indexing::apply_change_batch(
+			&mut writer,
+			vec![
+				sd_fs_watcher::FsEvent::rename(first.clone(), middle.clone()),
+				sd_fs_watcher::FsEvent::remove(middle.clone()),
+				sd_fs_watcher::FsEvent::create(first.clone()),
+				sd_fs_watcher::FsEvent::rename(first.clone(), last.clone()),
+			],
+			&config,
+		)
+		.await
+		.unwrap();
+
+		let index = writer.index.read().await;
+		assert!(!index.has_entry(&first));
+		assert!(!index.has_entry(&middle));
+		assert!(index.has_entry(&last), "the replacement arrives");
+		assert_ne!(index.get_entry_uuid(&last), Some(uuid));
+	}
+
+	/// A chain ends where its file stopped living: a file removed from the
+	/// middle name and replaced by another is not the one that moved on, so
+	/// the last name never takes the first file's identity.
+	#[tokio::test]
+	async fn a_chain_of_renames_stops_where_the_file_was_replaced() {
+		let root = TempDir::new().unwrap();
+		let first = root.path().join("a.txt");
+		let middle = root.path().join("t.txt");
+		let last = root.path().join("c.txt");
+		std::fs::write(&first, b"x").unwrap();
+		let (mut writer, _bus) = writer(root.path(), Notify::Each);
+		let uuid = writer.apply(Seen::Entries(vec![file(&first, 1)])).await[0].uuid;
+
+		std::fs::rename(&first, &middle).unwrap();
+		std::fs::remove_file(&middle).unwrap();
+		std::fs::write(&middle, b"another file").unwrap();
+		std::fs::rename(&middle, &last).unwrap();
+		let config = crate::ops::indexing::ChangeConfig {
+			rule_toggles: Default::default(),
+			root: root.path(),
+			volume_backend: None,
+		};
+		crate::ops::indexing::apply_change_batch(
+			&mut writer,
+			vec![
+				sd_fs_watcher::FsEvent::rename(first.clone(), middle.clone()),
+				sd_fs_watcher::FsEvent::remove(middle.clone()),
+				sd_fs_watcher::FsEvent::create(middle.clone()),
+				sd_fs_watcher::FsEvent::rename(middle.clone(), last.clone()),
+			],
+			&config,
+		)
+		.await
+		.unwrap();
+
+		let index = writer.index.read().await;
+		assert!(index.has_entry(&last));
+		assert_ne!(
+			index.get_entry_uuid(&last),
+			Some(uuid),
+			"another file, another identity"
 		);
 	}
 

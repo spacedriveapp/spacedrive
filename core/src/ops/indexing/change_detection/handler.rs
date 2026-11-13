@@ -39,6 +39,10 @@ pub trait ChangeHandler: Send + Sync {
 	/// Delete an entry and all its descendants.
 	async fn delete(&mut self, entry: &EntryRef) -> Result<()>;
 
+	/// Move an entry to a path it has already left, keeping what was known
+	/// about it, so the event that takes it on from there finds it.
+	async fn relocate(&mut self, from: &Path, to: &Path) -> Result<()>;
+
 	/// Run post-create/modify processors (thumbnails, content hash).
 	async fn run_processors(&self, entry: &EntryRef, is_new: bool) -> Result<()>;
 
@@ -93,7 +97,19 @@ pub async fn path_exists_safe(
 			}
 		}
 	} else {
-		match tokio::fs::try_exists(path).await {
+		// FSEvents can name a path by the spelling a case-only rename just
+		// retired, and APFS answers a stat for it. Reading the stored name is
+		// one call there; elsewhere the watcher reports the names it saw.
+		#[cfg(target_os = "macos")]
+		let exists = {
+			let path = path.to_path_buf();
+			tokio::task::spawn_blocking(move || sd_fs_watcher::present_as_spelled(&path))
+				.await
+				.unwrap_or_else(|error| Err(std::io::Error::other(error)))
+		};
+		#[cfg(not(target_os = "macos"))]
+		let exists = tokio::fs::try_exists(path).await;
+		match exists {
 			Ok(exists) => Ok(exists),
 			Err(e) => {
 				tracing::warn!(
@@ -192,6 +208,15 @@ pub async fn build_dir_entry(
 	})
 }
 
+/// Stop renames that ended at `path` from being extended by a later one.
+fn close_at(renames: &[(PathBuf, PathBuf)], open: &mut [bool], path: &Path) {
+	for (index, (_, to)) in renames.iter().enumerate() {
+		if to == path {
+			open[index] = false;
+		}
+	}
+}
+
 /// Apply a batch of filesystem changes using the provided handler.
 ///
 /// Processes events in the correct order: removes first, then renames,
@@ -212,14 +237,62 @@ pub async fn apply_batch<H: ChangeHandler>(
 	let mut removes = Vec::new();
 	let mut renames = Vec::new();
 
+	// Whether each rename can still be extended by a later one. A create or
+	// remove at its destination ends that file's stay there, so a later rename
+	// from the same path is a different file.
+	let mut open: Vec<bool> = Vec::new();
+	let mut deleted: Vec<bool> = Vec::new();
 	for event in events {
 		match event.kind {
-			FsEventKind::Create => creates.push(event.path),
+			FsEventKind::Create => {
+				close_at(&renames, &mut open, &event.path);
+				creates.push(event.path)
+			}
 			FsEventKind::Modify => modifies.push(event.path),
-			FsEventKind::Remove => removes.push(event.path),
-			FsEventKind::Rename { from, to } => renames.push((from, to)),
+			FsEventKind::Remove => {
+				// A file renamed and then deleted is a deletion of the file
+				// where the index still holds it.
+				for (index, (_, to)) in renames.iter().enumerate() {
+					if open[index] && *to == event.path {
+						deleted[index] = true;
+					}
+				}
+				close_at(&renames, &mut open, &event.path);
+				removes.push(event.path)
+			}
+			FsEventKind::Rename { from, to } => {
+				// A file renamed twice in quick succession (a to b, then b to
+				// c) is gone from b before the first rename is applied, which
+				// would leave the record at a. Following the chain moves it
+				// once, from a to c. A case-only rename on Linux casefold has
+				// to go through a temporary name, so it always takes this path.
+				let earlier = renames
+					.iter()
+					.zip(&open)
+					.position(|((_, earlier_to), open)| *open && *earlier_to == from);
+				// Whatever an open chain left at this destination is
+				// replaced, so it ends here.
+				close_at(&renames, &mut open, &to);
+				match earlier {
+					Some(index) => renames[index].1 = to,
+					None => {
+						renames.push((from, to));
+						open.push(true);
+						deleted.push(false);
+					}
+				}
+			}
 		}
 	}
+	let mut kept = Vec::with_capacity(renames.len());
+	for ((from, to), deleted) in renames.into_iter().zip(deleted) {
+		if deleted {
+			removes.push(from);
+		} else if from != to {
+			kept.push((from, to));
+		}
+	}
+	let renames = kept;
 
 	// Deduplicate
 	creates.sort();
@@ -519,6 +592,19 @@ pub async fn handle_rename<H: ChangeHandler>(
 	match path_exists_safe(to, config.volume_backend).await {
 		Ok(true) => {}
 		Ok(false) => {
+			// Renamed on again before this event was applied (a to b to c,
+			// which is how a case-only rename goes on Linux casefold). The
+			// entry still follows the file to b, so the rename from b finds
+			// it and keeps its identity; a removal of b arrives as its own
+			// event if the file went no further.
+			if handler.find_by_path(from).await?.is_some() {
+				tracing::debug!(
+					"Destination already left, carrying the entry along: {} -> {}",
+					from.display(),
+					to.display()
+				);
+				return handler.relocate(from, to).await;
+			}
 			tracing::debug!(
 				"Destination path doesn't exist, skipping rename: {}",
 				to.display()

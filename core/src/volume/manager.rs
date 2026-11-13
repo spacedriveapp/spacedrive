@@ -1164,6 +1164,30 @@ impl VolumeManager {
 		None
 	}
 
+	/// `path` as the index spells it, for a lookup of one entry.
+	///
+	/// The directory is resolved the way [`Self::locate_path`] resolves it, so
+	/// `/Users/me/a.txt` finds the record held under
+	/// `/System/Volumes/Data/Users/me/a.txt`. The last component is kept as
+	/// given, so a symlink is looked up as itself rather than as its target.
+	pub async fn index_spelling(&self, path: &Path) -> PathBuf {
+		let (Some(parent), Some(name)) = (path.parent(), path.file_name()) else {
+			return match self.locate_path(path).await {
+				Some((_, spelled)) => spelled,
+				None => path.to_path_buf(),
+			};
+		};
+		let parent = match self.locate_path(parent).await {
+			Some((_, spelled)) => spelled,
+			None => crate::common::utils::strip_windows_extended_prefix(
+				tokio::fs::canonicalize(parent)
+					.await
+					.unwrap_or_else(|_| parent.to_path_buf()),
+			),
+		};
+		parent.join(name)
+	}
+
 	/// Get all currently known volumes
 	pub async fn get_all_volumes(&self) -> Vec<Volume> {
 		self.volumes.read().await.values().cloned().collect()

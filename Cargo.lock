@@ -11837,6 +11837,7 @@ dependencies = [
  "rmcp",
  "sd-client",
  "sd-core",
+ "sd-fs-watcher",
  "semver",
  "serde",
  "serde_json",

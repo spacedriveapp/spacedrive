@@ -20,7 +20,9 @@
 //! unless the pass read every directory it needed to, a pass that would remove
 //! more than half of what it compared removes nothing, and each removal is
 //! checked against the disk once more before it is applied, since the watcher
-//! is live while this runs.
+//! is live while this runs. That check reads the name the directory stores,
+//! because a case-insensitive volume answers a stat for the old spelling of a
+//! case-only rename.
 
 use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
@@ -377,11 +379,68 @@ pub async fn reconcile_source(
 		report.added += arrive(&writer, &after_replacement, &mut arrived).await;
 	}
 
-	let still_gone = |path: PathBuf| async move {
-		matches!(
-			tokio::fs::symlink_metadata(&path).await,
-			Err(ref error) if error.kind() == std::io::ErrorKind::NotFound
-		)
+	// A stat alone would keep the old spelling of a case-only rename on a
+	// case-insensitive volume, so a path that still stats is checked against
+	// the names its directory stores. A listing is reused while the
+	// directory's modification time is unchanged and was already older than
+	// the listing by more than the coarsest timestamp granularity (FAT's two
+	// seconds), so a rename the watcher applies afterwards always moves it.
+	// Recasing a folder of N files changed while the daemon was stopped then
+	// costs N stats of the path and its parent and one listing. An error
+	// reads as present, so nothing is removed on a guess.
+	const GRANULARITY: Duration = Duration::from_secs(2);
+	struct Listing {
+		changed: SystemTime,
+		listed: SystemTime,
+		names: HashSet<std::ffi::OsString>,
+	}
+	let mut listings: std::collections::HashMap<PathBuf, Listing> =
+		std::collections::HashMap::new();
+	let mut still_gone = async |path: PathBuf| -> bool {
+		match tokio::fs::symlink_metadata(&path).await {
+			Err(error) if error.kind() == std::io::ErrorKind::NotFound => return true,
+			Err(_) => return false,
+			Ok(_) => {}
+		}
+		let (Some(parent), Some(name)) = (path.parent(), path.file_name()) else {
+			return false;
+		};
+		let Ok(changed) = tokio::fs::metadata(parent)
+			.await
+			.and_then(|metadata| metadata.modified())
+		else {
+			return false;
+		};
+		let reusable = listings.get(parent).is_some_and(|listing| {
+			listing.changed == changed && changed + GRANULARITY <= listing.listed
+		});
+		if !reusable {
+			let listed = SystemTime::now();
+			let dir = parent.to_path_buf();
+			let names = tokio::task::spawn_blocking(move || {
+				std::fs::read_dir(&dir).and_then(|entries| {
+					entries
+						.map(|entry| entry.map(|entry| entry.file_name()))
+						.collect::<std::io::Result<HashSet<_>>>()
+				})
+			})
+			.await;
+			let Ok(Ok(names)) = names else {
+				listings.remove(parent);
+				return false;
+			};
+			listings.insert(
+				parent.to_path_buf(),
+				Listing {
+					changed,
+					listed,
+					names,
+				},
+			);
+		}
+		listings
+			.get(parent)
+			.is_some_and(|listing| !listing.names.contains(name))
 	};
 
 	// A path all of whose identities arrived elsewhere moved, and its record
