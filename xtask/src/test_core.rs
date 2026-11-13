@@ -247,6 +247,14 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Track on a full data disk acceptance test",
 		&["--test", "track_full_data_disk_acceptance_test"],
 	),
+	// A track whose first walk is refused fails visibly, keeps the source
+	// registered and marked unfinished, and the heal walks it once the
+	// refusal clears.
+	acceptance(
+		"sd-core",
+		"Track with a refused first walk acceptance test",
+		&["--test", "track_refused_walk_acceptance_test"],
+	),
 	// A source whose drive snapshot is missing or unusable at restart lists
 	// from a map rebuilt out of its store before any walk runs.
 	acceptance(
