@@ -581,6 +581,20 @@ impl ChangeHandler for ArenaWriter {
 		Ok(())
 	}
 
+	async fn relocate(&mut self, from: &Path, to: &Path) -> Result<()> {
+		let key = map_spelling(from).into_owned();
+		let Some(mut metadata) = self.index.read().await.get_entry_ref(&key) else {
+			return Ok(());
+		};
+		metadata.path = to.to_path_buf();
+		self.apply(Seen::Renamed {
+			from: from.to_path_buf(),
+			to: metadata,
+		})
+		.await;
+		Ok(())
+	}
+
 	async fn delete(&mut self, entry: &EntryRef) -> Result<()> {
 		self.apply(Seen::Lost {
 			path: entry.path.clone(),
@@ -875,6 +889,55 @@ mod tests {
 			index.get_entry_uuid(&last),
 			Some(uuid),
 			"one move keeps the identity"
+		);
+	}
+
+	/// The same chain when each rename arrives in its own batch, which is how
+	/// the watcher delivers them.
+	#[tokio::test]
+	async fn a_chain_of_renames_one_event_at_a_time_keeps_the_identity() {
+		let root = TempDir::new().unwrap();
+		let first = root.path().join("keep");
+		let middle = root.path().join("recasing");
+		let last = root.path().join("Keep");
+		std::fs::create_dir(&first).unwrap();
+		std::fs::write(first.join("inner.txt"), b"x").unwrap();
+		let (mut writer, _bus) = writer(root.path(), Notify::Each);
+		let mut folder = file(&first, 0);
+		folder.kind = EntryKind::Directory;
+		let uuid = writer.apply(Seen::Entries(vec![folder])).await[0].uuid;
+		writer
+			.apply(Seen::Entries(vec![file(&first.join("inner.txt"), 1)]))
+			.await;
+
+		std::fs::rename(&first, &middle).unwrap();
+		std::fs::rename(&middle, &last).unwrap();
+		let config = crate::ops::indexing::ChangeConfig {
+			rule_toggles: Default::default(),
+			root: root.path(),
+			volume_backend: None,
+		};
+		for event in [
+			sd_fs_watcher::FsEvent::rename_with_dir_flag(first.clone(), middle.clone(), true),
+			sd_fs_watcher::FsEvent::rename_with_dir_flag(middle.clone(), last.clone(), true),
+		] {
+			crate::ops::indexing::apply_change_batch(&mut writer, vec![event], &config)
+				.await
+				.unwrap();
+		}
+
+		let index = writer.index.read().await;
+		assert!(!index.has_entry(&first), "nothing left at the first name");
+		assert!(!index.has_entry(&first.join("inner.txt")));
+		assert!(!index.has_entry(&middle));
+		assert_eq!(
+			index.get_entry_uuid(&last),
+			Some(uuid),
+			"the folder keeps its identity"
+		);
+		assert!(
+			index.has_entry(&last.join("inner.txt")),
+			"its file moves with it"
 		);
 	}
 

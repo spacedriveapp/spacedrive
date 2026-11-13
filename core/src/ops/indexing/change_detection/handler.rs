@@ -39,6 +39,10 @@ pub trait ChangeHandler: Send + Sync {
 	/// Delete an entry and all its descendants.
 	async fn delete(&mut self, entry: &EntryRef) -> Result<()>;
 
+	/// Move an entry to a path it has already left, keeping what was known
+	/// about it, so the event that takes it on from there finds it.
+	async fn relocate(&mut self, from: &Path, to: &Path) -> Result<()>;
+
 	/// Run post-create/modify processors (thumbnails, content hash).
 	async fn run_processors(&self, entry: &EntryRef, is_new: bool) -> Result<()>;
 
@@ -237,6 +241,7 @@ pub async fn apply_batch<H: ChangeHandler>(
 	// remove at its destination ends that file's stay there, so a later rename
 	// from the same path is a different file.
 	let mut open: Vec<bool> = Vec::new();
+	let mut deleted: Vec<PathBuf> = Vec::new();
 	for event in events {
 		match event.kind {
 			FsEventKind::Create => {
@@ -245,6 +250,13 @@ pub async fn apply_batch<H: ChangeHandler>(
 			}
 			FsEventKind::Modify => modifies.push(event.path),
 			FsEventKind::Remove => {
+				// A file renamed and then deleted is a deletion of the file
+				// where the index still holds it.
+				for (index, (from, to)) in renames.iter().enumerate() {
+					if open[index] && *to == event.path {
+						deleted.push(from.clone());
+					}
+				}
 				close_at(&renames, &mut open, &event.path);
 				removes.push(event.path)
 			}
@@ -271,7 +283,8 @@ pub async fn apply_batch<H: ChangeHandler>(
 			}
 		}
 	}
-	renames.retain(|(from, to)| from != to);
+	renames.retain(|(from, to)| from != to && !deleted.contains(from));
+	removes.extend(deleted);
 
 	// Deduplicate
 	creates.sort();
@@ -571,6 +584,19 @@ pub async fn handle_rename<H: ChangeHandler>(
 	match path_exists_safe(to, config.volume_backend).await {
 		Ok(true) => {}
 		Ok(false) => {
+			// Renamed on again before this event was applied (a to b to c,
+			// which is how a case-only rename goes on Linux casefold). The
+			// entry still follows the file to b, so the rename from b finds
+			// it and keeps its identity; a removal of b arrives as its own
+			// event if the file went no further.
+			if handler.find_by_path(from).await?.is_some() {
+				tracing::debug!(
+					"Destination already left, carrying the entry along: {} -> {}",
+					from.display(),
+					to.display()
+				);
+				return handler.relocate(from, to).await;
+			}
 			tracing::debug!(
 				"Destination path doesn't exist, skipping rename: {}",
 				to.display()
