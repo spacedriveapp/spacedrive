@@ -89,7 +89,7 @@ The standalone `sd-daemon` has no bundled FFmpeg, libheif or Pdfium. On macOS it
 
 ## Updates
 
-The desktop app does not check for updates by itself yet. To update it, download the new `.dmg` or `.deb` from the latest release and install it over the old one. Each release already publishes a signed update feed, signed with the key `FA1DB2E94E74028C`, for the in-app updater to use once the app turns it on.
+The desktop app checks for updates at startup and every six hours. When a new release is available, it offers Install and restart. Nothing downloads until you choose it. Updates are signed with the key `FA1DB2E94E74028C`, and the app verifies the signature before it installs anything. alpha.2 desktop apps cannot install beta.1 this way, because alpha.2 trusts a different signing key, so install beta.1 by hand once.
 
 The CLI updates itself on the stable channel, which follows the latest GitHub release:
 
@@ -238,3 +238,5 @@ CLI and daemon
 - NFS and SMB mounts are indexed as folders. Spacedrive does not read their capacity or use copy-on-write on them.
 - An encrypted volume shows as the filesystem inside it once you unlock it.
 - To restore a library that other devices are members of over itself, pass `--force`. Then set up sync again.
+- On Linux, the desktop app installs an update through pkexec. A desktop with no polkit agent shows "Update failed". Download the new `.deb` and install it instead.
+- A daemon that runs as a service, for example after `sd daemon install`, keeps running the old version after the desktop app updates. Restart the service, or run `sd restart`.

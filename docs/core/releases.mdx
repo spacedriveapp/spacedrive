@@ -352,6 +352,16 @@ desktop app 0.4.3 as the latest release. The release notes link
 [0.4.3](https://github.com/spacedriveapp/spacedrive/releases/tag/0.4.3) for
 anyone who needs the v1 app.
 
+The desktop app reads `latest.json` from the latest release when it starts and
+every six hours after that. When the release is newer, it shows a notice that
+stays until you act. It downloads nothing until you choose Install and
+restart. It then verifies the signature against the key in `tauri.conf.json`,
+installs the update, stops the daemon the app spawned, and relaunches. A check that
+fails, for example when you are offline, writes only a debug log. Only builds
+from `release.yml` check for updates, because the workflow sets
+`VITE_SD_UPDATER=true` for the desktop build. Dev builds and local release
+builds never offer an update.
+
 Release notes state:
 
 - supported platforms and filesystems;

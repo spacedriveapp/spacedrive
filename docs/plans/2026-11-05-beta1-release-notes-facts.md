@@ -261,10 +261,11 @@ sd --version
   stay on nightly (or download the binaries by hand) and the notes must say
   so. The desktop updater endpoint (`releases/latest/download/latest.json`
   in `tauri.conf.json`) has the same property.
-- The desktop update feed is on (#3210), but the app does not check it yet:
-  `tauri_plugin_updater` is registered in `main.rs` and `useAutoUpdater`
-  (`packages/interface/src/hooks/useAutoUpdater.ts`) has no callers, so
-  desktop users update by downloading the new package. The release uploads the macOS
+- The desktop update feed is on (#3210), and the app reads it since #3215:
+  it checks at startup and every six hours and offers Install and restart;
+  nothing downloads until the user chooses it. On Linux the install goes
+  through pkexec and fails without a polkit agent. A daemon running as a
+  service keeps the old version until it is restarted. The release uploads the macOS
   `.app.tar.gz` and the Linux `.deb` updater bundles with their `.sig` files
   and a `latest.json` listing `darwin-aarch64`, `darwin-x86_64`,
   `linux-x86_64` and `linux-aarch64`. The `Updater manifest` job verifies every
