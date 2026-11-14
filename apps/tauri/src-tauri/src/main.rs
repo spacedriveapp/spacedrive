@@ -1528,34 +1528,78 @@ async fn is_daemon_running(socket_addr: &str) -> bool {
 	}
 }
 
+/// Records the PID of a daemon this app spawned, so a later launch can still
+/// recognize it after the app that started it has quit.
+const DESKTOP_DAEMON_PID_FILE: &str = "desktop-daemon.pid";
+
 /// Restarts the app after the updater installed a new build.
 ///
-/// The daemon this app spawned outlives it, and a relaunched app connects to
-/// any daemon already answering, so the new build would keep talking to the
-/// old daemon. Stop it first, the way `sd update` does, and kill it only if
-/// it has not exited after a graceful shutdown. A daemon running as a service
-/// or started by the CLI is left alone.
+/// A daemon the app spawned outlives the app, and a relaunched app connects
+/// to any daemon already answering, so the new build would keep talking to
+/// the old daemon. That daemon may come from this launch or from an earlier
+/// one, which the PID file identifies. Stop it first, the way `sd update`
+/// does, and kill it only if it has not exited after a graceful shutdown. A
+/// daemon running as a service or started by the CLI is left alone.
 #[tauri::command]
 async fn restart_after_update(
 	app: AppHandle,
 	state: tauri::State<'_, Arc<RwLock<DaemonState>>>,
 ) -> Result<(), String> {
 	let mut daemon_state = state.write().await;
-	if daemon_state.started_by_us {
-		if let Some(process_arc) = daemon_state.daemon_process.take() {
-			if let Some(mut child) = process_arc.lock().await.take() {
-				stop_daemon_for_update(&daemon_state.socket_addr, &mut child).await;
-			}
+	let session_pid = match daemon_state.daemon_process.take() {
+		Some(process_arc) if daemon_state.started_by_us => {
+			process_arc.lock().await.take().map(|child| child.id())
 		}
-		daemon_state.started_by_us = false;
+		_ => None,
+	};
+	let pid = match session_pid {
+		Some(pid) => Some(pid),
+		None => earlier_bundled_daemon(&daemon_state.data_dir).await,
+	};
+	if let Some(pid) = pid {
+		stop_daemon_for_update(&daemon_state.socket_addr, pid).await;
 	}
+	daemon_state.started_by_us = false;
 	drop(daemon_state);
 
 	tracing::info!("Restarting to finish the update");
 	app.restart()
 }
 
-async fn stop_daemon_for_update(socket_addr: &str, child: &mut std::process::Child) {
+/// The PID of a daemon an earlier launch spawned, if it is still running.
+async fn earlier_bundled_daemon(data_dir: &Path) -> Option<u32> {
+	let pid: u32 = tokio::fs::read_to_string(data_dir.join(DESKTOP_DAEMON_PID_FILE))
+		.await
+		.ok()?
+		.trim()
+		.parse()
+		.ok()?;
+	// A recycled PID belongs to some other program, so match the binary name.
+	let output = tokio::process::Command::new("ps")
+		.args(["-p", &pid.to_string(), "-o", "comm="])
+		.output()
+		.await
+		.ok()?;
+	let comm = String::from_utf8_lossy(&output.stdout);
+	(output.status.success() && comm.trim().ends_with("sd-daemon")).then_some(pid)
+}
+
+/// Whether the process is running. A zombie counts as stopped: a daemon this
+/// launch spawned stays one until the app exits and init reaps it.
+async fn process_running(pid: u32) -> bool {
+	match tokio::process::Command::new("ps")
+		.args(["-p", &pid.to_string(), "-o", "stat="])
+		.output()
+		.await
+	{
+		Ok(output) if output.status.success() => !String::from_utf8_lossy(&output.stdout)
+			.trim()
+			.starts_with('Z'),
+		_ => false,
+	}
+}
+
+async fn stop_daemon_for_update(socket_addr: &str, pid: u32) {
 	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 	if let Ok(stream) = tokio::net::TcpStream::connect(socket_addr).await {
@@ -1574,16 +1618,21 @@ async fn stop_daemon_for_update(socket_addr: &str, child: &mut std::process::Chi
 	// slow `sd restart` before falling back to a kill.
 	let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(30);
 	while tokio::time::Instant::now() < deadline {
-		if let Ok(Some(_)) = child.try_wait() {
-			tracing::info!("Daemon stopped for update");
+		if !process_running(pid).await {
+			tracing::info!(pid, "Daemon stopped for update");
 			return;
 		}
 		tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
 	}
 
-	tracing::warn!("Daemon did not stop within 30s, killing it before restart");
-	let _ = child.kill();
-	let _ = child.wait();
+	tracing::warn!(
+		pid,
+		"Daemon did not stop within 30s, killing it before restart"
+	);
+	let _ = tokio::process::Command::new("kill")
+		.args(["-9", &pid.to_string()])
+		.status()
+		.await;
 }
 
 /// Find the daemon binary shipped beside this executable.
@@ -1607,6 +1656,17 @@ async fn start_daemon(
 		.stderr(std::process::Stdio::null())
 		.spawn()
 		.map_err(|e| format!("Failed to start daemon: {}", e))?;
+
+	// Best-effort: without the file, an update from a later launch leaves this
+	// daemon running until the user restarts it.
+	if let Err(e) = tokio::fs::write(
+		data_dir.join(DESKTOP_DAEMON_PID_FILE),
+		child.id().to_string(),
+	)
+	.await
+	{
+		tracing::warn!(error = %e, "Failed to record the daemon PID");
+	}
 
 	// Wait for daemon to be ready
 	for i in 0..30 {

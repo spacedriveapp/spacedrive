@@ -356,7 +356,7 @@ The desktop app reads `latest.json` from the latest release when it starts and
 every six hours after that. When the release is newer, it shows a notice that
 stays until you act. It downloads nothing until you choose Install and
 restart. It then verifies the signature against the key in `tauri.conf.json`,
-installs the update, stops the daemon it started, and relaunches. A check that
+installs the update, stops the daemon the app spawned, and relaunches. A check that
 fails, for example when you are offline, writes only a debug log. Only builds
 from `release.yml` check for updates, because the workflow sets
 `VITE_SD_UPDATER=true` for the desktop build. Dev builds and local release
