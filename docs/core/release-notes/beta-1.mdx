@@ -137,16 +137,33 @@ The alpha.2 desktop app cannot update itself to beta.1, because beta.1 updates a
 
 ### Rolling back
 
-beta.1 is the first release of this data model, so no earlier release opens a beta.1 library. To go back, reinstall the build you upgraded from and restore the backup you made before you upgraded into a fresh data folder:
+beta.1 is the first release of this data model, so no earlier release opens a beta.1 library. To go back, restore the backup you made before you upgraded into a fresh data folder, using the build you upgraded from.
+
+Quit the desktop app if it is running. Stop the daemon and wait until it has exited, since `sd stop` returns before the daemon finishes saving its state:
 
 ~~~bash
 sd stop
+while pgrep -x sd-daemon >/dev/null; do sleep 1; done
+~~~
+
+Move the beta.1 data folder aside, and copy this device's identity into a new one, so the restored library still recognizes this device and its drives:
+
+~~~bash
 mv ~/.spacedrive ~/.spacedrive-beta1
+mkdir ~/.spacedrive
+for f in device.json device_key secrets.redb; do
+  if [ -e ~/.spacedrive-beta1/$f ]; then cp ~/.spacedrive-beta1/$f ~/.spacedrive/; fi
+done
+~~~
+
+Then install the build you upgraded from, start it, and restore:
+
+~~~bash
 sd start
 sd library restore --from ~/backups/spacedrive-before-beta1 --as-new
 ~~~
 
-Run `sd start` and the restore with the older build installed. Moving the beta.1 data folder aside keeps it, and leaves nothing in the way of the restore: `--as-new` refuses to restore a library or a source store that already exists on the device. A restore also refuses a backup that a newer build migrated, so a beta.1 backup does not restore into an older build.
+The new data folder holds no library or source store, so nothing is in the way of the restore: `--as-new` refuses to restore a library or a source store that already exists on the device. The beta.1 data stays in `~/.spacedrive-beta1`. A restore also refuses a backup that a newer build migrated, so a beta.1 backup does not restore into an older build.
 
 ## Schema and storage
 
