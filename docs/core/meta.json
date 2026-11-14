@@ -33,6 +33,7 @@
 		"database",
 		"testing",
 		"releases",
+		"release-notes",
 		"sync-event-log",
 		"task-tracking",
 		"cli"

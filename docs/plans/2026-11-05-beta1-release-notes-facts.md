@@ -1,7 +1,9 @@
 # Spacedrive 2.0 beta.1: release notes fact sheet
 
-> Status: facts gathered 2026-11-05 from `main` at `26b57e1`
-> Owns: the facts the beta.1 release notes state. The prose is written separately.
+> Status: facts gathered 2026-11-05 from `main` at `26b57e1`; updated
+> 2026-11-14 for `main` at `3e41e4a` (#3203 to #3213)
+> Owns: the facts the beta.1 release notes state. The prose is
+> `docs/core/release-notes/beta-1.mdx`.
 > Companions: `docs/core/releases.mdx` (gates and what release notes must state),
 > `docs/plans/2026-09-17-beta-launch.md` (narrative),
 > `docs/plans/2026-10-09-windows-gap.md` (Windows scope)
@@ -111,8 +113,21 @@ Migration behaviour for an alpha.2 library, as the code reads:
   rules from alpha.2 do not. Folders and drives have to be added again with
   Add to Library, which reindexes them into source stores. This is the agreed
   breaking transition (`docs/core/releases.mdx`, What beta means).
-- No automated test opens a real alpha.2 library and checks the result. open:
-  run it once on a copy of an alpha.2 data directory before the notes claim it.
+- Candidate validation step 2 opened a real alpha.2 library with a nightly
+  and recorded the result table by table
+  (`docs/core/acceptance/candidate-validation.md`, From v2.0.0-alpha.2). It
+  matches the two lines above.
+- beta.1 does not find an alpha.2 library on its own. alpha.2 resolved its
+  data directory with `dirs::data_dir()` on macOS
+  (`~/Library/Application Support/spacedrive`) and `dirs::data_local_dir()`
+  on Linux (`~/.local/share/spacedrive`) (`core/src/config/mod.rs` at
+  `v2.0.0-alpha.2`). `main` uses `~/.spacedrive` on both
+  (`core/src/config/mod.rs` and `apps/tauri/sd-tauri-core/src/lib.rs`,
+  `default_data_dir`), and nothing reads the old path. An alpha.2 user who
+  installs beta.1 gets a new, empty data directory, and the alpha.2 data stays
+  where it was. The migration above runs only when beta.1 is pointed at the
+  old directory with `--data-dir`. The notes tell alpha.2 users to start a new
+  library and add their folders again.
 
 ### Source stores (new since alpha.2)
 
@@ -146,9 +161,10 @@ Migration behaviour for an alpha.2 library, as the code reads:
 
 - Binary rollback to alpha.2 is not possible: `drop_entries_world` has no
   down migration. Rollback means restoring the pre-upgrade backup.
-- open: name the last rollback-compatible version in the notes
-  (`docs/core/releases.mdx`, Rollback). Nightly builds since #3135 (store
-  version 2) are the earliest that read a beta.1 store without refusing it.
+- No earlier release reads a beta.1 library, so the notes name no
+  rollback-compatible version and point to the backup instead. Nightly builds
+  since #3135 (store version 2) are the earliest builds that read a beta.1
+  store without refusing it; they are not releases.
 
 ## Known limits
 
@@ -167,9 +183,13 @@ Migration behaviour for an alpha.2 library, as the code reads:
     drive (action previews V6 and the live clauses);
   - pairing across networks over public relays and pkarr discovery
     (`docs/core/releases.mdx`, Candidate validation step 5);
-  - APFS firmlink spellings (R8 row 9) and replica replacement with local
-    assertions (R8 row 26, feature not built);
+  - replica replacement with local assertions (R8 row 26, feature not
+    built);
   - a pin's path does not follow a drive that remounts at another path (FDA P3).
+  - Proved live on a Mac since 2026-11-13: offline-then-online reconcile and
+    `/Users` versus `/System/Volumes/Data` spellings (APFS firmlinks, R8 row
+    9), after #3209 and #3212. The desktop app on a real library is still
+    pending.
   - Several desktop UI fixes are committed with live proof pending:
     virtualized thumbnail remounts, Quick Preview originals, host media tools
     (PROJECT_STATUS register).
@@ -205,9 +225,11 @@ sd library backup verify --from ~/backups/spacedrive-before-beta1
   restore refuses a backup whose library applied a migration the running build
   does not know, so a beta.1 backup does not restore into an older build.
 - Backup applies to 2.0 libraries on a build that has the command (nightly
-  since 2026-10-06). An alpha.2 install has no `library backup`: copy the
-  whole data directory with the daemon stopped. open: confirm that
-  instruction for alpha.2 users, and the data directory path per platform.
+  since 2026-10-06). An alpha.2 install has no `library backup` and needs
+  none: beta.1 uses a different data directory and leaves the alpha.2 one
+  untouched (see library.db above). Data directories: alpha.2 used
+  `~/Library/Application Support/spacedrive` (macOS) and
+  `~/.local/share/spacedrive` (Linux); nightly and beta.1 use `~/.spacedrive`.
 
 ## Upgrade steps
 
@@ -239,6 +261,17 @@ sd --version
   stay on nightly (or download the binaries by hand) and the notes must say
   so. The desktop updater endpoint (`releases/latest/download/latest.json`
   in `tauri.conf.json`) has the same property.
+- The desktop updater is on (#3210). The release uploads the macOS
+  `.app.tar.gz` and the Linux `.deb` updater bundles with their `.sig` files
+  and a `latest.json` listing `darwin-aarch64`, `darwin-x86_64`,
+  `linux-x86_64` and `linux-aarch64`. The `Updater manifest` job verifies every
+  signature with minisign against `plugins.updater.pubkey` before it writes
+  the manifest, and fails on a tag that does not match `tauri.conf.json`.
+  The trusted key is now `FA1DB2E94E74028C`, the key `TAURI_PRIVATE_KEY`
+  holds. alpha.2 trusted `053A7DF33374C68B`, so an alpha.2 desktop app that
+  reads beta.1's `latest.json` rejects the signature: alpha.2 desktop users
+  install beta.1 by hand. No in-app update has run yet; the first one is
+  beta.1 to a later release.
 - Staying on nightly after beta.1 is valid: the nightly channel keeps
   following `main`.
 - Update timers installed with `sd update install-timer` keep running and
@@ -246,9 +279,10 @@ sd --version
 
 ### From alpha.2 (desktop)
 
-- Back up the data directory (see above), install beta.1, open the library,
-  re-add folders and drives with Add to Library. Tags and collections from
-  alpha.2 are not carried over.
+- Install beta.1 by hand (the alpha.2 updater rejects the new key), create a
+  library, and add folders and drives again with Add to Library. beta.1 does
+  not read the alpha.2 data directory, so nothing is migrated and the alpha.2
+  data stays in place. Tags and collections from alpha.2 are not carried over.
 
 ## User-visible changes merged since October 4
 
@@ -311,6 +345,37 @@ Fixes without a feature
 - The library watcher no longer reopens a library closed right after creation
   (#3145, #3161); macOS build fix (#3154).
 
+## User-visible changes merged November 6 to 13
+
+From `git log 26b57e1..3e41e4a` (#3203 to #3213). #3205 (two test flakes)
+and #3156 (a disabled CI workflow) change nothing a user sees.
+
+- Startup reconcile and the watcher key non-UTF-8 names the walk's way, so
+  such a name no longer breaks `file list` or search (#3203).
+- A source is reconciled with its disk when its volume returns, including a
+  drive that was detached when the daemon started (#3204).
+- `sources.track` and `volumes.track` fail with "<root> is tracked, but its
+  first walk could not start: <cause>" when the walk cannot start, for
+  example on a full data disk; the store is marked walk-unfinished and the
+  heal finishes the walk once the cause clears (#3206, #3209).
+- macOS mount points are judged by `statfs` `f_mntonname`. On macOS 26.1 the
+  device comparison judged the Data volume not mounted and refused every walk
+  under `/Users` on nightly `11523b2` (#3209).
+- Case-only renames on case-insensitive volumes (APFS, ext4 casefold) leave
+  one record, live and offline. A chain of renames applied in one batch keeps
+  its record on every Linux filesystem. `sd file info` resolves `/Users` and
+  `/System/Volumes/Data` spellings and relative paths, and exits 1 when
+  nothing is found (#3212).
+- `sd file list` types rows by `kind`, so folders no longer print as files.
+  `sd start` and `sd restart` wait for the old daemon's port to close, write
+  the new daemon's stderr to `logs/daemon-stderr.log`, and report success
+  only after a ping answers (#3211).
+- Release: Linux and macOS only, draft with `make_latest: true`, a signing
+  preflight, and a macOS notarization check (#3208); desktop updater feed
+  (#3210); every product package at `2.0.0-beta.1` (#3213). The signed
+  macOS path has not run with real secrets yet; the first tag push is its
+  first run.
+
 ## Security-relevant changes
 
 - The daemon's RPC listens on loopback TCP (`127.0.0.1:6969`) on every
@@ -319,6 +384,11 @@ Fixes without a feature
   every PR (#3118).
 - Extensions run under a manifest permission check and are off by default
   (`wasm` feature).
+- A release fails before building when a signing secret is missing, and a
+  macOS job fails unless the app has a Developer ID signature and a stapled
+  notarization ticket (#3208).
+- Desktop update signatures are verified against the shipped public key
+  before `latest.json` is written (#3210).
 
 ## Release workflow dry run
 

@@ -1,0 +1,219 @@
+---
+title: Spacedrive 2.0 beta.1
+description: Release notes for v2.0.0-beta.1, the first beta of Spacedrive 2.0
+sidebarTitle: 2.0 beta.1
+---
+
+Spacedrive 2.0 beta.1 is the first beta of Spacedrive 2.0. It runs on macOS and Linux.
+
+Beta means we now commit to the data model. Your library is a set of sources: the folders, drives and devices you add to it. Each source keeps its own catalog. From beta.1 on, a later release upgrades the libraries you build through tested migrations, so you do not have to start again. Beta still has bugs and unfinished features, and the interface will change. This page lists what beta.1 supports, how to install it, and what it does not do yet.
+
+## Looking for Spacedrive v1?
+
+beta.1 replaces Spacedrive 0.4.3 as the latest release on GitHub. If you need the v1 desktop app, download it from the [0.4.3 release](https://github.com/spacedriveapp/spacedrive/releases/tag/0.4.3).
+
+The v1 app does not update itself to 2.0. Spacedrive 2.0 keeps its data in a different folder and does not read or change v1 data. You can keep both installed.
+
+## Supported platforms
+
+| Platform | beta.1 |
+| --- | --- |
+| macOS on Apple silicon | Supported |
+| Linux x86-64 | Supported |
+| macOS on Intel, Linux ARM64 | Built and published, not tested |
+| Windows | Not part of beta.1 |
+
+Windows is not part of this beta. The daemon and CLI build and pass their unit tests on Windows, and nightly builds for Windows x86-64 are published for people who want to try them. The file operation, source and drive acceptance suites have not run there, so we do not make the data safety claims for Windows that this release makes for macOS and Linux. Windows support is planned for a later beta. The Windows builds are in the [nightly release](https://github.com/spacedriveapp/spacedrive/releases/tag/nightly).
+
+Supported filesystems:
+
+- macOS: APFS and HFS+.
+- Linux: ext2, ext3, ext4, XFS, Btrfs and ZFS.
+- Both: FAT32 and exFAT.
+
+Copies on APFS, Btrfs and ZFS use copy-on-write clones.
+
+## Install
+
+### Desktop app
+
+| File | For |
+| --- | --- |
+| `Spacedrive-darwin-aarch64.dmg` | macOS on Apple silicon |
+| `Spacedrive-darwin-x86_64.dmg` | macOS on Intel |
+| `Spacedrive-linux-x86_64.deb` | Debian and Ubuntu, x86-64 |
+| `Spacedrive-linux-aarch64.deb` | Debian and Ubuntu, ARM64 |
+
+On macOS, open the `.dmg` and drag Spacedrive to Applications. The app is signed with a Developer ID and notarized by Apple.
+
+On Linux, install the package with apt:
+
+~~~bash
+sudo apt install ./Spacedrive-linux-x86_64.deb
+~~~
+
+The `.deb` needs glibc 2.39 or newer, for example Ubuntu 24.04 or Debian 13. It includes the daemon and the media codecs Spacedrive uses for thumbnails.
+
+### CLI and daemon
+
+`sd` is the command line client and `sd-daemon` is the background service. Both ship for macOS (`macos-aarch64`, `macos-x86_64`) and Linux (`linux-x86_64`, `linux-aarch64`). Each binary has a `.sha256` file beside it. The Linux binaries need glibc 2.35 or newer.
+
+Download both binaries for your platform, check them, and put them on your `PATH`. For Linux x86-64:
+
+~~~bash
+base=https://github.com/spacedriveapp/spacedrive/releases/download/v2.0.0-beta.1
+for f in sd-linux-x86_64 sd-daemon-linux-x86_64; do
+  curl -fLO "$base/$f" && curl -fLO "$base/$f.sha256"
+done
+sha256sum -c sd-linux-x86_64.sha256 sd-daemon-linux-x86_64.sha256
+chmod +x sd-linux-x86_64 sd-daemon-linux-x86_64
+mv sd-linux-x86_64 ~/.local/bin/sd
+mv sd-daemon-linux-x86_64 ~/.local/bin/sd-daemon
+sd daemon install
+~~~
+
+On macOS, use the `macos-aarch64` names and `shasum -a 256 -c` in place of `sha256sum -c`. `sd daemon install` starts the daemon at login through launchd on macOS and a systemd user service on Linux.
+
+The CLI binaries are not signed with a Developer ID. A copy you download with `curl` runs as is. A copy you download in a browser is quarantined, and macOS refuses to run it until you remove the attribute:
+
+~~~bash
+xattr -d com.apple.quarantine sd sd-daemon
+~~~
+
+The standalone `sd-daemon` has no bundled FFmpeg, libheif or Pdfium. On macOS it reads those formats through the system codecs. The desktop app and the server package include them.
+
+### Server
+
+`sd-server-linux-x86_64.tar.gz` and `sd-server-linux-aarch64.tar.gz` hold `sd-server` and `sd-cli` for headless Linux machines, each with a `.sha256` file. The server is built with FFmpeg and HEIF support.
+
+## Updates
+
+The desktop app updates itself. It checks the latest GitHub release for a signed update and verifies the signature before it installs anything. Updates are signed with the key `FA1DB2E94E74028C`.
+
+The CLI updates itself on the stable channel, which follows the latest GitHub release:
+
+~~~bash
+sd config set update.channel stable
+sd update
+sd --version
+~~~
+
+`sd update` checks the `.sha256` file, stops the daemon, replaces `sd` and `sd-daemon`, and starts the daemon again. To update on a schedule, run `sd update install-timer`. The timer runs every hour through launchd on macOS and a systemd user timer on Linux.
+
+The nightly channel keeps following `main`. Staying on nightly after beta.1 is fine. Nightly builds are unsigned and can change schemas without migrations, so keep backups of any library you point them at.
+
+## Before you upgrade
+
+### From a 2.0 nightly build
+
+Back up your library first. Run these with the daemon running:
+
+~~~bash
+sd library backup --to ~/backups/spacedrive-before-beta1
+sd library backup verify --from ~/backups/spacedrive-before-beta1
+~~~
+
+A backup holds the library database, the sync database and the catalog of every source this device keeps. It does not hold your files. Pass `--to <path>.tar.zst` to write one archive instead of a folder.
+
+Then switch to the stable channel and update:
+
+~~~bash
+sd config set update.channel stable
+sd update
+~~~
+
+Your library migrates the first time beta.1 opens it. All migrations run in one transaction, so a failed migration leaves the library as it was.
+
+If your nightly was built after the version bump, `sd --version` already reads `2.0.0-beta.1`, and the stable channel reports that you are up to date. That build already has the beta.1 code.
+
+### From 2.0 alpha.2
+
+beta.1 does not carry over alpha.2 data. alpha.2 kept its data in the platform data folder (`~/Library/Application Support/spacedrive` on macOS, `~/.local/share/spacedrive` on Linux). beta.1 keeps its data in `~/.spacedrive` and does not read the old folder, so it starts with a new library. Your alpha.2 data stays where it is, unchanged.
+
+Install beta.1, create a library, and add your folders and drives again with Add to Library. Locations, the file index, tags, collections and indexer rules from alpha.2 have no equivalent in beta.1. Folders and drives are now sources, and a location is now a pin inside a source.
+
+The alpha.2 desktop app cannot update itself to beta.1, because beta.1 updates are signed with a different key. Download beta.1 and install it by hand. alpha.2 for Windows has no beta.1 build to update to.
+
+### Rolling back
+
+beta.1 is the first release of this data model, so no earlier release opens a beta.1 library. To go back, restore the backup you made before you upgraded:
+
+~~~bash
+sd library restore --from ~/backups/spacedrive-before-beta1 --as-new
+~~~
+
+`--as-new` restores into a new library and overwrites nothing. `--replace` restores over the current library and moves its current state to `restore-trash/`. A restore refuses a backup that a newer build migrated, so a beta.1 backup does not restore into an older build.
+
+## Schema and storage
+
+- Each source keeps its catalog in its own SQLite store: `sources/<id>/data.db`, with thumbnails in `sources/<id>/sidecars.db`. You choose where a source's store lives: in the library, or on the drive itself so the catalog travels with it.
+- A store records its format version. beta.1 writes version 2. Only the device that owns a source migrates its store, one transaction per step. A build refuses a store newer than it knows.
+- `library.db` holds the source registry, devices, volumes, spaces and tags waiting to apply. The tables of the old file index are gone.
+- The drive index snapshot is format version 4. A missing, older or unreadable snapshot is rebuilt from the source store in the background, without walking the drive again. An unreadable snapshot is renamed, not deleted.
+- `library.json` is written to a temporary file and renamed into place, so a crash cannot leave it half written.
+
+## Behavior that can change your files
+
+- Indexing and watching only read your files. Spacedrive writes its own data in `~/.spacedrive`, and in a source's store on the drive when you place it there.
+- Removing a source keeps its catalog and never deletes files.
+- Spacedrive changes file bytes only when you run a file operation: copy, move, rename, delete or merge.
+- Delete moves files to the system trash unless you ask for a permanent delete. You can restore trashed files on macOS and Linux. On a volume with no system trash, such as a network mount, Spacedrive keeps its own trash folder.
+- A copy with checksum verification deletes a copy whose checksum does not match.
+- A merge shows a preview first. It changes a destination file only where you chose Replace or Keep both.
+
+## Security
+
+- The macOS app is signed with a Developer ID and notarized. The release fails, and publishes nothing, if the app is not signed and notarized.
+- Desktop updates are signed. The release checks every update signature against the key the app trusts before it publishes the update manifest.
+- `sd update` verifies each binary's SHA-256 checksum before it replaces anything.
+- The daemon listens on loopback only, `127.0.0.1:6969`, on every platform.
+- Every pull request runs a secrets scan and a license and notices check.
+
+## What's new since alpha.2
+
+Libraries and sources
+
+- Add to Library: one window to add a folder or a drive, with defaults you can override, store placement and a portable identity.
+- Keep an offline copy of a catalog that lives on its own drive.
+- Library backup, verify and restore, checked against a manifest of hashes.
+- Capture time and place from EXIF, in listings, sorting and search filters.
+- Changes made while the daemon was stopped are reconciled at the next start. A drive that comes back is reconciled with its disk.
+- Case-only renames on case-insensitive volumes, such as APFS, leave one record. On macOS, `/Users` paths and their `/System/Volumes/Data` spellings resolve to the same files.
+- File names that are not valid UTF-8 index and list correctly when they arrive through the watcher or the startup reconcile.
+- Tracking a folder fails with a clear error when its first walk cannot start, for example on a full disk or an unmounted volume. Spacedrive finishes the walk once the cause clears.
+
+Drives and volumes
+
+- A drive that disappears goes offline. Spacedrive never walks the empty mount folder of an unmounted drive.
+- ZFS datasets show as mounted, unmounted or locked in the app, the CLI and on paired devices.
+- macOS mount points are read from the system, so folders under `/Users` index correctly on recent macOS.
+
+Devices and sync
+
+- Replica fetch resumes interrupted transfers, and supports a bandwidth cap, pause and progress.
+- Fixes to joining a library, catch-up after a gap, and reconnecting paired devices after a restart.
+
+CLI and daemon
+
+- `sd mcp` serves every Spacedrive operation as an MCP tool.
+- `sd update` with stable and nightly channels, resumable downloads and an hourly timer.
+- `sd start` and `sd restart` report success only once the daemon answers, and point to its log when it fails to start.
+- `sd file list` shows folders as folders.
+- The daemon raises its open-file limit at start.
+
+## Not in beta.1
+
+- The extension runtime. Release builds do not include it. It stays off until after the beta.
+- AI features. There is no inference provider, so there is no scene classification, face detection or generated names for places and moments.
+- Windows, as described above. Mobile apps.
+
+## Known limits
+
+- macOS on Intel and Linux ARM64 are built but no test suite runs on them.
+- Pairing on the same network is tested on every change. Pairing over the internet through public relays has not been tested between real devices yet.
+- A pin keeps its path. If a drive mounts at a different path, its pins do not follow it.
+- A locked ZFS dataset stays browsable from its index and shows as detached.
+- Spacedrive tracks ZFS datasets that have no child datasets. Btrfs subvolumes that Docker or snapper create are not hidden.
+- NFS and SMB mounts are indexed as folders. Spacedrive does not read their capacity or use copy-on-write on them.
+- An encrypted volume shows as the filesystem inside it once you unlock it.
+- To restore a library that other devices are members of over itself, pass `--force`. Then set up sync again.
