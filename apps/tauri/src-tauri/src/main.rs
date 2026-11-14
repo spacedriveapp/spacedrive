@@ -1528,6 +1528,64 @@ async fn is_daemon_running(socket_addr: &str) -> bool {
 	}
 }
 
+/// Restarts the app after the updater installed a new build.
+///
+/// The daemon this app spawned outlives it, and a relaunched app connects to
+/// any daemon already answering, so the new build would keep talking to the
+/// old daemon. Stop it first, the way `sd update` does, and kill it only if
+/// it has not exited after a graceful shutdown. A daemon running as a service
+/// or started by the CLI is left alone.
+#[tauri::command]
+async fn restart_after_update(
+	app: AppHandle,
+	state: tauri::State<'_, Arc<RwLock<DaemonState>>>,
+) -> Result<(), String> {
+	let mut daemon_state = state.write().await;
+	if daemon_state.started_by_us {
+		if let Some(process_arc) = daemon_state.daemon_process.take() {
+			if let Some(mut child) = process_arc.lock().await.take() {
+				stop_daemon_for_update(&daemon_state.socket_addr, &mut child).await;
+			}
+		}
+		daemon_state.started_by_us = false;
+	}
+	drop(daemon_state);
+
+	tracing::info!("Restarting to finish the update");
+	app.restart()
+}
+
+async fn stop_daemon_for_update(socket_addr: &str, child: &mut std::process::Child) {
+	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+	if let Ok(stream) = tokio::net::TcpStream::connect(socket_addr).await {
+		let (reader, mut writer) = stream.into_split();
+		if writer.write_all(b"\"Shutdown\"\n").await.is_ok() {
+			let mut response = String::new();
+			let _ = tokio::time::timeout(
+				tokio::time::Duration::from_secs(5),
+				BufReader::new(reader).read_line(&mut response),
+			)
+			.await;
+		}
+	}
+
+	// Shutdown pauses running jobs first, so give it the same headroom as a
+	// slow `sd restart` before falling back to a kill.
+	let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(30);
+	while tokio::time::Instant::now() < deadline {
+		if let Ok(Some(_)) = child.try_wait() {
+			tracing::info!("Daemon stopped for update");
+			return;
+		}
+		tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+	}
+
+	tracing::warn!("Daemon did not stop within 30s, killing it before restart");
+	let _ = child.kill();
+	let _ = child.wait();
+}
+
 /// Find the daemon binary shipped beside this executable.
 fn find_daemon_binary() -> Result<std::path::PathBuf, String> {
 	apps::bundled_binary("sd-daemon")
@@ -1923,6 +1981,7 @@ fn main() {
 			get_daemon_status,
 			start_daemon_process,
 			stop_daemon_process,
+			restart_after_update,
 			check_daemon_installed,
 			install_daemon_service,
 			uninstall_daemon_service,

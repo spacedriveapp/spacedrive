@@ -1,4 +1,4 @@
-import type {Platform} from '@sd/interface';
+import type {AvailableUpdate, Platform} from '@sd/interface';
 import {
 	invoke,
 	convertFileSrc as tauriConvertFileSrc
@@ -7,6 +7,7 @@ import {listen} from '@tauri-apps/api/event';
 import {getCurrentWebviewWindow} from '@tauri-apps/api/webviewWindow';
 import {ask, open, save} from '@tauri-apps/plugin-dialog';
 import {open as shellOpen} from '@tauri-apps/plugin-shell';
+import {check} from '@tauri-apps/plugin-updater';
 import {normalizeAssetProtocolPath} from './lib/assetPath';
 import {
 	beginDrag,
@@ -18,6 +19,38 @@ import {
 } from './lib/drag';
 
 let _isDragging = false;
+
+// Only the release workflow sets VITE_SD_UPDATER, so dev builds and local
+// release builds never offer to replace themselves with the latest release.
+const updaterEnabled =
+	import.meta.env.PROD && import.meta.env.VITE_SD_UPDATER === 'true';
+
+async function checkForUpdate(): Promise<AvailableUpdate | null> {
+	const update = await check();
+	if (!update) return null;
+
+	return {
+		version: update.version,
+		currentVersion: update.currentVersion,
+		async installAndRestart(onProgress) {
+			let total = 0;
+			let downloaded = 0;
+			await update.downloadAndInstall((event) => {
+				if (event.event === 'Started') {
+					total = event.data.contentLength ?? 0;
+				} else if (event.event === 'Progress') {
+					downloaded += event.data.chunkLength;
+					onProgress?.(
+						total > 0
+							? Math.round((downloaded / total) * 100)
+							: undefined
+					);
+				}
+			});
+			await invoke('restart_after_update');
+		}
+	};
+}
 
 /**
  * Tauri platform implementation
@@ -208,6 +241,8 @@ export const platform: Platform = {
 		);
 		return unlisten;
 	},
+
+	checkForUpdate: updaterEnabled ? checkForUpdate : undefined,
 
 	async getAppVersion() {
 		const {getVersion} = await import('@tauri-apps/api/app');

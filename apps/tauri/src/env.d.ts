@@ -1,5 +1,10 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+	/** "true" in builds made by the release workflow, which turns on the in-app updater. */
+	readonly VITE_SD_UPDATER?: string;
+}
+
 declare module '*.svg' {
 	const src: string;
 	export default src;
