@@ -1559,6 +1559,7 @@ async fn restart_after_update(
 	if let Some(pid) = pid {
 		stop_daemon_for_update(&daemon_state.socket_addr, pid).await;
 	}
+	let _ = tokio::fs::remove_file(daemon_state.data_dir.join(DESKTOP_DAEMON_PID_FILE)).await;
 	daemon_state.started_by_us = false;
 	drop(daemon_state);
 
@@ -1567,7 +1568,13 @@ async fn restart_after_update(
 }
 
 /// The PID of a daemon an earlier launch spawned, if it is still running.
+///
+/// An installed service owns the socket even when an old PID record
+/// survives, so its presence rules the record out.
 async fn earlier_bundled_daemon(data_dir: &Path) -> Option<u32> {
+	if check_daemon_installed().await.unwrap_or(true) {
+		return None;
+	}
 	let pid: u32 = tokio::fs::read_to_string(data_dir.join(DESKTOP_DAEMON_PID_FILE))
 		.await
 		.ok()?
@@ -1581,7 +1588,8 @@ async fn earlier_bundled_daemon(data_dir: &Path) -> Option<u32> {
 		.await
 		.ok()?;
 	let comm = String::from_utf8_lossy(&output.stdout);
-	(output.status.success() && comm.trim().ends_with("sd-daemon")).then_some(pid)
+	let is_daemon = output.status.success() && comm.trim().ends_with("sd-daemon");
+	(is_daemon && process_running(pid).await).then_some(pid)
 }
 
 /// Whether the process is running. A zombie counts as stopped: a daemon this
@@ -1601,6 +1609,12 @@ async fn process_running(pid: u32) -> bool {
 
 async fn stop_daemon_for_update(socket_addr: &str, pid: u32) {
 	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+	// A daemon that already exited no longer owns the socket, and whatever
+	// answers there now is not ours to stop.
+	if !process_running(pid).await {
+		return;
+	}
 
 	if let Ok(stream) = tokio::net::TcpStream::connect(socket_addr).await {
 		let (reader, mut writer) = stream.into_split();
