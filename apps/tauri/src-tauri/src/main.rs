@@ -933,6 +933,7 @@ async fn stop_daemon_process(
 	}
 
 	daemon_state.started_by_us = false;
+	forget_spawned_daemon(&daemon_state.data_dir).await;
 	Ok(())
 }
 
@@ -1098,6 +1099,7 @@ async fn install_daemon_service(
 		// Update daemon state - we no longer own the process
 		let mut state = daemon_state.write().await;
 		state.started_by_us = false;
+		forget_spawned_daemon(&state.data_dir).await;
 		state.daemon_process = None;
 		tracing::info!("Updated daemon state: started_by_us = false");
 		drop(state);
@@ -1198,6 +1200,7 @@ WantedBy=default.target
 		// Update daemon state - we no longer own the process
 		let mut state = daemon_state.write().await;
 		state.started_by_us = false;
+		forget_spawned_daemon(&state.data_dir).await;
 		state.daemon_process = None;
 		tracing::info!("Updated daemon state: started_by_us = false");
 		drop(state);
@@ -1344,6 +1347,7 @@ WantedBy=default.target
 		// Update daemon state - we no longer own the process
 		let mut state = daemon_state.write().await;
 		state.started_by_us = false;
+		forget_spawned_daemon(&state.data_dir).await;
 		state.daemon_process = None;
 		tracing::info!("Updated daemon state: started_by_us = false");
 		drop(state);
@@ -1532,6 +1536,11 @@ async fn is_daemon_running(socket_addr: &str) -> bool {
 /// recognize it after the app that started it has quit.
 const DESKTOP_DAEMON_PID_FILE: &str = "desktop-daemon.pid";
 
+/// Drops the PID record once the app no longer owns the daemon it spawned.
+async fn forget_spawned_daemon(data_dir: &Path) {
+	let _ = tokio::fs::remove_file(data_dir.join(DESKTOP_DAEMON_PID_FILE)).await;
+}
+
 /// Restarts the app after the updater installed a new build.
 ///
 /// A daemon the app spawned outlives the app, and a relaunched app connects
@@ -1558,8 +1567,8 @@ async fn restart_after_update(
 	};
 	if let Some(pid) = pid {
 		stop_daemon_for_update(&daemon_state.socket_addr, pid).await;
+		forget_spawned_daemon(&daemon_state.data_dir).await;
 	}
-	let _ = tokio::fs::remove_file(daemon_state.data_dir.join(DESKTOP_DAEMON_PID_FILE)).await;
 	daemon_state.started_by_us = false;
 	drop(daemon_state);
 
@@ -1569,12 +1578,9 @@ async fn restart_after_update(
 
 /// The PID of a daemon an earlier launch spawned, if it is still running.
 ///
-/// An installed service owns the socket even when an old PID record
-/// survives, so its presence rules the record out.
+/// Handing the daemon to a service or stopping it removes the record, so a
+/// record only names a daemon the app still owns.
 async fn earlier_bundled_daemon(data_dir: &Path) -> Option<u32> {
-	if check_daemon_installed().await.unwrap_or(true) {
-		return None;
-	}
 	let pid: u32 = tokio::fs::read_to_string(data_dir.join(DESKTOP_DAEMON_PID_FILE))
 		.await
 		.ok()?
