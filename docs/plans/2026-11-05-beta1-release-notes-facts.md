@@ -261,7 +261,10 @@ sd --version
   stay on nightly (or download the binaries by hand) and the notes must say
   so. The desktop updater endpoint (`releases/latest/download/latest.json`
   in `tauri.conf.json`) has the same property.
-- The desktop updater is on (#3210). The release uploads the macOS
+- The desktop update feed is on (#3210), but the app does not check it yet:
+  `tauri_plugin_updater` is registered in `main.rs` and `useAutoUpdater`
+  (`packages/interface/src/hooks/useAutoUpdater.ts`) has no callers, so
+  desktop users update by downloading the new package. The release uploads the macOS
   `.app.tar.gz` and the Linux `.deb` updater bundles with their `.sig` files
   and a `latest.json` listing `darwin-aarch64`, `darwin-x86_64`,
   `linux-x86_64` and `linux-aarch64`. The `Updater manifest` job verifies every
@@ -270,8 +273,7 @@ sd --version
   The trusted key is now `FA1DB2E94E74028C`, the key `TAURI_PRIVATE_KEY`
   holds. alpha.2 trusted `053A7DF33374C68B`, so an alpha.2 desktop app that
   reads beta.1's `latest.json` rejects the signature: alpha.2 desktop users
-  install beta.1 by hand. No in-app update has run yet; the first one is
-  beta.1 to a later release.
+  install beta.1 by hand. No in-app update has run yet.
 - Staying on nightly after beta.1 is valid: the nightly channel keeps
   following `main`.
 - Update timers installed with `sd update install-timer` keep running and

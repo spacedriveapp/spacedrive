@@ -67,12 +67,13 @@ for f in sd-linux-x86_64 sd-daemon-linux-x86_64; do
 done
 sha256sum -c sd-linux-x86_64.sha256 sd-daemon-linux-x86_64.sha256
 chmod +x sd-linux-x86_64 sd-daemon-linux-x86_64
+mkdir -p ~/.local/bin
 mv sd-linux-x86_64 ~/.local/bin/sd
 mv sd-daemon-linux-x86_64 ~/.local/bin/sd-daemon
 sd daemon install
 ~~~
 
-On macOS, use the `macos-aarch64` names and `shasum -a 256 -c` in place of `sha256sum -c`. `sd daemon install` starts the daemon at login through launchd on macOS and a systemd user service on Linux.
+If `~/.local/bin` is not on your `PATH`, add `export PATH="$HOME/.local/bin:$PATH"` to your shell profile. On macOS, use the `macos-aarch64` names and `shasum -a 256 -c` in place of `sha256sum -c`. `sd daemon install` starts the daemon at login through launchd on macOS and a systemd user service on Linux.
 
 The CLI binaries are not signed with a Developer ID. A copy you download with `curl` runs as is. A copy you download in a browser is quarantined, and macOS refuses to run it until you remove the attribute:
 
@@ -88,7 +89,7 @@ The standalone `sd-daemon` has no bundled FFmpeg, libheif or Pdfium. On macOS it
 
 ## Updates
 
-The desktop app updates itself. It checks the latest GitHub release for a signed update and verifies the signature before it installs anything. Updates are signed with the key `FA1DB2E94E74028C`.
+The desktop app does not check for updates by itself yet. To update it, download the new `.dmg` or `.deb` from the latest release and install it over the old one. Each release already publishes a signed update feed, signed with the key `FA1DB2E94E74028C`, for the in-app updater to use once the app turns it on.
 
 The CLI updates itself on the stable channel, which follows the latest GitHub release:
 
@@ -136,13 +137,16 @@ The alpha.2 desktop app cannot update itself to beta.1, because beta.1 updates a
 
 ### Rolling back
 
-beta.1 is the first release of this data model, so no earlier release opens a beta.1 library. To go back, restore the backup you made before you upgraded:
+beta.1 is the first release of this data model, so no earlier release opens a beta.1 library. To go back, reinstall the build you upgraded from and restore the backup you made before you upgraded into a fresh data folder:
 
 ~~~bash
+sd stop
+mv ~/.spacedrive ~/.spacedrive-beta1
+sd start
 sd library restore --from ~/backups/spacedrive-before-beta1 --as-new
 ~~~
 
-`--as-new` restores into a new library and overwrites nothing. `--replace` restores over the current library and moves its current state to `restore-trash/`. A restore refuses a backup that a newer build migrated, so a beta.1 backup does not restore into an older build.
+Run `sd start` and the restore with the older build installed. Moving the beta.1 data folder aside keeps it, and leaves nothing in the way of the restore: `--as-new` refuses to restore a library or a source store that already exists on the device. A restore also refuses a backup that a newer build migrated, so a beta.1 backup does not restore into an older build.
 
 ## Schema and storage
 
@@ -164,7 +168,7 @@ sd library restore --from ~/backups/spacedrive-before-beta1 --as-new
 ## Security
 
 - The macOS app is signed with a Developer ID and notarized. The release fails, and publishes nothing, if the app is not signed and notarized.
-- Desktop updates are signed. The release checks every update signature against the key the app trusts before it publishes the update manifest.
+- Desktop update bundles are signed. The release checks every signature against the key the app trusts before it publishes the update feed.
 - `sd update` verifies each binary's SHA-256 checksum before it replaces anything.
 - The daemon listens on loopback only, `127.0.0.1:6969`, on every platform.
 - Every pull request runs a secrets scan and a license and notices check.
