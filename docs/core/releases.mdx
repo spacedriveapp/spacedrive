@@ -77,6 +77,19 @@ for every build job, so the results exist only as workflow artifacts. The
 first job lists which signing secrets are set, without their values, and
 warns about any that a real release would stop on.
 
+To check macOS signing and notarization without a tag, add `-f sign=true`:
+
+~~~bash
+gh workflow run release.yml --ref <branch> -f dry_run=true -f sign=true
+~~~
+
+A signed dry run fails at the first job if any signing secret is missing. The
+macOS desktop jobs import the Developer ID certificate, print its validity
+dates, sign, notarize and staple the app and then the disk image, and run the
+same signature, stapler and Gatekeeper checks as a release. The release job still never runs.
+The standalone `sd` and `sd-daemon` binaries are not Developer ID signed in
+either mode.
+
 ## Artifacts
 
 The release pipeline builds:
