@@ -10,6 +10,10 @@ on:
         description: Build every artifact without signing, tagging or creating a release; results are workflow artifacts only
         type: boolean
         default: true
+      sign:
+        description: Sign and notarize the macOS desktop app in a dry run, then verify it; still creates no tag or release
+        type: boolean
+        default: false
 
 # Every job reads the repository only; the release job alone gets write access,
 # and it never runs in a dry run.
@@ -33,7 +37,8 @@ jobs:
     steps:
       - name: Check release signing secrets
         env:
-          DRY_RUN: ${{ inputs.dry_run == true }}
+          # A signed dry run needs every secret a release needs.
+          DRY_RUN: ${{ inputs.dry_run == true && inputs.sign != true }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE != '' }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD != '' }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY != '' }}
@@ -222,9 +227,9 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
-  # V2 Desktop builds. A dry run builds every bundle a release ships, unsigned:
-  # it passes no Apple or updater secrets, so tauri ad-hoc signs the app and
-  # skips notarization and updater artifacts.
+  # V2 Desktop builds. A dry run builds every bundle a release ships. Unless
+  # the sign input is set it passes no Apple secrets, so tauri ad-hoc signs the
+  # app and skips notarization.
   desktop-main:
     needs: signing-preflight
     strategy:
@@ -254,7 +259,7 @@ jobs:
     name: Desktop - Main ${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.host }}
     env:
-      SIGN_MACOS: ${{ inputs.dry_run != true && matrix.settings.os == 'darwin' }}
+      SIGN_MACOS: ${{ (inputs.dry_run != true || inputs.sign == true) && matrix.settings.os == 'darwin' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -285,6 +290,15 @@ jobs:
         with:
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
           p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      # Prints only the certificate's subject and validity, so an expired or
+      # revoked Developer ID shows up here instead of as a signing error.
+      - name: Show signing certificate
+        if: env.SIGN_MACOS == 'true'
+        run: |
+          security find-identity -v -p codesigning
+          security find-certificate -a -c "Developer ID Application" -p \
+            | openssl x509 -noout -subject -startdate -enddate
 
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
