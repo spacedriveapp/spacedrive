@@ -169,7 +169,8 @@ jobs:
             platform: linux-aarch64
     name: CLI - ${{ matrix.settings.platform }}
     runs-on: ${{ matrix.settings.host }}
-    timeout-minutes: 120
+    # The Intel macOS runner has taken over two hours to build these.
+    timeout-minutes: 240
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
