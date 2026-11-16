@@ -407,6 +407,29 @@ jobs:
           fi
           spctl --assess --type execute --verbose=2 "$app"
 
+      # tauri notarizes only the app inside the disk image, so a downloaded
+      # .dmg would still prompt on first open without its own ticket.
+      - name: Notarize and staple macOS disk image
+        if: env.SIGN_MACOS == 'true'
+        run: |
+          set -euo pipefail
+          dmg=$(ls target/${{ matrix.settings.target }}/release/bundle/dmg/*.dmg)
+          codesign --force --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$dmg"
+          result=$(xcrun notarytool submit "$dmg" \
+            --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" --issuer "$APPLE_API_ISSUER" \
+            --wait --output-format json)
+          echo "$result"
+          id=$(jq -r .id <<< "$result")
+          if [ "$(jq -r .status <<< "$result")" != "Accepted" ]; then
+            xcrun notarytool log "$id" \
+              --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" --issuer "$APPLE_API_ISSUER" || true
+            echo "::error::$(basename "$dmg") was not accepted by notarization (submission $id)"
+            exit 1
+          fi
+          xcrun stapler staple "$dmg"
+          xcrun stapler validate "$dmg"
+          spctl -a -t open --context context:primary-signature -v "$dmg"
+
       - name: Package frontend
         if: ${{ runner.os == 'Linux' }}
         run: |

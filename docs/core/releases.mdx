@@ -85,8 +85,8 @@ gh workflow run release.yml --ref <branch> -f dry_run=true -f sign=true
 
 A signed dry run fails at the first job if any signing secret is missing. The
 macOS desktop jobs import the Developer ID certificate, print its validity
-dates, sign, notarize and staple the app, then run the same signature,
-stapler and Gatekeeper checks as a release. The release job still never runs.
+dates, sign, notarize and staple the app and then the disk image, and run the
+same signature, stapler and Gatekeeper checks as a release. The release job still never runs.
 The standalone `sd` and `sd-daemon` binaries are not Developer ID signed in
 either mode.
 
