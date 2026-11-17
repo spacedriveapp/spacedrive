@@ -26,14 +26,27 @@ body.overlay-window,
 	background: transparent !important;
 }
 
-/* Hide all scrollbars globally */
-*::-webkit-scrollbar {
-	display: none;
+/* Keep a visible position indicator in scrollable views. */
+*:not(.no-scrollbar)::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
 }
 
-* {
-	-ms-overflow-style: none;
-	scrollbar-width: none;
+*:not(.no-scrollbar)::-webkit-scrollbar-thumb {
+	background: var(--color-ink-faint);
+	border: 2px solid transparent;
+	border-radius: 8px;
+	background-clip: padding-box;
+}
+
+*:not(.no-scrollbar)::-webkit-scrollbar-track,
+*:not(.no-scrollbar)::-webkit-scrollbar-corner {
+	background: transparent;
+}
+
+*:not(.no-scrollbar) {
+	scrollbar-width: thin;
+	scrollbar-color: var(--color-ink-faint) transparent;
 }
 
 /* Checkerboard pattern for transparent images */
