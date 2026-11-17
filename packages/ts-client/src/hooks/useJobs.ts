@@ -1,8 +1,8 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import type {JobListItem, GenericProgress} from '../generated/types';
+import type {GenericProgress, JobListItem} from '../generated/types';
+import {useSpacedriveClient} from './useClient';
 import {useLibraryMutation} from './useMutation';
 import {useLibraryQuery} from './useQuery';
-import {useSpacedriveClient} from './useClient';
 
 // Speed sample for historical graph
 export interface SpeedSample {
@@ -18,6 +18,19 @@ export type ExtendedJobListItem = JobListItem & {
 	generic_progress?: GenericProgress;
 };
 
+// List responses do not contain the runtime fields sent in progress events.
+export function mergeJobSnapshots(
+	previous: ExtendedJobListItem[],
+	incoming: JobListItem[]
+): ExtendedJobListItem[] {
+	const byId = new Map(previous.map((job) => [job.id, job]));
+	return incoming.map((job) =>
+		job.status === 'running' || job.status === 'paused'
+			? {...byId.get(job.id), ...job}
+			: job
+	);
+}
+
 // Re-export GenericProgress for convenience
 export type {GenericProgress};
 
@@ -32,7 +45,8 @@ function downsampleSpeedHistory(samples: SpeedSample[]): SpeedSample[] {
 		// Average the samples in this bucket
 		const bucket = samples.slice(i, i + step);
 		const avgRate =
-			bucket.reduce((sum, s) => sum + s.bytesPerSecond, 0) / bucket.length;
+			bucket.reduce((sum, s) => sum + s.bytesPerSecond, 0) /
+			bucket.length;
 		downsampled.push({
 			timestamp: bucket[0].timestamp,
 			bytesPerSecond: avgRate
@@ -107,7 +121,7 @@ export function useJobs(options: UseJobsOptions = {}): UseJobsReturn {
 
 	useEffect(() => {
 		if (data?.jobs) {
-			setJobs(data.jobs as ExtendedJobListItem[]);
+			setJobs((previous) => mergeJobSnapshots(previous, data.jobs));
 		}
 	}, [data]);
 
@@ -147,7 +161,7 @@ export function useJobs(options: UseJobsOptions = {}): UseJobsReturn {
 							setJobs((prev) =>
 								prev.map((job) =>
 									job.id === jobId
-										? { ...job, progress: 1.0 }
+										? {...job, progress: 1.0}
 										: job
 								)
 							);
@@ -228,13 +242,15 @@ export function useJobs(options: UseJobsOptions = {}): UseJobsReturn {
 			]
 		};
 
-		client.subscribeFiltered(filter, handleEvent).then((unsub: () => void) => {
-			if (isCancelled) {
-				unsub();
-			} else {
-				unsubscribe = unsub;
-			}
-		});
+		client
+			.subscribeFiltered(filter, handleEvent)
+			.then((unsub: () => void) => {
+				if (isCancelled) {
+					unsub();
+				} else {
+					unsubscribe = unsub;
+				}
+			});
 
 		return () => {
 			isCancelled = true;
