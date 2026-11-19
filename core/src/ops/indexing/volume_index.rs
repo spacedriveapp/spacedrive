@@ -2611,14 +2611,14 @@ impl VolumeIndex {
 
 		let _save_guard = slot.save_lock.lock().await;
 		if mode == SaveMode::Paced {
-			let mut last_save = slot.last_save.lock();
-			let due = match *last_save {
+			let last_save = *slot.last_save.lock();
+			let due = match last_save {
 				Some((at, bytes)) => at.elapsed() >= snapshot_flush_gap(bytes),
 				// The file restored at launch is the last save as far as pacing
 				// goes, so a restart does not rewrite it at once.
-				None => match std::fs::metadata(&snapshot_path) {
+				None => match tokio::fs::metadata(&snapshot_path).await {
 					Ok(metadata) => {
-						*last_save = Some((Instant::now(), metadata.len()));
+						*slot.last_save.lock() = Some((Instant::now(), metadata.len()));
 						false
 					}
 					Err(_) => true,
@@ -4692,6 +4692,11 @@ pub(crate) mod tests {
 		const TICK: Duration = Duration::from_secs(30);
 		const HOUR: Duration = Duration::from_secs(3600);
 
+		let _ = tracing_subscriber::fmt()
+			.with_max_level(tracing::Level::INFO)
+			.with_test_writer()
+			.try_init();
+
 		let meta = |path: &Path, kind: EntryKind| EntryMetadata {
 			kind,
 			path: path.to_path_buf(),
@@ -4726,7 +4731,7 @@ pub(crate) mod tests {
 			}
 		}
 		let nodes = arena.get_stats().total_entries;
-		println!("built {nodes} nodes in {:?}", built.elapsed());
+		tracing::info!("built {nodes} nodes in {:?}", built.elapsed());
 
 		let out = tempfile::tempdir().unwrap();
 		let snapshot = out.path().join("bench.snapshot");
@@ -4763,7 +4768,7 @@ pub(crate) mod tests {
 				writes += 1;
 				bytes += size;
 			}
-			println!(
+			tracing::info!(
 				"{label}: {writes} writes/h, {:.1} MB/h, {:.1} s of save time/h (snapshot {:.1} MB)",
 				bytes as f64 / 1e6,
 				busy.as_secs_f64(),
