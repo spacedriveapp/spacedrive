@@ -45,13 +45,16 @@ use sea_orm::{ConnectionTrait, DatabaseBackend, DatabaseConnection, Statement};
 use sea_orm_migration::MigratorTrait;
 use uuid::Uuid;
 
-/// What a library holds after the drop, from the FD4 record in the plan.
+/// What a library holds after the drop, from the FD4 record in the plan,
+/// plus the agent grant tables a later migration adds (`agent-grants.md`).
 const LIBRARY_TABLES: &[&str] = &[
+	"agent_grant",
 	"assertion_outbox",
 	"audit_log",
 	"cloud_credentials",
 	"device_state_tombstones",
 	"devices",
+	"grant_audit",
 	"seaql_migrations",
 	"sources",
 	"space_groups",
