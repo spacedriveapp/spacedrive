@@ -1,6 +1,10 @@
 use chrono::{DateTime, Utc};
 use clap::Args;
+use std::path::PathBuf;
 use uuid::Uuid;
+
+use sd_core::domain::addressing::SdPath;
+use sd_core::ops::search::grep::{GrepInput, GrepOptions};
 
 use sd_core::domain::ContentKind;
 use sd_core::ops::search::input::{
@@ -257,6 +261,82 @@ impl From<FileSearchArgs> for FileSearchInput {
 			filters,
 			sort,
 			pagination,
+		}
+	}
+}
+
+#[derive(Args, Debug)]
+pub struct GrepArgs {
+	/// Regular expression to search for, or plain text with --fixed-strings
+	pub pattern: String,
+
+	/// File or directory to search, under a tracked source; defaults to the
+	/// current directory
+	pub path: Option<PathBuf>,
+
+	/// Treat the pattern as plain text
+	#[arg(short = 'F', long)]
+	pub fixed_strings: bool,
+
+	/// Match without regard to case
+	#[arg(short = 'i', long)]
+	pub ignore_case: bool,
+
+	/// Only search files matching this glob (repeatable)
+	#[arg(short = 'g', long = "glob")]
+	pub include: Vec<String>,
+
+	/// Skip files and directories matching this glob (repeatable)
+	#[arg(long)]
+	pub exclude: Vec<String>,
+
+	/// Search files that .gitignore and .ignore files exclude
+	#[arg(long)]
+	pub no_ignore: bool,
+
+	/// Search hidden files and directories
+	#[arg(long)]
+	pub hidden: bool,
+
+	/// Lines of context around each match
+	#[arg(short = 'C', long, default_value = "0")]
+	pub context: u32,
+
+	/// Matches per page
+	#[arg(long)]
+	pub max_results: Option<u32>,
+
+	/// Continue from the cursor a previous page printed
+	#[arg(long)]
+	pub cursor: Option<String>,
+
+	/// Skip files larger than this many bytes (default 1 MiB)
+	#[arg(long)]
+	pub max_file_bytes: Option<u64>,
+}
+
+impl GrepArgs {
+	pub fn into_input(self, path: PathBuf) -> GrepInput {
+		GrepInput {
+			// The daemon that answers resolves "local" to itself, which keeps
+			// this right when the request is routed to another device.
+			scope: SdPath::Physical {
+				device_slug: "local".to_string(),
+				path,
+			},
+			options: GrepOptions {
+				pattern: self.pattern,
+				literal: self.fixed_strings,
+				case_insensitive: self.ignore_case,
+				include: self.include,
+				exclude: self.exclude,
+				respect_gitignore: !self.no_ignore,
+				include_hidden: self.hidden,
+				context_lines: self.context,
+				max_results: self.max_results,
+				cursor: self.cursor,
+				max_file_bytes: self.max_file_bytes,
+			},
 		}
 	}
 }

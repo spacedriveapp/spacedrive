@@ -77,6 +77,12 @@ thiserror = "1.0"
 # Text processing
 regex = "1.11"
 
+# Live content search over a path (search.grep)
+grep-matcher  = "0.1"
+grep-regex    = "0.1"
+grep-searcher = "0.1"
+ignore        = "0.4"
+
 
 # File operations
 blake3 = "1.5"  # Content addressing

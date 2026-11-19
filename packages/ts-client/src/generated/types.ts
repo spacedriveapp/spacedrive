@@ -1958,6 +1958,113 @@ export type Granularity =
 "year_month_day";
 
 /**
+ * Search the files under `scope` for `pattern`.
+ */
+export type GrepInput = (GrepOptions) & { 
+/**
+ * A directory or file under a source tracked on this device.
+ */
+scope: SdPath };
+
+/**
+ * One matching line.
+ */
+export type GrepMatch = { 
+/**
+ * The file, relative to the scope, with `/` separators. A name that is
+ * not valid UTF-8 is converted lossily.
+ */
+path: string; 
+/**
+ * 1-based.
+ */
+line_number: number; 
+/**
+ * The line without its terminator, converted lossily and cut at 4 KiB.
+ */
+line: string; 
+/**
+ * Up to `context_lines` lines before the match, in file order.
+ */
+before: string[]; 
+/**
+ * Up to `context_lines` lines after the match, in file order.
+ */
+after: string[] };
+
+/**
+ * What to search for and how, independent of where.
+ */
+export type GrepOptions = { 
+/**
+ * A regular expression, or a literal string when `literal` is set.
+ */
+pattern: string; 
+/**
+ * Match `pattern` as plain text rather than as a regular expression.
+ */
+literal?: boolean; 
+/**
+ * Ignore case when matching.
+ */
+case_insensitive?: boolean; 
+/**
+ * Globs a file must match to be searched, such as `*.rs`. Empty means
+ * every file.
+ */
+include?: string[]; 
+/**
+ * Globs that exclude files and directories from the search.
+ */
+exclude?: string[]; 
+/**
+ * Skip what `.gitignore`, `.ignore` and git's exclude files ignore.
+ */
+respect_gitignore?: boolean; 
+/**
+ * Search hidden files and directories, those whose names start with a dot.
+ */
+include_hidden?: boolean; 
+/**
+ * Lines of context returned before and after each match.
+ */
+context_lines?: number; 
+/**
+ * Matches per page. Defaults to 100.
+ */
+max_results?: number | null; 
+/**
+ * The `next_cursor` of the previous page, to continue from there.
+ */
+cursor?: string | null; 
+/**
+ * Files larger than this many bytes are skipped. Defaults to 1 MiB.
+ */
+max_file_bytes?: number | null };
+
+/**
+ * One page of matches.
+ */
+export type GrepOutput = { matches: GrepMatch[]; 
+/**
+ * Files searched for this page.
+ */
+files_scanned: number; 
+/**
+ * Files passed over for this page because they hold binary data or are
+ * larger than `max_file_bytes`.
+ */
+files_skipped: number; 
+/**
+ * The page stopped at `max_results`. More matches may follow.
+ */
+truncated: boolean; 
+/**
+ * Pass back as `cursor` to read the next page. Set when `truncated` is.
+ */
+next_cursor: string | null };
+
+/**
  * Types of groups that can appear in a space
  */
 export type GroupType = 
@@ -6115,6 +6222,7 @@ export type LibraryQuery =
   |  { type: 'paths.system_folders'; input: SystemFoldersInput; output: SystemFoldersOutput }
   |  { type: 'redundancy.summary'; input: RedundancySummaryInput; output: RedundancySummaryOutput }
   |  { type: 'search.files'; input: FileSearchInput; output: FileSearchOutput }
+  |  { type: 'search.grep'; input: GrepInput; output: GrepOutput }
   |  { type: 'search.media'; input: MediaSearchInput; output: MediaSearchOutput }
   |  { type: 'sources.get'; input: GetSourceInput; output: SourceInfo }
   |  { type: 'sources.list'; input: ListSourcesInput; output: [SourceInfo] }
@@ -6319,6 +6427,7 @@ export const WIRE_METHODS = {
     'paths.system_folders': 'query:paths.system_folders',
     'redundancy.summary': 'query:redundancy.summary',
     'search.files': 'query:search.files',
+    'search.grep': 'query:search.grep',
     'search.media': 'query:search.media',
     'sources.get': 'query:sources.get',
     'sources.list': 'query:sources.list',
