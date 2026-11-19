@@ -21,10 +21,13 @@ use grep_searcher::{BinaryDetection, Searcher, SearcherBuilder, Sink, SinkContex
 use ignore::{overrides::OverrideBuilder, WalkBuilder};
 use tracing::debug;
 
-use super::{GrepMatch, GrepOptions, GrepOutput};
+use super::{GrepMatch, GrepOptions, GrepOutput, GrepSkipReason, GrepSkipped};
+use crate::ops::indexing::metadata::refuse_dataless_blocking;
 
 /// Longest line text returned, so one minified file cannot fill a response.
 const MAX_LINE_BYTES: usize = 4096;
+/// Skipped files listed by name per page; the rest are only counted.
+const MAX_SKIPPED_LISTED: usize = 100;
 
 #[derive(Debug, thiserror::Error)]
 pub enum GrepError {
@@ -150,10 +153,24 @@ pub fn grep(
 			_ => 0,
 		};
 
+		let mut skip = |reason| {
+			out.files_skipped += 1;
+			if out.skipped.len() < MAX_SKIPPED_LISTED {
+				out.skipped.push(GrepSkipped {
+					path: display_path(rel, path),
+					reason,
+				});
+			}
+		};
+		// A stat, which the provider answers without downloading anything.
+		if refuse_dataless_blocking(path).is_err() {
+			skip(GrepSkipReason::CloudPlaceholder);
+			continue;
+		}
 		let bytes = match read_capped(&anchor, rel, max_file_bytes) {
 			Ok(Some(bytes)) => bytes,
 			Ok(None) => {
-				out.files_skipped += 1;
+				skip(GrepSkipReason::TooLarge);
 				continue;
 			}
 			Err(error) => {
@@ -172,7 +189,7 @@ pub fn grep(
 			return Err(GrepError::Cancelled);
 		}
 		if sink.binary {
-			out.files_skipped += 1;
+			skip(GrepSkipReason::Binary);
 			continue;
 		}
 		out.files_scanned += 1;
@@ -526,7 +543,13 @@ fn path_from_bytes(bytes: Vec<u8>) -> Result<PathBuf, GrepError> {
 mod tests {
 	use std::path::Path;
 
-	use super::{read_capped, Anchor};
+	use std::sync::atomic::AtomicBool;
+
+	use super::{grep, read_capped, Anchor};
+	use crate::ops::{
+		indexing::metadata::dataless_for_tests,
+		search::grep::{GrepOptions, GrepSkipReason, GrepSkipped},
+	};
 
 	/// `<tmp>/root/scope/sub/file.txt` reads "inside"; `<tmp>/outside` has
 	/// the same shape and reads "outside".
@@ -592,5 +615,37 @@ mod tests {
 		std::fs::create_dir(sub.join("file.txt")).unwrap();
 		std::fs::write(sub.join("file.txt/sibling.txt"), b"nested").unwrap();
 		assert!(read(&anchor, "sibling.txt").is_err());
+	}
+
+	#[test]
+	fn a_cloud_placeholder_is_skipped_without_being_opened() {
+		use std::os::unix::fs::PermissionsExt;
+
+		let dir = tree();
+		let root = dir.path().join("root");
+		let placeholder = root.join("scope/sub/placeholder.txt");
+		std::fs::write(&placeholder, b"inside").unwrap();
+		// Unreadable, so an open would fail as unreadable rather than count
+		// as a placeholder.
+		std::fs::set_permissions(&placeholder, std::fs::Permissions::from_mode(0o000)).unwrap();
+		dataless_for_tests::mark(&placeholder);
+
+		let out = grep(
+			&root,
+			Path::new("scope"),
+			&GrepOptions::new("inside"),
+			&AtomicBool::new(false),
+		)
+		.unwrap();
+		assert_eq!(out.matches.len(), 1);
+		assert_eq!(out.matches[0].path, "sub/file.txt");
+		assert_eq!(out.files_skipped, 1);
+		assert_eq!(
+			out.skipped,
+			vec![GrepSkipped {
+				path: "sub/placeholder.txt".into(),
+				reason: GrepSkipReason::CloudPlaceholder,
+			}]
+		);
 	}
 }

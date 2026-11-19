@@ -2051,10 +2051,14 @@ export type GrepOutput = { matches: GrepMatch[];
  */
 files_scanned: number; 
 /**
- * Files passed over for this page because they hold binary data or are
- * larger than `max_file_bytes`.
+ * Files passed over for this page: binary, larger than `max_file_bytes`,
+ * or cloud placeholders.
  */
 files_skipped: number; 
+/**
+ * The first 100 files counted in `files_skipped`, with the reason.
+ */
+skipped: GrepSkipped[]; 
 /**
  * The page stopped at `max_results`. More matches may follow.
  */
@@ -2063,6 +2067,33 @@ truncated: boolean;
  * Pass back as `cursor` to read the next page. Set when `truncated` is.
  */
 next_cursor: string | null };
+
+/**
+ * Why a file was passed over.
+ */
+export type GrepSkipReason = 
+/**
+ * The file holds a NUL byte.
+ */
+"binary" | 
+/**
+ * The file is larger than `max_file_bytes`.
+ */
+"too_large" | 
+/**
+ * A cloud placeholder whose bytes are not on this device. Opening it
+ * would download it, so it is never opened.
+ */
+"cloud_placeholder";
+
+/**
+ * A file the search passed over.
+ */
+export type GrepSkipped = { 
+/**
+ * Relative to the scope, as in [`GrepMatch::path`].
+ */
+path: string; reason: GrepSkipReason };
 
 /**
  * Types of groups that can appear in a space

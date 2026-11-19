@@ -22,7 +22,7 @@ use sd_core::{
 	ops::{
 		search::grep::{
 			scan::{self, GrepError},
-			GrepInput, GrepMatch, GrepOptions, GrepOutput, GrepQuery,
+			GrepInput, GrepMatch, GrepOptions, GrepOutput, GrepQuery, GrepSkipReason, GrepSkipped,
 		},
 		sources::track::action::{TrackSourceAction, TrackSourceInput},
 	},
@@ -115,6 +115,19 @@ fn default_search_honors_ignores_and_skips_binary_and_big_files() {
 	);
 	// blob.bin holds a NUL, big.txt is over the 1 MiB default.
 	assert_eq!(out.files_skipped, 2);
+	assert_eq!(
+		out.skipped,
+		vec![
+			GrepSkipped {
+				path: "big.txt".into(),
+				reason: GrepSkipReason::TooLarge,
+			},
+			GrepSkipped {
+				path: "blob.bin".into(),
+				reason: GrepSkipReason::Binary,
+			},
+		]
+	);
 	assert!(!out.truncated);
 	assert!(out.next_cursor.is_none());
 
