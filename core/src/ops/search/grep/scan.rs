@@ -270,17 +270,19 @@ impl Anchor {
 		for part in ancestors {
 			dir = open_at(&dir, part, Self::DIR)?;
 		}
-		let target = std::fs::File::from(open_at(&dir, last, Self::LEAF)?);
-		if target.metadata()?.is_dir() {
-			return Ok(Self {
-				dir: target.into(),
+		// Decide by a stat rather than an open: opening a file scope that is a
+		// cloud placeholder would download it before the scan can refuse it.
+		match stat_at(&dir, last)?.st_mode & libc::S_IFMT {
+			libc::S_IFDIR => Ok(Self {
+				dir: open_at(&dir, last, Self::DIR)?,
 				file: None,
-			});
+			}),
+			libc::S_IFLNK => Err(io::Error::other("the scope is a symlink")),
+			_ => Ok(Self {
+				dir,
+				file: Some(last.to_os_string()),
+			}),
 		}
-		Ok(Self {
-			dir,
-			file: Some(last.to_os_string()),
-		})
 	}
 
 	fn open_file(&self, rel: &Path) -> io::Result<std::fs::File> {
@@ -332,6 +334,29 @@ fn open_at(
 	}
 	// SAFETY: `fd` was just opened and nothing else owns it.
 	Ok(unsafe { std::os::fd::OwnedFd::from_raw_fd(fd) })
+}
+
+#[cfg(unix)]
+fn stat_at(dir: &std::os::fd::OwnedFd, name: &std::ffi::OsStr) -> io::Result<libc::stat> {
+	use std::os::{fd::AsRawFd, unix::ffi::OsStrExt};
+
+	let name = std::ffi::CString::new(name.as_bytes())?;
+	let mut stat = std::mem::MaybeUninit::<libc::stat>::uninit();
+	// SAFETY: `dir` is an open descriptor, `name` is NUL-terminated and
+	// `stat` is written by the call before it is read.
+	let result = unsafe {
+		libc::fstatat(
+			dir.as_raw_fd(),
+			name.as_ptr(),
+			stat.as_mut_ptr(),
+			libc::AT_SYMLINK_NOFOLLOW,
+		)
+	};
+	if result != 0 {
+		return Err(io::Error::last_os_error());
+	}
+	// SAFETY: fstatat succeeded, so it filled `stat`.
+	Ok(unsafe { stat.assume_init() })
 }
 
 #[cfg(not(unix))]
@@ -644,6 +669,34 @@ mod tests {
 			out.skipped,
 			vec![GrepSkipped {
 				path: "sub/placeholder.txt".into(),
+				reason: GrepSkipReason::CloudPlaceholder,
+			}]
+		);
+	}
+
+	#[test]
+	fn a_file_scope_that_is_a_placeholder_is_never_opened() {
+		use std::os::unix::fs::PermissionsExt;
+
+		let dir = tree();
+		let root = dir.path().join("root");
+		let placeholder = root.join("scope/sub/only.txt");
+		std::fs::write(&placeholder, b"inside").unwrap();
+		std::fs::set_permissions(&placeholder, std::fs::Permissions::from_mode(0o000)).unwrap();
+		dataless_for_tests::mark(&placeholder);
+
+		let out = grep(
+			&root,
+			Path::new("scope/sub/only.txt"),
+			&GrepOptions::new("inside"),
+			&AtomicBool::new(false),
+		)
+		.unwrap();
+		assert!(out.matches.is_empty());
+		assert_eq!(
+			out.skipped,
+			vec![GrepSkipped {
+				path: "only.txt".into(),
 				reason: GrepSkipReason::CloudPlaceholder,
 			}]
 		);
