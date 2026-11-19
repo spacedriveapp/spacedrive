@@ -46,7 +46,7 @@ async fn reconcile_of_a_large_filtered_tree() {
 	let root_dir = tempfile::tempdir().expect("root dir");
 	let started = Instant::now();
 	generate(root_dir.path());
-	println!("generated in {:?}", started.elapsed());
+	let generated = started.elapsed();
 
 	let data_dir = tempfile::tempdir().expect("data dir");
 	let config = TestConfigBuilder::new(data_dir.path().to_path_buf())
@@ -65,6 +65,7 @@ async fn reconcile_of_a_large_filtered_tree() {
 		.into_iter()
 		.next()
 		.expect("default library");
+	tracing::info!(?generated, "generated the tree");
 
 	let started = Instant::now();
 	let output = TrackSourceAction::from_input(TrackSourceInput {
@@ -85,7 +86,7 @@ async fn reconcile_of_a_large_filtered_tree() {
 	{
 		walk.wait().await.expect("walk");
 	}
-	println!("walked in {:?}", started.elapsed());
+	tracing::info!(took = ?started.elapsed(), "walked");
 	tokio::time::sleep(Duration::from_secs(2)).await;
 
 	let started = Instant::now();
@@ -97,7 +98,7 @@ async fn reconcile_of_a_large_filtered_tree() {
 	)
 	.await
 	.expect("the reconcile ran");
-	println!("reconciled in {:?}: {report:?}", started.elapsed());
+	tracing::info!(took = ?started.elapsed(), ?report, "reconciled");
 	assert_eq!(report.added, 0, "nothing the rules keep out arrives");
 
 	drop(library);

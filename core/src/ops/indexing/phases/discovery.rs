@@ -218,6 +218,9 @@ async fn run_parallel_discovery(
 			DiscoveryResult::Summarised { path, bytes, files } => {
 				state.summaries.push((path, bytes, files));
 			}
+			DiscoveryResult::Placeholder(path) => {
+				state.placeholders.push(path);
+			}
 			DiscoveryResult::QueueDirectories(_) => {
 				unreachable!("Workers should not send QueueDirectories in Rayon-style mode");
 			}
@@ -285,6 +288,7 @@ enum DiscoveryResult {
 		bytes: u64,
 		files: u32,
 	},
+	Placeholder(PathBuf),
 }
 
 /// Worker task that pulls directories, reads contents, filters entries, and enqueues subdirectories.
@@ -428,6 +432,9 @@ async fn discovery_worker_rayon(
 								) =>
 						{
 							local_stats.dirs += 1;
+							let _ = result_tx
+								.send(DiscoveryResult::Placeholder(entry.path.clone()))
+								.await;
 							let _ = result_tx.send(DiscoveryResult::Entry(entry)).await;
 						}
 						EntryKind::Directory => {

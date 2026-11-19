@@ -256,7 +256,6 @@ pub async fn reconcile_attached_sources(context: Arc<CoreContext>) {
 				root = %source.root.display(),
 				volume = ?source.volume_uuid,
 				volume_state = ?source.volume_state,
-				root_exists = source.root.exists(),
 				"not reconciling: the source is not attached"
 			);
 			continue;

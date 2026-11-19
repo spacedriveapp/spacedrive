@@ -278,7 +278,6 @@ impl FsWatcherService {
 						root = %source.root.display(),
 						volume = ?source.volume_uuid,
 						volume_state = ?source.volume_state,
-						root_exists = source.root.exists(),
 						"not restoring: the source is not attached"
 					);
 					continue;
