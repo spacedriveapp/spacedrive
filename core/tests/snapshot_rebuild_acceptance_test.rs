@@ -420,3 +420,91 @@ async fn a_live_change_survives_a_restart() {
 	drop(library);
 	core.shutdown().await.expect("shutdown");
 }
+
+/// The watcher's flush is paced, so a crash can leave a snapshot older than
+/// the changes the watcher applied. The restart restores that stale map and
+/// the warm-start reconcile brings it level with the disk, so nothing the
+/// snapshot missed is lost.
+#[tokio::test]
+async fn a_snapshot_older_than_the_last_changes_is_reconciled_on_restart() {
+	let _ = tracing_subscriber::fmt::try_init();
+	let walked = walked_source("sd-snapshot-stale").await;
+	let stale = std::fs::read(&walked.snapshot_path).expect("read snapshot");
+
+	let core = boot(walked.data_dir.path()).await;
+	let library = core
+		.libraries
+		.list()
+		.await
+		.into_iter()
+		.find(|library| library.path() == walked.library_path)
+		.expect("the library reloads");
+	let cache = core.context.volume_index();
+	for _ in 0..600 {
+		if cache.is_watched(&walked.root) && cache.arena_answers(&walked.root) {
+			break;
+		}
+		tokio::time::sleep(Duration::from_millis(50)).await;
+	}
+	assert!(
+		cache.is_watched(&walked.root),
+		"the restored source is watched"
+	);
+
+	std::fs::write(walked.root.join("g.txt"), "g").expect("create");
+	std::fs::remove_file(walked.root.join("a.txt")).expect("delete");
+	let expected = vec!["b", "g", "notes", "photos"];
+	let mut listed = Vec::new();
+	for _ in 0..200 {
+		listed = list_dir(&core, &library, walked.root.clone()).await;
+		if listed == expected {
+			break;
+		}
+		tokio::time::sleep(Duration::from_millis(100)).await;
+	}
+	assert_eq!(listed, expected, "the watcher applied both changes");
+
+	drop(library);
+	core.shutdown().await.expect("shutdown");
+	drop(core);
+	tokio::time::sleep(Duration::from_secs(2)).await;
+
+	// Put back the snapshot from before the changes, as a crash before the
+	// next paced flush would have left it.
+	std::fs::write(&walked.snapshot_path, &stale).expect("restore stale snapshot");
+
+	let core = boot(walked.data_dir.path()).await;
+	let library = core
+		.libraries
+		.list()
+		.await
+		.into_iter()
+		.find(|library| library.path() == walked.library_path)
+		.expect("the library reloads");
+	let cache = core.context.volume_index();
+	for _ in 0..600 {
+		if cache.arena_answers(&walked.root) {
+			break;
+		}
+		tokio::time::sleep(Duration::from_millis(50)).await;
+	}
+	assert!(
+		cache.restored_from_snapshot(&walked.root),
+		"the map came from the stale snapshot file"
+	);
+	let mut listed = Vec::new();
+	for _ in 0..300 {
+		listed = list_dir(&core, &library, walked.root.clone()).await;
+		if listed == expected {
+			break;
+		}
+		tokio::time::sleep(Duration::from_millis(100)).await;
+	}
+	assert_eq!(
+		listed, expected,
+		"the reconcile applied what the stale snapshot missed"
+	);
+
+	drop(library);
+	core.shutdown().await.expect("shutdown");
+}

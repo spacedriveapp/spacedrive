@@ -36,6 +36,16 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Watcher snapshot flushes are paced by snapshot size (Capy SPAC-83, November
+19, beta.1 blocker). #3181 rewrote a drive's whole arena snapshot every 30 s
+whenever its arena was dirty, which on a 1.8M-record home source with constant
+cache churn came to about 11 GB written per hour. The periodic flush now waits
+`size / 512 MiB per hour` between saves of one drive, so a 109 MB snapshot is
+written about every 13 minutes; shutdown and walk saves still write at once,
+and the save runs on a blocking thread. A crash between saves restores the
+older snapshot and the warm-start reconcile applies what it missed
+(`a_snapshot_older_than_the_last_changes_is_reconciled_on_restart`).
+
 File System Intelligence is a flagship priority identified by James (Codex,
 September 18). The product boundary now names persistent file and folder
 understanding as a first-class user benefit, with optional cloud acceleration.
