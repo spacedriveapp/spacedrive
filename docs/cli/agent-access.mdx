@@ -149,8 +149,10 @@ relative to the folder too.
 | `grep` | Lines matching a regex or literal, from a live scan. Hidden files are included and `.gitignore` is respected by default. |
 | `search` | Name and metadata matches from Spacedrive's index, filtered to the folder. |
 
-`grep` and `search` can be incomplete. `grep` skips binary files and files over
-1 MiB and counts them in `files_skipped`. `search` answers from the index,
+`grep` and `search` can be incomplete. `grep` skips binary files, files over
+1 MiB and cloud placeholders, and counts them in `files_skipped`. `read`
+refuses a cloud placeholder, such as an iCloud file that is not downloaded,
+rather than downloading it. `search` answers from the index,
 which can lag the disk. The guide tells the agent to confirm results with
 `read`.
 

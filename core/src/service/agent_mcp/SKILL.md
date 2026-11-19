@@ -33,6 +33,8 @@ time. After that, every call fails with HTTP 401.
   - Check truncated and eof in the result. Continue from next_offset or
     next_line until eof is true.
   - Text that is not UTF-8 comes back with encoding "base64".
+  - A cloud placeholder, a file whose contents are not downloaded to this
+    device, is refused rather than downloaded.
 - glob: names that match a pattern such as "**/*.rs", relative to path.
   Hidden files are included and .gitignore is respected by default. A call
   visits at most 100,000 entries. When visit_limit_reached is true, narrow
@@ -47,8 +49,9 @@ time. After that, every call fails with HTTP 401.
 
 Treat an empty or short result as a lead, not as proof.
 
-- grep skips binary files and files larger than 1 MiB, and counts them in
-  files_skipped. By default it also skips what .gitignore ignores. If
+- grep skips binary files, files larger than 1 MiB, and cloud placeholders
+  whose contents are not downloaded to this device. It counts them in
+  files_skipped and names the first 100, with the reason, in skipped. By default it also skips what .gitignore ignores. If
   files_skipped is not zero, the match you want can be in a skipped file.
 - grep stops at max_results per page. When truncated is true, pass
   next_cursor back to get the next page.

@@ -27,6 +27,7 @@ use crate::{
 	domain::addressing::SdPath,
 	ops::{
 		grants::GrantScope,
+		indexing::metadata::{refuse_dataless_blocking, DATALESS_REASON},
 		search::{
 			arena_search::search_arena,
 			grep::{scan, GrepOptions},
@@ -440,6 +441,12 @@ fn read(scope: &GrantScope, args: ReadArgs, cancel: &AtomicBool) -> Result<Outpu
 	if args.start_line.is_some() && (args.offset.is_some() || args.length.is_some()) {
 		return Err("use either offset and length, or start_line and line_count".to_string());
 	}
+	// A stat the provider answers locally; opening a placeholder would download it.
+	if refuse_dataless_blocking(&scope.path).is_err() {
+		return Err(format!(
+			"the file is a cloud placeholder ({DATALESS_REASON}); it is not read so it is not downloaded"
+		));
+	}
 	let (mut file, meta) = open_file(&scope.path)?;
 	let size = meta.len();
 	let path = paths::shown(&scope.relative);
@@ -723,6 +730,10 @@ fn grep(scope: &GrantScope, args: GrepArgs, cancel: &AtomicBool) -> Result<Outpu
 		"matches": matches,
 		"files_scanned": out.files_scanned,
 		"files_skipped": out.files_skipped,
+		"skipped": out.skipped.into_iter().map(|skipped| json!({
+			"path": paths::joined(base, &skipped.path),
+			"reason": skipped.reason,
+		})).collect::<Vec<_>>(),
 		"truncated": out.truncated,
 		"next_cursor": out.next_cursor,
 	})))
@@ -845,6 +856,34 @@ mod tests {
 		assert_eq!((text.as_str(), encoding, covered), ("h", "utf-8", 1));
 		let (_, encoding, _) = encode(&[0xff, 0xfe, 0x00]);
 		assert_eq!(encoding, "base64");
+	}
+
+	#[test]
+	fn read_refuses_a_cloud_placeholder() {
+		let dir = tempfile::tempdir().unwrap();
+		let root = std::fs::canonicalize(dir.path()).unwrap();
+		std::fs::write(root.join("cloud.txt"), "not here").unwrap();
+		let scope = GrantScope {
+			grant_id: uuid::Uuid::new_v4(),
+			library_id: uuid::Uuid::new_v4(),
+			cap: crate::ops::grants::GrantCap::Read,
+			path: root.join("cloud.txt"),
+			relative: PathBuf::from("cloud.txt"),
+			root: root.clone(),
+			expires_at: Utc::now(),
+		};
+		let args = || ReadArgs {
+			offset: None,
+			length: None,
+			start_line: None,
+			line_count: None,
+			max_bytes: None,
+		};
+		let cancel = AtomicBool::new(false);
+		assert!(read(&scope, args(), &cancel).is_ok());
+		crate::ops::indexing::metadata::dataless_for_tests::mark(&scope.path);
+		let refused = read(&scope, args(), &cancel).err().unwrap();
+		assert!(refused.contains("cloud placeholder"), "{refused}");
 	}
 
 	#[test]
