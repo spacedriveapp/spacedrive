@@ -330,6 +330,17 @@ async fn agent_mcp_serves_a_grant_and_refuses_everything_else() -> anyhow::Resul
 		.ok("grep", json!({ "pattern": "needle", "path": "src" }))
 		.await;
 	assert_eq!(grepped["matches"][0]["line_number"], 2);
+	let grepped = client
+		.ok(
+			"grep",
+			json!({ "pattern": "needle", "path": "src/main.rs" }),
+		)
+		.await;
+	assert_eq!(
+		paths(&grepped, "matches"),
+		vec!["src/main.rs"],
+		"a file scope"
+	);
 	let reply = client
 		.call("grep", json!({ "pattern": "x".repeat(2000) }))
 		.await;

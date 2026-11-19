@@ -696,16 +696,22 @@ fn grep(scope: &GrantScope, args: GrepArgs, cancel: &AtomicBool) -> Result<Outpu
 		cursor: args.cursor,
 		max_file_bytes: None,
 	};
-	let out = scan::grep(&scope.path, &options, cancel).map_err(|e| match e {
+	let out = scan::grep(&scope.root, &scope.relative, &options, cancel).map_err(|e| match e {
 		scan::GrepError::Scope { source, .. } => io_message(&source),
 		other => other.to_string(),
 	})?;
+	// A file scope names its matches by file name, so they join to its parent.
+	let base = if scope.path.is_file() {
+		scope.relative.parent().unwrap_or(Path::new(""))
+	} else {
+		scope.relative.as_path()
+	};
 	let matches: Vec<Value> = out
 		.matches
 		.into_iter()
 		.map(|m| {
 			json!({
-				"path": paths::joined(&scope.relative, &m.path),
+				"path": paths::joined(base, &m.path),
 				"line_number": m.line_number,
 				"line": m.line,
 				"before": m.before,
