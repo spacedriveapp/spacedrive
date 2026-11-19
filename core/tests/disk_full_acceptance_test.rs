@@ -206,32 +206,45 @@ async fn a_full_disk_fails_the_walk_and_the_heal_finishes_it_once_there_is_room(
 		.any(|job| job.id == job_id && job.status == JobStatus::Failed));
 
 	// 2. The store is intact, holds part of the tree at most, and is marked
-	// for the heal.
-	let store = cache.store_for(&tree).await.expect("store");
+	// for the heal. The files are checked as the full disk left them, through
+	// a copy on the regular disk: a connection that opens on the full volume
+	// has to rebuild SQLite's WAL index first, which needs free blocks, and
+	// fails with SQLITE_IOERR_SHMSIZE whether or not the store is damaged.
+	let store_dir = data_dir
+		.join("sources")
+		.join(output.id.simple().to_string());
+	let copy = tempfile::TempDir::new().expect("copy dir");
+	for file in ["data.db", "data.db-wal"] {
+		if tokio::fs::try_exists(store_dir.join(file))
+			.await
+			.expect("exists")
+		{
+			tokio::fs::copy(store_dir.join(file), copy.path().join(file))
+				.await
+				.expect("copy");
+		}
+	}
+	let reopened = sd_store::SourceManager::open_file_read_only(&copy.path().join("data.db"))
+		.await
+		.expect("the store opens on its own");
 	let integrity: String = sqlx::query_scalar("PRAGMA integrity_check")
-		.fetch_one(store.db().pool())
+		.fetch_one(reopened.pool())
 		.await
 		.expect("integrity check");
 	assert_eq!(integrity, "ok");
-	let partial = committed(store.db().pool()).await;
+	let partial = committed(reopened.pool()).await;
 	assert!(partial < expected_records, "{partial} records");
+	reopened.pool().close().await;
+
+	let store = cache.store_for(&tree).await.expect("store");
+	std::fs::remove_file(&filler).expect("free space");
 	assert!(
 		store.walk_unfinished().await,
 		"the store remembers the walk"
 	);
-	let reopened = sd_store::SourceManager::open_file_read_only(
-		&data_dir
-			.join("sources")
-			.join(output.id.simple().to_string())
-			.join("data.db"),
-	)
-	.await
-	.expect("the store opens on its own");
-	reopened.pool().close().await;
 
-	// 3. Free the space; the coverage heal walks the source again and this
-	// time it lands whole.
-	std::fs::remove_file(&filler).expect("free space");
+	// 3. With the space free, the coverage heal walks the source again and
+	// this time it lands whole.
 	core.volumes.refresh_volumes().await.expect("refresh");
 	sd_core::ops::volumes::index::map_attached_volumes(&library, &core.context, false).await;
 
