@@ -259,6 +259,14 @@ mod tests {
 		));
 	}
 
+	/// A rooted path with no drive is not absolute on Windows, and is refused
+	/// there as invalid rather than as an escape.
+	#[test]
+	fn a_bare_root_is_refused() {
+		let (_dir, base) = tree();
+		assert!(resolve(&base.join("granted"), Path::new("/")).is_err());
+	}
+
 	#[test]
 	fn absolute_paths_outside_are_refused() {
 		let (_dir, base) = tree();
@@ -268,7 +276,7 @@ mod tests {
 			base.join("granted-sibling"),
 			base.join("granted-sibling/new.txt"),
 			base.clone(),
-			PathBuf::from("/"),
+			base.ancestors().last().unwrap().to_path_buf(),
 		] {
 			assert!(
 				matches!(resolve(&root, &path), Err(GrantError::Escape(_))),
