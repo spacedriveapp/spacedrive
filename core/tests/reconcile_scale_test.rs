@@ -43,6 +43,11 @@ fn generate(root: &Path) {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "measurement, not regression; run with --ignored --nocapture"]
 async fn reconcile_of_a_large_filtered_tree() {
+	let _ = tracing_subscriber::fmt()
+		.with_env_filter(tracing_subscriber::EnvFilter::new(
+			"reconcile_scale_test=info",
+		))
+		.try_init();
 	let root_dir = tempfile::tempdir().expect("root dir");
 	let started = Instant::now();
 	generate(root_dir.path());
