@@ -267,6 +267,9 @@ impl Anchor {
 	}
 
 	fn open_file(&self, rel: &Path) -> io::Result<std::fs::File> {
+		if self.file.is_some() && !rel.as_os_str().is_empty() {
+			return Err(io::Error::other("the scope is a single file"));
+		}
 		let parts = normal_parts(rel)?;
 		let Some((leaf, ancestors)) = parts.split_last() else {
 			let name = self
@@ -580,5 +583,14 @@ mod tests {
 		let root = dir.path().join("root");
 		let anchor = Anchor::open(&root, Path::new("scope/sub/file.txt")).unwrap();
 		assert_eq!(read(&anchor, "").unwrap().unwrap(), b"inside");
+
+		// A file scope replaced by a directory must not read the file's
+		// siblings, which sit in the directory the anchor holds.
+		let sub = root.join("scope/sub");
+		std::fs::write(sub.join("sibling.txt"), b"sibling").unwrap();
+		std::fs::remove_file(sub.join("file.txt")).unwrap();
+		std::fs::create_dir(sub.join("file.txt")).unwrap();
+		std::fs::write(sub.join("file.txt/sibling.txt"), b"nested").unwrap();
+		assert!(read(&anchor, "sibling.txt").is_err());
 	}
 }
