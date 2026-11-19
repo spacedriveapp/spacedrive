@@ -122,9 +122,9 @@ fn session(harness: &IndexingHarness) -> SessionContext {
 
 /// FDA "A fresh `library.db` has no retired tables, indexes, FTS tables, or
 /// triggers": the full migration chain on an empty file lands on exactly
-/// the fourteen tables and nothing in `sqlite_master` names a retired one.
+/// the sixteen tables and nothing in `sqlite_master` names a retired one.
 #[tokio::test]
-async fn a_fresh_library_has_exactly_the_fourteen_tables() {
+async fn a_fresh_library_has_exactly_the_sixteen_tables() {
 	let dir = tempfile::tempdir().expect("tempdir");
 	let db = Database::create(&dir.path().join("library.db"))
 		.await
@@ -166,9 +166,9 @@ async fn assert_nothing_retired(conn: &DatabaseConnection) {
 /// FDA "an upgraded library keeps every user assertion" and the FD4 proof:
 /// a library built by the pre-drop chain, holding a Space item using the
 /// current navigation contract and rows in the retired tables, converges on
-/// the fourteen-table schema with the Space item intact.
+/// the sixteen-table schema with the Space item intact.
 #[tokio::test]
-async fn a_pre_drop_library_upgrades_to_the_fourteen_table_schema() {
+async fn a_pre_drop_library_upgrades_to_the_sixteen_table_schema() {
 	let dir = tempfile::tempdir().expect("tempdir");
 	let db = Database::create(&dir.path().join("library.db"))
 		.await
@@ -342,7 +342,7 @@ async fn an_incompatible_library_is_refused_and_left_intact() -> anyhow::Result<
 }
 
 /// FDA static boundary over the registered models: every model the sync
-/// registry knows writes to a table the fourteen-table schema has, so no
+/// registry knows writes to a table the sixteen-table schema has, so no
 /// sync apply can reach a retired table.
 #[test]
 fn every_registered_sync_model_names_a_current_table() {
