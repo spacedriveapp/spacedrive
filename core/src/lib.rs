@@ -635,8 +635,9 @@ impl Core {
 			warn!("Failed to close KeyManager database: {}", e);
 		}
 
-		// Save configuration
-		self.config.write().await.save()?;
+		// The config is not saved here: `config.app.update` writes spacedrive.json
+		// directly, and saving the copy loaded at startup would undo every change
+		// that waits for a restart.
 
 		// Emit shutdown event
 		self.events.emit(Event::CoreShutdown);
