@@ -306,8 +306,8 @@ pub async fn run_reconcile(
 
 /// The startup reconcile of one source, as a job.
 ///
-/// Not resumable: every start reconciles every attached source again, so a
-/// pass cut short by a stop has nothing to resume that the next one skips.
+/// Not resumable and not persisted: every start reconciles every attached
+/// source again, so a pass cut short by a stop has nothing to resume.
 #[derive(Debug, Serialize, Deserialize, Job)]
 pub struct ReconcileJob {
 	root: PathBuf,
@@ -333,6 +333,16 @@ impl crate::infra::job::traits::DynJob for ReconcileJob {
 
 	fn dedup_key(&self) -> Option<String> {
 		Some(format!("reconcile:{}", self.root.display()))
+	}
+
+	/// Every start runs one per source, so a row each time would bury the
+	/// job history. The pass shows in the job list while it runs.
+	fn should_persist(&self) -> bool {
+		false
+	}
+
+	fn should_emit_events(&self) -> bool {
+		true
 	}
 }
 

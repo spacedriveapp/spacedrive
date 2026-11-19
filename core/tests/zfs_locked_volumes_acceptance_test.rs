@@ -202,8 +202,17 @@ fn session(library: &Library) -> SessionContext {
 	session
 }
 
+/// Jobs other than the reconcile, which reads the disk without walking it
+/// and leaves no row once it finishes.
 async fn job_count(library: &Library) -> usize {
-	library.jobs().list_jobs(None).await.expect("jobs").len()
+	library
+		.jobs()
+		.list_jobs(None)
+		.await
+		.expect("jobs")
+		.into_iter()
+		.filter(|job| job.name != "reconcile")
+		.count()
 }
 
 /// Poll `check` until it holds or ten seconds pass, for state the daemon
