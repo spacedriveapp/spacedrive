@@ -145,7 +145,7 @@ pub fn grep(
 			_ => 0,
 		};
 
-		let bytes = match read_capped(path, max_file_bytes) {
+		let bytes = match read_capped(path, entry_ino(&entry), max_file_bytes) {
 			Ok(Some(bytes)) => bytes,
 			Ok(None) => {
 				out.files_skipped += 1;
@@ -197,8 +197,22 @@ pub fn grep(
 	Ok(out)
 }
 
+#[cfg(unix)]
+fn entry_ino(entry: &ignore::DirEntry) -> Option<u64> {
+	entry.ino()
+}
+
+#[cfg(not(unix))]
+fn entry_ino(_entry: &ignore::DirEntry) -> Option<u64> {
+	None
+}
+
 /// Read a regular file whole, or `None` when it is larger than `cap`.
-fn read_capped(path: &Path, cap: u64) -> io::Result<Option<Vec<u8>>> {
+///
+/// `O_NOFOLLOW` guards only the last component. A directory above the file
+/// can be swapped for a symlink between the walk and the open, so the opened
+/// file must also be the inode the walk listed, or it is refused.
+fn read_capped(path: &Path, expected_ino: Option<u64>, cap: u64) -> io::Result<Option<Vec<u8>>> {
 	let mut open = std::fs::OpenOptions::new();
 	open.read(true);
 	#[cfg(unix)]
@@ -210,6 +224,15 @@ fn read_capped(path: &Path, cap: u64) -> io::Result<Option<Vec<u8>>> {
 	}
 	let file = open.open(path)?;
 	let metadata = file.metadata()?;
+	#[cfg(unix)]
+	if let Some(expected) = expected_ino {
+		use std::os::unix::fs::MetadataExt;
+		if metadata.ino() != expected {
+			return Err(io::Error::other("file changed since the walk listed it"));
+		}
+	}
+	#[cfg(not(unix))]
+	let _ = expected_ino;
 	if !metadata.is_file() || metadata.len() > cap {
 		return Ok(None);
 	}
@@ -406,4 +429,26 @@ fn path_from_bytes(bytes: Vec<u8>) -> Result<PathBuf, GrepError> {
 	String::from_utf8(bytes)
 		.map(PathBuf::from)
 		.map_err(|_| GrepError::Cursor)
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+	use std::os::unix::fs::MetadataExt;
+
+	use super::read_capped;
+
+	#[test]
+	fn a_file_swapped_in_after_the_walk_is_refused() {
+		let dir = tempfile::TempDir::new().unwrap();
+		let listed = dir.path().join("listed.txt");
+		let swapped = dir.path().join("swapped.txt");
+		std::fs::write(&listed, b"needle\n").unwrap();
+		std::fs::write(&swapped, b"needle\n").unwrap();
+		let listed_ino = std::fs::metadata(&listed).unwrap().ino();
+
+		assert!(read_capped(&listed, Some(listed_ino), 1024)
+			.unwrap()
+			.is_some());
+		assert!(read_capped(&swapped, Some(listed_ino), 1024).is_err());
+	}
 }
