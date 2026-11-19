@@ -77,8 +77,17 @@ async fn list_dir(core: &Arc<Core>, library: &Arc<Library>, path: PathBuf) -> Ve
 	names
 }
 
+/// Jobs other than the reconcile, which reads the disk without walking it
+/// and leaves no row once it finishes.
 async fn job_count(library: &Library) -> usize {
-	library.jobs().list_jobs(None).await.expect("jobs").len()
+	library
+		.jobs()
+		.list_jobs(None)
+		.await
+		.expect("jobs")
+		.into_iter()
+		.filter(|job| job.name != "reconcile")
+		.count()
 }
 
 /// A walked and hashed source whose daemon shut down cleanly, so its

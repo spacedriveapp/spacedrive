@@ -282,10 +282,23 @@ impl FsWatcherService {
 			let mut restored = 0usize;
 			for source in cache.sources() {
 				if !source.attached {
+					info!(
+						source = %source.id,
+						root = %source.root.display(),
+						volume = ?source.volume_uuid,
+						volume_state = ?source.volume_state,
+						"not restoring: the source is not attached"
+					);
 					continue;
 				}
 				if cache.ensure_restored(&source.root).await {
 					restored += 1;
+				} else {
+					info!(
+						source = %source.id,
+						root = %source.root.display(),
+						"nothing restored for the source at startup"
+					);
 				}
 			}
 			if restored > 0 {

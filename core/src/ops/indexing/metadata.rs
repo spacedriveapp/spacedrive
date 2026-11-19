@@ -38,6 +38,26 @@ pub fn is_hidden_path(path: &Path) -> bool {
 	}
 }
 
+/// Whether an entry is a cloud file provider placeholder, such as an iCloud
+/// Drive or Dropbox folder whose contents are not on this machine.
+///
+/// Listing a placeholder directory asks the provider to fetch it, which waits
+/// on the network and ends in a timeout (`ETIMEDOUT`) when the provider does
+/// not answer. A stat of the placeholder is answered locally, so checking costs
+/// nothing and triggers no download.
+#[cfg(target_os = "macos")]
+pub fn is_provider_placeholder(metadata: &std::fs::Metadata) -> bool {
+	use std::os::macos::fs::MetadataExt;
+	// SF_DATALESS in <sys/stat.h>.
+	const SF_DATALESS: u32 = 0x4000_0000;
+	metadata.st_flags() & SF_DATALESS != 0
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn is_provider_placeholder(_metadata: &std::fs::Metadata) -> bool {
+	false
+}
+
 /// The spelling the map keeps a path under.
 ///
 /// The walk records a name that is not UTF-8 lossily, under the replacement
