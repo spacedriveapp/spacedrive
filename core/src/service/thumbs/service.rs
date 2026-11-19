@@ -828,6 +828,11 @@ impl ThumbService {
 		priority: u32,
 		mode: ThumbnailGenerationMode,
 	) -> Option<BakeSubmission> {
+		// Every producer opens the file, which would download a cloud
+		// placeholder. The tile stays empty until the bytes are here.
+		if crate::ops::indexing::metadata::refuse_dataless_blocking(&path).is_err() {
+			return Some(BakeSubmission::Skipped);
+		}
 		let dirs = self.dirs.as_ref()?;
 		// Publication and queue admission share this lock so an old completion
 		// cannot overwrite a newer request, or disappear before its write lands.
@@ -1183,7 +1188,10 @@ fn run_thumbstrip_worker(
 	pending: Arc<Mutex<HashSet<(Uuid, Uuid, u64)>>>,
 ) {
 	while let Ok(work) = receiver.recv_blocking() {
-		let result = thumbstrip::generate(&tools, &work.path, &work.output);
+		// ffmpeg would open a cloud placeholder and download it.
+		let result = crate::ops::indexing::metadata::refuse_dataless_blocking(&work.path)
+			.map_err(|error| error.to_string())
+			.and_then(|()| thumbstrip::generate(&tools, &work.path, &work.output));
 		let ok = result.is_ok();
 		if let Err(error) = result {
 			warn!(path = %work.path.display(), "thumbstrip generation failed: {error}");
@@ -1464,6 +1472,19 @@ pub(super) mod tests {
 			thumbnailable(&path("a.dat"), ContentKind::Unknown),
 			cfg!(target_os = "macos")
 		);
+	}
+
+	/// A cloud placeholder never reaches a producer, which would open it and
+	/// make the provider download it.
+	#[tokio::test]
+	async fn a_dataless_file_is_never_handed_to_a_producer() {
+		let (_temp, service, path, calls, _) = fixture().await;
+		crate::ops::indexing::metadata::dataless_for_tests::mark(&path);
+		assert_eq!(
+			generate(&service, &path, ThumbnailGenerationMode::Force).await,
+			GenerationOutcome::Skipped
+		);
+		assert_eq!(calls.load(Ordering::SeqCst), 0);
 	}
 
 	#[tokio::test]

@@ -130,7 +130,9 @@ pub async fn should_filter_path(
 	root: &Path,
 	backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 ) -> Result<bool> {
-	let ruler = build_default_ruler(rule_toggles, root, path).await;
+	// The walk builds its ruler for the directory it reads; built for a file,
+	// the .gitignore lookup above it fails and gitignore is skipped.
+	let ruler = build_default_ruler(rule_toggles, root, path.parent().unwrap_or(path)).await;
 
 	let metadata = if let Some(backend) = backend {
 		backend
@@ -168,21 +170,37 @@ pub async fn should_filter_path(
 		}
 	}
 
-	let simple_meta = SimpleMetadata {
-		is_dir: metadata.kind == EntryKind::Directory,
-	};
-
-	match ruler.evaluate_path(path, &simple_meta).await {
-		Ok(RulerDecision::Reject) => {
-			tracing::debug!("Filtered path by indexing rules: {}", path.display());
-			Ok(true)
-		}
-		Ok(RulerDecision::Accept) => Ok(false),
-		Err(e) => {
-			tracing::warn!("Error evaluating rules for {}: {}", path.display(), e);
-			Ok(false)
+	// A rule that keeps a directory out keeps everything under it out, since
+	// the walk never descends to ask. Judging the leaf alone let the watcher
+	// add every file that changed under ~/Library, which `/Users/*/Library`
+	// names only as a directory.
+	let ancestors = path
+		.ancestors()
+		.skip(1)
+		.take_while(|dir| dir.starts_with(root) && *dir != root)
+		.map(|dir| (dir, true));
+	let leaf = (path, metadata.kind == EntryKind::Directory);
+	for (candidate, is_dir) in std::iter::once(leaf).chain(ancestors) {
+		match ruler
+			.evaluate_path(candidate, &SimpleMetadata { is_dir })
+			.await
+		{
+			Ok(RulerDecision::Reject) => {
+				tracing::debug!(
+					excluded = %candidate.display(),
+					"Filtered path by indexing rules: {}",
+					path.display()
+				);
+				return Ok(true);
+			}
+			Ok(RulerDecision::Accept) => {}
+			Err(e) => {
+				tracing::warn!("Error evaluating rules for {}: {}", path.display(), e);
+				return Ok(false);
+			}
 		}
 	}
+	Ok(false)
 }
 
 /// Extracts filesystem metadata into a DirEntry.

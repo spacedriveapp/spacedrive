@@ -115,7 +115,12 @@ pub async fn count_subtree(root: PathBuf) -> Rollup {
 					continue;
 				};
 				if file_type.is_dir() {
-					stack.push(entry.path());
+					let placeholder = entry.metadata().is_ok_and(|metadata| {
+						crate::ops::indexing::metadata::is_provider_placeholder(&metadata)
+					});
+					if !placeholder {
+						stack.push(entry.path());
+					}
 				} else if file_type.is_file() {
 					let size = entry.metadata().map(|meta| meta.len()).unwrap_or(0);
 					totals += Rollup::file(size);

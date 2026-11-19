@@ -222,6 +222,14 @@ async fn read_batch(batch: Vec<(PendingImage, PathBuf)>) -> (Vec<(String, ImageF
 
 	let results: Vec<_> = futures::stream::iter(by_hash)
 		.map(|(hash, path)| async move {
+			// Unread and unrecorded, so the pass claims it again once the
+			// file is downloaded.
+			if crate::ops::indexing::metadata::refuse_dataless(&path)
+				.await
+				.is_err()
+			{
+				return None;
+			}
 			match ExifMetadata::from_path(&path).await {
 				Ok(Some(exif)) => Some((hash, facet_from_exif(&exif))),
 				Ok(None) => Some((hash, ImageFacet::default())),

@@ -202,8 +202,17 @@ fn session(library: &Library) -> SessionContext {
 	session
 }
 
+/// Jobs other than the reconcile, which reads the disk without walking it
+/// and leaves no row once it finishes.
 async fn job_count(library: &Library) -> usize {
-	library.jobs().list_jobs(None).await.expect("jobs").len()
+	library
+		.jobs()
+		.list_jobs(None)
+		.await
+		.expect("jobs")
+		.into_iter()
+		.filter(|job| job.name != "reconcile")
+		.count()
 }
 
 /// Poll `check` until it holds or ten seconds pass, for state the daemon
@@ -409,16 +418,8 @@ async fn a_locked_dataset_reads_as_locked_and_follows_its_key() {
 	})
 	.await;
 
-	let created = root.join("after-unlock.txt");
-	std::fs::write(&created, "seen").expect("write");
-	eventually(
-		"a file created after the unlock reaches the map",
-		async || match cache.get_for_search(&created) {
-			Some(index) => index.read().await.get_entry_uuid(&created).is_some(),
-			None => false,
-		},
-	)
-	.await;
+	// The retry is dispatched when the drive returns, so it is checked before a
+	// new file adds work only the watcher's hashing nudge picks up.
 	eventually("the failed identification is retried", async || {
 		let error: (Option<String>,) =
 			sqlx::query_as("SELECT content_error FROM facet_file WHERE record_uuid = ?")
@@ -428,6 +429,17 @@ async fn a_locked_dataset_reads_as_locked_and_follows_its_key() {
 				.expect("content error");
 		error.0.is_none() && store.files_needing_content_count().await.unwrap() == 0
 	})
+	.await;
+
+	let created = root.join("after-unlock.txt");
+	std::fs::write(&created, "seen").expect("write");
+	eventually(
+		"a file created after the unlock reaches the map",
+		async || match cache.get_for_search(&created) {
+			Some(index) => index.read().await.get_entry_uuid(&created).is_some(),
+			None => false,
+		},
+	)
 	.await;
 
 	drop(library);

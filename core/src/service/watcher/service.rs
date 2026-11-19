@@ -30,7 +30,9 @@ pub struct FsWatcherServiceConfig {
 	pub debug_mode: bool,
 	/// How often a refused watch is retried
 	pub watch_retry_interval: Duration,
-	/// How often live changes in a watched arena are written to its snapshot
+	/// How often watched arenas are checked for changes to write to their
+	/// snapshots. A drive with a large snapshot is written less often; see
+	/// `VolumeIndex::save_paced_snapshot`.
 	pub snapshot_flush_interval: Duration,
 }
 
@@ -119,12 +121,13 @@ impl FsWatcherService {
 		self.clone().flush_snapshots_periodically();
 	}
 
-	/// Write watched changes to each arena snapshot on a fixed interval.
+	/// Write watched changes to each arena snapshot, paced by snapshot size.
 	///
 	/// Only a walk saved a snapshot, so every change the watcher applied after
-	/// it lived in memory alone. A restart restored the walk's arena, and the
-	/// listing showed deleted files and hid created ones until the next walk.
-	/// The save skips a clean arena, so an idle source costs nothing.
+	/// it lived in memory alone until a restart's reconcile found it again.
+	/// The save skips a clean arena, so an idle source costs nothing, and
+	/// spaces a large drive's saves so steady churn cannot rewrite it on every
+	/// tick.
 	fn flush_snapshots_periodically(self: Arc<Self>) {
 		let interval = self.config.snapshot_flush_interval;
 		let service = Arc::downgrade(&self);
@@ -136,7 +139,7 @@ impl FsWatcherService {
 					return;
 				};
 				if service.is_running() {
-					service.flush_snapshots().await;
+					service.flush_snapshots(true).await;
 				}
 			}
 		});
@@ -144,15 +147,21 @@ impl FsWatcherService {
 
 	/// Save the snapshot of every attached source whose arena has changed.
 	/// A drive whose arena is partway through a walk keeps its last snapshot;
-	/// the walk saves its own when it lands.
-	pub async fn flush_snapshots(&self) {
+	/// the walk saves its own when it lands. A paced flush also skips a drive
+	/// saved too recently for its snapshot's size.
+	pub async fn flush_snapshots(&self, paced: bool) {
 		let cache = self.context.volume_index();
 		for source in cache.sources() {
 			if !source.attached {
 				continue;
 			}
 			// Best-effort: the next flush or walk retries a failed save.
-			if let Err(e) = cache.save_settled_snapshot(&source.root).await {
+			let saved = if paced {
+				cache.save_paced_snapshot(&source.root).await
+			} else {
+				cache.save_settled_snapshot(&source.root).await
+			};
+			if let Err(e) = saved {
 				warn!("Failed to save snapshot for {}: {e}", source.root.display());
 			}
 		}
@@ -273,10 +282,23 @@ impl FsWatcherService {
 			let mut restored = 0usize;
 			for source in cache.sources() {
 				if !source.attached {
+					info!(
+						source = %source.id,
+						root = %source.root.display(),
+						volume = ?source.volume_uuid,
+						volume_state = ?source.volume_state,
+						"not restoring: the source is not attached"
+					);
 					continue;
 				}
 				if cache.ensure_restored(&source.root).await {
 					restored += 1;
+				} else {
+					info!(
+						source = %source.id,
+						root = %source.root.display(),
+						"nothing restored for the source at startup"
+					);
 				}
 			}
 			if restored > 0 {
@@ -434,7 +456,7 @@ impl Service for FsWatcherService {
 		self.watcher.stop().await?;
 
 		// With no more events arriving, the arenas hold their final state.
-		self.flush_snapshots().await;
+		self.flush_snapshots(false).await;
 
 		info!("FsWatcher service stopped");
 
