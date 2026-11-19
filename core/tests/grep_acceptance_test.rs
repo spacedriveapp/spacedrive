@@ -79,7 +79,7 @@ fn fixture() -> Fixture {
 }
 
 fn grep(root: &Path, options: &GrepOptions) -> GrepOutput {
-	scan::grep(root, options, &AtomicBool::new(false)).expect("grep")
+	scan::grep(root, Path::new(""), options, &AtomicBool::new(false)).expect("grep")
 }
 
 fn hits(out: &GrepOutput) -> Vec<(String, u64)> {
@@ -180,7 +180,7 @@ fn literal_and_case_options() {
 	let f = fixture();
 	let mut options = GrepOptions::new("needle(");
 	assert!(matches!(
-		scan::grep(&f.root, &options, &AtomicBool::new(false)),
+		scan::grep(&f.root, Path::new(""), &options, &AtomicBool::new(false)),
 		Err(GrepError::Pattern(_))
 	));
 	options.literal = true;
@@ -201,7 +201,13 @@ fn each_match_carries_its_own_context() {
 	let f = fixture();
 	let mut options = GrepOptions::new("two|five");
 	options.context_lines = 1;
-	let out = grep(&f.root.join("src/nested/deep/lib.rs"), &options);
+	let out = scan::grep(
+		&f.root,
+		Path::new("src/nested/deep/lib.rs"),
+		&options,
+		&AtomicBool::new(false),
+	)
+	.expect("grep");
 	assert_eq!(
 		out.matches,
 		vec![
@@ -225,7 +231,13 @@ fn each_match_carries_its_own_context() {
 	// Adjacent matches share lines without losing any.
 	let mut options = GrepOptions::new("two|three");
 	options.context_lines = 1;
-	let out = grep(&f.root.join("src/nested/deep/lib.rs"), &options);
+	let out = scan::grep(
+		&f.root,
+		Path::new("src/nested/deep/lib.rs"),
+		&options,
+		&AtomicBool::new(false),
+	)
+	.expect("grep");
 	assert_eq!(out.matches[0].after, vec!["// three"]);
 	assert_eq!(out.matches[1].before, vec!["// needle two"]);
 }
@@ -265,7 +277,7 @@ fn bad_input_is_refused() {
 	let mut options = GrepOptions::new("needle");
 	options.cursor = Some("not a cursor".into());
 	assert!(matches!(
-		scan::grep(&f.root, &options, &AtomicBool::new(false)),
+		scan::grep(&f.root, Path::new(""), &options, &AtomicBool::new(false)),
 		Err(GrepError::Cursor)
 	));
 	assert!(GrepOptions::new("").validate().is_err());
@@ -277,7 +289,12 @@ fn bad_input_is_refused() {
 #[test]
 fn a_cancelled_search_stops() {
 	let f = fixture();
-	let result = scan::grep(&f.root, &GrepOptions::new("needle"), &AtomicBool::new(true));
+	let result = scan::grep(
+		&f.root,
+		Path::new(""),
+		&GrepOptions::new("needle"),
+		&AtomicBool::new(true),
+	);
 	assert!(matches!(result, Err(GrepError::Cancelled)));
 }
 

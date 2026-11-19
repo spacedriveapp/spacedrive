@@ -5,10 +5,10 @@
 //! needs no index, so it answers for a source the moment it is tracked and
 //! never returns text that has since changed.
 //!
-//! The scan itself, [`scan::grep`], takes a plain filesystem path. The query
-//! resolves an `SdPath` to a path under a source tracked on this device and
-//! hands it over; any layer that has already decided which subtree a caller
-//! may read can pass that subtree straight in.
+//! The scan itself, [`scan::grep`], takes a trusted root and a scope relative
+//! to it. The query passes a source tracked on this device as the root; any
+//! layer that has already decided which subtree a caller may read can pass
+//! that subtree as the root instead.
 //!
 //! Results come back a page at a time. The walk visits files in a fixed order,
 //! so a cursor naming the last file and how many of its matches were returned
@@ -21,7 +21,12 @@
 //! use sd_core::ops::search::grep::{scan, GrepOptions};
 //!
 //! let options = GrepOptions::new("fn main");
-//! let page = scan::grep(Path::new("/home/me/code"), &options, &AtomicBool::new(false))?;
+//! let page = scan::grep(
+//! 	Path::new("/home/me/code"),
+//! 	Path::new("src"),
+//! 	&options,
+//! 	&AtomicBool::new(false),
+//! )?;
 //! for m in &page.matches {
 //! 	tracing::info!("{}:{}: {}", m.path, m.line_number, m.line);
 //! }

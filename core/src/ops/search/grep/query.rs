@@ -1,8 +1,11 @@
 //! The `search.grep` query: resolve the scope on this device, then scan it.
 
-use std::sync::{
-	atomic::{AtomicBool, Ordering},
-	Arc,
+use std::{
+	path::Path,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 };
 
 use serde::{Deserialize, Serialize};
@@ -97,12 +100,12 @@ impl LibraryQuery for GrepQuery {
 			.map_err(|_| not_tracked())?;
 		let root = index.source_root(source_id).ok_or_else(not_tracked)?;
 		let root = tokio::fs::canonicalize(&root).await.unwrap_or(root);
-		if !scope.starts_with(&root) {
+		let Ok(relative) = scope.strip_prefix(&root).map(Path::to_path_buf) else {
 			return Err(QueryError::InvalidInput(format!(
 				"{} resolves outside its source",
 				requested.display()
 			)));
-		}
+		};
 
 		debug!(scope = %scope.display(), pattern = %self.input.options.pattern, "search.grep");
 
@@ -110,7 +113,7 @@ impl LibraryQuery for GrepQuery {
 		let cancel = Arc::new(AtomicBool::new(false));
 		let _stop = CancelOnDrop(cancel.clone());
 		let options = self.input.options;
-		tokio::task::spawn_blocking(move || scan::grep(&scope, &options, &cancel))
+		tokio::task::spawn_blocking(move || scan::grep(&root, &relative, &options, &cancel))
 			.await
 			.map_err(|e| QueryError::Internal(format!("grep task failed: {e}")))?
 			.map_err(|error| match error {

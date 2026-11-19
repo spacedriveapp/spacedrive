@@ -46,14 +46,18 @@ pub enum GrepError {
 	Cancelled,
 }
 
-/// Search the files under `scope` and return one page of matches.
+/// Search the files under `root.join(scope)` and return one page of matches.
 ///
-/// `scope` is used as given: the caller decides which path may be read.
-/// Symlinks below it are never followed, so the walk cannot leave it. Files
-/// holding a NUL byte count as binary and are skipped, as are files larger
-/// than `max_file_bytes`. Setting `cancel` stops the search between files
-/// and between matches.
+/// `root` is trusted as given: a source root, or the subtree a caller may
+/// read. `scope` is relative to it and is resolved from `root`'s handle with
+/// no symlink allowed in any component. The scope's handle is opened once and
+/// every file is opened beneath it, so renaming a directory and putting a
+/// symlink in its place at any point during the scan cannot redirect a read
+/// out of the scope. Files holding a NUL byte count as binary and are skipped,
+/// as are files larger than `max_file_bytes`. Setting `cancel` stops the
+/// search between files and between matches.
 pub fn grep(
+	root: &Path,
 	scope: &Path,
 	options: &GrepOptions,
 	cancel: &AtomicBool,
@@ -76,10 +80,11 @@ pub fn grep(
 	let max_results = options.max_results();
 	let max_file_bytes = options.max_file_bytes();
 
-	std::fs::symlink_metadata(scope).map_err(|source| GrepError::Scope {
-		path: scope.display().to_string(),
+	let anchor = Anchor::open(root, scope).map_err(|source| GrepError::Scope {
+		path: root.join(scope).display().to_string(),
 		source,
 	})?;
+	let scope = &root.join(scope);
 
 	let mut walk = WalkBuilder::new(scope);
 	walk.standard_filters(options.respect_gitignore)
@@ -145,7 +150,7 @@ pub fn grep(
 			_ => 0,
 		};
 
-		let bytes = match read_capped(scope, rel, max_file_bytes) {
+		let bytes = match read_capped(&anchor, rel, max_file_bytes) {
 			Ok(Some(bytes)) => bytes,
 			Ok(None) => {
 				out.files_skipped += 1;
@@ -198,8 +203,8 @@ pub fn grep(
 }
 
 /// Read a regular file whole, or `None` when it is larger than `cap`.
-fn read_capped(scope: &Path, rel: &Path, cap: u64) -> io::Result<Option<Vec<u8>>> {
-	let file = open_beneath(scope, rel)?;
+fn read_capped(anchor: &Anchor, rel: &Path, cap: u64) -> io::Result<Option<Vec<u8>>> {
+	let file = anchor.open_file(rel)?;
 	let metadata = file.metadata()?;
 	if !metadata.is_file() || metadata.len() > cap {
 		return Ok(None);
@@ -212,69 +217,119 @@ fn read_capped(scope: &Path, rel: &Path, cap: u64) -> io::Result<Option<Vec<u8>>
 	Ok(Some(bytes))
 }
 
-/// Open `rel` under `scope` one component at a time, refusing a symlink at
-/// every step.
+/// A handle on the scope, held for the whole scan, that files are opened
+/// beneath one component at a time.
 ///
 /// The walk lists a path and the open comes later. In between, any directory
-/// on the way can be swapped for a symlink out of the scope, and a flag on
-/// the last component cannot see that. Resolving from the scope's own handle
-/// with `O_NOFOLLOW` on each directory can. `O_NONBLOCK` keeps a FIFO swapped
-/// in for the file from blocking the read.
+/// on the way, the scope included, can be swapped for a symlink out of it. A
+/// flag on the last component cannot see that, and reopening the scope by
+/// path would follow it. Opening from a retained handle with `O_NOFOLLOW` on
+/// every component cannot be redirected. `O_NONBLOCK` keeps a FIFO swapped in
+/// for a file from blocking the read.
 #[cfg(unix)]
-fn open_beneath(scope: &Path, rel: &Path) -> io::Result<std::fs::File> {
-	use std::{
-		ffi::{CString, OsStr},
-		os::{
-			fd::{AsRawFd, FromRawFd, OwnedFd},
-			unix::{ffi::OsStrExt, fs::OpenOptionsExt},
-		},
-		path::Component,
-	};
+struct Anchor {
+	dir: std::os::fd::OwnedFd,
+	/// Set when the scope is a single file in `dir`.
+	file: Option<std::ffi::OsString>,
+}
 
-	let open_at = |dir: &OwnedFd, name: &OsStr, flags: libc::c_int| -> io::Result<OwnedFd> {
-		let name = CString::new(name.as_bytes())?;
-		// SAFETY: `dir` is an open descriptor and `name` is NUL-terminated.
-		let fd = unsafe { libc::openat(dir.as_raw_fd(), name.as_ptr(), flags | libc::O_CLOEXEC) };
-		if fd < 0 {
-			return Err(io::Error::last_os_error());
+#[cfg(unix)]
+impl Anchor {
+	const LEAF: libc::c_int = libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK;
+	const DIR: libc::c_int = libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW;
+
+	fn open(root: &Path, scope: &Path) -> io::Result<Self> {
+		use std::os::unix::fs::OpenOptionsExt;
+
+		let mut dir: std::os::fd::OwnedFd = std::fs::OpenOptions::new()
+			.read(true)
+			.custom_flags(libc::O_DIRECTORY)
+			.open(root)?
+			.into();
+		let parts = normal_parts(scope)?;
+		let Some((last, ancestors)) = parts.split_last() else {
+			return Ok(Self { dir, file: None });
+		};
+		for part in ancestors {
+			dir = open_at(&dir, part, Self::DIR)?;
 		}
-		// SAFETY: `fd` was just opened and nothing else owns it.
-		Ok(unsafe { OwnedFd::from_raw_fd(fd) })
-	};
-	let leaf_flags = libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK;
+		let target = std::fs::File::from(open_at(&dir, last, Self::LEAF)?);
+		if target.metadata()?.is_dir() {
+			return Ok(Self {
+				dir: target.into(),
+				file: None,
+			});
+		}
+		Ok(Self {
+			dir,
+			file: Some(last.to_os_string()),
+		})
+	}
 
-	let mut parts = rel
-		.components()
+	fn open_file(&self, rel: &Path) -> io::Result<std::fs::File> {
+		let parts = normal_parts(rel)?;
+		let Some((leaf, ancestors)) = parts.split_last() else {
+			let name = self
+				.file
+				.as_deref()
+				.ok_or_else(|| io::Error::other("the scope is a directory"))?;
+			return Ok(open_at(&self.dir, name, Self::LEAF)?.into());
+		};
+		let mut dir = None;
+		for part in ancestors {
+			dir = Some(open_at(dir.as_ref().unwrap_or(&self.dir), part, Self::DIR)?);
+		}
+		Ok(open_at(dir.as_ref().unwrap_or(&self.dir), leaf, Self::LEAF)?.into())
+	}
+}
+
+#[cfg(unix)]
+fn normal_parts(path: &Path) -> io::Result<Vec<&std::ffi::OsStr>> {
+	path.components()
 		.map(|part| match part {
-			Component::Normal(name) => Ok(name),
+			std::path::Component::Normal(name) => Ok(name),
 			_ => Err(io::Error::other("path leaves the scope")),
 		})
-		.collect::<io::Result<Vec<_>>>()?;
-	let Some(leaf) = parts.pop() else {
-		// The scope is the file itself, which the caller resolved.
-		return std::fs::OpenOptions::new()
-			.read(true)
-			.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-			.open(scope);
+		.collect()
+}
+
+#[cfg(unix)]
+fn open_at(
+	dir: &std::os::fd::OwnedFd,
+	name: &std::ffi::OsStr,
+	flags: libc::c_int,
+) -> io::Result<std::os::fd::OwnedFd> {
+	use std::os::{
+		fd::{AsRawFd, FromRawFd},
+		unix::ffi::OsStrExt,
 	};
-	let mut dir: OwnedFd = std::fs::OpenOptions::new()
-		.read(true)
-		.custom_flags(libc::O_DIRECTORY)
-		.open(scope)?
-		.into();
-	for part in parts {
-		dir = open_at(
-			&dir,
-			part,
-			libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW,
-		)?;
+
+	let name = std::ffi::CString::new(name.as_bytes())?;
+	// SAFETY: `dir` is an open descriptor and `name` is NUL-terminated.
+	let fd = unsafe { libc::openat(dir.as_raw_fd(), name.as_ptr(), flags | libc::O_CLOEXEC) };
+	if fd < 0 {
+		return Err(io::Error::last_os_error());
 	}
-	Ok(open_at(&dir, leaf, leaf_flags)?.into())
+	// SAFETY: `fd` was just opened and nothing else owns it.
+	Ok(unsafe { std::os::fd::OwnedFd::from_raw_fd(fd) })
 }
 
 #[cfg(not(unix))]
-fn open_beneath(scope: &Path, rel: &Path) -> io::Result<std::fs::File> {
-	std::fs::File::open(scope.join(rel))
+struct Anchor {
+	scope: PathBuf,
+}
+
+#[cfg(not(unix))]
+impl Anchor {
+	fn open(root: &Path, scope: &Path) -> io::Result<Self> {
+		let scope = root.join(scope);
+		std::fs::metadata(&scope)?;
+		Ok(Self { scope })
+	}
+
+	fn open_file(&self, rel: &Path) -> io::Result<std::fs::File> {
+		std::fs::File::open(self.scope.join(rel))
+	}
 }
 
 /// A path relative to the scope with `/` separators, or the file's own name
@@ -468,23 +523,62 @@ fn path_from_bytes(bytes: Vec<u8>) -> Result<PathBuf, GrepError> {
 mod tests {
 	use std::path::Path;
 
-	use super::read_capped;
+	use super::{read_capped, Anchor};
+
+	/// `<tmp>/root/scope/sub/file.txt` reads "inside"; `<tmp>/outside` has
+	/// the same shape and reads "outside".
+	fn tree() -> tempfile::TempDir {
+		let dir = tempfile::TempDir::new().unwrap();
+		for (base, text) in [("root/scope", "inside"), ("outside", "outside")] {
+			let sub = dir.path().join(base).join("sub");
+			std::fs::create_dir_all(&sub).unwrap();
+			std::fs::write(sub.join("file.txt"), text).unwrap();
+		}
+		dir
+	}
+
+	fn read(anchor: &Anchor, rel: &str) -> std::io::Result<Option<Vec<u8>>> {
+		read_capped(anchor, Path::new(rel), 1024)
+	}
 
 	#[test]
-	fn a_directory_swapped_for_a_symlink_after_the_walk_is_refused() {
-		let dir = tempfile::TempDir::new().unwrap();
-		let scope = dir.path().join("scope");
-		let outside = dir.path().join("outside");
-		for root in [&scope, &outside] {
-			std::fs::create_dir_all(root.join("sub")).unwrap();
-			std::fs::write(root.join("sub/file.txt"), b"needle\n").unwrap();
-		}
-		let rel = Path::new("sub/file.txt");
-		assert!(read_capped(&scope, rel, 1024).unwrap().is_some());
+	fn a_directory_swapped_for_a_symlink_mid_scan_is_refused() {
+		let dir = tree();
+		let root = dir.path().join("root");
+		let anchor = Anchor::open(&root, Path::new("scope")).unwrap();
+		assert_eq!(read(&anchor, "sub/file.txt").unwrap().unwrap(), b"inside");
 
+		let scope = root.join("scope");
 		std::fs::rename(scope.join("sub"), dir.path().join("moved")).unwrap();
-		std::os::unix::fs::symlink(outside.join("sub"), scope.join("sub")).unwrap();
-		assert!(std::fs::File::open(scope.join(rel)).is_ok());
-		assert!(read_capped(&scope, rel, 1024).is_err());
+		std::os::unix::fs::symlink(dir.path().join("outside/sub"), scope.join("sub")).unwrap();
+		assert!(read(&anchor, "sub/file.txt").is_err());
+	}
+
+	#[test]
+	fn the_scope_swapped_for_a_symlink_mid_scan_keeps_reading_the_original() {
+		let dir = tree();
+		let root = dir.path().join("root");
+		let anchor = Anchor::open(&root, Path::new("scope")).unwrap();
+
+		std::fs::rename(root.join("scope"), dir.path().join("moved")).unwrap();
+		std::os::unix::fs::symlink(dir.path().join("outside"), root.join("scope")).unwrap();
+		assert_eq!(read(&anchor, "sub/file.txt").unwrap().unwrap(), b"inside");
+	}
+
+	#[test]
+	fn a_scope_reached_through_a_symlink_is_refused() {
+		let dir = tree();
+		let root = dir.path().join("root");
+		std::os::unix::fs::symlink(dir.path().join("outside"), root.join("link")).unwrap();
+		assert!(Anchor::open(&root, Path::new("link")).is_err());
+		assert!(Anchor::open(&root, Path::new("link/sub")).is_err());
+	}
+
+	#[test]
+	fn a_file_scope_reads_only_that_file() {
+		let dir = tree();
+		let root = dir.path().join("root");
+		let anchor = Anchor::open(&root, Path::new("scope/sub/file.txt")).unwrap();
+		assert_eq!(read(&anchor, "").unwrap().unwrap(), b"inside");
 	}
 }
