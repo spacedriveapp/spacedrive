@@ -29,12 +29,19 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
+use serde::{Deserialize, Serialize};
+use tokio::sync::watch;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::context::CoreContext;
-use crate::ops::indexing::change_detection::handler::should_filter_path;
-use crate::ops::indexing::metadata::{extract_metadata, map_spelling, EntryMetadata};
+use crate::infra::job::{generic_progress::GenericProgress, prelude::*};
+use crate::ops::indexing::metadata::{
+	extract_metadata, is_provider_placeholder, map_spelling, EntryMetadata,
+};
+use crate::ops::indexing::rules::{
+	build_default_ruler, IndexerRuler, MetadataForIndexerRules, RuleToggles, RulerDecision,
+};
 use crate::ops::indexing::state::EntryKind;
 use crate::ops::indexing::{ArenaWriter, Notify, Seen};
 
@@ -44,8 +51,19 @@ const BATCH: usize = 1_000;
 /// How long to wait for a map still filling from its store.
 const FILL_WAIT: Duration = Duration::from_secs(600);
 
+/// How often a long reconcile logs how far it got.
+const PROGRESS_EVERY: Duration = Duration::from_secs(30);
+
+/// How often a reconcile running as a job reports its progress.
+const PROGRESS_TICK: Duration = Duration::from_millis(500);
+
+/// How long one directory listing may take before the pass moves on without
+/// it. A healthy local listing answers in milliseconds; one that waits on a
+/// network or a cloud provider can wait for minutes and still fail.
+pub const READ_BOUND: Duration = Duration::from_secs(10);
+
 /// What one reconcile found and applied.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReconcileReport {
 	pub directories: u64,
 	pub compared: u64,
@@ -55,14 +73,88 @@ pub struct ReconcileReport {
 	pub removed: u64,
 	/// Removals withheld because the pass could not trust its own view.
 	pub removals_refused: bool,
+	/// Cloud provider placeholders compared but not listed.
+	#[serde(default)]
+	pub placeholders: u64,
+	/// Directories the map holds that the rules now keep out, left unread.
+	#[serde(default)]
+	pub excluded: u64,
+}
+
+/// How far a running reconcile has got.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct ReconcileProgress {
+	pub directories: u64,
+	pub compared: u64,
+	/// Directories found but not read yet.
+	pub pending: u64,
+	/// Changes found so far.
+	pub changes: u64,
+	/// Whether the pass is applying what it found rather than reading.
+	pub applying: bool,
 }
 
 /// One entry a fresh read of a directory found.
-struct OnDisk {
+pub struct OnDisk {
 	path: PathBuf,
 	kind: Option<EntryKind>,
 	size: u64,
 	modified: Option<SystemTime>,
+	placeholder: bool,
+}
+
+/// How a pass reads the disk and where it reports. Tests swap the reader to
+/// stand in for a directory that never answers.
+pub struct Pass {
+	pub read: fn(&Path) -> std::io::Result<Vec<OnDisk>>,
+	pub read_bound: Duration,
+	pub progress: Option<watch::Sender<ReconcileProgress>>,
+}
+
+impl Default for Pass {
+	fn default() -> Self {
+		Self {
+			read: read_directory,
+			read_bound: READ_BOUND,
+			progress: None,
+		}
+	}
+}
+
+/// The rules the walk applies under one directory, built on first use.
+struct DirectoryRules<'a> {
+	toggles: RuleToggles,
+	root: &'a Path,
+	dir: &'a Path,
+	ruler: Option<IndexerRuler>,
+}
+
+struct IsDirectory(bool);
+
+impl MetadataForIndexerRules for IsDirectory {
+	fn is_dir(&self) -> bool {
+		self.0
+	}
+}
+
+impl DirectoryRules<'_> {
+	/// Whether the walk would keep this entry out of the map. One ruler per
+	/// directory, as the walk builds it, because building one reads the
+	/// `.gitignore` files above the directory.
+	async fn reject(&mut self, path: &Path, kind: EntryKind) -> bool {
+		if self.ruler.is_none() {
+			self.ruler = Some(build_default_ruler(self.toggles, self.root, self.dir).await);
+		}
+		let Some(ruler) = &self.ruler else {
+			return false;
+		};
+		matches!(
+			ruler
+				.evaluate_path(path, &IsDirectory(kind == EntryKind::Directory))
+				.await,
+			Ok(RulerDecision::Reject)
+		)
+	}
 }
 
 fn seconds(time: Option<SystemTime>) -> Option<u64> {
@@ -72,7 +164,7 @@ fn seconds(time: Option<SystemTime>) -> Option<u64> {
 
 /// Read one directory. An entry whose metadata cannot be read is still
 /// reported, with no kind, so it is never mistaken for a deletion.
-fn read_directory(dir: &Path) -> std::io::Result<Vec<OnDisk>> {
+pub fn read_directory(dir: &Path) -> std::io::Result<Vec<OnDisk>> {
 	let mut entries = Vec::new();
 	for entry in std::fs::read_dir(dir)? {
 		let Ok(entry) = entry else {
@@ -90,6 +182,7 @@ fn read_directory(dir: &Path) -> std::io::Result<Vec<OnDisk>> {
 				}),
 				size: metadata.len(),
 				modified: metadata.modified().ok(),
+				placeholder: is_provider_placeholder(&metadata),
 				path,
 			}),
 			Err(_) => entries.push(OnDisk {
@@ -97,6 +190,7 @@ fn read_directory(dir: &Path) -> std::io::Result<Vec<OnDisk>> {
 				kind: None,
 				size: 0,
 				modified: None,
+				placeholder: false,
 			}),
 		}
 	}
@@ -150,11 +244,24 @@ async fn arrive(writer: &ArenaWriter, paths: &[PathBuf], arrived: &mut HashSet<U
 /// walk.
 pub async fn reconcile_attached_sources(context: Arc<CoreContext>) {
 	let cache = context.volume_index();
-	for source in cache.sources() {
+	let sources = cache.sources();
+	info!(
+		sources = sources.len(),
+		"reconciling registered sources with the disk"
+	);
+	for source in sources {
 		if !source.attached {
+			info!(
+				source = %source.id,
+				root = %source.root.display(),
+				volume = ?source.volume_uuid,
+				volume_state = ?source.volume_state,
+				root_exists = source.root.exists(),
+				"not reconciling: the source is not attached"
+			);
 			continue;
 		}
-		reconcile_source(
+		run_reconcile(
 			&context,
 			source.library,
 			&source.root,
@@ -162,6 +269,168 @@ pub async fn reconcile_attached_sources(context: Arc<CoreContext>) {
 		)
 		.await;
 	}
+}
+
+/// Reconcile one source as a job of its library, so job lists, the app and
+/// the CLI show the pass and its progress, and wait for it to finish. A
+/// source no open library holds is reconciled directly.
+pub async fn run_reconcile(
+	context: &Arc<CoreContext>,
+	library: Option<Uuid>,
+	root: &Path,
+	walked_empty: bool,
+) {
+	let library_handle = match library {
+		Some(id) => context.libraries().await.get_library(id).await,
+		None => None,
+	};
+	let Some(library_handle) = library_handle else {
+		reconcile_source(context, library, root, walked_empty).await;
+		return;
+	};
+	let job = ReconcileJob {
+		root: root.to_path_buf(),
+		walked_empty,
+	};
+	match library_handle.jobs().dispatch(job).await {
+		Ok(handle) => {
+			if let Err(error) = handle.wait().await {
+				warn!(root = %root.display(), %error, "the reconcile job did not finish");
+			}
+		}
+		Err(error) => {
+			warn!(root = %root.display(), %error, "could not dispatch the reconcile job; reconciling inline");
+			reconcile_source(context, library, root, walked_empty).await;
+		}
+	}
+}
+
+/// The startup reconcile of one source, as a job.
+///
+/// Not resumable: every start reconciles every attached source again, so a
+/// pass cut short by a stop has nothing to resume that the next one skips.
+#[derive(Debug, Serialize, Deserialize, Job)]
+pub struct ReconcileJob {
+	root: PathBuf,
+	walked_empty: bool,
+}
+
+impl From<ReconcileReport> for JobOutput {
+	fn from(report: ReconcileReport) -> Self {
+		JobOutput::custom(report)
+	}
+}
+
+impl Job for ReconcileJob {
+	const NAME: &'static str = "reconcile";
+	const RESUMABLE: bool = false;
+	const DESCRIPTION: Option<&'static str> = Some("Bring the index up to date with the disk");
+}
+
+impl crate::infra::job::traits::DynJob for ReconcileJob {
+	fn job_name(&self) -> &'static str {
+		Self::NAME
+	}
+
+	fn dedup_key(&self) -> Option<String> {
+		Some(format!("reconcile:{}", self.root.display()))
+	}
+}
+
+#[async_trait::async_trait]
+impl JobHandler for ReconcileJob {
+	type Output = ReconcileReport;
+
+	async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
+		let context = ctx.library().core_context().clone();
+		let label = self
+			.root
+			.file_name()
+			.map(|name| name.to_string_lossy().into_owned())
+			.unwrap_or_else(|| self.root.display().to_string());
+		// The map's count from the last walk or snapshot is what a pass
+		// compares against, so it stands in for the total.
+		let expected = context
+			.volume_index()
+			.sources()
+			.into_iter()
+			.find(|source| source.root == self.root)
+			.and_then(|source| source.entry_count)
+			.unwrap_or(0);
+
+		let (sender, mut progress) = watch::channel(ReconcileProgress::default());
+		let pass = reconcile_source_with(
+			&context,
+			Some(ctx.library().id()),
+			&self.root,
+			self.walked_empty,
+			Pass {
+				progress: Some(sender),
+				..Pass::default()
+			},
+		);
+		tokio::pin!(pass);
+		let started = Instant::now();
+		ctx.progress(Progress::generic(GenericProgress::new(
+			0.0,
+			"Reconciling",
+			format!("{label}: checking for changes made while Spacedrive was closed"),
+		)));
+		let report = loop {
+			tokio::select! {
+				report = &mut pass => break report,
+				changed = progress.changed() => {
+					if changed.is_err() {
+						break (&mut pass).await;
+					}
+					let now = *progress.borrow_and_update();
+					// Interrupting while the pass applies what it found would
+					// leave half a batch written; reading has written nothing.
+					if !now.applying {
+						ctx.check_interrupt().await?;
+					}
+					ctx.progress(Progress::generic(reconcile_progress(&label, now, expected, started.elapsed())));
+				}
+			}
+		};
+
+		match report {
+			Some(report) => Ok(report),
+			None => {
+				ctx.log("Skipped; daemon.log names the reason");
+				Ok(ReconcileReport::default())
+			}
+		}
+	}
+}
+
+fn reconcile_progress(
+	label: &str,
+	now: ReconcileProgress,
+	expected: u64,
+	elapsed: Duration,
+) -> GenericProgress {
+	if now.applying {
+		return GenericProgress::new(
+			0.99,
+			"Applying",
+			format!("{label}: applying {} changes", now.changes),
+		);
+	}
+	let total = expected.max(now.compared);
+	let rate = now.compared as f32 / elapsed.as_secs_f32().max(0.001);
+	let remaining = (rate > 0.0)
+		.then(|| Duration::from_secs_f32(total.saturating_sub(now.compared) as f32 / rate));
+	GenericProgress::new(
+		0.0,
+		"Reconciling",
+		format!(
+			"{label}: {} of about {total} entries checked, {} changes found",
+			now.compared, now.changes
+		),
+	)
+	.with_completion(now.compared, total)
+	.with_performance(rate, remaining, Some(elapsed))
 }
 
 /// Bring one source's map and store in line with its disk.
@@ -174,6 +443,17 @@ pub async fn reconcile_source(
 	root: &Path,
 	walked_empty: bool,
 ) -> Option<ReconcileReport> {
+	reconcile_source_with(context, library, root, walked_empty, Pass::default()).await
+}
+
+/// [`reconcile_source`] with its reader, read bound and progress channel.
+pub async fn reconcile_source_with(
+	context: &Arc<CoreContext>,
+	library: Option<Uuid>,
+	root: &Path,
+	walked_empty: bool,
+	pass: Pass,
+) -> Option<ReconcileReport> {
 	let cache = context.volume_index();
 	cache.ensure_restored(root).await;
 
@@ -182,22 +462,41 @@ pub async fn reconcile_source(
 	// half-built map would read the rest as new.
 	let busy = || cache.is_filling_from_store(root) || cache.is_indexing(root);
 	let waited = Instant::now();
+	if busy() {
+		info!(
+			root = %root.display(),
+			filling_from_store = cache.is_filling_from_store(root),
+			walking = cache.is_indexing(root),
+			"reconcile waiting for the map to finish building"
+		);
+	}
 	while busy() && waited.elapsed() < FILL_WAIT {
 		tokio::time::sleep(Duration::from_millis(200)).await;
 	}
 	if busy() {
-		debug!(root = %root.display(), "not reconciling: the map is still being built");
+		info!(
+			root = %root.display(),
+			filling_from_store = cache.is_filling_from_store(root),
+			walking = cache.is_indexing(root),
+			waited_secs = waited.elapsed().as_secs(),
+			"not reconciling: the map is still being built"
+		);
 		return None;
 	}
 
-	let index = cache.resolve_index(root);
+	let partition = cache.resolve(root);
+	let index = partition.index();
 	let covered = index
 		.read()
 		.await
 		.known_children(root)
 		.is_some_and(|children| !children.is_empty());
 	if !covered && !walked_empty {
-		debug!(root = %root.display(), "not reconciling: no map coverage, left to the heal");
+		info!(
+			root = %root.display(),
+			map_root = ?partition.root(),
+			"not reconciling: the map holds nothing under the root, left to the heal"
+		);
 		return None;
 	}
 
@@ -211,26 +510,82 @@ pub async fn reconcile_source(
 	let mut unreadable = false;
 	let mut known_entries: u64 = 0;
 
+	info!(root = %root.display(), "reconciling source with the disk");
+	let mut last_progress = Instant::now();
+	let mut last_tick = Instant::now();
 	let mut pending = VecDeque::from([root.to_path_buf()]);
 	while let Some(dir) = pending.pop_front() {
+		if let Some(progress) = &pass.progress {
+			if last_tick.elapsed() >= PROGRESS_TICK {
+				last_tick = Instant::now();
+				progress.send_replace(ReconcileProgress {
+					directories: report.directories,
+					compared: report.compared,
+					pending: pending.len() as u64,
+					changes: (added.len() + changed.len()) as u64,
+					applying: false,
+				});
+			}
+		}
+		// A large source takes minutes to read, and nothing else shows the pass is alive.
+		if last_progress.elapsed() >= PROGRESS_EVERY {
+			last_progress = Instant::now();
+			info!(
+				root = %root.display(),
+				directories = report.directories,
+				compared = report.compared,
+				pending = pending.len(),
+				added = added.len(),
+				changed = changed.len(),
+				"reconcile still reading the source"
+			);
+		}
+		// A listing that waits on a provider or a network can block for
+		// minutes; the pass moves on and the listing finishes on its own.
 		let read = {
 			let dir = dir.clone();
-			tokio::task::spawn_blocking(move || read_directory(&dir)).await
+			let read = pass.read;
+			tokio::time::timeout(
+				pass.read_bound,
+				tokio::task::spawn_blocking(move || read(&dir)),
+			)
+			.await
 		};
 		let on_disk = match read {
-			Ok(Ok(entries)) => entries,
-			Ok(Err(error)) => {
+			Ok(Ok(Ok(entries))) => entries,
+			// Gone since its parent was read. Nothing under it was compared,
+			// so nothing under it is counted missing; the watcher has it.
+			Ok(Ok(Err(error))) if error.kind() == std::io::ErrorKind::NotFound => {
+				debug!(dir = %dir.display(), "a directory went away during the reconcile");
+				continue;
+			}
+			Ok(Ok(Err(error))) => {
 				warn!(dir = %dir.display(), %error, "reconcile could not read a directory");
 				unreadable = true;
 				continue;
 			}
-			Err(error) => {
+			Ok(Err(error)) => {
 				warn!(dir = %dir.display(), %error, "reconcile read task failed");
+				unreadable = true;
+				continue;
+			}
+			Err(_) => {
+				warn!(
+					dir = %dir.display(),
+					bound_secs = pass.read_bound.as_secs_f32(),
+					"reconcile moved past a directory that did not answer in time"
+				);
 				unreadable = true;
 				continue;
 			}
 		};
 		report.directories += 1;
+		let mut rules = DirectoryRules {
+			toggles: rule_toggles,
+			root,
+			dir: &dir,
+			ruler: None,
+		};
 
 		let known = index.read().await.known_children(&map_spelling(&dir));
 		let mut known: std::collections::HashMap<PathBuf, crate::ops::indexing::arena::KnownChild> =
@@ -255,7 +610,16 @@ pub async fn reconcile_source(
 				Some(held) if held.kind == kind => {
 					report.compared += 1;
 					if kind == EntryKind::Directory {
-						if !held.summarised {
+						if held.summarised {
+							continue;
+						}
+						if entry.placeholder {
+							report.placeholders += 1;
+						} else if rules.reject(&entry.path, kind).await {
+							// Walked before a rule that now keeps it out; the
+							// next walk's sweep decides what leaves.
+							report.excluded += 1;
+						} else {
 							pending.push_back(entry.path);
 						}
 					} else if held.size != entry.size
@@ -271,14 +635,15 @@ pub async fn reconcile_source(
 						// weigh, but the old entry and anything under it go.
 						replaced.push((held.path, held.kind == EntryKind::Directory, held.entries));
 					}
-					if should_filter_path(&entry.path, rule_toggles, root, None)
-						.await
-						.unwrap_or(false)
-					{
+					if rules.reject(&entry.path, kind).await {
 						continue;
 					}
 					if kind == EntryKind::Directory {
-						pending.push_back(entry.path.clone());
+						if entry.placeholder {
+							report.placeholders += 1;
+						} else {
+							pending.push_back(entry.path.clone());
+						}
 					}
 					added.push(entry.path);
 				}
@@ -288,6 +653,16 @@ pub async fn reconcile_source(
 		for (path, held) in known {
 			missing.push((path, held.kind == EntryKind::Directory, held.entries));
 		}
+	}
+
+	if let Some(progress) = &pass.progress {
+		progress.send_replace(ReconcileProgress {
+			directories: report.directories,
+			compared: report.compared,
+			pending: 0,
+			changes: (added.len() + changed.len() + missing.len() + replaced.len()) as u64,
+			applying: true,
+		});
 	}
 
 	let store = cache.store_for(root).await;
@@ -492,6 +867,8 @@ pub async fn reconcile_source(
 		moved = report.moved,
 		removed = report.removed,
 		removals_refused = report.removals_refused,
+		placeholders = report.placeholders,
+		excluded = report.excluded,
 		took_ms = started.elapsed().as_millis() as u64,
 		"reconciled source with the disk"
 	);
@@ -528,5 +905,104 @@ async fn queue_hashing(context: &Arc<CoreContext>, library: Option<Uuid>, root: 
 		.await
 	{
 		warn!(root = %root.display(), %error, "could not queue hashing after the reconcile");
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::infra::action::LibraryAction;
+	use crate::ops::sources::track::action::{TrackSourceAction, TrackSourceInput};
+
+	/// Stands in for a cloud provider's folder that never answers a listing.
+	fn stalls_on_cloud(dir: &Path) -> std::io::Result<Vec<OnDisk>> {
+		if dir.ends_with("cloud") {
+			std::thread::sleep(Duration::from_secs(5));
+		}
+		read_directory(dir)
+	}
+
+	#[tokio::test(flavor = "multi_thread")]
+	async fn a_directory_that_never_answers_does_not_hold_up_the_pass() {
+		let data = tempfile::tempdir().expect("data dir");
+		let files = tempfile::tempdir().expect("files dir");
+		let root = files.path().canonicalize().expect("root");
+		std::fs::create_dir(root.join(".git")).expect("git dir");
+		std::fs::write(root.join(".gitignore"), "*.log\n").expect("gitignore");
+		for (dir, file) in [("cloud", "remote.txt"), ("local", "here.txt")] {
+			std::fs::create_dir(root.join(dir)).expect("mkdir");
+			std::fs::write(root.join(dir).join(file), file).expect("write");
+		}
+
+		let core = crate::Core::new(data.path().to_path_buf())
+			.await
+			.expect("core");
+		let library = core
+			.libraries
+			.create_library("Reconcile", None, core.context.clone())
+			.await
+			.expect("library");
+		let output = TrackSourceAction::from_input(TrackSourceInput {
+			path: root.clone(),
+			name: None,
+			overrides: Default::default(),
+		})
+		.expect("input")
+		.execute(library.clone(), core.context.clone())
+		.await
+		.expect("track");
+		let walk = library
+			.jobs()
+			.get_job(JobId(output.job_id.expect("tracking dispatched a walk")))
+			.await
+			.expect("walk job");
+		walk.wait().await.expect("walk");
+
+		std::fs::write(root.join("local/new.txt"), "new").expect("write");
+		std::fs::write(root.join("local/debug.log"), "ignored").expect("write");
+		std::fs::remove_file(root.join("cloud/remote.txt")).expect("remove");
+
+		let started = Instant::now();
+		let report = reconcile_source_with(
+			&core.context,
+			Some(library.id()),
+			&output.root,
+			false,
+			Pass {
+				read: stalls_on_cloud,
+				read_bound: Duration::from_millis(200),
+				progress: None,
+			},
+		)
+		.await
+		.expect("the pass ran");
+		let took = started.elapsed();
+
+		assert!(
+			took < Duration::from_secs(3),
+			"the pass waited {took:?} on a directory that never answered"
+		);
+		// The watcher is live too, so the map is what both left behind.
+		let index = core.context.volume_index().resolve_index(&output.root);
+		let index = index.read().await;
+		assert!(
+			index
+				.get_entry_uuid(&output.root.join("local/new.txt"))
+				.is_some(),
+			"the readable folder's new file arrives"
+		);
+		assert!(
+			index
+				.get_entry_uuid(&output.root.join("local/debug.log"))
+				.is_none(),
+			"the file .gitignore names does not"
+		);
+		drop(index);
+		assert_eq!(
+			report.removed, 0,
+			"nothing under the unread folder is taken for deleted"
+		);
+		drop(library);
+		core.shutdown().await.expect("shutdown");
 	}
 }

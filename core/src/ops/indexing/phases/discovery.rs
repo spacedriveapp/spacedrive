@@ -415,6 +415,21 @@ async fn discovery_worker_rayon(
 							local_stats.dirs += 1;
 							let _ = result_tx.send(DiscoveryResult::Entry(entry)).await;
 						}
+						// A cloud provider's placeholder is kept as an entry, but
+						// listing it would wait on the provider to download it.
+						EntryKind::Directory
+							if cfg!(target_os = "macos")
+								&& tokio::fs::symlink_metadata(&entry.path).await.is_ok_and(
+									|metadata| {
+										crate::ops::indexing::metadata::is_provider_placeholder(
+											&metadata,
+										)
+									},
+								) =>
+						{
+							local_stats.dirs += 1;
+							let _ = result_tx.send(DiscoveryResult::Entry(entry)).await;
+						}
 						EntryKind::Directory => {
 							local_stats.dirs += 1;
 							// Increment BEFORE enqueuing so the monitor never sees pending_work=0 while

@@ -130,7 +130,9 @@ pub async fn should_filter_path(
 	root: &Path,
 	backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 ) -> Result<bool> {
-	let ruler = build_default_ruler(rule_toggles, root, path).await;
+	// The walk builds its ruler for the directory it reads; built for a file,
+	// the .gitignore lookup above it fails and gitignore is skipped.
+	let ruler = build_default_ruler(rule_toggles, root, path.parent().unwrap_or(path)).await;
 
 	let metadata = if let Some(backend) = backend {
 		backend

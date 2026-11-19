@@ -373,7 +373,7 @@ async fn apply_volume(context: &Arc<CoreContext>, volume: &Volume) {
 			.is_some_and(|source| source.entry_count == Some(0));
 		let context = context.clone();
 		tokio::spawn(async move {
-			crate::ops::indexing::reconcile::reconcile_source(
+			crate::ops::indexing::reconcile::run_reconcile(
 				&context,
 				library_id,
 				&root,
