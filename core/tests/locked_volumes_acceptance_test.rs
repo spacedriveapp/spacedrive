@@ -631,17 +631,8 @@ async fn a_remounted_volume_reattaches_its_source_and_rearms_the_watch() {
 	)
 	.await;
 
-	let created = root.join("after-remount.txt");
-	std::fs::write(&created, "seen").expect("write");
-	eventually(
-		"a file created after the return reaches the map",
-		async || match cache.get_for_search(&created) {
-			Some(index) => index.read().await.get_entry_uuid(&created).is_some(),
-			None => false,
-		},
-	)
-	.await;
-
+	// The retry is dispatched when the volume returns, so it is checked before a
+	// new file adds work only the watcher's hashing nudge picks up.
 	eventually("the failed identification is retried", async || {
 		let error: (Option<String>,) =
 			sqlx::query_as("SELECT content_error FROM facet_file WHERE record_uuid = ?")
@@ -651,6 +642,17 @@ async fn a_remounted_volume_reattaches_its_source_and_rearms_the_watch() {
 				.expect("content error");
 		error.0.is_none() && store.files_needing_content_count().await.unwrap() == 0
 	})
+	.await;
+
+	let created = root.join("after-remount.txt");
+	std::fs::write(&created, "seen").expect("write");
+	eventually(
+		"a file created after the return reaches the map",
+		async || match cache.get_for_search(&created) {
+			Some(index) => index.read().await.get_entry_uuid(&created).is_some(),
+			None => false,
+		},
+	)
 	.await;
 	let identity: (Option<i64>,) = sqlx::query_as("SELECT content_id FROM record WHERE uuid = ?")
 		.bind(&failed.0)
