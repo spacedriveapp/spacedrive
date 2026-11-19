@@ -188,6 +188,17 @@ async fn verify_batch(
 ) -> (Vec<(Uuid, ContentIdentity)>, Vec<(Uuid, String)>, u64) {
 	let results: Vec<_> = futures::stream::iter(batch)
 		.map(|(uuid, path, size, sampled_hash)| async move {
+			// A file evicted since its sampled hash is a placeholder again,
+			// and a full read would download all of it.
+			if crate::ops::indexing::metadata::refuse_dataless(&path)
+				.await
+				.is_err()
+			{
+				return Err((
+					uuid,
+					crate::ops::indexing::metadata::DATALESS_REASON.to_string(),
+				));
+			}
 			match ContentHashGenerator::generate_integrity_hash(&path).await {
 				Ok(hash) => Ok((
 					uuid,

@@ -1796,6 +1796,81 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		assert_eq!(error.as_deref(), Some("permission denied"));
 	}
 
+	/// A cloud placeholder's bytes are never read. Hashing records it as a
+	/// placeholder, takes it out of the queue, and leaves the size and
+	/// modification time the walk recorded.
+	#[tokio::test]
+	async fn a_dataless_file_leaves_the_queue_unread_with_its_metadata() {
+		let mut fixture = Fixture::new().await;
+		let cloud = fixture.create("cloud.bin", &[7u8; 4096]).await;
+		fixture.create("local.bin", &[8u8; 4096]).await;
+		fixture.store.flush().await.expect("flush");
+		let before: (i64, i64) = sqlx::query_as(
+			"SELECT f.size, f.mtime FROM facet_file f
+			  JOIN record r ON r.uuid = f.record_uuid
+			 WHERE r.title = 'cloud.bin'",
+		)
+		.fetch_one(fixture.store.db().pool())
+		.await
+		.expect("walked metadata");
+
+		let pending = fixture
+			.store
+			.files_needing_content(10)
+			.await
+			.expect("pending");
+		assert_eq!(pending.len(), 2);
+		crate::ops::indexing::metadata::dataless_for_tests::mark(
+			&pending
+				.iter()
+				.find(|(_, path, _)| path.ends_with("cloud.bin"))
+				.expect("cloud pending")
+				.1,
+		);
+		std::fs::remove_file(&cloud).expect("remove");
+
+		let (identities, failures) = crate::ops::indexing::content_identity::hash_batch(
+			pending,
+			crate::filetype::FileTypeRegistry::current(),
+		)
+		.await;
+		assert_eq!(identities.len(), 1, "the local file is hashed");
+		assert_eq!(
+			failures
+				.iter()
+				.map(|(_, reason)| reason.as_str())
+				.collect::<Vec<_>>(),
+			vec![crate::ops::indexing::metadata::DATALESS_REASON],
+			"the placeholder was refused before any open, which would have found it gone"
+		);
+		fixture.store.identified(identities).await;
+		fixture.store.content_unreadable(failures).await;
+		fixture.store.flush().await.expect("flush");
+
+		assert_eq!(
+			fixture
+				.store
+				.files_needing_content_count()
+				.await
+				.expect("count"),
+			0
+		);
+		let after: (i64, i64, Option<String>, Option<i64>) = sqlx::query_as(
+			"SELECT f.size, f.mtime, f.content_error, r.content_id FROM facet_file f
+			  JOIN record r ON r.uuid = f.record_uuid
+			 WHERE r.title = 'cloud.bin'",
+		)
+		.fetch_one(fixture.store.db().pool())
+		.await
+		.expect("placeholder row");
+		assert_eq!((after.0, after.1), before, "the walk's metadata stays");
+		assert_eq!(
+			after.2.as_deref(),
+			Some(crate::ops::indexing::metadata::DATALESS_REASON)
+		);
+		assert_eq!(after.3, None, "no content identity from unread bytes");
+	}
+
 	/// A changed file gets a fresh attempt: the facet rewrite clears the
 	/// error the way it clears the content link.
 	#[tokio::test]

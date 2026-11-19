@@ -58,6 +58,80 @@ pub fn is_provider_placeholder(_metadata: &std::fs::Metadata) -> bool {
 	false
 }
 
+/// What a record whose bytes were never read because they are not on this
+/// machine carries as its content error.
+pub const DATALESS_REASON: &str = "cloud placeholder: contents not downloaded";
+
+/// Why a content read refused a file: its bytes live with a cloud provider.
+#[derive(Debug, thiserror::Error)]
+#[error("{}: {DATALESS_REASON}", .0.display())]
+pub struct Dataless(pub PathBuf);
+
+/// Whether `error` is a refusal from [`refuse_dataless`].
+pub fn is_dataless_error(error: &std::io::Error) -> bool {
+	error.get_ref().is_some_and(|inner| inner.is::<Dataless>())
+}
+
+/// Refuses a content read of a file whose bytes are not on this machine.
+///
+/// Opening an iCloud or File Provider placeholder (`SF_DATALESS`) makes macOS
+/// download it, so a background pass over a home folder can pull gigabytes
+/// down without anyone asking. Every path that reads file contents calls this
+/// before it opens the file. The check is a stat, which the provider answers
+/// locally, and the record keeps the metadata the walk read.
+pub async fn refuse_dataless(path: &Path) -> std::io::Result<()> {
+	#[cfg(test)]
+	if dataless_for_tests::is_marked(path) {
+		return Err(std::io::Error::other(Dataless(path.to_path_buf())));
+	}
+	#[cfg(target_os = "macos")]
+	if tokio::fs::metadata(path)
+		.await
+		.is_ok_and(|metadata| is_provider_placeholder(&metadata))
+	{
+		return Err(std::io::Error::other(Dataless(path.to_path_buf())));
+	}
+	Ok(())
+}
+
+/// [`refuse_dataless`] for callers already on a blocking thread.
+pub fn refuse_dataless_blocking(path: &Path) -> std::io::Result<()> {
+	#[cfg(test)]
+	if dataless_for_tests::is_marked(path) {
+		return Err(std::io::Error::other(Dataless(path.to_path_buf())));
+	}
+	#[cfg(target_os = "macos")]
+	if std::fs::metadata(path).is_ok_and(|metadata| is_provider_placeholder(&metadata)) {
+		return Err(std::io::Error::other(Dataless(path.to_path_buf())));
+	}
+	Ok(())
+}
+
+/// Linux cannot make an `SF_DATALESS` file, so tests mark paths that every
+/// content read must then treat as one.
+#[cfg(test)]
+pub(crate) mod dataless_for_tests {
+	use std::path::{Path, PathBuf};
+	use std::sync::Mutex;
+
+	static MARKED: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+
+	pub(crate) fn mark(path: &Path) {
+		MARKED
+			.lock()
+			.unwrap_or_else(|e| e.into_inner())
+			.push(path.to_path_buf());
+	}
+
+	pub(super) fn is_marked(path: &Path) -> bool {
+		MARKED
+			.lock()
+			.unwrap_or_else(|e| e.into_inner())
+			.iter()
+			.any(|marked| marked == path)
+	}
+}
+
 /// The spelling the map keeps a path under.
 ///
 /// The walk records a name that is not UTF-8 lossily, under the replacement

@@ -427,6 +427,9 @@ impl JobOps {
 		let (store, entry) = self.locate(record.uuid).await?;
 		self.check_read(&entry)?;
 		let path = store.root().join(&entry.relative_path);
+		crate::ops::indexing::metadata::refuse_dataless(&path)
+			.await
+			.map_err(|e| OpError::failed(e.to_string()))?;
 		tokio::fs::read(&path).await.map_err(|e| match e.kind() {
 			std::io::ErrorKind::NotFound => OpError::not_found(),
 			_ => OpError::failed(format!("read {}: {e}", path.display())),
@@ -507,6 +510,9 @@ impl JobOps {
 
 		let path = store.root().join(&entry.relative_path);
 		tracing::info!(record = %record.uuid, "parsing EXIF on demand; no facet row");
+		crate::ops::indexing::metadata::refuse_dataless(&path)
+			.await
+			.map_err(|e| OpError::failed(e.to_string()))?;
 		let exif = match sd_media_metadata::exif::ExifMetadata::from_path(&path).await {
 			Ok(Some(exif)) => exif,
 			Ok(None) => return json(&serde_json::Value::Null),

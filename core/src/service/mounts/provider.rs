@@ -120,6 +120,9 @@ impl LocalProvider {
 	pub async fn open(path: &Path) -> Result<Self, ByteError> {
 		let path = path.to_path_buf();
 		tokio::task::spawn_blocking(move || {
+			// Serving a cloud placeholder would download it.
+			crate::ops::indexing::metadata::refuse_dataless_blocking(&path)
+				.map_err(|err| ByteError::Unsupported(err.to_string()))?;
 			let file = std::fs::File::open(&path).map_err(|err| match err.kind() {
 				std::io::ErrorKind::NotFound => ByteError::NotFound(String::new()),
 				_ => ByteError::Io(err.to_string()),
@@ -613,6 +616,16 @@ mod tests {
 
 		// Zero-length never touches the file.
 		assert!(provider.read_range(&t, 4..4).await.unwrap().is_empty());
+	}
+
+	#[tokio::test]
+	async fn a_dataless_file_is_not_served() {
+		let dir = tempfile::tempdir().unwrap();
+		let path = dir.path().join("cloud.mov");
+		std::fs::write(&path, b"bytes the provider holds").unwrap();
+		crate::ops::indexing::metadata::dataless_for_tests::mark(&path);
+		let err = LocalProvider::open(&path).await;
+		assert!(matches!(err, Err(ByteError::Unsupported(_))));
 	}
 
 	#[tokio::test]

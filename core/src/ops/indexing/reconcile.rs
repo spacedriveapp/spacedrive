@@ -76,7 +76,8 @@ pub struct ReconcileReport {
 	/// Cloud provider placeholders compared but not listed.
 	#[serde(default)]
 	pub placeholders: u64,
-	/// Directories the map holds that the rules now keep out, left unread.
+	/// Directories the map holds that the rules now keep out. They are left
+	/// unread and what the map held under them is removed.
 	#[serde(default)]
 	pub excluded: u64,
 }
@@ -516,6 +517,7 @@ pub async fn reconcile_source_with(
 	let mut added: Vec<PathBuf> = Vec::new();
 	let mut missing: Vec<(PathBuf, bool, u64)> = Vec::new();
 	let mut replaced: Vec<(PathBuf, bool, u64)> = Vec::new();
+	let mut excluded: Vec<PathBuf> = Vec::new();
 	let mut unreadable = false;
 	let mut known_entries: u64 = 0;
 
@@ -625,9 +627,11 @@ pub async fn reconcile_source_with(
 						if entry.placeholder {
 							report.placeholders += 1;
 						} else if rules.reject(&entry.path, kind).await {
-							// Walked before a rule that now keeps it out; the
-							// next walk's sweep decides what leaves.
+							// Walked before a rule that now keeps it out. A
+							// source walk applies rules and so never sweeps,
+							// which leaves this pass to clear what is under it.
 							report.excluded += 1;
+							excluded.push(entry.path);
 						} else {
 							pending.push_back(entry.path);
 						}
@@ -761,6 +765,29 @@ pub async fn reconcile_source_with(
 			report.removed += 1;
 		}
 		report.added += arrive(&writer, &after_replacement, &mut arrived).await;
+	}
+
+	// What is held under a directory the rules now exclude leaves, and the
+	// directory stays as the walk keeps one. The rules decide this, not an
+	// absence, so the fuse does not weigh it: a home folder walked before
+	// `Users/*/Library` can hold more under Library than everywhere else.
+	if !walk_owns_removals {
+		for dir in &excluded {
+			let children = index
+				.read()
+				.await
+				.known_children(&map_spelling(dir))
+				.unwrap_or_default();
+			for child in children {
+				quiet
+					.apply(Seen::Lost {
+						path: child.path,
+						is_directory: child.kind == EntryKind::Directory,
+					})
+					.await;
+				report.removed += child.entries;
+			}
+		}
 	}
 
 	// A stat alone would keep the old spelling of a case-only rename on a
@@ -1011,6 +1038,131 @@ mod tests {
 			report.removed, 0,
 			"nothing under the unread folder is taken for deleted"
 		);
+		drop(library);
+		core.shutdown().await.expect("shutdown");
+	}
+
+	/// A directory a rule now excludes, such as `~/Library` held from a walk
+	/// before `Users/*/Library` existed: the reconcile adds nothing under it,
+	/// takes out what is already there, and a later walk does not bring it
+	/// back. A source walk applies rules, so it never sweeps the store.
+	#[tokio::test(flavor = "multi_thread")]
+	async fn an_excluded_directory_gains_nothing_and_loses_what_it_held() {
+		let data = tempfile::tempdir().expect("data dir");
+		let files = tempfile::tempdir().expect("files dir");
+		let root = files.path().canonicalize().expect("root");
+		std::fs::create_dir(root.join(".git")).expect("git dir");
+		std::fs::write(root.join(".gitignore"), "").expect("gitignore");
+		std::fs::create_dir_all(root.join("cache/deep")).expect("mkdir");
+		std::fs::write(root.join("cache/old.txt"), "old").expect("write");
+		std::fs::write(root.join("cache/deep/older.txt"), "older").expect("write");
+		std::fs::write(root.join("keep.txt"), "keep").expect("write");
+
+		let core = crate::Core::new(data.path().to_path_buf())
+			.await
+			.expect("core");
+		let library = core
+			.libraries
+			.create_library("Excluded", None, core.context.clone())
+			.await
+			.expect("library");
+		let output = TrackSourceAction::from_input(TrackSourceInput {
+			path: root.clone(),
+			name: None,
+			overrides: Default::default(),
+		})
+		.expect("input")
+		.execute(library.clone(), core.context.clone())
+		.await
+		.expect("track");
+		let walk = library
+			.jobs()
+			.get_job(JobId(output.job_id.expect("tracking dispatched a walk")))
+			.await
+			.expect("walk job");
+		walk.wait().await.expect("walk");
+
+		let store = core
+			.context
+			.volume_index()
+			.store_for(&output.root)
+			.await
+			.expect("store");
+		store.flush().await.expect("flush");
+		let cache = output.root.join("cache");
+		let held = [cache.join("old.txt"), cache.join("deep/older.txt")];
+		let new = cache.join("new.txt");
+		for path in &held {
+			assert!(store.contains_path(path).await, "walked before the rule");
+		}
+
+		std::fs::write(root.join(".gitignore"), "cache/\n").expect("gitignore");
+		std::fs::write(&new, "new").expect("write");
+		// The watcher is live and hears both writes. It must not take the new
+		// file either, so a late arrival cannot slip past the assertions.
+		tokio::time::sleep(Duration::from_secs(2)).await;
+		store.flush().await.expect("flush");
+		assert!(
+			!store.contains_path(&new).await,
+			"the watcher keeps a file under an excluded directory out"
+		);
+
+		let report = reconcile_source_with(
+			&core.context,
+			Some(library.id()),
+			&output.root,
+			false,
+			Pass::default(),
+		)
+		.await
+		.expect("the pass ran");
+		store.flush().await.expect("flush");
+		assert_eq!(report.excluded, 1, "the held directory is left unread");
+
+		let index = core.context.volume_index().resolve_index(&output.root);
+		for path in held.iter().chain([&new]) {
+			assert!(
+				!store.contains_path(path).await,
+				"{} is under an excluded directory",
+				path.display()
+			);
+			assert!(index.read().await.get_entry_uuid(path).is_none());
+		}
+		assert!(
+			index.read().await.get_entry_uuid(&cache).is_some(),
+			"the directory itself stays, as a walk keeps it"
+		);
+		assert!(store.contains_path(&output.root.join("keep.txt")).await);
+
+		let walk = crate::ops::sources::track::action::dispatch_source_walk(
+			&library,
+			&core.context,
+			output.id,
+			output.root.clone(),
+			output.whole_volume,
+			false,
+		)
+		.await
+		.expect("rewalk");
+		library
+			.jobs()
+			.get_job(JobId(walk))
+			.await
+			.expect("rewalk job")
+			.wait()
+			.await
+			.expect("rewalk");
+		store.flush().await.expect("flush");
+		for path in held.iter().chain([&new]) {
+			assert!(
+				!store.contains_path(path).await,
+				"the walk does not bring back {}",
+				path.display()
+			);
+		}
+		assert!(store.contains_path(&output.root.join("keep.txt")).await);
+		drop(index);
+		drop(store);
 		drop(library);
 		core.shutdown().await.expect("shutdown");
 	}

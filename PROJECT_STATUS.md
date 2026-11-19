@@ -36,6 +36,24 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Content reads never hydrate cloud placeholders (Capy SPAC-86, November 19,
+beta.1 blocker). Every path that reads file bytes stats the file first and
+refuses one macOS reports `SF_DATALESS`
+(`ops::indexing::metadata::refuse_dataless`): content identification, the
+integrity tier, thumbnails and thumbstrips, EXIF, the extension record reads
+and the byte plane's `LocalProvider`. Hashing records a placeholder with the
+`content_error` "cloud placeholder: contents not downloaded" and keeps the
+walk's metadata. Hashing reads run on their own runtime at background QoS on
+macOS (nice 10 on Linux), and its progress total grows when records arrive
+mid-pass. A source walk applies rules and so never sweeps its store, so the
+reconcile now removes what the map holds under a directory today's rules
+exclude, outside the removal fuse, and the watcher rejects a path when any
+ancestor below the root is excluded (`/Users/*/Library` names only the
+directory). Open: a placeholder downloaded later keeps its error until the file
+changes or its volume remounts; the grep op held on `capy/search-grep` (#3219)
+must call `refuse_dataless` before it opens a file; Quick Preview of a local
+file loads through Tauri's asset protocol, which the daemon never sees.
+
 Watcher snapshot flushes are paced by snapshot size (Capy SPAC-83, November
 19, beta.1 blocker). #3181 rewrote a drive's whole arena snapshot every 30 s
 whenever its arena was dirty, which on a 1.8M-record home source with constant
