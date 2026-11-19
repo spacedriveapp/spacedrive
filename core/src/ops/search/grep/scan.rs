@@ -145,7 +145,7 @@ pub fn grep(
 			_ => 0,
 		};
 
-		let bytes = match read_capped(path, entry_ino(&entry), max_file_bytes) {
+		let bytes = match read_capped(scope, rel, max_file_bytes) {
 			Ok(Some(bytes)) => bytes,
 			Ok(None) => {
 				out.files_skipped += 1;
@@ -197,42 +197,10 @@ pub fn grep(
 	Ok(out)
 }
 
-#[cfg(unix)]
-fn entry_ino(entry: &ignore::DirEntry) -> Option<u64> {
-	entry.ino()
-}
-
-#[cfg(not(unix))]
-fn entry_ino(_entry: &ignore::DirEntry) -> Option<u64> {
-	None
-}
-
 /// Read a regular file whole, or `None` when it is larger than `cap`.
-///
-/// `O_NOFOLLOW` guards only the last component. A directory above the file
-/// can be swapped for a symlink between the walk and the open, so the opened
-/// file must also be the inode the walk listed, or it is refused.
-fn read_capped(path: &Path, expected_ino: Option<u64>, cap: u64) -> io::Result<Option<Vec<u8>>> {
-	let mut open = std::fs::OpenOptions::new();
-	open.read(true);
-	#[cfg(unix)]
-	{
-		// The walk saw a regular file; refuse whatever replaced it since, a
-		// symlink out of the scope or a FIFO that would block the read.
-		use std::os::unix::fs::OpenOptionsExt;
-		open.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
-	}
-	let file = open.open(path)?;
+fn read_capped(scope: &Path, rel: &Path, cap: u64) -> io::Result<Option<Vec<u8>>> {
+	let file = open_beneath(scope, rel)?;
 	let metadata = file.metadata()?;
-	#[cfg(unix)]
-	if let Some(expected) = expected_ino {
-		use std::os::unix::fs::MetadataExt;
-		if metadata.ino() != expected {
-			return Err(io::Error::other("file changed since the walk listed it"));
-		}
-	}
-	#[cfg(not(unix))]
-	let _ = expected_ino;
 	if !metadata.is_file() || metadata.len() > cap {
 		return Ok(None);
 	}
@@ -242,6 +210,71 @@ fn read_capped(path: &Path, expected_ino: Option<u64>, cap: u64) -> io::Result<O
 		return Ok(None);
 	}
 	Ok(Some(bytes))
+}
+
+/// Open `rel` under `scope` one component at a time, refusing a symlink at
+/// every step.
+///
+/// The walk lists a path and the open comes later. In between, any directory
+/// on the way can be swapped for a symlink out of the scope, and a flag on
+/// the last component cannot see that. Resolving from the scope's own handle
+/// with `O_NOFOLLOW` on each directory can. `O_NONBLOCK` keeps a FIFO swapped
+/// in for the file from blocking the read.
+#[cfg(unix)]
+fn open_beneath(scope: &Path, rel: &Path) -> io::Result<std::fs::File> {
+	use std::{
+		ffi::{CString, OsStr},
+		os::{
+			fd::{AsRawFd, FromRawFd, OwnedFd},
+			unix::{ffi::OsStrExt, fs::OpenOptionsExt},
+		},
+		path::Component,
+	};
+
+	let open_at = |dir: &OwnedFd, name: &OsStr, flags: libc::c_int| -> io::Result<OwnedFd> {
+		let name = CString::new(name.as_bytes())?;
+		// SAFETY: `dir` is an open descriptor and `name` is NUL-terminated.
+		let fd = unsafe { libc::openat(dir.as_raw_fd(), name.as_ptr(), flags | libc::O_CLOEXEC) };
+		if fd < 0 {
+			return Err(io::Error::last_os_error());
+		}
+		// SAFETY: `fd` was just opened and nothing else owns it.
+		Ok(unsafe { OwnedFd::from_raw_fd(fd) })
+	};
+	let leaf_flags = libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK;
+
+	let mut parts = rel
+		.components()
+		.map(|part| match part {
+			Component::Normal(name) => Ok(name),
+			_ => Err(io::Error::other("path leaves the scope")),
+		})
+		.collect::<io::Result<Vec<_>>>()?;
+	let Some(leaf) = parts.pop() else {
+		// The scope is the file itself, which the caller resolved.
+		return std::fs::OpenOptions::new()
+			.read(true)
+			.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+			.open(scope);
+	};
+	let mut dir: OwnedFd = std::fs::OpenOptions::new()
+		.read(true)
+		.custom_flags(libc::O_DIRECTORY)
+		.open(scope)?
+		.into();
+	for part in parts {
+		dir = open_at(
+			&dir,
+			part,
+			libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW,
+		)?;
+	}
+	Ok(open_at(&dir, leaf, leaf_flags)?.into())
+}
+
+#[cfg(not(unix))]
+fn open_beneath(scope: &Path, rel: &Path) -> io::Result<std::fs::File> {
+	std::fs::File::open(scope.join(rel))
 }
 
 /// A path relative to the scope with `/` separators, or the file's own name
@@ -433,22 +466,25 @@ fn path_from_bytes(bytes: Vec<u8>) -> Result<PathBuf, GrepError> {
 
 #[cfg(all(test, unix))]
 mod tests {
-	use std::os::unix::fs::MetadataExt;
+	use std::path::Path;
 
 	use super::read_capped;
 
 	#[test]
-	fn a_file_swapped_in_after_the_walk_is_refused() {
+	fn a_directory_swapped_for_a_symlink_after_the_walk_is_refused() {
 		let dir = tempfile::TempDir::new().unwrap();
-		let listed = dir.path().join("listed.txt");
-		let swapped = dir.path().join("swapped.txt");
-		std::fs::write(&listed, b"needle\n").unwrap();
-		std::fs::write(&swapped, b"needle\n").unwrap();
-		let listed_ino = std::fs::metadata(&listed).unwrap().ino();
+		let scope = dir.path().join("scope");
+		let outside = dir.path().join("outside");
+		for root in [&scope, &outside] {
+			std::fs::create_dir_all(root.join("sub")).unwrap();
+			std::fs::write(root.join("sub/file.txt"), b"needle\n").unwrap();
+		}
+		let rel = Path::new("sub/file.txt");
+		assert!(read_capped(&scope, rel, 1024).unwrap().is_some());
 
-		assert!(read_capped(&listed, Some(listed_ino), 1024)
-			.unwrap()
-			.is_some());
-		assert!(read_capped(&swapped, Some(listed_ino), 1024).is_err());
+		std::fs::rename(scope.join("sub"), dir.path().join("moved")).unwrap();
+		std::os::unix::fs::symlink(outside.join("sub"), scope.join("sub")).unwrap();
+		assert!(std::fs::File::open(scope.join(rel)).is_ok());
+		assert!(read_capped(&scope, rel, 1024).is_err());
 	}
 }
