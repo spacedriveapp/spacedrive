@@ -11934,6 +11934,7 @@ dependencies = [
  "rmp",
  "rmp-serde",
  "rubato",
+ "same-file",
  "sd-archive",
  "sd-bake",
  "sd-extension-ui",
