@@ -778,8 +778,10 @@ pub async fn reconcile_source_with(
 				.await
 				.known_children(&map_spelling(dir))
 				.unwrap_or_default();
+			// Notified like any other removal, one batch per child, so an
+			// open listing of the directory drops what left.
 			for child in children {
-				quiet
+				writer
 					.apply(Seen::Lost {
 						path: child.path,
 						is_directory: child.kind == EntryKind::Directory,
