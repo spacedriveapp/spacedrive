@@ -62,6 +62,19 @@ export type AddItemOutput = { item: SpaceItem };
 export type AddOverrides = { placement?: StorePlacement | null; keep_offline_copy?: boolean | null; unfiltered?: boolean | null; identify_content?: boolean | null };
 
 /**
+ * Agent MCP endpoint configuration output
+ */
+export type AgentMcpConfigOutput = { 
+/**
+ * Whether the daemon serves the endpoint.
+ */
+enabled: boolean; 
+/**
+ * The address it listens on when enabled.
+ */
+listen: string };
+
+/**
  * Input for alternate instances query
  */
 export type AlternateInstancesInput = { 
@@ -142,6 +155,10 @@ replication: ReplicationConfigOutput;
  * Library backup and restore
  */
 backup: BackupConfigOutput; 
+/**
+ * The agent MCP endpoint
+ */
+agent_mcp: AgentMcpConfigOutput; 
 /**
  * Daemon logging configuration
  */
@@ -5746,6 +5763,15 @@ replication_max_bytes_per_sec?: number | null;
  * is kept whatever the number.
  */
 backup_restore_trash_keep?: number | null; 
+/**
+ * Whether the daemon serves the agent MCP endpoint. Applies at restart.
+ */
+agent_mcp_enabled?: boolean | null; 
+/**
+ * The loopback address the agent MCP endpoint listens on. Applies at
+ * restart.
+ */
+agent_mcp_listen?: string | null; 
 /**
  * Whether networking is enabled
  */

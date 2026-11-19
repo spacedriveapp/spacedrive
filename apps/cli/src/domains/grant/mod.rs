@@ -10,6 +10,7 @@ use uuid::Uuid;
 use crate::context::Context;
 use crate::util::prelude::*;
 
+use sd_core::ops::config::app::{get::AppConfigOutput, GetAppConfigQueryInput};
 use sd_core::ops::grants::{
 	audit::{GrantAuditInput, GrantAuditOutput},
 	create::{CreateGrantInput, CreateGrantOutput},
@@ -50,6 +51,13 @@ pub struct GrantCreateArgs {
 	/// A name for the grant, such as the agent it is for
 	#[arg(long)]
 	pub label: Option<String>,
+	/// Also print MCP client config for the agent endpoint. The config reads
+	/// the token from SPACEDRIVE_GRANT_TOKEN unless --inline-token is given
+	#[arg(long)]
+	pub print_mcp_config: bool,
+	/// Write the token itself into the printed MCP config
+	#[arg(long, requires = "print_mcp_config")]
+	pub inline_token: bool,
 }
 
 #[derive(Args, Debug)]
@@ -104,6 +112,12 @@ pub async fn run(ctx: &Context, cmd: GrantCmd) -> Result<()> {
 				label: args.label,
 			};
 			let out: CreateGrantOutput = execute_action!(ctx, input);
+			let endpoint = if args.print_mcp_config {
+				let config: AppConfigOutput = execute_core_query!(ctx, GetAppConfigQueryInput);
+				Some(config.agent_mcp)
+			} else {
+				None
+			};
 			print_output!(ctx, &out, |o: &CreateGrantOutput| {
 				println!(
 					"Granted {} ({}) until {}",
@@ -114,6 +128,16 @@ pub async fn run(ctx: &Context, cmd: GrantCmd) -> Result<()> {
 				println!("Grant id: {}", o.grant.id);
 				println!("Token:    {}", o.token);
 				println!("The token is shown once. Spacedrive keeps only its hash.");
+				if let Some(endpoint) = &endpoint {
+					if !endpoint.enabled {
+						eprintln!(
+							"The agent MCP endpoint is off. Run `sd config set agent_mcp.enabled true` and restart the daemon."
+						);
+					}
+					let url = mcp_url(&endpoint.listen);
+					println!();
+					print!("{}", mcp_config(&url, &o.token, args.inline_token));
+				}
 			});
 		}
 		GrantCmd::List(args) => {
@@ -209,6 +233,66 @@ fn row(grant: &GrantInfo) -> Vec<String> {
 	]
 }
 
+/// The environment variable printed MCP configs read the token from.
+const TOKEN_ENV: &str = "SPACEDRIVE_GRANT_TOKEN";
+
+/// The URL MCP clients connect to for an endpoint listening on `listen`.
+fn mcp_url(listen: &str) -> String {
+	let addr = sd_core::service::agent_mcp::listen_addr(listen)
+		.map(|addr| addr.to_string())
+		.unwrap_or_else(|_| sd_core::service::agent_mcp::DEFAULT_LISTEN.to_string());
+	format!("http://{addr}{}", sd_core::service::agent_mcp::MCP_PATH)
+}
+
+/// Ready-to-paste config for Claude Code and Codex.
+///
+/// The token stays in an environment variable by default, since a config
+/// file with a literal token is one commit away from a public repository.
+fn mcp_config(url: &str, token: &str, inline: bool) -> String {
+	let header_value = if inline {
+		format!("Bearer {token}")
+	} else {
+		format!("Bearer ${{{TOKEN_ENV}}}")
+	};
+	let mut out = String::new();
+	out.push_str(&format!("MCP endpoint: {url}\n\n"));
+	if !inline {
+		out.push_str("Put the token in the environment of the agent, not in a file you commit:\n");
+		out.push_str(&format!("  export {TOKEN_ENV}='{token}'\n\n"));
+	}
+	out.push_str("Claude Code:\n");
+	out.push_str(&format!(
+		"  claude mcp add --transport http spacedrive {url} --header 'Authorization: {header_value}'\n\n"
+	));
+	out.push_str("Claude Code project file (.mcp.json):\n");
+	let json = serde_json::json!({
+		"mcpServers": {
+			"spacedrive": {
+				"type": "http",
+				"url": url,
+				"headers": { "Authorization": header_value },
+			}
+		}
+	});
+	for line in serde_json::to_string_pretty(&json)
+		.unwrap_or_default()
+		.lines()
+	{
+		out.push_str(&format!("  {line}\n"));
+	}
+	out.push_str("\nCodex (~/.codex/config.toml):\n");
+	out.push_str("  [mcp_servers.spacedrive]\n");
+	out.push_str(&format!("  url = \"{url}\"\n"));
+	if inline {
+		out.push_str(&format!(
+			"  http_headers = {{ \"Authorization\" = \"Bearer {token}\" }}\n"
+		));
+	} else {
+		out.push_str(&format!("  bearer_token_env_var = \"{TOKEN_ENV}\"\n"));
+	}
+	out
+}
+
 /// Seconds in a lifetime written as `90s`, `30m`, `1h` or `2h30m`.
 fn parse_ttl(text: &str) -> Result<u32> {
 	let mut total: u64 = 0;
@@ -243,7 +327,21 @@ fn parse_ttl(text: &str) -> Result<u32> {
 
 #[cfg(test)]
 mod tests {
-	use super::parse_ttl;
+	use super::{mcp_config, mcp_url, parse_ttl};
+
+	#[test]
+	fn mcp_config_keeps_the_token_in_the_environment_by_default() {
+		let url = mcp_url("127.0.0.1:7765");
+		assert_eq!(url, "http://127.0.0.1:7765/mcp");
+		let token = format!("sdg_{}", "a".repeat(64));
+		let config = mcp_config(&url, &token, false);
+		assert!(config.contains("Bearer ${SPACEDRIVE_GRANT_TOKEN}"));
+		assert!(config.contains("bearer_token_env_var = \"SPACEDRIVE_GRANT_TOKEN\""));
+		assert_eq!(config.matches(&token).count(), 1, "only the export line");
+		let inline = mcp_config(&url, &token, true);
+		assert!(!inline.contains("SPACEDRIVE_GRANT_TOKEN"));
+		assert!(inline.contains(&format!("Bearer {token}")));
+	}
 
 	#[test]
 	fn lifetimes_parse() {

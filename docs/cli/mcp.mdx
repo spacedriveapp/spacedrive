@@ -10,6 +10,8 @@ every registered query, action, validate and preview method is one tool, named
 after the op, with an input schema generated from the op's input type. Calls go
 to the running daemon over the same socket the CLI uses, so the server adds no
 permission model and holds no state. Whoever can run `sd` can run `sd mcp`.
+To lend one folder to an agent without that trust, use an agent grant over
+the HTTP endpoint described in [Agent access](/docs/cli/agent-access).
 
 ## Add it to an agent
 

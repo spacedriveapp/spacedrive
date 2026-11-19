@@ -1,0 +1,170 @@
+---
+title: Agent Access
+sidebarTitle: Agent access
+description: Lend one folder to a coding agent over MCP with a scoped, expiring grant
+---
+
+An agent grant lends one folder to an agent, read only, for a limited time. The
+agent connects to the daemon's agent MCP endpoint with the grant's token and
+gets seven tools: `list_dir`, `stat`, `read`, `glob`, `grep`, `search` and
+`get_skill`. It cannot reach any other folder, write anything, or call the
+daemon's operations.
+
+Use this page to turn the endpoint on, create a grant and connect Claude Code,
+Codex or Cursor. For an agent that should run every Spacedrive operation on
+your own machine, use [`sd mcp`](/docs/cli/mcp) instead.
+
+## What a grant does and does not protect
+
+A grant limits an agent that holds only the token. It does not limit an agent
+that runs as your user with a shell. That agent can run `sd` or `sd mcp`, or
+connect to the daemon's local RPC port, and reach every library and operation.
+Use grants for agents in a sandbox, a container or another account that can
+reach the endpoint but cannot run commands as you.
+
+## Turn on the endpoint
+
+The endpoint is off by default. Turn it on and restart the daemon:
+
+```bash
+sd config set agent_mcp.enabled true
+sd restart
+```
+
+It listens on `127.0.0.1:7765`. To use another port, set
+`agent_mcp.listen` to another loopback address, such as `127.0.0.1:7800`.
+The daemon refuses wildcard and non-loopback addresses and logs why.
+Listening beyond loopback needs TLS and the other items in the agent access
+threat model, which this build does not have yet.
+
+## Create a grant
+
+```bash
+sd grant create ~/code/my-project --ttl 2h --label my-agent --print-mcp-config
+```
+
+The folder must be inside a source you track. A grant lives from 5 minutes to
+12 hours, 1 hour by default. The token starts with `sdg_` and is printed once.
+Spacedrive stores only its hash, so a lost token cannot be shown again. Create
+a new grant instead.
+
+`--print-mcp-config` prints the endpoint URL and ready-to-paste config for
+Claude Code and Codex. The config reads the token from the
+`SPACEDRIVE_GRANT_TOKEN` environment variable. Add `--inline-token` to write
+the token itself into the config.
+
+Keep the token out of files you commit. A project-level MCP config that holds a
+literal token is one commit away from a public repository.
+
+Manage grants with these commands:
+
+| Command | What it does |
+| --- | --- |
+| `sd grant list` | Active grants, with last use. Add `--all` for expired and revoked ones. |
+| `sd grant extend <id> --ttl 1h` | A new lifetime, measured from now. |
+| `sd grant revoke <id>` | Ends the grant. Its next request fails. |
+| `sd grant audit [<id>]` | Every request made with grants, allowed or refused. |
+
+## Connect Claude Code
+
+Export the token in the shell that starts Claude Code, then add the server:
+
+```bash
+export SPACEDRIVE_GRANT_TOKEN='sdg_...'
+claude mcp add --transport http spacedrive http://127.0.0.1:7765/mcp \
+  --header 'Authorization: Bearer ${SPACEDRIVE_GRANT_TOKEN}'
+```
+
+The single quotes keep the shell from expanding the variable, so the stored
+config holds the variable name, not the token. Run `claude mcp list` to check
+that the server connects.
+
+To share the server with a project, put it in `.mcp.json` with the same
+variable:
+
+```json
+{
+  "mcpServers": {
+    "spacedrive": {
+      "type": "http",
+      "url": "http://127.0.0.1:7765/mcp",
+      "headers": { "Authorization": "Bearer ${SPACEDRIVE_GRANT_TOKEN}" }
+    }
+  }
+}
+```
+
+## Connect Codex
+
+Add the server to `~/.codex/config.toml` and export the token before you start
+Codex:
+
+```toml
+[mcp_servers.spacedrive]
+url = "http://127.0.0.1:7765/mcp"
+bearer_token_env_var = "SPACEDRIVE_GRANT_TOKEN"
+```
+
+The same entry from the command line:
+
+```bash
+codex mcp add spacedrive --url http://127.0.0.1:7765/mcp \
+  --bearer-token-env-var SPACEDRIVE_GRANT_TOKEN
+```
+
+## Connect Cursor
+
+Add the server to `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "spacedrive": {
+      "url": "http://127.0.0.1:7765/mcp",
+      "headers": { "Authorization": "Bearer ${env:SPACEDRIVE_GRANT_TOKEN}" }
+    }
+  }
+}
+```
+
+Cursor reads `${env:NAME}` from the environment it was started in. Start it
+from a shell that exports `SPACEDRIVE_GRANT_TOKEN`. If the server reports 401,
+check that the variable is set in that environment. Use the user-level file
+rather than `.cursor/mcp.json` in a project if you write the token itself.
+
+## What the agent sees
+
+Paths are relative to the granted folder. `""` or `.` is the folder itself.
+The endpoint refuses absolute paths, `..`, and any path that resolves outside
+the folder, such as a symlink that points elsewhere. Every path in a result is
+relative to the folder too.
+
+| Tool | What it returns |
+| --- | --- |
+| `get_skill` | A guide to these tools. It is compiled into the daemon, not read from the folder. |
+| `list_dir` | One directory, sorted by name, hidden entries included, up to 1,000 entries a page. Links are listed, not followed. |
+| `stat` | Type, size and timestamps. |
+| `read` | A byte range or line range. 64 KiB or 2,000 lines a call by default, 1 MiB at most. |
+| `glob` | Paths matching a pattern such as `**/*.rs`. Visits at most 100,000 entries a call. |
+| `grep` | Lines matching a regex or literal, from a live scan. Hidden files are included and `.gitignore` is respected by default. |
+| `search` | Name and metadata matches from Spacedrive's index, filtered to the folder. |
+
+`grep` and `search` can be incomplete. `grep` skips binary files and files over
+1 MiB and counts them in `files_skipped`. `search` answers from the index,
+which can lag the disk. The guide tells the agent to confirm results with
+`read`.
+
+## Status codes
+
+| Status | Meaning |
+| --- | --- |
+| 401 | The token is unknown, expired or revoked, or its source is gone. Create or extend a grant. |
+| 403 | The path is outside the grant, the Host header is not loopback, or the request carries an Origin header. |
+| 404 | The session id belongs to another grant or has expired. The client starts a new session. |
+| 429 | A limit was reached. Wait for the `Retry-After` seconds. |
+
+Each grant may make 10 requests a second with bursts of 30, hold 4 sessions,
+run 4 tool calls and 1 grep at a time, and return 256 MiB an hour. A tool call
+that runs longer than 30 seconds is cancelled. A call in flight when its grant
+is revoked or expires is cancelled within a second and answers 401. After 20
+failed authentications in a minute, an address is refused for 5 minutes.

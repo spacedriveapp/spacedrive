@@ -5,6 +5,7 @@
 	"pages": [
 		"overview",
 		"mcp",
+		"agent-access",
 		"linux-deployment",
 		"library-sync-setup",
 		"multi-instance",

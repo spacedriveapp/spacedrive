@@ -299,6 +299,16 @@ impl Core {
 			error!("Failed to start mounts share: {}", e);
 		}
 
+		// Serve grant holders over MCP when the user turned the endpoint on.
+		let agent_mcp = config.read().await.agent_mcp.clone();
+		if agent_mcp.enabled {
+			if let Err(e) =
+				crate::service::agent_mcp::start(context.clone(), &agent_mcp.listen).await
+			{
+				error!("Agent MCP endpoint not started: {}", e);
+			}
+		}
+
 		// Deliver tag assertions authored while their owners were away.
 		crate::ops::tags::outbox::start(context.clone());
 
