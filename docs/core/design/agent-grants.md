@@ -22,7 +22,7 @@ grant:
 
 The row lives in `library.db` in the `agent_grant` table. It is small shared state under the rules in `AGENTS.md`: no ingest can rebuild it, and it has no place in a source store. In this version a grant stays on the node that minted it and does not sync.
 
-The directory must be inside a filesystem source tracked by the library. A grant is a view of a source. When the source is removed, every grant on it stops working.
+The directory must be inside a filesystem source tracked by the same library. A grant is a scope over something Spacedrive already tracks, not a way to reach arbitrary folders on the node. When the source is removed, every grant on it stops working.
 
 ## Tokens
 
@@ -122,6 +122,6 @@ The CLI binary is `sd-cli`. `--ttl` takes values such as `30m`, `1h` or `2h30m`.
 ## Known limits
 
 - **Time of check and time of use.** `authorize` resolves the path, then the surface opens it. A process that can create symlinks inside the directory could swap one in between. A read-only grant cannot create links, so this matters only for writes. The write path should open files relative to the root without following links (`openat` with `O_NOFOLLOW`, or the platform equivalent) when it is built.
-- **Hard links.** A hard link to a protected file under another name is a different name for the same bytes. It is not detected. Git does not create hard links into a working tree, and a read-only grant cannot create them.
+- **Hard links.** A hard link to a protected file under another name is a different name for the same bytes. It is not detected. Git does not create hard links into a working tree, and a read-only grant cannot create them. Detection belongs to the write-path spec, since no surface writes through a grant yet.
 - **No sync.** A grant exists on one node. Grants that follow a library between devices need the assertion-layer sync rules in `source-durability.md`.
 - **One verifier.** Tokens are opaque and stored hashed. Signed tokens, which a node could verify without a lookup, can be added behind `token::hash` without changing `authorize`.
