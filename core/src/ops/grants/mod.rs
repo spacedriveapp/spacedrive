@@ -16,7 +16,8 @@
 //! instruction files and git internals, see [`scope::protected_component`].
 //!
 //! Every allowed or refused request against a known grant is written to a
-//! bounded audit table, [`audit`].
+//! bounded audit table, [`audit`]. Removing a source revokes every grant on
+//! it, so re-adding the same scope never revives an old token.
 //!
 //! The local RPC socket does not go through grants: it stays as trusted as it
 //! is today. `docs/core/design/agent-grants.md` has the full model.
@@ -29,8 +30,8 @@
 //!
 //! let token = "sdg_...";
 //! match authorize(context, token, "read", Path::new("notes/today.md"), GrantCap::Read).await {
-//! 	Ok(scope) => println!("serve {}", scope.path.display()),
-//! 	Err(refusal) => println!("refused: {refusal}"),
+//! 	Ok(scope) => tracing::debug!(path = %scope.path.display(), "serve"),
+//! 	Err(refusal) => tracing::warn!(%refusal, "refused"),
 //! }
 //! # }
 //! ```

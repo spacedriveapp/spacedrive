@@ -84,11 +84,15 @@ pub struct GrantAuditArgs {
 pub async fn run(ctx: &Context, cmd: GrantCmd) -> Result<()> {
 	match cmd {
 		GrantCmd::Create(args) => {
-			let path = args
-				.path
-				.canonicalize()
-				.map(sd_core::common::utils::strip_windows_extended_prefix)
-				.map_err(|e| anyhow::anyhow!("{}: {e}", args.path.display()))?;
+			// A path for another device is that device's to resolve.
+			let path = match ctx.core.device() {
+				Some(_) => args.path,
+				None => args
+					.path
+					.canonicalize()
+					.map(sd_core::common::utils::strip_windows_extended_prefix)
+					.map_err(|e| anyhow::anyhow!("{}: {e}", args.path.display()))?,
+			};
 			let input = CreateGrantInput {
 				path,
 				caps: Some(if args.read_write {
@@ -223,7 +227,12 @@ fn parse_ttl(text: &str) -> Result<u32> {
 		if digits.is_empty() {
 			bail!("missing number before {c:?} in {text:?}");
 		}
-		total += digits.parse::<u64>()? * unit;
+		total = digits
+			.parse::<u64>()
+			.ok()
+			.and_then(|n| n.checked_mul(unit))
+			.and_then(|seconds| total.checked_add(seconds))
+			.ok_or_else(|| anyhow::anyhow!("lifetime {text:?} is too long"))?;
 		digits.clear();
 	}
 	if !digits.is_empty() || total == 0 {
@@ -246,5 +255,7 @@ mod tests {
 		assert!(parse_ttl("1d").is_err());
 		assert!(parse_ttl("h").is_err());
 		assert!(parse_ttl("").is_err());
+		assert!(parse_ttl("5124095576030432h").is_err());
+		assert!(parse_ttl("99999999999999999999h").is_err());
 	}
 }

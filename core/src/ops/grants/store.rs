@@ -67,6 +67,27 @@ pub async fn info_by_id(db: &DatabaseConnection, id: Uuid) -> Result<GrantInfo, 
 	Ok(info(row, last_used))
 }
 
+/// End every live grant on a source. Returns how many were ended.
+pub async fn revoke_for_source(
+	db: &DatabaseConnection,
+	source_id: Uuid,
+) -> Result<u64, sea_orm::DbErr> {
+	let ended = agent_grant::Entity::update_many()
+		.col_expr(
+			agent_grant::Column::RevokedAt,
+			sea_orm::sea_query::Expr::value(Utc::now()),
+		)
+		.filter(agent_grant::Column::SourceId.eq(source_id))
+		.filter(agent_grant::Column::RevokedAt.is_null())
+		.exec(db)
+		.await?
+		.rows_affected;
+	if ended > 0 {
+		tracing::info!(source = %source_id, ended, "grants revoked with their source");
+	}
+	Ok(ended)
+}
+
 /// The library a query's session names.
 pub async fn session_library(
 	context: &CoreContext,

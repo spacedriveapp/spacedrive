@@ -22,7 +22,7 @@ grant:
 
 The row lives in `library.db` in the `agent_grant` table. It is small shared state under the rules in `AGENTS.md`: no ingest can rebuild it, and it has no place in a source store. In this version a grant stays on the node that minted it and does not sync.
 
-The directory must be inside a filesystem source tracked by the same library. A grant is a scope over something Spacedrive already tracks, not a way to reach arbitrary folders on the node. When the source is removed, every grant on it stops working.
+The directory must be inside a filesystem source tracked by the same library. A grant is a scope over something Spacedrive already tracks, not a way to reach arbitrary folders on the node. Removing the source revokes every grant on it. A kept catalog keeps the source id, so without the revocation, re-adding the same scope would revive the old tokens.
 
 ## Tokens
 

@@ -362,7 +362,8 @@ async fn grants_scope_expire_revoke_and_protect() -> anyhow::Result<()> {
 		AUDIT_CAPACITY as u64
 	);
 
-	// Removing the source ends every grant on it.
+	// Removing the source ends every grant on it, and re-adding the scope,
+	// which adopts the kept catalog under the same source id, revives none.
 	DeleteSourceAction::from_input(DeleteSourceInput {
 		source_id: source.id.to_string(),
 		delete_catalog: false,
@@ -372,7 +373,13 @@ async fn grants_scope_expire_revoke_and_protect() -> anyhow::Result<()> {
 	.await?;
 	assert_eq!(
 		check(&harness, &live.token, "docs/readme.md", GrantCap::Read).await,
-		Err(GrantError::SourceGone)
+		Err(GrantError::Revoked)
+	);
+	let readded = tracked.track().await?;
+	assert_eq!(readded.id, source.id, "the kept catalog keeps its identity");
+	assert_eq!(
+		check(&harness, &live.token, "docs/readme.md", GrantCap::Read).await,
+		Err(GrantError::Revoked)
 	);
 
 	harness.shutdown().await
