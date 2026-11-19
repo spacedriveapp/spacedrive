@@ -778,15 +778,15 @@ pub async fn reconcile_source_with(
 				.await
 				.known_children(&map_spelling(dir))
 				.unwrap_or_default();
-			// Notified like any other removal, one batch per child, so an
-			// open listing of the directory drops what left.
+			// One deletion event per direct child, since a batched writer
+			// announces no deletions, so an open listing drops what left.
+			// A child directory's subtree goes with it in one event.
 			for child in children {
-				writer
-					.apply(Seen::Lost {
-						path: child.path,
-						is_directory: child.kind == EntryKind::Directory,
-					})
-					.await;
+				loud.apply(Seen::Lost {
+					path: child.path,
+					is_directory: child.kind == EntryKind::Directory,
+				})
+				.await;
 				report.removed += child.entries;
 			}
 		}
