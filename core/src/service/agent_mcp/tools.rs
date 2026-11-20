@@ -1,5 +1,9 @@
 //! The curated tool set.
 //!
+//! A tool is a [`Tool`] variant with its name, the capability it needs, its
+//! entry in [`definitions`] and its arm in [`call`]. The transport reads all of
+//! that from here, so adding a tool touches only this file.
+//!
 //! Every tool takes a path relative to the grant root and works on the
 //! [`GrantScope::path`] the grant check resolved, never on the path it was
 //! sent. Walkers do not follow links. Every path in a result is relative to
@@ -26,7 +30,7 @@ use crate::{
 	context::CoreContext,
 	domain::addressing::SdPath,
 	ops::{
-		grants::GrantScope,
+		grants::{GrantCap, GrantScope},
 		indexing::metadata::{refuse_dataless_blocking, DATALESS_REASON},
 		search::{
 			arena_search::search_arena,
@@ -48,17 +52,41 @@ pub enum Tool {
 }
 
 impl Tool {
+	pub const ALL: [Tool; 7] = [
+		Self::GetSkill,
+		Self::ListDir,
+		Self::Stat,
+		Self::Read,
+		Self::Glob,
+		Self::Grep,
+		Self::Search,
+	];
+
+	pub fn name(self) -> &'static str {
+		match self {
+			Self::ListDir => "list_dir",
+			Self::Stat => "stat",
+			Self::Read => "read",
+			Self::Glob => "glob",
+			Self::Grep => "grep",
+			Self::Search => "search",
+			Self::GetSkill => "get_skill",
+		}
+	}
+
 	pub fn parse(name: &str) -> Option<Self> {
-		Some(match name {
-			"list_dir" => Self::ListDir,
-			"stat" => Self::Stat,
-			"read" => Self::Read,
-			"glob" => Self::Glob,
-			"grep" => Self::Grep,
-			"search" => Self::Search,
-			"get_skill" => Self::GetSkill,
-			_ => return None,
-		})
+		Self::ALL.into_iter().find(|tool| tool.name() == name)
+	}
+
+	/// The capability the grant check asks for on this tool's path.
+	pub fn cap(self) -> GrantCap {
+		GrantCap::Read
+	}
+
+	/// Whether a grant may run only one call of this tool at a time, for
+	/// tools whose cost is a scan of the whole subtree.
+	pub fn exclusive(self) -> bool {
+		self == Self::Grep
 	}
 }
 
@@ -843,9 +871,10 @@ mod tests {
 			.iter()
 			.map(|t| t["name"].as_str().unwrap())
 			.collect();
-		assert_eq!(names.len(), 7);
-		for name in names {
-			assert!(Tool::parse(name).is_some(), "{name}");
+		let all: Vec<&str> = Tool::ALL.iter().map(|tool| tool.name()).collect();
+		assert_eq!(names, all, "one definition per tool, in order");
+		for tool in Tool::ALL {
+			assert_eq!(Tool::parse(tool.name()), Some(tool));
 		}
 	}
 
@@ -866,7 +895,7 @@ mod tests {
 		let scope = GrantScope {
 			grant_id: uuid::Uuid::new_v4(),
 			library_id: uuid::Uuid::new_v4(),
-			cap: crate::ops::grants::GrantCap::Read,
+			cap: GrantCap::Read,
 			path: root.join("cloud.txt"),
 			relative: PathBuf::from("cloud.txt"),
 			root: root.clone(),

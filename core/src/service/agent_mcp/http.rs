@@ -344,16 +344,18 @@ impl Request {
 		self.id.clone().unwrap_or(Value::Null)
 	}
 
-	/// The audit name and the grant-relative path this message touches.
-	fn target(&self) -> (String, String) {
+	/// The audit name, the grant-relative path and the capability this
+	/// message needs.
+	fn target(&self) -> (String, String, GrantCap) {
 		match self.method.as_deref() {
 			Some("tools/call") => {
 				let name = self.params["name"].as_str().unwrap_or("unknown");
 				let path = self.params["arguments"]["path"].as_str().unwrap_or("");
-				(format!("mcp.{name}"), path.to_string())
+				let cap = tools::Tool::parse(name).map_or(GrantCap::Read, tools::Tool::cap);
+				(format!("mcp.{name}"), path.to_string(), cap)
 			}
-			Some(method) => (format!("mcp.{method}"), String::new()),
-			None => ("mcp.response".to_string(), String::new()),
+			Some(method) => (format!("mcp.{method}"), String::new(), GrantCap::Read),
+			None => ("mcp.response".to_string(), String::new(), GrantCap::Read),
 		}
 	}
 }
@@ -366,17 +368,10 @@ async fn check(
 	token: &str,
 	op: &str,
 	path: &str,
+	cap: GrantCap,
 	id: &Value,
 ) -> Result<GrantScope, Response> {
-	match authorize(
-		&endpoint.context,
-		token,
-		op,
-		Path::new(path),
-		GrantCap::Read,
-	)
-	.await
-	{
+	match authorize(&endpoint.context, token, op, Path::new(path), cap).await {
 		Ok(scope) => Ok(scope),
 		Err(refusal) if refusal.is_credential() => {
 			endpoint.auth_failed(ip);
@@ -422,8 +417,8 @@ async fn post(endpoint: &Arc<Endpoint>, ip: IpAddr, headers: &HeaderMap, body: &
 		}
 	}
 
-	let (op, path) = request.target();
-	let scope = match check(endpoint, ip, token, &op, &path, &id).await {
+	let (op, path, cap) = request.target();
+	let scope = match check(endpoint, ip, token, &op, &path, cap, &id).await {
 		Ok(scope) => scope,
 		Err(response) => return response,
 	};
@@ -490,7 +485,7 @@ async fn call(endpoint: &Arc<Endpoint>, scope: GrantScope, request: Request) -> 
 		.get("arguments")
 		.cloned()
 		.unwrap_or_else(|| json!({}));
-	let slot = match endpoint.begin_call(scope.grant_id, tool == tools::Tool::Grep) {
+	let slot = match endpoint.begin_call(scope.grant_id, tool.exclusive()) {
 		Ok(slot) => slot,
 		Err(reason) => return too_many(id, Duration::from_secs(1), &reason),
 	};
@@ -562,7 +557,17 @@ async fn delete(endpoint: &Arc<Endpoint>, ip: IpAddr, headers: &HeaderMap) -> Re
 		endpoint.auth_failed(ip);
 		return unauthorized(Value::Null);
 	};
-	let scope = match check(endpoint, ip, token, "mcp.session.end", "", &Value::Null).await {
+	let scope = match check(
+		endpoint,
+		ip,
+		token,
+		"mcp.session.end",
+		"",
+		GrantCap::Read,
+		&Value::Null,
+	)
+	.await
+	{
 		Ok(scope) => scope,
 		Err(response) => return response,
 	};
