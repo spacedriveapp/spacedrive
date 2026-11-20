@@ -6,7 +6,7 @@ use clap::Subcommand;
 use crate::context::Context;
 use crate::util::prelude::*;
 
-use sd_core::ops::search::{output::FileSearchOutput, query::FileSearchQuery};
+use sd_core::ops::search::{grep::GrepOutput, output::FileSearchOutput, query::FileSearchQuery};
 
 use self::args::*;
 
@@ -14,10 +14,46 @@ use self::args::*;
 pub enum SearchCmd {
 	/// Search for files
 	Files(FileSearchArgs),
+	/// Search file contents under a path, live, with no index
+	Grep(GrepArgs),
 }
 
 pub async fn run(ctx: &Context, cmd: SearchCmd) -> Result<()> {
 	match cmd {
+		SearchCmd::Grep(args) => {
+			let path = args.path.clone().unwrap_or_else(|| ".".into());
+			let path = crate::domains::file::requested_path(ctx, &path)?;
+			let input = args.into_input(path);
+			let out: GrepOutput = execute_query!(ctx, input);
+			print_output!(ctx, &out, |o: &GrepOutput| {
+				let context = o
+					.matches
+					.iter()
+					.any(|m| !m.before.is_empty() || !m.after.is_empty());
+				for (i, m) in o.matches.iter().enumerate() {
+					if context && i > 0 {
+						println!("--");
+					}
+					let first = m.line_number.saturating_sub(m.before.len() as u64);
+					for (n, line) in m.before.iter().enumerate() {
+						println!("{}-{}-{}", m.path, first + n as u64, line);
+					}
+					println!("{}:{}:{}", m.path, m.line_number, m.line);
+					for (n, line) in m.after.iter().enumerate() {
+						println!("{}-{}-{}", m.path, m.line_number + 1 + n as u64, line);
+					}
+				}
+				eprintln!(
+					"{} matches, {} files searched, {} skipped (binary or over the size cap)",
+					o.matches.len(),
+					o.files_scanned,
+					o.files_skipped
+				);
+				if let Some(cursor) = &o.next_cursor {
+					eprintln!("More matches: --cursor {cursor}");
+				}
+			});
+		}
 		SearchCmd::Files(mut args) => {
 			if let Some(scope) = args.sd_path.as_mut().filter(|scope| !scope.contains("://")) {
 				let path = crate::domains::file::requested_path(ctx, std::path::Path::new(scope))?;
