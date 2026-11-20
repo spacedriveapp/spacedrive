@@ -1,3 +1,5 @@
+//! # Agent MCP path rules
+//!
 //! Path rules for what an agent sends and what the endpoint returns.
 //!
 //! The grant check already refuses `..` and anything that resolves outside

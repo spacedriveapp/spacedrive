@@ -1,3 +1,5 @@
+//! # Agent MCP tools
+//!
 //! The curated tool set.
 //!
 //! A tool is a [`Tool`] variant with its name, the capability it needs, its
@@ -480,71 +482,23 @@ fn read(scope: &GrantScope, args: ReadArgs, cancel: &AtomicBool) -> Result<Outpu
 	let path = paths::shown(&scope.relative);
 
 	if let Some(start_line) = args.start_line {
-		let start_line = start_line.max(1);
 		let count = args.line_count.unwrap_or(READ_DEFAULT_LINES).max(1);
-		let mut reader = BufReader::new(file);
-		let mut line = Vec::new();
-		let mut number = 0u64;
-		while number + 1 < start_line {
-			if number % 4096 == 0 && cancel.load(Ordering::Relaxed) {
-				return Err("cancelled".to_string());
-			}
-			line.clear();
-			if reader
-				.read_until(b'\n', &mut line)
-				.map_err(|e| io_message(&e))?
-				== 0
-			{
-				break;
-			}
-			number += 1;
-		}
-		let mut content = Vec::new();
-		let mut returned = 0u64;
-		let mut truncated = false;
-		let mut eof = false;
-		while returned < count {
-			line.clear();
-			if reader
-				.read_until(b'\n', &mut line)
-				.map_err(|e| io_message(&e))?
-				== 0
-			{
-				eof = true;
-				break;
-			}
-			if (content.len() + line.len()) as u64 > cap {
-				if returned == 0 {
-					content.extend_from_slice(&line[..cap as usize]);
-					returned = 1;
-				}
-				truncated = true;
-				break;
-			}
-			content.extend_from_slice(&line);
-			returned += 1;
-		}
-		if !eof && !truncated {
-			eof = reader
-				.fill_buf()
-				.map(|rest| rest.is_empty())
-				.unwrap_or(false);
-		}
-		let first = number + 1;
+		let lines = read_lines(file, start_line.max(1), count, cap, cancel)?;
 		let structured = json!({
 			"path": path,
 			"size": size,
-			"start_line": first,
-			"end_line": (returned > 0).then(|| first + returned - 1),
-			"lines_returned": returned,
-			"eof": eof,
-			"truncated": truncated,
-			"next_line": (!eof).then(|| if truncated && returned == 1 && content.len() as u64 == cap { first + 1 } else { first + returned }),
+			"start_line": lines.first,
+			"end_line": (lines.returned > 0).then(|| lines.first + lines.returned - 1),
+			"lines_returned": lines.returned,
+			"eof": lines.eof,
+			"truncated": lines.truncated,
+			"next_line": lines.next_line,
+			"next_offset": lines.next_offset,
 			"encoding": "utf-8",
 		});
 		return Ok(Output {
 			content: vec![
-				json!({ "type": "text", "text": String::from_utf8_lossy(&content) }),
+				json!({ "type": "text", "text": String::from_utf8_lossy(&lines.content) }),
 				json!({ "type": "text", "text": structured.to_string() }),
 			],
 			structured,
@@ -579,6 +533,110 @@ fn read(scope: &GrantScope, args: ReadArgs, cancel: &AtomicBool) -> Result<Outpu
 			json!({ "type": "text", "text": structured.to_string() }),
 		],
 		structured,
+	})
+}
+
+/// A line range read without holding more than the byte cap.
+struct Lines {
+	content: Vec<u8>,
+	first: u64,
+	/// Lines returned whole, counting a final line with no terminator.
+	returned: u64,
+	eof: bool,
+	truncated: bool,
+	/// Where to continue in line mode, when the read stopped between lines.
+	next_line: Option<u64>,
+	/// Where to continue in byte mode, when the cap cut a line.
+	next_offset: Option<u64>,
+}
+
+/// Read `count` lines from `start_line` in bounded chunks.
+///
+/// Skipped lines are scanned and dropped, never collected, and no line is
+/// held beyond `cap`, so a file without newlines costs one buffer however
+/// large it is. Cancellation is checked between chunks.
+fn read_lines(
+	file: File,
+	start_line: u64,
+	count: u64,
+	cap: u64,
+	cancel: &AtomicBool,
+) -> Result<Lines, String> {
+	let mut reader = BufReader::with_capacity(64 * 1024, file);
+	let mut position = 0u64;
+	let mut line = 1u64;
+	while line < start_line {
+		if cancel.load(Ordering::Relaxed) {
+			return Err("cancelled".to_string());
+		}
+		let buf = reader.fill_buf().map_err(|e| io_message(&e))?;
+		if buf.is_empty() {
+			break;
+		}
+		let used = match buf.iter().position(|&b| b == b'\n') {
+			Some(i) => {
+				line += 1;
+				i + 1
+			}
+			None => buf.len(),
+		};
+		reader.consume(used);
+		position += used as u64;
+	}
+
+	let first = line;
+	let mut content = Vec::new();
+	let mut returned = 0u64;
+	let mut at_line_start = true;
+	let mut truncated = false;
+	let mut eof = false;
+	while returned < count {
+		if cancel.load(Ordering::Relaxed) {
+			return Err("cancelled".to_string());
+		}
+		let buf = reader.fill_buf().map_err(|e| io_message(&e))?;
+		if buf.is_empty() {
+			eof = true;
+			break;
+		}
+		let room = (cap as usize).saturating_sub(content.len());
+		if room == 0 {
+			truncated = true;
+			break;
+		}
+		let (chunk, ends_line) = match buf.iter().position(|&b| b == b'\n') {
+			Some(i) => (i + 1, true),
+			None => (buf.len(), false),
+		};
+		let taken = chunk.min(room);
+		content.extend_from_slice(&buf[..taken]);
+		reader.consume(taken);
+		position += taken as u64;
+		if taken < chunk {
+			at_line_start = false;
+			truncated = true;
+			break;
+		}
+		at_line_start = ends_line;
+		if ends_line {
+			returned += 1;
+		}
+	}
+	if !eof {
+		eof = reader.fill_buf().map_err(|e| io_message(&e))?.is_empty();
+	}
+	if eof && !at_line_start {
+		returned += 1;
+		at_line_start = true;
+	}
+	Ok(Lines {
+		content,
+		first,
+		returned,
+		eof,
+		truncated,
+		next_line: (!eof && at_line_start).then_some(first + returned),
+		next_offset: (!eof && !at_line_start).then_some(position),
 	})
 }
 
@@ -671,7 +729,9 @@ fn glob(scope: &GrantScope, args: GlobArgs, cancel: &AtomicBool) -> Result<Outpu
 	let next = offset + matches.len();
 	Ok(Output::json(json!({
 		"matches": matches,
-		"next_cursor": (more || stopped).then(|| next.to_string()),
+		// Past the visit limit a re-walk only reaches the same entries, so a
+		// cursor is offered while pages still return matches.
+		"next_cursor": (more || (stopped && !matches.is_empty())).then(|| next.to_string()),
 		"visit_limit_reached": stopped,
 		"entries_visited": visited.min(GLOB_VISIT_MAX),
 	})))
@@ -827,8 +887,10 @@ async fn search(
 			paths
 				.iter()
 				.map(|path| {
-					let real = std::fs::canonicalize(path).ok()?;
-					real.strip_prefix(&root).ok().map(Path::to_path_buf)
+					std::fs::symlink_metadata(path).ok()?;
+					crate::ops::grants::scope::resolve(&root, path)
+						.ok()
+						.map(|resolved| resolved.relative)
 				})
 				.collect()
 		})
@@ -913,6 +975,79 @@ mod tests {
 		crate::ops::indexing::metadata::dataless_for_tests::mark(&scope.path);
 		let refused = read(&scope, args(), &cancel).err().unwrap();
 		assert!(refused.contains("cloud placeholder"), "{refused}");
+	}
+
+	fn lines(text: &[u8], start: u64, count: u64, cap: u64) -> Lines {
+		let dir = tempfile::tempdir().unwrap();
+		let path = dir.path().join("f");
+		std::fs::write(&path, text).unwrap();
+		read_lines(
+			File::open(&path).unwrap(),
+			start,
+			count,
+			cap,
+			&AtomicBool::new(false),
+		)
+		.unwrap()
+	}
+
+	#[test]
+	fn a_line_longer_than_the_cap_continues_by_offset() {
+		let long = vec![b'x'; 300_000];
+		let read = lines(&long, 1, 10, 65_536);
+		assert_eq!(read.content.len(), 65_536);
+		assert!(read.truncated && !read.eof);
+		assert_eq!(
+			(read.returned, read.next_line, read.next_offset),
+			(0, None, Some(65_536))
+		);
+	}
+
+	#[test]
+	fn skipped_lines_are_not_collected() {
+		let mut text = vec![b'y'; 500_000];
+		text.extend_from_slice(
+			b"
+second
+third",
+		);
+		let read = lines(&text, 2, 1, 1024);
+		assert_eq!(
+			read.content,
+			b"second
+"
+		);
+		assert_eq!((read.first, read.returned, read.next_line), (2, 1, Some(3)));
+		let read = lines(&text, 3, 5, 1024);
+		assert_eq!(read.content, b"third");
+		assert!(read.eof && read.next_line.is_none() && read.next_offset.is_none());
+		assert_eq!(read.returned, 1, "a final line without a terminator counts");
+	}
+
+	#[test]
+	fn a_cap_on_a_line_boundary_continues_by_line() {
+		let read = lines(
+			b"ab
+cd
+ef
+",
+			1,
+			10,
+			6,
+		);
+		assert_eq!(
+			read.content,
+			b"ab
+cd
+"
+		);
+		assert!(read.truncated);
+		assert_eq!((read.next_line, read.next_offset), (Some(3), None));
+		let read = lines(
+			b"ab
+", 5, 1, 6,
+		);
+		assert!(read.eof && read.content.is_empty() && read.returned == 0);
 	}
 
 	#[test]

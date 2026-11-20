@@ -30,15 +30,18 @@ time. After that, every call fails with HTTP 401.
   - By lines: start_line (1-based) and line_count.
   - One call returns at most 64 KiB or 2000 lines. Raise the byte cap with
     max_bytes, up to 1 MiB.
-  - Check truncated and eof in the result. Continue from next_offset or
-    next_line until eof is true.
+  - Check truncated and eof in the result. Continue from next_line in line
+    mode, or from next_offset in byte mode, until eof is true. When a line is
+    longer than the cap, line mode returns next_offset instead of next_line:
+    read the rest of that line in byte mode from there.
   - Text that is not UTF-8 comes back with encoding "base64".
   - A cloud placeholder, a file whose contents are not downloaded to this
     device, is refused rather than downloaded.
 - glob: names that match a pattern such as "**/*.rs", relative to path.
   Hidden files are included and .gitignore is respected by default. A call
-  visits at most 100,000 entries. When visit_limit_reached is true, narrow
-  path or continue with next_cursor.
+  visits at most 100,000 entries. When visit_limit_reached is true and
+  next_cursor is null, the rest of the tree was not visited: call glob again
+  on a narrower path.
 - grep: lines that match a regular expression, or a literal string with
   literal set to true. It is a live scan of the files on disk.
 - search: Spacedrive's index of file names and metadata. It is fast, but it

@@ -1,3 +1,5 @@
+//! # Agent MCP limits
+//!
 //! Per-grant and per-endpoint limits.
 //!
 //! The defaults are the table in `docs/core/design/agent-access-threat-model.md`.

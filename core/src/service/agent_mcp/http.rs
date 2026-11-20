@@ -1,3 +1,5 @@
+//! # Agent MCP transport
+//!
 //! The streamable HTTP transport, authentication, sessions and limits.
 //!
 //! Each request is checked in a fixed order so a refusal never depends on
