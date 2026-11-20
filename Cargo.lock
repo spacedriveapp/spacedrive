@@ -11911,6 +11911,7 @@ dependencies = [
  "async-trait",
  "axum",
  "backoff",
+ "base64 0.22.1",
  "bincode 2.0.0-rc.3",
  "bip39",
  "blake3",

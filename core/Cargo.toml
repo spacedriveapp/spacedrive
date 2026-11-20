@@ -86,6 +86,7 @@ ignore        = "0.4"
 
 # File operations
 blake3 = "1.5"  # Content addressing
+base64 = { workspace = true } # Binary payloads of agent writes
 # Archives: zip with deflate, and tar wrapped in the zstd already used for snapshots
 zip = { version = "4", default-features = false, features = ["deflate", "time"] }
 tar = "0.4"
