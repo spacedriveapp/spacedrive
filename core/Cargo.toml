@@ -90,6 +90,7 @@ bytes  = "1.7"  # Efficient byte buffers for I/O operations
 hex    = "0.4"  # Hex encoding for volume fingerprints
 notify = "6.1"  # File system watching
 sha2   = "0.10" # SHA-256 hashing for CAS IDs
+same-file = "1.0" # Directory identity for grant containment
 
 # Cloud storage integration
 opendal = { version = "0.54", features = [

@@ -150,6 +150,14 @@ pub const CORE_TESTS: &[TestSuite] = &[
 	// too; it rides the shorter acceptance job rather than the integration
 	// one, which sits near the hour.
 	acceptance("sd-cli", "MCP server test", &["--test", "mcp_test"]),
+	// Agent grants (docs/core/design/agent-grants.md): scope, expiry,
+	// revocation and protected files in the core, and `sd grant` end to end.
+	acceptance(
+		"sd-core",
+		"Agent grants acceptance test",
+		&["--test", "agent_grants_acceptance_test"],
+	),
+	acceptance("sd-cli", "Grant CLI test", &["--test", "grant_test"]),
 	acceptance(
 		"sd-core",
 		"Source runtime acceptance test",

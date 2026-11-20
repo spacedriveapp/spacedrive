@@ -40,6 +40,7 @@ use crate::domains::{
 	devices::{self, DevicesCmd},
 	events::{self, EventsCmd},
 	file::{self, FileCmd},
+	grant::{self, GrantCmd},
 	index::{self, IndexCmd},
 	job::{self, JobCmd},
 	library::{self, LibraryCmd},
@@ -249,6 +250,9 @@ enum Commands {
 	/// File operations
 	#[command(subcommand)]
 	File(FileCmd),
+	/// Lend a folder to an agent with a scoped, expiring token
+	#[command(subcommand)]
+	Grant(GrantCmd),
 	/// Indexing operations
 	#[command(subcommand)]
 	Index(IndexCmd),
@@ -838,6 +842,7 @@ async fn run_client_command(
 		Commands::Events(cmd) => events::run(&ctx, cmd).await?,
 		Commands::Library(cmd) => library::run(&ctx, cmd).await?,
 		Commands::File(cmd) => file::run(&ctx, cmd).await?,
+		Commands::Grant(cmd) => grant::run(&ctx, cmd).await?,
 		Commands::Index(cmd) => index::run(&ctx, cmd).await?,
 		Commands::Thumbs(cmd) => thumbs::run(&ctx, cmd).await?,
 		Commands::Sources(cmd) => source::run(&ctx, cmd).await?,

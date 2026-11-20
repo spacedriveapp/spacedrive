@@ -593,6 +593,31 @@ folder_path: SdPath;
  */
 job_receipt?: JobReceipt | null };
 
+export type CreateGrantInput = { 
+/**
+ * The directory to grant, on this device.
+ */
+path: string; 
+/**
+ * Defaults to read-only.
+ */
+caps?: GrantCap | null; 
+/**
+ * Lifetime in seconds, from 5 minutes to 12 hours. Defaults to 1 hour.
+ */
+ttl_seconds?: number | null; 
+/**
+ * A name for the owner's list, such as the agent it was made for.
+ */
+label?: string | null };
+
+export type CreateGrantOutput = { grant: GrantInfo; 
+/**
+ * The bearer token. This is the only time it is shown; Spacedrive keeps
+ * only its hash.
+ */
+token: string };
+
 /**
  * Input for creating a new archive source
  */
@@ -1289,6 +1314,15 @@ executes_on: string;
  */
 strategy: string | null; estimated_files: number | null; estimated_bytes: number | null; free_space_after: number | null };
 
+export type ExtendGrantInput = { id: string; 
+/**
+ * The new lifetime in seconds from now, from 5 minutes to 12 hours.
+ * Defaults to 1 hour.
+ */
+ttl_seconds?: number | null };
+
+export type ExtendGrantOutput = { grant: GrantInfo };
+
 export type ExtensionCase = "lower" | "keep";
 
 export type ExtensionInfo = { id: string; name: string; version: string; jobs: ExtensionJobInfo[]; kinds: ExtensionKindInfo[]; viewers: ExtensionViewerInfo[] };
@@ -1942,6 +1976,47 @@ export type GetTagChildrenInput = {
 tag_id: string | null };
 
 export type GetTagChildrenOutput = { tags: Tag[] };
+
+export type GrantAuditEntry = { grant_id: string; op: string; path: string; allowed: boolean; reason: string | null; at: string };
+
+export type GrantAuditInput = { 
+/**
+ * Only this grant's requests. Every grant's when absent.
+ */
+grant_id: string | null; 
+/**
+ * At most this many entries, newest first. Defaults to 100.
+ */
+limit: number | null };
+
+export type GrantAuditOutput = { entries: GrantAuditEntry[] };
+
+/**
+ * What a grant lets its holder do.
+ */
+export type GrantCap = "read" | "read_write";
+
+/**
+ * A grant as the owner sees it. Never carries the token.
+ */
+export type GrantInfo = { id: string; source_id: string; 
+/**
+ * The granted directory, canonical at creation.
+ */
+subtree: string; caps: GrantCap; label: string | null; 
+/**
+ * The device that minted the grant.
+ */
+created_by: string; created_at: string; expires_at: string; revoked_at: string | null; status: GrantStatus; 
+/**
+ * When the grant last authorized a request, from the audit log.
+ */
+last_used_at: string | null };
+
+/**
+ * Whether a grant can still be used.
+ */
+export type GrantStatus = "active" | "expired" | "revoked";
 
 export type Granularity = 
 /**
@@ -3020,6 +3095,18 @@ supported: boolean; extensions: ExtensionInfo[];
  */
 conflicts: KindConflict[] };
 
+export type ListGrantsInput = { 
+/**
+ * Include expired and revoked grants. Only active ones otherwise.
+ */
+include_inactive?: boolean };
+
+export type ListGrantsOutput = { 
+/**
+ * Newest first.
+ */
+grants: GrantInfo[] };
+
 export type ListLibrariesInput = { 
 /**
  * Whether to include detailed statistics for each library
@@ -4086,6 +4173,10 @@ export type RestoreMode =
  * Create a library from the backup. Refuses to overwrite anything.
  */
 "new";
+
+export type RevokeGrantInput = { id: string };
+
+export type RevokeGrantOutput = { grant: GrantInfo };
 
 /**
  * Risk level for adding a path as a source
@@ -6019,6 +6110,9 @@ export type LibraryAction =
   |  { type: 'files.set_attributes'; input: FileSetAttributesInput; output: JobReceipt }
   |  { type: 'files.trash_empty'; input: FileTrashEmptyInput; output: TrashEmptyOutput }
   |  { type: 'files.undo'; input: FileUndoInput; output: JobReceipt }
+  |  { type: 'grants.create'; input: CreateGrantInput; output: CreateGrantOutput }
+  |  { type: 'grants.extend'; input: ExtendGrantInput; output: ExtendGrantOutput }
+  |  { type: 'grants.revoke'; input: RevokeGrantInput; output: RevokeGrantOutput }
   |  { type: 'indexing.start'; input: IndexInput; output: JobReceipt }
   |  { type: 'indexing.startup'; input: StartupIndexingInput; output: StartupIndexingOutput }
   |  { type: 'jobs.cancel'; input: JobCancelInput; output: JobCancelOutput }
@@ -6104,6 +6198,8 @@ export type LibraryQuery =
   |  { type: 'files.directory_listing'; input: DirectoryListingInput; output: DirectoryListingOutput }
   |  { type: 'files.media_listing'; input: MediaListingInput; output: MediaListingOutput }
   |  { type: 'files.trash_list'; input: TrashListInput; output: TrashListOutput }
+  |  { type: 'grants.audit'; input: GrantAuditInput; output: GrantAuditOutput }
+  |  { type: 'grants.list'; input: ListGrantsInput; output: ListGrantsOutput }
   |  { type: 'jobs.active'; input: ActiveJobsInput; output: ActiveJobsOutput }
   |  { type: 'jobs.get_copy_metadata'; input: CopyMetadataQueryInput; output: CopyMetadataOutput }
   |  { type: 'jobs.info'; input: JobInfoQueryInput; output: JobInfoOutput }
@@ -6223,6 +6319,9 @@ export const WIRE_METHODS = {
     'files.set_attributes': 'action:files.set_attributes.input',
     'files.trash_empty': 'action:files.trash_empty.input',
     'files.undo': 'action:files.undo.input',
+    'grants.create': 'action:grants.create.input',
+    'grants.extend': 'action:grants.extend.input',
+    'grants.revoke': 'action:grants.revoke.input',
     'indexing.start': 'action:indexing.start.input',
     'indexing.startup': 'action:indexing.startup.input',
     'jobs.cancel': 'action:jobs.cancel.input',
@@ -6308,6 +6407,8 @@ export const WIRE_METHODS = {
     'files.directory_listing': 'query:files.directory_listing',
     'files.media_listing': 'query:files.media_listing',
     'files.trash_list': 'query:files.trash_list',
+    'grants.audit': 'query:grants.audit',
+    'grants.list': 'query:grants.list',
     'jobs.active': 'query:jobs.active',
     'jobs.get_copy_metadata': 'query:jobs.get_copy_metadata',
     'jobs.info': 'query:jobs.info',

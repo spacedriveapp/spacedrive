@@ -17,6 +17,7 @@ pub mod devices;
 pub mod extension_test;
 pub mod extensions;
 pub mod files;
+pub mod grants;
 pub mod indexing;
 pub mod jobs;
 pub mod libraries;
