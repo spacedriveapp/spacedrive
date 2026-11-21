@@ -1,0 +1,159 @@
+---
+title: Connect with OAuth
+sidebarTitle: Connect with OAuth
+description: Connect an MCP client to the agent endpoint with only its URL, and pick the folder in your browser
+---
+
+The agent MCP endpoint accepts two kinds of credential. You can paste a grant
+token into the client, as [Agent access](/docs/cli/agent-access) shows. Or the
+client can run the MCP authorization flow: it opens a page in your browser, you
+pick the folder, the access and how long it lasts, and the client receives a
+token without you copying anything.
+
+Both paths end in the same thing, a grant. An OAuth token is a grant token, so
+it has the same scope, limits, audit log and expiry, and `sd grant revoke`
+ends it.
+
+## Before you start
+
+Turn on the endpoint and restart the daemon:
+
+```bash
+sd config set agent_mcp.enabled true
+sd restart
+```
+
+The folder you lend must be inside a source you track. The endpoint listens on
+`127.0.0.1:7765` by default and accepts loopback addresses only, so the client
+must run on the same computer as the daemon.
+
+## Connect a client
+
+Add the server with its URL and no header. The client finds the rest.
+
+Claude Code:
+
+```bash
+claude mcp add --transport http spacedrive http://127.0.0.1:7765/mcp
+```
+
+Then run `/mcp` in Claude Code and choose to authenticate the `spacedrive`
+server.
+
+Codex:
+
+```bash
+codex mcp add spacedrive --url http://127.0.0.1:7765/mcp
+codex mcp login spacedrive
+```
+
+Cursor, in `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "spacedrive": { "url": "http://127.0.0.1:7765/mcp" }
+  }
+}
+```
+
+Each client opens your browser on the daemon's consent page.
+
+## Approve on the consent page
+
+The page shows the name the client registered with. Spacedrive cannot verify
+that name, so check that you started the connection. Then choose:
+
+- **Folder**: the folder to lend. It suggests the roots of your tracked
+  sources. The client can reach this folder and everything inside it.
+- **Access**: read only, or read and write. Read only is selected even when
+  the client asks for write. The endpoint's tools are read only today, so read
+  and write changes nothing yet.
+- **Access ends after**: 15 minutes, 1 hour, 4 hours or 12 hours.
+
+Select **Allow** to mint the grant and return to the client, or **Deny** to
+send the client an `access_denied` error. Deny works without filling in the
+form. The page expires after 10 minutes.
+
+## Manage access
+
+`sd grant list` shows an OAuth grant with the client's name and `(OAuth)` in
+its label. You manage it like any other grant:
+
+```bash
+sd grant list
+sd grant extend <id> --ttl 4h
+sd grant revoke <id>
+```
+
+After you revoke a grant, the client's next request answers 401 and its
+refresh token is refused. The client has to ask you again on the consent page.
+
+The client refreshes its token with a refresh token. A refresh gives it a new
+access token and a new refresh token for the same grant, and the old ones stop
+working. A refresh never extends the grant. When the lifetime you picked has
+passed, the client sends you back to the consent page. To keep a client
+connected longer, extend the grant.
+
+A client can also end its own grant through the revocation endpoint, which
+some clients do when you remove the server.
+
+## Clients that cannot connect
+
+Some chat apps add remote servers as connectors that their provider's servers
+reach over the internet, not from your computer. Those services require a
+public HTTPS address, so they cannot reach an endpoint on `127.0.0.1`. Use a
+client that runs on your computer, or the stdio server from
+[`sd mcp`](/docs/cli/mcp).
+
+Clients that run inside a browser tab cannot connect either. The endpoint
+refuses requests that carry an `Origin` header from another site and sends no
+CORS headers.
+
+## How the flow works
+
+The endpoint follows the MCP authorization specification. The daemon is both
+the server that holds your files and the authorization server, so no outside
+identity provider is involved and nothing leaves your computer.
+
+1. The client calls `/mcp` with no token. The 401 carries
+   `WWW-Authenticate: Bearer resource_metadata="http://127.0.0.1:7765/.well-known/oauth-protected-resource/mcp"`.
+2. The protected resource metadata (RFC 9728) names the daemon as the
+   authorization server. Its metadata (RFC 8414) is at
+   `/.well-known/oauth-authorization-server`.
+3. The client registers at `/oauth/register` (RFC 7591). It is a public
+   client with no secret. Redirect addresses must be `https`, `http` on a
+   loopback host, or an app's own scheme.
+4. The client opens `/oauth/authorize` in your browser with a PKCE S256
+   challenge. You approve on the consent page and the browser returns to the
+   client with a code, the client's `state` and `iss` (RFC 9207).
+5. The client exchanges the code and its PKCE verifier at `/oauth/token` for
+   an access token (`sdg_...`) and a refresh token (`sdr_...`).
+6. The client calls `/mcp` with `Authorization: Bearer sdg_...`.
+
+The rules the endpoint enforces:
+
+- PKCE with S256 is required. The `plain` method is refused.
+- A code works once, within 60 seconds. A second use, or a use with the wrong
+  verifier, revokes the grant the code produced.
+- Refresh tokens rotate on every use. Presenting any refresh token that was
+  already rotated, however many rotations ago, revokes the grant, since only a
+  copy could still hold it.
+- The `resource` parameter (RFC 8707), when sent, must name this endpoint.
+- The consent form accepts posts only from its own page, carries a one-time
+  request id, and cannot be framed.
+- Only hashes of access and refresh tokens are stored. Codes and pending
+  requests live in memory and are lost when the daemon restarts.
+- Registered clients are kept in `agent_mcp_oauth_clients.json` in the data
+  directory, at most 100. They hold no secrets.
+- Failed code and refresh exchanges count toward the same lockout as failed
+  bearer tokens: 20 in a minute refuses the address for 5 minutes.
+
+| Endpoint | Method | Purpose |
+| --- | --- | --- |
+| `/.well-known/oauth-protected-resource/mcp` | GET | Protected resource metadata |
+| `/.well-known/oauth-authorization-server` | GET | Authorization server metadata |
+| `/oauth/register` | POST | Dynamic client registration |
+| `/oauth/authorize` | GET, POST | Consent page and its form |
+| `/oauth/token` | POST | Code and refresh token exchange |
+| `/oauth/revoke` | POST | Token revocation (RFC 7009) |

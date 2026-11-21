@@ -9,6 +9,7 @@ pub mod device_state_tombstone;
 pub mod tag_staging;
 
 pub mod agent_grant;
+pub mod agent_grant_spent_refresh;
 pub mod assertion_outbox;
 pub mod audit_log;
 pub mod grant_audit;

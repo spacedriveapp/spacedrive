@@ -37,6 +37,7 @@
 
 mod http;
 mod limits;
+mod oauth;
 mod paths;
 mod tools;
 

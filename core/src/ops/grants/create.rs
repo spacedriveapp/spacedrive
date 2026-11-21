@@ -10,7 +10,7 @@ use std::{
 	sync::Arc,
 };
 
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use sea_orm::{ActiveValue::Set, EntityTrait};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -73,63 +73,122 @@ impl LibraryAction for CreateGrantAction {
 		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
 		let lifetime = ttl(self.input.ttl_seconds).map_err(ActionError::InvalidInput)?;
-		let db = library.db().conn();
-
-		let requested = self.input.path.clone();
-		let subtree = tokio::task::spawn_blocking(move || directory(&requested))
-			.await
-			.map_err(|e| ActionError::Internal(e.to_string()))??;
-		let source_id = owning_source(&context, library.id(), &subtree)
-			.await
-			.map_err(ActionError::Internal)?
-			.map(|(id, _)| id)
-			.ok_or_else(|| {
-				ActionError::InvalidInput(format!(
-					"{} is not inside a source of this library; track it first with `sd sources track`",
-					subtree.display()
-				))
-			})?;
-
-		let created_by = context
-			.device_manager
-			.device_id()
-			.map_err(|e| ActionError::Internal(format!("no device identity: {e}")))?
-			.to_string();
-		let (token, token_hash) = token::mint();
-		let id = Uuid::now_v7();
-		let now = Utc::now();
-		agent_grant::Entity::insert(agent_grant::ActiveModel {
-			uuid: Set(id),
-			token_hash: Set(token_hash),
-			source_id: Set(source_id),
-			subtree: Set(subtree.to_string_lossy().into_owned()),
-			caps: Set(self
-				.input
-				.caps
-				.unwrap_or(GrantCap::Read)
-				.as_str()
-				.to_string()),
-			label: Set(self.input.label.clone()),
-			created_by: Set(created_by),
-			created_at: Set(now),
-			expires_at: Set(now + lifetime),
-			revoked_at: Set(None),
-			..Default::default()
+		let target = target(&context, library.id(), &self.input.path).await?;
+		let minted = insert(
+			&context,
+			&library,
+			Mint {
+				target,
+				caps: self.input.caps.unwrap_or(GrantCap::Read),
+				lifetime,
+				label: self.input.label.clone(),
+				oauth_client: None,
+			},
+		)
+		.await?;
+		Ok(CreateGrantOutput {
+			grant: minted.grant,
+			token: minted.token,
 		})
-		.exec(db)
-		.await
-		.map_err(|e| ActionError::Internal(format!("store grant: {e}")))?;
-
-		info!(grant = %id, subtree = %subtree.display(), "grant created");
-		let grant = store::info_by_id(db, id)
-			.await
-			.map_err(|e| ActionError::Internal(e.to_string()))?;
-		Ok(CreateGrantOutput { grant, token })
 	}
 
 	fn action_kind(&self) -> &'static str {
 		"grants.create"
 	}
+}
+
+/// A directory to grant and the source it belongs to, both checked.
+#[derive(Debug, Clone)]
+pub(crate) struct Target {
+	pub subtree: PathBuf,
+	pub source_id: Uuid,
+}
+
+/// Everything a new grant row needs.
+pub(crate) struct Mint {
+	pub target: Target,
+	pub caps: GrantCap,
+	pub lifetime: Duration,
+	pub label: Option<String>,
+	/// Set for a grant issued through OAuth, which also gets a refresh token.
+	pub oauth_client: Option<String>,
+}
+
+/// A new grant and its secrets, each shown only here.
+pub(crate) struct Minted {
+	pub grant: GrantInfo,
+	pub token: String,
+	pub refresh: Option<String>,
+}
+
+/// Canonicalize `path` and find the source of `library` that holds it.
+pub(crate) async fn target(
+	context: &CoreContext,
+	library: Uuid,
+	path: &Path,
+) -> Result<Target, ActionError> {
+	let requested = path.to_path_buf();
+	let subtree = tokio::task::spawn_blocking(move || directory(&requested))
+		.await
+		.map_err(|e| ActionError::Internal(e.to_string()))??;
+	let source_id = owning_source(context, library, &subtree)
+		.await
+		.map_err(ActionError::Internal)?
+		.map(|(id, _)| id)
+		.ok_or_else(|| {
+			ActionError::InvalidInput(format!(
+				"{} is not inside a source of this library; track it first with `sd sources track`",
+				subtree.display()
+			))
+		})?;
+	Ok(Target { subtree, source_id })
+}
+
+/// Write a grant row. The owner's action and the OAuth consent page both
+/// mint through here, so a grant is the same thing whichever way it came.
+pub(crate) async fn insert(
+	context: &CoreContext,
+	library: &Library,
+	mint: Mint,
+) -> Result<Minted, ActionError> {
+	let db = library.db().conn();
+	let created_by = context
+		.device_manager
+		.device_id()
+		.map_err(|e| ActionError::Internal(format!("no device identity: {e}")))?
+		.to_string();
+	let (token, token_hash) = token::mint();
+	let refresh = mint.oauth_client.as_ref().map(|_| token::mint_refresh());
+	let id = Uuid::now_v7();
+	let now = Utc::now();
+	agent_grant::Entity::insert(agent_grant::ActiveModel {
+		uuid: Set(id),
+		token_hash: Set(token_hash),
+		source_id: Set(mint.target.source_id),
+		subtree: Set(mint.target.subtree.to_string_lossy().into_owned()),
+		caps: Set(mint.caps.as_str().to_string()),
+		label: Set(mint.label),
+		created_by: Set(created_by),
+		created_at: Set(now),
+		expires_at: Set(now + mint.lifetime),
+		revoked_at: Set(None),
+		oauth_client: Set(mint.oauth_client),
+		refresh_hash: Set(refresh.as_ref().map(|(_, hash)| hash.clone())),
+		..Default::default()
+	})
+	.exec(db)
+	.await
+	.map_err(|e| ActionError::Internal(format!("store grant: {e}")))?;
+
+	info!(grant = %id, subtree = %mint.target.subtree.display(), "grant created");
+	let grant = store::info_by_id(db, id)
+		.await
+		.map_err(|e| ActionError::Internal(e.to_string()))?;
+	Ok(Minted {
+		grant,
+		token,
+		refresh: refresh.map(|(refresh, _)| refresh),
+	})
 }
 
 /// The canonical spelling of the directory to grant.

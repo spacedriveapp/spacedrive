@@ -24,7 +24,7 @@ use axum::{
 	extract::{ConnectInfo, DefaultBodyLimit, State},
 	http::{header, HeaderMap, HeaderValue, Method, StatusCode, Uri},
 	response::{IntoResponse, Response},
-	routing::any,
+	routing::{self, any, get},
 	Router,
 };
 use rand::RngCore;
@@ -35,7 +35,7 @@ use uuid::Uuid;
 
 use super::{
 	limits::{Bucket, ByteWindow, Failures, Limits},
-	paths, tools, MCP_PATH,
+	oauth, paths, tools, MCP_PATH,
 };
 use crate::{
 	context::CoreContext,
@@ -64,7 +64,8 @@ struct GrantUsage {
 /// What the endpoint holds between requests. Nothing here authorizes: a
 /// session or a usage row only narrows what a valid token may do.
 pub struct Endpoint {
-	context: Arc<CoreContext>,
+	pub(super) context: Arc<CoreContext>,
+	pub(super) oauth: oauth::OAuth,
 	bound: SocketAddr,
 	limits: Limits,
 	sessions: Mutex<HashMap<String, Session>>,
@@ -76,6 +77,7 @@ pub struct Endpoint {
 impl Endpoint {
 	pub fn new(context: Arc<CoreContext>, bound: SocketAddr, limits: Limits) -> Self {
 		Self {
+			oauth: oauth::OAuth::new(context.data_dir.clone()),
 			context,
 			bound,
 			calls: Arc::new(Semaphore::new(limits.calls_total)),
@@ -97,7 +99,7 @@ impl Endpoint {
 		f(entry)
 	}
 
-	fn locked_out(&self, ip: IpAddr) -> Option<Duration> {
+	pub(super) fn locked_out(&self, ip: IpAddr) -> Option<Duration> {
 		self.failures
 			.lock()
 			.expect("failures lock")
@@ -105,7 +107,7 @@ impl Endpoint {
 			.and_then(Failures::locked)
 	}
 
-	fn auth_failed(&self, ip: IpAddr) {
+	pub(super) fn auth_failed(&self, ip: IpAddr) {
 		self.failures
 			.lock()
 			.expect("failures lock")
@@ -227,8 +229,25 @@ impl Drop for CancelOnDrop {
 
 pub fn router(endpoint: Arc<Endpoint>) -> Router {
 	let body_limit = endpoint.limits.max_body_bytes;
+	let resource_metadata = format!("{}{MCP_PATH}", oauth::PROTECTED_RESOURCE_PATH);
 	Router::new()
 		.route(MCP_PATH, any(handle))
+		.route(
+			oauth::PROTECTED_RESOURCE_PATH,
+			get(oauth::protected_resource),
+		)
+		.route(&resource_metadata, get(oauth::protected_resource))
+		.route(
+			oauth::AUTHORIZATION_SERVER_PATH,
+			get(oauth::authorization_server),
+		)
+		.route(oauth::REGISTER_PATH, routing::post(oauth::register))
+		.route(
+			oauth::AUTHORIZE_PATH,
+			get(oauth::authorize).post(oauth::consent),
+		)
+		.route(oauth::TOKEN_PATH, routing::post(oauth::token))
+		.route(oauth::REVOKE_PATH, routing::post(oauth::revoke))
 		.layer(DefaultBodyLimit::max(body_limit))
 		.with_state(endpoint)
 }
@@ -244,9 +263,10 @@ async fn handle(
 	if let Err(refusal) = screen(&endpoint, &headers, &uri) {
 		return refusal;
 	}
+	let base = oauth::base_url(&headers);
 	match method {
-		Method::POST => post(&endpoint, peer.ip(), &headers, &body).await,
-		Method::DELETE => delete(&endpoint, peer.ip(), &headers).await,
+		Method::POST => post(&endpoint, peer.ip(), &base, &headers, &body).await,
+		Method::DELETE => delete(&endpoint, peer.ip(), &base, &headers).await,
 		Method::GET => {
 			let mut response = plain(
 				StatusCode::METHOD_NOT_ALLOWED,
@@ -268,23 +288,7 @@ async fn handle(
 /// clients outside a browser send none, and the endpoint sends no CORS
 /// headers. A token in the query string is refused before it can be used.
 fn screen(endpoint: &Endpoint, headers: &HeaderMap, uri: &Uri) -> Result<(), Response> {
-	let header_bytes: usize = headers
-		.iter()
-		.map(|(name, value)| name.as_str().len() + value.len())
-		.sum();
-	if header_bytes > endpoint.limits.max_header_bytes {
-		return Err(plain(
-			StatusCode::REQUEST_HEADER_FIELDS_TOO_LARGE,
-			"request headers are too large",
-		));
-	}
-	let host_ok = headers
-		.get(header::HOST)
-		.and_then(|host| host.to_str().ok())
-		.is_some_and(|host| loopback_host(host, endpoint.bound.port()));
-	if !host_ok {
-		return Err(plain(StatusCode::FORBIDDEN, "not a loopback host"));
-	}
+	endpoint.screen_host(headers)?;
 	if headers.contains_key(header::ORIGIN) {
 		return Err(plain(StatusCode::FORBIDDEN, "origin not allowed"));
 	}
@@ -298,6 +302,30 @@ fn screen(endpoint: &Endpoint, headers: &HeaderMap, uri: &Uri) -> Result<(), Res
 		}
 	}
 	Ok(())
+}
+
+impl Endpoint {
+	/// The header size and Host checks every route shares.
+	pub(super) fn screen_host(&self, headers: &HeaderMap) -> Result<(), Response> {
+		let header_bytes: usize = headers
+			.iter()
+			.map(|(name, value)| name.as_str().len() + value.len())
+			.sum();
+		if header_bytes > self.limits.max_header_bytes {
+			return Err(plain(
+				StatusCode::REQUEST_HEADER_FIELDS_TOO_LARGE,
+				"request headers are too large",
+			));
+		}
+		let host_ok = headers
+			.get(header::HOST)
+			.and_then(|host| host.to_str().ok())
+			.is_some_and(|host| loopback_host(host, self.bound.port()));
+		if !host_ok {
+			return Err(plain(StatusCode::FORBIDDEN, "not a loopback host"));
+		}
+		Ok(())
+	}
 }
 
 /// Whether `authority` is a loopback name with `port`.
@@ -367,6 +395,7 @@ impl Request {
 async fn check(
 	endpoint: &Endpoint,
 	ip: IpAddr,
+	base: &str,
 	token: &str,
 	op: &str,
 	path: &str,
@@ -377,7 +406,7 @@ async fn check(
 		Ok(scope) => Ok(scope),
 		Err(refusal) if refusal.is_credential() => {
 			endpoint.auth_failed(ip);
-			Err(unauthorized(id.clone()))
+			Err(unauthorized(id.clone(), base))
 		}
 		Err(GrantError::Internal(reason)) => {
 			warn!(%reason, "agent MCP request could not be authorized");
@@ -392,13 +421,19 @@ async fn check(
 	}
 }
 
-async fn post(endpoint: &Arc<Endpoint>, ip: IpAddr, headers: &HeaderMap, body: &[u8]) -> Response {
+async fn post(
+	endpoint: &Arc<Endpoint>,
+	ip: IpAddr,
+	base: &str,
+	headers: &HeaderMap,
+	body: &[u8],
+) -> Response {
 	if let Some(wait) = endpoint.locked_out(ip) {
 		return too_many(Value::Null, wait, "too many failed authentications");
 	}
 	let Some(token) = bearer(headers) else {
 		endpoint.auth_failed(ip);
-		return unauthorized(Value::Null);
+		return unauthorized(Value::Null, base);
 	};
 	let request = match Request::parse(body) {
 		Ok(request) => request,
@@ -420,7 +455,7 @@ async fn post(endpoint: &Arc<Endpoint>, ip: IpAddr, headers: &HeaderMap, body: &
 	}
 
 	let (op, path, cap) = request.target();
-	let scope = match check(endpoint, ip, token, &op, &path, cap, &id).await {
+	let scope = match check(endpoint, ip, base, token, &op, &path, cap, &id).await {
 		Ok(scope) => scope,
 		Err(response) => return response,
 	};
@@ -471,13 +506,14 @@ async fn post(endpoint: &Arc<Endpoint>, ip: IpAddr, headers: &HeaderMap, body: &
 	match request.method.as_deref() {
 		Some("ping") => rpc_result(id, json!({})),
 		Some("tools/list") => rpc_result(id, json!({ "tools": tools::definitions() })),
-		Some("tools/call") => call(endpoint, token, scope, request).await,
+		Some("tools/call") => call(endpoint, base, token, scope, request).await,
 		_ => rpc_error(StatusCode::OK, id, -32601, "method not found"),
 	}
 }
 
 async fn call(
 	endpoint: &Arc<Endpoint>,
+	base: &str,
 	token: &str,
 	scope: GrantScope,
 	request: Request,
@@ -513,7 +549,7 @@ async fn call(
 		outcome = tokio::time::timeout(endpoint.limits.call_timeout, work) => outcome,
 		_ = ended(endpoint, library, grant) => {
 			debug!(%grant, "cancelled a tool call whose grant ended");
-			return unauthorized(id);
+			return unauthorized(id, base);
 		}
 	};
 	let result = match outcome {
@@ -557,17 +593,18 @@ async fn ended(endpoint: &Endpoint, library_id: Uuid, grant: Uuid) {
 	}
 }
 
-async fn delete(endpoint: &Arc<Endpoint>, ip: IpAddr, headers: &HeaderMap) -> Response {
+async fn delete(endpoint: &Arc<Endpoint>, ip: IpAddr, base: &str, headers: &HeaderMap) -> Response {
 	if let Some(wait) = endpoint.locked_out(ip) {
 		return too_many(Value::Null, wait, "too many failed authentications");
 	}
 	let Some(token) = bearer(headers) else {
 		endpoint.auth_failed(ip);
-		return unauthorized(Value::Null);
+		return unauthorized(Value::Null, base);
 	};
 	let scope = match check(
 		endpoint,
 		ip,
+		base,
 		token,
 		"mcp.session.end",
 		"",
@@ -649,18 +686,20 @@ fn rpc_error(status: StatusCode, id: Value, code: i64, message: &str) -> Respons
 }
 
 /// The one answer for an unknown, expired or revoked token, so the response
-/// never tells them apart.
-fn unauthorized(id: Value) -> Response {
+/// never tells them apart. The challenge points an OAuth client at the
+/// metadata it needs to get a new token.
+fn unauthorized(id: Value, base: &str) -> Response {
 	let mut response = rpc_error(
 		StatusCode::UNAUTHORIZED,
 		id,
 		REFUSED,
 		"invalid, expired or revoked grant token",
 	);
-	response.headers_mut().insert(
-		header::WWW_AUTHENTICATE,
-		HeaderValue::from_static("Bearer realm=\"spacedrive\""),
-	);
+	if let Ok(value) = HeaderValue::from_str(&oauth::challenge(base)) {
+		response
+			.headers_mut()
+			.insert(header::WWW_AUTHENTICATE, value);
+	}
 	response
 }
 
