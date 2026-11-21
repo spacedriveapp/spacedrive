@@ -6,5 +6,7 @@
 	<string>Spacedrive</string>
 	<key>CFBundleIconName</key>
 	<string>Spacedrive</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Spacedrive indexes your Photos library so you can browse and search its files.</string>
 </dict>
 </plist>

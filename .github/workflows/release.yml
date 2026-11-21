@@ -508,6 +508,15 @@ jobs:
             exit 1
           fi
           spctl --assess --type execute --verbose=2 "$app"
+          # Without this entitlement tccd refuses to prompt for the Photos library.
+          for bin in "$app" "$app/Contents/MacOS/sd-daemon"; do
+            entitlements=$(codesign -d --entitlements - --xml "$bin" 2>/dev/null)
+            if ! grep -q "com.apple.security.personal-information.photos-library" <<<"$entitlements"; then
+              echo "::error::$bin is missing the Photos library entitlement"
+              exit 1
+            fi
+            codesign -d --entitlements - "$bin"
+          done
 
       # tauri notarizes only the app inside the disk image, so a downloaded
       # .dmg would still prompt on first open without its own ticket.

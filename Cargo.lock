@@ -13395,6 +13395,7 @@ dependencies = [
  "sd-pvcache",
  "sd-sidecar-path",
  "sd-tauri-core",
+ "semver",
  "serde",
  "serde_json",
  "tauri",

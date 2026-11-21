@@ -67,4 +67,5 @@ default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 
 [dev-dependencies]
+semver = "1"
 tempfile = { workspace = true }

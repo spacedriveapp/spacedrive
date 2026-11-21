@@ -36,6 +36,18 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Beta.1 log and churn polish from the signed Studio proof (Capy FAN-12343,
+November 21). The desktop app checks the release feed from Rust
+(`apps/tauri/src-tauri/src/updater.rs`): a missing or unparseable
+`latest.json` is "no update" and logs at info, while network and signature
+failures log at warn; the plugin's own updater target is filtered off because
+it logs ERROR for a 404 feed. Ephemeral jobs no longer write their status to
+the jobs table, which logged ERROR when the row was absent. `JOB_PROGRESS`
+lines log at debug. `useJobs` in ts-client reads its callbacks through a ref,
+so the desktop app keeps one job-event subscription instead of reopening it on
+every progress event. The app and bundled daemon carry the Photos library
+entitlement, so tccd can prompt for `Photos Library.photoslibrary`.
+
 Walks move past folders behind unanswered privacy prompts (Capy FAN-12315,
 November 21, beta.1 blocker). On first launch macOS asks for Desktop,
 Documents and Downloads, and an unanswered prompt blocks the open of that

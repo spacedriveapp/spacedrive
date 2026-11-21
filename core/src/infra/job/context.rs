@@ -66,9 +66,9 @@ impl<'a> JobContext<'a> {
 			let _ = logger.log("PROGRESS", &progress.to_string());
 		}
 
-		// Debug logging for thumbnail job progress
+		// Walks report progress thousands of times, so this stays at debug.
 		if let Progress::Generic(ref gp) = progress {
-			tracing::info!(
+			tracing::debug!(
 				"JOB_PROGRESS: phase={}, percentage={}, completed={}/{}, message={}",
 				gp.phase,
 				gp.percentage,
