@@ -28,7 +28,9 @@ pub use library::Library;
 pub use media_data::{AudioMediaData, ImageMediaData, VideoMediaData};
 pub use resource::{EventEmitter, Identifiable};
 pub use resource_manager::ResourceManager;
-pub use sidecar::{SidecarFormat, SidecarKind, SidecarStatus, SidecarVariant};
+pub use sidecar::{
+	ContentSidecar, ProxyResolution, SidecarFormat, SidecarKind, SidecarStatus, SidecarVariant,
+};
 pub use space::{
 	GroupType, ItemType, Space, SpaceGroup, SpaceGroupWithItems, SpaceItem, SpaceLayout,
 };

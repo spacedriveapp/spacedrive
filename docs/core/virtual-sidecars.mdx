@@ -10,13 +10,78 @@ representations without modifying the original bytes.
 
 ## What exists today
 
-Thumbnail tiles are the first managed sidecar kind in the source world, and the
-only one so far. They are record-scoped: every file has a record from its first
+Thumbnail tiles are the first managed sidecar kind in the source world. Video
+proxies and speech audio, described under [Media sidecars](#media-sidecars),
+are the second. They are record-scoped: every file has a record from its first
 walk, while a content id arrives later and is re-derived when a full hash
 lands. They are retained as persistent sidecars of their source, and peers
 replicate them by reading everything a source has written after their cursor.
 [Thumbnail Generation](./thumbnail-generation.mdx) describes how they are made
 and used. The rest of this page is the model the remaining kinds follow.
+
+## Media sidecars
+
+Video proxies and speech audio are the first content-scoped sidecars. Every
+later step that reads footage (transcripts, shot detection, scene descriptions,
+faces, clip export) reads these files instead of the original, so their names
+and formats are fixed here.
+
+They live under the library directory:
+
+```
+<library>/sidecars/content/<h0>/<h1>/<content_uuid>/<kind_dir>/<variant>.<ext>
+```
+
+`h0` and `h1` are the first two byte-pairs of the content uuid in lowercase hex
+without hyphens. For a video whose content uuid is
+`abcd1234-5678-90ab-cdef-123456789012`:
+
+| Artifact | Path under `sidecars/` | Format |
+| --- | --- | --- |
+| Proxy, default | `content/ab/cd/abcd1234-…/proxies/720p.mp4` | H.264 High, yuv420p, short side 720 |
+| Proxy, optional | `content/ab/cd/abcd1234-…/proxies/1080p.mp4` | H.264 High, yuv420p, short side 1080 |
+| Speech audio | `content/ab/cd/abcd1234-…/audio/16k_mono.wav` | PCM signed 16-bit little-endian, 16 kHz, mono |
+
+The rules every reader can rely on:
+
+- The content uuid is the candidate id: `sd_store::content::uuid_for` of the
+  file's sampled hash, which is the `candidate_uuid` column of a source's
+  `content` table. It exists before a full hash does and does not change when
+  one lands. A moved, renamed or copied file keeps its sidecars.
+- A proxy keeps the display orientation of the original and never upscales: the
+  short side is 720 (or 1080), or the original's when that is smaller, rounded
+  down to an even number. It has a keyframe every second, so a seek or a clip
+  cut lands within one second of the requested time without re-encoding.
+- A proxy has the same frames as its original, at the same times. Frame timing
+  passes through with no rate conversion, a variable-rate source stays
+  variable, and the first frame is at time 0. Frame `n` of the proxy is frame
+  `n` of the original, so shot boundaries and timeline points found on the
+  proxy apply to the original unchanged. When the original has a start
+  timecode, the proxy carries the same one as a `tmcd` track and a
+  `timecode` tag, so an editor timeline that points at the proxy shows the
+  original's timecodes.
+- A proxy carries the first audio track as AAC stereo when the original has
+  one. Its index sits at the front of the file (`faststart`), so it plays over
+  a range request.
+- Speech audio is the first audio track, downmixed and resampled. A video with
+  no audio track has no audio sidecar.
+- A file at one of these paths is complete. Writers produce
+  `.<variant>.partial-<id>.<ext>` in the same directory and rename it into
+  place, so a reader never sees a half-written proxy. Ignore files that start
+  with a dot.
+- A change to a recipe that alters the output takes a new variant name, such as
+  `720p.r2`, rather than overwriting files readers already hold.
+
+Resolve paths with `ContentSidecar` in `core/src/domain/sidecar.rs`
+(`ContentSidecar::proxy(uuid, ProxyResolution::P720).path_in(library.path())`,
+`ContentSidecar::speech_audio(uuid)`), and get a file's content uuid with
+`content_uuid_of_file`. Processes that do not link the core use the
+`sd-sidecar-path` crate, which owns the directory names. The daemon serves the
+same files at `/sidecar/<library_id>/<content_uuid>/<kind>/<variant>.<ext>`,
+where `kind` is `proxy` or `audio`.
+
+The `media.proxies.generate` action writes them. It runs only in a daemon built
+with the `video-proxies` cargo feature, which is off by default.
 
 ## Sidecar classes
 

@@ -88,7 +88,7 @@ fn dynamic_image_tile(image: DynamicImage) -> Tile {
 	Tile::new(width, height, bgra).with_source(width, height)
 }
 
-pub(super) fn is_video(path: &std::path::Path) -> bool {
+pub(crate) fn is_video(path: &std::path::Path) -> bool {
 	let Some(extension) = path.extension().and_then(|extension| extension.to_str()) else {
 		return false;
 	};
