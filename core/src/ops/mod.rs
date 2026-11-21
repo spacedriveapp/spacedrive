@@ -11,6 +11,8 @@
 pub mod adapters;
 pub mod addressing;
 pub mod agent_write;
+#[cfg(feature = "ai-providers")]
+pub mod ai;
 pub mod config;
 // pub mod content;
 pub mod core;

@@ -10,6 +10,7 @@ use crate::tasks::*;
 #[derive(Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct AnalyzePhotosState {
+	/// Photos to analyze; empty means every image the grant reaches.
 	pub photo_ids: Vec<Uuid>,
 	pub current_index: usize,
 	/// Photos whose faces sidecar was written by this run.
@@ -28,6 +29,17 @@ pub struct AnalyzePhotosState {
 #[job(name = "analyze_photos")]
 pub async fn analyze_photos_batch(ctx: &JobContext, state: &mut AnalyzePhotosState) -> Result<()> {
 	ctx.progress(Progress::indeterminate("Analyzing photos for faces..."));
+	if state.photo_ids.is_empty() {
+		state.photo_ids = ctx
+			.vdfs()
+			.query_records()
+			.of_type::<Image>()
+			.collect()
+			.await?
+			.into_iter()
+			.map(|photo| photo.id())
+			.collect();
+	}
 
 	let photo_ids = state.photo_ids.clone();
 	let total = photo_ids.len();

@@ -65,6 +65,18 @@ is under "Media sidecars" in `docs/core/virtual-sidecars.mdx` and resolved by
 killed daemon; on Linux FFmpeg dies with the daemon. Transcripts, shots,
 descriptions, faces and clip export read these files.
 
+Inference providers behind `ai.infer` (Capy FAN-12388, November 22, off the
+beta.1 path). The `ai-providers` cargo feature, off by default, adds
+`core/src/ops/ai`: a registry per category (face detection, face embedding,
+scene classification, image caption, text embedding), local ONNX models
+downloaded through `ModelDownloadJob` with a pinned hash after the user
+accepts the license (`ai.models.download`), batched `ai.infer` requests, and a
+per-library bring-your-own-key cloud caption opt-in, off by default
+(`ai.cloud_caption.configure`). Photos gets face boxes with embeddings and
+scene labels from a daemon built with `wasm,ai-providers`. The model catalog
+waits on Jamie's approval of the license shortlist; CoreML is unproven.
+See `docs/core/inference.mdx`.
+
 Beta.1 log and churn polish from the signed Studio proof (Capy FAN-12343,
 November 21). The desktop app checks the release feed from Rust
 (`apps/tauri/src-tauri/src/updater.rs`): a missing or unparseable

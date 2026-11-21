@@ -5,7 +5,7 @@ A comprehensive photo management extension that brings Apple Photos and Google P
 ## Features
 
 ### Face Recognition
-- **Automatic face detection** using RetinaFace model
+- **Automatic face detection** through the core's face detection provider
 - **Face clustering** with DBSCAN algorithm
 - **Person identification** with name labeling
 - **Face-based search** ("Show me photos of Alice")
@@ -25,7 +25,7 @@ A comprehensive photo management extension that brings Apple Photos and Google P
 - **Moment timeline** view
 
 ### ️ Scene Understanding
-- **Scene classification** (ResNet50 on Places365)
+- **Scene classification** through the core's zero-shot scene provider
 - **Smart tags** (#beach, #sunset, #food)
 - **Scene-based search** ("Photos with sunsets")
 - **Quality scoring** (aesthetic assessment)
@@ -83,7 +83,7 @@ PhotosMind {
 2. Grant permissions to specific photo locations:
    - `/Users/alice/Photos`
    - `/Volumes/External/Family Photos`
-3. Extension downloads AI models (~107MB total)
+3. The user downloads the core's face and scene models (`ai.models.download`)
 4. User initiates analysis: "Analyze for Faces" button
 
 ### Analysis Flow
@@ -109,11 +109,7 @@ User can search "#person:alice" or "photos from beach"
 
 ```
 ~/.spacedrive/
-  └── models/
-      ├── face_detection/
-      │   └── photos_v1.onnx (12MB)
-      └── scene_classification/
-          └── resnet50.onnx (95MB)
+  └── models/providers/       # Core-owned models (docs/core/inference.mdx)
 
 .sdlibrary/
   ├── sidecars/
@@ -147,18 +143,21 @@ User can search "#person:alice" or "photos from beach"
 
 ### What runs today
 
-Under a daemon built with `--features wasm`, `analyze_photos` runs end to end
-over a library: it reads each photo through its record, asks for face
-detection, and because the core has no inference provider the host answers
-`not_available`; the job warns once, skips, and completes, so a later run with
-a detector picks the photos up. `core/tests/wasm_extension_test.rs` proves
-this against a fixture library.
+Under a daemon built with `--features wasm,ai-providers` and the face and
+scene models downloaded, `analyze_photos` writes a faces sidecar per photo
+(boxes as fractions of the upright image, each with a 512-dimension
+embedding because the manifest also grants `face_embedding`) and clusters the
+faces into people, and `analyze_scenes` writes a scene sidecar and tags each
+photo `Scenes/<label>` above the confidence threshold. Without the feature or
+the models the host answers `not_available`; the job warns once, skips, and
+completes, so a later run picks the photos up.
+`core/tests/wasm_extension_test.rs` proves the `not_available` path against a
+fixture library.
 
 ### Not yet backed by the core
 
-- Inference. There is no provider for face detection, scene classification,
-  embeddings or language models, so `analyze_scenes`, `identify_places` and
-  `create_moments` have nothing to run on.
+- Language models, so `identify_places` and `create_moments` titles have
+  nothing to run on.
 - Tags, custom fields and `dispatch_jobs`.
 - Agents, actions and queries.
 - Model downloads named in `manifest.json`.

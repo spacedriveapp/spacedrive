@@ -75,6 +75,15 @@ enabled: boolean;
 listen: string };
 
 /**
+ * Per-library inference settings.
+ * 
+ * Inference runs on this device unless the library opts a category into a
+ * cloud provider here. Nothing is sent anywhere while `enabled` is false,
+ * which is the default, even when a key is stored.
+ */
+export type AiSettings = { cloud_caption?: CloudCaptionSettings };
+
+/**
  * Input for alternate instances query
  */
 export type AlternateInstancesInput = { 
@@ -228,6 +237,23 @@ export type ChangeKind = { type: "create"; size: number } | { type: "create_dire
  * The filesystem attributes that change, each absent where it stays.
  */
 { type: "set_attributes"; attributes: Attributes };
+
+/**
+ * Bring-your-own-key image captioning through a cloud service.
+ * 
+ * The key itself is never stored here: it lives encrypted with the library
+ * key in the library database, so `library.json` can be read or backed up
+ * without exposing it.
+ */
+export type CloudCaptionSettings = { enabled?: boolean; 
+/**
+ * Base URL of an OpenAI-compatible API, such as `https://api.openai.com/v1`.
+ */
+base_url?: string | null; 
+/**
+ * The vision model to ask for captions.
+ */
+model?: string | null };
 
 /**
  * Cloud service type identifier
@@ -3201,7 +3227,11 @@ indexer?: IndexerSettings;
 /**
  * What a new source starts with when nothing on the add overrides it.
  */
-adding?: AddDefaults };
+adding?: AddDefaults; 
+/**
+ * Which inference may leave this device for this library.
+ */
+ai?: AiSettings };
 
 /**
  * Library settings output

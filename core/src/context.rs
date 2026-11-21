@@ -57,6 +57,9 @@ pub struct CoreContext {
 	pub data_dir: PathBuf,
 	// Previewed plans kept under handles for browsing; in-memory, never persisted
 	pub plans: Arc<crate::ops::files::plan::PlanHandles>,
+	// Inference models behind ai.infer, loaded on first use
+	#[cfg(feature = "ai-providers")]
+	pub ai: Arc<crate::ops::ai::ProviderRegistry>,
 }
 
 impl CoreContext {
@@ -109,6 +112,8 @@ impl CoreContext {
 			remote_job_cache: Arc::new(RemoteJobCache::new()),
 			job_logging_config: None,
 			job_logs_dir: None,
+			#[cfg(feature = "ai-providers")]
+			ai: Arc::new(crate::ops::ai::ProviderRegistry::new(&data_dir)),
 			data_dir,
 			plans: Arc::new(crate::ops::files::plan::PlanHandles::default()),
 		}
