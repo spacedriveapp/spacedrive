@@ -86,9 +86,10 @@ gh workflow run release.yml --ref <branch> -f dry_run=true -f sign=true
 A signed dry run fails at the first job if any signing secret is missing. The
 macOS desktop jobs import the Developer ID certificate, print its validity
 dates, sign, notarize and staple the app and then the disk image, and run the
-same signature, stapler and Gatekeeper checks as a release. The release job still never runs.
-The standalone `sd` and `sd-daemon` binaries are not Developer ID signed in
-either mode.
+same signature, stapler and Gatekeeper checks as a release. The macOS CLI jobs
+sign the standalone `sd` and `sd-daemon` binaries with the hardened runtime
+and a secure timestamp, notarize them as a zip, and run the same checks as a
+release. The release job still never runs.
 
 ## Artifacts
 
@@ -132,8 +133,14 @@ The first job of a real release checks that every secret is set and stops the
 run before anything builds if one is missing. After the macOS build, the
 workflow checks that `Spacedrive.app` has a Developer ID signature and a
 stapled notarization ticket. Tauri only warns when it cannot notarize, so this
-check is what keeps an unsigned or unnotarized app out of a release. A failed
-macOS job also stops the release job, so nothing is published.
+check is what keeps an unsigned or unnotarized app out of a release. The macOS
+`sd` and `sd-daemon` binaries are signed the same way and submitted to
+notarization as a zip. A bare binary cannot hold a stapled ticket, so
+Gatekeeper looks the ticket up online the first time it runs a downloaded
+copy. The job fails unless each binary passes `codesign --verify --strict`,
+carries a Developer ID authority, a Team ID, the hardened runtime and a secure
+timestamp, and passes `spctl -a -t install`. A failed macOS job also stops the
+release job, so nothing is published.
 
 Stable container releases update the **latest** tag. Prereleases keep their
 explicit version tag.

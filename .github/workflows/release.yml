@@ -11,7 +11,7 @@ on:
         type: boolean
         default: true
       sign:
-        description: Sign and notarize the macOS desktop app in a dry run, then verify it; still creates no tag or release
+        description: Sign and notarize the macOS desktop app and CLI binaries in a dry run, then verify them; still creates no tag or release
         type: boolean
         default: false
 
@@ -147,8 +147,9 @@ jobs:
 
   # Standalone CLI and daemon for every platform. The names match what
   # `sd update` looks for on the stable channel (see nightly.yml and
-  # docs/core/releases.mdx). They carry no Developer ID or Authenticode
-  # signature; the checksum beside each one is what the updater verifies.
+  # docs/core/releases.mdx). The macOS binaries are Developer ID signed and
+  # notarized when signing is on, the same as the desktop app; the checksum
+  # beside each one is what the updater verifies.
   cli-build:
     needs: signing-preflight
     strategy:
@@ -171,6 +172,8 @@ jobs:
     runs-on: ${{ matrix.settings.host }}
     # The Intel macOS runner has taken over two hours to build these.
     timeout-minutes: 240
+    env:
+      SIGN_MACOS: ${{ (inputs.dry_run != true || inputs.sign == true) && endsWith(matrix.settings.target, 'apple-darwin') }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -199,7 +202,7 @@ jobs:
             -p sd-cli -p sd-core --bin sd-cli --bin sd-daemon \
             --target ${{ matrix.settings.target }}
 
-      - name: Prepare binaries and checksums
+      - name: Prepare binaries
         shell: bash
         run: |
           set -eux
@@ -208,6 +211,99 @@ jobs:
           cp "target/${{ matrix.settings.target }}/release/sd-cli" "dist/sd-$platform"
           cp "target/${{ matrix.settings.target }}/release/sd-daemon" "dist/sd-daemon-$platform"
           chmod +x dist/*
+
+      - name: Install Apple API key
+        if: env.SIGN_MACOS == 'true'
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          dir=~/.appstoreconnect/private_keys
+          mkdir -p "$dir"
+          key="$dir/AuthKey_$APPLE_API_KEY.p8"
+          echo "$APPLE_API_KEY_BASE64" | base64 --decode > "$key"
+          test -s "$key"
+          echo "APPLE_API_KEY_PATH=$key" >> "$GITHUB_ENV"
+
+      - name: Install Codesigning Certificate
+        if: env.SIGN_MACOS == 'true'
+        uses: apple-actions/import-codesign-certs@v2
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      # Notarization requires the hardened runtime and a secure timestamp. A
+      # bare Mach-O cannot hold a stapled ticket, so Gatekeeper looks the
+      # ticket up online on first launch.
+      - name: Sign macOS binaries
+        if: env.SIGN_MACOS == 'true'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          platform=${{ matrix.settings.platform }}
+          codesign --force --options runtime --timestamp \
+            --identifier com.spacedrive.sd --sign "$APPLE_SIGNING_IDENTITY" "dist/sd-$platform"
+          codesign --force --options runtime --timestamp \
+            --identifier com.spacedrive.sd-daemon --sign "$APPLE_SIGNING_IDENTITY" "dist/sd-daemon-$platform"
+
+      - name: Notarize macOS binaries
+        if: env.SIGN_MACOS == 'true'
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          platform=${{ matrix.settings.platform }}
+          zip="$RUNNER_TEMP/sd-$platform-notarize.zip"
+          (cd dist && zip -q "$zip" "sd-$platform" "sd-daemon-$platform")
+          result=$(xcrun notarytool submit "$zip" \
+            --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" --issuer "$APPLE_API_ISSUER" \
+            --wait --output-format json)
+          echo "$result"
+          id=$(jq -r .id <<< "$result")
+          if [ "$(jq -r .status <<< "$result")" != "Accepted" ]; then
+            xcrun notarytool log "$id" \
+              --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" --issuer "$APPLE_API_ISSUER" || true
+            echo "::error::The $platform CLI binaries were not accepted by notarization (submission $id)"
+            exit 1
+          fi
+
+      # Fails the job rather than publish a binary Gatekeeper blocks.
+      - name: Verify macOS signature and notarization
+        if: env.SIGN_MACOS == 'true'
+        run: |
+          set -euo pipefail
+          platform=${{ matrix.settings.platform }}
+          for f in "dist/sd-$platform" "dist/sd-daemon-$platform"; do
+            codesign --verify --strict --verbose=2 "$f"
+            info=$(codesign -dvv "$f" 2>&1)
+            echo "$info"
+            if ! grep -q "^Authority=Developer ID Application" <<< "$info"; then
+              echo "::error::$f is not signed with a Developer ID Application certificate"
+              exit 1
+            fi
+            if ! grep -q "^TeamIdentifier=[A-Z0-9]\{10\}$" <<< "$info"; then
+              echo "::error::$f has no TeamIdentifier"
+              exit 1
+            fi
+            if ! grep -q "flags=.*(runtime)" <<< "$info"; then
+              echo "::error::$f is not signed with the hardened runtime"
+              exit 1
+            fi
+            if ! grep -q "^Timestamp=" <<< "$info"; then
+              echo "::error::$f has no secure timestamp"
+              exit 1
+            fi
+            spctl -a -vv -t install "$f"
+          done
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          set -eux
+          platform=${{ matrix.settings.platform }}
           cd dist
           for f in "sd-$platform" "sd-daemon-$platform"; do
             if command -v sha256sum >/dev/null; then
@@ -227,6 +323,10 @@ jobs:
           name: cli-${{ matrix.settings.platform }}
           path: dist/*
           if-no-files-found: error
+
+      - name: Cleanup keychain
+        if: always() && runner.os == 'macOS'
+        run: security delete-keychain signing_temp.keychain || true
 
   # V2 Desktop builds. A dry run builds every bundle a release ships. Unless
   # the sign input is set it passes no Apple secrets, so tauri ad-hoc signs the
