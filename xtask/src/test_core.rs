@@ -158,6 +158,13 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		&["--test", "agent_grants_acceptance_test"],
 	),
 	acceptance("sd-cli", "Grant CLI test", &["--test", "grant_test"]),
+	// Agent writes (docs/core/design/agent-writes.md): preconditions, keep
+	// both on a create collision, staging, undo and protected files.
+	acceptance(
+		"sd-core",
+		"Agent writes acceptance test",
+		&["--test", "agent_writes_acceptance_test"],
+	),
 	acceptance(
 		"sd-core",
 		"Source runtime acceptance test",

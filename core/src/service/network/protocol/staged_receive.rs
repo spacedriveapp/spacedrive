@@ -105,6 +105,76 @@ impl StagedReceive {
 	}
 }
 
+impl StagedReceive {
+	/// Flush the partial and rename it to `destination` only if nothing is
+	/// there.
+	///
+	/// A taken name answers `AlreadyExists` and leaves the partial staged, so
+	/// the caller can commit it under another name.
+	pub(crate) async fn commit_new(&mut self, destination: &Path) -> std::io::Result<()> {
+		fs::OpenOptions::new()
+			.write(true)
+			.open(&self.partial)
+			.await?
+			.sync_all()
+			.await?;
+		let (from, to) = (self.partial.clone(), destination.to_path_buf());
+		tokio::task::spawn_blocking(move || rename_noreplace(&from, &to))
+			.await
+			.map_err(|e| std::io::Error::other(e.to_string()))??;
+		self.settled = true;
+		if let Some(entry) = self.journal_entry.take() {
+			let _ = fs::remove_file(entry).await;
+		}
+		Ok(())
+	}
+}
+
+/// Rename `from` to `to`, failing with `AlreadyExists` instead of replacing
+/// what is at `to`.
+///
+/// Linux and macOS check and rename in one call. A filesystem that does not
+/// support that call, and every other platform, check first and then rename,
+/// which leaves a window in which another process could create `to`.
+pub(crate) fn rename_noreplace(from: &Path, to: &Path) -> std::io::Result<()> {
+	#[cfg(any(target_os = "linux", target_os = "macos"))]
+	{
+		use std::{ffi::CString, os::unix::ffi::OsStrExt};
+
+		let from_c = CString::new(from.as_os_str().as_bytes())?;
+		let to_c = CString::new(to.as_os_str().as_bytes())?;
+		#[cfg(target_os = "linux")]
+		let rc = unsafe {
+			libc::renameat2(
+				libc::AT_FDCWD,
+				from_c.as_ptr(),
+				libc::AT_FDCWD,
+				to_c.as_ptr(),
+				libc::RENAME_NOREPLACE as _,
+			)
+		};
+		#[cfg(target_os = "macos")]
+		let rc = unsafe { libc::renamex_np(from_c.as_ptr(), to_c.as_ptr(), libc::RENAME_EXCL) };
+		if rc == 0 {
+			return Ok(());
+		}
+		let error = std::io::Error::last_os_error();
+		if !matches!(
+			error.raw_os_error(),
+			Some(libc::EINVAL) | Some(libc::ENOSYS) | Some(libc::ENOTSUP)
+		) {
+			return Err(error);
+		}
+	}
+	if std::fs::symlink_metadata(to).is_ok() {
+		return Err(std::io::Error::new(
+			std::io::ErrorKind::AlreadyExists,
+			format!("{} exists", to.display()),
+		));
+	}
+	std::fs::rename(from, to)
+}
+
 impl Drop for StagedReceive {
 	fn drop(&mut self) {
 		let partial = (!self.settled).then(|| std::mem::take(&mut self.partial));
