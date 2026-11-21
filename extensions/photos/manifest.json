@@ -36,6 +36,10 @@
 				"preference": "local"
 			},
 			{
+				"category": "face_embedding",
+				"preference": "local"
+			},
+			{
 				"category": "scene_classification",
 				"preference": "local"
 			},
@@ -50,23 +54,19 @@
 			"name": "photos_face_detection_v1",
 			"category": "face_detection",
 			"source": {
-				"type": "download",
-				"url": "https://models.spacedrive.com/photos/face_detection_v1.onnx",
-				"sha256": "placeholder_hash",
-				"size_mb": 12
+				"type": "core",
+				"id": "blazeface-full-range"
 			},
-			"description": "RetinaFace model for face detection"
+			"description": "Face detection, run by the core"
 		},
 		{
 			"name": "photos_scene_v1",
 			"category": "scene_classification",
 			"source": {
-				"type": "download",
-				"url": "https://models.spacedrive.com/photos/scene_resnet50.onnx",
-				"sha256": "placeholder_hash",
-				"size_mb": 95
+				"type": "core",
+				"id": "siglip-base-patch16-224"
 			},
-			"description": "ResNet50 trained on Places365 dataset"
+			"description": "Zero-shot scene labels, run by the core"
 		}
 	],
 	"kinds": [
