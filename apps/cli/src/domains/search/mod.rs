@@ -6,7 +6,12 @@ use clap::Subcommand;
 use crate::context::Context;
 use crate::util::prelude::*;
 
-use sd_core::ops::search::{grep::GrepOutput, output::FileSearchOutput, query::FileSearchQuery};
+use sd_core::ops::search::{
+	content::{ContentSearchOutput, RebuildContentIndexInput, RebuildContentIndexOutput},
+	grep::GrepOutput,
+	output::FileSearchOutput,
+	query::FileSearchQuery,
+};
 
 use self::args::*;
 
@@ -16,10 +21,62 @@ pub enum SearchCmd {
 	Files(FileSearchArgs),
 	/// Search file contents under a path, live, with no index
 	Grep(GrepArgs),
+	/// Search the indexed text of documents and code under a path
+	Content(ContentSearchArgs),
+	/// Drop a source's text index and read every file again
+	ReindexContent(ReindexContentArgs),
 }
 
 pub async fn run(ctx: &Context, cmd: SearchCmd) -> Result<()> {
 	match cmd {
+		SearchCmd::Content(args) => {
+			let path = args.path.clone().unwrap_or_else(|| ".".into());
+			let path = crate::domains::file::requested_path(ctx, &path)?;
+			let input = args.into_input(path)?;
+			let out: ContentSearchOutput = execute_query!(ctx, input);
+			print_output!(ctx, &out, |o: &ContentSearchOutput| {
+				for hit in &o.hits {
+					let snippet: String = hit
+						.snippet
+						.iter()
+						.map(|part| {
+							if part.matched {
+								format!("[{}]", part.text)
+							} else {
+								part.text.clone()
+							}
+						})
+						.collect();
+					println!("{}  ({:.2})", hit.path, hit.score);
+					println!(
+						"    {}",
+						snippet.split_whitespace().collect::<Vec<_>>().join(" ")
+					);
+				}
+				eprintln!("{} hits", o.hits.len());
+				if o.pending_files > 0 {
+					eprintln!("{} files are not indexed yet", o.pending_files);
+				}
+				if let Some(cursor) = &o.next_cursor {
+					eprintln!("More hits: --cursor {cursor}");
+				}
+			});
+		}
+		SearchCmd::ReindexContent(args) => {
+			let path = args.path.clone().unwrap_or_else(|| ".".into());
+			let path = crate::domains::file::requested_path(ctx, &path)?;
+			let input = RebuildContentIndexInput { path };
+			let out: RebuildContentIndexOutput = execute_action!(ctx, input);
+			print_output!(ctx, &out, |o: &RebuildContentIndexOutput| {
+				println!(
+					"Dropped the text of {} files; reading them again",
+					o.cleared_files
+				);
+				if let Some(job) = o.job_id {
+					println!("Job: {job}");
+				}
+			});
+		}
 		SearchCmd::Grep(args) => {
 			let path = args.path.clone().unwrap_or_else(|| ".".into());
 			let path = crate::domains::file::requested_path(ctx, &path)?;

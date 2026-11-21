@@ -272,6 +272,8 @@ impl JobHandler for ContentIdentityJob {
 			self.background,
 		)
 		.await;
+		// Changed files are pending for the text index once their walk landed.
+		super::content_text::index_text_soon(&ctx.library_arc(), &self.root, self.background).await;
 
 		Ok(ContentIdentityOutput {
 			identified,
@@ -313,7 +315,7 @@ pub(crate) async fn hash_batch(
 /// Linux, so the backlog takes the time the machine has spare rather than a
 /// core and the disk from whatever a person is doing. `CONCURRENCY` bounds the
 /// reads in flight; the runtime's own threads bound the CPU.
-fn hashing_runtime() -> &'static tokio::runtime::Runtime {
+pub(crate) fn hashing_runtime() -> &'static tokio::runtime::Runtime {
 	static RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
 	RUNTIME.get_or_init(|| {
 		tokio::runtime::Builder::new_multi_thread()

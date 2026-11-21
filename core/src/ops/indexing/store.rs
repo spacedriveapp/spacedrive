@@ -150,6 +150,8 @@ pub struct SourceStore {
 	/// The store's database file, which a disk-full failure names.
 	path: PathBuf,
 	disk_full: DiskFull,
+	/// The content text index beside the store, opened on first use.
+	text: std::sync::OnceLock<Arc<sd_store::ContentTextIndex>>,
 }
 
 impl std::fmt::Debug for SourceStore {
@@ -214,6 +216,7 @@ impl SourceStore {
 			tx,
 			path,
 			disk_full,
+			text: std::sync::OnceLock::new(),
 		}))
 	}
 
@@ -297,6 +300,27 @@ impl SourceStore {
 	/// The absolute root the store's relative paths resolve against.
 	pub fn root(&self) -> &Path {
 		&self.root
+	}
+
+	/// The content text index kept beside this store.
+	///
+	/// It has its own file and its own writer, so the pass that fills it
+	/// never holds the lock this store's queue commits through.
+	pub async fn text_index(&self) -> Result<Arc<sd_store::ContentTextIndex>> {
+		if let Some(index) = self.text.get() {
+			return Ok(index.clone());
+		}
+		let dir = self
+			.path
+			.parent()
+			.with_context(|| format!("store {} has no directory", self.path.display()))?
+			.to_path_buf();
+		let id = self.id;
+		let opened = sd_store::ContentTextIndex::open(&dir)
+			.await
+			.with_context(|| format!("open the content text index for source {id}"))?;
+		// Two first callers may both open it; the second pool is dropped.
+		Ok(self.text.get_or_init(|| Arc::new(opened)).clone())
 	}
 
 	/// The store, for readers. Writers go through the queue.
@@ -2696,6 +2720,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 			tx,
 			path: PathBuf::new(),
 			disk_full: DiskFull::default(),
+			text: std::sync::OnceLock::new(),
 		};
 
 		let metadata = EntryMetadata::from(dir_entry(&root.join("late.txt")));

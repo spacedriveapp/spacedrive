@@ -413,6 +413,12 @@ async fn identify_returned(
 	}
 	let pending = store.files_needing_content_count().await.unwrap_or(0);
 	if pending == 0 {
+		// Identification would queue the text pass behind itself; with
+		// nothing to identify, queue it here so a store that predates the
+		// index is filled.
+		if index.dispatch_refusal(root).is_none() {
+			crate::ops::indexing::content_text::index_text_soon(&library, root, true).await;
+		}
 		return;
 	}
 	if let Some(reason) = index.dispatch_refusal(root) {

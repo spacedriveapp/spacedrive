@@ -140,6 +140,13 @@ impl FsEventHandler {
 							None => 0,
 						};
 						if pending == 0 {
+							// A rename or a change hashing already knows can
+							// still leave text to read, such as a file renamed
+							// to an extension the text index reads.
+							crate::ops::indexing::content_text::index_text_soon(
+								library, &root, true,
+							)
+							.await;
 							continue;
 						}
 						let job =
