@@ -379,6 +379,10 @@ enum SaveMode {
 struct AwaitingAccess {
 	blocked: usize,
 	took: Duration,
+	/// A walk, reconcile or browse needs it read. A directory only a subtree
+	/// count reached is held here so nothing opens it a second time, but it is
+	/// not reported or revisited: its contents are not kept.
+	reported: bool,
 }
 
 /// A cached read-only handle and which file it reads.
@@ -2960,11 +2964,36 @@ impl VolumeIndex {
 		waited: Duration,
 		listing: tokio::task::JoinHandle<T>,
 	) {
-		self.awaiting_access
-			.lock()
-			.entry(dir.clone())
-			.or_default()
-			.blocked += 1;
+		self.hold_blocked(dir, waited, listing, true);
+	}
+
+	/// Record a directory a subtree count could not read in time.
+	///
+	/// Its read is held like any other, so no later count or walk opens it
+	/// again while it is blocked, but nothing reports it or reads it again:
+	/// a count keeps no contents to bring up to date.
+	pub fn hold_uncounted<T: Send + 'static>(
+		self: &Arc<Self>,
+		dir: PathBuf,
+		waited: Duration,
+		listing: tokio::task::JoinHandle<T>,
+	) {
+		self.hold_blocked(dir, waited, listing, false);
+	}
+
+	fn hold_blocked<T: Send + 'static>(
+		self: &Arc<Self>,
+		dir: PathBuf,
+		waited: Duration,
+		listing: tokio::task::JoinHandle<T>,
+		reported: bool,
+	) {
+		{
+			let mut awaiting = self.awaiting_access.lock();
+			let waiting = awaiting.entry(dir.clone()).or_default();
+			waiting.blocked += 1;
+			waiting.reported |= reported;
+		}
 		let cache = Arc::downgrade(self);
 		let since = Instant::now();
 		tokio::spawn(async move {
@@ -2972,9 +3001,15 @@ impl VolumeIndex {
 			let Some(cache) = cache.upgrade() else {
 				return;
 			};
-			if let Some(waiting) = cache.awaiting_access.lock().get_mut(&dir) {
-				waiting.blocked = waiting.blocked.saturating_sub(1);
-				waiting.took = waiting.took.max(waited + since.elapsed());
+			{
+				let mut awaiting = cache.awaiting_access.lock();
+				if let Some(waiting) = awaiting.get_mut(&dir) {
+					waiting.blocked = waiting.blocked.saturating_sub(1);
+					waiting.took = waiting.took.max(waited + since.elapsed());
+					if !waiting.reported && waiting.blocked == 0 {
+						awaiting.remove(&dir);
+					}
+				}
 			}
 			cache.access_answered.notify_one();
 		});
@@ -3001,7 +3036,7 @@ impl VolumeIndex {
 			// as blocked before it gives up its reservation, so no caller can
 			// slip between the two and start a second open.
 			let mut opening = self.opening.lock();
-			if self.access_blocked(dir) {
+			if self.access_blocked_needed(dir) {
 				return false;
 			}
 			match opening.get(dir) {
@@ -3041,6 +3076,21 @@ impl VolumeIndex {
 		self.awaiting_access.lock().remove(dir);
 	}
 
+	/// Whether a listing of `dir` is still blocked, recording that a walk,
+	/// reconcile or browse needs it read.
+	///
+	/// A read a subtree count left blocked is not reported or revisited on
+	/// its own, so a caller that needs the contents promotes it here, and the
+	/// folder is reported and read again once that read returns.
+	pub fn access_blocked_needed(&self, dir: &Path) -> bool {
+		self.awaiting_access
+			.lock()
+			.get_mut(dir)
+			.filter(|waiting| waiting.blocked > 0)
+			.map(|waiting| waiting.reported = true)
+			.is_some()
+	}
+
 	/// Whether a listing of `dir` is still blocked, so opening it again
 	/// would only add another blocked thread.
 	pub fn access_blocked(&self, dir: &Path) -> bool {
@@ -3054,9 +3104,9 @@ impl VolumeIndex {
 	pub fn awaiting_access_under(&self, root: &Path) -> Vec<PathBuf> {
 		self.awaiting_access
 			.lock()
-			.keys()
-			.filter(|dir| dir.starts_with(root))
-			.cloned()
+			.iter()
+			.filter(|(dir, waiting)| waiting.reported && dir.starts_with(root))
+			.map(|(dir, _)| dir.clone())
 			.collect()
 	}
 
@@ -3067,7 +3117,7 @@ impl VolumeIndex {
 		self.awaiting_access
 			.lock()
 			.iter()
-			.filter(|(_, waiting)| waiting.blocked == 0)
+			.filter(|(_, waiting)| waiting.reported && waiting.blocked == 0)
 			.map(|(dir, waiting)| (dir.clone(), waiting.took))
 			.collect()
 	}
@@ -3217,6 +3267,48 @@ pub(crate) mod tests {
 
 	fn isolated_cache() -> VolumeIndex {
 		VolumeIndex::with_sources_dir(None).expect("failed to create cache")
+	}
+
+	/// A read a count left blocked is forgotten when it returns, unless a
+	/// walk needed the folder meanwhile, which makes it one to report and
+	/// read again.
+	#[tokio::test]
+	async fn a_count_hold_is_revisited_only_once_a_walk_needs_it() {
+		let cache = Arc::new(isolated_cache());
+		let counted = PathBuf::from("/vol/Library/counted");
+		let needed = PathBuf::from("/vol/Library/needed");
+		let (answer_counted, counted_read) = tokio::sync::oneshot::channel::<()>();
+		let (answer_needed, needed_read) = tokio::sync::oneshot::channel::<()>();
+		cache.hold_uncounted(counted.clone(), Duration::ZERO, tokio::spawn(counted_read));
+		cache.hold_uncounted(needed.clone(), Duration::ZERO, tokio::spawn(needed_read));
+
+		assert!(cache.access_blocked(&counted));
+		assert!(cache.awaiting_access_under(Path::new("/vol")).is_empty());
+		assert!(cache.access_blocked_needed(&needed));
+		assert_eq!(
+			cache.awaiting_access_under(Path::new("/vol")),
+			vec![needed.clone()]
+		);
+
+		answer_counted.send(()).expect("answer");
+		answer_needed.send(()).expect("answer");
+		tokio::time::timeout(Duration::from_secs(10), async {
+			while cache.access_blocked(&counted) || cache.access_blocked(&needed) {
+				tokio::time::sleep(Duration::from_millis(10)).await;
+			}
+		})
+		.await
+		.expect("both reads returned");
+		let unblocked: Vec<PathBuf> = cache
+			.awaiting_access_unblocked()
+			.into_iter()
+			.map(|(dir, _)| dir)
+			.collect();
+		assert_eq!(
+			unblocked,
+			vec![needed],
+			"only the needed folder is read again"
+		);
 	}
 
 	#[test]

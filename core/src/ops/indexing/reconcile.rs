@@ -667,7 +667,7 @@ pub async fn reconcile_source_with(
 		// on its own.
 		// A listing of this directory is still blocked from an earlier read;
 		// another would only add a second blocked thread.
-		if cache.access_blocked(&dir) {
+		if cache.access_blocked_needed(&dir) {
 			unreadable = true;
 			continue;
 		}
@@ -1016,6 +1016,12 @@ pub async fn reconcile_source_with(
 			warn!(root = %root.display(), %error, "reconcile writes did not all land");
 		}
 	}
+	// Only a walk's snapshot save writes the row's counts otherwise, and a
+	// walk can be minutes or hours away while the store already holds what
+	// this pass and the watcher added.
+	if let Err(error) = cache.refresh_source_counts(root).await {
+		warn!(root = %root.display(), %error, "could not record the source's counts");
+	}
 
 	info!(
 		root = %root.display(),
@@ -1286,6 +1292,202 @@ mod tests {
 		drop(store);
 		drop(library);
 		tokio::time::timeout(Duration::from_secs(60), core.shutdown())
+			.await
+			.expect("shutdown finished")
+			.expect("shutdown");
+	}
+
+	static PROMPT_ANSWERED: std::sync::atomic::AtomicBool =
+		std::sync::atomic::AtomicBool::new(false);
+
+	/// Stands in for a folder behind a privacy prompt nobody answers, until
+	/// the test answers it. Bounded so a failed test leaves no thread behind.
+	fn waits_on_a_prompt(dir: &Path) -> std::io::Result<Vec<OnDisk>> {
+		let asked = Instant::now();
+		while dir.ends_with("Prompted")
+			&& !PROMPT_ANSWERED.load(std::sync::atomic::Ordering::Acquire)
+			&& asked.elapsed() < Duration::from_secs(60)
+		{
+			std::thread::sleep(Duration::from_millis(20));
+		}
+		read_directory(dir)
+	}
+
+	/// Answers the prompt and lets the count's read go when the test ends,
+	/// passing or not, so the runtime is not left waiting on their threads.
+	struct Answered(PathBuf);
+
+	impl Drop for Answered {
+		fn drop(&mut self) {
+			PROMPT_ANSWERED.store(true, std::sync::atomic::Ordering::Release);
+			crate::ops::indexing::phases::discovery::held::release(&self.0);
+		}
+	}
+
+	/// The startup case: a reconcile is left holding a folder's blocked read
+	/// and a walk of the same source starts afterwards. The walk records the
+	/// folder as waiting without reading it, a count of a held-back folder
+	/// gives up on a directory that does not answer, and the walk finishes
+	/// and saves its snapshot. The source's record count follows the store
+	/// without waiting for that walk.
+	#[tokio::test(flavor = "multi_thread")]
+	async fn a_walk_after_a_reconcile_holds_a_folder_still_finishes() {
+		use crate::ops::indexing::phases::discovery::held;
+
+		let data = tempfile::tempdir().expect("data dir");
+		let files = tempfile::tempdir().expect("files dir");
+		let root = files.path().canonicalize().expect("root");
+		for (dir, file) in [
+			("Prompted", "secret.txt"),
+			("Music", "song.txt"),
+			("node_modules/pkg", "index.js"),
+		] {
+			std::fs::create_dir_all(root.join(dir)).expect("mkdir");
+			std::fs::write(root.join(dir).join(file), file).expect("write");
+		}
+
+		let core = crate::Core::new(data.path().to_path_buf())
+			.await
+			.expect("core");
+		let root = core
+			.context
+			.volume_manager
+			.locate_path(&root)
+			.await
+			.map_or(root, |(_, spelled)| spelled);
+		let prompted = root.join("Prompted");
+		let counted = root.join("node_modules").join("pkg");
+		let library = core
+			.libraries
+			.create_library("Startup", None, core.context.clone())
+			.await
+			.expect("library");
+		let output = TrackSourceAction::from_input(TrackSourceInput {
+			path: root.clone(),
+			name: None,
+			overrides: Default::default(),
+		})
+		.expect("input")
+		.execute(library.clone(), core.context.clone())
+		.await
+		.expect("track");
+		library
+			.jobs()
+			.get_job(JobId(output.job_id.expect("tracking dispatched a walk")))
+			.await
+			.expect("walk job")
+			.wait()
+			.await
+			.expect("walk");
+
+		let cache = core.context.volume_index();
+		let records = || {
+			cache
+				.sources_of(library.id())
+				.into_iter()
+				.find(|source| source.id == output.id)
+				.and_then(|source| source.entry_count)
+				.unwrap_or(0)
+		};
+		let walked = records();
+		assert!(walked > 0, "the first walk recorded its counts");
+
+		std::fs::write(root.join("Music/new.txt"), "new").expect("write");
+		std::fs::write(root.join("Music/newer.txt"), "newer").expect("write");
+		let answered = Answered(counted.clone());
+		tokio::time::timeout(
+			Duration::from_secs(120),
+			reconcile_source_with(
+				&core.context,
+				Some(library.id()),
+				&root,
+				false,
+				Pass {
+					read: waits_on_a_prompt,
+					read_bound: Duration::from_millis(200),
+					progress: None,
+					within: Vec::new(),
+				},
+			),
+		)
+		.await
+		.expect("the reconcile finished")
+		.expect("the reconcile ran");
+		assert!(
+			cache.access_blocked(&prompted),
+			"the reconcile holds the read"
+		);
+		assert_eq!(
+			records(),
+			walked + 2,
+			"the record count follows the store before the next walk saves"
+		);
+
+		let snapshot = cache.snapshot_path_for(&root).expect("snapshot path");
+		let saved_before = std::fs::metadata(&snapshot)
+			.and_then(|meta| meta.modified())
+			.expect("the first walk saved a snapshot");
+		held::hold(&counted);
+		let started = Instant::now();
+		let walk = crate::ops::sources::track::action::dispatch_source_walk(
+			&library,
+			&core.context,
+			output.id,
+			output.root.clone(),
+			output.whole_volume,
+			false,
+		)
+		.await
+		.expect("rewalk");
+		tokio::time::timeout(
+			READ_BOUND * 6,
+			library
+				.jobs()
+				.get_job(JobId(walk))
+				.await
+				.expect("rewalk job")
+				.wait(),
+		)
+		.await
+		.expect("the walk waited on a read another pass holds")
+		.expect("walk");
+		assert!(
+			started.elapsed() < READ_BOUND * 3,
+			"the walk took {:?}",
+			started.elapsed()
+		);
+
+		tokio::time::timeout(READ_BOUND, async {
+			while std::fs::metadata(&snapshot)
+				.and_then(|meta| meta.modified())
+				.map_or(true, |saved| saved <= saved_before)
+			{
+				tokio::time::sleep(Duration::from_millis(100)).await;
+			}
+		})
+		.await
+		.expect("the walk saved its snapshot");
+		let store = cache.store_for(&root).await.expect("store");
+		assert!(!store.walk_unfinished().await, "the walk finished");
+		assert!(store.contains_path(&root.join("Music/newer.txt")).await);
+		assert!(
+			store.contains_path(&prompted.join("secret.txt")).await,
+			"what the store held under the waiting folder is kept"
+		);
+		assert_eq!(
+			cache.awaiting_access_under(&root),
+			vec![prompted.clone()],
+			"the held folder waits on permission, and a counted one is not reported"
+		);
+		assert!(
+			cache.access_blocked(&counted),
+			"the count keeps its one blocked read rather than opening another"
+		);
+
+		drop(answered);
+		drop(store);
+		drop(library);
+		tokio::time::timeout(Duration::from_secs(120), core.shutdown())
 			.await
 			.expect("shutdown finished")
 			.expect("shutdown");
