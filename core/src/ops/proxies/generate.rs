@@ -315,7 +315,21 @@ async fn publish(
 		.expect("sidecar paths have a file name")
 		.to_string_lossy();
 	let (stem, extension) = name.rsplit_once('.').unwrap_or((&name, ""));
-	let partial = parent.join(format!(".{stem}.partial.{extension}"));
+	// An FFmpeg orphaned by a killed daemon can still be writing an older
+	// partial. Unlinking it leaves that process writing to a file nobody
+	// reads, and the unique name keeps it off this attempt's output.
+	let prefix = format!(".{stem}.partial");
+	if let Ok(mut entries) = tokio::fs::read_dir(parent).await {
+		while let Ok(Some(entry)) = entries.next_entry().await {
+			if entry.file_name().to_string_lossy().starts_with(&prefix) {
+				let _ = tokio::fs::remove_file(entry.path()).await;
+			}
+		}
+	}
+	let partial = parent.join(format!(
+		"{prefix}-{}.{extension}",
+		uuid::Uuid::now_v7().simple()
+	));
 	if let Err(error) = recipe::run_ffmpeg(ctx, ffmpeg, &args(&partial), on_progress).await? {
 		let _ = tokio::fs::remove_file(&partial).await;
 		return Ok(Err(error));

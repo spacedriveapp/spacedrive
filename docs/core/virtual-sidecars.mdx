@@ -66,8 +66,9 @@ The rules every reader can rely on:
 - Speech audio is the first audio track, downmixed and resampled. A video with
   no audio track has no audio sidecar.
 - A file at one of these paths is complete. Writers produce
-  `.<variant>.partial.<ext>` in the same directory and rename it into place,
-  so a reader never sees a half-written proxy.
+  `.<variant>.partial-<id>.<ext>` in the same directory and rename it into
+  place, so a reader never sees a half-written proxy. Ignore files that start
+  with a dot.
 - A change to a recipe that alters the output takes a new variant name, such as
   `720p.r2`, rather than overwriting files readers already hold.
 

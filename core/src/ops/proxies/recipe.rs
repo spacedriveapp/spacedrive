@@ -236,14 +236,26 @@ pub(super) async fn run_ffmpeg(
 	args: &[OsString],
 	mut on_progress: impl FnMut(f64),
 ) -> JobResult<Result<(), String>> {
-	let mut child = match tokio::process::Command::new(ffmpeg)
+	let mut command = tokio::process::Command::new(ffmpeg);
+	command
 		.args(args)
 		.stdin(Stdio::null())
 		.stdout(Stdio::piped())
 		.stderr(Stdio::piped())
-		.kill_on_drop(true)
-		.spawn()
-	{
+		.kill_on_drop(true);
+	// kill_on_drop does not run when the daemon itself is killed, so on Linux
+	// the kernel ends FFmpeg with it instead of leaving a 4K encode running.
+	// The signal follows the spawning thread, which is a runtime worker that
+	// lives as long as the daemon.
+	#[cfg(target_os = "linux")]
+	// SAFETY: prctl is async-signal-safe and touches no parent memory.
+	unsafe {
+		command.pre_exec(|| {
+			libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL);
+			Ok(())
+		});
+	}
+	let mut child = match command.spawn() {
 		Ok(child) => child,
 		Err(error) => return Ok(Err(format!("start FFmpeg: {error}"))),
 	};
