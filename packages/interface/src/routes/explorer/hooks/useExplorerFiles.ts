@@ -31,6 +31,8 @@ export interface ExplorerFilesResult {
 	files: File[];
 	isLoading: boolean;
 	source: FileSource;
+	/** The open folder did not answer its open, such as one behind an unanswered privacy prompt. */
+	awaitingPermission: boolean;
 	/** True match count for a search, before pagination. */
 	totalFound?: number;
 	/** Facets over the whole match set, for the filter panel's counts. */
@@ -401,6 +403,9 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		files,
 		isLoading,
 		source,
+		awaitingPermission:
+			source === "directory" &&
+			!!(directoryQuery.data as DirectoryListingOutput | undefined)?.awaiting_permission,
 		totalFound:
 			searchOutput?.total_found != null
 				? Number(searchOutput.total_found)

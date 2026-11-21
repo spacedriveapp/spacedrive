@@ -737,7 +737,7 @@ fn await_access(
 	ctx.library()
 		.core_context()
 		.volume_index()
-		.await_access(path.clone(), listing);
+		.await_access(path.clone(), READ_BOUND, listing);
 	state.awaiting_access.push(path);
 }
 
@@ -855,7 +855,7 @@ pub(crate) mod held {
 		});
 	}
 
-	pub(super) async fn wait(dir: &Path) {
+	pub(crate) async fn wait(dir: &Path) {
 		let gate = HELD
 			.lock()
 			.iter()

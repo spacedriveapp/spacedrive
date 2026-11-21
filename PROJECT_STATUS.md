@@ -49,7 +49,12 @@ signal that the prompt was answered, and it wakes
 `reconcile::revisit_awaiting_access`, which reconciles only those folders; a
 5-minute timer catches a refusal later allowed in System Settings, and the
 startup reconcile reads them too. Only one blocked read per folder is ever
-outstanding. Full Disk Access is not requested and the folders walked are
+outstanding; a revisit's bound is twice what the last listing took, so a slow
+mount answers instead of timing out forever, and a folder outside any source is
+revisited under its drive's map. Opening such a folder in the explorer tries
+the open with the same bound and returns `awaiting_permission` on
+`files.directory_listing`, which the explorer shows as a banner, instead of
+hanging. Full Disk Access is not requested and the folders walked are
 unchanged.
 
 Read-only FUSE mount on Linux (Capy FAN-12103, November 20). A daemon built

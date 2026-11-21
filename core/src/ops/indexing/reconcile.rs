@@ -303,10 +303,15 @@ pub async fn reconcile_attached_sources(context: Arc<CoreContext>) {
 /// Read again every directory a walk or a reconcile moved past because its
 /// listing did not answer, once nothing is still blocked on it.
 ///
-/// Each directory is read by a reconcile of the innermost source holding
-/// it, limited to that directory, so what arrives goes through the same
-/// writer, store and hashing as any other change. A directory no attached
-/// source holds any more has nothing to come back to and is forgotten.
+/// Each directory is read by a reconcile limited to it, under the innermost
+/// source holding it so what arrives goes through the same writer, store and
+/// hashing as any other change. A directory no source holds, such as one the
+/// drive map or a browse moved past, is reconciled under its drive's map.
+///
+/// The bound is twice what the last listing took, and never less than
+/// [`READ_BOUND`]: a listing that is slow rather than blocked, such as one
+/// on a slow network mount, answers the next read instead of timing out
+/// on every retry.
 pub async fn revisit_awaiting_access(context: &Arc<CoreContext>) {
 	let cache = context.volume_index();
 	let dirs = cache.awaiting_access_unblocked();
@@ -318,20 +323,37 @@ pub async fn revisit_awaiting_access(context: &Arc<CoreContext>) {
 		.into_iter()
 		.filter(|source| source.attached)
 		.collect();
-	let mut by_source: std::collections::HashMap<PathBuf, (Option<Uuid>, Vec<PathBuf>)> =
-		std::collections::HashMap::new();
-	for dir in dirs {
-		let Some(source) = crate::ops::paths::reach::innermost_source(&sources, &dir) else {
-			cache.access_settled(&dir);
-			continue;
-		};
-		by_source
-			.entry(source.root.clone())
-			.or_insert_with(|| (source.library, Vec::new()))
-			.1
-			.push(dir);
+	struct Revisit {
+		library: Option<Uuid>,
+		within: Vec<PathBuf>,
+		bound: Duration,
 	}
-	for (root, (library, within)) in by_source {
+	let mut by_root: std::collections::HashMap<PathBuf, Revisit> = std::collections::HashMap::new();
+	for (dir, took) in dirs {
+		let (root, library) = match crate::ops::paths::reach::innermost_source(&sources, &dir) {
+			Some(source) => (source.root.clone(), source.library),
+			None => (
+				cache.resolve(&dir).root().unwrap_or_else(|| dir.clone()),
+				None,
+			),
+		};
+		let revisit = by_root.entry(root).or_insert_with(|| Revisit {
+			library,
+			within: Vec::new(),
+			bound: READ_BOUND,
+		});
+		revisit.within.push(dir);
+		revisit.bound = revisit.bound.max(took * 2);
+	}
+	for (
+		root,
+		Revisit {
+			library,
+			within,
+			bound,
+		},
+	) in by_root
+	{
 		// A walk under way reads these itself.
 		if cache.is_indexing(&root) {
 			continue;
@@ -348,6 +370,7 @@ pub async fn revisit_awaiting_access(context: &Arc<CoreContext>) {
 			false,
 			Pass {
 				within,
+				read_bound: bound,
 				..Pass::default()
 			},
 		)
@@ -677,7 +700,7 @@ pub async fn reconcile_source_with(
 					bound_secs = pass.read_bound.as_secs_f32(),
 					"reconcile moved past a directory that did not answer in time"
 				);
-				cache.await_access(dir.clone(), listing);
+				cache.await_access(dir.clone(), pass.read_bound, listing);
 				unreadable = true;
 				continue;
 			}
@@ -1164,12 +1187,21 @@ mod tests {
 			std::fs::write(root.join(dir).join(file), file).expect("write");
 		}
 		std::fs::write(root.join("top.txt"), "top").expect("write");
-		let desktop = root.join("Desktop");
-		held::hold(&desktop);
 
 		let core = crate::Core::new(data.path().to_path_buf())
 			.await
 			.expect("core");
+		// The walk reads the volume's spelling of the root, which on Windows
+		// drops the verbatim prefix canonicalize adds, so the hold has to name
+		// the folder the same way.
+		let root = core
+			.context
+			.volume_manager
+			.locate_path(&root)
+			.await
+			.map_or(root, |(_, spelled)| spelled);
+		let desktop = root.join("Desktop");
+		held::hold(&desktop);
 		let library = core
 			.libraries
 			.create_library("Prompt", None, core.context.clone())

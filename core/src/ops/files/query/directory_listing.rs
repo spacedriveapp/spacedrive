@@ -9,6 +9,7 @@ use crate::{
 	domain::{addressing::SdPath, content_identity::ContentIdentity, file::File, tag::Tag},
 	infra::query::LibraryQuery,
 	ops::files::plan::{ChangeKind, FsPlan, SkipReason},
+	ops::indexing::reconcile::{bounded, Bounded, READ_BOUND},
 };
 use sea_orm::{
 	ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, JoinType, QueryFilter,
@@ -73,6 +74,24 @@ pub struct DirectoryListingOutput {
 	/// full name. Empty without an overlay
 	#[serde(default)]
 	pub overlay: Vec<OverlaidRow>,
+	/// The directory did not answer its open within the walk's bound, which
+	/// on macOS is a privacy prompt nobody has answered. The listing is
+	/// empty because nothing could be read, not because the folder is, and
+	/// it fills in once access is granted.
+	#[serde(default)]
+	pub awaiting_permission: bool,
+}
+
+impl DirectoryListingOutput {
+	fn awaiting_permission() -> Self {
+		Self {
+			files: Vec::new(),
+			total_count: 0,
+			has_more: false,
+			overlay: Vec::new(),
+			awaiting_permission: true,
+		}
+	}
 }
 
 /// One row of a listing as the overlaid plan changes it.
@@ -196,6 +215,7 @@ impl DirectoryListingQuery {
 					total_count: 0,
 					has_more: false,
 					overlay: Vec::new(),
+					awaiting_permission: false,
 				});
 			}
 		}
@@ -213,6 +233,7 @@ impl DirectoryListingQuery {
 					total_count: 0,
 					has_more: false,
 					overlay: Vec::new(),
+					awaiting_permission: false,
 				});
 			}
 		};
@@ -314,6 +335,7 @@ impl DirectoryListingQuery {
 				total_count: 0,
 				has_more: false,
 				overlay: Vec::new(),
+				awaiting_permission: false,
 			});
 		}
 
@@ -341,7 +363,32 @@ impl DirectoryListingQuery {
 				total_count: 0,
 				has_more: false,
 				overlay: Vec::new(),
+				awaiting_permission: false,
 			});
+		}
+
+		// A folder behind a privacy prompt nobody answered blocks its open
+		// until someone does. The open is tried with the walk's bound before
+		// a walk is dispatched, so the explorer can say the folder waits on
+		// permission, and no second open starts while one is still blocked.
+		if cache.access_blocked(&local_path) {
+			return Ok(DirectoryListingOutput::awaiting_permission());
+		}
+		let open = {
+			let dir = local_path.clone();
+			tokio::spawn(async move {
+				#[cfg(test)]
+				crate::ops::indexing::phases::discovery::held::wait(&dir).await;
+				tokio::fs::read_dir(&dir).await.map(drop)
+			})
+		};
+		if let Bounded::Unanswered(open) = bounded(READ_BOUND, open).await {
+			tracing::warn!(
+				path = %local_path.display(),
+				"a browsed folder did not open in time; it waits on permission"
+			);
+			cache.await_access(local_path.clone(), READ_BOUND, open);
+			return Ok(DirectoryListingOutput::awaiting_permission());
 		}
 
 		tracing::debug!("DirectoryListingQuery path={:?}", self.input.path);
@@ -412,6 +459,7 @@ impl DirectoryListingQuery {
 			total_count: 0,
 			has_more: false,
 			overlay: Vec::new(),
+			awaiting_permission: false,
 		})
 	}
 
@@ -571,6 +619,7 @@ impl DirectoryListingQuery {
 			total_count,
 			has_more,
 			overlay: Vec::new(),
+			awaiting_permission: false,
 		}
 	}
 
@@ -796,6 +845,59 @@ mod tests {
 			.execute(fixture.core.context.clone(), fixture.session())
 			.await
 			.expect("listed")
+	}
+
+	/// Opening a folder whose open never answers, as one behind a macOS
+	/// privacy prompt nobody answers: the listing says it waits on
+	/// permission instead of hanging or showing an empty folder, a second
+	/// look starts no second open, and the folder lists once it answers.
+	#[tokio::test(flavor = "multi_thread")]
+	async fn a_folder_that_never_opens_lists_as_waiting_on_permission() {
+		use crate::ops::indexing::phases::discovery::held;
+		use crate::ops::indexing::reconcile::READ_BOUND;
+		use std::time::{Duration, Instant};
+
+		let fixture = Fixture::new().await;
+		let desktop = fixture.source.join("Desktop");
+		std::fs::create_dir(&desktop).expect("mkdir");
+		std::fs::write(desktop.join("note.txt"), "note").expect("write");
+		held::hold(&desktop);
+		let listing = || async {
+			tokio::time::timeout(
+				READ_BOUND * 3,
+				DirectoryListingQuery::new(SdPath::local(&desktop))
+					.execute(fixture.core.context.clone(), fixture.session()),
+			)
+			.await
+			.expect("the listing answered")
+			.expect("listed")
+		};
+
+		let first = listing().await;
+		assert!(first.awaiting_permission, "the folder waits on permission");
+		assert!(first.files.is_empty());
+
+		let started = Instant::now();
+		let second = listing().await;
+		assert!(second.awaiting_permission);
+		assert!(
+			started.elapsed() < READ_BOUND / 2,
+			"a second look waited {:?} on a second open",
+			started.elapsed()
+		);
+
+		held::release(&desktop);
+		tokio::time::timeout(READ_BOUND * 3, async {
+			loop {
+				let now = listing().await;
+				if !now.awaiting_permission && now.files.iter().any(|file| file.name == "note") {
+					break;
+				}
+				tokio::time::sleep(Duration::from_millis(200)).await;
+			}
+		})
+		.await
+		.expect("the folder lists once its open answers");
 	}
 
 	fn row<'a>(listing: &'a DirectoryListingOutput, name: &str) -> Option<&'a ChangeKind> {

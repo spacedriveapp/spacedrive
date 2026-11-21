@@ -1064,7 +1064,14 @@ has_more: boolean;
  * What the overlaid plan does to rows of this directory, by the row's
  * full name. Empty without an overlay
  */
-overlay?: OverlaidRow[] };
+overlay?: OverlaidRow[]; 
+/**
+ * The directory did not answer its open within the walk's bound, which
+ * on macOS is a privacy prompt nobody has answered. The listing is
+ * empty because nothing could be read, not because the folder is, and
+ * it fills in once access is granted.
+ */
+awaiting_permission?: boolean };
 
 /**
  * Sort options for directory listing
