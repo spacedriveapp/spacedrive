@@ -262,7 +262,9 @@ impl ProxyGenerateJob {
 				ctx,
 				ffmpeg,
 				&proxy,
-				|partial| recipe::proxy_args(video, partial, self.resolution),
+				|partial| {
+					recipe::proxy_args(video, partial, self.resolution, probe.timecode.as_deref())
+				},
 				|seconds| {
 					if duration > 0.0 {
 						report(&phase, seconds / duration * 0.9);

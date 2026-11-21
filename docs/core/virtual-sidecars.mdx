@@ -56,7 +56,10 @@ The rules every reader can rely on:
   passes through with no rate conversion, a variable-rate source stays
   variable, and the first frame is at time 0. Frame `n` of the proxy is frame
   `n` of the original, so shot boundaries and timeline points found on the
-  proxy apply to the original unchanged.
+  proxy apply to the original unchanged. When the original has a start
+  timecode, the proxy carries the same one as a `tmcd` track and a
+  `timecode` tag, so an editor timeline that points at the proxy shows the
+  original's timecodes.
 - A proxy carries the first audio track as AAC stereo when the original has
   one. Its index sits at the front of the file (`faststart`), so it plays over
   a range request.
