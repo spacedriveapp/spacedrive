@@ -75,11 +75,7 @@ sd daemon install
 
 If `~/.local/bin` is not on your `PATH`, add `export PATH="$HOME/.local/bin:$PATH"` to your shell profile. On macOS, use the `macos-aarch64` names and `shasum -a 256 -c` in place of `sha256sum -c`. `sd daemon install` starts the daemon at login through launchd on macOS and a systemd user service on Linux.
 
-The CLI binaries are not signed with a Developer ID. A copy you download with `curl` runs as is. A copy you download in a browser is quarantined, and macOS refuses to run it until you remove the attribute:
-
-~~~bash
-xattr -d com.apple.quarantine sd sd-daemon
-~~~
+The macOS CLI binaries are signed with a Developer ID and notarized by Apple, so a copy you download in a browser runs without extra steps. macOS checks the notarization online the first time you run a downloaded copy.
 
 The standalone `sd-daemon` has no bundled FFmpeg, libheif or Pdfium. On macOS it reads those formats through the system codecs. The desktop app and the server package include them.
 
