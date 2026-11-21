@@ -69,10 +69,12 @@ pub enum Tool {
 	MakeDir,
 	Move,
 	Delete,
+	#[cfg(feature = "video-shots")]
+	ListShots,
 }
 
 impl Tool {
-	pub const ALL: [Tool; 12] = [
+	pub const ALL: &'static [Tool] = &[
 		Self::GetSkill,
 		Self::ListDir,
 		Self::Stat,
@@ -85,6 +87,8 @@ impl Tool {
 		Self::MakeDir,
 		Self::Move,
 		Self::Delete,
+		#[cfg(feature = "video-shots")]
+		Self::ListShots,
 	];
 
 	pub fn name(self) -> &'static str {
@@ -101,11 +105,13 @@ impl Tool {
 			Self::MakeDir => "make_dir",
 			Self::Move => "move",
 			Self::Delete => "delete",
+			#[cfg(feature = "video-shots")]
+			Self::ListShots => "list_shots",
 		}
 	}
 
 	pub fn parse(name: &str) -> Option<Self> {
-		Self::ALL.into_iter().find(|tool| tool.name() == name)
+		Self::ALL.iter().copied().find(|tool| tool.name() == name)
 	}
 
 	/// The capability the grant check asks for on this tool's path.
@@ -196,7 +202,8 @@ pub fn definitions() -> Value {
 			"openWorldHint": false,
 		})
 	};
-	json!([
+	#[allow(unused_mut)]
+	let mut tools = json!([
 		{
 			"name": "get_skill",
 			"title": "How to use this Spacedrive folder",
@@ -393,7 +400,23 @@ pub fn definitions() -> Value {
 			},
 			"annotations": writes("Move to the trash", true),
 		},
-	])
+	]);
+	#[cfg(feature = "video-shots")]
+	if let Some(list) = tools.as_array_mut() {
+		list.push(json!({
+			"name": "list_shots",
+			"title": "List a video's shots",
+			"description": "Returns the shots Spacedrive detected in one video: for each shot its id, in and out points (whole frames at the file's frame rate, with seconds and timecode; out is the first frame after the shot), duration, and the frame its keyframe shows. Shot ids stay the same when a rerun finds the same boundaries. Shots exist only after shot detection has run on the file.",
+			"inputSchema": {
+				"type": "object",
+				"properties": { "path": path("The video file") },
+				"required": ["path"],
+				"additionalProperties": false,
+			},
+			"annotations": annotations("List a video's shots"),
+		}));
+	}
+	tools
 }
 
 /// Run one tool on the resolved scope.
@@ -421,6 +444,8 @@ pub async fn call(
 		Tool::WriteFile | Tool::MakeDir | Tool::Move | Tool::Delete => {
 			write(context.clone(), token, tool, &scope, arguments, cancel).await
 		}
+		#[cfg(feature = "video-shots")]
+		Tool::ListShots => list_shots(&context, &scope).await,
 	};
 	result.map_err(|message| scrub(&message, &root))
 }
@@ -1293,6 +1318,54 @@ async fn search_content(
 	})))
 }
 
+#[cfg(feature = "video-shots")]
+async fn list_shots(context: &Arc<CoreContext>, scope: &GrantScope) -> Result<Output, String> {
+	let meta = tokio::fs::metadata(&scope.path)
+		.await
+		.map_err(|e| io_message(&e))?;
+	if !meta.is_file() {
+		return Err("list_shots takes a video file, not a directory".to_string());
+	}
+	let library = context
+		.libraries()
+		.await
+		.get_library(scope.library_id)
+		.await
+		.ok_or_else(|| "the grant's library is not open".to_string())?;
+	let list = crate::ops::media::shots::shots_of_file(library.path(), &scope.path)
+		.await
+		.map_err(|error| {
+			warn!(%error, "list_shots could not read a shot list");
+			"could not read the shot list".to_string()
+		})?
+		.ok_or_else(|| {
+			"this video has no shots yet: shot detection has not run on it".to_string()
+		})?;
+	let shots: Vec<Value> = list
+		.shots
+		.iter()
+		.map(|shot| {
+			json!({
+				"id": shot.id,
+				"index": shot.index,
+				"in": shot.in_point,
+				"out": shot.out_point,
+				"duration_seconds": shot.duration_seconds,
+				"keyframe": shot.keyframe,
+			})
+		})
+		.collect();
+	Ok(Output::json(json!({
+		"path": paths::shown(&scope.relative),
+		"content_uuid": list.content_uuid,
+		"rate": list.rate,
+		"start_timecode": list.start_timecode,
+		"duration": list.duration,
+		"out_exclusive": true,
+		"shots": shots,
+	})))
+}
+
 /// The op's refusals of the request reach the agent; anything else is
 /// logged and answered generically, since it can name host paths outside
 /// the grant.
@@ -1321,7 +1394,7 @@ mod tests {
 			.collect();
 		let all: Vec<&str> = Tool::ALL.iter().map(|tool| tool.name()).collect();
 		assert_eq!(names, all, "one definition per tool, in order");
-		for tool in Tool::ALL {
+		for &tool in Tool::ALL {
 			assert_eq!(Tool::parse(tool.name()), Some(tool));
 		}
 	}
