@@ -6,10 +6,10 @@ description: Lend one folder to a coding agent over MCP with a scoped, expiring 
 
 An agent grant lends one folder to an agent for a limited time, read only or
 writable. The agent connects to the daemon's agent MCP endpoint with the
-grant's token. It gets `list_dir`, `stat`, `read`, `glob`, `grep`, `search`
-and `get_skill`, and, with a writable grant, `write_file`, `make_dir`, `move`
-and `delete`. It cannot reach any other folder or call the daemon's other
-operations.
+grant's token. It gets `list_dir`, `stat`, `read`, `glob`, `grep`, `search`,
+`search_content` and `get_skill`, and, with a writable grant, `write_file`,
+`make_dir`, `move` and `delete`. It cannot reach any other folder or call the
+daemon's other operations.
 
 Use this page to turn the endpoint on, create a grant and connect Claude Code,
 Codex or Cursor. For an agent that should run every Spacedrive operation on
@@ -149,16 +149,20 @@ relative to the folder too.
 | `glob` | Paths matching a pattern such as `**/*.rs`. Visits at most 100,000 entries a call. |
 | `grep` | Lines matching a regex or literal, from a live scan. Hidden files are included and `.gitignore` is respected by default. |
 | `search` | Name and metadata matches from Spacedrive's index, filtered to the folder. |
+| `search_content` | Files whose text matches words or phrases, ranked, with a snippet, from the source's [text index](/docs/core/content-search). 20 results a page by default, 200 at most. |
 | `write_file` | Writes a whole file or a byte range. Writable grants only. |
 | `make_dir` | Creates a directory and its missing parents. Writable grants only. |
 | `move` | Moves or renames within the folder, on one volume. Writable grants only. |
 | `delete` | Moves a file or directory to the trash. Writable grants only. |
 
-`grep` and `search` can be incomplete. `grep` skips binary files, files over
+`grep`, `search` and `search_content` can be incomplete. `grep` skips binary files, files over
 1 MiB and cloud placeholders, and counts them in `files_skipped`. `read`
 refuses a cloud placeholder, such as an iCloud file that is not downloaded,
-rather than downloading it. `search` answers from the index,
-which can lag the disk. The guide tells the agent to confirm results with
+rather than downloading it. `search` and `search_content` answer from
+indexes, which can lag the disk. `search_content` works only when the folder
+is inside a source tracked with content identification, and its
+`pending_files` counts files in the searched path that the index has not
+read yet. The guide tells the agent to confirm results with
 `read`.
 
 ## Writes

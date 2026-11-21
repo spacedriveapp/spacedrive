@@ -1,6 +1,6 @@
 ---
 name: spacedrive
-description: Read, and with a writable grant change, one folder that a Spacedrive grant lends you, through list_dir, stat, read, glob, grep, search, write_file, make_dir, move and delete. Use whenever you work with files served by a Spacedrive MCP server.
+description: Read, and with a writable grant change, one folder that a Spacedrive grant lends you, through list_dir, stat, read, glob, grep, search, search_content, write_file, make_dir, move and delete. Use whenever you work with files served by a Spacedrive MCP server.
 ---
 
 # Working with a Spacedrive folder
@@ -47,6 +47,14 @@ time. After that, every call fails with HTTP 401.
   literal set to true. It is a live scan of the files on disk.
 - search: Spacedrive's index of file names and metadata. It is fast, but it
   only knows what was indexed.
+- search_content: Spacedrive's index of the text inside documents and code.
+  It returns files ranked by relevance, each with a snippet around the best
+  match. Every word must appear; put a phrase in double quotes and end a word
+  with "*" to match a prefix. Narrow by kinds (text, markdown, csv, json,
+  code, pdf, docx). Pass next_cursor back as cursor for the next page. It
+  works only inside a source that reads file contents; elsewhere it refuses
+  and you use grep. Use it to find which files are about something, then grep
+  or read for the exact lines.
 - get_skill: this guide.
 
 ## Writing
@@ -93,10 +101,16 @@ Treat an empty or short result as a lead, not as proof.
 - search answers from the index, which can lag the disk. A file created a
   moment ago can be missing, and a hit can point to a file that changed since
   it was indexed.
+- search_content answers from the text index, which can lag the disk too.
+  pending_files counts files under the searched path waiting to be read, and while it is not zero a
+  recent change can be missing. Only the first 1 MiB of a file's text is
+  indexed, and text_truncated marks a hit on a file that held more. Images
+  and other binary files are never indexed.
 - glob and list_dir stop at their page size. Follow next_cursor.
 
 Before you state a fact about a file, read the file. Confirm a grep or search
-hit with read on the lines it names, and confirm absence by checking
+hit with read on the lines it names, read a search_content hit before you
+quote it, and confirm absence by checking
 files_skipped and the paging fields.
 
 ## Limits

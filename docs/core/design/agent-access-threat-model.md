@@ -9,8 +9,8 @@ today, what each surface trusts, and what the new HTTP MCP endpoint has to do
 before it may bind beyond loopback. It ends with the checklist that endpoint
 must pass.
 
-Scope is the read-only grant: list, stat, read, glob, grep and search inside a
-grant root. Writes are out of scope until the write path spec exists, and that
+Scope is the read-only grant: list, stat, read, glob, grep, search and content
+search inside a grant root. Writes are out of scope until the write path spec exists, and that
 spec must revisit this document.
 
 ## Actors
@@ -197,6 +197,8 @@ code change.
 | `grep` matches per page | 1,000 |
 | `grep` calls in flight per grant | 1 |
 | `search` results per page | 100 |
+| `search_content` query length | 1 KiB |
+| `search_content` results per page | 200 |
 | Failed authentications per client address | 20 per minute, then 429 for 5 minutes |
 | Idle SSE stream | closed after 60 s |
 
@@ -337,7 +339,7 @@ Each item needs a test or a recorded manual check in the M1 PR.
    spelling on macOS, and Windows junctions, alternate data streams and device
    names.
 10. list, glob and grep do not follow links and filter every yielded path; search
-    filters by current path under the root.
+    and search_content filter by current path under the root.
 11. Every limit in the table is enforced with the default value, answers 429 or
     a marked truncation, and has a test.
 12. Every token-bearing request writes an audit row before responding; an audit

@@ -115,7 +115,7 @@ impl LibraryQuery for ContentSearchQuery {
 			})
 			.collect();
 		let pending_files = index
-			.pending_count(&TextKind::extensions())
+			.pending_count_under(&TextKind::extensions(), &under)
 			.await
 			.map_err(|e| QueryError::Internal(e.to_string()))?;
 
