@@ -7,6 +7,7 @@ mod file_opening;
 mod files;
 mod keybinds;
 mod server;
+mod updater;
 mod windows;
 
 use serde::{Deserialize, Serialize};
@@ -2031,7 +2032,9 @@ fn main() {
 	tracing_subscriber::registry()
 		.with(
 			tracing_subscriber::EnvFilter::try_from_default_env()
-				.unwrap_or_else(|_| "info,sd_core=debug".into()),
+				.unwrap_or_else(|_| "info,sd_core=debug".into())
+				// The plugin logs ERROR for a missing feed; updater.rs logs each check at the right level.
+				.add_directive("tauri_plugin_updater::updater=off".parse().unwrap()),
 		)
 		.with(tracing_subscriber::fmt::layer())
 		.init();
@@ -2062,6 +2065,8 @@ fn main() {
 			start_daemon_process,
 			stop_daemon_process,
 			restart_after_update,
+			updater::check_for_update,
+			updater::install_update,
 			check_daemon_installed,
 			install_daemon_service,
 			uninstall_daemon_service,
@@ -2229,6 +2234,7 @@ fn main() {
 
 			app.manage(daemon_state.clone());
 			app.manage(app_state);
+			app.manage(updater::PendingUpdate::default());
 			app.manage(drag::DragCoordinator::new());
 			app.manage(keybinds::KeybindState::new());
 			app.manage(file_opening::FileOpeningService::new());

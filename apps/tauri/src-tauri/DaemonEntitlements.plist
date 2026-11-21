@@ -19,5 +19,9 @@
 	<!-- Hardened runtime -->
 	<key>com.apple.security.cs.allow-dyld-environment-variables</key>
 	<true/>
+
+	<!-- Lets TCC prompt for the Photos library; without it tccd refuses Photos with "Policy disallows prompt" -->
+	<key>com.apple.security.personal-information.photos-library</key>
+	<true/>
 </dict>
 </plist>
