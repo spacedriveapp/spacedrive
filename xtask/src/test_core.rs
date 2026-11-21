@@ -165,6 +165,18 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Agent writes acceptance test",
 		&["--test", "agent_writes_acceptance_test"],
 	),
+	// The agent MCP endpoint over HTTP: the read tools and refusals, and the
+	// write tools on top of the agent write operations.
+	acceptance(
+		"sd-core",
+		"Agent MCP acceptance test",
+		&["--test", "agent_mcp_acceptance_test"],
+	),
+	acceptance(
+		"sd-core",
+		"Agent MCP writes test",
+		&["--test", "agent_mcp_writes_test"],
+	),
 	// OAuth on the agent MCP endpoint (docs/cli/mcp-oauth.mdx): discovery,
 	// registration, the PKCE code flow, refresh rotation and revocation.
 	acceptance(

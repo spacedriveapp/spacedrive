@@ -506,7 +506,7 @@ async fn post(
 	match request.method.as_deref() {
 		Some("ping") => rpc_result(id, json!({})),
 		Some("tools/list") => rpc_result(id, json!({ "tools": tools::definitions() })),
-		Some("tools/call") => call(endpoint, base, scope, request).await,
+		Some("tools/call") => call(endpoint, base, token, scope, request).await,
 		_ => rpc_error(StatusCode::OK, id, -32601, "method not found"),
 	}
 }
@@ -514,6 +514,7 @@ async fn post(
 async fn call(
 	endpoint: &Arc<Endpoint>,
 	base: &str,
+	token: &str,
 	scope: GrantScope,
 	request: Request,
 ) -> Response {
@@ -538,6 +539,7 @@ async fn call(
 	let library = scope.library_id;
 	let work = tools::call(
 		endpoint.context.clone(),
+		token,
 		tool,
 		scope,
 		arguments,
