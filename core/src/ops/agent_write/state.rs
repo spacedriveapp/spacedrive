@@ -3,6 +3,10 @@
 use std::{
 	io::Read,
 	path::{Path, PathBuf},
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 };
 
 use super::{PathKind, PathState, Precondition, WriteError};
@@ -17,8 +21,8 @@ pub(super) struct Disk {
 }
 
 /// Read `path` from disk. Blocking: hashes the file's bytes, or lists the
-/// directory.
-pub(super) fn disk(path: &Path) -> Result<Disk, WriteError> {
+/// directory. Setting `cancel` stops a hash between chunks.
+pub(super) fn disk(path: &Path, cancel: &AtomicBool) -> Result<Disk, WriteError> {
 	let metadata = match std::fs::symlink_metadata(path) {
 		Ok(metadata) => metadata,
 		Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
@@ -36,7 +40,7 @@ pub(super) fn disk(path: &Path) -> Result<Disk, WriteError> {
 		(PathKind::Directory, Some(listing_hash(path)?))
 	} else if file_type.is_file() {
 		let hash = if refuse_dataless_blocking(path).is_ok() {
-			Some(file_hash(path)?)
+			Some(file_hash(path, cancel)?)
 		} else {
 			None
 		};
@@ -67,12 +71,15 @@ pub(super) fn disk(path: &Path) -> Result<Disk, WriteError> {
 	})
 }
 
-fn file_hash(path: &Path) -> Result<String, WriteError> {
+fn file_hash(path: &Path, cancel: &AtomicBool) -> Result<String, WriteError> {
 	let mut file =
 		std::fs::File::open(path).map_err(|error| WriteError::Io(format!("open: {error}")))?;
 	let mut hasher = blake3::Hasher::new();
 	let mut buffer = vec![0u8; 256 * 1024];
 	loop {
+		if cancel.load(Ordering::Relaxed) {
+			return Err(WriteError::Io("cancelled".to_string()));
+		}
 		let read = file
 			.read(&mut buffer)
 			.map_err(|error| WriteError::Io(format!("read: {error}")))?;
@@ -151,8 +158,19 @@ pub(super) async fn read(
 	root: &Path,
 	path: &Path,
 ) -> Result<(PathState, Option<std::fs::Metadata>), WriteError> {
+	read_until(context, root, path, Arc::new(AtomicBool::new(false))).await
+}
+
+/// [`read`] that stops hashing once `cancel` is set, for a caller that can
+/// give up on the answer.
+pub(super) async fn read_until(
+	context: &CoreContext,
+	root: &Path,
+	path: &Path,
+	cancel: Arc<AtomicBool>,
+) -> Result<(PathState, Option<std::fs::Metadata>), WriteError> {
 	let owned: PathBuf = path.to_path_buf();
-	let disk = tokio::task::spawn_blocking(move || disk(&owned))
+	let disk = tokio::task::spawn_blocking(move || disk(&owned, &cancel))
 		.await
 		.map_err(|error| WriteError::Io(format!("state: {error}")))??;
 	let state = PathState {
@@ -258,9 +276,21 @@ mod tests {
 	#[test]
 	fn a_directory_hash_moves_with_its_children() {
 		let dir = tempfile::tempdir().expect("tempdir");
-		let before = disk(dir.path()).expect("disk").content_hash;
-		assert_eq!(disk(dir.path()).expect("disk").content_hash, before);
+		let before = disk(dir.path(), &AtomicBool::new(false))
+			.expect("disk")
+			.content_hash;
+		assert_eq!(
+			disk(dir.path(), &AtomicBool::new(false))
+				.expect("disk")
+				.content_hash,
+			before
+		);
 		std::fs::write(dir.path().join("child"), b"x").expect("write");
-		assert_ne!(disk(dir.path()).expect("disk").content_hash, before);
+		assert_ne!(
+			disk(dir.path(), &AtomicBool::new(false))
+				.expect("disk")
+				.content_hash,
+			before
+		);
 	}
 }

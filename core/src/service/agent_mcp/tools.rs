@@ -379,12 +379,12 @@ pub async fn call(
 		}),
 		Tool::Search => search(&context, &scope, args(arguments)?).await,
 		Tool::ListDir => blocking(move || list_dir(&scope, args(arguments)?)).await,
-		Tool::Stat => stat_with_precondition(&context, scope).await,
+		Tool::Stat => stat_with_precondition(&context, scope, cancel).await,
 		Tool::Read => blocking(move || read(&scope, args(arguments)?, &cancel)).await,
 		Tool::Glob => blocking(move || glob(&scope, args(arguments)?, &cancel)).await,
 		Tool::Grep => blocking(move || grep(&scope, args(arguments)?, &cancel)).await,
 		Tool::WriteFile | Tool::MakeDir | Tool::Move | Tool::Delete => {
-			write(&context, token, tool, &scope, arguments).await
+			write(context.clone(), token, tool, &scope, arguments).await
 		}
 	};
 	result.map_err(|message| scrub(&message, &root))
@@ -1026,10 +1026,11 @@ async fn search(
 async fn stat_with_precondition(
 	context: &CoreContext,
 	scope: GrantScope,
+	cancel: Arc<AtomicBool>,
 ) -> Result<Output, String> {
 	let (root, path) = (scope.root.clone(), scope.path.clone());
 	let Output { mut structured, .. } = blocking(move || stat(&scope)).await?;
-	let state = agent_write::state_of(context, &root, &path)
+	let state = agent_write::state_of(context, &root, &path, cancel)
 		.await
 		.map_err(|e| e.to_string())?;
 	structured["content_hash"] = json!(state.content_hash);
@@ -1062,8 +1063,13 @@ struct DeleteArgs {
 /// The write tools call the same core operations as the `agent.*` actions,
 /// which check the token again for every path they touch, the destination of
 /// a move included.
+///
+/// The operation runs as its own task. A timeout or a revoked grant drops
+/// the transport's future, and a write dropped between setting the old bytes
+/// aside and its rename would lose them; the task carries on to its commit or
+/// rollback and its journal row, and only the answer is lost.
 async fn write(
-	context: &CoreContext,
+	context: Arc<CoreContext>,
 	token: &str,
 	tool: Tool,
 	scope: &GrantScope,
@@ -1071,52 +1077,57 @@ async fn write(
 ) -> Result<Output, String> {
 	let token = token.to_string();
 	let path = scope.relative.clone();
-	let outcome = match tool {
+	enum Request {
+		Write(WriteFileInput),
+		MakeDir(MakeDirInput),
+		Move(MoveInput),
+		Delete(DeleteInput),
+	}
+	let request = match tool {
 		Tool::WriteFile => {
 			let args: WriteArgs = args(arguments)?;
-			agent_write::write_file(
-				context,
-				WriteFileInput {
-					token,
-					path,
-					content: args.content,
-					encoding: args.encoding,
-					offset: args.offset,
-					expect: args.expect,
-				},
-			)
-			.await
+			Request::Write(WriteFileInput {
+				token,
+				path,
+				content: args.content,
+				encoding: args.encoding,
+				offset: args.offset,
+				expect: args.expect,
+			})
 		}
-		Tool::MakeDir => agent_write::make_dir(context, MakeDirInput { token, path }).await,
+		Tool::MakeDir => Request::MakeDir(MakeDirInput { token, path }),
 		Tool::Move => {
 			let args: MoveArgs = args(arguments)?;
 			paths::check(&args.to)?;
-			agent_write::move_path(
-				context,
-				MoveInput {
-					token,
-					from: path,
-					to: PathBuf::from(args.to),
-					expect: args.expect,
-				},
-			)
-			.await
+			Request::Move(MoveInput {
+				token,
+				from: path,
+				to: PathBuf::from(args.to),
+				expect: args.expect,
+			})
 		}
 		Tool::Delete => {
 			let args: DeleteArgs = args(arguments)?;
-			agent_write::delete(
-				context,
-				DeleteInput {
-					token,
-					path,
-					expect: args.expect,
-				},
-			)
-			.await
+			Request::Delete(DeleteInput {
+				token,
+				path,
+				expect: args.expect,
+			})
 		}
 		_ => return Err("not a write tool".to_string()),
 	};
-	let outcome = outcome.map_err(|e| e.to_string())?;
+	let task = tokio::spawn(async move {
+		match request {
+			Request::Write(input) => agent_write::write_file(&context, input).await,
+			Request::MakeDir(input) => agent_write::make_dir(&context, input).await,
+			Request::Move(input) => agent_write::move_path(&context, input).await,
+			Request::Delete(input) => agent_write::delete(&context, input).await,
+		}
+	});
+	let outcome = task
+		.await
+		.map_err(|_| "the write failed".to_string())?
+		.map_err(|e| e.to_string())?;
 	Ok(Output::json(
 		serde_json::to_value(outcome).map_err(|e| e.to_string())?,
 	))

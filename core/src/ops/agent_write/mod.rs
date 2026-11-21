@@ -65,13 +65,15 @@ pub use conflict::conflict_name;
 pub use ops::{delete, make_dir, move_path, stat, write_file};
 
 /// The state of a path a grant check already resolved: what a precondition
-/// names. For surfaces that ran `authorize` themselves.
+/// names. For surfaces that ran `authorize` themselves. Setting `cancel`
+/// stops hashing a large file once the caller has given up.
 pub async fn state_of(
 	context: &crate::context::CoreContext,
 	root: &std::path::Path,
 	path: &std::path::Path,
+	cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
 ) -> Result<PathState, WriteError> {
-	Ok(state::read(context, root, path).await?.0)
+	Ok(state::read_until(context, root, path, cancel).await?.0)
 }
 
 /// The largest payload one write carries, after decoding.

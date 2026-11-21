@@ -329,10 +329,12 @@ async fn unchanged(
 ) -> Result<(), WriteError> {
 	let holds = if metadata.is_dir() {
 		let path = scope.path.clone();
-		tokio::task::spawn_blocking(move || state::disk(&path))
-			.await
-			.map_err(|e| WriteError::Io(format!("state: {e}")))??
-			.content_hash
+		tokio::task::spawn_blocking(move || {
+			state::disk(&path, &std::sync::atomic::AtomicBool::new(false))
+		})
+		.await
+		.map_err(|e| WriteError::Io(format!("state: {e}")))??
+		.content_hash
 			== checked.content_hash
 	} else {
 		Subject::of(metadata).still_holds(&scope.path).await
