@@ -243,6 +243,19 @@ mod tests {
 	}
 
 	#[test]
+	fn encodings_use_the_names_clients_send() {
+		use crate::ops::agent_write::ContentEncoding;
+		for (name, encoding) in [
+			("utf8", ContentEncoding::Utf8),
+			("base64", ContentEncoding::Base64),
+		] {
+			let json = format!("\"{name}\"");
+			let parsed: ContentEncoding = serde_json::from_str(&json).expect("parses");
+			assert_eq!(parsed, encoding);
+		}
+	}
+
+	#[test]
 	fn a_directory_hash_moves_with_its_children() {
 		let dir = tempfile::tempdir().expect("tempdir");
 		let before = disk(dir.path()).expect("disk").content_hash;

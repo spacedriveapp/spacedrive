@@ -127,7 +127,6 @@ pub async fn write_file(
 			let mut staged = stage(context, &scope.path).await?;
 			let base = input.offset.map(|offset| (scope.path.clone(), offset));
 			write_bytes(staged.path(), &bytes, base).await?;
-			let _ = tokio::fs::set_permissions(staged.path(), metadata.permissions()).await;
 
 			if !subject.still_holds(&scope.path).await {
 				return Err(stale(
@@ -138,7 +137,21 @@ pub async fn write_file(
 			let previous = trash::trash(&scope.path, Some(&context.volume_manager), JobId(id))
 				.await
 				.map_err(|e| WriteError::Io(format!("set the previous bytes aside: {e}")))?;
-			let landed = commit(&mut staged, scope.path.clone()).await?;
+			let landed = match commit(&mut staged, scope.path.clone()).await {
+				Ok(landed) => landed,
+				Err(error) => {
+					// Nothing new landed, so the previous bytes go back where they were.
+					if let Some(previous) = &previous {
+						if let Err(restore) = trash::restore(previous, &scope.path).await {
+							warn!(path = %current.path, error = %restore, "could not put back the bytes a failed agent write set aside");
+						}
+					}
+					return Err(error);
+				}
+			};
+			// The mode is applied after the rename, so a read-only original never
+			// makes the staged file unwritable before it is flushed.
+			let _ = tokio::fs::set_permissions(&landed, metadata.permissions()).await;
 			let meta = std::fs::symlink_metadata(&landed).ok();
 			if landed == scope.path {
 				effects.push(Effect::replaced(landed.clone(), previous, meta.as_ref()));
@@ -226,8 +239,9 @@ pub async fn move_path(
 	};
 	let mut effects = make_parents(&to.root, &wanted).await?;
 
-	if !Subject::of(&metadata).still_holds(&from.path).await {
-		return Err(stale(state::read(context, &from.root, &from.path).await?.0));
+	unchanged(context, &from, &current, &metadata).await?;
+	if is_dir {
+		no_protected_descendant(&from).await?;
 	}
 	still_inside(&from).await?;
 	still_inside(&to).await?;
@@ -271,10 +285,9 @@ pub async fn delete(context: &CoreContext, input: DeleteInput) -> Result<WriteOu
 	let (current, metadata) = state::read(context, &scope.root, &scope.path).await?;
 	check(&input.expect, &current)?;
 	let metadata = metadata.ok_or_else(|| stale(current.clone()))?;
-	if !Subject::of(&metadata).still_holds(&scope.path).await {
-		return Err(stale(
-			state::read(context, &scope.root, &scope.path).await?.0,
-		));
+	unchanged(context, &scope, &current, &metadata).await?;
+	if metadata.is_dir() {
+		no_protected_descendant(&scope).await?;
 	}
 	still_inside(&scope).await?;
 	let id = Uuid::now_v7();
@@ -302,6 +315,65 @@ async fn writable(
 		));
 	}
 	Ok(scope)
+}
+
+/// Refuse when the path changed since its precondition was checked.
+///
+/// A file is compared on size and modification time. A directory's own
+/// times say nothing about its children, so its listing is hashed again.
+async fn unchanged(
+	context: &CoreContext,
+	scope: &GrantScope,
+	checked: &PathState,
+	metadata: &std::fs::Metadata,
+) -> Result<(), WriteError> {
+	let holds = if metadata.is_dir() {
+		let path = scope.path.clone();
+		tokio::task::spawn_blocking(move || state::disk(&path))
+			.await
+			.map_err(|e| WriteError::Io(format!("state: {e}")))??
+			.content_hash
+			== checked.content_hash
+	} else {
+		Subject::of(metadata).still_holds(&scope.path).await
+	};
+	if holds {
+		return Ok(());
+	}
+	Err(stale(
+		state::read(context, &scope.root, &scope.path).await?.0,
+	))
+}
+
+/// Refuse to move or delete a directory that holds a path the grant
+/// protects, since authorizing the directory does not authorize what is in
+/// it. Links are not followed: a link is moved or trashed as itself.
+async fn no_protected_descendant(scope: &GrantScope) -> Result<(), WriteError> {
+	let (root, dir) = (scope.root.clone(), scope.path.clone());
+	let found = tokio::task::spawn_blocking(move || -> Result<Option<String>, WriteError> {
+		let mut pending = vec![dir];
+		while let Some(dir) = pending.pop() {
+			let entries = std::fs::read_dir(&dir)
+				.map_err(|e| WriteError::Io(format!("list {}: {e}", state::shown(&root, &dir))))?;
+			for entry in entries {
+				let entry = entry.map_err(|e| WriteError::Io(format!("list: {e}")))?;
+				let path = entry.path();
+				if scope::protected_component(Path::new(&entry.file_name())).is_some() {
+					return Ok(Some(state::shown(&root, &path)));
+				}
+				if entry.file_type().is_ok_and(|kind| kind.is_dir()) {
+					pending.push(path);
+				}
+			}
+		}
+		Ok(None)
+	})
+	.await
+	.map_err(|e| WriteError::Io(format!("list: {e}")))??;
+	match found {
+		Some(path) => Err(GrantError::Protected(path).into()),
+		None => Ok(()),
+	}
 }
 
 /// Resolve the request again just before it lands, so a directory in its

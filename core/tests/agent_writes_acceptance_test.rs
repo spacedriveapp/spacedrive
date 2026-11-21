@@ -169,6 +169,12 @@ async fn agent_writes_are_fresh_keep_both_and_undoable() -> anyhow::Result<()> {
 	tracked.write_file("project/notes.md", "first").await?;
 	tracked.write_file("project/AGENTS.md", "rules").await?;
 	tracked.write_file("outside.txt", "outside").await?;
+	tracked
+		.write_file("project/vendor/lib/AGENTS.md", "vendored rules")
+		.await?;
+	tracked
+		.write_file("project/repo/.git/config", "[core]")
+		.await?;
 	tracked.track().await?;
 	let project = std::fs::canonicalize(harness.temp_path())?.join("tracked/project");
 	let agent = Agent {
@@ -420,6 +426,46 @@ async fn agent_writes_are_fresh_keep_both_and_undoable() -> anyhow::Result<()> {
 	}
 	assert_eq!(read(&project.join("AGENTS.md")), "rules");
 	assert!(!project.join(".git").exists());
+
+	// Authorizing a directory does not authorize what is in it: a directory
+	// holding a protected path is neither trashed nor moved.
+	for result in [
+		agent
+			.delete("vendor", hash(&agent.stat("vendor").await))
+			.await,
+		agent
+			.move_to("repo", "elsewhere", hash(&agent.stat("repo").await))
+			.await,
+	] {
+		assert!(
+			matches!(result, Err(WriteError::Grant(GrantError::Protected(_)))),
+			"{result:?}"
+		);
+	}
+	assert_eq!(
+		read(&project.join("vendor/lib/AGENTS.md")),
+		"vendored rules"
+	);
+	assert_eq!(read(&project.join("repo/.git/config")), "[core]");
+
+	// A read-only file is replaced and keeps its mode.
+	use std::os::unix::fs::PermissionsExt;
+	agent.write("locked.txt", "v1", None, None).await?;
+	std::fs::set_permissions(
+		project.join("locked.txt"),
+		std::fs::Permissions::from_mode(0o444),
+	)?;
+	let locked = agent.stat("locked.txt").await;
+	agent
+		.write("locked.txt", "v2", None, Some(hash(&locked)))
+		.await?;
+	assert_eq!(read(&project.join("locked.txt")), "v2");
+	assert_eq!(
+		std::fs::metadata(project.join("locked.txt"))?
+			.permissions()
+			.mode() & 0o777,
+		0o444
+	);
 	assert!(matches!(
 		agent.write("../outside.txt", "x", None, None).await,
 		Err(WriteError::Grant(GrantError::Escape(_)))

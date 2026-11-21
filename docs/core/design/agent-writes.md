@@ -95,8 +95,9 @@ the new values.
 
 The precondition is checked twice. It is checked once when the request
 arrives. Just before the rename that commits the write, Spacedrive checks
-that the target's size and modification time still match what it checked,
-and that the path still resolves inside the grant. A change between the two
+that the target still matches what it checked, and that the path still
+resolves inside the grant. A file is compared on size and modification
+time. A directory's listing is hashed again. A change between the two
 checks is refused as stale.
 
 ## Conflict names
@@ -134,7 +135,9 @@ takes the next conflict name.
 
 When a write changes an existing file, the previous bytes go to the trash
 first and the staged file is renamed into the freed name. The two renames
-leave a short window in which the path is absent.
+leave a short window in which the path is absent. If the second rename
+fails, the previous bytes are put back from the trash. The original's mode
+is applied after the rename.
 
 All agent writes on one daemon take one lock from the grant check to the
 journal row. Two agents on the same daemon cannot interleave a check with a
@@ -177,6 +180,10 @@ source and the destination of a move included. It refuses:
   `SKILL.md`, and `.git` at any depth, in every spelling the grant check
   recognizes.
 
+Authorizing a directory does not authorize what is in it. A move or delete
+of a directory lists its whole subtree, without following links, and is
+refused if any path in it is protected.
+
 The writes also refuse the granted directory itself as a target, a move into
 the item's own subtree, and a byte-range write to a cloud placeholder.
 
@@ -212,6 +219,8 @@ replace the name with a new file, so the other name keeps the old bytes.
 | Undo a delete, a move, a create, a change | Each reversed. |
 | Undo a change that a later write built on | Left alone and reported. |
 | Write, move, delete or make-directory on `AGENTS.md`, `CLAUDE.md` or `.git` | Refused as protected. Nothing changes. |
+| Move or delete a directory that holds `AGENTS.md` or `.git` | Refused as protected. Nothing changes. |
+| Change a read-only file | Lands. The file keeps its mode. |
 | Write through `..` | Refused as an escape. |
 | Write with a read grant | Refused as read-only. |
 | Any run | No staging file is left in the grant. |

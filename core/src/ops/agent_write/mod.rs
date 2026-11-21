@@ -92,10 +92,11 @@ impl Precondition {
 
 /// How `content` is encoded.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
-#[serde(rename_all = "snake_case")]
 pub enum ContentEncoding {
 	#[default]
+	#[serde(rename = "utf8")]
 	Utf8,
+	#[serde(rename = "base64")]
 	Base64,
 }
 

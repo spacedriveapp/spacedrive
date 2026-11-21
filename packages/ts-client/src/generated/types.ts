@@ -355,7 +355,7 @@ export type ConnectionMethod =
 /**
  * How `content` is encoded.
  */
-export type ContentEncoding = "utf_8" | "base_64";
+export type ContentEncoding = "utf8" | "base64";
 
 /**
  * Domain representation of content identity
