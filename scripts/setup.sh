@@ -160,6 +160,9 @@ case "$(uname)" in
       set -- "$@" libavutil-dev libavformat-dev libavcodec-dev libavfilter-dev \
         libavdevice-dev libswscale-dev libswresample-dev
 
+      # zlib and zstd headers. Linking fails with -lz and -lzstd when they are missing.
+      set -- "$@" zlib1g-dev libzstd-dev
+
       # React dependencies
       set -- "$@" libvips42
 
@@ -180,6 +183,9 @@ case "$(uname)" in
 
       # FFmpeg headers for crates/ffmpeg
       set -- "$@" ffmpeg
+
+      # zlib and zstd headers. Linking fails with -lz and -lzstd when they are missing.
+      set -- "$@" zlib zstd
 
       # React dependencies
       set -- "$@" libvips
@@ -209,6 +215,9 @@ case "$(uname)" in
       # FFmpeg headers for crates/ffmpeg (ffmpeg-free ships the libav*-devel packages)
       set -- "$@" ffmpeg-free-devel
 
+      # zlib and zstd headers. Linking fails with -lz and -lzstd when they are missing.
+      set -- "$@" zlib-devel libzstd-devel
+
       # React dependencies
       set -- "$@" vips
 
@@ -231,6 +240,9 @@ case "$(uname)" in
       # FFmpeg headers for crates/ffmpeg
       set -- "$@" ffmpeg-dev
 
+      # zlib and zstd headers. Linking fails with -lz and -lzstd when they are missing.
+      set -- "$@" zlib-dev zstd-dev
+
       # React dependencies
       set -- "$@" vips
 
@@ -252,6 +264,9 @@ case "$(uname)" in
 
       # FFmpeg headers for crates/ffmpeg
       set -- "$@" ffmpeg-devel
+
+      # zlib and zstd headers. Linking fails with -lz and -lzstd when they are missing.
+      set -- "$@" zlib-devel zstd-devel
 
       # React dependencies
       set -- "$@" libvips
