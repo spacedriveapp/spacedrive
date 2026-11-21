@@ -625,12 +625,42 @@ impl IndexerJob {
 		root_path: &std::path::Path,
 	) -> JobResult<()> {
 		use super::metadata;
+		use super::reconcile::{bounded, Bounded, READ_BOUND};
 		use super::state::{DirEntry, EntryKind};
 		use tokio::fs;
 
-		let mut entries = fs::read_dir(root_path)
-			.await
-			.map_err(|e| JobError::execution(format!("Failed to read directory: {}", e)))?;
+		// The same bound as a walk: a folder behind an unanswered privacy
+		// prompt fails this browse and waits on access, rather than holding
+		// the job until someone answers.
+		let cache = ctx.library().core_context().volume_index();
+		let waits_on_permission = || {
+			JobError::execution(format!(
+				"{} did not open within {}s; it waits on permission",
+				root_path.display(),
+				READ_BOUND.as_secs()
+			))
+		};
+		if cache.access_blocked(root_path) {
+			return Err(waits_on_permission());
+		}
+		let open = {
+			let dir = root_path.to_path_buf();
+			tokio::spawn(async move { fs::read_dir(dir).await })
+		};
+		let mut entries = match bounded(READ_BOUND, open).await {
+			Bounded::Answered(Ok(entries)) => entries
+				.map_err(|e| JobError::execution(format!("Failed to read directory: {}", e)))?,
+			Bounded::Answered(Err(e)) => {
+				return Err(JobError::execution(format!(
+					"Failed to read directory: {}",
+					e
+				)));
+			}
+			Bounded::Unanswered(open) => {
+				cache.await_access(root_path.to_path_buf(), READ_BOUND, open);
+				return Err(waits_on_permission());
+			}
+		};
 
 		while let Some(entry) = entries
 			.next_entry()

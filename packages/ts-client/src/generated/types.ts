@@ -940,7 +940,14 @@ has_more: boolean;
  * What the overlaid plan does to rows of this directory, by the row's
  * full name. Empty without an overlay
  */
-overlay?: OverlaidRow[] };
+overlay?: OverlaidRow[]; 
+/**
+ * The directory did not answer its open within the walk's bound, which
+ * on macOS is a privacy prompt nobody has answered. The listing is
+ * empty because nothing could be read, not because the folder is, and
+ * it fills in once access is granted.
+ */
+awaiting_permission?: boolean };
 
 /**
  * Sort options for directory listing
@@ -2106,7 +2113,13 @@ thumbs_path: string | null;
  * attached, `offline_copy` while the drive is away and the library's
  * copy answers, and `away` when the drive is away and there is no copy.
  */
-catalog?: CatalogAvailability };
+catalog?: CatalogAvailability; 
+/**
+ * Folders under the source whose listing never answered, such as a
+ * macOS folder behind a privacy prompt nobody answered. Read again once
+ * the listing returns, and every few minutes until it does.
+ */
+awaiting_permission?: string[] };
 
 /**
  * Status of the volume index
@@ -4587,7 +4600,13 @@ settings?: SourceConfig | null;
  * taken and how far behind the origin it is. Absent unless the
  * catalog lives on the source.
  */
-offline_copy?: OfflineCopyInfo | null };
+offline_copy?: OfflineCopyInfo | null; 
+/**
+ * Folders under the source that have not been read because their
+ * listing never answered, such as a macOS folder whose privacy prompt
+ * nobody has answered yet. They are read again once access is granted.
+ */
+awaiting_permission?: string[] };
 
 export type SourceItem = { id: string; external_id: string; title: string; preview: string | null; subtitle: string | null };
 

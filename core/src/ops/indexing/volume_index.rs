@@ -21,7 +21,7 @@ use crate::volume::{Volume, VolumeFingerprint, VolumeState};
 use parking_lot::{Mutex, RwLock};
 use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{BTreeMap, HashMap, HashSet},
 	path::{Path, PathBuf},
 	sync::{
 		atomic::{AtomicBool, Ordering},
@@ -373,6 +373,14 @@ enum SaveMode {
 	Paced,
 }
 
+/// A directory waiting on access: how many listings of it are still
+/// blocked, and how long the slowest one that answered took.
+#[derive(Debug, Default, Clone, Copy)]
+struct AwaitingAccess {
+	blocked: usize,
+	took: Duration,
+}
+
 /// A cached read-only handle and which file it reads.
 #[derive(Clone)]
 struct ReadHandle {
@@ -476,6 +484,21 @@ pub struct VolumeIndex {
 	/// both: an active watch is one the OS accepted, and a refusal is what
 	/// the status surface shows instead until a retry succeeds.
 	refused_watches: Mutex<HashMap<PathBuf, String>>,
+	/// Directories whose listing did not answer within the read bound, with
+	/// how many of their listings are still blocked and how long the slowest
+	/// one that answered took.
+	///
+	/// On macOS this is a folder behind a privacy prompt nobody answered: the
+	/// open blocks until someone does. Walks and reconciles move on without
+	/// it, and [`crate::ops::indexing::reconcile::revisit_awaiting_access`]
+	/// reads it again when the blocked listing returns or on a timer.
+	awaiting_access: Mutex<BTreeMap<PathBuf, AwaitingAccess>>,
+	/// Woken when a blocked listing returns, which is what answering the
+	/// prompt looks like from here.
+	access_answered: tokio::sync::Notify,
+	/// Opens [`Self::opens_in_time`] has under way, each with the answer its
+	/// callers wait for, so concurrent looks at one folder share one open.
+	opening: Mutex<HashMap<PathBuf, tokio::sync::watch::Receiver<Option<bool>>>>,
 	created_at: Instant,
 }
 
@@ -509,6 +532,9 @@ impl VolumeIndex {
 			restored_roots: RwLock::new(None),
 			dirty_stubs: Mutex::new(HashSet::new()),
 			refused_watches: Mutex::new(HashMap::new()),
+			awaiting_access: Mutex::new(BTreeMap::new()),
+			access_answered: tokio::sync::Notify::new(),
+			opening: Mutex::new(HashMap::new()),
 			created_at: Instant::now(),
 		})
 	}
@@ -2918,6 +2944,137 @@ impl VolumeIndex {
 			.collect();
 		refused.sort();
 		refused
+	}
+
+	/// Record a directory whose listing did not answer in time. `listing`
+	/// is that read, still blocked after `waited`; when it returns the
+	/// directory is marked ready to read again, with how long the listing
+	/// took, and the revisit loop wakes.
+	///
+	/// While a listing is outstanding nothing reads the directory again, so
+	/// a prompt left unanswered for hours holds one blocked thread rather
+	/// than one per retry.
+	pub fn await_access<T: Send + 'static>(
+		self: &Arc<Self>,
+		dir: PathBuf,
+		waited: Duration,
+		listing: tokio::task::JoinHandle<T>,
+	) {
+		self.awaiting_access
+			.lock()
+			.entry(dir.clone())
+			.or_default()
+			.blocked += 1;
+		let cache = Arc::downgrade(self);
+		let since = Instant::now();
+		tokio::spawn(async move {
+			let _ = listing.await;
+			let Some(cache) = cache.upgrade() else {
+				return;
+			};
+			if let Some(waiting) = cache.awaiting_access.lock().get_mut(&dir) {
+				waiting.blocked = waiting.blocked.saturating_sub(1);
+				waiting.took = waiting.took.max(waited + since.elapsed());
+			}
+			cache.access_answered.notify_one();
+		});
+	}
+
+	/// Whether `dir` opens within `bound`, trying the open `open` starts.
+	///
+	/// Concurrent callers share one open, and none starts while an earlier
+	/// open of the folder is still blocked, so however many listings ask
+	/// about a folder behind an unanswered prompt it holds one blocked
+	/// thread. The open runs on its own task, so a caller that gives up does
+	/// not strand the others. One that does not answer is recorded as
+	/// waiting on access.
+	pub async fn opens_in_time<T: Send + 'static>(
+		self: &Arc<Self>,
+		dir: &Path,
+		bound: Duration,
+		open: impl FnOnce() -> tokio::task::JoinHandle<T>,
+	) -> bool {
+		use crate::ops::indexing::reconcile::{bounded, Bounded};
+
+		let mut answer = {
+			// Checked under the opening lock: a timed-out open records itself
+			// as blocked before it gives up its reservation, so no caller can
+			// slip between the two and start a second open.
+			let mut opening = self.opening.lock();
+			if self.access_blocked(dir) {
+				return false;
+			}
+			match opening.get(dir) {
+				Some(answer) => answer.clone(),
+				None => {
+					let (tell, answer) = tokio::sync::watch::channel(None);
+					opening.insert(dir.to_path_buf(), answer.clone());
+					let cache = self.clone();
+					let dir = dir.to_path_buf();
+					let listing = open();
+					tokio::spawn(async move {
+						let answered = match bounded(bound, listing).await {
+							Bounded::Answered(_) => true,
+							Bounded::Unanswered(listing) => {
+								cache.await_access(dir.clone(), bound, listing);
+								false
+							}
+						};
+						cache.opening.lock().remove(&dir);
+						let _ = tell.send(Some(answered));
+					});
+					answer
+				}
+			}
+		};
+		matches!(
+			answer
+				.wait_for(Option::is_some)
+				.await
+				.map(|answered| *answered),
+			Ok(Some(true))
+		)
+	}
+
+	/// A directory read in full, or gone: it no longer waits on anything.
+	pub fn access_settled(&self, dir: &Path) {
+		self.awaiting_access.lock().remove(dir);
+	}
+
+	/// Whether a listing of `dir` is still blocked, so opening it again
+	/// would only add another blocked thread.
+	pub fn access_blocked(&self, dir: &Path) -> bool {
+		self.awaiting_access
+			.lock()
+			.get(dir)
+			.is_some_and(|waiting| waiting.blocked > 0)
+	}
+
+	/// Directories at or under `root` waiting on access, sorted.
+	pub fn awaiting_access_under(&self, root: &Path) -> Vec<PathBuf> {
+		self.awaiting_access
+			.lock()
+			.keys()
+			.filter(|dir| dir.starts_with(root))
+			.cloned()
+			.collect()
+	}
+
+	/// Directories waiting on access with no listing still blocked on them,
+	/// so reading them again costs at most one more blocked thread each,
+	/// with how long their last listing took to answer.
+	pub fn awaiting_access_unblocked(&self) -> Vec<(PathBuf, Duration)> {
+		self.awaiting_access
+			.lock()
+			.iter()
+			.filter(|(_, waiting)| waiting.blocked == 0)
+			.map(|(dir, waiting)| (dir.clone(), waiting.took))
+			.collect()
+	}
+
+	/// Resolves when a blocked listing returns.
+	pub async fn access_answered(&self) {
+		self.access_answered.notified().await;
 	}
 
 	pub fn is_watched(&self, path: &Path) -> bool {
