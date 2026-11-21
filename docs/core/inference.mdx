@@ -1,0 +1,80 @@
+---
+title: Inference Providers
+description: Models the core runs for extensions through ai.infer
+---
+
+Extensions are WASM, so they cannot load a model. They call `ai.infer` and the
+core runs the model on this device. The provider layer lives in
+`core/src/ops/ai/` and builds only with the `ai-providers` cargo feature, which
+is off by default. Without it every `ai.infer` request answers `not_available`.
+
+## Categories
+
+| Category | Task | Input | Output |
+|----------|------|-------|--------|
+| `face_detection` | `detect_faces` | image bytes | faces with a box, confidence, landmarks and an embedding |
+| `face_embedding` | `embed_face` | a face crop | a 512-dimension vector |
+| `scene_classification` | `classify` | image bytes | the top 5 scene labels with confidences |
+| `image_caption` | `caption` | image bytes | one or two sentences |
+| `text_embedding` | `embed_text` | UTF-8 text | a 384-dimension vector |
+
+Boxes and landmarks are fractions of the upright image, after EXIF orientation.
+A face carries an embedding only when the extension's manifest also grants
+`face_embedding` and a face embedding model is installed. Embeddings are L2
+normalized, so a dot product is the cosine similarity.
+
+An extension names a model as `<category>:<name>`. The core reads the category
+and picks the model itself, so the name is only a label.
+
+## Batches
+
+A request header may carry `items`, the byte length of each input, with the
+inputs concatenated after it. The answer is one entry per input, either
+`{"ok": ...}` or `{"error": {"code", "message"}}`, so one unreadable file fails
+only itself. A batch holds at most 256 inputs. The SDK exposes this as
+`detect_faces_batch`, `classify_batch`, `caption_batch` and `embed_text_batch`.
+
+## Models
+
+The catalog in `core/src/ops/ai/catalog.rs` pins each model's files by URL,
+size and SHA-256. The registry answers a category with the first catalog model
+whose files are on disk, and loads it on first use. Nothing downloads on its
+own:
+
+```sh
+sd op ai.providers.list --library <id> --json '{}'
+sd op ai.models.download --library <id> --json '{"model_id":"<id>","accept_license":"<SPDX id>"}'
+sd op ai.models.delete --library <id> --json '{"model_id":"<id>"}'
+```
+
+`ai.providers.list` shows each model's size and license. `ai.models.download`
+refuses unless `accept_license` matches the model's license, then queues one
+`model_download` job per missing file. Files land in
+`<data dir>/models/providers/<model id>/` and are checked against their hash.
+
+Sessions run on ONNX Runtime with half the cores. On macOS they ask for CoreML
+first and fall back to the CPU for operators CoreML cannot place.
+
+## Cloud captioning
+
+Image captioning may use a cloud service with the user's own key. It is off for
+every library until the library turns it on:
+
+```sh
+sd op ai.cloud_caption.configure --library <id> --json \
+  '{"base_url":"https://api.openai.com/v1","model":"<vision model>","api_key":"<key>","enabled":true}'
+```
+
+The client speaks the OpenAI-compatible chat completions format, so any
+service or local server with that API works. The key is encrypted with the
+library key and stored in the library database, like cloud volume credentials.
+It is never returned or logged. Images are downscaled to 1024 pixels on the
+long edge before upload.
+
+A request reaches the cloud only when all of these hold:
+
+- no local `image_caption` model is installed,
+- the extension's manifest preference for `image_caption` is `api`,
+- the library has `ai.cloud_caption.enabled` set, with a URL, a model and a key.
+
+A manifest preference of `local`, or none, never leaves the device.

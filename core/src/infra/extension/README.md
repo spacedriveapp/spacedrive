@@ -93,7 +93,7 @@ that the SDK maps onto its own error type.
 | `sidecars.exists`, `sidecars.read` | `read_sidecars` | One JSON document under `<library>/sidecars/`, keyed by content uuid and `SidecarKind::Extension { extension_id, kind }`. |
 | `sidecars.write` | `write_sidecars` (per kind) | Writes that document. |
 | `models.put`, `models.get`, `models.list` | none, models are the extension's own | A row in the extension's store, keyed by the model's uuid or `content:<uuid>` for a content-scoped model. |
-| `ai.infer` | `use_models` (per category) | Checks the grant, then answers `not_available`: the core has no inference provider yet. |
+| `ai.infer` | `use_models` (per category) | Checks the grant, then runs the core's model for the category, one input or a batch (`docs/core/inference.mdx`). A build without the `ai-providers` feature, or a category with no downloaded model, answers `not_available`. |
 | `config.get` | none | `config.json` beside the manifest, or `null`. |
 
 ## What the SDK can call today

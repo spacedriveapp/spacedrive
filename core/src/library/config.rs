@@ -73,6 +73,38 @@ pub struct LibrarySettings {
 	/// What a new source starts with when nothing on the add overrides it.
 	#[serde(default)]
 	pub adding: AddDefaults,
+
+	/// Which inference may leave this device for this library.
+	#[serde(default)]
+	pub ai: AiSettings,
+}
+
+/// Per-library inference settings.
+///
+/// Inference runs on this device unless the library opts a category into a
+/// cloud provider here. Nothing is sent anywhere while `enabled` is false,
+/// which is the default, even when a key is stored.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct AiSettings {
+	#[serde(default)]
+	pub cloud_caption: CloudCaptionSettings,
+}
+
+/// Bring-your-own-key image captioning through a cloud service.
+///
+/// The key itself is never stored here: it lives encrypted with the library
+/// key in the library database, so `library.json` can be read or backed up
+/// without exposing it.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct CloudCaptionSettings {
+	#[serde(default)]
+	pub enabled: bool,
+	/// Base URL of an OpenAI-compatible API, such as `https://api.openai.com/v1`.
+	#[serde(default)]
+	pub base_url: Option<String>,
+	/// The vision model to ask for captions.
+	#[serde(default)]
+	pub model: Option<String>,
 }
 
 /// Defaults for Add to Library, under Library Settings > Adding content.
@@ -212,6 +244,7 @@ impl Default for LibrarySettings {
 			auto_track_external_volumes: false,            // Default to false for privacy
 			indexer: IndexerSettings::default(),
 			adding: AddDefaults::default(),
+			ai: AiSettings::default(),
 		}
 	}
 }
