@@ -2983,11 +2983,14 @@ impl VolumeIndex {
 	) -> bool {
 		use crate::ops::indexing::reconcile::{bounded, Bounded};
 
-		if self.access_blocked(dir) {
-			return false;
-		}
 		let mut answer = {
+			// Checked under the opening lock: a timed-out open records itself
+			// as blocked before it gives up its reservation, so no caller can
+			// slip between the two and start a second open.
 			let mut opening = self.opening.lock();
+			if self.access_blocked(dir) {
+				return false;
+			}
 			match opening.get(dir) {
 				Some(answer) => answer.clone(),
 				None => {
