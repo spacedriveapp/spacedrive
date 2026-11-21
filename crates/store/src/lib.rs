@@ -66,8 +66,9 @@ use serde::{Deserialize, Serialize};
 
 pub use content::{uuid_for, ContentId, CONTENT_NAMESPACE};
 pub use content_text::{
-	match_expression, ContentTextIndex, PendingText, SnippetPart, TextDoc, TextHit,
-	TextIndexCounts, TextSearch, TEXT_INDEX_FILE,
+	match_expression, ContentTextIndex, PendingText, PendingTranscript, SnippetPart, TextDoc,
+	TextHit, TextIndexCounts, TextSearch, TranscriptDoc, TranscriptSpan, TEXT_INDEX_FILE,
+	TRANSCRIPT_KIND,
 };
 pub use db::{ItemRow, OverlayEvidence, SourceDb, Stamp};
 pub use error::{Error, Result};

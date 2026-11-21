@@ -313,7 +313,7 @@ pub fn definitions() -> Value {
 		{
 			"name": "search_content",
 			"title": "Search the text of files",
-			"description": "Searches the text Spacedrive extracted from documents and code under 'path' and returns files ranked by relevance, each with a snippet around the best match. Every word must appear; text in double quotes is a phrase and a word ending in '*' matches as a prefix. It answers from an index, so a file changed since the last pass can be missing or stale, and pending_files counts files waiting to be read. It works only inside a source that reads file contents. Use grep for patterns or a live scan.",
+			"description": "Searches the text Spacedrive extracted from documents and code under 'path' and returns files ranked by relevance, each with a snippet around the best match. Every word must appear; text in double quotes is a phrase and a word ending in '*' matches as a prefix. It answers from an index, so a file changed since the last pass can be missing or stale, and pending_files counts files waiting to be read. Words spoken in transcribed audio and video match too: those hits have kind 'transcript' and carry start_seconds and end_seconds, the moment in the recording they were said, and one recording can return several. It works only inside a source that reads file contents. Use grep for patterns or a live scan.",
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -321,7 +321,7 @@ pub fn definitions() -> Value {
 					"path": path("The directory or file to search"),
 					"kinds": {
 						"type": "array",
-						"items": { "type": "string", "enum": ["text", "markdown", "csv", "json", "code", "pdf", "docx"] },
+						"items": { "type": "string", "enum": ["text", "markdown", "csv", "json", "code", "pdf", "docx", "transcript"] },
 						"description": "Only files of these kinds. Empty or absent means every kind.",
 					},
 					"max_results": { "type": "integer", "minimum": 1, "maximum": CONTENT_PAGE_MAX, "default": CONTENT_PAGE_DEFAULT },
@@ -1275,14 +1275,19 @@ async fn search_content(
 				.collect();
 			matched.sort_unstable();
 			matched.dedup();
-			Some(json!({
+			let mut result = json!({
 				"path": paths::shown(&relative),
 				"kind": hit.kind.as_str(),
 				"score": hit.score,
 				"snippet": snippet,
 				"matched": matched,
 				"text_truncated": hit.truncated,
-			}))
+			});
+			if let Some(time) = hit.time {
+				result["start_seconds"] = json!(time.start_seconds);
+				result["end_seconds"] = json!(time.end_seconds);
+			}
+			Some(result)
 		})
 		.collect();
 	Ok(Output::json(json!({

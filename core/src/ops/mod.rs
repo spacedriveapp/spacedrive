@@ -38,4 +38,5 @@ pub mod sync;
 pub mod tags;
 pub mod thumbs;
 pub mod tools;
+pub mod transcription;
 pub mod volumes;

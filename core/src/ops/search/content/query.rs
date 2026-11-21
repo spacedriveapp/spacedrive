@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tracing::debug;
 
-use super::{ContentSearchHit, ContentSearchInput, ContentSearchOutput, SnippetFragment};
+use super::{
+	ContentSearchHit, ContentSearchInput, ContentSearchOutput, SnippetFragment, SpokenTime,
+};
 use crate::{
 	context::CoreContext,
 	infra::query::{LibraryQuery, QueryError, QueryResult},
@@ -111,6 +113,7 @@ impl LibraryQuery for ContentSearchQuery {
 						})
 						.collect(),
 					truncated: hit.truncated,
+					time: SpokenTime::from_ms(hit.start_ms, hit.end_ms),
 				})
 			})
 			.collect();
