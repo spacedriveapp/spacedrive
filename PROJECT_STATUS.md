@@ -67,7 +67,15 @@ revisited under its drive's map. Opening such a folder in the explorer tries
 the open with the same bound and returns `awaiting_permission` on
 `files.directory_listing`, which the explorer shows as a banner, instead of
 hanging. Full Disk Access is not requested and the folders walked are
-unchanged.
+unchanged. On the Studio a startup walk still stalled at 0% (November 21): the
+count a source walk takes of a folder the rules hold back, such as
+`~/Library`, read every directory under it with no bound and blocked in other
+apps' data. `summary::count_subtree` now reads each directory under the same
+bound and leaves out one that does not answer or that another read is blocked
+on, holding its read so nothing opens it twice without reporting it. Every
+reconcile writes the store's counts to the source row, so `sources.list`
+shows the records the startup reconcile added before the walk saves. Proof:
+`a_walk_after_a_reconcile_holds_a_folder_still_finishes`.
 
 Content reads never hydrate cloud placeholders (Capy SPAC-86, November 19,
 beta.1 blocker). Every path that reads file bytes stats the file first and

@@ -640,7 +640,7 @@ impl IndexerJob {
 				READ_BOUND.as_secs()
 			))
 		};
-		if cache.access_blocked(root_path) {
+		if cache.access_blocked_needed(root_path) {
 			return Err(waits_on_permission());
 		}
 		let open = {
