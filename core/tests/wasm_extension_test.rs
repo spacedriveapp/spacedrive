@@ -27,11 +27,12 @@ use sd_core::{
 			database::{self, checkpoint},
 			types::JobStatus,
 		},
-		query::CoreQuery,
+		query::{CoreQuery, LibraryQuery},
 	},
 	ops::{
 		extensions::{
-			ListExtensionsInput, ListExtensionsQuery, RunExtensionJobAction, RunExtensionJobInput,
+			ExtensionModelsInput, ExtensionModelsQuery, ListExtensionsInput, ListExtensionsQuery,
+			RunExtensionJobAction, RunExtensionJobInput,
 		},
 		sources::track::{TrackSourceAction, TrackSourceInput},
 	},
@@ -1600,4 +1601,288 @@ async fn viewer_bundles_resolve_and_a_kind_needs_a_declared_viewer() {
 	assert!(FileTypeRegistry::current()
 		.type_by_extension(Path::new("x.brk"))
 		.is_none());
+}
+
+const VIDEOS: &str = "com.spacedrive.videos";
+
+fn media_sidecar(
+	library: &sd_core::library::Library,
+	media: Uuid,
+	kind: &str,
+	variant: &str,
+	ext: &str,
+) -> PathBuf {
+	library
+		.path()
+		.join("sidecars")
+		.join(sd_sidecar_path::relative_path(
+			&media,
+			sd_sidecar_path::kind_directory(kind).expect("a core media kind"),
+			variant,
+			ext,
+		))
+}
+
+fn videos_sidecar(library: &sd_core::library::Library, media: Uuid, kind: &str) -> PathBuf {
+	library
+		.path()
+		.join("sidecars")
+		.join(sd_sidecar_path::relative_path(
+			&media,
+			&sd_sidecar_path::extension_kind_directory(VIDEOS, kind),
+			"default",
+			"json",
+		))
+}
+
+async fn videos_rows(
+	core: &Core,
+	library: &sd_core::library::Library,
+	model: &str,
+) -> Vec<serde_json::Value> {
+	let mut session = SessionContext::device_session(
+		sd_core::device::get_current_device_id(),
+		sd_core::device::get_current_device_slug(),
+	);
+	session.current_library_id = Some(library.id());
+	ExtensionModelsQuery::from_input(ExtensionModelsInput {
+		extension_id: VIDEOS.into(),
+		model: model.into(),
+		limit: None,
+	})
+	.unwrap()
+	.execute(core.context.clone(), session)
+	.await
+	.unwrap()
+	.rows
+}
+
+/// The Videos extension over three clips: two the core has split into
+/// shots (a stubbed shot list and keyframes at the core's paths) and one it
+/// has not. With no inference provider the analyze job completes, says
+/// which categories were not available, and lists every shot. Stubbed face
+/// sidecars then cluster into two people; a name given through
+/// `edit_roster` survives a re-cluster, and a face taken off a person stays
+/// off.
+#[tokio::test(flavor = "multi_thread")]
+async fn videos_lists_shots_without_providers_and_keeps_roster_edits() {
+	let guest_log = guest_log();
+	let temp_dir = TempDir::new().unwrap();
+	install_extension(
+		temp_dir.path().join("core").as_path(),
+		"videos",
+		"videos.wasm",
+	);
+	let core = Core::new(temp_dir.path().join("core")).await.unwrap();
+	let pm = core.plugin_manager.as_ref().expect("plugin manager");
+	let mut jobs: Vec<String> = pm
+		.read()
+		.await
+		.job_registry()
+		.list_jobs_for_extension(VIDEOS)
+		.into_iter()
+		.map(|job| job.job_name)
+		.collect();
+	jobs.sort();
+	assert_eq!(jobs, ["analyze", "cluster_people", "edit_roster"]);
+
+	let library = core
+		.libraries
+		.create_library("Footage", None, core.context.clone())
+		.await
+		.unwrap();
+	let footage = temp_dir.path().join("footage");
+	std::fs::create_dir_all(&footage).unwrap();
+	for (i, name) in ["a.mp4", "b.mov", "c.mp4"].iter().enumerate() {
+		let mut bytes = b"\0\0\0\x18ftypmp42".to_vec();
+		bytes.extend(std::iter::repeat_n(i as u8 + 1, 4000 + i * 13));
+		std::fs::write(footage.join(name), bytes).unwrap();
+	}
+	std::fs::write(footage.join("notes.txt"), b"not footage").unwrap();
+	let (_, files) = track_and_identify(&core, &library, footage, 4).await;
+	let media = |name: &str| {
+		let entry = files.iter().find(|f| f.name == name).unwrap();
+		sd_store::content::uuid_for(entry.sampled_hash.as_deref().expect("hashed"))
+	};
+	let (a, b, c) = (media("a.mp4"), media("b.mov"), media("c.mp4"));
+
+	for clip in [a, b] {
+		let shots = serde_json::json!({
+			"version": 1,
+			"content_uuid": clip,
+			"rate": { "num": 25, "den": 1 },
+			"out_exclusive": true,
+			"duration": { "frame": 200, "seconds": 8.0, "timecode": "00:00:08:00" },
+			"shots": [
+				{ "id": format!("{clip}-s0"), "index": 0,
+				  "in": { "frame": 0, "seconds": 0.0, "timecode": "00:00:00:00" },
+				  "out": { "frame": 100, "seconds": 4.0, "timecode": "00:00:04:00" },
+				  "keyframe": { "frame": 50, "seconds": 2.0, "timecode": "00:00:02:00" } },
+				{ "id": format!("{clip}-s1"), "index": 1,
+				  "in": { "frame": 100, "seconds": 4.0, "timecode": "00:00:04:00" },
+				  "out": { "frame": 200, "seconds": 8.0, "timecode": "00:00:08:00" },
+				  "keyframe": { "frame": 150, "seconds": 6.0, "timecode": "00:00:06:00" } },
+			],
+		});
+		let path = media_sidecar(&library, clip, "shots", "default", "json");
+		std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+		std::fs::write(&path, shots.to_string()).unwrap();
+		for shot in ["s0", "s1"] {
+			let path = media_sidecar(&library, clip, "keyframe", &format!("{clip}-{shot}"), "jpg");
+			std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+			std::fs::write(&path, [0xFF, 0xD8, 0xFF, 0xE0]).unwrap();
+		}
+	}
+
+	guest_log.lock().unwrap().clear();
+	let info = run_to_end(
+		&core,
+		&library,
+		"com.spacedrive.videos:analyze",
+		serde_json::json!({}),
+	)
+	.await;
+	assert_eq!(
+		info.status,
+		JobStatus::Completed,
+		"{:?}",
+		info.error_message
+	);
+	let log = guest_log.lock().unwrap().clone();
+	assert!(!log.contains("guest panic"), "{log}");
+	assert!(
+		log.contains(
+			"Videos: 2 analyzed (4 shots), 1 waiting for shots, 0 skipped; \
+			 not_available: image_caption, scene_classification, face_detection"
+		),
+		"{log}"
+	);
+	let rows = videos_rows(&core, &library, "Footage").await;
+	assert_eq!(rows.len(), 3, "the text file is outside the grant");
+	let row = |media: Uuid| {
+		rows.iter()
+			.find(|r| r["id"] == media.to_string())
+			.unwrap()
+			.clone()
+	};
+	assert_eq!(row(a)["status"], "analyzed");
+	assert_eq!(row(a)["shots"].as_array().unwrap().len(), 2);
+	assert!(row(a)["shots"][0]["description"].is_null());
+	assert_eq!(
+		row(a)["unavailable"],
+		serde_json::json!(["image_caption", "scene_classification", "face_detection"])
+	);
+	assert_eq!(row(c)["status"], "waiting_for_shots");
+	assert!(
+		!videos_sidecar(&library, a, "faces").exists(),
+		"no detector, no faces sidecar"
+	);
+
+	// What a face detector with an embedding model would have written.
+	let face = |embedding: [f32; 4]| {
+		serde_json::json!({
+			"bbox": { "x": 0.4, "y": 0.2, "width": 0.2, "height": 0.3 },
+			"confidence": 0.98,
+			"embedding": embedding,
+		})
+	};
+	for (clip, s0, s1) in [
+		(a, [1.0, 0.0, 0.0, 0.0], [0.95, 0.1, 0.0, 0.0]),
+		(b, [0.0, 1.0, 0.0, 0.0], [0.9, 0.0, 0.1, 0.0]),
+	] {
+		let doc = serde_json::json!({ "version": 1, "shots": [
+			{ "shot_id": format!("{clip}-s0"), "faces": [face(s0)] },
+			{ "shot_id": format!("{clip}-s1"), "faces": [face(s1)] },
+		]});
+		let path = videos_sidecar(&library, clip, "faces");
+		std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+		std::fs::write(&path, doc.to_string()).unwrap();
+	}
+	let info = run_to_end(
+		&core,
+		&library,
+		"com.spacedrive.videos:cluster_people",
+		serde_json::json!({}),
+	)
+	.await;
+	assert_eq!(
+		info.status,
+		JobStatus::Completed,
+		"{:?}",
+		info.error_message
+	);
+	let people = videos_rows(&core, &library, "Person").await;
+	let mut sizes: Vec<usize> = people
+		.iter()
+		.map(|p| p["faces"].as_array().unwrap().len())
+		.collect();
+	sizes.sort();
+	assert_eq!(sizes, [1, 3], "{people:#?}");
+	let ada = people
+		.iter()
+		.find(|p| p["faces"].as_array().unwrap().len() == 3)
+		.unwrap()["id"]
+		.as_str()
+		.unwrap()
+		.to_string();
+
+	let info = run_to_end(
+		&core,
+		&library,
+		"com.spacedrive.videos:edit_roster",
+		serde_json::json!({ "action": "name", "person": ada, "name": "Ada" }),
+	)
+	.await;
+	assert_eq!(
+		info.status,
+		JobStatus::Completed,
+		"{:?}",
+		info.error_message
+	);
+	let taken_off =
+		serde_json::json!({ "media_uuid": b, "shot_id": format!("{b}-s1"), "index": 0 });
+	let info = run_to_end(
+		&core,
+		&library,
+		"com.spacedrive.videos:edit_roster",
+		serde_json::json!({ "action": "exclude", "person": ada, "face": taken_off }),
+	)
+	.await;
+	assert_eq!(
+		info.status,
+		JobStatus::Completed,
+		"{:?}",
+		info.error_message
+	);
+	let info = run_to_end(
+		&core,
+		&library,
+		"com.spacedrive.videos:cluster_people",
+		serde_json::json!({}),
+	)
+	.await;
+	assert_eq!(
+		info.status,
+		JobStatus::Completed,
+		"{:?}",
+		info.error_message
+	);
+
+	let people = videos_rows(&core, &library, "Person").await;
+	let named = people.iter().find(|p| p["id"] == ada.as_str()).unwrap();
+	assert_eq!(named["name"], "Ada");
+	assert_eq!(named["tag"], "Videos/People/Ada");
+	assert_eq!(
+		named["faces"].as_array().unwrap().len(),
+		2,
+		"{named:#?} {:#?}",
+		videos_rows(&core, &library, "RosterEdit").await
+	);
+	assert!(!named["faces"].as_array().unwrap().contains(&taken_off));
+	let rows = videos_rows(&core, &library, "Footage").await;
+	let a_row = rows.iter().find(|r| r["id"] == a.to_string()).unwrap();
+	assert_eq!(a_row["shots"][0]["people"], serde_json::json!([ada]));
+	assert_eq!(a_row["shots"][1]["people"], serde_json::json!([ada]));
+
+	core.shutdown().await.unwrap();
 }
