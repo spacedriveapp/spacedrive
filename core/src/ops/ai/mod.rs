@@ -135,6 +135,8 @@ pub enum AiError {
 	Model(String),
 	#[error("cloud provider failed: {0}")]
 	Cloud(String),
+	#[error("interrupted")]
+	Interrupted,
 }
 
 impl From<::ort::Error> for AiError {

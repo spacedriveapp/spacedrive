@@ -17,6 +17,11 @@ use crate::library::Library;
 const FACE_DECODE_SIDE: u32 = 2048;
 const SCENE_DECODE_SIDE: u32 = 512;
 const SCENE_TOP_K: usize = 5;
+/// Local inputs run this many at a time, so a pause or cancel is seen
+/// between chunks instead of after the whole batch.
+const LOCAL_CHUNK: usize = 16;
+/// How often an in-flight cloud request looks for a pause or cancel.
+const INTERRUPT_POLL: std::time::Duration = std::time::Duration::from_millis(250);
 
 pub trait FaceDetector: Send + Sync {
 	fn detect(&self, image: &RgbImage) -> Result<Vec<Face>, AiError>;
@@ -132,13 +137,16 @@ impl ProviderRegistry {
 	/// Runs `task` over every item and answers each on its own.
 	///
 	/// `embedder` fills the embedding of each detected face when the caller
-	/// holds a `face_embedding` grant and a model is installed.
+	/// holds a `face_embedding` grant and a model is installed. `interrupted`
+	/// is polled between chunks and while a cloud request is in flight, so a
+	/// paused or cancelled job stops without waiting for the whole batch.
 	pub async fn run(
 		&self,
 		provider: Provider,
 		task: &str,
 		items: Vec<Vec<u8>>,
 		embedder: Option<Arc<dyn FaceEmbedder>>,
+		interrupted: impl Fn() -> bool,
 	) -> Result<Vec<Result<serde_json::Value, AiError>>, AiError> {
 		let expected = match &provider {
 			Provider::FaceDetection(_) => "detect_faces",
@@ -152,16 +160,37 @@ impl ProviderRegistry {
 				"unknown task {task}; this category answers {expected}"
 			)));
 		}
+		let mut out = Vec::with_capacity(items.len());
 		if let Provider::ImageCaption(captioner, _) = provider {
-			let mut out = Vec::with_capacity(items.len());
 			for item in &items {
-				out.push(captioner.caption(item).await.and_then(to_json));
+				let caption = captioner.caption(item);
+				tokio::pin!(caption);
+				let result = loop {
+					tokio::select! {
+						result = &mut caption => break result,
+						_ = tokio::time::sleep(INTERRUPT_POLL) => {
+							if interrupted() {
+								return Err(AiError::Interrupted);
+							}
+						}
+					}
+				};
+				out.push(result.and_then(to_json));
 			}
 			return Ok(out);
 		}
-		tokio::task::spawn_blocking(move || run_local(provider, items, embedder))
-			.await
-			.map_err(|e| AiError::Model(e.to_string()))
+		for chunk in items.chunks(LOCAL_CHUNK) {
+			if interrupted() {
+				return Err(AiError::Interrupted);
+			}
+			let (provider, chunk, embedder) = (provider.clone(), chunk.to_vec(), embedder.clone());
+			out.extend(
+				tokio::task::spawn_blocking(move || run_local(provider, chunk, embedder))
+					.await
+					.map_err(|e| AiError::Model(e.to_string()))?,
+			);
+		}
+		Ok(out)
 	}
 }
 
