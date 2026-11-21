@@ -32,6 +32,10 @@ use crate::{
 	context::CoreContext,
 	domain::addressing::SdPath,
 	ops::{
+		agent_write::{
+			self, ContentEncoding, DeleteInput, MakeDirInput, MoveInput, Precondition,
+			WriteFileInput,
+		},
 		grants::{GrantCap, GrantScope},
 		indexing::metadata::{refuse_dataless_blocking, DATALESS_REASON},
 		search::{
@@ -51,10 +55,14 @@ pub enum Tool {
 	Grep,
 	Search,
 	GetSkill,
+	WriteFile,
+	MakeDir,
+	Move,
+	Delete,
 }
 
 impl Tool {
-	pub const ALL: [Tool; 7] = [
+	pub const ALL: [Tool; 11] = [
 		Self::GetSkill,
 		Self::ListDir,
 		Self::Stat,
@@ -62,6 +70,10 @@ impl Tool {
 		Self::Glob,
 		Self::Grep,
 		Self::Search,
+		Self::WriteFile,
+		Self::MakeDir,
+		Self::Move,
+		Self::Delete,
 	];
 
 	pub fn name(self) -> &'static str {
@@ -73,6 +85,10 @@ impl Tool {
 			Self::Grep => "grep",
 			Self::Search => "search",
 			Self::GetSkill => "get_skill",
+			Self::WriteFile => "write_file",
+			Self::MakeDir => "make_dir",
+			Self::Move => "move",
+			Self::Delete => "delete",
 		}
 	}
 
@@ -82,7 +98,10 @@ impl Tool {
 
 	/// The capability the grant check asks for on this tool's path.
 	pub fn cap(self) -> GrantCap {
-		GrantCap::Read
+		match self {
+			Self::WriteFile | Self::MakeDir | Self::Move | Self::Delete => GrantCap::ReadWrite,
+			_ => GrantCap::Read,
+		}
 	}
 
 	/// Whether a grant may run only one call of this tool at a time, for
@@ -138,6 +157,24 @@ pub fn definitions() -> Value {
 		"type": "string",
 		"description": "The next_cursor of the previous page, to continue from there.",
 	});
+	let expect = json!({
+		"type": "object",
+		"description": "What you read: the content_hash and/or revision stat returned. Every field you pass must still match.",
+		"properties": {
+			"content_hash": { "type": "string" },
+			"revision": { "type": "string" },
+		},
+		"additionalProperties": false,
+	});
+	let writes = |title: &str, destructive: bool| {
+		json!({
+			"title": title,
+			"readOnlyHint": false,
+			"destructiveHint": destructive,
+			"idempotentHint": false,
+			"openWorldHint": false,
+		})
+	};
 	let annotations = |title: &str| {
 		json!({
 			"title": title,
@@ -173,7 +210,7 @@ pub fn definitions() -> Value {
 		{
 			"name": "stat",
 			"title": "Stat a path",
-			"description": "Returns the type, size and timestamps of one file or directory.",
+			"description": "Returns the type, size and timestamps of one file or directory, and the content_hash and revision a write's expect names.",
 			"inputSchema": {
 				"type": "object",
 				"properties": { "path": path("The file or directory") },
@@ -261,12 +298,74 @@ pub fn definitions() -> Value {
 			},
 			"annotations": annotations("Search names and metadata"),
 		},
+		{
+			"name": "write_file",
+			"title": "Write a file",
+			"description": "Writes a whole file, or content at a byte offset of an existing one. To change an existing file, pass expect with the content_hash (or revision) that stat returned; if the file changed since, the call fails as stale and names the current values. Without expect the call creates the file and never replaces anything: if the name is taken, the file is written beside it as 'name (agent conflict N).ext'. Missing parent directories are created. The result has the new content_hash to pass to the next write, and an undo id.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"path": path("The file"),
+					"content": { "type": "string", "description": "The bytes to write, as UTF-8 text or base64." },
+					"encoding": { "type": "string", "enum": ["utf8", "base64"], "default": "utf8" },
+					"offset": { "type": "integer", "minimum": 0, "description": "Write content starting at this byte and keep the rest of the file. Needs expect." },
+					"expect": expect.clone(),
+				},
+				"required": ["path", "content"],
+				"additionalProperties": false,
+			},
+			"annotations": writes("Write a file", false),
+		},
+		{
+			"name": "make_dir",
+			"title": "Make a directory",
+			"description": "Creates a directory and any missing parents. A directory already there is left as it is. If a file has the name, the directory is made beside it under a conflict name.",
+			"inputSchema": {
+				"type": "object",
+				"properties": { "path": path("The directory") },
+				"required": ["path"],
+				"additionalProperties": false,
+			},
+			"annotations": writes("Make a directory", false),
+		},
+		{
+			"name": "move",
+			"title": "Move or rename",
+			"description": "Moves or renames a file or directory within the granted folder and on one volume. expect names what stat returned for 'path'. If 'to' is taken, the item lands beside it under a conflict name. A directory that holds a protected file cannot be moved.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"path": path("The file or directory to move"),
+					"to": path("Where it goes"),
+					"expect": expect.clone(),
+				},
+				"required": ["path", "to", "expect"],
+				"additionalProperties": false,
+			},
+			"annotations": writes("Move or rename", true),
+		},
+		{
+			"name": "delete",
+			"title": "Move to the trash",
+			"description": "Moves a file or directory to the trash. Nothing is deleted for good. expect names what stat returned for 'path'. A directory that holds a protected file cannot be deleted.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"path": path("The file or directory"),
+					"expect": expect,
+				},
+				"required": ["path", "expect"],
+				"additionalProperties": false,
+			},
+			"annotations": writes("Move to the trash", true),
+		},
 	])
 }
 
 /// Run one tool on the resolved scope.
 pub async fn call(
 	context: Arc<CoreContext>,
+	token: &str,
 	tool: Tool,
 	scope: GrantScope,
 	arguments: Value,
@@ -280,10 +379,13 @@ pub async fn call(
 		}),
 		Tool::Search => search(&context, &scope, args(arguments)?).await,
 		Tool::ListDir => blocking(move || list_dir(&scope, args(arguments)?)).await,
-		Tool::Stat => blocking(move || stat(&scope)).await,
+		Tool::Stat => stat_with_precondition(&context, scope).await,
 		Tool::Read => blocking(move || read(&scope, args(arguments)?, &cancel)).await,
 		Tool::Glob => blocking(move || glob(&scope, args(arguments)?, &cancel)).await,
 		Tool::Grep => blocking(move || grep(&scope, args(arguments)?, &cancel)).await,
+		Tool::WriteFile | Tool::MakeDir | Tool::Move | Tool::Delete => {
+			write(&context, token, tool, &scope, arguments).await
+		}
 	};
 	result.map_err(|message| scrub(&message, &root))
 }
@@ -918,6 +1020,106 @@ async fn search(
 		"next_offset": (u64::from(offset + limit) < total).then_some(offset + limit),
 		"note": "Search reads Spacedrive's index, which can lag the disk. Confirm a hit with stat or read.",
 	})))
+}
+
+/// Stat, plus the values a write's precondition names.
+async fn stat_with_precondition(
+	context: &CoreContext,
+	scope: GrantScope,
+) -> Result<Output, String> {
+	let (root, path) = (scope.root.clone(), scope.path.clone());
+	let Output { mut structured, .. } = blocking(move || stat(&scope)).await?;
+	let state = agent_write::state_of(context, &root, &path)
+		.await
+		.map_err(|e| e.to_string())?;
+	structured["content_hash"] = json!(state.content_hash);
+	structured["revision"] = json!(state.revision);
+	Ok(Output::json(structured))
+}
+
+#[derive(Deserialize)]
+struct WriteArgs {
+	content: String,
+	#[serde(default)]
+	encoding: Option<ContentEncoding>,
+	#[serde(default)]
+	offset: Option<u64>,
+	#[serde(default)]
+	expect: Option<Precondition>,
+}
+
+#[derive(Deserialize)]
+struct MoveArgs {
+	to: String,
+	expect: Precondition,
+}
+
+#[derive(Deserialize)]
+struct DeleteArgs {
+	expect: Precondition,
+}
+
+/// The write tools call the same core operations as the `agent.*` actions,
+/// which check the token again for every path they touch, the destination of
+/// a move included.
+async fn write(
+	context: &CoreContext,
+	token: &str,
+	tool: Tool,
+	scope: &GrantScope,
+	arguments: Value,
+) -> Result<Output, String> {
+	let token = token.to_string();
+	let path = scope.relative.clone();
+	let outcome = match tool {
+		Tool::WriteFile => {
+			let args: WriteArgs = args(arguments)?;
+			agent_write::write_file(
+				context,
+				WriteFileInput {
+					token,
+					path,
+					content: args.content,
+					encoding: args.encoding,
+					offset: args.offset,
+					expect: args.expect,
+				},
+			)
+			.await
+		}
+		Tool::MakeDir => agent_write::make_dir(context, MakeDirInput { token, path }).await,
+		Tool::Move => {
+			let args: MoveArgs = args(arguments)?;
+			paths::check(&args.to)?;
+			agent_write::move_path(
+				context,
+				MoveInput {
+					token,
+					from: path,
+					to: PathBuf::from(args.to),
+					expect: args.expect,
+				},
+			)
+			.await
+		}
+		Tool::Delete => {
+			let args: DeleteArgs = args(arguments)?;
+			agent_write::delete(
+				context,
+				DeleteInput {
+					token,
+					path,
+					expect: args.expect,
+				},
+			)
+			.await
+		}
+		_ => return Err("not a write tool".to_string()),
+	};
+	let outcome = outcome.map_err(|e| e.to_string())?;
+	Ok(Output::json(
+		serde_json::to_value(outcome).map_err(|e| e.to_string())?,
+	))
 }
 
 #[cfg(test)]

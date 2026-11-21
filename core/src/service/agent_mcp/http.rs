@@ -471,12 +471,17 @@ async fn post(endpoint: &Arc<Endpoint>, ip: IpAddr, headers: &HeaderMap, body: &
 	match request.method.as_deref() {
 		Some("ping") => rpc_result(id, json!({})),
 		Some("tools/list") => rpc_result(id, json!({ "tools": tools::definitions() })),
-		Some("tools/call") => call(endpoint, scope, request).await,
+		Some("tools/call") => call(endpoint, token, scope, request).await,
 		_ => rpc_error(StatusCode::OK, id, -32601, "method not found"),
 	}
 }
 
-async fn call(endpoint: &Arc<Endpoint>, scope: GrantScope, request: Request) -> Response {
+async fn call(
+	endpoint: &Arc<Endpoint>,
+	token: &str,
+	scope: GrantScope,
+	request: Request,
+) -> Response {
 	let id = request.id();
 	let name = request.params["name"].as_str().unwrap_or_default();
 	let Some(tool) = tools::Tool::parse(name) else {
@@ -498,6 +503,7 @@ async fn call(endpoint: &Arc<Endpoint>, scope: GrantScope, request: Request) -> 
 	let library = scope.library_id;
 	let work = tools::call(
 		endpoint.context.clone(),
+		token,
 		tool,
 		scope,
 		arguments,

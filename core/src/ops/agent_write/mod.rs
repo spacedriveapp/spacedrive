@@ -64,6 +64,16 @@ pub use action::{
 pub use conflict::conflict_name;
 pub use ops::{delete, make_dir, move_path, stat, write_file};
 
+/// The state of a path a grant check already resolved: what a precondition
+/// names. For surfaces that ran `authorize` themselves.
+pub async fn state_of(
+	context: &crate::context::CoreContext,
+	root: &std::path::Path,
+	path: &std::path::Path,
+) -> Result<PathState, WriteError> {
+	Ok(state::read(context, root, path).await?.0)
+}
+
 /// The largest payload one write carries, after decoding.
 pub const MAX_WRITE_BYTES: usize = 64 * 1024 * 1024;
 
