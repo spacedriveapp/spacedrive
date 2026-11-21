@@ -17,7 +17,7 @@ use sd_core::{
 	infra::{action::LibraryAction, job::output::JobOutput},
 	ops::{
 		agent_write::{
-			delete, delete_in, make_dir, move_path, stat, write_file, write_file_in,
+			delete, delete_in, make_dir, move_path, move_path_in, stat, write_file, write_file_in,
 			ContentEncoding, DeleteInput, MakeDirInput, MoveInput, PathKind, PathState,
 			Precondition, StatInput, WriteError, WriteFileInput, WriteOutcome, WriteTurn,
 		},
@@ -521,6 +521,25 @@ async fn agent_writes_are_fresh_keep_both_and_undoable() -> anyhow::Result<()> {
 		"{cancelled:?}"
 	);
 	assert!(project.join("notes.md").exists());
+	// A directory move stops in its subtree scan, before the rename.
+	let moved_b = agent.stat("moved-b").await;
+	let cancelled = move_path_in(
+		&harness.core.context,
+		MoveInput {
+			token: agent.token.clone(),
+			from: "moved-b".into(),
+			to: "renamed-b".into(),
+			expect: hash(&moved_b),
+		},
+		WriteTurn::take(given_up()).await,
+	)
+	.await;
+	assert!(
+		matches!(cancelled, Err(WriteError::Cancelled)),
+		"{cancelled:?}"
+	);
+	assert!(project.join("moved-b/c").is_dir());
+	assert!(!project.join("renamed-b").exists());
 
 	// No staging file is left behind anywhere in the grant.
 	let leftovers: Vec<_> = walk(&project)

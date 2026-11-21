@@ -307,13 +307,12 @@ pub async fn move_path_in(
 	} else {
 		to.path.clone()
 	};
+	unchanged(context, &from, &current, &metadata, &turn).await?;
+	if is_dir {
+		no_protected_descendant(&from, &turn).await?;
+	}
 	turn.proceed()?;
 	let mut effects = make_parents(&to.root, &wanted).await?;
-
-	unchanged(context, &from, &current, &metadata).await?;
-	if is_dir {
-		no_protected_descendant(&from).await?;
-	}
 	still_inside(&from).await?;
 	still_inside(&to).await?;
 	loop {
@@ -365,9 +364,9 @@ pub async fn delete_in(
 		state::read_until(context, &scope.root, &scope.path, turn.cancel.clone()).await?;
 	check(&input.expect, &current)?;
 	let metadata = metadata.ok_or_else(|| stale(current.clone()))?;
-	unchanged(context, &scope, &current, &metadata).await?;
+	unchanged(context, &scope, &current, &metadata, &turn).await?;
 	if metadata.is_dir() {
-		no_protected_descendant(&scope).await?;
+		no_protected_descendant(&scope, &turn).await?;
 	}
 	still_inside(&scope).await?;
 	let id = Uuid::now_v7();
@@ -407,15 +406,14 @@ async fn unchanged(
 	scope: &GrantScope,
 	checked: &PathState,
 	metadata: &std::fs::Metadata,
+	turn: &WriteTurn,
 ) -> Result<(), WriteError> {
 	let holds = if metadata.is_dir() {
-		let path = scope.path.clone();
-		tokio::task::spawn_blocking(move || {
-			state::disk(&path, &std::sync::atomic::AtomicBool::new(false))
-		})
-		.await
-		.map_err(|e| WriteError::Io(format!("state: {e}")))??
-		.content_hash
+		let (path, cancel) = (scope.path.clone(), turn.cancel.clone());
+		tokio::task::spawn_blocking(move || state::disk(&path, &cancel))
+			.await
+			.map_err(|e| WriteError::Io(format!("state: {e}")))??
+			.content_hash
 			== checked.content_hash
 	} else {
 		Subject::of(metadata).still_holds(&scope.path).await
@@ -431,11 +429,15 @@ async fn unchanged(
 /// Refuse to move or delete a directory that holds a path the grant
 /// protects, since authorizing the directory does not authorize what is in
 /// it. Links are not followed: a link is moved or trashed as itself.
-async fn no_protected_descendant(scope: &GrantScope) -> Result<(), WriteError> {
+async fn no_protected_descendant(scope: &GrantScope, turn: &WriteTurn) -> Result<(), WriteError> {
 	let (root, dir) = (scope.root.clone(), scope.path.clone());
+	let cancel = turn.cancel.clone();
 	let found = tokio::task::spawn_blocking(move || -> Result<Option<String>, WriteError> {
 		let mut pending = vec![dir];
 		while let Some(dir) = pending.pop() {
+			if cancel.load(Ordering::Relaxed) {
+				return Err(WriteError::Cancelled);
+			}
 			let entries = std::fs::read_dir(&dir)
 				.map_err(|e| WriteError::Io(format!("list {}: {e}", state::shown(&root, &dir))))?;
 			for entry in entries {
