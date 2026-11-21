@@ -1,7 +1,8 @@
 use std::{
+	collections::HashMap,
 	ffi::OsString,
 	path::{Path, PathBuf},
-	sync::Arc,
+	sync::{Arc, LazyLock, Mutex, PoisonError, Weak},
 	time::{Duration, Instant},
 };
 
@@ -12,10 +13,13 @@ use uuid::Uuid;
 
 use super::{
 	detect::{parse_scores, pick_cuts, DetectParams, FrameScore},
-	sidecar::{partial_path, write_shots, AnalyzedMedia, FrameRate, Shot, ShotList, SHOTS_VERSION},
+	sidecar::{
+		content_uuid_of_video, partial_path, write_shots, AnalyzedMedia, FrameRate, Shot, ShotList,
+		SHOTS_VERSION,
+	},
 };
 use crate::{
-	domain::sidecar::{content_uuid_of_file, ContentSidecar, ProxyResolution},
+	domain::sidecar::{ContentSidecar, ProxyResolution},
 	infra::job::{generic_progress::GenericProgress, prelude::*},
 	service::external_tools::ExternalTools,
 };
@@ -83,9 +87,13 @@ impl JobHandler for ShotDetectionJob {
 		let library_path = ctx.library().path().to_path_buf();
 		let tools = ctx.library().core_context().external_tools.clone();
 
-		let content_uuid = content_uuid_of_file(&self.path)
+		let content_uuid = content_uuid_of_video(&self.path)
 			.await
 			.map_err(|error| JobError::execution(format!("could not hash the video: {error}")))?;
+		// Two runs on the same content would write the same partial files and
+		// prune each other's keyframes, so they take turns.
+		let lock = content_lock(ctx.library().id(), content_uuid);
+		let _turn = lock.lock().await;
 		let proxy =
 			ContentSidecar::proxy(content_uuid, ProxyResolution::P720).path_in(&library_path);
 		let (analyzed, scanned) = if tokio::fs::try_exists(&proxy).await.unwrap_or(false) {
@@ -118,8 +126,7 @@ impl JobHandler for ShotDetectionJob {
 			analyzed
 		));
 
-		let scores: Vec<f32> = frames.iter().map(|frame| frame.score).collect();
-		let cuts = pick_cuts(&scores, probe.rate.fps(), self.params);
+		let cuts = pick_cuts(&frames, probe.rate.fps(), self.params);
 		let list = build_list(
 			content_uuid,
 			analyzed,
@@ -153,10 +160,10 @@ impl JobHandler for ShotDetectionJob {
 			);
 		}
 
-		remove_stale_keyframes(&library_path, &list).await;
 		write_shots(&library_path, &list).await.map_err(|error| {
 			JobError::execution(format!("could not write the shot list: {error}"))
 		})?;
+		remove_stale_keyframes(&library_path, &list).await;
 
 		progress(
 			&ctx,
@@ -176,6 +183,21 @@ impl JobHandler for ShotDetectionJob {
 			keyframes_written: written,
 		})
 	}
+}
+
+/// One lock per library and content, alive while a run holds or waits on it.
+fn content_lock(library_id: Uuid, content_uuid: Uuid) -> Arc<tokio::sync::Mutex<()>> {
+	type Locks = HashMap<(Uuid, Uuid), Weak<tokio::sync::Mutex<()>>>;
+	static LOCKS: LazyLock<Mutex<Locks>> = LazyLock::new(Default::default);
+	let mut locks = LOCKS.lock().unwrap_or_else(PoisonError::into_inner);
+	locks.retain(|_, lock| lock.strong_count() > 0);
+	let key = (library_id, content_uuid);
+	if let Some(lock) = locks.get(&key).and_then(Weak::upgrade) {
+		return lock;
+	}
+	let lock = Arc::new(tokio::sync::Mutex::new(()));
+	locks.insert(key, Arc::downgrade(&lock));
+	lock
 }
 
 fn progress(

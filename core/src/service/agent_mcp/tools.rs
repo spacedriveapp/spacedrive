@@ -1331,6 +1331,11 @@ async fn list_shots(context: &Arc<CoreContext>, scope: &GrantScope) -> Result<Ou
 	if !meta.is_file() {
 		return Err("list_shots takes a video file, not a directory".to_string());
 	}
+	if refuse_dataless_blocking(&scope.path).is_err() {
+		return Err(format!(
+			"the file is a cloud placeholder ({DATALESS_REASON}); it is not read so it is not downloaded"
+		));
+	}
 	let library = context
 		.libraries()
 		.await

@@ -1,4 +1,6 @@
-//! Cut detection over FFmpeg's per-frame scene score.
+//! # Cut detection
+//!
+//! Cuts are picked from FFmpeg's per-frame scene score.
 //!
 //! FFmpeg's `scene` value is how much a frame differs from the one before,
 //! from 0 to 1. A hard cut between unrelated pictures scores well above
@@ -91,7 +93,11 @@ pub fn parse_scores(output: &str) -> Vec<FrameScore> {
 
 /// The frames that open a new shot, ascending, each with its score. Frame 0
 /// is never one of them.
-pub fn pick_cuts(scores: &[f32], fps: f64, params: DetectParams) -> Vec<(u64, f32)> {
+///
+/// The minimum shot length is measured on the frames' own timestamps, so a
+/// variable frame rate video keeps shots of the length the person sees.
+pub fn pick_cuts(frames: &[FrameScore], fps: f64, params: DetectParams) -> Vec<(u64, f32)> {
+	let scores: Vec<f32> = frames.iter().map(|frame| frame.score).collect();
 	let window = (SPIKE_WINDOW_SECONDS * fps).round().max(1.0) as usize;
 	let threshold = params.threshold as f32;
 	let soft = threshold / 2.0;
@@ -114,16 +120,19 @@ pub fn pick_cuts(scores: &[f32], fps: f64, params: DetectParams) -> Vec<(u64, f3
 
 	// Strongest first, earliest on a tie, so a rerun picks the same cuts.
 	candidates.sort_by(|&a, &b| scores[b].total_cmp(&scores[a]).then(a.cmp(&b)));
-	let min_frames = (params.min_shot_seconds * fps).round() as usize;
-	let total = scores.len();
+	let min = params.min_shot_seconds;
+	let time = |frame: usize| frames[frame].time;
+	let start = time(0);
+	let end = time(frames.len() - 1) + 1.0 / fps;
 	let mut accepted: Vec<usize> = Vec::new();
 	for frame in candidates {
-		if frame < min_frames || total - frame < min_frames {
+		if time(frame) - start < min || end - time(frame) < min {
 			continue;
 		}
 		let position = accepted.partition_point(|&cut| cut < frame);
-		let clear_before = position == 0 || frame - accepted[position - 1] >= min_frames;
-		let clear_after = position == accepted.len() || accepted[position] - frame >= min_frames;
+		let clear_before = position == 0 || time(frame) - time(accepted[position - 1]) >= min;
+		let clear_after =
+			position == accepted.len() || time(accepted[position]) - time(frame) >= min;
 		if clear_before && clear_after {
 			accepted.insert(position, frame);
 		}
@@ -142,6 +151,17 @@ mod tests {
 		vec![0.002; frames]
 	}
 
+	fn at_24(scores: &[f32]) -> Vec<FrameScore> {
+		scores
+			.iter()
+			.enumerate()
+			.map(|(i, &score)| FrameScore {
+				time: i as f64 / 24.0,
+				score,
+			})
+			.collect()
+	}
+
 	#[test]
 	fn parses_metadata_print_output() {
 		let output = "frame:0    pts:0       pts_time:0\nlavfi.scene_score=0.000000\nframe:1    pts:800     pts_time:0.0417014\nlavfi.scene_score=0.106277\n";
@@ -157,7 +177,7 @@ mod tests {
 		scores[100] = 0.6;
 		scores[180] = 0.45;
 		assert_eq!(
-			pick_cuts(&scores, 24.0, DetectParams::default()),
+			pick_cuts(&at_24(&scores), 24.0, DetectParams::default()),
 			vec![(100, 0.6), (180, 0.45)]
 		);
 	}
@@ -167,7 +187,7 @@ mod tests {
 		let mut scores = still(240);
 		scores[120] = 0.2;
 		assert_eq!(
-			pick_cuts(&scores, 24.0, DetectParams::default()),
+			pick_cuts(&at_24(&scores), 24.0, DetectParams::default()),
 			vec![(120, 0.2)]
 		);
 	}
@@ -177,7 +197,7 @@ mod tests {
 		let scores: Vec<f32> = (0..480)
 			.map(|i| 0.12 + 0.1 * ((i as f32) * 0.7).sin().abs())
 			.collect();
-		assert!(pick_cuts(&scores, 24.0, DetectParams::default()).is_empty());
+		assert!(pick_cuts(&at_24(&scores), 24.0, DetectParams::default()).is_empty());
 	}
 
 	#[test]
@@ -189,8 +209,27 @@ mod tests {
 		scores[5] = 0.9;
 		scores[236] = 0.9;
 		assert_eq!(
-			pick_cuts(&scores, 24.0, DetectParams::default()),
+			pick_cuts(&at_24(&scores), 24.0, DetectParams::default()),
 			vec![(105, 0.9)]
+		);
+	}
+
+	#[test]
+	fn the_minimum_length_follows_timestamps() {
+		let mut frames = at_24(&still(240));
+		for frame in frames.iter_mut().skip(100) {
+			frame.time += 5.0;
+		}
+		frames[100].score = 0.6;
+		frames[110].score = 0.5;
+		assert_eq!(
+			pick_cuts(&frames, 24.0, DetectParams::default()),
+			vec![(100, 0.6)]
+		);
+		frames[90].score = 0.9;
+		assert_eq!(
+			pick_cuts(&frames, 24.0, DetectParams::default()),
+			vec![(90, 0.9), (100, 0.6)]
 		);
 	}
 }
