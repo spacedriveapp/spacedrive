@@ -62,6 +62,31 @@ const PROGRESS_TICK: Duration = Duration::from_millis(500);
 /// network or a cloud provider can wait for minutes and still fail.
 pub const READ_BOUND: Duration = Duration::from_secs(10);
 
+/// How often directories waiting on access are read again when nothing
+/// announces an answer. A prompt that was refused and later allowed in
+/// System Settings unblocks no listing, so only this notices it.
+pub const ACCESS_RETRY: Duration = Duration::from_secs(300);
+
+/// What a bounded directory listing came back with.
+pub enum Bounded<T> {
+	Answered(Result<T, tokio::task::JoinError>),
+	/// The listing did not answer within the bound and is still running.
+	Unanswered(tokio::task::JoinHandle<T>),
+}
+
+/// Wait up to `bound` for a listing running on its own task.
+///
+/// A listing behind a macOS privacy prompt nobody answers blocks in the
+/// kernel until someone does, and one on a stalled network mount can block
+/// for minutes. Neither can be cancelled, so the caller moves on and keeps
+/// the handle to learn when the listing returns.
+pub async fn bounded<T>(bound: Duration, mut listing: tokio::task::JoinHandle<T>) -> Bounded<T> {
+	match tokio::time::timeout(bound, &mut listing).await {
+		Ok(answered) => Bounded::Answered(answered),
+		Err(_) => Bounded::Unanswered(listing),
+	}
+}
+
 /// What one reconcile found and applied.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReconcileReport {
@@ -110,6 +135,9 @@ pub struct Pass {
 	pub read: fn(&Path) -> std::io::Result<Vec<OnDisk>>,
 	pub read_bound: Duration,
 	pub progress: Option<watch::Sender<ReconcileProgress>>,
+	/// Directories to read instead of the whole source, such as those a walk
+	/// moved past. Empty reads everything from the root.
+	pub within: Vec<PathBuf>,
 }
 
 impl Default for Pass {
@@ -118,6 +146,7 @@ impl Default for Pass {
 			read: read_directory,
 			read_bound: READ_BOUND,
 			progress: None,
+			within: Vec::new(),
 		}
 	}
 }
@@ -266,6 +295,84 @@ pub async fn reconcile_attached_sources(context: Arc<CoreContext>) {
 			source.library,
 			&source.root,
 			source.entry_count == Some(0),
+		)
+		.await;
+	}
+}
+
+/// Read again every directory a walk or a reconcile moved past because its
+/// listing did not answer, once nothing is still blocked on it.
+///
+/// Each directory is read by a reconcile limited to it, under the innermost
+/// source holding it so what arrives goes through the same writer, store and
+/// hashing as any other change. A directory no source holds, such as one the
+/// drive map or a browse moved past, is reconciled under its drive's map.
+///
+/// The bound is twice what the last listing took, and never less than
+/// [`READ_BOUND`]: a listing that is slow rather than blocked, such as one
+/// on a slow network mount, answers the next read instead of timing out
+/// on every retry.
+pub async fn revisit_awaiting_access(context: &Arc<CoreContext>) {
+	let cache = context.volume_index();
+	let dirs = cache.awaiting_access_unblocked();
+	if dirs.is_empty() {
+		return;
+	}
+	let sources: Vec<_> = cache
+		.sources()
+		.into_iter()
+		.filter(|source| source.attached)
+		.collect();
+	struct Revisit {
+		library: Option<Uuid>,
+		within: Vec<PathBuf>,
+		bound: Duration,
+	}
+	let mut by_root: std::collections::HashMap<PathBuf, Revisit> = std::collections::HashMap::new();
+	for (dir, took) in dirs {
+		let (root, library) = match crate::ops::paths::reach::innermost_source(&sources, &dir) {
+			Some(source) => (source.root.clone(), source.library),
+			None => (
+				cache.resolve(&dir).root().unwrap_or_else(|| dir.clone()),
+				None,
+			),
+		};
+		let revisit = by_root.entry(root).or_insert_with(|| Revisit {
+			library,
+			within: Vec::new(),
+			bound: READ_BOUND,
+		});
+		revisit.within.push(dir);
+		revisit.bound = revisit.bound.max(took * 2);
+	}
+	for (
+		root,
+		Revisit {
+			library,
+			within,
+			bound,
+		},
+	) in by_root
+	{
+		// A walk under way reads these itself.
+		if cache.is_indexing(&root) {
+			continue;
+		}
+		info!(
+			root = %root.display(),
+			directories = within.len(),
+			"reading again what was waiting on access"
+		);
+		reconcile_source_with(
+			context,
+			library,
+			&root,
+			false,
+			Pass {
+				within,
+				read_bound: bound,
+				..Pass::default()
+			},
 		)
 		.await;
 	}
@@ -501,7 +608,7 @@ pub async fn reconcile_source_with(
 		.await
 		.known_children(root)
 		.is_some_and(|children| !children.is_empty());
-	if !covered && !walked_empty {
+	if !covered && !walked_empty && pass.within.is_empty() {
 		info!(
 			root = %root.display(),
 			map_root = ?partition.root(),
@@ -524,7 +631,11 @@ pub async fn reconcile_source_with(
 	info!(root = %root.display(), "reconciling source with the disk");
 	let mut last_progress = Instant::now();
 	let mut last_tick = Instant::now();
-	let mut pending = VecDeque::from([root.to_path_buf()]);
+	let mut pending = if pass.within.is_empty() {
+		VecDeque::from([root.to_path_buf()])
+	} else {
+		VecDeque::from(pass.within.clone())
+	};
 	while let Some(dir) = pending.pop_front() {
 		if let Some(progress) = &pass.progress {
 			if last_tick.elapsed() >= PROGRESS_TICK {
@@ -551,41 +662,45 @@ pub async fn reconcile_source_with(
 				"reconcile still reading the source"
 			);
 		}
-		// A listing that waits on a provider or a network can block for
-		// minutes; the pass moves on and the listing finishes on its own.
-		let read = {
+		// A listing that waits on a provider, a network or a privacy prompt
+		// can block for minutes; the pass moves on and the listing finishes
+		// on its own.
+		let listing = {
 			let dir = dir.clone();
 			let read = pass.read;
-			tokio::time::timeout(
-				pass.read_bound,
-				tokio::task::spawn_blocking(move || read(&dir)),
-			)
-			.await
+			tokio::task::spawn_blocking(move || read(&dir))
 		};
-		let on_disk = match read {
-			Ok(Ok(Ok(entries))) => entries,
+		let on_disk = match bounded(pass.read_bound, listing).await {
+			Bounded::Answered(Ok(Ok(entries))) => {
+				cache.access_settled(&dir);
+				entries
+			}
 			// Gone since its parent was read. Nothing under it was compared,
 			// so nothing under it is counted missing; the watcher has it.
-			Ok(Ok(Err(error))) if error.kind() == std::io::ErrorKind::NotFound => {
+			Bounded::Answered(Ok(Err(error))) if error.kind() == std::io::ErrorKind::NotFound => {
 				debug!(dir = %dir.display(), "a directory went away during the reconcile");
+				cache.access_settled(&dir);
 				continue;
 			}
-			Ok(Ok(Err(error))) => {
+			// A directory already waiting on access keeps waiting: a refused
+			// prompt answers with an error until it is allowed in settings.
+			Bounded::Answered(Ok(Err(error))) => {
 				warn!(dir = %dir.display(), %error, "reconcile could not read a directory");
 				unreadable = true;
 				continue;
 			}
-			Ok(Err(error)) => {
+			Bounded::Answered(Err(error)) => {
 				warn!(dir = %dir.display(), %error, "reconcile read task failed");
 				unreadable = true;
 				continue;
 			}
-			Err(_) => {
+			Bounded::Unanswered(listing) => {
 				warn!(
 					dir = %dir.display(),
 					bound_secs = pass.read_bound.as_secs_f32(),
 					"reconcile moved past a directory that did not answer in time"
 				);
+				cache.await_access(dir.clone(), pass.read_bound, listing);
 				unreadable = true;
 				continue;
 			}
@@ -994,25 +1109,33 @@ mod tests {
 			.get_job(JobId(output.job_id.expect("tracking dispatched a walk")))
 			.await
 			.expect("walk job");
-		walk.wait().await.expect("walk");
+		tokio::time::timeout(Duration::from_secs(120), walk.wait())
+			.await
+			.expect("the walk finished")
+			.expect("walk");
 
 		std::fs::write(root.join("local/new.txt"), "new").expect("write");
 		std::fs::write(root.join("local/debug.log"), "ignored").expect("write");
 		std::fs::remove_file(root.join("cloud/remote.txt")).expect("remove");
 
 		let started = Instant::now();
-		let report = reconcile_source_with(
-			&core.context,
-			Some(library.id()),
-			&output.root,
-			false,
-			Pass {
-				read: stalls_on_cloud,
-				read_bound: Duration::from_millis(200),
-				progress: None,
-			},
+		let report = tokio::time::timeout(
+			Duration::from_secs(120),
+			reconcile_source_with(
+				&core.context,
+				Some(library.id()),
+				&output.root,
+				false,
+				Pass {
+					read: stalls_on_cloud,
+					read_bound: Duration::from_millis(200),
+					progress: None,
+					within: Vec::new(),
+				},
+			),
 		)
 		.await
+		.expect("the pass finished")
 		.expect("the pass ran");
 		let took = started.elapsed();
 
@@ -1041,7 +1164,110 @@ mod tests {
 			"nothing under the unread folder is taken for deleted"
 		);
 		drop(library);
-		core.shutdown().await.expect("shutdown");
+		tokio::time::timeout(Duration::from_secs(120), core.shutdown())
+			.await
+			.expect("shutdown finished")
+			.expect("shutdown");
+	}
+
+	/// A folder whose listing never answers, as one behind a macOS privacy
+	/// prompt nobody answers: the first walk finishes without it, commits
+	/// everything else, reports the folder as waiting on permission, and
+	/// reads it as soon as its listing answers.
+	#[tokio::test(flavor = "multi_thread")]
+	async fn a_walk_moves_past_a_folder_whose_listing_never_answers() {
+		use crate::ops::indexing::phases::discovery::held;
+
+		let data = tempfile::tempdir().expect("data dir");
+		let files = tempfile::tempdir().expect("files dir");
+		let root = files.path().canonicalize().expect("root");
+		for (dir, file) in [("Desktop", "note.txt"), ("Music", "song.txt")] {
+			std::fs::create_dir(root.join(dir)).expect("mkdir");
+			std::fs::write(root.join(dir).join(file), file).expect("write");
+		}
+		std::fs::write(root.join("top.txt"), "top").expect("write");
+
+		let core = crate::Core::new(data.path().to_path_buf())
+			.await
+			.expect("core");
+		// The walk reads the volume's spelling of the root, which on Windows
+		// drops the verbatim prefix canonicalize adds, so the hold has to name
+		// the folder the same way.
+		let root = core
+			.context
+			.volume_manager
+			.locate_path(&root)
+			.await
+			.map_or(root, |(_, spelled)| spelled);
+		let desktop = root.join("Desktop");
+		held::hold(&desktop);
+		let library = core
+			.libraries
+			.create_library("Prompt", None, core.context.clone())
+			.await
+			.expect("library");
+		let output = TrackSourceAction::from_input(TrackSourceInput {
+			path: root.clone(),
+			name: None,
+			overrides: Default::default(),
+		})
+		.expect("input")
+		.execute(library.clone(), core.context.clone())
+		.await
+		.expect("track");
+		let walk = library
+			.jobs()
+			.get_job(JobId(output.job_id.expect("tracking dispatched a walk")))
+			.await
+			.expect("walk job");
+		let started = Instant::now();
+		tokio::time::timeout(READ_BOUND * 6, walk.wait())
+			.await
+			.expect("the walk waited on a folder that never answered")
+			.expect("walk");
+		assert!(
+			started.elapsed() < READ_BOUND * 3,
+			"the walk took {:?}",
+			started.elapsed()
+		);
+
+		let cache = core.context.volume_index();
+		let store = cache.store_for(&root).await.expect("store");
+		for path in ["top.txt", "Music/song.txt", "Desktop"] {
+			assert!(
+				store.contains_path(&root.join(path)).await,
+				"{path} is committed though another folder never answered"
+			);
+		}
+		assert!(
+			!store.contains_path(&desktop.join("note.txt")).await,
+			"nothing was read under the folder that never answered"
+		);
+		assert_eq!(
+			cache.awaiting_access_under(&root),
+			vec![desktop.clone()],
+			"the folder is reported as waiting on permission"
+		);
+
+		// Answering the prompt is the blocked listing returning, which wakes
+		// the revisit without waiting for its timer.
+		held::release(&desktop);
+		tokio::time::timeout(READ_BOUND * 3, async {
+			while !cache.awaiting_access_under(&root).is_empty()
+				|| !store.contains_path(&desktop.join("note.txt")).await
+			{
+				tokio::time::sleep(Duration::from_millis(100)).await;
+			}
+		})
+		.await
+		.expect("the folder is read once its listing answers");
+
+		drop(store);
+		drop(library);
+		tokio::time::timeout(Duration::from_secs(60), core.shutdown())
+			.await
+			.expect("shutdown finished")
+			.expect("shutdown");
 	}
 
 	/// A directory a rule now excludes, such as `~/Library` held from a walk

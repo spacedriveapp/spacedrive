@@ -118,6 +118,7 @@ impl FsWatcherService {
 		self.clone().arm_restored_sources();
 		self.clone().restore_registered_sources();
 		self.clone().retry_refused_watches_periodically();
+		self.clone().revisit_awaiting_access();
 		self.clone().flush_snapshots_periodically();
 	}
 
@@ -165,6 +166,31 @@ impl FsWatcherService {
 				warn!("Failed to save snapshot for {}: {e}", source.root.display());
 			}
 		}
+	}
+
+	/// Read again what a walk or a reconcile moved past because its listing
+	/// did not answer, as soon as a blocked listing returns and otherwise on
+	/// a fixed interval. A blocked listing returning is the only sign macOS
+	/// gives that a privacy prompt was answered.
+	fn revisit_awaiting_access(self: Arc<Self>) {
+		let service = Arc::downgrade(&self);
+		let cache = self.context.volume_index().clone();
+		drop(self);
+		tokio::spawn(async move {
+			loop {
+				tokio::select! {
+					_ = cache.access_answered() => {}
+					_ = tokio::time::sleep(crate::ops::indexing::reconcile::ACCESS_RETRY) => {}
+				}
+				let Some(service) = service.upgrade() else {
+					return;
+				};
+				if service.is_running() {
+					crate::ops::indexing::reconcile::revisit_awaiting_access(&service.context)
+						.await;
+				}
+			}
+		});
 	}
 
 	/// Retry every refused watch on a fixed interval while the service runs.

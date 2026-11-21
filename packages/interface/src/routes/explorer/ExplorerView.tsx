@@ -23,6 +23,7 @@ import {
 	type ExpandableSearchFieldHandle
 } from './components/ExpandableSearchButton';
 import {PathBar} from './components/PathBar';
+import {AwaitingPermissionBanner} from './components/AwaitingPermissionBanner';
 import {PlanPreviewBanner} from './components/PlanPreviewBanner';
 import {VirtualPathBar} from './components/VirtualPathBar';
 import {
@@ -423,6 +424,7 @@ export function ExplorerView({
 			>
 				{searchBar !== 'closed' && <SearchToolbar ref={searchBarRef} />}
 				<PlanPreviewBanner />
+				{mode.type !== 'search' && <AwaitingPermissionBanner />}
 				<div
 					className={clsx(
 						'flex-1',

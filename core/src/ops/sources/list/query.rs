@@ -119,6 +119,12 @@ impl LibraryQuery for ListSourcesQuery {
 					.map(|dir| dir.to_string_lossy().into_owned());
 				info.offline_copy =
 					crate::service::mounts::offline::info(context.volume_index(), info.id).await;
+				info.awaiting_permission = context
+					.volume_index()
+					.awaiting_access_under(&live.root)
+					.into_iter()
+					.map(|dir| dir.to_string_lossy().into_owned())
+					.collect();
 			}
 			sources.push(info);
 		}

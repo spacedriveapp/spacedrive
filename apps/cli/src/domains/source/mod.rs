@@ -291,6 +291,12 @@ fn source_row(source: &SourceInfo) -> Vec<String> {
 			};
 		}
 	}
+	if !source.awaiting_permission.is_empty() {
+		status = format!(
+			"{status}: {} folder(s) waiting on permission",
+			source.awaiting_permission.len()
+		);
+	}
 	if let Some(transfer) = &source.transfer {
 		status = format!(
 			"{status}: fetching {}",
@@ -348,6 +354,7 @@ mod tests {
 			store_path: None,
 			settings: None,
 			offline_copy: None,
+			awaiting_permission: Vec::new(),
 		}
 	}
 

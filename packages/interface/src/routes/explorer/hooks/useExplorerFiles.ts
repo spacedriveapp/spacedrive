@@ -31,6 +31,8 @@ export interface ExplorerFilesResult {
 	files: File[];
 	isLoading: boolean;
 	source: FileSource;
+	/** The open folder did not answer its open, such as one behind an unanswered privacy prompt. */
+	awaitingPermission: boolean;
 	/** True match count for a search, before pagination. */
 	totalFound?: number;
 	/** Facets over the whole match set, for the filter panel's counts. */
@@ -393,6 +395,20 @@ export function useExplorerFiles(): ExplorerFilesResult {
 						? false
 						: directoryQuery.isLoading;
 
+	const awaitingPermission =
+		source === "directory" &&
+		!!(directoryQuery.data as DirectoryListingOutput | undefined)?.awaiting_permission;
+
+	// Nothing announces that a folder's permission was granted, and an empty
+	// folder sends no file events once it opens, so the listing asks again
+	// until the folder answers.
+	const refetchDirectory = directoryQuery.refetch;
+	useEffect(() => {
+		if (!awaitingPermission) return;
+		const timer = setInterval(() => void refetchDirectory(), 5000);
+		return () => clearInterval(timer);
+	}, [awaitingPermission, refetchDirectory]);
+
 	const searchOutput = isSearchMode
 		? (searchQuery.data as FileSearchOutput | undefined)
 		: undefined;
@@ -401,6 +417,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		files,
 		isLoading,
 		source,
+		awaitingPermission,
 		totalFound:
 			searchOutput?.total_found != null
 				? Number(searchOutput.total_found)

@@ -36,6 +36,27 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Walks move past folders behind unanswered privacy prompts (Capy FAN-12315,
+November 21, beta.1 blocker). On first launch macOS asks for Desktop,
+Documents and Downloads, and an unanswered prompt blocks the open of that
+folder. Discovery now reads each directory on its own task bounded by the
+reconcile's `READ_BOUND` (10 s), so the walk finishes and commits everything
+else. A folder that does not answer is neither read nor failed: the sweep keeps
+what the store holds under it, `VolumeIndex` records it as waiting on access,
+and `sources.list` and `core.index_status` report it as `awaiting_permission`
+(`sd-cli source list` shows the count). The blocked listing returning is the
+signal that the prompt was answered, and it wakes
+`reconcile::revisit_awaiting_access`, which reconciles only those folders; a
+5-minute timer catches a refusal later allowed in System Settings, and the
+startup reconcile reads them too. Only one blocked read per folder is ever
+outstanding; a revisit's bound is twice what the last listing took, so a slow
+mount answers instead of timing out forever, and a folder outside any source is
+revisited under its drive's map. Opening such a folder in the explorer tries
+the open with the same bound and returns `awaiting_permission` on
+`files.directory_listing`, which the explorer shows as a banner, instead of
+hanging. Full Disk Access is not requested and the folders walked are
+unchanged.
+
 Content reads never hydrate cloud placeholders (Capy SPAC-86, November 19,
 beta.1 blocker). Every path that reads file bytes stats the file first and
 refuses one macOS reports `SF_DATALESS`
