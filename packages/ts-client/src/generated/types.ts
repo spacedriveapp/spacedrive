@@ -2737,6 +2737,10 @@ export type JobOutput =
  */
 { type: "ThumbnailGeneration"; data: { generated_count: number; skipped_count: number; error_count: number; total_size_bytes: number } } | 
 /**
+ * Video proxy and speech audio generation output
+ */
+{ type: "ProxyGeneration"; data: { generated_count: number; skipped_count: number; error_count: number } } | 
+/**
  * File move/rename operation output
  */
 { type: "FileMove"; data: { moved_count: number; failed_count: number; total_bytes: number } } | 
@@ -4826,6 +4830,7 @@ version: number; created_at: string; updated_at: string };
  * - MessagePack: Binary structured data (embeddings, vectors)
  * - Text: Plain text extractions
  * - Ply: 3D model format for Gaussian splats
+ * - Wav: Uncompressed audio that speech models read without decoding
  * 
  * MessagePack is preferred for embeddings because:
  * - 6x smaller than JSON (1.7KB vs 10KB per 384-dim vector)
@@ -4833,7 +4838,7 @@ version: number; created_at: string; updated_at: string };
  * - Already used in Spacedrive (job serialization)
  * - Enables sub-30ms semantic search on 1M+ files
  */
-export type SidecarFormat = "webp" | "mp_4" | "json" | "message_pack" | "text" | "ply";
+export type SidecarFormat = "webp" | "mp_4" | "json" | "message_pack" | "text" | "ply" | "wav";
 
 /**
  * What a sidecar holds. The core kinds are closed; an extension declares
@@ -4841,7 +4846,7 @@ export type SidecarFormat = "webp" | "mp_4" | "json" | "message_pack" | "text" |
  * extension's namespace, so two extensions' `faces` never collide and no
  * extension can write a core kind.
  */
-export type SidecarKind = "thumb" | "thumbstrip" | "proxy" | "embeddings" | "ocr" | "transcript" | "gaussian_splat" | { extension: { extension_id: string; kind: string } };
+export type SidecarKind = "thumb" | "thumbstrip" | "proxy" | "embeddings" | "ocr" | "transcript" | "gaussian_splat" | "audio" | { extension: { extension_id: string; kind: string } };
 
 export type SidecarVariant = string;
 
