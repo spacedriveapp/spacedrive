@@ -61,6 +61,7 @@ const EXIF_IFD: u16 = 0x8769;
 const SCAN_LIMIT: usize = 32;
 
 /// The largest embedded JPEG in `data` that decodes, if any.
+#[must_use]
 pub fn embedded_preview(data: &[u8]) -> Option<DynamicImage> {
 	let candidates = tiff_previews(data).unwrap_or_else(|| scanned_previews(data));
 	let mut sized: Vec<(u64, &[u8])> = candidates
