@@ -10,7 +10,7 @@ serde_json  = { workspace = true }
 uuid        = { workspace = true, features = ["v4", "v5", "v7"] }
 blake3      = { workspace = true }
 chrono      = { workspace = true }
-tokio       = { workspace = true, features = ["fs"] }
+tokio       = { workspace = true, features = ["fs", "sync"] }
 toml        = { workspace = true }
 thiserror   = { workspace = true }
 tracing     = { workspace = true }

@@ -4194,7 +4194,7 @@ path: string };
 
 export type RebuildContentIndexOutput = { 
 /**
- * Files the index held before it was dropped.
+ * Files the index held when the rebuild was requested.
  */
 cleared_files: number; 
 /**

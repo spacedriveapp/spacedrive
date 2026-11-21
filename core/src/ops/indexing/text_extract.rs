@@ -277,12 +277,13 @@ fn read_pdf(path: &Path, cap: usize) -> io::Result<Extraction> {
 /// dictionary are in the raw bytes.
 fn pdf_preflight(pdf: &[u8], limit: u64) -> Result<(), String> {
 	let mut at = 0;
-	while let Some(found) = find(&pdf[at..], b"/Filter") {
-		at += found + b"/Filter".len();
-		if pdf.get(at).is_some_and(|c| c.is_ascii_alphanumeric()) {
-			continue;
+	while let Some(slash) = pdf[at..].iter().position(|&c| c == b'/') {
+		let start = at + slash + 1;
+		let (name, len) = pdf_name(&pdf[start..]);
+		at = start + len;
+		if name == b"Filter" {
+			check_filter(&pdf[at..pdf.len().min(at + 512)])?;
 		}
-		check_filter(&pdf[at..pdf.len().min(at + 512)])?;
 	}
 
 	let mut total = 0u64;
@@ -313,41 +314,69 @@ fn pdf_preflight(pdf: &[u8], limit: u64) -> Result<(), String> {
 /// whose output the preflight bounds.
 fn check_filter(value: &[u8]) -> Result<(), String> {
 	let refuse = |what: &str| Err(format!("uses {what}"));
-	let value = String::from_utf8_lossy(value);
-	let value = value.trim_start();
-	let names: Vec<String> = if let Some(array) = value.strip_prefix('[') {
-		let Some(close) = array.find(']') else {
-			return refuse("a malformed stream filter");
-		};
-		let inner = &array[..close];
-		if inner
-			.split_whitespace()
-			.any(|token| !token.starts_with('/'))
-		{
-			return refuse("a stream filter given by reference");
+	let skip_space = |at: &mut usize| {
+		while value.get(*at).is_some_and(|c| c.is_ascii_whitespace()) {
+			*at += 1;
 		}
-		inner
-			.split(|c: char| c == '/' || c.is_whitespace())
-			.filter(|name| !name.is_empty())
-			.map(|name| format!("/{name}"))
-			.collect()
-	} else if let Some(rest) = value.strip_prefix('/') {
-		let end = rest
-			.find(|c: char| c.is_whitespace() || "/<>[]()".contains(c))
-			.unwrap_or(rest.len());
-		vec![format!("/{}", &rest[..end])]
-	} else {
-		return refuse("a stream filter given by reference");
 	};
+	let mut at = 0;
+	skip_space(&mut at);
+	let mut names = Vec::new();
+	match value.get(at) {
+		Some(b'/') => names.push(pdf_name(&value[at + 1..]).0),
+		Some(b'[') => {
+			at += 1;
+			loop {
+				skip_space(&mut at);
+				match value.get(at) {
+					Some(b']') => break,
+					Some(b'/') => {
+						let (name, len) = pdf_name(&value[at + 1..]);
+						names.push(name);
+						at += 1 + len;
+					}
+					Some(_) => return refuse("a stream filter given by reference"),
+					None => return refuse("a malformed stream filter"),
+				}
+			}
+		}
+		_ => return refuse("a stream filter given by reference"),
+	}
 	match names.as_slice() {
 		[] => Ok(()),
-		[name] => match name.as_str() {
-			"/FlateDecode" | "/Fl" | "/DCTDecode" | "/DCT" | "/JPXDecode" | "/CCITTFaxDecode"
-			| "/CCF" | "/JBIG2Decode" => Ok(()),
+		[name] => match name.as_slice() {
+			b"FlateDecode" | b"Fl" | b"DCTDecode" | b"DCT" | b"JPXDecode" | b"CCITTFaxDecode"
+			| b"CCF" | b"JBIG2Decode" => Ok(()),
 			_ => refuse("a stream filter the index does not bound"),
 		},
 		_ => refuse("a chain of stream filters"),
 	}
+}
+
+/// The PDF name at the start of `bytes`, just after its slash, with `#hh`
+/// escapes decoded the way the parser decodes them, and the bytes it took.
+fn pdf_name(bytes: &[u8]) -> (Vec<u8>, usize) {
+	let hex = |c: u8| (c as char).to_digit(16).map(|d| d as u8);
+	let mut name = Vec::new();
+	let mut at = 0;
+	while let Some(&c) = bytes.get(at) {
+		if c.is_ascii_whitespace() || c == 0 || b"/<>[]{}()%".contains(&c) {
+			break;
+		}
+		if c == b'#' {
+			if let (Some(high), Some(low)) = (
+				bytes.get(at + 1).copied().and_then(hex),
+				bytes.get(at + 2).copied().and_then(hex),
+			) {
+				name.push(high << 4 | low);
+				at += 3;
+				continue;
+			}
+		}
+		name.push(c);
+		at += 1;
+	}
+	(name, at)
 }
 
 fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
@@ -612,6 +641,8 @@ mod tests {
 			"<< /Filter /LZWDecode >>",
 			"<< /Filter 7 0 R >>",
 			"<</Filter[/A85/Fl]/Length 4>>",
+			"<< /F#69lter [/ASCII85Decode /FlateDecode] >>",
+			"<< /Filter /LZW#44ecode >>",
 		] {
 			let pdf = stream_pdf(dictionary, b"data");
 			assert!(
@@ -623,6 +654,7 @@ mod tests {
 			"<< /Length 4 >>",
 			"<< /Filter /DCTDecode >>",
 			"<</Filter/DCTDecode/Length 4>>",
+			"<< /Filter /Fl#61teDecode /FilterType 1 >>",
 		] {
 			let pdf = stream_pdf(dictionary, b"data");
 			assert!(

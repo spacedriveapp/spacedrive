@@ -150,6 +150,11 @@ pub struct TextIndexCounts {
 pub struct ContentTextIndex {
 	pool: SqlitePool,
 	path: PathBuf,
+	/// Held across every write transaction. Two passes over one source can
+	/// run at once (a rebuild beside an ordinary pass), and a deferred
+	/// transaction that reads before it writes fails outright when another
+	/// commits in between, so writes take turns instead.
+	writer: std::sync::Arc<tokio::sync::Mutex<()>>,
 }
 
 impl ContentTextIndex {
@@ -192,7 +197,11 @@ impl ContentTextIndex {
 			sqlx::query(statement).execute(&mut *tx).await?;
 		}
 		tx.commit().await?;
-		Ok(Self { pool, path })
+		Ok(Self {
+			pool,
+			path,
+			writer: Default::default(),
+		})
 	}
 
 	/// The sidecar's file.
@@ -268,6 +277,7 @@ impl ContentTextIndex {
 		if docs.is_empty() {
 			return Ok(());
 		}
+		let _writer = self.writer.lock().await;
 		let mut tx = self.pool.begin().await?;
 		for doc in docs {
 			let old: Option<i64> =
@@ -322,6 +332,7 @@ impl ContentTextIndex {
 			 WHERE r.uuid IS NULL OR f.record_uuid IS NULL \
 			 OR lower(f.extension) IS NULL OR lower(f.extension) NOT IN ({placeholders})"
 		);
+		let _writer = self.writer.lock().await;
 		let mut tx = self.pool.begin().await?;
 		let mut ids = sqlx::query_scalar::<_, i64>(&orphans);
 		for extension in extensions {
@@ -348,6 +359,7 @@ impl ContentTextIndex {
 	/// Drop every row and give the space back. The record store is not
 	/// touched; the next pass reads every file again.
 	pub async fn clear(&self) -> Result<()> {
+		let _writer = self.writer.lock().await;
 		let mut conn = self.pool.acquire().await?;
 		let mut tx = conn.begin().await?;
 		for statement in [
