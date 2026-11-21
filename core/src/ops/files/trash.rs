@@ -209,11 +209,18 @@ fn empty_os() -> io::Result<()> {
 
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 fn trash_os(path: &Path) -> io::Result<Option<PathBuf>> {
-	trash::delete(path).map_err(|error| io::Error::other(error.to_string()))?;
-	let items = trash::os_limited::list().map_err(|error| io::Error::other(error.to_string()))?;
-	Ok(items
+	// Deletion times have one-second resolution, so two trashings of the same
+	// path within a second tie; the new item is the one absent before.
+	let list = || trash::os_limited::list().map_err(|error| io::Error::other(error.to_string()));
+	let before: std::collections::HashSet<_> = list()?
 		.into_iter()
 		.filter(|item| item.original_path() == path)
+		.map(|item| item.id)
+		.collect();
+	trash::delete(path).map_err(|error| io::Error::other(error.to_string()))?;
+	Ok(list()?
+		.into_iter()
+		.filter(|item| item.original_path() == path && !before.contains(&item.id))
 		.max_by_key(|item| item.time_deleted)
 		.map(|item| item_location(&item)))
 }
