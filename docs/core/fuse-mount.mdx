@@ -12,8 +12,12 @@ device. The mount is read-only.
 ## Requirements
 
 - Linux with `/dev/fuse` and `fusermount3` (`apt install fuse3` on Debian and Ubuntu).
-- A daemon built with the `fuse` cargo feature. The build needs no libfuse headers.
+- A daemon built with the `fuse` cargo feature. Linux release and nightly builds
+  include it. The feature links no libfuse: the daemon runs `fusermount3` only
+  when you mount, so it starts normally on a machine without FUSE.
 - `mounts.fuse_enabled` set to `true` in the daemon's config. It is off by default.
+
+For a source build, turn the feature on yourself:
 
 ```bash
 cargo run --bin sd-daemon --features sd-core/fuse
@@ -71,6 +75,9 @@ them, in the ranges it asks for:
   A range read once is served from the cache after that, and read-ahead follows
   sequential reads.
 - A cloud source's file is read through its volume backend and the block cache.
+
+Symlinks do not appear in the mount. The index keeps no link target, and a
+target would resolve outside the mount, past any grant.
 
 The kernel keeps attributes and names for 1 second on local sources and 10
 seconds on peer sources, which refresh their index every 30 seconds.

@@ -42,7 +42,7 @@ impl CoreQuery for FuseListQuery {
 	) -> QueryResult<Self::Output> {
 		Ok(FuseListOutput {
 			supported: fuse::supported(),
-			enabled: fuse::enabled(&context),
+			enabled: fuse::enabled(&context).await,
 			mounts: fuse::list().await,
 		})
 	}

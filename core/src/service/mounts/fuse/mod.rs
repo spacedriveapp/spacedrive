@@ -104,10 +104,13 @@ pub fn supported() -> bool {
 
 /// Whether the daemon's config allows mounts. Read from disk so a change
 /// through the config op applies without a restart.
-pub fn enabled(context: &CoreContext) -> bool {
-	AppConfig::load_from(&context.data_dir)
-		.map(|config| config.mounts.fuse_enabled)
-		.unwrap_or(false)
+pub async fn enabled(context: &CoreContext) -> bool {
+	let data_dir = context.data_dir.clone();
+	tokio::task::spawn_blocking(move || AppConfig::load_from(&data_dir))
+		.await
+		.ok()
+		.and_then(Result::ok)
+		.is_some_and(|config| config.mounts.fuse_enabled)
 }
 
 /// The mounts the daemon holds now.
@@ -132,7 +135,7 @@ pub async fn mount(
 	if !supported() {
 		return Err(FuseError::Unsupported);
 	}
-	if !enabled(&context) {
+	if !enabled(&context).await {
 		return Err(FuseError::Disabled);
 	}
 	mount_tree(context, path, grant_token).await

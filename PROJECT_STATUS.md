@@ -44,8 +44,11 @@ peer reads go through the block cache. `--grant` narrows a mount to one
 grant's folder, checks `authorize` on every listing and open, and takes the
 mount down within five seconds of revocation or expiry. Shutdown unmounts
 everything. `core/tests/fuse_mount_test.rs` runs in the acceptance group and,
-with `SD_REQUIRE_FUSE`, in the hosted zfs job. Open: release builds do not
-enable the feature yet; the macOS mount stays the SMB share.
+with `SD_REQUIRE_FUSE`, in the hosted zfs job. Linux release and nightly builds
+turn the feature on; it links no libfuse. Symlinks are left out of the mount.
+The block cache's L2 write now uses a unique temp per write, since a demand
+fetch and a read-ahead storing one block could tear it. The macOS mount stays
+the SMB share.
 `docs/core/fuse-mount.mdx`.
 
 Content reads never hydrate cloud placeholders (Capy SPAC-86, November 19,

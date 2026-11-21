@@ -16,9 +16,9 @@ mod helpers;
 
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom};
+use std::ops::Range;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -118,9 +118,13 @@ async fn a_daemon_mounts_lists_reads_and_unmounts() -> anyhow::Result<()> {
 		.write_file("docs/deep/notes.txt", "0123456789")
 		.await?;
 	tracked.write_file("private/key.txt", "secret").await?;
+	let base = std::fs::canonicalize(harness.temp_path())?;
+	std::os::unix::fs::symlink(
+		base.join("tracked/private/key.txt"),
+		base.join("tracked/docs/key-link"),
+	)?;
 	tracked.track().await?;
 	let context = harness.core.context.clone();
-	let base = std::fs::canonicalize(harness.temp_path())?;
 	let all = base.join("mnt-all");
 	let granted = base.join("mnt-grant");
 	let at_shutdown = base.join("mnt-shutdown");
@@ -168,7 +172,11 @@ async fn a_daemon_mounts_lists_reads_and_unmounts() -> anyhow::Result<()> {
 				.unwrap_or_else(|| panic!("the tracked source is listed: {shares:?}"));
 			let root = all.join(share);
 			assert_eq!(names(&root), ["docs", "private"]);
-			assert_eq!(names(&root.join("docs")), ["deep", "readme.md"]);
+			assert_eq!(
+				names(&root.join("docs")),
+				["deep", "readme.md"],
+				"symlinks are left out, since their targets resolve outside the mount"
+			);
 
 			let readme = root.join("docs/readme.md");
 			let meta = std::fs::metadata(&readme).unwrap();
@@ -225,7 +233,13 @@ async fn a_daemon_mounts_lists_reads_and_unmounts() -> anyhow::Result<()> {
 	{
 		let granted = granted.clone();
 		blocking(move || {
-			assert_eq!(names(&granted), ["deep", "readme.md"]);
+			assert_eq!(names(&granted), ["deep", "readme.md"],);
+			assert_eq!(
+				std::fs::symlink_metadata(granted.join("key-link"))
+					.unwrap_err()
+					.kind(),
+				std::io::ErrorKind::NotFound
+			);
 			assert_eq!(
 				std::fs::read_to_string(granted.join("deep/notes.txt")).unwrap(),
 				"0123456789"
@@ -297,10 +311,10 @@ async fn a_daemon_mounts_lists_reads_and_unmounts() -> anyhow::Result<()> {
 	Ok(())
 }
 
-/// A peer that serves bytes from memory and counts what it is asked for.
+/// A peer that serves bytes from memory and records what it is asked for.
 struct SimulatedPeer {
 	data: Option<Bytes>,
-	reads: Arc<AtomicUsize>,
+	reads: Arc<Mutex<Vec<Range<u64>>>>,
 }
 
 #[async_trait]
@@ -318,9 +332,9 @@ impl ByteProvider for SimulatedPeer {
 	async fn read_range(
 		&self,
 		_target: &ByteTarget,
-		range: std::ops::Range<u64>,
+		range: Range<u64>,
 	) -> Result<Bytes, ByteError> {
-		self.reads.fetch_add(1, Ordering::SeqCst);
+		self.reads.lock().unwrap().push(range.clone());
 		let data = self.data.as_ref().ok_or_else(offline)?;
 		let start = (range.start as usize).min(data.len());
 		let end = (range.end as usize).min(data.len());
@@ -345,7 +359,7 @@ struct PeerTree {
 	arena: Arc<RwLock<Arena>>,
 	files: HashMap<PathBuf, Option<Bytes>>,
 	cache: Arc<BlockCache>,
-	reads: Arc<AtomicUsize>,
+	reads: Arc<Mutex<Vec<Range<u64>>>>,
 }
 
 #[async_trait]
@@ -414,7 +428,7 @@ async fn a_peer_source_reads_through_the_block_cache() -> anyhow::Result<()> {
 		arena.add_entry(path.clone(), Uuid::now_v7(), entry(&path, kind, size))?;
 	}
 
-	let reads = Arc::new(AtomicUsize::new(0));
+	let reads = Arc::new(Mutex::new(Vec::new()));
 	let cache = Arc::new(BlockCache::new(
 		SourceDirs::under_data_dir(&data_dir)?,
 		64 * 1024 * 1024,
@@ -449,22 +463,27 @@ async fn a_peer_source_reads_through_the_block_cache() -> anyhow::Result<()> {
 					.len(),
 				clip_bytes.len() as u64
 			);
-			assert_eq!(
-				std::fs::read(share.join("clips/take-1.bin")).unwrap(),
-				clip_bytes,
-				"bytes arrive intact through the cache"
+			let read = std::fs::read(share.join("clips/take-1.bin")).unwrap();
+			let first_wrong = read.iter().zip(clip_bytes.iter()).position(|(a, b)| a != b);
+			assert!(
+				read.len() == clip_bytes.len() && first_wrong.is_none(),
+				"bytes arrive intact through the cache: read {} of {}, first wrong byte at {first_wrong:?}",
+				read.len(),
+				clip_bytes.len()
 			);
 		})
 		.await;
 	}
 	// Let any read-ahead the first pass started settle before counting.
 	tokio::time::sleep(Duration::from_millis(500)).await;
-	let fetched = reads.load(Ordering::SeqCst);
+	let fetched = reads.lock().unwrap().len();
 	assert!(fetched > 0, "the first read went to the peer");
-	let misses = cache.snapshot().misses;
+	let hits = cache.snapshot().l1_hits + cache.snapshot().l2_hits;
 
 	// Opening again drops the kernel's page cache, so this read reaches the
-	// mount, and the block cache answers it without asking the peer.
+	// mount, and the block cache answers it without asking the peer for the
+	// range read. Read-ahead may still ask for later blocks.
+	let wanted = 1024 * 1024 + 7..1024 * 1024 + 7 + 4096;
 	{
 		let (share, clip_bytes) = (share.clone(), clip_bytes.clone());
 		blocking(move || {
@@ -476,9 +495,12 @@ async fn a_peer_source_reads_through_the_block_cache() -> anyhow::Result<()> {
 		})
 		.await;
 	}
+	let asked_again = reads.lock().unwrap()[fetched..]
+		.iter()
+		.any(|range| range.start < wanted.end && wanted.start < range.end);
+	assert!(!asked_again, "the second read came from the cache");
 	let snapshot = cache.snapshot();
-	assert_eq!(snapshot.misses, misses, "the second read missed nothing");
-	assert!(snapshot.l1_hits + snapshot.l2_hits > 0);
+	assert!(snapshot.l1_hits + snapshot.l2_hits > hits);
 
 	// A peer that cannot answer is an I/O error, not an empty file.
 	{

@@ -221,14 +221,6 @@ fn errno(err: &MountError) -> Errno {
 	}
 }
 
-fn file_type(kind: EntryKind) -> FileType {
-	match kind {
-		EntryKind::File => FileType::RegularFile,
-		EntryKind::Directory => FileType::Directory,
-		EntryKind::Symlink => FileType::Symlink,
-	}
-}
-
 /// A name the kernel may ask for inside a directory: one plain component.
 fn plain(name: &OsStr) -> bool {
 	let mut components = Path::new(name).components();
@@ -272,7 +264,13 @@ impl Inner {
 			.arena(source, &at.abs)
 			.await
 			.ok_or(MountError::NotFound)?;
-		let meta = arena.read().await.get_entry_ref(&at.abs);
+		// Symlinks are left out: the arena keeps no link target, and a target
+		// would resolve outside the mount, past any grant.
+		let meta = arena
+			.read()
+			.await
+			.get_entry_ref(&at.abs)
+			.filter(|meta| meta.kind != EntryKind::Symlink);
 		match meta {
 			Some(meta) if !at.is_root => Ok(Some(meta)),
 			_ if at.is_root => Ok(None),
@@ -282,17 +280,10 @@ impl Inner {
 
 	fn attr(&self, ino: u64, meta: Option<&EntryMetadata>) -> FileAttr {
 		let (kind, size, perm, nlink) = match meta {
-			Some(meta) => match meta.kind {
-				EntryKind::File => (FileType::RegularFile, meta.size, 0o444, 1),
-				EntryKind::Directory => (FileType::Directory, 0, 0o555, 2),
-				EntryKind::Symlink => (
-					FileType::Symlink,
-					meta.link_target.as_ref().map_or(0, |t| t.len() as u64),
-					0o777,
-					1,
-				),
-			},
-			None => (FileType::Directory, 0, 0o555, 2),
+			Some(meta) if meta.kind != EntryKind::Directory => {
+				(FileType::RegularFile, meta.size, 0o444, 1)
+			}
+			_ => (FileType::Directory, 0, 0o555, 2),
 		};
 		let mtime = meta
 			.and_then(|meta| meta.modified)
@@ -389,6 +380,11 @@ impl Inner {
 			let (Some(meta), Some(name)) = (arena.get_entry_ref(&child), child.file_name()) else {
 				continue;
 			};
+			let kind = match meta.kind {
+				EntryKind::File => FileType::RegularFile,
+				EntryKind::Directory => FileType::Directory,
+				EntryKind::Symlink => continue,
+			};
 			let name = name.to_os_string();
 			let located = Located {
 				source: Some(source),
@@ -398,7 +394,7 @@ impl Inner {
 			};
 			listed.push(Listed {
 				ino: self.number(&located),
-				kind: file_type(meta.kind),
+				kind,
 				name,
 			});
 		}
@@ -434,11 +430,11 @@ async fn read(file: &OpenFile, offset: u64, size: u32) -> Result<Vec<u8>, MountE
 		if chunk.is_empty() {
 			break;
 		}
+		// A cached provider answers at most to the end of one block, so only an
+		// empty chunk means the end of the file. The kernel fills a short reply
+		// with zeroes, so stopping early would corrupt the read.
 		cursor += chunk.len() as u64;
 		out.extend_from_slice(&chunk);
-		if (chunk.len() as u64) < want {
-			break;
-		}
 	}
 	Ok(out)
 }
@@ -478,24 +474,6 @@ impl Filesystem for SpacedriveFs {
 		self.spawn(async move {
 			match inner.describe(&at).await {
 				Ok(meta) => reply.attr(&at.ttl(), &inner.attr(ino.0, meta.as_ref())),
-				Err(err) => reply.error(errno(&err)),
-			}
-		});
-	}
-
-	fn readlink(&self, _req: &Request, ino: INodeNo, reply: ReplyData) {
-		let Some(at) = self.inner.located(ino.0) else {
-			return reply.error(Errno::ENOENT);
-		};
-		let inner = self.inner.clone();
-		self.spawn(async move {
-			match inner.describe(&at).await {
-				Ok(Some(EntryMetadata {
-					kind: EntryKind::Symlink,
-					link_target: Some(target),
-					..
-				})) => reply.data(target.as_bytes()),
-				Ok(_) => reply.error(Errno::EINVAL),
 				Err(err) => reply.error(errno(&err)),
 			}
 		});
