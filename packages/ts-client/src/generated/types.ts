@@ -484,8 +484,8 @@ export type ContentSearchOutput = { hits: ContentSearchHit[];
  */
 next_cursor: string | null; 
 /**
- * Files in the source whose text is not indexed yet, or was read from
- * bytes that have since changed. Zero when the index is current.
+ * Files under the scope whose text is not indexed yet, or was read from
+ * bytes that have since changed. Zero when the index is current there.
  */
 pending_files: number };
 

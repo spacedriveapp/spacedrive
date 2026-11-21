@@ -37,7 +37,7 @@ pub struct ContentSearchOutput {
 	pub hits: Vec<ContentSearchHit>,
 	/// Pass back as `cursor` to read the next page. Absent on the last page.
 	pub next_cursor: Option<String>,
-	/// Files in the source whose text is not indexed yet, or was read from
-	/// bytes that have since changed. Zero when the index is current.
+	/// Files under the scope whose text is not indexed yet, or was read from
+	/// bytes that have since changed. Zero when the index is current there.
 	pub pending_files: u64,
 }

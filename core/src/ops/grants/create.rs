@@ -79,7 +79,16 @@ impl LibraryAction for CreateGrantAction {
 		let subtree = tokio::task::spawn_blocking(move || directory(&requested))
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))??;
-		let source_id = owning_source(&context, library.id(), &subtree).await?;
+		let source_id = owning_source(&context, library.id(), &subtree)
+			.await
+			.map_err(ActionError::Internal)?
+			.map(|(id, _)| id)
+			.ok_or_else(|| {
+				ActionError::InvalidInput(format!(
+					"{} is not inside a source of this library; track it first with `sd sources track`",
+					subtree.display()
+				))
+			})?;
 
 		let created_by = context
 			.device_manager
@@ -137,45 +146,47 @@ fn directory(path: &Path) -> Result<PathBuf, ActionError> {
 	Ok(subtree)
 }
 
-/// The innermost source of this library holding `subtree`.
+/// The innermost source of this library holding `subtree`, and `subtree`
+/// spelled under that source's registered root.
 ///
 /// Only this library's sources are considered, since another open library
 /// may track an enclosing directory, and the volume index is asked because
 /// it holds each source's absolute root while the registry row keeps it
-/// relative to its volume. Containment is decided as `authorize` decides it.
-async fn owning_source(
+/// relative to its volume. Containment is decided as `authorize` decides it,
+/// so a canonical path and a registered root that differ by a firmlink still
+/// match, and the returned spelling is the one the source's store answers to.
+pub(crate) async fn owning_source(
 	context: &CoreContext,
 	library: Uuid,
 	subtree: &Path,
-) -> Result<Uuid, ActionError> {
+) -> Result<Option<(Uuid, PathBuf)>, String> {
 	let roots: Vec<(Uuid, PathBuf)> = context
 		.volume_index()
 		.sources_of(library)
 		.into_iter()
 		.map(|source| (source.id, source.root))
 		.collect();
-	let subtree_owned = subtree.to_path_buf();
+	let subtree = subtree.to_path_buf();
 	tokio::task::spawn_blocking(move || {
 		roots
 			.into_iter()
-			.filter_map(|(id, root)| {
-				let root = std::fs::canonicalize(root).ok()?;
-				let rest = scope::within(&root, &subtree_owned, |a, b| {
+			.filter_map(|(id, registered)| {
+				let root = std::fs::canonicalize(&registered).ok()?;
+				let rest = scope::within(&root, &subtree, |a, b| {
 					same_file::is_same_file(a, b).unwrap_or(false)
 				})?;
-				Some((rest.components().count(), id))
+				let path = if rest.as_os_str().is_empty() {
+					registered
+				} else {
+					registered.join(&rest)
+				};
+				Some((rest.components().count(), id, path))
 			})
-			.min_by_key(|(depth, _)| *depth)
-			.map(|(_, id)| id)
+			.min_by_key(|(depth, _, _)| *depth)
+			.map(|(_, id, path)| (id, path))
 	})
 	.await
-	.map_err(|e| ActionError::Internal(e.to_string()))?
-	.ok_or_else(|| {
-		ActionError::InvalidInput(format!(
-			"{} is not inside a source of this library; track it first with `sd sources track`",
-			subtree.display()
-		))
-	})
+	.map_err(|e| e.to_string())
 }
 
 crate::register_library_action!(CreateGrantAction, "grants.create");
