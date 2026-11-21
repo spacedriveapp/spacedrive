@@ -210,9 +210,12 @@ export function mount(el, ctx) {
 		];
 	};
 
+	// Matches tag_segment in analyze.rs, which writes the place tags.
+	const tagSegment = (label) => label.replaceAll("/", "-").trim();
+
 	// The tags a shot carries itself: its places, and the people named in it.
 	const shotTags = (shot) => [
-		...shot.places.map((p) => `Videos/Places/${p}`),
+		...shot.places.map((p) => `Videos/Places/${tagSegment(p)}`),
 		...shot.people.map((id) => state.people.find((p) => p.id === id)?.tag).filter(Boolean),
 	];
 

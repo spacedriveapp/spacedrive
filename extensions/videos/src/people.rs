@@ -118,7 +118,9 @@ struct Corrections {
 
 impl Corrections {
 	fn from_log(mut edits: Vec<RosterEdit>) -> Self {
-		edits.sort_by(|a, b| (&a.hlc, a.device_uuid, a.id).cmp(&(&b.hlc, b.device_uuid, b.id)));
+		edits.sort_by(|a, b| {
+			(&a.hlc, a.at_ms, a.device_uuid, a.id).cmp(&(&b.hlc, b.at_ms, b.device_uuid, b.id))
+		});
 		let mut c = Self::default();
 		for edit in edits {
 			match (edit.action.as_str(), edit.into, edit.face) {

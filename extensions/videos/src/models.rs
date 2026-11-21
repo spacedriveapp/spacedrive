@@ -77,9 +77,13 @@ pub struct Person {
 #[model(version = "1.0.0")]
 pub struct RosterEdit {
 	pub id: Uuid,
+	/// Empty on an edit written before edits were stamped. Those sort first
+	/// and keep their order by `at_ms`.
+	#[serde(default, deserialize_with = "null_as_default")]
 	pub hlc: String,
+	#[serde(default, deserialize_with = "null_as_default")]
 	pub device_uuid: Uuid,
-	/// Wall-clock time, for display only.
+	/// Wall-clock time. It orders only the unstamped edits.
 	pub at_ms: i64,
 	/// `name`, `hide`, `show`, `merge`, `assign` or `exclude`.
 	pub action: String,
@@ -92,7 +96,18 @@ pub struct RosterEdit {
 	/// The faces `person` had when `merge` folded it into `into`. They are
 	/// pinned to `into` on replay, because two clusters a person merges are
 	/// usually ones similarity alone keeps apart.
+	#[serde(default, deserialize_with = "null_as_default")]
 	pub faces: Vec<FaceRef>,
+}
+
+/// A column added to a model after rows were written reads back as null
+/// on those rows.
+fn null_as_default<'de, D, T>(deserializer: D) -> std::result::Result<T, D::Error>
+where
+	D: serde::Deserializer<'de>,
+	T: Default + Deserialize<'de>,
+{
+	Ok(Option::<T>::deserialize(deserializer)?.unwrap_or_default())
 }
 
 /// The `scene` sidecar: what each shot's keyframe shows.
