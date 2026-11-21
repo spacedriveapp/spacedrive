@@ -379,6 +379,10 @@ enum SaveMode {
 struct AwaitingAccess {
 	blocked: usize,
 	took: Duration,
+	/// A walk, reconcile or browse needs it read. A directory only a subtree
+	/// count reached is held here so nothing opens it a second time, but it is
+	/// not reported or revisited: its contents are not kept.
+	reported: bool,
 }
 
 /// A cached read-only handle and which file it reads.
@@ -2960,11 +2964,36 @@ impl VolumeIndex {
 		waited: Duration,
 		listing: tokio::task::JoinHandle<T>,
 	) {
-		self.awaiting_access
-			.lock()
-			.entry(dir.clone())
-			.or_default()
-			.blocked += 1;
+		self.hold_blocked(dir, waited, listing, true);
+	}
+
+	/// Record a directory a subtree count could not read in time.
+	///
+	/// Its read is held like any other, so no later count or walk opens it
+	/// again while it is blocked, but nothing reports it or reads it again:
+	/// a count keeps no contents to bring up to date.
+	pub fn hold_uncounted<T: Send + 'static>(
+		self: &Arc<Self>,
+		dir: PathBuf,
+		waited: Duration,
+		listing: tokio::task::JoinHandle<T>,
+	) {
+		self.hold_blocked(dir, waited, listing, false);
+	}
+
+	fn hold_blocked<T: Send + 'static>(
+		self: &Arc<Self>,
+		dir: PathBuf,
+		waited: Duration,
+		listing: tokio::task::JoinHandle<T>,
+		reported: bool,
+	) {
+		{
+			let mut awaiting = self.awaiting_access.lock();
+			let waiting = awaiting.entry(dir.clone()).or_default();
+			waiting.blocked += 1;
+			waiting.reported |= reported;
+		}
 		let cache = Arc::downgrade(self);
 		let since = Instant::now();
 		tokio::spawn(async move {
@@ -2972,9 +3001,15 @@ impl VolumeIndex {
 			let Some(cache) = cache.upgrade() else {
 				return;
 			};
-			if let Some(waiting) = cache.awaiting_access.lock().get_mut(&dir) {
-				waiting.blocked = waiting.blocked.saturating_sub(1);
-				waiting.took = waiting.took.max(waited + since.elapsed());
+			{
+				let mut awaiting = cache.awaiting_access.lock();
+				if let Some(waiting) = awaiting.get_mut(&dir) {
+					waiting.blocked = waiting.blocked.saturating_sub(1);
+					waiting.took = waiting.took.max(waited + since.elapsed());
+					if !waiting.reported && waiting.blocked == 0 {
+						awaiting.remove(&dir);
+					}
+				}
 			}
 			cache.access_answered.notify_one();
 		});
@@ -3054,9 +3089,9 @@ impl VolumeIndex {
 	pub fn awaiting_access_under(&self, root: &Path) -> Vec<PathBuf> {
 		self.awaiting_access
 			.lock()
-			.keys()
-			.filter(|dir| dir.starts_with(root))
-			.cloned()
+			.iter()
+			.filter(|(dir, waiting)| waiting.reported && dir.starts_with(root))
+			.map(|(dir, _)| dir.clone())
 			.collect()
 	}
 
@@ -3067,7 +3102,7 @@ impl VolumeIndex {
 		self.awaiting_access
 			.lock()
 			.iter()
-			.filter(|(_, waiting)| waiting.blocked == 0)
+			.filter(|(_, waiting)| waiting.reported && waiting.blocked == 0)
 			.map(|(dir, waiting)| (dir.clone(), waiting.took))
 			.collect()
 	}

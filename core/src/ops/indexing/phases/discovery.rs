@@ -403,7 +403,7 @@ async fn discovery_worker_rayon(
 						if retention.summarise_rejected
 							&& matches!(entry.kind, EntryKind::Directory)
 						{
-							let totals = count_subtree(entry.path.clone()).await;
+							let totals = count_subtree(&cache, entry.path.clone()).await;
 							local_stats.dirs += 1;
 							let _ = result_tx
 								.send(DiscoveryResult::Summarised {
@@ -434,7 +434,7 @@ async fn discovery_worker_rayon(
 							if retention.at(&entry.path, &root_path) == Descent::Summarise =>
 						{
 							local_stats.dirs += 1;
-							let totals = count_subtree(entry.path.clone()).await;
+							let totals = count_subtree(&cache, entry.path.clone()).await;
 							let _ = result_tx
 								.send(DiscoveryResult::Summarised {
 									path: entry.path.clone(),
@@ -556,6 +556,7 @@ async fn run_discovery_phase_sequential(
 		root_path.display()
 	));
 
+	let cache = ctx.library().core_context().volume_index().clone();
 	let mut skipped_count = 0u64;
 
 	while let Some(dir_path) = state.dirs_to_walk.pop_front() {
@@ -579,12 +580,7 @@ async fn run_discovery_phase_sequential(
 		};
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
-		if ctx
-			.library()
-			.core_context()
-			.volume_index()
-			.access_blocked(&dir_path)
-		{
+		if cache.access_blocked(&dir_path) {
 			still_blocked(state, ctx, dir_path);
 			continue;
 		}
@@ -620,7 +616,7 @@ async fn run_discovery_phase_sequential(
 						if retention.summarise_rejected
 							&& matches!(entry.kind, EntryKind::Directory)
 						{
-							let totals = count_subtree(entry.path.clone()).await;
+							let totals = count_subtree(&cache, entry.path.clone()).await;
 							state
 								.summaries
 								.push((entry.path.clone(), totals.bytes, totals.files));
@@ -641,7 +637,7 @@ async fn run_discovery_phase_sequential(
 						EntryKind::Directory
 							if retention.at(&entry.path, root_path) == Descent::Summarise =>
 						{
-							let totals = count_subtree(entry.path.clone()).await;
+							let totals = count_subtree(&cache, entry.path.clone()).await;
 							state
 								.summaries
 								.push((entry.path.clone(), totals.bytes, totals.files));
