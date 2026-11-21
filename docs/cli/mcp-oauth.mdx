@@ -66,12 +66,14 @@ that name, so check that you started the connection. Then choose:
 
 - **Folder**: the folder to lend. It suggests the roots of your tracked
   sources. The client can reach this folder and everything inside it.
-- **Access**: read only, or read and write. The endpoint's tools are read only
-  today, so read and write changes nothing yet.
+- **Access**: read only, or read and write. Read only is selected even when
+  the client asks for write. The endpoint's tools are read only today, so read
+  and write changes nothing yet.
 - **Access ends after**: 15 minutes, 1 hour, 4 hours or 12 hours.
 
 Select **Allow** to mint the grant and return to the client, or **Deny** to
-send the client an `access_denied` error. The page expires after 10 minutes.
+send the client an `access_denied` error. Deny works without filling in the
+form. The page expires after 10 minutes.
 
 ## Manage access
 
@@ -134,8 +136,9 @@ The rules the endpoint enforces:
 - PKCE with S256 is required. The `plain` method is refused.
 - A code works once, within 60 seconds. A second use, or a use with the wrong
   verifier, revokes the grant the code produced.
-- Refresh tokens rotate on every use. Presenting a refresh token that was
-  already rotated revokes the grant, since only a copy could still hold it.
+- Refresh tokens rotate on every use. Presenting any refresh token that was
+  already rotated, however many rotations ago, revokes the grant, since only a
+  copy could still hold it.
 - The `resource` parameter (RFC 8707), when sent, must name this endpoint.
 - The consent form accepts posts only from its own page, carries a one-time
   request id, and cannot be framed.

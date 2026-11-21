@@ -289,7 +289,10 @@ server. What it adds to the attack surface, and how each part is held:
   live 60 seconds, exact redirect matching (any port for a loopback redirect,
   RFC 8252), and revocation of the grant on a reused code or a wrong verifier.
 - Refresh tokens are bound to their client, stored as SHA-256 and rotated on
-  every use. A replay of a rotated refresh token revokes the grant.
+  every use. Every spent hash is kept while its grant lives, so a replay of any
+  rotated refresh token revokes the grant.
+- The consent page sends `Referrer-Policy: same-origin`. With `no-referrer` a
+  browser would send `Origin: null` on the form post, which the form refuses.
 - Refresh never extends a grant past the lifetime the owner picked.
 - Registration is unauthenticated, as RFC 7591 allows, and capped at 100
   clients with the oldest dropped first. A local process could churn it; local

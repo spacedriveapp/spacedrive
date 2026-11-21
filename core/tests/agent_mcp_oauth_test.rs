@@ -420,11 +420,15 @@ async fn an_mcp_client_connects_with_oauth_and_loses_access_on_revoke() -> anyho
 	let (status, body) = flow.exchange(&code, &verifier).await;
 	assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
 
-	// A replayed, already rotated refresh token revokes its grant.
+	// Replaying a refresh token spent two rotations ago revokes its grant.
 	let third = flow.connect(&project).await;
 	let (status, body) = flow.refresh(&third.refresh).await;
 	assert_eq!(status, StatusCode::OK, "{body}");
+	let (status, body) = flow.refresh(body["refresh_token"].as_str().unwrap()).await;
+	assert_eq!(status, StatusCode::OK, "{body}");
 	let fourth = body["access_token"].as_str().unwrap().to_string();
+	let (status, body) = flow.read_readme(&fourth).await;
+	assert_eq!(status, StatusCode::OK, "{body}");
 	let (status, body) = flow.refresh(&third.refresh).await;
 	assert_eq!(status, StatusCode::BAD_REQUEST);
 	assert_eq!(body["error"], "invalid_grant");

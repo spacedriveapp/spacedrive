@@ -1,10 +1,10 @@
 //! OAuth bindings for agent grants.
 //!
 //! A grant minted through the MCP endpoint's OAuth flow records the client it
-//! was issued to and the hash of its current refresh token. The previous
-//! refresh hash is kept so a replayed, already rotated refresh token can be
-//! recognized as leaked and the grant revoked. Grants made by the owner leave
-//! all three columns empty.
+//! was issued to and the hash of its current refresh token. Every refresh hash
+//! a rotation replaces goes to `agent_grant_spent_refresh`, so a replay of any
+//! earlier refresh token, however many rotations ago, is recognized as leaked
+//! and revokes the grant. Grants made by the owner leave both columns empty.
 
 use sea_orm_migration::prelude::*;
 
@@ -14,11 +14,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
 	async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-		for column in [
-			AgentGrant::OauthClient,
-			AgentGrant::RefreshHash,
-			AgentGrant::PreviousRefreshHash,
-		] {
+		for column in [AgentGrant::OauthClient, AgentGrant::RefreshHash] {
 			manager
 				.alter_table(
 					Table::alter()
@@ -39,35 +35,64 @@ impl MigrationTrait for Migration {
 			)
 			.await?;
 		manager
+			.create_table(
+				Table::create()
+					.table(AgentGrantSpentRefresh::Table)
+					.if_not_exists()
+					.col(
+						ColumnDef::new(AgentGrantSpentRefresh::Id)
+							.integer()
+							.not_null()
+							.auto_increment()
+							.primary_key(),
+					)
+					.col(
+						ColumnDef::new(AgentGrantSpentRefresh::GrantId)
+							.uuid()
+							.not_null(),
+					)
+					.col(
+						ColumnDef::new(AgentGrantSpentRefresh::Hash)
+							.string()
+							.not_null()
+							.unique_key(),
+					)
+					.col(
+						ColumnDef::new(AgentGrantSpentRefresh::SpentAt)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
+					.to_owned(),
+			)
+			.await?;
+		manager
 			.create_index(
 				Index::create()
-					.name("idx_agent_grant_previous_refresh_hash")
-					.table(AgentGrant::Table)
-					.col(AgentGrant::PreviousRefreshHash)
+					.name("idx_agent_grant_spent_refresh_grant_id")
+					.table(AgentGrantSpentRefresh::Table)
+					.col(AgentGrantSpentRefresh::GrantId)
 					.to_owned(),
 			)
 			.await
 	}
 
 	async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-		for index in [
-			"idx_agent_grant_previous_refresh_hash",
-			"idx_agent_grant_refresh_hash",
-		] {
-			manager
-				.drop_index(
-					Index::drop()
-						.name(index)
-						.table(AgentGrant::Table)
-						.to_owned(),
-				)
-				.await?;
-		}
-		for column in [
-			AgentGrant::PreviousRefreshHash,
-			AgentGrant::RefreshHash,
-			AgentGrant::OauthClient,
-		] {
+		manager
+			.drop_table(
+				Table::drop()
+					.table(AgentGrantSpentRefresh::Table)
+					.to_owned(),
+			)
+			.await?;
+		manager
+			.drop_index(
+				Index::drop()
+					.name("idx_agent_grant_refresh_hash")
+					.table(AgentGrant::Table)
+					.to_owned(),
+			)
+			.await?;
+		for column in [AgentGrant::RefreshHash, AgentGrant::OauthClient] {
 			manager
 				.alter_table(
 					Table::alter()
@@ -86,5 +111,13 @@ enum AgentGrant {
 	Table,
 	OauthClient,
 	RefreshHash,
-	PreviousRefreshHash,
+}
+
+#[derive(DeriveIden)]
+enum AgentGrantSpentRefresh {
+	Table,
+	Id,
+	GrantId,
+	Hash,
+	SpentAt,
 }

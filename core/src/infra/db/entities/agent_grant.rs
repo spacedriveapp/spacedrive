@@ -32,12 +32,10 @@ pub struct Model {
 	/// The OAuth client the grant was issued to, if it came from the
 	/// authorization flow rather than from the owner.
 	pub oauth_client: Option<String>,
-	/// Lowercase hex SHA-256 of the current refresh token.
+	/// Lowercase hex SHA-256 of the current refresh token. Replaced hashes
+	/// move to `agent_grant_spent_refresh`.
 	#[sea_orm(unique)]
 	pub refresh_hash: Option<String>,
-	/// The refresh hash this one replaced. Presenting it again means the old
-	/// refresh token leaked, and the grant is revoked.
-	pub previous_refresh_hash: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

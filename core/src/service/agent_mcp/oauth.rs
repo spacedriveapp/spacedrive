@@ -538,7 +538,7 @@ pub async fn authorize(
 		&pending,
 		&Choice {
 			path: String::new(),
-			write: pending.write,
+			write: false,
 			ttl: DEFAULT_LIFETIME,
 		},
 		None,
@@ -994,7 +994,9 @@ fn html(status: StatusCode, title: &str, body: &str) -> Response {
 				),
 			),
 			(header::X_FRAME_OPTIONS, HeaderValue::from_static("DENY")),
-			(header::REFERRER_POLICY, HeaderValue::from_static("no-referrer")),
+			// same-origin, not no-referrer: no-referrer makes a browser send
+			// Origin: null on the consent post, which the form must refuse.
+			(header::REFERRER_POLICY, HeaderValue::from_static("same-origin")),
 			(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff")),
 		],
 		page,
@@ -1056,6 +1058,13 @@ async fn consent_page(
 		(" checked", "")
 	};
 	let client = escape(&pending.client_name);
+	// Clients often ask for every scope the metadata lists, so a write request
+	// is shown but never preselected.
+	let asked = if pending.write {
+		"<p class=\"hint\">The client asked for read and write access.</p>"
+	} else {
+		""
+	};
 	let body = format!(
 		r#"<h1>Allow {client} to use a folder?</h1>
 <p class="muted">An MCP client on this computer asked this Spacedrive device for access. The name is what the client calls itself; Spacedrive cannot verify it. When you answer, your browser returns to <code>{destination}</code>.</p>
@@ -1070,9 +1079,10 @@ async fn consent_page(
 <label class="choice"><input type="radio" name="access" value="read"{read}> Read only</label>
 <label class="choice"><input type="radio" name="access" value="read_write"{write}> Read and write</label>
 </fieldset>
+{asked}
 <label for="ttl">Access ends after</label>
 <select id="ttl" name="ttl">{lifetimes}</select>
-<div class="actions"><button type="submit" name="decision" value="deny">Deny</button><button type="submit" name="decision" value="approve" class="primary">Allow</button></div>
+<div class="actions"><button type="submit" name="decision" value="deny" formnovalidate>Deny</button><button type="submit" name="decision" value="approve" class="primary">Allow</button></div>
 </form>
 <p class="hint">The client keeps access until it ends or you revoke it with <code>sd grant revoke</code>.</p>"#,
 		id = escape(id),

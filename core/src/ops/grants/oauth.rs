@@ -4,20 +4,28 @@
 //! enforces applies to it unchanged and revoking the grant ends it. What
 //! OAuth adds is a refresh token bound to the grant and to the client it was
 //! issued to. Refreshing rotates both secrets on the same row: the old access
-//! token stops working at once and the old refresh token is kept only as a
-//! hash, so a replay of it marks it as leaked and revokes the grant.
+//! token stops working at once, and the old refresh hash joins the grant's
+//! spent hashes. A replay of any spent refresh token, however many rotations
+//! ago, means a copy leaked, and revokes the grant.
 //!
 //! A refresh never extends a grant. The lifetime the owner picked on the
 //! consent page, or set later with `grants.extend`, is the bound; once it has
 //! passed, the client has to ask the owner again.
 
 use chrono::{DateTime, Utc};
-use sea_orm::{sea_query::Expr, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{
+	sea_query::{Expr, Query},
+	ActiveValue::Set,
+	ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter, TransactionTrait,
+};
 use tracing::{info, warn};
 use uuid::Uuid;
 
 use super::{audit, store, token, GrantCap, GrantStatus};
-use crate::{context::CoreContext, infra::db::entities::agent_grant};
+use crate::{
+	context::CoreContext,
+	infra::db::entities::{agent_grant, agent_grant_spent_refresh as spent},
+};
 
 /// The secrets a refresh issued, with what they allow.
 #[derive(Debug)]
@@ -50,9 +58,14 @@ pub async fn refresh(
 		if let Some(row) = find(db, agent_grant::Column::RefreshHash, &hash).await? {
 			return rotate(db, row, client_id, &hash).await;
 		}
-		if let Some(row) = find(db, agent_grant::Column::PreviousRefreshHash, &hash).await? {
-			warn!(grant = %row.uuid, "a rotated refresh token was presented again; revoking the grant");
-			store::revoke(db, row.uuid)
+		let replayed = spent::Entity::find()
+			.filter(spent::Column::Hash.eq(&hash))
+			.one(db)
+			.await
+			.map_err(|e| RefreshError::Internal(format!("read spent refresh: {e}")))?;
+		if let Some(replayed) = replayed {
+			warn!(grant = %replayed.grant_id, "a rotated refresh token was presented again; revoking the grant");
+			store::revoke(db, replayed.grant_id)
 				.await
 				.map_err(|e| RefreshError::Internal(e.to_string()))?;
 			return Err(RefreshError::Invalid);
@@ -88,24 +101,51 @@ async fn rotate(
 	}
 	let (access_token, access_hash) = token::mint();
 	let (refresh_token, refresh_hash) = token::mint_refresh();
+	let internal = |e: sea_orm::DbErr| RefreshError::Internal(format!("rotate grant tokens: {e}"));
+	let now = Utc::now();
+	let txn = db.begin().await.map_err(internal)?;
 	// Matching on the old refresh hash and a live row makes two concurrent
 	// refreshes of one token yield one winner, and never revives a grant
 	// revoked between the read and this write.
 	let updated = agent_grant::Entity::update_many()
 		.col_expr(agent_grant::Column::TokenHash, Expr::value(access_hash))
 		.col_expr(agent_grant::Column::RefreshHash, Expr::value(refresh_hash))
-		.col_expr(
-			agent_grant::Column::PreviousRefreshHash,
-			Expr::value(old_hash.to_string()),
-		)
 		.filter(agent_grant::Column::Uuid.eq(row.uuid))
 		.filter(agent_grant::Column::RefreshHash.eq(old_hash))
 		.filter(agent_grant::Column::RevokedAt.is_null())
-		.exec(db)
+		.exec(&txn)
 		.await
-		.map_err(|e| RefreshError::Internal(format!("rotate grant tokens: {e}")))?;
+		.map_err(internal)?;
 	if updated.rows_affected == 0 {
 		return Err(RefreshError::Invalid);
+	}
+	spent::Entity::insert(spent::ActiveModel {
+		grant_id: Set(row.uuid),
+		hash: Set(old_hash.to_string()),
+		spent_at: Set(now),
+		..Default::default()
+	})
+	.exec(&txn)
+	.await
+	.map_err(internal)?;
+	txn.commit().await.map_err(internal)?;
+
+	// A spent hash only matters while its grant could still be used.
+	let ended = Query::select()
+		.column(agent_grant::Column::Uuid)
+		.from(agent_grant::Entity)
+		.cond_where(
+			Condition::any()
+				.add(agent_grant::Column::RevokedAt.is_not_null())
+				.add(agent_grant::Column::ExpiresAt.lte(now)),
+		)
+		.to_owned();
+	if let Err(e) = spent::Entity::delete_many()
+		.filter(spent::Column::GrantId.in_subquery(ended))
+		.exec(db)
+		.await
+	{
+		warn!(error = %e, "could not prune spent refresh hashes of ended grants");
 	}
 	if let Err(e) = audit::record(db, row.uuid, "oauth.refresh", "", Ok(())).await {
 		warn!(grant = %row.uuid, error = %e, "could not audit a token refresh");
