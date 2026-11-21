@@ -20,6 +20,7 @@
 		"devices",
 		"volumes",
 		"filesystems",
+		"fuse-mount",
 		"file-copy-operations",
 		"tagging",
 		"virtual-sidecars",

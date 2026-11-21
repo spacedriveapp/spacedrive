@@ -158,6 +158,13 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		&["--test", "agent_grants_acceptance_test"],
 	),
 	acceptance("sd-cli", "Grant CLI test", &["--test", "grant_test"]),
+	// Agent writes (docs/core/design/agent-writes.md): preconditions, keep
+	// both on a create collision, staging, undo and protected files.
+	acceptance(
+		"sd-core",
+		"Agent writes acceptance test",
+		&["--test", "agent_writes_acceptance_test"],
+	),
 	acceptance(
 		"sd-core",
 		"Source runtime acceptance test",
@@ -310,6 +317,16 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		package: "sd-core",
 		test_args: &["--test", "wasm_extension_test"],
 		features: Some("wasm"),
+		group: Group::Acceptance,
+	},
+	// The Linux FUSE mount. Its own build with the `fuse` feature; it skips
+	// with a reason where /dev/fuse or fusermount3 is missing unless
+	// SD_REQUIRE_FUSE is set.
+	TestSuite {
+		name: "FUSE mount test",
+		package: "sd-core",
+		test_args: &["--test", "fuse_mount_test"],
+		features: Some("fuse"),
 		group: Group::Acceptance,
 	},
 	// core("Sync event log test", &["--test", "sync_event_log_test"]),

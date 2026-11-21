@@ -353,6 +353,11 @@ export type ConnectionMethod =
 "RelayProxy";
 
 /**
+ * How `content` is encoded.
+ */
+export type ContentEncoding = "utf8" | "base64";
+
+/**
  * Domain representation of content identity
  */
 export type ContentIdentity = { uuid: string; kind: ContentKind; content_hash: string; integrity_hash: string | null; mime_type_id: number | null; text_content: string | null; total_size: number; entry_count: number; first_seen_at: string; last_verified_at: string };
@@ -759,6 +764,15 @@ export type DateRangeFilter = { field: DateField; start: string | null; end: str
 export type DeleteGroupInput = { group_id: string };
 
 export type DeleteGroupOutput = { success: boolean };
+
+/**
+ * Move a path to the trash.
+ */
+export type DeleteInput = { token: string; path: string; 
+/**
+ * What was read at `path`.
+ */
+expect: Precondition };
 
 export type DeleteItemInput = { item_id: string };
 
@@ -1877,6 +1891,44 @@ export type FsPlanSummary = { creates: Tally; directories_created: number; repla
  * policy resolved one way or another.
  */
 collisions: number; attributes: number };
+
+export type FuseListInput = Record<string, never>;
+
+export type FuseListOutput = { 
+/**
+ * This daemon was built with FUSE support and runs on Linux.
+ */
+supported: boolean; 
+/**
+ * The daemon's config allows mounts.
+ */
+enabled: boolean; mounts: FuseMountInfo[] };
+
+/**
+ * A mount the daemon holds.
+ */
+export type FuseMountInfo = { path: string; 
+/**
+ * The grant the mount is bound to, when it shows only one directory.
+ */
+grant_id: string | null; 
+/**
+ * The granted directory the mount shows.
+ */
+granted_path: string | null; expires_at: string | null; mounted_at: string };
+
+export type FuseMountInput = { 
+/**
+ * An existing, empty directory to mount at.
+ */
+path: string; 
+/**
+ * Show only the directory this grant lends, checking the grant on
+ * every listing and open. Without one, every source is shown.
+ */
+grant_token?: string | null };
+
+export type FuseUnmountInput = { path: string };
 
 /**
  * Generic progress information that all job types can convert into
@@ -3383,6 +3435,11 @@ export type LocalPathOutput = { path: string };
 export type LoggingConfigOutput = { main_filter: string };
 
 /**
+ * Create a directory and any missing parents.
+ */
+export type MakeDirInput = { token: string; path: string };
+
+/**
  * A place in the order pages are served in: source by source, by root, then
  * by directory path and name within a source.
  */
@@ -3666,7 +3723,11 @@ export type MountsCacheStatusInput = Record<string, never>;
 /**
  * Mounts configuration output
  */
-export type MountsConfigOutput = { cache_max_bytes: number };
+export type MountsConfigOutput = { cache_max_bytes: number; 
+/**
+ * Whether FUSE mounts are allowed on this device.
+ */
+fuse_enabled: boolean };
 
 export type MountsReadTrace = { 
 /**
@@ -3731,6 +3792,15 @@ export type MountsTraceSetInput = {
 enabled: boolean };
 
 export type MountsTraceSetOutput = { recording: boolean; message: string };
+
+/**
+ * Move or rename a path inside the grant.
+ */
+export type MoveInput = { token: string; from: string; to: string; 
+/**
+ * What was read at `from`.
+ */
+expect: Precondition };
 
 /**
  * Where one focus group is currently looking.
@@ -3970,6 +4040,8 @@ canonical_path: SdPath; availability: PathAvailability; map_state: PathMapState;
  */
 system_place: string | null; storage: PathStorageContext };
 
+export type PathKind = "file" | "directory" | "symlink" | "other";
+
 export type PathMapState = "unseen" | "indexing" | "detailed" | "summarised";
 
 /**
@@ -3978,6 +4050,28 @@ export type PathMapState = "unseen" | "indexing" | "detailed" | "summarised";
 export type PathMapping = { virtual_path: string; actual_path: string };
 
 export type PathSourceContext = { id: string; name: string; root: string; attached: boolean };
+
+/**
+ * A path inside a grant as it is now.
+ */
+export type PathState = { 
+/**
+ * Relative to the granted directory, with `/` separators.
+ */
+path: string; 
+/**
+ * `None` when nothing is at the path.
+ */
+kind: PathKind | null; size: number | null; 
+/**
+ * `None` when absent, or when the file is a cloud placeholder whose
+ * contents are not on this device.
+ */
+content_hash: string | null; 
+/**
+ * `None` when the source has no store on this device yet.
+ */
+revision: string | null };
 
 export type PathStorageContext = { 
 /**
@@ -4101,6 +4195,25 @@ export type PortPolicy =
 "remappable";
 
 export type PortRange = { from: number; to: number };
+
+/**
+ * What the agent read before it asked to change a path.
+ * 
+ * At least one field is required for any write that changes an existing
+ * path. Every field given must match the path as it is now.
+ */
+export type Precondition = { 
+/**
+ * The revision of the source's store, as `agent.stat` or an earlier
+ * write reported it. It counts every change the store has ingested
+ * anywhere in the source, so it is the strict form.
+ */
+revision?: string | null; 
+/**
+ * The BLAKE3 hash of the path's contents, hex. For a directory it is the
+ * hash of its listing. It is computed from the disk on every check.
+ */
+content_hash?: string | null };
 
 /**
  * User preferences output
@@ -5095,6 +5208,11 @@ force?: boolean };
 export type StartupIndexingOutput = { disposition: StartupIndexingDisposition };
 
 /**
+ * Read a path's state, the values a precondition names.
+ */
+export type StatInput = { token: string; path: string };
+
+/**
  * State transition event
  */
 export type StateTransition = { from: DeviceSyncState; to: DeviceSyncState; timestamp: string; reason: string | null };
@@ -5612,6 +5730,11 @@ language?: string | null;
  * restart, because nothing in it is authoritative.
  */
 mounts_cache_max_bytes?: number | null; 
+/**
+ * Allow FUSE mounts on Linux. Mounts already up stay up when this is
+ * turned off; it only refuses new ones.
+ */
+mounts_fuse_enabled?: boolean | null; 
 /**
  * Ceiling on replica bytes per second, serving and fetching combined;
  * zero lifts it. Applies to transfers already in flight.
@@ -6292,6 +6415,51 @@ export type WholeVolumeSuggestion = { volume_fingerprint: string; volume_name: s
 export type WireAssertion = { tag_uuid: string; record_uuid: string; external_id: string | null; content_uuid: string | null; asserted: boolean; hlc: string; device_uuid: string };
 
 export type WireDefinition = { uuid: string; slug_id: string; path: string; color: string | null; icon: string | null; updated_hlc: string; origin_device: string };
+
+/**
+ * Write a whole file, or a byte range of one.
+ */
+export type WriteFileInput = { 
+/**
+ * The grant token.
+ */
+token: string; 
+/**
+ * Relative to the granted directory.
+ */
+path: string; content: string; encoding?: ContentEncoding | null; 
+/**
+ * Write `content` starting at this byte of the existing file, keeping
+ * the bytes around it. Needs `expect`. The whole file when absent.
+ */
+offset?: number | null; 
+/**
+ * What was read. Absent for a create, which never replaces anything.
+ */
+expect?: Precondition | null };
+
+/**
+ * What a write did.
+ */
+export type WriteOutcome = { 
+/**
+ * The path as the request named it, relative to the granted directory.
+ */
+requested: string; 
+/**
+ * The result's state after the write. Its path differs from
+ * `requested` when a create found the name taken.
+ */
+state: PathState; 
+/**
+ * Whether the name was taken and the result was given a conflict name.
+ */
+conflict: boolean; 
+/**
+ * Pass this to `files.undo` as `job` to reverse the write. `None` when
+ * the write changed nothing, or when its journal could not be written.
+ */
+undo: string | null };
 // ===== API Type Unions =====
 
 export type CoreAction =
@@ -6306,6 +6474,8 @@ export type CoreAction =
   |  { type: 'models.whisper.delete'; input: DeleteWhisperModelInput; output: DeleteWhisperModelOutput }
   |  { type: 'models.whisper.download'; input: DownloadWhisperModelInput; output: DownloadWhisperModelOutput }
   |  { type: 'mounts.cache_clear'; input: MountsCacheClearInput; output: MountsCacheClearOutput }
+  |  { type: 'mounts.fuse_mount'; input: FuseMountInput; output: FuseMountInfo }
+  |  { type: 'mounts.fuse_unmount'; input: FuseUnmountInput; output: FuseMountInfo }
   |  { type: 'mounts.replication_set_paused'; input: MountsReplicationSetPausedInput; output: MountsReplicationSetPausedOutput }
   |  { type: 'mounts.sync_peers'; input: MountsSyncPeersInput; output: MountsSyncPeersOutput }
   |  { type: 'mounts.trace_set'; input: MountsTraceSetInput; output: MountsTraceSetOutput }
@@ -6330,6 +6500,10 @@ export type CoreAction =
 
 export type LibraryAction =
      { type: 'adapters.update'; input: UpdateAdapterInput; output: UpdateAdapterOutput }
+  |  { type: 'agent.delete'; input: DeleteInput; output: WriteOutcome }
+  |  { type: 'agent.make_dir'; input: MakeDirInput; output: WriteOutcome }
+  |  { type: 'agent.move'; input: MoveInput; output: WriteOutcome }
+  |  { type: 'agent.write_file'; input: WriteFileInput; output: WriteOutcome }
   |  { type: 'config.library.update'; input: UpdateLibraryConfigInput; output: UpdateLibraryConfigOutput }
   |  { type: 'extensions.run_job'; input: RunExtensionJobInput; output: RunExtensionJobOutput }
   |  { type: 'files.archive'; input: FileArchiveInput; output: JobReceipt }
@@ -6407,6 +6581,7 @@ export type CoreQuery =
   |  { type: 'libraries.list'; input: ListLibrariesInput; output: [LibraryInfo] }
   |  { type: 'models.whisper.list'; input: ListWhisperModelsInput; output: ListWhisperModelsOutput }
   |  { type: 'mounts.cache_status'; input: MountsCacheStatusInput; output: MountsCacheStatus }
+  |  { type: 'mounts.fuse_list'; input: FuseListInput; output: FuseListOutput }
   |  { type: 'mounts.read_trace'; input: MountsReadTraceInput; output: MountsReadTrace }
   |  { type: 'mounts.replication_status'; input: MountsReplicationStatusInput; output: ReplicationStatus }
   |  { type: 'mounts.status'; input: MountsStatusInput; output: MountsStatus }
@@ -6425,6 +6600,7 @@ export type CoreQuery =
 export type LibraryQuery =
      { type: 'adapters.config'; input: GetAdapterConfigInput; output: [AdapterConfigField] }
   |  { type: 'adapters.list'; input: ListAdaptersInput; output: [AdapterInfo] }
+  |  { type: 'agent.stat'; input: StatInput; output: PathState }
   |  { type: 'config.library.get'; input: GetLibraryConfigQueryInput; output: LibrarySettingsOutput }
   |  { type: 'devices.list'; input: ListLibraryDevicesInput; output: [Device] }
   |  { type: 'files.alternate_instances'; input: AlternateInstancesInput; output: AlternateInstancesOutput }
@@ -6518,6 +6694,8 @@ export const WIRE_METHODS = {
     'models.whisper.delete': 'action:models.whisper.delete.input',
     'models.whisper.download': 'action:models.whisper.download.input',
     'mounts.cache_clear': 'action:mounts.cache_clear.input',
+    'mounts.fuse_mount': 'action:mounts.fuse_mount.input',
+    'mounts.fuse_unmount': 'action:mounts.fuse_unmount.input',
     'mounts.replication_set_paused': 'action:mounts.replication_set_paused.input',
     'mounts.sync_peers': 'action:mounts.sync_peers.input',
     'mounts.trace_set': 'action:mounts.trace_set.input',
@@ -6542,6 +6720,10 @@ export const WIRE_METHODS = {
 
   libraryActions: {
     'adapters.update': 'action:adapters.update.input',
+    'agent.delete': 'action:agent.delete.input',
+    'agent.make_dir': 'action:agent.make_dir.input',
+    'agent.move': 'action:agent.move.input',
+    'agent.write_file': 'action:agent.write_file.input',
     'config.library.update': 'action:config.library.update.input',
     'extensions.run_job': 'action:extensions.run_job.input',
     'files.archive': 'action:files.archive.input',
@@ -6619,6 +6801,7 @@ export const WIRE_METHODS = {
     'libraries.list': 'query:libraries.list',
     'models.whisper.list': 'query:models.whisper.list',
     'mounts.cache_status': 'query:mounts.cache_status',
+    'mounts.fuse_list': 'query:mounts.fuse_list',
     'mounts.read_trace': 'query:mounts.read_trace',
     'mounts.replication_status': 'query:mounts.replication_status',
     'mounts.status': 'query:mounts.status',
@@ -6637,6 +6820,7 @@ export const WIRE_METHODS = {
   libraryQueries: {
     'adapters.config': 'query:adapters.config',
     'adapters.list': 'query:adapters.list',
+    'agent.stat': 'query:agent.stat',
     'config.library.get': 'query:config.library.get',
     'devices.list': 'query:devices.list',
     'files.alternate_instances': 'query:files.alternate_instances',

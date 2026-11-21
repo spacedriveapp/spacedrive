@@ -40,6 +40,7 @@ use crate::domains::{
 	devices::{self, DevicesCmd},
 	events::{self, EventsCmd},
 	file::{self, FileCmd},
+	fuse::{self, FuseCmd},
 	grant::{self, GrantCmd},
 	index::{self, IndexCmd},
 	job::{self, JobCmd},
@@ -253,6 +254,9 @@ enum Commands {
 	/// Lend a folder to an agent with a scoped, expiring token
 	#[command(subcommand)]
 	Grant(GrantCmd),
+	/// Mount sources as a read-only directory tree (Linux, FUSE)
+	#[command(subcommand)]
+	Fuse(FuseCmd),
 	/// Indexing operations
 	#[command(subcommand)]
 	Index(IndexCmd),
@@ -843,6 +847,7 @@ async fn run_client_command(
 		Commands::Library(cmd) => library::run(&ctx, cmd).await?,
 		Commands::File(cmd) => file::run(&ctx, cmd).await?,
 		Commands::Grant(cmd) => grant::run(&ctx, cmd).await?,
+		Commands::Fuse(cmd) => fuse::run(&ctx, cmd).await?,
 		Commands::Index(cmd) => index::run(&ctx, cmd).await?,
 		Commands::Thumbs(cmd) => thumbs::run(&ctx, cmd).await?,
 		Commands::Sources(cmd) => source::run(&ctx, cmd).await?,

@@ -10,6 +10,7 @@
 
 pub mod adapters;
 pub mod addressing;
+pub mod agent_write;
 pub mod config;
 // pub mod content;
 pub mod core;
