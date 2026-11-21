@@ -667,7 +667,7 @@ pub async fn reconcile_source_with(
 		// on its own.
 		// A listing of this directory is still blocked from an earlier read;
 		// another would only add a second blocked thread.
-		if cache.access_blocked(&dir) {
+		if cache.access_blocked_needed(&dir) {
 			unreadable = true;
 			continue;
 		}

@@ -3036,7 +3036,7 @@ impl VolumeIndex {
 			// as blocked before it gives up its reservation, so no caller can
 			// slip between the two and start a second open.
 			let mut opening = self.opening.lock();
-			if self.access_blocked(dir) {
+			if self.access_blocked_needed(dir) {
 				return false;
 			}
 			match opening.get(dir) {
@@ -3074,6 +3074,21 @@ impl VolumeIndex {
 	/// A directory read in full, or gone: it no longer waits on anything.
 	pub fn access_settled(&self, dir: &Path) {
 		self.awaiting_access.lock().remove(dir);
+	}
+
+	/// Whether a listing of `dir` is still blocked, recording that a walk,
+	/// reconcile or browse needs it read.
+	///
+	/// A read a subtree count left blocked is not reported or revisited on
+	/// its own, so a caller that needs the contents promotes it here, and the
+	/// folder is reported and read again once that read returns.
+	pub fn access_blocked_needed(&self, dir: &Path) -> bool {
+		self.awaiting_access
+			.lock()
+			.get_mut(dir)
+			.filter(|waiting| waiting.blocked > 0)
+			.map(|waiting| waiting.reported = true)
+			.is_some()
 	}
 
 	/// Whether a listing of `dir` is still blocked, so opening it again
@@ -3252,6 +3267,48 @@ pub(crate) mod tests {
 
 	fn isolated_cache() -> VolumeIndex {
 		VolumeIndex::with_sources_dir(None).expect("failed to create cache")
+	}
+
+	/// A read a count left blocked is forgotten when it returns, unless a
+	/// walk needed the folder meanwhile, which makes it one to report and
+	/// read again.
+	#[tokio::test]
+	async fn a_count_hold_is_revisited_only_once_a_walk_needs_it() {
+		let cache = Arc::new(isolated_cache());
+		let counted = PathBuf::from("/vol/Library/counted");
+		let needed = PathBuf::from("/vol/Library/needed");
+		let (answer_counted, counted_read) = tokio::sync::oneshot::channel::<()>();
+		let (answer_needed, needed_read) = tokio::sync::oneshot::channel::<()>();
+		cache.hold_uncounted(counted.clone(), Duration::ZERO, tokio::spawn(counted_read));
+		cache.hold_uncounted(needed.clone(), Duration::ZERO, tokio::spawn(needed_read));
+
+		assert!(cache.access_blocked(&counted));
+		assert!(cache.awaiting_access_under(Path::new("/vol")).is_empty());
+		assert!(cache.access_blocked_needed(&needed));
+		assert_eq!(
+			cache.awaiting_access_under(Path::new("/vol")),
+			vec![needed.clone()]
+		);
+
+		answer_counted.send(()).expect("answer");
+		answer_needed.send(()).expect("answer");
+		tokio::time::timeout(Duration::from_secs(10), async {
+			while cache.access_blocked(&counted) || cache.access_blocked(&needed) {
+				tokio::time::sleep(Duration::from_millis(10)).await;
+			}
+		})
+		.await
+		.expect("both reads returned");
+		let unblocked: Vec<PathBuf> = cache
+			.awaiting_access_unblocked()
+			.into_iter()
+			.map(|(dir, _)| dir)
+			.collect();
+		assert_eq!(
+			unblocked,
+			vec![needed],
+			"only the needed folder is read again"
+		);
 	}
 
 	#[test]

@@ -355,7 +355,7 @@ async fn discovery_worker_rayon(
 			}
 		}
 
-		if cache.access_blocked(&dir_path) {
+		if cache.access_blocked_needed(&dir_path) {
 			let _ = result_tx
 				.send(DiscoveryResult::StillBlocked(dir_path.clone()))
 				.await;
@@ -580,7 +580,7 @@ async fn run_discovery_phase_sequential(
 		};
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
-		if cache.access_blocked(&dir_path) {
+		if cache.access_blocked_needed(&dir_path) {
 			still_blocked(state, ctx, dir_path);
 			continue;
 		}
