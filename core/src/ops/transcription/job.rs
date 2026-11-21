@@ -1,3 +1,5 @@
+//! # Transcription job
+//!
 //! The transcription job: every audio and video file under a path whose
 //! transcript is missing or was made from other bytes.
 //!
@@ -8,14 +10,16 @@
 //! next run while a renamed one is not.
 
 use std::{
+	collections::HashMap,
 	path::{Path, PathBuf},
 	sync::{
 		atomic::{AtomicBool, Ordering},
-		Arc,
+		Arc, LazyLock, Mutex,
 	},
 	time::Duration,
 };
 
+use sd_store::PendingTranscript;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -27,6 +31,7 @@ use super::{
 use crate::{
 	domain::sidecar::{content_uuid_of_file, ContentSidecar, SidecarFormat},
 	infra::job::{generic_progress::GenericProgress, prelude::*},
+	ops::indexing::metadata::refuse_dataless,
 	ops::models::whisper::{WhisperModel, WhisperModelManager},
 };
 
@@ -186,9 +191,7 @@ impl JobHandler for TranscribeJob {
 			}
 			for file in claimed {
 				ctx.check_interrupt().await?;
-				self.cursor = file.rowid;
 				outstanding = outstanding.max(done + 1);
-				let path = self.root.join(&file.external_id);
 				let (position, total, name, job) = (done, outstanding, &file.external_id, &ctx);
 				let report = move |fraction: f32| {
 					job.progress(Progress::generic(GenericProgress::new(
@@ -199,123 +202,47 @@ impl JobHandler for TranscribeJob {
 				};
 				report(0.0);
 
-				let content_uuid = match file.content_uuid {
-					Some(uuid) => uuid,
-					None => match content_uuid_of_file(&path).await {
-						Ok(uuid) => uuid,
-						Err(error) => {
-							ctx.log(format!("Skipped {}: {error}", file.external_id));
-							output.failed += 1;
-							done += 1;
-							continue;
-						}
-					},
-				};
-
-				let reusable = if self.force {
-					None
-				} else {
-					read_transcript(&library_path, content_uuid)
-						.await
-						.ok()
-						.flatten()
-				};
-				let from_model = reusable.is_none();
-				let transcript = match reusable {
-					Some(transcript) => Some(transcript),
-					None => {
-						if engine.is_none() {
-							let (path, id) = (model_path.clone(), model.id().to_string());
-							let loaded =
-								tokio::task::spawn_blocking(move || Engine::load(&path, &id))
-									.await
-									.map_err(|e| e.to_string())??;
-							engine = Some(Arc::new(loaded));
-						}
-						let engine = engine.clone().expect("loaded above");
-						match self
-							.transcribe_one(
-								&ctx,
-								engine,
-								&library_path,
-								content_uuid,
-								&path,
-								&report,
-							)
-							.await?
-						{
-							Ok(transcript) => transcript,
-							Err(error) => {
-								ctx.log(format!(
-									"Could not transcribe {}: {error}",
-									file.external_id
-								));
-								output.failed += 1;
-								done += 1;
-								continue;
-							}
-						}
+				// An interruption returns before the cursor moves, so a resumed
+				// run starts with the recording it was in the middle of.
+				let outcome = self
+					.process(
+						&ctx,
+						&file,
+						&library_path,
+						&mut engine,
+						&model_path,
+						model,
+						&report,
+					)
+					.await?;
+				self.cursor = file.rowid;
+				done += 1;
+				let transcript = match outcome {
+					Outcome::Failed(reason) => {
+						ctx.log(format!(
+							"Could not transcribe {}: {reason}",
+							file.external_id
+						));
+						output.failed += 1;
+						continue;
 					}
-				};
-
-				let row = match &transcript {
-					Some(transcript) => {
-						if from_model {
-							if let Err(error) =
-								write_sidecars(&library_path, content_uuid, transcript).await
-							{
-								ctx.log(format!(
-									"Could not write the transcript of {}: {error}",
-									file.external_id
-								));
-								output.failed += 1;
-								done += 1;
-								continue;
-							}
-							output.transcribed += 1;
-						} else {
-							output.reused += 1;
-						}
-						sd_store::TranscriptDoc {
-							record_uuid: file.record_uuid,
-							size: file.size,
-							mtime: file.mtime,
-							extension: file.extension.clone(),
-							language: transcript.language.clone(),
-							model: transcript.model.clone(),
-							duration_ms: Some(transcript.duration_ms as i64),
-							spans: transcript
-								.segments
-								.iter()
-								.map(|segment| sd_store::TranscriptSpan {
-									start_ms: segment.start_ms as i64,
-									end_ms: segment.end_ms as i64,
-									text: segment.text.clone(),
-								})
-								.collect(),
-							skipped: None,
-						}
-					}
-					None => {
+					Outcome::NoAudio => {
 						output.no_audio += 1;
-						sd_store::TranscriptDoc {
-							record_uuid: file.record_uuid,
-							size: file.size,
-							mtime: file.mtime,
-							extension: file.extension.clone(),
-							language: None,
-							model: model.id().to_string(),
-							duration_ms: None,
-							spans: Vec::new(),
-							skipped: Some("no audio track".into()),
-						}
+						None
+					}
+					Outcome::Reused(transcript) => {
+						output.reused += 1;
+						Some(transcript)
+					}
+					Outcome::Transcribed(transcript) => {
+						output.transcribed += 1;
+						Some(transcript)
 					}
 				};
 				index
-					.write_transcript(&row)
+					.write_transcript(&transcript_row(&file, model, transcript.as_ref()))
 					.await
 					.map_err(|e| e.to_string())?;
-				done += 1;
 			}
 			ctx.checkpoint().await?;
 		}
@@ -333,7 +260,78 @@ impl JobHandler for TranscribeJob {
 	}
 }
 
+/// What became of one recording.
+enum Outcome {
+	Transcribed(Transcript),
+	/// Its transcript sidecar already existed for these bytes.
+	Reused(Transcript),
+	NoAudio,
+	/// Left pending for a later run, with why.
+	Failed(String),
+}
+
 impl TranscribeJob {
+	/// Transcribe one recording, or reuse its transcript, and write its
+	/// sidecars. Holds the content's writer lock throughout, so two jobs over
+	/// overlapping paths never write the same sidecars at once; the second
+	/// finds the first's transcript and reuses it.
+	#[allow(clippy::too_many_arguments)]
+	async fn process(
+		&self,
+		ctx: &JobContext<'_>,
+		file: &PendingTranscript,
+		library_path: &Path,
+		engine: &mut Option<Arc<Engine>>,
+		model_path: &Path,
+		model: WhisperModel,
+		report: &(dyn Fn(f32) + Sync),
+	) -> JobResult<Outcome> {
+		let path = self.root.join(&file.external_id);
+		// Opening a cloud placeholder downloads it; it stays pending until
+		// its bytes are on this device.
+		if let Err(error) = refuse_dataless(&path).await {
+			return Ok(Outcome::Failed(error.to_string()));
+		}
+		let content_uuid = match file.content_uuid {
+			Some(uuid) => uuid,
+			None => match content_uuid_of_file(&path).await {
+				Ok(uuid) => uuid,
+				Err(error) => return Ok(Outcome::Failed(error.to_string())),
+			},
+		};
+		let _writer = WriterLock::acquire(content_uuid).await;
+
+		if !self.force {
+			if let Ok(Some(transcript)) = read_transcript(library_path, content_uuid).await {
+				return Ok(Outcome::Reused(transcript));
+			}
+		}
+		let engine = match engine {
+			Some(engine) => engine.clone(),
+			None => {
+				let (path, id) = (model_path.to_path_buf(), model.id().to_string());
+				let loaded = tokio::task::spawn_blocking(move || Engine::load(&path, &id))
+					.await
+					.map_err(|e| e.to_string())??;
+				engine.insert(Arc::new(loaded)).clone()
+			}
+		};
+		let transcript = match self
+			.transcribe_one(ctx, engine, library_path, content_uuid, &path, report)
+			.await?
+		{
+			Ok(Some(transcript)) => transcript,
+			Ok(None) => return Ok(Outcome::NoAudio),
+			Err(error) => return Ok(Outcome::Failed(error)),
+		};
+		Ok(
+			match write_sidecars(library_path, content_uuid, &transcript).await {
+				Ok(()) => Outcome::Transcribed(transcript),
+				Err(error) => Outcome::Failed(format!("write the transcript: {error}")),
+			},
+		)
+	}
+
 	/// Run the model over one file on a blocking thread, reporting how far
 	/// through it is and stopping when the job is interrupted. The outer
 	/// result is the job's; the inner one is this file's.
@@ -393,9 +391,81 @@ impl TranscribeJob {
 	}
 }
 
+/// The index row for one recording: its segments, or why it has none.
+fn transcript_row(
+	file: &PendingTranscript,
+	model: WhisperModel,
+	transcript: Option<&Transcript>,
+) -> sd_store::TranscriptDoc {
+	sd_store::TranscriptDoc {
+		record_uuid: file.record_uuid,
+		size: file.size,
+		mtime: file.mtime,
+		extension: file.extension.clone(),
+		language: transcript.and_then(|t| t.language.clone()),
+		model: transcript.map_or_else(|| model.id().to_string(), |t| t.model.clone()),
+		duration_ms: transcript.map(|t| t.duration_ms as i64),
+		spans: transcript
+			.map(|t| {
+				t.segments
+					.iter()
+					.map(|segment| sd_store::TranscriptSpan {
+						start_ms: segment.start_ms as i64,
+						end_ms: segment.end_ms as i64,
+						text: segment.text.clone(),
+					})
+					.collect()
+			})
+			.unwrap_or_default(),
+		skipped: transcript.is_none().then(|| "no audio track".to_string()),
+	}
+}
+
+/// One writer per content uuid across every transcription job in the
+/// daemon. Two jobs over overlapping paths would otherwise transcribe the
+/// same bytes at once and clear each other's partial files.
+static WRITERS: LazyLock<Mutex<HashMap<Uuid, Arc<tokio::sync::Mutex<()>>>>> =
+	LazyLock::new(Default::default);
+
+/// Held while one content's sidecars are made. Dropping it frees the entry
+/// when nobody else is waiting, so the map stays as small as the work.
+struct WriterLock {
+	content_uuid: Uuid,
+	lock: Arc<tokio::sync::Mutex<()>>,
+	guard: Option<tokio::sync::OwnedMutexGuard<()>>,
+}
+
+impl WriterLock {
+	async fn acquire(content_uuid: Uuid) -> Self {
+		let lock = WRITERS
+			.lock()
+			.unwrap_or_else(|e| e.into_inner())
+			.entry(content_uuid)
+			.or_default()
+			.clone();
+		let guard = lock.clone().lock_owned().await;
+		Self {
+			content_uuid,
+			lock,
+			guard: Some(guard),
+		}
+	}
+}
+
+impl Drop for WriterLock {
+	fn drop(&mut self) {
+		self.guard.take();
+		let mut writers = WRITERS.lock().unwrap_or_else(|e| e.into_inner());
+		// The map's copy and ours are the only ones left: nobody is waiting.
+		if Arc::strong_count(&self.lock) == 2 {
+			writers.remove(&self.content_uuid);
+		}
+	}
+}
+
 /// Write the JSON, SRT and VTT sidecars. Each goes through
-/// `.<variant>.partial.<ext>` and a rename, so a reader never sees half a
-/// file. The JSON is renamed last: its presence means the set is complete.
+/// `.<variant>.partial.<ext>` and a rename under the content's writer lock,
+/// so a reader never sees half a file. The JSON is renamed last: its presence means the set is complete.
 async fn write_sidecars(
 	library_path: &Path,
 	content_uuid: Uuid,
@@ -420,4 +490,26 @@ async fn write_sidecars(
 		tokio::fs::rename(&partial, &path).await?;
 	}
 	Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[tokio::test]
+	async fn one_writer_per_content_and_the_map_empties_after() {
+		let uuid = Uuid::now_v7();
+		let first = WriterLock::acquire(uuid).await;
+		let second = tokio::spawn(WriterLock::acquire(uuid));
+		tokio::time::sleep(Duration::from_millis(50)).await;
+		assert!(
+			!second.is_finished(),
+			"the second writer waits for the first"
+		);
+		drop(first);
+		let second = second.await.unwrap();
+		assert!(WRITERS.lock().unwrap().contains_key(&uuid));
+		drop(second);
+		assert!(!WRITERS.lock().unwrap().contains_key(&uuid));
+	}
 }

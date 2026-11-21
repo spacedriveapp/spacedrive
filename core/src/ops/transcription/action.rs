@@ -1,3 +1,5 @@
+//! # Transcribe action
+//!
 //! `media.transcribe`: queue transcription of the audio and video files at
 //! or under a path.
 

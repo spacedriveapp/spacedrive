@@ -1,4 +1,6 @@
-//! Speech audio: 16 kHz mono f32 PCM for a file, read a chunk at a time.
+//! # Speech audio
+//!
+//! 16 kHz mono f32 PCM for a file, read a chunk at a time.
 //!
 //! The speech audio sidecar is the preferred input, since it is already at the
 //! rate the model takes and is shared with every other step that listens to
@@ -56,6 +58,10 @@ pub fn open_speech_audio(
 			}
 		}
 	}
+	// The job refused placeholders before it got here; this guards the open
+	// itself, which would download the file.
+	crate::ops::indexing::metadata::refuse_dataless_blocking(original)
+		.map_err(|e| format!("{}: {e}", original.display()))?;
 	match sd_ffmpeg::AudioStream::open(original) {
 		Ok(Some(stream)) => Ok(Opened::Audio(Box::new(DecodedAudio(stream)))),
 		Ok(None) => Ok(Opened::NoAudio),

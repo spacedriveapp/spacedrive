@@ -1,3 +1,5 @@
+//! # Transcript format
+//!
 //! The transcript sidecar format, and the subtitle files made from it.
 
 use std::path::Path;

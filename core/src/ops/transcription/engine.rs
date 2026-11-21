@@ -1,3 +1,5 @@
+//! # Whisper engine
+//!
 //! Whisper over a stream of speech audio.
 
 use std::{
