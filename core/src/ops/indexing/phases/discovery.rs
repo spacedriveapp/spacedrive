@@ -134,6 +134,7 @@ async fn run_parallel_discovery(
 		let retention = retention.clone();
 		let volume_backend = volume_backend.cloned();
 		let cloud_url_base = cloud_url_base.clone();
+		let cache = ctx.library().core_context().volume_index().clone();
 
 		let worker = tokio::spawn(async move {
 			discovery_worker_rayon(
@@ -150,6 +151,7 @@ async fn run_parallel_discovery(
 				retention,
 				volume_backend,
 				cloud_url_base,
+				cache,
 			)
 			.await
 		});
@@ -225,6 +227,9 @@ async fn run_parallel_discovery(
 			DiscoveryResult::AwaitingAccess { path, listing } => {
 				await_access(state, ctx, path, listing);
 			}
+			DiscoveryResult::StillBlocked(path) => {
+				still_blocked(state, ctx, path);
+			}
 			DiscoveryResult::QueueDirectories(_) => {
 				unreachable!("Workers should not send QueueDirectories in Rayon-style mode");
 			}
@@ -295,6 +300,9 @@ enum DiscoveryResult {
 	Placeholder(PathBuf),
 	/// A directory whose listing did not answer within the bound, with the
 	/// listing, still blocked.
+	/// A directory an earlier listing is still blocked on, left unread so
+	/// one unanswered prompt holds one blocked read.
+	StillBlocked(PathBuf),
 	AwaitingAccess {
 		path: PathBuf,
 		listing: tokio::task::JoinHandle<Result<Vec<DirEntry>, std::io::Error>>,
@@ -321,6 +329,7 @@ async fn discovery_worker_rayon(
 	retention: Retention,
 	volume_backend: Option<Arc<dyn crate::volume::VolumeBackend>>,
 	cloud_url_base: Option<String>,
+	cache: Arc<crate::ops::indexing::VolumeIndex>,
 ) {
 	loop {
 		if shutdown.load(Ordering::Acquire) {
@@ -346,12 +355,19 @@ async fn discovery_worker_rayon(
 			}
 		}
 
+		if cache.access_blocked(&dir_path) {
+			let _ = result_tx
+				.send(DiscoveryResult::StillBlocked(dir_path.clone()))
+				.await;
+			pending_work.fetch_sub(1, Ordering::Release);
+			continue;
+		}
 		let listing = spawn_listing(
 			&dir_path,
 			volume_backend.as_ref(),
 			cloud_url_base.as_deref(),
 		);
-		match bounded(READ_BOUND, listing).await {
+		match await_listing(listing, cloud_url_base.is_some()).await {
 			Bounded::Unanswered(listing) => {
 				let _ = result_tx
 					.send(DiscoveryResult::AwaitingAccess {
@@ -563,8 +579,17 @@ async fn run_discovery_phase_sequential(
 		};
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
+		if ctx
+			.library()
+			.core_context()
+			.volume_index()
+			.access_blocked(&dir_path)
+		{
+			still_blocked(state, ctx, dir_path);
+			continue;
+		}
 		let listing = spawn_listing(&dir_path, volume_backend, cloud_url_base.as_deref());
-		let entries = match bounded(READ_BOUND, listing).await {
+		let entries = match await_listing(listing, cloud_url_base.is_some()).await {
 			Bounded::Unanswered(listing) => {
 				await_access(state, ctx, dir_path, listing);
 				continue;
@@ -716,6 +741,32 @@ fn spawn_listing(
 		held::wait(&path).await;
 		read_directory(&path, volume_backend.as_ref(), cloud_url_base.as_deref()).await
 	})
+}
+
+/// Wait for a listing, bounded for a local directory.
+///
+/// A cloud listing waits on its provider's API rather than a privacy
+/// prompt, and the revisit reads local paths only, so it is awaited in full
+/// as it always was.
+async fn await_listing(
+	listing: tokio::task::JoinHandle<Result<Vec<DirEntry>, std::io::Error>>,
+	cloud: bool,
+) -> Bounded<Result<Vec<DirEntry>, std::io::Error>> {
+	if cloud {
+		return Bounded::Answered(listing.await);
+	}
+	bounded(READ_BOUND, listing).await
+}
+
+/// Record a directory an earlier listing is still blocked on, without
+/// reading it: the sweep keeps what the store holds under it and the
+/// revisit reads it once that listing returns.
+fn still_blocked(state: &mut IndexerState, ctx: &JobContext<'_>, path: PathBuf) {
+	ctx.log(format!(
+		"{} is still waiting on access from an earlier read; not reading it again",
+		path.display()
+	));
+	state.awaiting_access.push(path);
 }
 
 /// Record a directory whose listing did not answer in time.

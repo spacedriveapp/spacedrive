@@ -665,6 +665,12 @@ pub async fn reconcile_source_with(
 		// A listing that waits on a provider, a network or a privacy prompt
 		// can block for minutes; the pass moves on and the listing finishes
 		// on its own.
+		// A listing of this directory is still blocked from an earlier read;
+		// another would only add a second blocked thread.
+		if cache.access_blocked(&dir) {
+			unreadable = true;
+			continue;
+		}
 		let listing = {
 			let dir = dir.clone();
 			let read = pass.read;
@@ -1248,6 +1254,21 @@ mod tests {
 			vec![desktop.clone()],
 			"the folder is reported as waiting on permission"
 		);
+
+		// A reconcile while the walk's listing is still blocked starts no
+		// second read of the folder: it stays unread and waiting.
+		tokio::time::timeout(
+			READ_BOUND * 3,
+			reconcile_source(&core.context, Some(library.id()), &root, false),
+		)
+		.await
+		.expect("the reconcile finished")
+		.expect("the reconcile ran");
+		assert!(
+			!store.contains_path(&desktop.join("note.txt")).await,
+			"the reconcile did not read the folder a blocked listing holds"
+		);
+		assert_eq!(cache.awaiting_access_under(&root), vec![desktop.clone()]);
 
 		// Answering the prompt is the blocked listing returning, which wakes
 		// the revisit without waiting for its timer.

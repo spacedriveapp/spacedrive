@@ -632,6 +632,17 @@ impl IndexerJob {
 		// The same bound as a walk: a folder behind an unanswered privacy
 		// prompt fails this browse and waits on access, rather than holding
 		// the job until someone answers.
+		let cache = ctx.library().core_context().volume_index();
+		let waits_on_permission = || {
+			JobError::execution(format!(
+				"{} did not open within {}s; it waits on permission",
+				root_path.display(),
+				READ_BOUND.as_secs()
+			))
+		};
+		if cache.access_blocked(root_path) {
+			return Err(waits_on_permission());
+		}
 		let open = {
 			let dir = root_path.to_path_buf();
 			tokio::spawn(async move { fs::read_dir(dir).await })
@@ -646,17 +657,8 @@ impl IndexerJob {
 				)));
 			}
 			Bounded::Unanswered(open) => {
-				let cache = ctx.library().core_context().volume_index();
-				if cache.access_blocked(root_path) {
-					open.abort();
-				} else {
-					cache.await_access(root_path.to_path_buf(), READ_BOUND, open);
-				}
-				return Err(JobError::execution(format!(
-					"{} did not open within {}s; it waits on permission",
-					root_path.display(),
-					READ_BOUND.as_secs()
-				)));
+				cache.await_access(root_path.to_path_buf(), READ_BOUND, open);
+				return Err(waits_on_permission());
 			}
 		};
 

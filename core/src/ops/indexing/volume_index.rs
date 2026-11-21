@@ -373,6 +373,14 @@ enum SaveMode {
 	Paced,
 }
 
+/// A directory waiting on access: how many listings of it are still
+/// blocked, and how long the slowest one that answered took.
+#[derive(Debug, Default, Clone, Copy)]
+struct AwaitingAccess {
+	blocked: usize,
+	took: Duration,
+}
+
 /// A cached read-only handle and which file it reads.
 #[derive(Clone)]
 struct ReadHandle {
@@ -476,15 +484,15 @@ pub struct VolumeIndex {
 	/// both: an active watch is one the OS accepted, and a refusal is what
 	/// the status surface shows instead until a retry succeeds.
 	refused_watches: Mutex<HashMap<PathBuf, String>>,
-	/// Directories whose listing did not answer within the read bound. Each
-	/// holds `None` while that listing is still blocked, and how long it
-	/// took once it answers.
+	/// Directories whose listing did not answer within the read bound, with
+	/// how many of their listings are still blocked and how long the slowest
+	/// one that answered took.
 	///
 	/// On macOS this is a folder behind a privacy prompt nobody answered: the
 	/// open blocks until someone does. Walks and reconciles move on without
 	/// it, and [`crate::ops::indexing::reconcile::revisit_awaiting_access`]
 	/// reads it again when the blocked listing returns or on a timer.
-	awaiting_access: Mutex<BTreeMap<PathBuf, Option<Duration>>>,
+	awaiting_access: Mutex<BTreeMap<PathBuf, AwaitingAccess>>,
 	/// Woken when a blocked listing returns, which is what answering the
 	/// prompt looks like from here.
 	access_answered: tokio::sync::Notify,
@@ -2952,7 +2960,11 @@ impl VolumeIndex {
 		waited: Duration,
 		listing: tokio::task::JoinHandle<T>,
 	) {
-		self.awaiting_access.lock().insert(dir.clone(), None);
+		self.awaiting_access
+			.lock()
+			.entry(dir.clone())
+			.or_default()
+			.blocked += 1;
 		let cache = Arc::downgrade(self);
 		let since = Instant::now();
 		tokio::spawn(async move {
@@ -2960,8 +2972,9 @@ impl VolumeIndex {
 			let Some(cache) = cache.upgrade() else {
 				return;
 			};
-			if let Some(took) = cache.awaiting_access.lock().get_mut(&dir) {
-				*took = Some(waited + since.elapsed());
+			if let Some(waiting) = cache.awaiting_access.lock().get_mut(&dir) {
+				waiting.blocked = waiting.blocked.saturating_sub(1);
+				waiting.took = waiting.took.max(waited + since.elapsed());
 			}
 			cache.access_answered.notify_one();
 		});
@@ -3034,7 +3047,7 @@ impl VolumeIndex {
 		self.awaiting_access
 			.lock()
 			.get(dir)
-			.is_some_and(|took| took.is_none())
+			.is_some_and(|waiting| waiting.blocked > 0)
 	}
 
 	/// Directories at or under `root` waiting on access, sorted.
@@ -3054,7 +3067,8 @@ impl VolumeIndex {
 		self.awaiting_access
 			.lock()
 			.iter()
-			.filter_map(|(dir, took)| took.map(|took| (dir.clone(), took)))
+			.filter(|(_, waiting)| waiting.blocked == 0)
+			.map(|(dir, waiting)| (dir.clone(), waiting.took))
 			.collect()
 	}
 
