@@ -35,6 +35,11 @@ pub struct IndexSourceInfo {
 	/// copy answers, and `away` when the drive is away and there is no copy.
 	#[serde(default)]
 	pub catalog: CatalogAvailability,
+	/// Folders under the source whose listing never answered, such as a
+	/// macOS folder behind a privacy prompt nobody answered. Read again once
+	/// the listing returns, and every few minutes until it does.
+	#[serde(default)]
+	pub awaiting_permission: Vec<PathBuf>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]

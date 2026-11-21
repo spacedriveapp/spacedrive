@@ -167,6 +167,7 @@ impl CoreQuery for IndexStatusQuery {
 			.sources()
 			.into_iter()
 			.map(|s| super::output::IndexSourceInfo {
+				awaiting_permission: cache.awaiting_access_under(&s.root),
 				id: s.id,
 				root: s.root,
 				volume_uuid: s.volume_uuid,

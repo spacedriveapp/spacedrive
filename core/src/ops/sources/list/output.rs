@@ -69,6 +69,11 @@ pub struct SourceInfo {
 	/// catalog lives on the source.
 	#[serde(default)]
 	pub offline_copy: Option<crate::service::mounts::offline::OfflineCopyInfo>,
+	/// Folders under the source that have not been read because their
+	/// listing never answered, such as a macOS folder whose privacy prompt
+	/// nobody has answered yet. They are read again once access is granted.
+	#[serde(default)]
+	pub awaiting_permission: Vec<String>,
 }
 
 impl SourceInfo {
@@ -123,6 +128,7 @@ impl SourceInfo {
 			store_path: None,
 			settings,
 			offline_copy: None,
+			awaiting_permission: Vec::new(),
 		}
 	}
 
@@ -164,6 +170,7 @@ impl SourceInfo {
 			store_path: None,
 			settings: None,
 			offline_copy: None,
+			awaiting_permission: Vec::new(),
 		}
 	}
 
@@ -199,6 +206,7 @@ impl SourceInfo {
 			store_path: None,
 			settings: None,
 			offline_copy: None,
+			awaiting_permission: Vec::new(),
 		}
 	}
 
@@ -236,6 +244,7 @@ impl SourceInfo {
 			store_path: None,
 			settings: None,
 			offline_copy: None,
+			awaiting_permission: Vec::new(),
 		}
 	}
 }

@@ -21,7 +21,7 @@ use crate::volume::{Volume, VolumeFingerprint, VolumeState};
 use parking_lot::{Mutex, RwLock};
 use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{BTreeMap, HashMap, HashSet},
 	path::{Path, PathBuf},
 	sync::{
 		atomic::{AtomicBool, Ordering},
@@ -476,6 +476,17 @@ pub struct VolumeIndex {
 	/// both: an active watch is one the OS accepted, and a refusal is what
 	/// the status surface shows instead until a retry succeeds.
 	refused_watches: Mutex<HashMap<PathBuf, String>>,
+	/// Directories whose listing did not answer within the read bound, each
+	/// with whether that listing is still blocked.
+	///
+	/// On macOS this is a folder behind a privacy prompt nobody answered: the
+	/// open blocks until someone does. Walks and reconciles move on without
+	/// it, and [`crate::ops::indexing::reconcile::revisit_awaiting_access`]
+	/// reads it again when the blocked listing returns or on a timer.
+	awaiting_access: Mutex<BTreeMap<PathBuf, bool>>,
+	/// Woken when a blocked listing returns, which is what answering the
+	/// prompt looks like from here.
+	access_answered: tokio::sync::Notify,
 	created_at: Instant,
 }
 
@@ -509,6 +520,8 @@ impl VolumeIndex {
 			restored_roots: RwLock::new(None),
 			dirty_stubs: Mutex::new(HashSet::new()),
 			refused_watches: Mutex::new(HashMap::new()),
+			awaiting_access: Mutex::new(BTreeMap::new()),
+			access_answered: tokio::sync::Notify::new(),
 			created_at: Instant::now(),
 		})
 	}
@@ -2918,6 +2931,63 @@ impl VolumeIndex {
 			.collect();
 		refused.sort();
 		refused
+	}
+
+	/// Record a directory whose listing did not answer in time. `listing`
+	/// is that read, still blocked; when it returns the directory is marked
+	/// ready to read again and the revisit loop wakes.
+	///
+	/// While a listing is outstanding nothing reads the directory again, so
+	/// a prompt left unanswered for hours holds one blocked thread rather
+	/// than one per retry.
+	pub fn await_access<T: Send + 'static>(
+		self: &Arc<Self>,
+		dir: PathBuf,
+		listing: tokio::task::JoinHandle<T>,
+	) {
+		self.awaiting_access.lock().insert(dir.clone(), true);
+		let cache = Arc::downgrade(self);
+		tokio::spawn(async move {
+			let _ = listing.await;
+			let Some(cache) = cache.upgrade() else {
+				return;
+			};
+			if let Some(blocked) = cache.awaiting_access.lock().get_mut(&dir) {
+				*blocked = false;
+			}
+			cache.access_answered.notify_one();
+		});
+	}
+
+	/// A directory read in full, or gone: it no longer waits on anything.
+	pub fn access_settled(&self, dir: &Path) {
+		self.awaiting_access.lock().remove(dir);
+	}
+
+	/// Directories at or under `root` waiting on access, sorted.
+	pub fn awaiting_access_under(&self, root: &Path) -> Vec<PathBuf> {
+		self.awaiting_access
+			.lock()
+			.keys()
+			.filter(|dir| dir.starts_with(root))
+			.cloned()
+			.collect()
+	}
+
+	/// Directories waiting on access with no listing still blocked on them,
+	/// so reading them again costs at most one more blocked thread each.
+	pub fn awaiting_access_unblocked(&self) -> Vec<PathBuf> {
+		self.awaiting_access
+			.lock()
+			.iter()
+			.filter(|(_, blocked)| !**blocked)
+			.map(|(dir, _)| dir.clone())
+			.collect()
+	}
+
+	/// Resolves when a blocked listing returns.
+	pub async fn access_answered(&self) {
+		self.access_answered.notified().await;
 	}
 
 	pub fn is_watched(&self, path: &Path) -> bool {

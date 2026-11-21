@@ -36,6 +36,22 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Walks move past folders behind unanswered privacy prompts (Capy FAN-12315,
+November 21, beta.1 blocker). On first launch macOS asks for Desktop,
+Documents and Downloads, and an unanswered prompt blocks the open of that
+folder. Discovery now reads each directory on its own task bounded by the
+reconcile's `READ_BOUND` (10 s), so the walk finishes and commits everything
+else. A folder that does not answer is neither read nor failed: the sweep keeps
+what the store holds under it, `VolumeIndex` records it as waiting on access,
+and `sources.list` and `core.index_status` report it as `awaiting_permission`
+(`sd-cli source list` shows the count). The blocked listing returning is the
+signal that the prompt was answered, and it wakes
+`reconcile::revisit_awaiting_access`, which reconciles only those folders; a
+5-minute timer catches a refusal later allowed in System Settings, and the
+startup reconcile reads them too. Only one blocked read per folder is ever
+outstanding. Full Disk Access is not requested and the folders walked are
+unchanged.
+
 Read-only FUSE mount on Linux (Capy FAN-12103, November 20). A daemon built
 with the `fuse` feature and `mounts.fuse_enabled` on mounts every source, local
 and replicated from paired devices, at a path through `sd-cli fuse mount`.

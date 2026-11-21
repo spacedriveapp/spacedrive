@@ -10,6 +10,7 @@ use crate::{
 	infra::job::prelude::{JobContext, JobError, Progress},
 	ops::indexing::{
 		metadata::get_inode,
+		reconcile::{bounded, Bounded, READ_BOUND},
 		rules::{build_default_ruler, RuleToggles, RulerDecision},
 		state::{DirEntry, EntryKind, IndexError, IndexPhase, IndexerProgress, IndexerState},
 		summary::{count_subtree, Descent, Retention},
@@ -221,6 +222,9 @@ async fn run_parallel_discovery(
 			DiscoveryResult::Placeholder(path) => {
 				state.placeholders.push(path);
 			}
+			DiscoveryResult::AwaitingAccess { path, listing } => {
+				await_access(state, ctx, path, listing);
+			}
 			DiscoveryResult::QueueDirectories(_) => {
 				unreachable!("Workers should not send QueueDirectories in Rayon-style mode");
 			}
@@ -289,6 +293,12 @@ enum DiscoveryResult {
 		files: u32,
 	},
 	Placeholder(PathBuf),
+	/// A directory whose listing did not answer within the bound, with the
+	/// listing, still blocked.
+	AwaitingAccess {
+		path: PathBuf,
+		listing: tokio::task::JoinHandle<Result<Vec<DirEntry>, std::io::Error>>,
+	},
 }
 
 /// Worker task that pulls directories, reads contents, filters entries, and enqueues subdirectories.
@@ -336,16 +346,24 @@ async fn discovery_worker_rayon(
 			}
 		}
 
-		let dir_ruler = build_default_ruler(rule_toggles, &root_path, &dir_path).await;
-
-		match read_directory(
+		let listing = spawn_listing(
 			&dir_path,
 			volume_backend.as_ref(),
 			cloud_url_base.as_deref(),
-		)
-		.await
-		{
-			Ok(entries) => {
+		);
+		match bounded(READ_BOUND, listing).await {
+			Bounded::Unanswered(listing) => {
+				let _ = result_tx
+					.send(DiscoveryResult::AwaitingAccess {
+						path: dir_path.clone(),
+						listing,
+					})
+					.await;
+			}
+			Bounded::Answered(Ok(Ok(entries))) => {
+				// Built after the listing answers: a ruler reads the
+				// directory's .gitignore, which waits on the same prompt.
+				let dir_ruler = build_default_ruler(rule_toggles, &root_path, &dir_path).await;
 				let mut local_stats = LocalStats::default();
 
 				for entry in entries {
@@ -473,7 +491,15 @@ async fn discovery_worker_rayon(
 					.send(DiscoveryResult::Progress { dirs_queued })
 					.await;
 			}
-			Err(e) => {
+			Bounded::Answered(Ok(Err(e))) => {
+				let _ = result_tx
+					.send(DiscoveryResult::Error(IndexError::ReadDir {
+						path: dir_path.to_string_lossy().to_string(),
+						error: e.to_string(),
+					}))
+					.await;
+			}
+			Bounded::Answered(Err(e)) => {
 				let _ = result_tx
 					.send(DiscoveryResult::Error(IndexError::ReadDir {
 						path: dir_path.to_string_lossy().to_string(),
@@ -523,8 +549,6 @@ async fn run_discovery_phase_sequential(
 			continue;
 		}
 
-		let dir_ruler = build_default_ruler(rule_toggles, root_path, &dir_path).await;
-
 		let indexer_progress = IndexerProgress {
 			phase: IndexPhase::Discovery {
 				dirs_queued: state.dirs_to_walk.len(),
@@ -539,8 +563,18 @@ async fn run_discovery_phase_sequential(
 		};
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
-		match read_directory(&dir_path, volume_backend, cloud_url_base.as_deref()).await {
+		let listing = spawn_listing(&dir_path, volume_backend, cloud_url_base.as_deref());
+		let entries = match bounded(READ_BOUND, listing).await {
+			Bounded::Unanswered(listing) => {
+				await_access(state, ctx, dir_path, listing);
+				continue;
+			}
+			Bounded::Answered(Ok(entries)) => entries,
+			Bounded::Answered(Err(e)) => Err(std::io::Error::other(e)),
+		};
+		match entries {
 			Ok(entries) => {
+				let dir_ruler = build_default_ruler(rule_toggles, root_path, &dir_path).await;
 				let entry_count = entries.len();
 				let mut added_count = 0;
 
@@ -667,6 +701,46 @@ async fn run_discovery_phase_sequential(
 	Ok(())
 }
 
+/// Start reading one directory on its own task, so a listing that blocks
+/// can be left behind without stopping the walk.
+fn spawn_listing(
+	path: &Path,
+	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
+	cloud_url_base: Option<&str>,
+) -> tokio::task::JoinHandle<Result<Vec<DirEntry>, std::io::Error>> {
+	let path = path.to_path_buf();
+	let volume_backend = volume_backend.cloned();
+	let cloud_url_base = cloud_url_base.map(str::to_owned);
+	tokio::spawn(async move {
+		#[cfg(test)]
+		held::wait(&path).await;
+		read_directory(&path, volume_backend.as_ref(), cloud_url_base.as_deref()).await
+	})
+}
+
+/// Record a directory whose listing did not answer in time.
+///
+/// It is neither read nor failed: the sweep keeps what the store holds
+/// under it, and the source reports it as waiting on access until a later
+/// read answers.
+fn await_access(
+	state: &mut IndexerState,
+	ctx: &JobContext<'_>,
+	path: PathBuf,
+	listing: tokio::task::JoinHandle<Result<Vec<DirEntry>, std::io::Error>>,
+) {
+	ctx.log(format!(
+		"{} did not answer within {}s; moving on and reading it again once it does",
+		path.display(),
+		READ_BOUND.as_secs()
+	));
+	ctx.library()
+		.core_context()
+		.volume_index()
+		.await_access(path.clone(), listing);
+	state.awaiting_access.push(path);
+}
+
 /// Reads a directory through a volume backend, falling back to LocalBackend if none provided.
 ///
 /// Volume backends abstract local filesystems and cloud storage (S3, Dropbox) behind a
@@ -750,4 +824,45 @@ async fn read_directory_with_backend(
 	);
 
 	Ok(entries)
+}
+
+/// Directories whose listing waits until a test lets it go, standing in for
+/// a folder behind a privacy prompt nobody answers. The wait is async, so a
+/// test that never lets go still shuts its runtime down.
+#[cfg(test)]
+pub(crate) mod held {
+	use std::path::{Path, PathBuf};
+	use std::sync::Arc;
+
+	use tokio::sync::Semaphore;
+
+	static HELD: parking_lot::Mutex<Vec<(PathBuf, Arc<Semaphore>)>> =
+		parking_lot::Mutex::new(Vec::new());
+
+	/// Hold every listing of `dir` until [`release`] lets it go.
+	pub fn hold(dir: &Path) {
+		HELD.lock()
+			.push((dir.to_path_buf(), Arc::new(Semaphore::new(0))));
+	}
+
+	/// Let every held listing of `dir` answer, now and from now on.
+	pub fn release(dir: &Path) {
+		HELD.lock().retain(|(held, gate)| {
+			if held == dir {
+				gate.close();
+			}
+			held != dir
+		});
+	}
+
+	pub(super) async fn wait(dir: &Path) {
+		let gate = HELD
+			.lock()
+			.iter()
+			.find(|(held, _)| held == dir)
+			.map(|(_, gate)| gate.clone());
+		if let Some(gate) = gate {
+			let _ = gate.acquire().await;
+		}
+	}
 }
