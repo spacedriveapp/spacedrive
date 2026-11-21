@@ -1,0 +1,44 @@
+{
+	"id": "com.spacedrive.videos",
+	"name": "Videos",
+	"version": "0.1.0",
+	"description": "Shots, scene descriptions and the people in your footage, built on the core's proxies, transcripts and shot lists",
+	"author": "Spacedrive",
+	"wasm_file": "videos.wasm",
+	"min_core_version": "2.0.0",
+	"permissions": {
+		"read_records": {
+			"glob": "**/*.{mp4,mov,m4v,mkv,avi,webm,mts,m2ts,mxf}"
+		},
+		"read_sidecars": [
+			"proxy",
+			"transcript",
+			"shots",
+			"keyframe",
+			"thumbstrip"
+		],
+		"write_sidecars": [
+			"scene",
+			"faces"
+		],
+		"write_tags": true,
+		"use_models": [
+			{
+				"category": "image_caption",
+				"preference": "local"
+			},
+			{
+				"category": "face_detection",
+				"preference": "local"
+			},
+			{
+				"category": "face_embedding",
+				"preference": "local"
+			},
+			{
+				"category": "scene_classification",
+				"preference": "local"
+			}
+		]
+	}
+}

@@ -98,6 +98,11 @@ pub struct Record {
 	pub modified_ms: Option<i64>,
 	/// The identity of the bytes, once the hash job has reached them.
 	pub content_uuid: Option<Uuid>,
+	/// The key the core's media sidecars (proxy, transcript, shots,
+	/// keyframes) use for these bytes. It comes from the sampled hash, so it
+	/// exists before `content_uuid` settles and does not change when it does.
+	#[serde(default)]
+	pub media_uuid: Option<Uuid>,
 }
 
 impl Record {

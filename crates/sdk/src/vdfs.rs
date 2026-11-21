@@ -56,6 +56,28 @@ impl VdfsContext {
 		)
 	}
 
+	/// The bytes of a sidecar the core made for some content: a transcript,
+	/// a shot list, a keyframe. Addressed by the record's
+	/// [`Record::media_uuid`] and the kind, variant and format the core
+	/// wrote it under. Needs the kind in `read_sidecars`. `NotFound` means
+	/// the core has not made it yet; `NotAvailable` means this core writes
+	/// no sidecar of that kind.
+	pub async fn read_media_sidecar(
+		&self,
+		media_uuid: Uuid,
+		kind: &str,
+		variant: &str,
+		format: &str,
+	) -> Result<Vec<u8>> {
+		let payload = serde_json::to_vec(&serde_json::json!({
+			"content_uuid": media_uuid,
+			"kind": kind,
+			"variant": variant,
+			"format": format,
+		}))?;
+		crate::ffi::op("sidecars.read_media", &payload)
+	}
+
 	/// Write a sidecar of one of this extension's `write_sidecars` kinds, as
 	/// JSON, replacing any earlier one for the same content.
 	pub async fn write_sidecar<T: Serialize>(

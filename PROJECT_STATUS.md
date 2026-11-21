@@ -36,6 +36,19 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Videos extension skeleton, footage brief 6 (Capy FAN-12393, November 22, off
+the beta.1 path). `extensions/videos` (`com.spacedrive.videos`) reads the
+core's shot lists and keyframes, sends each keyframe to `ai.infer` for a
+caption, place labels and faces, and writes `scene` and `faces` sidecars. Faces
+cluster into a people roster whose names and corrections are an append-only
+edit log in the extension's store, replayed after every clustering pass. Until
+the provider layer lands every category answers `not_available` and the job
+completes with the shot list browsable. The host side is behind the `wasm`
+feature: `sidecars.read_media` for core sidecars, `media_uuid` on records, the
+`extensions.models` query, and `ui_manifest.json` `views`, which the client
+lists under Extensions in the sidebar. Live inference and real shot lists wait
+on the provider layer and the shot detection job.
+
 Beta.1 log and churn polish from the signed Studio proof (Capy FAN-12343,
 November 21). The desktop app checks the release feed from Rust
 (`apps/tauri/src-tauri/src/updater.rs`): a missing or unparseable

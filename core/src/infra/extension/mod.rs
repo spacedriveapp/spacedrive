@@ -38,7 +38,7 @@ pub use job_registry::{ExtensionJobRegistration, ExtensionJobRegistry};
 #[cfg(feature = "wasm")]
 pub use manager::PluginManager;
 #[cfg(feature = "wasm")]
-pub use model_registry::{ExtensionModelRegistry, ModelDefinition};
+pub use model_registry::{open_extension_store, ExtensionModelRegistry, ModelDefinition};
 #[cfg(feature = "wasm")]
 pub use types::{ExtensionManifest, ManifestPermissions, PluginManifest};
 #[cfg(feature = "wasm")]

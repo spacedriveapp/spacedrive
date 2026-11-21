@@ -135,6 +135,10 @@ struct RecordOut {
 	size: Option<u64>,
 	modified_ms: Option<i64>,
 	content_uuid: Option<Uuid>,
+	/// The uuid media sidecars (proxy, audio, transcript, shots) are keyed
+	/// by: derived from the sampled hash, so it exists before the full hash
+	/// and does not move when that lands.
+	media_uuid: Option<Uuid>,
 }
 
 impl RecordOut {
@@ -149,6 +153,10 @@ impl RecordOut {
 			size: entry.size.and_then(|s| u64::try_from(s).ok()),
 			modified_ms: entry.mtime_ms,
 			content_uuid: entry.content_uuid,
+			media_uuid: entry
+				.sampled_hash
+				.as_deref()
+				.map(sd_store::content::uuid_for),
 		}
 	}
 }
@@ -188,6 +196,16 @@ const QUERY_CAP: usize = 10_000;
 struct SidecarRef {
 	content_uuid: Uuid,
 	kind: String,
+}
+
+/// A core sidecar in the content tree, addressed the way the HTTP sidecar
+/// route addresses it.
+#[derive(Deserialize)]
+struct MediaSidecarRef {
+	content_uuid: Uuid,
+	kind: String,
+	variant: String,
+	format: String,
 }
 
 #[derive(Deserialize)]
@@ -306,6 +324,7 @@ impl JobOps {
 			"sidecars.exists" => self.sidecar_exists(parse(payload)?).await,
 			"sidecars.read" => self.sidecar_read(parse(payload)?).await,
 			"sidecars.write" => self.sidecar_write(parse(payload)?).await,
+			"sidecars.read_media" => self.media_sidecar_read(parse(payload)?).await,
 			"models.put" => self.model_put(parse(payload)?).await,
 			"models.get" => self.model_get(parse(payload)?).await,
 			"models.list" => self.model_list(parse(payload)?).await,
@@ -682,6 +701,58 @@ impl JobOps {
 
 	async fn sidecar_read(&self, sidecar: SidecarRef) -> OpResult {
 		let path = self.sidecar_path(sidecar.content_uuid, &sidecar.kind, false)?;
+		tokio::fs::read(&path).await.map_err(|e| match e.kind() {
+			std::io::ErrorKind::NotFound => OpError::not_found(),
+			_ => OpError::failed(format!("read {}: {e}", path.display())),
+		})
+	}
+
+	/// The bytes of a core sidecar (a proxy, a transcript, a shot list or a
+	/// keyframe) that the core wrote for some content.
+	///
+	/// Core kinds are read-only to every extension and need the kind named
+	/// in `read_sidecars`. A kind this core has no directory for answers
+	/// `not_available`, so a guest built against a newer layout degrades the
+	/// same way it does when the sidecar was never made (`not_found`).
+	async fn media_sidecar_read(&self, sidecar: MediaSidecarRef) -> OpResult {
+		if !self
+			.manifest
+			.permissions
+			.read_sidecars
+			.iter()
+			.any(|k| *k == sidecar.kind)
+		{
+			return Err(OpError::permission_denied(format!(
+				"{} may not read sidecar kind {}",
+				self.extension_id, sidecar.kind
+			)));
+		}
+		let Some(kind_dir) = sd_sidecar_path::kind_directory(&sidecar.kind) else {
+			return Err(OpError::not_available(format!(
+				"this core writes no {} sidecars",
+				sidecar.kind
+			)));
+		};
+		let segment = |s: &str| {
+			!s.is_empty()
+				&& s.chars()
+					.all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
+		};
+		if !segment(&sidecar.variant) || !segment(&sidecar.format) {
+			return Err(OpError::invalid_input(
+				"variant and format must be single [A-Za-z0-9_-] segments",
+			));
+		}
+		let path = self
+			.library
+			.path()
+			.join("sidecars")
+			.join(sd_sidecar_path::relative_path(
+				&sidecar.content_uuid,
+				kind_dir,
+				&sidecar.variant,
+				&sidecar.format,
+			));
 		tokio::fs::read(&path).await.map_err(|e| match e.kind() {
 			std::io::ErrorKind::NotFound => OpError::not_found(),
 			_ => OpError::failed(format!("read {}: {e}", path.display())),
