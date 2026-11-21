@@ -70,7 +70,7 @@ Treat an empty or short result as a lead, not as proof.
   moment ago can be missing, and a hit can point to a file that changed since
   it was indexed.
 - search_content answers from the text index, which can lag the disk too.
-  pending_files counts files waiting to be read, and while it is not zero a
+  pending_files counts files under the searched path waiting to be read, and while it is not zero a
   recent change can be missing. Only the first 1 MiB of a file's text is
   indexed, and text_truncated marks a hit on a file that held more. Images
   and other binary files are never indexed.

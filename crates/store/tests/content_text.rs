@@ -145,6 +145,31 @@ async fn pending_files_are_read_once_and_searchable_by_path_and_kind() {
 	names.sort();
 	assert_eq!(names, ["notes/a.md", "notes/deep/b.txt", "top.txt"]);
 	assert_eq!(index.pending_count(EXTENSIONS).await.unwrap(), 3);
+	assert_eq!(
+		index
+			.pending_count_under(EXTENSIONS, "notes")
+			.await
+			.unwrap(),
+		2
+	);
+	assert_eq!(
+		index
+			.pending_count_under(EXTENSIONS, "notes/deep")
+			.await
+			.unwrap(),
+		1
+	);
+	assert_eq!(
+		index
+			.pending_count_under(EXTENSIONS, "top.txt")
+			.await
+			.unwrap(),
+		1
+	);
+	assert_eq!(
+		index.pending_count_under(EXTENSIONS, "note").await.unwrap(),
+		0
+	);
 
 	let by_name = |name: &str| pending.iter().find(|p| p.external_id == name).unwrap();
 	index

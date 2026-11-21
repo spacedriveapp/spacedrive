@@ -37,7 +37,7 @@ use crate::{
 		query::{LibraryQuery, QueryError},
 	},
 	ops::{
-		grants::{GrantCap, GrantScope},
+		grants::{create::owning_source, GrantCap, GrantScope},
 		indexing::{
 			metadata::{refuse_dataless_blocking, DATALESS_REASON},
 			text_extract::TextKind,
@@ -976,15 +976,19 @@ async fn search_content(
 			"the query is longer than {PATTERN_MAX_BYTES} bytes"
 		));
 	}
-	// Checked here so the refusal names this endpoint's tools.
-	let volume_index = context.volume_index();
-	let Some(source_id) = volume_index.source_id_for(&scope.path) else {
+	// The grant's canonical path can differ from the source's registered
+	// spelling by a firmlink, and the store answers only to the registered one.
+	let Some((source_id, in_source)) =
+		owning_source(context, scope.library_id, &scope.path).await?
+	else {
 		return Err(
 			"this path is not inside a source Spacedrive tracks, so it has no text index; use grep"
 				.to_string(),
 		);
 	};
-	if !volume_index
+	// Checked here so the refusal names this endpoint's tools.
+	if !context
+		.volume_index()
 		.source_config(source_id)
 		.is_some_and(|config| config.identify_content)
 	{
@@ -1001,7 +1005,7 @@ async fn search_content(
 	let session = SessionContext::device_session(device_id, "Agent MCP".to_string())
 		.with_library(scope.library_id);
 	let found = ContentSearchQuery::from_input(ContentSearchInput {
-		scope: SdPath::local(scope.path.clone()),
+		scope: SdPath::local(in_source),
 		query: args.query,
 		kinds: args.kinds,
 		max_results: args.max_results,

@@ -75,8 +75,9 @@ and extension the record had when the text was read:
 - **Delete.** The record is gone, so no search can reach its row. The next pass
   removes the row.
 
-Each response carries `pending_files`, the number of files whose text is
-missing or out of date. Zero means the index matches the record store.
+Each response carries `pending_files`, the number of files under the scope
+whose text is missing or out of date. Zero means the index matches the record
+store there.
 
 ## Query
 

@@ -261,13 +261,32 @@ impl ContentTextIndex {
 
 	/// How many files [`Self::pending`] would hand out from the start.
 	pub async fn pending_count(&self, extensions: &[&str]) -> Result<u64> {
+		self.pending_count_under(extensions, "").await
+	}
+
+	/// How many of those files sit at or under `under`, a path relative to
+	/// the source root. Empty means the whole source.
+	pub async fn pending_count_under(&self, extensions: &[&str], under: &str) -> Result<u64> {
 		if extensions.is_empty() {
 			return Ok(0);
 		}
-		let sql = format!("SELECT COUNT(*) {}", pending_clause(extensions.len()));
+		let mut sql = format!("SELECT COUNT(*) {}", pending_clause(extensions.len()));
+		let under = under.trim_matches('/');
+		if !under.is_empty() {
+			sql.push_str(&format!(
+				" AND ({RECORD_PATH} = ? OR substr({RECORD_PATH}, 1, ?) = ?)"
+			));
+		}
 		let mut query = sqlx::query_scalar::<_, i64>(&sql);
 		for extension in extensions {
 			query = query.bind(extension.to_string());
+		}
+		if !under.is_empty() {
+			let prefix = format!("{under}/");
+			query = query
+				.bind(under.to_string())
+				.bind(prefix.chars().count() as i64)
+				.bind(prefix);
 		}
 		Ok(query.fetch_one(&self.pool).await?.max(0) as u64)
 	}
@@ -414,8 +433,7 @@ impl ContentTextIndex {
 		if search.expression.is_empty() {
 			return Ok(Vec::new());
 		}
-		let path =
-			"(CASE WHEN r.parent_uuid IS NULL THEN r.title ELSE p.path || '/' || r.title END)";
+		let path = RECORD_PATH;
 		let mut sql = String::from(
 			"SELECT d.record_uuid, r.parent_uuid, p.path, r.title, d.kind, bm25(text_fts), \
 			 snippet(text_fts, 0, ?, ?, '…', ?), d.truncated \
@@ -482,6 +500,11 @@ impl ContentTextIndex {
 			.collect())
 	}
 }
+
+/// A record's path relative to the source root, over `r` and its parent's
+/// `p`.
+const RECORD_PATH: &str =
+	"(CASE WHEN r.parent_uuid IS NULL THEN r.title ELSE p.path || '/' || r.title END)";
 
 /// The rows a pass has to read, after `FROM`, with one placeholder per
 /// extension.
