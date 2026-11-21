@@ -71,6 +71,10 @@ pub const GREP_PAGE_MAX: u32 = 1000;
 pub const SEARCH_PAGE_MAX: u32 = 100;
 /// Results per `search` page when the agent does not say.
 pub const SEARCH_PAGE_DEFAULT: u32 = 20;
+/// Results per `search_content` page, the most `search.content` returns.
+pub const CONTENT_PAGE_MAX: u32 = 200;
+/// Results per `search_content` page when the agent does not say.
+pub const CONTENT_PAGE_DEFAULT: u32 = 20;
 
 /// A token bucket: `rate` tokens a second, holding at most `burst`.
 #[derive(Debug)]

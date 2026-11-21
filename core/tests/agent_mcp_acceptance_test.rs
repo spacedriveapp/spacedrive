@@ -18,10 +18,14 @@ use helpers::*;
 use reqwest::{header, Method, StatusCode};
 use sd_core::{
 	infra::{action::LibraryAction, db::entities::agent_grant},
-	ops::grants::{
-		create::{CreateGrantAction, CreateGrantInput, CreateGrantOutput},
-		revoke::{RevokeGrantAction, RevokeGrantInput},
-		GrantCap,
+	library::AddOverrides,
+	ops::{
+		grants::{
+			create::{CreateGrantAction, CreateGrantInput, CreateGrantOutput},
+			revoke::{RevokeGrantAction, RevokeGrantInput},
+			GrantCap,
+		},
+		sources::track::action::{TrackSourceAction, TrackSourceInput},
 	},
 	service::agent_mcp::{self, Limits},
 };
@@ -215,11 +219,12 @@ async fn agent_mcp_serves_a_grant_and_refuses_everything_else() -> anyhow::Resul
 		"glob",
 		"grep",
 		"search",
+		"search_content",
 		"get_skill",
 	] {
 		assert!(names.contains(&tool), "{tool} missing from {names:?}");
 	}
-	assert_eq!(names.len(), 7, "nothing beyond the curated set");
+	assert_eq!(names.len(), 8, "nothing beyond the curated set");
 
 	// get_skill returns the compiled-in guide.
 	let reply = client.call("get_skill", json!({})).await;
@@ -351,6 +356,92 @@ async fn agent_mcp_serves_a_grant_and_refuses_everything_else() -> anyhow::Resul
 	assert_eq!(paths(&searched, "results"), vec!["docs/readme.md"]);
 	let searched = client.ok("search", json!({ "query": "secret" })).await;
 	assert!(paths(&searched, "results").is_empty(), "{searched}");
+
+	// search_content answers from the text index, inside the grant only, with
+	// paths relative to the grant root.
+	let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+	let found = loop {
+		let found = client
+			.ok("search_content", json!({ "query": "needle" }))
+			.await;
+		if found["pending_files"] == json!(0)
+			&& paths(&found, "results").contains(&"src/main.rs".to_string())
+		{
+			break found;
+		}
+		assert!(
+			tokio::time::Instant::now() < deadline,
+			"the text index never settled: {found}"
+		);
+		tokio::time::sleep(Duration::from_millis(50)).await;
+	};
+	let main = found["results"]
+		.as_array()
+		.unwrap()
+		.iter()
+		.find(|hit| hit["path"] == "src/main.rs")
+		.unwrap();
+	assert_eq!(main["kind"], "code", "{found}");
+	assert_eq!(main["matched"], json!(["needle"]), "{found}");
+	let found = client
+		.ok(
+			"search_content",
+			json!({ "query": "needle", "path": "src/main.rs" }),
+		)
+		.await;
+	assert_eq!(paths(&found, "results"), vec!["src/main.rs"]);
+	let found = client
+		.ok(
+			"search_content",
+			json!({ "query": "\"line two\"", "path": "docs" }),
+		)
+		.await;
+	assert_eq!(paths(&found, "results"), vec!["docs/readme.md"]);
+	let found = client
+		.ok(
+			"search_content",
+			json!({ "query": "needle", "kinds": ["markdown"] }),
+		)
+		.await;
+	assert!(paths(&found, "results").is_empty(), "{found}");
+	let found = client
+		.ok("search_content", json!({ "query": "secret" }))
+		.await;
+	assert!(paths(&found, "results").is_empty(), "{found}");
+	let reply = client
+		.call(
+			"search_content",
+			json!({ "query": "needle", "path": "../private" }),
+		)
+		.await;
+	assert_eq!(reply.status, StatusCode::FORBIDDEN, "{}", reply.body);
+
+	// A source that reads no file contents has no text index, and the refusal
+	// names no host path.
+	let plain = harness.create_test_dir("plain").await?;
+	plain.write_file("notes.txt", "a plain needle\n").await?;
+	TrackSourceAction::from_input(TrackSourceInput {
+		path: base.join("plain"),
+		name: None,
+		overrides: AddOverrides {
+			identify_content: Some(false),
+			..AddOverrides::default()
+		},
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?;
+	let plain_grant = grant(&harness, &base.join("plain")).await?;
+	let mut plain_client = Client::new(&url, &plain_grant.token);
+	plain_client.initialize().await;
+	let reply = plain_client
+		.call("search_content", json!({ "query": "needle" }))
+		.await;
+	let result = &reply.body["result"];
+	assert_eq!(result["isError"], json!(true), "{}", reply.body);
+	let message = result["content"][0]["text"].as_str().unwrap();
+	assert!(message.contains("use grep"), "{message}");
+	assert!(!message.contains(&*base.to_string_lossy()), "{message}");
 
 	// Escapes are refused with 403.
 	let secret = base.join("tracked/private/secret.txt");
