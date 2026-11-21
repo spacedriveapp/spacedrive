@@ -26,7 +26,7 @@ pub struct RebuildContentIndexInput {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct RebuildContentIndexOutput {
-	/// Files the index held before it was dropped.
+	/// Files the index held when the rebuild was requested.
 	pub cleared_files: u64,
 	/// The pass that reads the source again.
 	pub job_id: Option<Uuid>,
@@ -89,13 +89,11 @@ impl LibraryAction for RebuildContentIndexAction {
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?
 			.files;
-		text.clear()
-			.await
-			.map_err(|e| ActionError::Internal(e.to_string()))?;
-
+		// The pass drops the index itself, so no ordinary pass can finish
+		// between the clear and the refill and leave the index empty.
 		let handle = library
 			.jobs()
-			.dispatch_with_priority(ContentTextJob::new(root, false), JobPriority::LOW, None)
+			.dispatch_with_priority(ContentTextJob::rebuild(root), JobPriority::LOW, None)
 			.await?;
 		Ok(RebuildContentIndexOutput {
 			cleared_files,

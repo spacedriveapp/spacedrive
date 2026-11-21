@@ -41,11 +41,33 @@ pub struct ContentTextJob {
 	/// on the event bus like it.
 	#[serde(default)]
 	background: bool,
+	/// Drop the index before reading, which `search.content.rebuild` asks
+	/// for. Cleared once done, so a resumed pass does not drop it again.
+	#[serde(default)]
+	rebuild: bool,
 }
 
 impl ContentTextJob {
 	pub fn new(root: PathBuf, background: bool) -> Self {
-		Self { root, background }
+		Self {
+			root,
+			background,
+			rebuild: false,
+		}
+	}
+
+	/// A pass that drops the source's index first and reads every file.
+	///
+	/// It deduplicates only onto another rebuild, never onto an ordinary
+	/// pass, so the clear and the pass that refills it are always one job.
+	/// An ordinary pass running beside it sees the epoch change and starts
+	/// over; both write the same rows.
+	pub fn rebuild(root: PathBuf) -> Self {
+		Self {
+			root,
+			background: false,
+			rebuild: true,
+		}
 	}
 }
 
@@ -81,7 +103,8 @@ impl crate::infra::job::traits::DynJob for ContentTextJob {
 
 	/// One pass per source at a time; the work queue is shared.
 	fn dedup_key(&self) -> Option<String> {
-		Some(self.root.display().to_string())
+		let kind = if self.rebuild { "rebuild" } else { "pass" };
+		Some(format!("{kind}:{}", self.root.display()))
 	}
 
 	fn should_emit_events(&self) -> bool {
@@ -109,6 +132,11 @@ impl JobHandler for ContentTextJob {
 		store.flush().await.map_err(|e| e.to_string())?;
 		let index = store.text_index().await.map_err(|e| e.to_string())?;
 		let extensions = TextKind::extensions();
+		if self.rebuild {
+			index.clear().await.map_err(|e| e.to_string())?;
+			self.rebuild = false;
+			ctx.log("Dropped the text index; reading every file again");
+		}
 
 		let mut output = ContentTextOutput {
 			pruned: index.prune(&extensions).await.map_err(|e| e.to_string())?,

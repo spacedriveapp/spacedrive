@@ -248,8 +248,8 @@ fn read_pdf(path: &Path, cap: usize) -> io::Result<Extraction> {
 		return Ok(Extraction::Skipped("too large to parse".into()));
 	}
 	let bytes = std::fs::read(path)?;
-	if inflated_size(&bytes, MAX_PDF_INFLATED_BYTES) > MAX_PDF_INFLATED_BYTES {
-		return Ok(Extraction::Skipped("expands too far to parse".into()));
+	if let Err(reason) = pdf_preflight(&bytes, MAX_PDF_INFLATED_BYTES) {
+		return Ok(Extraction::Skipped(format!("PDF {reason}")));
 	}
 	// The parser panics on some malformed files. One bad PDF is skipped
 	// rather than taking the pass down with it.
@@ -263,14 +263,28 @@ fn read_pdf(path: &Path, cap: usize) -> io::Result<Extraction> {
 	Ok(Extraction::Text { text, truncated })
 }
 
-/// How far the Flate streams in a PDF expand, counted up to `limit` plus one.
+/// Check that parsing a PDF stays within `limit` bytes of decoded streams.
 ///
-/// Scans the raw bytes for each `stream` keyword and inflates what follows
-/// through a bounded reader, so the count never allocates what it measures.
-/// Object streams are streams like any other, so they are counted too. Data
-/// that is not zlib ends the count for that stream; the parser decides what
-/// it was.
-fn inflated_size(pdf: &[u8], limit: u64) -> u64 {
+/// The parser decodes every stream it reads in full, through whatever filter
+/// chain the stream names, so a small file can be built to expand without
+/// bound. Two checks run on the raw bytes before the parser sees the file.
+/// Every `/Filter` in it must name no more than one filter, either Flate or
+/// an image filter the parser leaves encoded; a chain, any other filter, or a
+/// filter given by reference is refused rather than guessed at. Then the data
+/// after every `stream` keyword is inflated through a bounded reader, and
+/// the total must stay under `limit`. Data that is not zlib counts nothing.
+/// Streams cannot sit inside object streams, so every stream and its
+/// dictionary are in the raw bytes.
+fn pdf_preflight(pdf: &[u8], limit: u64) -> Result<(), String> {
+	let mut at = 0;
+	while let Some(found) = find(&pdf[at..], b"/Filter") {
+		at += found + b"/Filter".len();
+		if pdf.get(at).is_some_and(|c| c.is_ascii_alphanumeric()) {
+			continue;
+		}
+		check_filter(&pdf[at..pdf.len().min(at + 512)])?;
+	}
+
 	let mut total = 0u64;
 	let mut at = 0;
 	while let Some(found) = find(&pdf[at..], b"stream") {
@@ -289,10 +303,51 @@ fn inflated_size(pdf: &[u8], limit: u64) -> u64 {
 		let mut inflate = flate2::read::ZlibDecoder::new(&pdf[data..]).take(limit + 1 - total);
 		total += io::copy(&mut inflate, &mut io::sink()).unwrap_or(0);
 		if total > limit {
-			return total;
+			return Err("expands too far to parse".into());
 		}
 	}
-	total
+	Ok(())
+}
+
+/// Accept the value of one `/Filter` key if it names at most one filter
+/// whose output the preflight bounds.
+fn check_filter(value: &[u8]) -> Result<(), String> {
+	let refuse = |what: &str| Err(format!("uses {what}"));
+	let value = String::from_utf8_lossy(value);
+	let value = value.trim_start();
+	let names: Vec<String> = if let Some(array) = value.strip_prefix('[') {
+		let Some(close) = array.find(']') else {
+			return refuse("a malformed stream filter");
+		};
+		let inner = &array[..close];
+		if inner
+			.split_whitespace()
+			.any(|token| !token.starts_with('/'))
+		{
+			return refuse("a stream filter given by reference");
+		}
+		inner
+			.split(|c: char| c == '/' || c.is_whitespace())
+			.filter(|name| !name.is_empty())
+			.map(|name| format!("/{name}"))
+			.collect()
+	} else if let Some(rest) = value.strip_prefix('/') {
+		let end = rest
+			.find(|c: char| c.is_whitespace() || "/<>[]()".contains(c))
+			.unwrap_or(rest.len());
+		vec![format!("/{}", &rest[..end])]
+	} else {
+		return refuse("a stream filter given by reference");
+	};
+	match names.as_slice() {
+		[] => Ok(()),
+		[name] => match name.as_str() {
+			"/FlateDecode" | "/Fl" | "/DCTDecode" | "/DCT" | "/JPXDecode" | "/CCITTFaxDecode"
+			| "/CCF" | "/JBIG2Decode" => Ok(()),
+			_ => refuse("a stream filter the index does not bound"),
+		},
+		_ => refuse("a chain of stream filters"),
+	}
 }
 
 fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
@@ -523,21 +578,58 @@ mod tests {
 		out
 	}
 
+	fn flate(len: usize) -> Vec<u8> {
+		use flate2::{write::ZlibEncoder, Compression};
+		let mut encoder = ZlibEncoder::new(Vec::new(), Compression::best());
+		encoder.write_all(&vec![b' '; len]).unwrap();
+		encoder.finish().unwrap()
+	}
+
+	fn stream_pdf(dictionary: &str, data: &[u8]) -> Vec<u8> {
+		let mut pdf = format!("%PDF-1.4\n1 0 obj\n{dictionary}\nstream\n").into_bytes();
+		pdf.extend(data);
+		pdf.extend(b"\nendstream\nendobj\n");
+		pdf
+	}
+
 	#[test]
 	fn a_pdf_that_expands_too_far_is_not_parsed() {
-		use flate2::{write::ZlibEncoder, Compression};
+		let bomb = stream_pdf("<< /Filter /FlateDecode >>", &flate(4 * 1024 * 1024));
+		assert!(bomb.len() < 64 * 1024, "the file itself is small");
+		assert!(pdf_preflight(&bomb, 1024).is_err());
+		assert!(pdf_preflight(&bomb, 8 * 1024 * 1024).is_ok());
+		let array = stream_pdf("<< /Length 9 /Filter [ /Fl ] >>", &flate(4096));
+		assert!(pdf_preflight(&array, 1024).is_err());
+		assert!(pdf_preflight(&array, 8192).is_ok());
+		assert!(pdf_preflight(b"no streams here", 10).is_ok());
+	}
 
-		let mut bomb = ZlibEncoder::new(Vec::new(), Compression::best());
-		bomb.write_all(&vec![b' '; 4 * 1024 * 1024]).unwrap();
-		let bomb = bomb.finish().unwrap();
-		let mut pdf = b"%PDF-1.4\n1 0 obj\n<< /Filter /FlateDecode >>\nstream\n".to_vec();
-		pdf.extend(&bomb);
-		pdf.extend(b"\nendstream\nendobj\n");
-
-		assert_eq!(inflated_size(&pdf, 1024), 1025);
-		assert_eq!(inflated_size(&pdf, 8 * 1024 * 1024), 4 * 1024 * 1024);
-		assert_eq!(inflated_size(b"no streams here", 10), 0);
-		assert!(pdf.len() < 64 * 1024, "the file itself is small");
+	#[test]
+	fn a_pdf_filter_the_check_cannot_bound_is_refused() {
+		for dictionary in [
+			"<< /Filter [/ASCII85Decode /FlateDecode] >>",
+			"<< /Filter [/FlateDecode /FlateDecode] >>",
+			"<< /Filter /LZWDecode >>",
+			"<< /Filter 7 0 R >>",
+			"<</Filter[/A85/Fl]/Length 4>>",
+		] {
+			let pdf = stream_pdf(dictionary, b"data");
+			assert!(
+				pdf_preflight(&pdf, MAX_PDF_INFLATED_BYTES).is_err(),
+				"{dictionary}"
+			);
+		}
+		for dictionary in [
+			"<< /Length 4 >>",
+			"<< /Filter /DCTDecode >>",
+			"<</Filter/DCTDecode/Length 4>>",
+		] {
+			let pdf = stream_pdf(dictionary, b"data");
+			assert!(
+				pdf_preflight(&pdf, MAX_PDF_INFLATED_BYTES).is_ok(),
+				"{dictionary}"
+			);
+		}
 	}
 
 	#[test]
