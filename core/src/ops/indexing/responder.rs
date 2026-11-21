@@ -104,7 +104,7 @@ pub async fn recount_summaries(context: &Arc<CoreContext>) -> usize {
 			continue;
 		}
 
-		let totals = count_subtree(path.clone()).await;
+		let totals = count_subtree(cache, path.clone()).await;
 		writer.apply(Seen::Counted { path, totals }).await;
 		recounted += 1;
 	}
