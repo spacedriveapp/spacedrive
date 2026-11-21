@@ -21,7 +21,7 @@ export function ViewSettingsPanel({
 }: ViewSettingsPanelProps) {
 	return (
 		<div className="w-64 bg-app-box border border-app-line rounded-lg shadow-lg p-3 space-y-4">
-			<div className="text-xs font-semibold text-sidebar-ink uppercase tracking-wider">
+			<div className="text-xs font-semibold text-ink uppercase tracking-wider">
 				View Settings
 			</div>
 
@@ -29,10 +29,10 @@ export function ViewSettingsPanel({
 			{viewMode === "column" && (
 				<div className="space-y-2">
 					<div className="flex items-center justify-between">
-						<label className="text-xs text-sidebar-inkDull">
+						<label className="text-xs text-ink-dull">
 							Column Width
 						</label>
-						<span className="text-xs text-sidebar-ink font-medium">
+						<span className="text-xs text-ink font-medium">
 							{viewSettings.columnWidth}px
 						</span>
 					</div>
@@ -56,10 +56,10 @@ export function ViewSettingsPanel({
 			{(viewMode === "grid" || viewMode === "media") && (
 				<div className="space-y-2">
 					<div className="flex items-center justify-between">
-						<label className="text-xs text-sidebar-inkDull">
+						<label className="text-xs text-ink-dull">
 							{viewMode === "media" ? "Thumbnail Size" : "Grid Size"}
 						</label>
-						<span className="text-xs text-sidebar-ink font-medium">
+						<span className="text-xs text-ink font-medium">
 							{viewSettings.gridSize}px
 						</span>
 					</div>
@@ -83,8 +83,8 @@ export function ViewSettingsPanel({
 			{viewMode === "grid" && (
 				<div className="space-y-2">
 					<div className="flex items-center justify-between">
-						<label className="text-xs text-sidebar-inkDull">Gap Size</label>
-						<span className="text-xs text-sidebar-ink font-medium">
+						<label className="text-xs text-ink-dull">Gap Size</label>
+						<span className="text-xs text-ink font-medium">
 							{viewSettings.gapSize}px
 						</span>
 					</div>
@@ -108,8 +108,8 @@ export function ViewSettingsPanel({
 			{viewMode === "size" && (
 				<div className="space-y-2">
 					<div className="flex items-center justify-between">
-						<label className="text-xs text-sidebar-inkDull">Items Shown</label>
-						<span className="text-xs text-sidebar-ink font-medium">
+						<label className="text-xs text-ink-dull">Items Shown</label>
+						<span className="text-xs text-ink font-medium">
 							{Math.min(viewSettings.sizeViewItemLimit || 500, totalFileCount || 500)} / {totalFileCount || 0}
 						</span>
 					</div>
@@ -131,7 +131,7 @@ export function ViewSettingsPanel({
 
 			{/* Show File Size Toggle */}
 			<div className="flex items-center justify-between pt-1">
-				<label className="text-xs text-sidebar-inkDull">Show File Size</label>
+				<label className="text-xs text-ink-dull">Show File Size</label>
 				<button
 					onClick={() =>
 						setViewSettings({ showFileSize: !viewSettings.showFileSize })
@@ -153,7 +153,7 @@ export function ViewSettingsPanel({
 
 			{/* Folders First Toggle */}
 			<div className="flex items-center justify-between pt-1">
-				<label className="text-xs text-sidebar-inkDull">Folders First</label>
+				<label className="text-xs text-ink-dull">Folders First</label>
 				<button
 					onClick={() =>
 						setViewSettings({ foldersFirst: !viewSettings.foldersFirst })
