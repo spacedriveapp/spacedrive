@@ -403,10 +403,27 @@ impl<T: ExtensionModel> ModelQuery<T> {
 				"model queries cannot filter yet; list and filter in the guest".into(),
 			));
 		}
-		crate::ffi::op_json(
-			"models.list",
-			&serde_json::json!({ "model": T::MODEL_TYPE, "limit": self.limit }),
-		)
+		if self.limit.is_some() {
+			return crate::ffi::op_json(
+				"models.list",
+				&serde_json::json!({ "model": T::MODEL_TYPE, "limit": self.limit }),
+			);
+		}
+		// The host caps one answer, so an unlimited listing pages until a
+		// short page rather than stopping silently at the cap.
+		const PAGE: usize = 1_000;
+		let mut all = Vec::new();
+		loop {
+			let page: Vec<T> = crate::ffi::op_json(
+				"models.list",
+				&serde_json::json!({ "model": T::MODEL_TYPE, "limit": PAGE, "offset": all.len() }),
+			)?;
+			let done = page.len() < PAGE;
+			all.extend(page);
+			if done {
+				return Ok(all);
+			}
+		}
 	}
 }
 

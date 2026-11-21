@@ -75,15 +75,31 @@ pub async fn edit_roster(ctx: &JobContext, state: &mut EditState) -> Result<()> 
 		.map(str::trim)
 		.filter(|n| !n.is_empty())
 		.map(str::to_string);
+	let faces = if state.action == "merge" {
+		ctx.vdfs()
+			.query_models::<Person>()
+			.collect()
+			.await?
+			.into_iter()
+			.find(|p| p.id == person)
+			.map(|p| p.faces)
+			.unwrap_or_default()
+	} else {
+		Vec::new()
+	};
+	let stamp = spacedrive_sdk::clock::stamp()?;
 	ctx.vdfs()
 		.create_model(RosterEdit {
 			id: Uuid::new_v4(),
+			hlc: stamp.hlc,
+			device_uuid: stamp.device_uuid,
 			at_ms: spacedrive_sdk::clock::now_ms(),
 			action: state.action.clone(),
 			person,
 			name,
 			into: state.into,
 			face: state.face.clone(),
+			faces,
 		})
 		.await?;
 	rebuild(ctx).await?;
@@ -102,7 +118,7 @@ struct Corrections {
 
 impl Corrections {
 	fn from_log(mut edits: Vec<RosterEdit>) -> Self {
-		edits.sort_by_key(|e| (e.at_ms, e.id));
+		edits.sort_by(|a, b| (&a.hlc, a.device_uuid, a.id).cmp(&(&b.hlc, b.device_uuid, b.id)));
 		let mut c = Self::default();
 		for edit in edits {
 			match (edit.action.as_str(), edit.into, edit.face) {
@@ -117,6 +133,10 @@ impl Corrections {
 				}
 				("merge", Some(into), _) => {
 					c.merged_into.insert(edit.person, into);
+					for face in edit.faces {
+						c.excluded.remove(&(face.clone(), into));
+						c.pinned.insert(face, into);
+					}
 				}
 				("assign", _, Some(face)) => {
 					c.excluded.remove(&(face.clone(), edit.person));
@@ -306,6 +326,7 @@ pub async fn rebuild(ctx: &JobContext) -> Result<usize> {
 					})
 					.find(|id| {
 						!clusters.iter().any(|c| c.id == *id)
+							&& corrections.canonical(*id) == *id
 							&& !corrections.excluded.contains(&(face.clone(), *id))
 					})
 					.expect("an unbounded range finds a free id");

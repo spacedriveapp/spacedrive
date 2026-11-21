@@ -70,7 +70,7 @@ const UNAVAILABLE = {
 };
 
 export function mount(el, ctx) {
-	const state = { tab: "footage", footage: [], people: [], file: null, person: null, place: null, tag: null, transcripts: new Map(), error: null };
+	const state = { tab: "footage", footage: [], people: [], file: null, person: null, place: null, tag: null, tags: [], tagFiles: new Map(), transcripts: new Map(), error: null };
 	const root = h("div", { class: "sdv" });
 	el.replaceChildren(h("style", {}, STYLE), root);
 	let disposed = false;
@@ -84,9 +84,11 @@ export function mount(el, ctx) {
 
 	const load = async () => {
 		try {
-			const [footage, people] = await Promise.all([ctx.readModels("Footage"), ctx.readModels("Person")]);
+			const [footage, people, tags] = await Promise.all([ctx.readModels("Footage"), ctx.readModels("Person"), ctx.listTags()]);
 			state.footage = footage.sort((a, b) => a.name.localeCompare(b.name));
 			state.people = people;
+			state.tags = tags.sort((a, b) => a.path.localeCompare(b.path));
+			state.tagFiles.clear();
 			state.error = null;
 		} catch (error) {
 			state.error = String(error?.message ?? error);
@@ -208,11 +210,60 @@ export function mount(el, ctx) {
 		];
 	};
 
+	// The tags a shot carries itself: its places, and the people named in it.
+	const shotTags = (shot) => [
+		...shot.places.map((p) => `Videos/Places/${p}`),
+		...shot.people.map((id) => state.people.find((p) => p.id === id)?.tag).filter(Boolean),
+	];
+
+	// Any library tag, the person's own included. A tag the extension puts
+	// on a shot narrows to those shots; any other tag is on whole files, so
+	// it lists every shot of the footage that carries it.
+	const tagsTab = () => {
+		if (state.tags.length === 0) return h("div", { class: "sdv-empty" }, "No tags yet. Tag a video, name a person, or let the scene model find a place.");
+		const tag = state.tags.find((t) => t.path === state.tag) ?? state.tags[0];
+		state.tag = tag.path;
+		let shots = shotsWhere((_, s) => shotTags(s).includes(tag.path));
+		let note = null;
+		if (shots.length === 0) {
+			const files = state.tagFiles.get(tag.id);
+			if (files === undefined) {
+				state.tagFiles.set(tag.id, null);
+				ctx.filesByTag(tag.id)
+					.then((found) => state.tagFiles.set(tag.id, found))
+					.catch(() => state.tagFiles.set(tag.id, []))
+					.finally(() => { if (!disposed) render(); });
+			}
+			if (!files) {
+				note = "Loading...";
+			} else {
+				const tagged = (f) => files.some((file) => file.id === f.record || file.content_identity?.uuid === f.id);
+				shots = shotsWhere((f) => tagged(f));
+				const waiting = state.footage.filter((f) => tagged(f) && f.shots.length === 0).length;
+				const other = files.length - state.footage.filter(tagged).length;
+				note = [
+					waiting > 0 ? `${waiting} tagged ${waiting === 1 ? "video is" : "videos are"} waiting for shots.` : null,
+					other > 0 ? `${other} other ${other === 1 ? "file carries" : "files carry"} this tag.` : null,
+					shots.length === 0 && waiting === 0 && other === 0 ? "Nothing carries this tag yet." : null,
+				].filter(Boolean).join(" ") || null;
+			}
+		}
+		return [
+			h("div", { class: "sdv-list" }, state.tags.map((t) =>
+				h("button", { class: "sdv-item", "aria-selected": t.id === tag.id ? "true" : "false", onClick: () => { state.tag = t.path; render(); } },
+					h("div", {}, t.path), t.path.startsWith("Videos/") ? h("div", { class: "sdv-sub" }, "from Videos") : null))),
+			h("div", { class: "sdv-detail" },
+				h("div", { class: "sdv-h" }, tag.path),
+				note ? h("div", { class: "sdv-note" }, note) : null,
+				shots.map(({ file, shot }) => shotRow(file, shot, { person: null }))),
+		];
+	};
+
 	const tabs = [
 		["footage", "Footage", footageTab],
 		["people", "People", peopleTab],
 		["places", "Places", () => groupTab((_, s) => s.places, state.place, (l) => { state.place = l; render(); }, "No places yet. Places come from the scene model.")],
-		["tags", "Tags", () => groupTab((_, s) => [...s.places.map((p) => `Videos/Places/${p}`), ...s.people.filter((id) => state.people.find((p) => p.id === id && p.tag)).map((id) => state.people.find((p) => p.id === id).tag)], state.tag, (l) => { state.tag = l; render(); }, "No tags yet. Naming a person or finding a place tags the files.")],
+		["tags", "Tags", tagsTab],
 	];
 
 	const render = () => {

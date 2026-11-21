@@ -121,6 +121,8 @@ struct Inference {
 struct ModelList {
 	model: String,
 	limit: Option<usize>,
+	#[serde(default)]
+	offset: usize,
 }
 
 /// A record as the SDK's `Record` deserializes it.
@@ -335,6 +337,7 @@ impl JobOps {
 			"tags.remove" => self.tag_change(parse(payload)?, false).await,
 			"ai.infer" => self.ai_infer(payload),
 			"config.get" => self.config_get().await,
+			"assertions.stamp" => self.assertion_stamp(),
 			_ => Err(OpError::new(
 				"unknown_op",
 				format!("unknown operation {op}"),
@@ -827,10 +830,11 @@ impl JobOps {
 	async fn model_list(&mut self, list: ModelList) -> OpResult {
 		let store = self.store().await?;
 		let rows = store
-			.facet_rows(
+			.facet_rows_page(
 				&list.model,
 				None,
 				list.limit.unwrap_or(QUERY_CAP).min(QUERY_CAP),
+				list.offset,
 			)
 			.await
 			.map_err(|e| OpError::failed(e.to_string()))?;
@@ -1088,6 +1092,25 @@ impl JobOps {
 			"no {category} provider is installed for {} ({})",
 			inference.model, inference.task
 		)))
+	}
+
+	/// A stamp for one assertion the guest is about to write: an HLC from the
+	/// same process-wide clock tag assertions use, and this device's uuid.
+	///
+	/// An extension's assertions (a name given to a face cluster, a
+	/// correction) are the half of its store nothing can rebuild, and sync
+	/// will merge them by HLC order with the device as the tiebreak
+	/// (`docs/core/design/source-durability.md`). Stamping them from the guest
+	/// clock would give wall-clock order with no tiebreak.
+	fn assertion_stamp(&self) -> OpResult {
+		let device = self
+			.library
+			.core_context()
+			.device_manager
+			.device_id()
+			.map_err(|e| OpError::failed(format!("no device identity: {e}")))?;
+		let stamp = crate::ops::tags::stamp::assertion_stamp(device);
+		json(&serde_json::json!({ "hlc": stamp.hlc, "device_uuid": stamp.device_uuid }))
 	}
 
 	/// `config.json` beside the manifest, or `{}`.

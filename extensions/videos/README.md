@@ -21,6 +21,10 @@ it reads the core's shot list (`shots/default.json`, keyed by the record's
 Face detection returns each face's embedding when a `face_embedding` model is
 installed, which is why the manifest grants that category too.
 
+A place is a SigLIP scene label: whatever label the `scene_classification`
+model ranks highest for the keyframe. The skeleton keeps that label as the
+place and does not map it onto a curated place list.
+
 A category without a provider answers `not_available`. The job warns once per
 category, records it on the file's `Footage` row, and completes. A video the
 core has not split yet is listed as `waiting_for_shots`. Running the job again
@@ -41,6 +45,12 @@ Each edit names a face by its media uuid, shot id and index in the shot. All
 three come from the bytes, so an edit rebinds on another device that holds the
 same footage.
 
+Each edit carries an `hlc` and a `device_uuid` from the host's
+`assertions.stamp`, the clock tag assertions use. Replay runs in HLC order with
+the device as the tiebreak, so when sync merges two devices' logs the edits
+interleave in the order they were made. A replay reads the whole log, however
+long it gets.
+
 The client applies an edit by running `edit_roster` through
 `extensions.run_job` with one of these states:
 
@@ -48,7 +58,7 @@ The client applies an edit by running `edit_roster` through
 | --- | --- | --- |
 | `name` | `person`, `name` | Names the person and tags its files `Videos/People/<name>`. An empty name clears it. |
 | `hide`, `show` | `person` | Hides a person from the roster or shows it again. |
-| `merge` | `person`, `into` | Folds one person into another. |
+| `merge` | `person`, `into` | Folds one person into another. The edit records the faces `person` had, and they stay pinned to `into`, even when the two clusters look nothing alike. |
 | `assign` | `person`, `face` | Pins a face to a person. |
 | `exclude` | `person`, `face` | Takes a face off a person for good. |
 
@@ -60,6 +70,11 @@ keyframe, the description, the places, the people and the transcript lines that
 fall inside the shot, and lets you browse shots by person, place and tag. It
 reads the `Footage` and `Person` models through `extensions.models` and the
 core's sidecars through the sidecar route.
+
+The Tags tab lists every tag in the library, including your own. The view
+reads them with `tags.search` and `files.by_tag`. A `Videos/Places/*` or
+`Videos/People/*` tag narrows to the shots that carry it. Any other tag is on
+whole files, so the tab lists every shot of the tagged footage.
 
 ## Building
 

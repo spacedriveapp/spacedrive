@@ -1,9 +1,24 @@
-import type { ExtensionModelsOutput, RunExtensionJobOutput } from "@sd/ts-client";
+import type {
+	ExtensionModelsInput,
+	ExtensionModelsOutput,
+	File,
+	GetFilesByTagInput,
+	GetFilesByTagOutput,
+	JsonValue,
+	RunExtensionJobOutput,
+	SearchTagsInput,
+	SearchTagsOutput,
+	Tag,
+} from "@sd/ts-client";
 import { WIRE_METHODS } from "@sd/ts-client";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useServer } from "../../contexts/ServerContext";
-import { useCoreQuery, useSpacedriveClient } from "../../contexts/SpacedriveContext";
+import {
+	useCoreQuery,
+	useLibraryMutation,
+	useSpacedriveClient,
+} from "../../contexts/SpacedriveContext";
 
 /**
  * What a view bundle's `mount` receives. Reads and job runs are scoped to
@@ -16,7 +31,11 @@ export interface ViewContext {
 	/** The rows of one of the extension's models, newest first. */
 	readModels: (model: string, limit?: number) => Promise<unknown[]>;
 	/** Start one of the extension's jobs with a starting state. */
-	runJob: (job: string, state?: unknown) => Promise<RunExtensionJobOutput>;
+	runJob: (job: string, state?: JsonValue) => Promise<RunExtensionJobOutput>;
+	/** Every tag in the library, the person's own included. */
+	listTags: () => Promise<Tag[]>;
+	/** The files carrying a tag or one of its children. */
+	filesByTag: (tagId: string) => Promise<File[]>;
 	buildSidecarUrl: (
 		contentUuid: string,
 		kind: string,
@@ -44,6 +63,11 @@ export function ExtensionView() {
 	const url = view ? buildExtensionBundleUrl(extensionId, view.bundle) : null;
 	const hostRef = useRef<HTMLDivElement>(null);
 	const [error, setError] = useState<string | null>(null);
+	const runJob = useLibraryMutation("extensions.run_job");
+	// The bundle is mounted once per view; a ref keeps its context on the
+	// latest mutation without remounting it.
+	const runJobRef = useRef(runJob.mutateAsync);
+	runJobRef.current = runJob.mutateAsync;
 
 	useEffect(() => {
 		const el = hostRef.current;
@@ -55,17 +79,28 @@ export function ExtensionView() {
 			extensionId,
 			libraryId,
 			readModels: async (model, limit) => {
-				const output = await client.execute<unknown, ExtensionModelsOutput>(
+				const output = await client.execute<ExtensionModelsInput, ExtensionModelsOutput>(
 					WIRE_METHODS.libraryQueries["extensions.models"],
 					{ extension_id: extensionId, model, limit: limit ?? null },
 				);
 				return output.rows;
 			},
 			runJob: (job, state) =>
-				client.execute<unknown, RunExtensionJobOutput>(
-					WIRE_METHODS.libraryActions["extensions.run_job"],
-					{ job: `${extensionId}:${job}`, state: state ?? null },
-				),
+				runJobRef.current({ job: `${extensionId}:${job}`, state: state ?? null }),
+			listTags: async () => {
+				const output = await client.execute<SearchTagsInput, SearchTagsOutput>(
+					WIRE_METHODS.libraryQueries["tags.search"],
+					{ query: "", limit: null },
+				);
+				return output.tags;
+			},
+			filesByTag: async (tagId) => {
+				const output = await client.execute<GetFilesByTagInput, GetFilesByTagOutput>(
+					WIRE_METHODS.libraryQueries["files.by_tag"],
+					{ tag_id: tagId, include_children: true },
+				);
+				return output.files;
+			},
 			buildSidecarUrl,
 		};
 		import(/* @vite-ignore */ url)

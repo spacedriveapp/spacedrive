@@ -14,3 +14,18 @@ pub fn now() -> DateTime<Utc> {
 pub fn now_ms() -> i64 {
 	crate::ffi::now_ms()
 }
+
+/// The stamp an assertion carries: an HLC from the host's assertion clock
+/// and the device that wrote it. Sync orders assertions by `hlc` with
+/// `device_uuid` as the tiebreak, so anything a person decides (a name, a
+/// correction) should be stamped here rather than with [`now`].
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Stamp {
+	pub hlc: String,
+	pub device_uuid: uuid::Uuid,
+}
+
+/// A fresh stamp for one assertion.
+pub fn stamp() -> crate::types::Result<Stamp> {
+	crate::ffi::op_json("assertions.stamp", &serde_json::json!({}))
+}

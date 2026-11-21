@@ -103,7 +103,8 @@ that the SDK maps onto its own error type.
 | `sidecars.exists`, `sidecars.read` | `read_sidecars` | One JSON document under `<library>/sidecars/`, keyed by content uuid and `SidecarKind::Extension { extension_id, kind }`. |
 | `sidecars.write` | `write_sidecars` (per kind) | Writes that document. |
 | `sidecars.read_media` | `read_sidecars` (per kind) | The bytes of a core sidecar in the content tree (a proxy, a transcript, a shot list, a keyframe) by media uuid, kind, variant and format. Core kinds are never writable by an extension. A kind this core has no directory for answers `not_available`. |
-| `models.put`, `models.get`, `models.list` | none, models are the extension's own | A row in the extension's store, keyed by the model's uuid or `content:<uuid>` for a content-scoped model. |
+| `models.put`, `models.get`, `models.list` | none, models are the extension's own | A row in the extension's store, keyed by the model's uuid or `content:<uuid>` for a content-scoped model. `models.list` answers at most 10,000 rows from `offset`; the SDK's unlimited `collect()` pages through all of them. |
+| `assertions.stamp` | none | An HLC from the assertion clock tag assertions use, and this device's uuid, for a row the guest writes to its assertion half. |
 | `ai.infer` | `use_models` (per category) | Checks the grant, then answers `not_available`: the core has no inference provider yet. |
 | `config.get` | none | `config.json` beside the manifest, or `null`. |
 

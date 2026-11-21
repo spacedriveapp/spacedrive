@@ -1884,5 +1884,70 @@ async fn videos_lists_shots_without_providers_and_keeps_roster_edits() {
 	assert_eq!(a_row["shots"][0]["people"], serde_json::json!([ada]));
 	assert_eq!(a_row["shots"][1]["people"], serde_json::json!([ada]));
 
+	// A merge holds even when the two clusters look nothing alike.
+	let b_face = serde_json::json!({ "media_uuid": b, "shot_id": format!("{b}-s0"), "index": 0 });
+	let stranger = people
+		.iter()
+		.find(|p| p["faces"].as_array().unwrap().contains(&b_face))
+		.unwrap()["id"]
+		.as_str()
+		.unwrap()
+		.to_string();
+	let info = run_to_end(
+		&core,
+		&library,
+		"com.spacedrive.videos:edit_roster",
+		serde_json::json!({ "action": "merge", "person": stranger, "into": ada }),
+	)
+	.await;
+	assert_eq!(
+		info.status,
+		JobStatus::Completed,
+		"{:?}",
+		info.error_message
+	);
+	let info = run_to_end(
+		&core,
+		&library,
+		"com.spacedrive.videos:cluster_people",
+		serde_json::json!({}),
+	)
+	.await;
+	assert_eq!(
+		info.status,
+		JobStatus::Completed,
+		"{:?}",
+		info.error_message
+	);
+	let people = videos_rows(&core, &library, "Person").await;
+	let named = people.iter().find(|p| p["id"] == ada.as_str()).unwrap();
+	assert!(
+		named["faces"].as_array().unwrap().contains(&b_face),
+		"{people:#?}"
+	);
+	let gone = people
+		.iter()
+		.find(|p| p["id"] == stranger.as_str())
+		.unwrap();
+	assert!(gone["faces"].as_array().unwrap().is_empty(), "{people:#?}");
+
+	// The edit log is the assertion half, stamped for sync like a tag.
+	let edits = videos_rows(&core, &library, "RosterEdit").await;
+	assert_eq!(edits.len(), 3);
+	let device = core.context.device_manager.device_id().unwrap();
+	for edit in &edits {
+		assert!(
+			edit["hlc"]
+				.as_str()
+				.unwrap()
+				.parse::<sd_core::infra::sync::HLC>()
+				.is_ok(),
+			"{edit:#?}"
+		);
+		assert_eq!(edit["device_uuid"], device.to_string());
+	}
+	let merge = edits.iter().find(|e| e["action"] == "merge").unwrap();
+	assert_eq!(merge["faces"], serde_json::json!([b_face]));
+
 	core.shutdown().await.unwrap();
 }

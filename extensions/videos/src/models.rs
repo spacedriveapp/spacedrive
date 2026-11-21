@@ -69,12 +69,17 @@ pub struct Person {
 	pub tag: Option<String>,
 }
 
-/// One correction to the roster. Replayed in `at_ms` order after every
-/// clustering pass.
+/// One correction to the roster, replayed after every clustering pass in
+/// HLC order with the device as the tiebreak. The stamp comes from the
+/// host's assertion clock, the one tag assertions use, so when sync merges
+/// two devices' edits they interleave in the order they were made.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[model(version = "1.0.0")]
 pub struct RosterEdit {
 	pub id: Uuid,
+	pub hlc: String,
+	pub device_uuid: Uuid,
+	/// Wall-clock time, for display only.
 	pub at_ms: i64,
 	/// `name`, `hide`, `show`, `merge`, `assign` or `exclude`.
 	pub action: String,
@@ -84,6 +89,10 @@ pub struct RosterEdit {
 	pub into: Option<Uuid>,
 	/// The face `assign` pins to `person`, or `exclude` takes from it.
 	pub face: Option<FaceRef>,
+	/// The faces `person` had when `merge` folded it into `into`. They are
+	/// pinned to `into` on replay, because two clusters a person merges are
+	/// usually ones similarity alone keeps apart.
+	pub faces: Vec<FaceRef>,
 }
 
 /// The `scene` sidecar: what each shot's keyframe shows.
