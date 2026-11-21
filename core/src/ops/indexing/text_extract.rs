@@ -26,6 +26,11 @@ pub const MAX_TEXT_BYTES: usize = 1_048_576;
 /// is what keeps one document from taking the memory of a background pass.
 pub const MAX_DOCUMENT_BYTES: u64 = 64 * 1024 * 1024;
 
+/// The most a PDF's compressed streams may expand to before it is parsed.
+/// The parser inflates every stream it reads in full, so a small file built
+/// to expand would otherwise take the memory of the daemon.
+pub const MAX_PDF_INFLATED_BYTES: u64 = 256 * 1024 * 1024;
+
 /// Which extractor read a file. Search filters by it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
@@ -243,6 +248,9 @@ fn read_pdf(path: &Path, cap: usize) -> io::Result<Extraction> {
 		return Ok(Extraction::Skipped("too large to parse".into()));
 	}
 	let bytes = std::fs::read(path)?;
+	if inflated_size(&bytes, MAX_PDF_INFLATED_BYTES) > MAX_PDF_INFLATED_BYTES {
+		return Ok(Extraction::Skipped("expands too far to parse".into()));
+	}
 	// The parser panics on some malformed files. One bad PDF is skipped
 	// rather than taking the pass down with it.
 	let parsed = std::panic::catch_unwind(|| pdf_extract::extract_text_from_mem(&bytes));
@@ -253,6 +261,44 @@ fn read_pdf(path: &Path, cap: usize) -> io::Result<Extraction> {
 	};
 	let truncated = cap_text(&mut text, cap);
 	Ok(Extraction::Text { text, truncated })
+}
+
+/// How far the Flate streams in a PDF expand, counted up to `limit` plus one.
+///
+/// Scans the raw bytes for each `stream` keyword and inflates what follows
+/// through a bounded reader, so the count never allocates what it measures.
+/// Object streams are streams like any other, so they are counted too. Data
+/// that is not zlib ends the count for that stream; the parser decides what
+/// it was.
+fn inflated_size(pdf: &[u8], limit: u64) -> u64 {
+	let mut total = 0u64;
+	let mut at = 0;
+	while let Some(found) = find(&pdf[at..], b"stream") {
+		let start = at + found;
+		at = start + b"stream".len();
+		if start >= 3 && &pdf[start - 3..start] == b"end" {
+			continue;
+		}
+		let mut data = at;
+		if pdf.get(data) == Some(&b'\r') {
+			data += 1;
+		}
+		if pdf.get(data) == Some(&b'\n') {
+			data += 1;
+		}
+		let mut inflate = flate2::read::ZlibDecoder::new(&pdf[data..]).take(limit + 1 - total);
+		total += io::copy(&mut inflate, &mut io::sink()).unwrap_or(0);
+		if total > limit {
+			return total;
+		}
+	}
+	total
+}
+
+fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+	haystack
+		.windows(needle.len())
+		.position(|window| window == needle)
 }
 
 /// The body of a Word document: the text runs of `word/document.xml`, one
@@ -475,6 +521,23 @@ mod tests {
 			.bytes(),
 		);
 		out
+	}
+
+	#[test]
+	fn a_pdf_that_expands_too_far_is_not_parsed() {
+		use flate2::{write::ZlibEncoder, Compression};
+
+		let mut bomb = ZlibEncoder::new(Vec::new(), Compression::best());
+		bomb.write_all(&vec![b' '; 4 * 1024 * 1024]).unwrap();
+		let bomb = bomb.finish().unwrap();
+		let mut pdf = b"%PDF-1.4\n1 0 obj\n<< /Filter /FlateDecode >>\nstream\n".to_vec();
+		pdf.extend(&bomb);
+		pdf.extend(b"\nendstream\nendobj\n");
+
+		assert_eq!(inflated_size(&pdf, 1024), 1025);
+		assert_eq!(inflated_size(&pdf, 8 * 1024 * 1024), 4 * 1024 * 1024);
+		assert_eq!(inflated_size(b"no streams here", 10), 0);
+		assert!(pdf.len() < 64 * 1024, "the file itself is small");
 	}
 
 	#[test]

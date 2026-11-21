@@ -16,8 +16,8 @@
 //!
 //! Each connection attaches the record store as `src`, so the work queue
 //! and the search are joins rather than two lookups stitched together in
-//! code. A row is keyed by record uuid and stamped with the size and mtime
-//! the record had when its text was read. A record whose facet no longer
+//! code. A row is keyed by record uuid and stamped with the size, mtime and
+//! extension the record had when its text was read. A record whose facet no longer
 //! matches its row is pending again, and a search only returns rows whose
 //! stamp still matches, so an edited file drops out of results until its new
 //! text lands rather than answering with what it used to say. A rename keeps
@@ -44,12 +44,13 @@ pub const TEXT_INDEX_FILE: &str = "text.db";
 const MATCH_START: char = '\u{E000}';
 const MATCH_END: char = '\u{E001}';
 
-const TEXT_SCHEMA: [&str; 2] = [
+const TEXT_SCHEMA: [&str; 3] = [
 	"CREATE TABLE IF NOT EXISTS text_doc (
     id INTEGER PRIMARY KEY,
     record_uuid BLOB NOT NULL UNIQUE,
     size INTEGER,
     mtime INTEGER,
+    extension TEXT NOT NULL,
     kind TEXT NOT NULL,
     text_bytes INTEGER NOT NULL,
     truncated INTEGER NOT NULL DEFAULT 0,
@@ -59,6 +60,7 @@ const TEXT_SCHEMA: [&str; 2] = [
     body,
     tokenize = 'unicode61 remove_diacritics 2'
 )",
+	"CREATE TABLE IF NOT EXISTS text_meta (key TEXT PRIMARY KEY, value INTEGER NOT NULL)",
 ];
 
 /// A file whose text is missing from the index or was read from other bytes.
@@ -82,6 +84,9 @@ pub struct TextDoc {
 	/// The stamp of the bytes the text came from, copied from [`PendingText`].
 	pub size: Option<i64>,
 	pub mtime: Option<i64>,
+	/// The extension the file had when it was read, lowercase. A rename to
+	/// another extension reads it again, since another extractor may apply.
+	pub extension: String,
 	/// The extractor that read it, such as `markdown` or `pdf`.
 	pub kind: String,
 	pub text: String,
@@ -277,16 +282,17 @@ impl ContentTextIndex {
 					.await?;
 			}
 			let id: i64 = sqlx::query_scalar(
-				"INSERT INTO text_doc (record_uuid, size, mtime, kind, text_bytes, truncated, skipped) \
-				 VALUES (?, ?, ?, ?, ?, ?, ?) \
+				"INSERT INTO text_doc (record_uuid, size, mtime, extension, kind, text_bytes, truncated, skipped) \
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?) \
 				 ON CONFLICT (record_uuid) DO UPDATE SET size = excluded.size, \
-				 mtime = excluded.mtime, kind = excluded.kind, text_bytes = excluded.text_bytes, \
+				 mtime = excluded.mtime, extension = excluded.extension, kind = excluded.kind, text_bytes = excluded.text_bytes, \
 				 truncated = excluded.truncated, skipped = excluded.skipped \
 				 RETURNING id",
 			)
 			.bind(doc.record_uuid)
 			.bind(doc.size)
 			.bind(doc.mtime)
+			.bind(&doc.extension)
 			.bind(&doc.kind)
 			.bind(doc.text.len() as i64)
 			.bind(doc.truncated)
@@ -353,9 +359,26 @@ impl ContentTextIndex {
 		{
 			sqlx::query(statement).execute(&mut *tx).await?;
 		}
+		sqlx::query(
+			"INSERT INTO text_meta (key, value) VALUES ('epoch', 1) \
+			 ON CONFLICT (key) DO UPDATE SET value = value + 1",
+		)
+		.execute(&mut *tx)
+		.await?;
 		tx.commit().await?;
 		sqlx::query("VACUUM").execute(&mut *conn).await?;
 		Ok(())
+	}
+
+	/// A number [`Self::clear`] raises. A pass that sees it change knows
+	/// the rows it wrote before are gone and starts over.
+	pub async fn epoch(&self) -> Result<i64> {
+		Ok(
+			sqlx::query_scalar("SELECT value FROM text_meta WHERE key = 'epoch'")
+				.fetch_optional(&self.pool)
+				.await?
+				.unwrap_or(0),
+		)
 	}
 
 	pub async fn counts(&self) -> Result<TextIndexCounts> {
@@ -389,7 +412,8 @@ impl ContentTextIndex {
 			 JOIN src.record r ON r.uuid = d.record_uuid \
 			 JOIN src.facet_file f ON f.record_uuid = r.uuid \
 			 LEFT JOIN src.directory_path p ON p.record_uuid = r.parent_uuid \
-			 WHERE text_fts MATCH ? AND f.size IS d.size AND f.mtime IS d.mtime",
+			 WHERE text_fts MATCH ? AND f.size IS d.size AND f.mtime IS d.mtime \
+			 AND lower(f.extension) = d.extension",
 		);
 		let under = search.under.trim_matches('/');
 		if !under.is_empty() {
@@ -456,7 +480,8 @@ fn pending_clause(extensions: usize) -> String {
 		 LEFT JOIN src.directory_path p ON p.record_uuid = r.parent_uuid \
 		 LEFT JOIN text_doc d ON d.record_uuid = r.uuid \
 		 WHERE r.type = 'file' AND f.link_target IS NULL AND lower(f.extension) IN ({}) \
-		 AND (d.id IS NULL OR d.size IS NOT f.size OR d.mtime IS NOT f.mtime)",
+		 AND (d.id IS NULL OR d.size IS NOT f.size OR d.mtime IS NOT f.mtime \
+		 OR d.extension IS NOT lower(f.extension))",
 		vec!["?"; extensions].join(", ")
 	)
 }

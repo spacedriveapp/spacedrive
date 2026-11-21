@@ -32,8 +32,8 @@ index covers files with these extensions:
 | `docx` | docx |
 
 Text formats are read as UTF-8. A file with a NUL byte is treated as binary
-and skipped. PDF and DOCX files are parsed for their text; files over 64 MiB
-are not parsed. Every file contributes at most its first 1,048,576 bytes of
+and skipped. PDF and DOCX files are parsed for their text. Files over 64 MiB are
+not parsed, and neither is a PDF whose compressed streams expand past 256 MiB. Every file contributes at most its first 1,048,576 bytes of
 text. A hit on a file that held more is marked `truncated`, and a word that
 only appears after the cap is not found.
 
@@ -55,19 +55,23 @@ the record store's write lock, and so a replica of the record store does not
 carry it.
 
 A background pass fills it. The pass runs after each content identification
-pass, which follows every walk, watcher change and returning volume, and when a
-volume returns with nothing to identify. It runs at background priority, on
+pass, which follows every walk, watcher change and returning volume. When a
+watcher change, a reconcile or a returning volume leaves nothing to identify,
+such as a rename, the text pass is queued on its own. It runs at background priority, on
 the same low-priority threads as hashing.
 
-Each row is keyed by the file's record and stamped with the size and modified
-time the record had when the text was read:
+Each row is keyed by the file's record and stamped with the size, modified time
+and extension the record had when the text was read:
 
 - **Create.** A new record has no row, so the next pass reads it.
 - **Modify.** The record's size or modified time no longer matches the stamp,
   so the next pass reads it again. Until then the file is left out of results
   rather than answering with text it no longer holds.
 - **Rename.** The record keeps its identity, so nothing is read again. Hits
-  show the new path because paths come from the record store at query time.
+  show the new path because paths come from the record store at query time. A
+  rename to another extension reads the file again, since another extractor
+  may apply, and a rename to an extension the index does not read takes the
+  file out of results at once.
 - **Delete.** The record is gone, so no search can reach its row. The next pass
   removes the row.
 
@@ -113,6 +117,7 @@ every file again. The record store is not touched.
 sd-cli search reindex-content ~/Documents
 ```
 
-The pass is refused while the source's volume is away, so the index stays
+A rebuild that lands while a pass is running restarts that pass from the
+first file. The pass is refused while the source's volume is away, so the index stays
 empty until the volume returns. Searching a source owned by another device is
 not available yet; run the search on that device.

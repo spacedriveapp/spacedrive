@@ -12027,6 +12027,7 @@ dependencies = [
  "dialoguer",
  "dirs 5.0.1",
  "ed25519-dalek 2.2.0",
+ "flate2",
  "futures",
  "futures-concurrency",
  "gix-ignore",

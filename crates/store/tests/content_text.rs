@@ -101,6 +101,7 @@ fn doc(pending: &PendingText, kind: &str, text: &str) -> TextDoc {
 		record_uuid: pending.record_uuid,
 		size: pending.size,
 		mtime: pending.mtime,
+		extension: pending.extension.clone(),
 		kind: kind.to_string(),
 		text: text.to_string(),
 		truncated: false,
@@ -284,6 +285,51 @@ async fn clearing_the_index_leaves_the_records_and_requeues_every_file() {
 	index.close().await;
 	let index = f.index().await;
 	assert_eq!(index.pending_count(EXTENSIONS).await.unwrap(), 2);
+}
+
+#[tokio::test]
+async fn a_rename_to_another_extension_is_read_again() {
+	let mut f = Fixture::new().await;
+	let uuids = f.observe(&[("report.md", 10)]).await;
+	let index = f.index().await;
+	let pending = index.pending(EXTENSIONS, 0, 100).await.unwrap();
+	index
+		.write(&[doc(&pending[0], "markdown", "renamed words")])
+		.await
+		.unwrap();
+	assert_eq!(index.pending_count(EXTENSIONS).await.unwrap(), 0);
+
+	// The bytes, size and mtime are unchanged; only the extension moved.
+	let rename = |extension: &'static str| {
+		sqlx::query("UPDATE facet_file SET extension = ? WHERE record_uuid = ?")
+			.bind(extension)
+			.bind(uuids[0])
+			.execute(f.db.pool())
+	};
+	rename("txt").await.unwrap();
+	assert!(
+		hit_paths(&index, &search("renamed")).await.is_empty(),
+		"text read under another extractor is not returned"
+	);
+	let pending = index.pending(EXTENSIONS, 0, 100).await.unwrap();
+	assert_eq!(pending.len(), 1);
+	assert_eq!(pending[0].extension, "txt");
+
+	// To an extension nothing reads: unreachable at once, pruned later.
+	rename("bin").await.unwrap();
+	assert!(hit_paths(&index, &search("renamed")).await.is_empty());
+	assert_eq!(index.pending_count(EXTENSIONS).await.unwrap(), 0);
+	assert_eq!(index.prune(EXTENSIONS).await.unwrap(), 1);
+}
+
+#[tokio::test]
+async fn clearing_raises_the_epoch() {
+	let f = Fixture::new().await;
+	let index = f.index().await;
+	assert_eq!(index.epoch().await.unwrap(), 0);
+	index.clear().await.unwrap();
+	index.clear().await.unwrap();
+	assert_eq!(index.epoch().await.unwrap(), 2);
 }
 
 #[tokio::test]

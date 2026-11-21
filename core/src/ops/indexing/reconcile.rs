@@ -929,6 +929,7 @@ async fn queue_hashing(context: &Arc<CoreContext>, library: Option<Uuid>, root: 
 		return;
 	};
 	if store.files_needing_content_count().await.unwrap_or(1) == 0 {
+		crate::ops::indexing::content_text::index_text_soon(&library, root, true).await;
 		return;
 	}
 	if let Err(error) = library

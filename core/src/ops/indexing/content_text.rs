@@ -130,16 +130,28 @@ impl JobHandler for ContentTextJob {
 		// behind the cursor is picked up, and one that could not be read is
 		// not tried twice under the same stamp.
 		let mut swept_again = false;
-		let mut attempted: HashSet<(i64, Option<i64>, Option<i64>)> = HashSet::new();
+		let mut attempted: HashSet<(i64, Option<i64>, Option<i64>, String)> = HashSet::new();
+		// A rebuild that lands while this pass runs clears the rows it wrote
+		// and deduplicates onto it, so a changed epoch starts the pass over.
+		let mut epoch = index.epoch().await.map_err(|e| e.to_string())?;
 
 		loop {
 			ctx.check_interrupt().await?;
+			let now = index.epoch().await.map_err(|e| e.to_string())?;
+			if now != epoch {
+				epoch = now;
+				cursor = 0;
+				swept_again = false;
+				attempted.clear();
+				ctx.log("The index was cleared; reading every file again");
+			}
 			let claimed = index
 				.pending(&extensions, cursor, BATCH_SIZE)
 				.await
 				.map_err(|e| e.to_string())?;
 			let Some(last) = claimed.last() else {
-				if swept_again || cursor == 0 {
+				let cleared = index.epoch().await.map_err(|e| e.to_string())? != epoch;
+				if !cleared && (swept_again || cursor == 0) {
 					break;
 				}
 				swept_again = true;
@@ -149,7 +161,9 @@ impl JobHandler for ContentTextJob {
 			cursor = last.rowid;
 			let batch: Vec<PendingText> = claimed
 				.into_iter()
-				.filter(|file| attempted.insert((file.rowid, file.size, file.mtime)))
+				.filter(|file| {
+					attempted.insert((file.rowid, file.size, file.mtime, file.extension.clone()))
+				})
 				.collect();
 			if batch.is_empty() {
 				continue;
@@ -213,6 +227,7 @@ async fn extract_batch(root: PathBuf, batch: Vec<PendingText>) -> (Vec<TextDoc>,
 				record_uuid: file.record_uuid,
 				size: file.size,
 				mtime: file.mtime,
+				extension: file.extension.clone(),
 				kind: kind.as_str().to_string(),
 				text,
 				truncated,
