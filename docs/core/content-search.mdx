@@ -108,6 +108,15 @@ sd-cli search content 'quarterly report' ~/Documents --kind pdf --kind docx
 sd-cli search content 'tokio::spawn' ~/Code/project --kind code
 ```
 
+## From an agent
+
+A folder lent through an [agent grant](/docs/cli/agent-access) exposes this
+search as the `search_content` MCP tool. It takes the same query, kinds and
+cursor, searches only inside the granted folder, and returns paths relative to
+it. Hits whose file has moved out of the folder since the last pass are
+dropped. The folder must sit inside a source tracked on the daemon's device
+with content identification, otherwise the tool refuses and points to `grep`.
+
 ## Rebuild
 
 `search.content.rebuild` drops a source's index and starts a pass that reads

@@ -26,16 +26,25 @@ use base64::Engine;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use tracing::warn;
 
 use super::{limits::*, paths, SKILL};
 use crate::{
 	context::CoreContext,
 	domain::addressing::SdPath,
+	infra::{
+		api::SessionContext,
+		query::{LibraryQuery, QueryError},
+	},
 	ops::{
 		grants::{GrantCap, GrantScope},
-		indexing::metadata::{refuse_dataless_blocking, DATALESS_REASON},
+		indexing::{
+			metadata::{refuse_dataless_blocking, DATALESS_REASON},
+			text_extract::TextKind,
+		},
 		search::{
 			arena_search::search_arena,
+			content::{ContentSearchInput, ContentSearchQuery},
 			grep::{scan, GrepOptions},
 			input::{PaginationOptions, SearchFilters, SortDirection, SortField, SortOptions},
 		},
@@ -50,11 +59,12 @@ pub enum Tool {
 	Glob,
 	Grep,
 	Search,
+	SearchContent,
 	GetSkill,
 }
 
 impl Tool {
-	pub const ALL: [Tool; 7] = [
+	pub const ALL: [Tool; 8] = [
 		Self::GetSkill,
 		Self::ListDir,
 		Self::Stat,
@@ -62,6 +72,7 @@ impl Tool {
 		Self::Glob,
 		Self::Grep,
 		Self::Search,
+		Self::SearchContent,
 	];
 
 	pub fn name(self) -> &'static str {
@@ -72,6 +83,7 @@ impl Tool {
 			Self::Glob => "glob",
 			Self::Grep => "grep",
 			Self::Search => "search",
+			Self::SearchContent => "search_content",
 			Self::GetSkill => "get_skill",
 		}
 	}
@@ -261,6 +273,28 @@ pub fn definitions() -> Value {
 			},
 			"annotations": annotations("Search names and metadata"),
 		},
+		{
+			"name": "search_content",
+			"title": "Search the text of files",
+			"description": "Searches the text Spacedrive extracted from documents and code under 'path' and returns files ranked by relevance, each with a snippet around the best match. Every word must appear; text in double quotes is a phrase and a word ending in '*' matches as a prefix. It answers from an index, so a file changed since the last pass can be missing or stale, and pending_files counts files waiting to be read. It works only inside a source that reads file contents. Use grep for patterns or a live scan.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"query": { "type": "string", "maxLength": PATTERN_MAX_BYTES, "description": "Words to find, such as 'budget \"quarterly report\"' or 'deploy*'." },
+					"path": path("The directory or file to search"),
+					"kinds": {
+						"type": "array",
+						"items": { "type": "string", "enum": ["text", "markdown", "csv", "json", "code", "pdf", "docx"] },
+						"description": "Only files of these kinds. Empty or absent means every kind.",
+					},
+					"max_results": { "type": "integer", "minimum": 1, "maximum": CONTENT_PAGE_MAX, "default": CONTENT_PAGE_DEFAULT },
+					"cursor": cursor,
+				},
+				"required": ["query"],
+				"additionalProperties": false,
+			},
+			"annotations": annotations("Search the text of files"),
+		},
 	])
 }
 
@@ -279,6 +313,7 @@ pub async fn call(
 			structured: json!({ "name": "spacedrive", "format": "markdown" }),
 		}),
 		Tool::Search => search(&context, &scope, args(arguments)?).await,
+		Tool::SearchContent => search_content(&context, &scope, args(arguments)?).await,
 		Tool::ListDir => blocking(move || list_dir(&scope, args(arguments)?)).await,
 		Tool::Stat => blocking(move || stat(&scope)).await,
 		Tool::Read => blocking(move || read(&scope, args(arguments)?, &cancel)).await,
@@ -918,6 +953,135 @@ async fn search(
 		"next_offset": (u64::from(offset + limit) < total).then_some(offset + limit),
 		"note": "Search reads Spacedrive's index, which can lag the disk. Confirm a hit with stat or read.",
 	})))
+}
+
+#[derive(Deserialize)]
+struct SearchContentArgs {
+	query: String,
+	#[serde(default)]
+	kinds: Vec<TextKind>,
+	#[serde(default)]
+	max_results: Option<u32>,
+	#[serde(default)]
+	cursor: Option<String>,
+}
+
+async fn search_content(
+	context: &Arc<CoreContext>,
+	scope: &GrantScope,
+	args: SearchContentArgs,
+) -> Result<Output, String> {
+	if args.query.len() > PATTERN_MAX_BYTES {
+		return Err(format!(
+			"the query is longer than {PATTERN_MAX_BYTES} bytes"
+		));
+	}
+	// Checked here so the refusal names this endpoint's tools.
+	let volume_index = context.volume_index();
+	let Some(source_id) = volume_index.source_id_for(&scope.path) else {
+		return Err(
+			"this path is not inside a source Spacedrive tracks, so it has no text index; use grep"
+				.to_string(),
+		);
+	};
+	if !volume_index
+		.source_config(source_id)
+		.is_some_and(|config| config.identify_content)
+	{
+		return Err(
+			"this source does not read file contents, so it has no text index; use grep"
+				.to_string(),
+		);
+	}
+
+	let device_id = context
+		.device_manager
+		.device_id()
+		.map_err(|_| "content search failed".to_string())?;
+	let session = SessionContext::device_session(device_id, "Agent MCP".to_string())
+		.with_library(scope.library_id);
+	let found = ContentSearchQuery::from_input(ContentSearchInput {
+		scope: SdPath::local(scope.path.clone()),
+		query: args.query,
+		kinds: args.kinds,
+		max_results: args.max_results,
+		cursor: args.cursor,
+	})
+	.map_err(content_error)?
+	.execute(context.clone(), session)
+	.await
+	.map_err(content_error)?;
+
+	// Hit paths are relative to the searched path, and a file scope answers
+	// with its own name. The index can lag the disk, so each hit is placed
+	// by where it is now, like a search hit.
+	let root = scope.root.clone();
+	let base = scope.path.clone();
+	let names: Vec<String> = found.hits.iter().map(|hit| hit.path.clone()).collect();
+	let placed: Vec<Option<PathBuf>> = tokio::task::spawn_blocking(move || {
+		let file_scope = std::fs::metadata(&base).is_ok_and(|meta| meta.is_file());
+		names
+			.iter()
+			.map(|name| {
+				let path = if file_scope {
+					base.clone()
+				} else {
+					base.join(name)
+				};
+				std::fs::symlink_metadata(&path).ok()?;
+				crate::ops::grants::scope::resolve(&root, &path)
+					.ok()
+					.map(|resolved| resolved.relative)
+			})
+			.collect()
+	})
+	.await
+	.map_err(|_| "content search failed".to_string())?;
+
+	let results: Vec<Value> = found
+		.hits
+		.into_iter()
+		.zip(placed)
+		.filter_map(|(hit, relative)| {
+			let relative = relative?;
+			let snippet: String = hit.snippet.iter().map(|part| part.text.as_str()).collect();
+			let mut matched: Vec<&str> = hit
+				.snippet
+				.iter()
+				.filter(|part| part.matched)
+				.map(|part| part.text.as_str())
+				.collect();
+			matched.sort_unstable();
+			matched.dedup();
+			Some(json!({
+				"path": paths::shown(&relative),
+				"kind": hit.kind.as_str(),
+				"score": hit.score,
+				"snippet": snippet,
+				"matched": matched,
+				"text_truncated": hit.truncated,
+			}))
+		})
+		.collect();
+	Ok(Output::json(json!({
+		"results": results,
+		"next_cursor": found.next_cursor,
+		"pending_files": found.pending_files,
+		"note": "Content search reads Spacedrive's text index, which can lag the disk and covers only the first part of a large file. Confirm a hit with read.",
+	})))
+}
+
+/// The op's refusals of the request reach the agent; anything else is
+/// logged and answered generically, since it can name host paths outside
+/// the grant.
+fn content_error(error: QueryError) -> String {
+	match error {
+		QueryError::Validation { message, .. } | QueryError::InvalidInput(message) => message,
+		other => {
+			warn!(error = %other, "agent content search failed");
+			"content search failed".to_string()
+		}
+	}
 }
 
 #[cfg(test)]
