@@ -42,6 +42,9 @@ pub enum TextKind {
 	Code,
 	Pdf,
 	Docx,
+	/// Words spoken in an audio or video file, from its transcript. No
+	/// extension maps to it; the transcription job writes these rows.
+	Transcript,
 }
 
 /// File extensions the index reads, lowercase, and the extractor for each.
@@ -154,6 +157,7 @@ impl TextKind {
 			Self::Code => "code",
 			Self::Pdf => "pdf",
 			Self::Docx => "docx",
+			Self::Transcript => sd_store::TRANSCRIPT_KIND,
 		}
 	}
 
@@ -166,6 +170,7 @@ impl TextKind {
 			Self::Code,
 			Self::Pdf,
 			Self::Docx,
+			Self::Transcript,
 		]
 		.into_iter()
 		.find(|kind| kind.as_str() == name)

@@ -1,0 +1,116 @@
+---
+title: Transcription
+description: Turn speech in audio and video into timestamped transcripts that search can find
+sidebarTitle: Transcription
+---
+
+Spacedrive transcribes the speech in audio and video files on the device that
+holds them. A transcript is written as sidecars beside the file's other media
+sidecars, and its words go into the [content search](./content-search) index,
+so a search for something said in a clip returns the file and the second it
+was said.
+
+> **Status:** Built behind the `speech-to-text` cargo feature, which is off
+> by default and not part of beta.1.
+
+## Run it
+
+Download a model once, then transcribe a file or a folder under a tracked
+source:
+
+```bash
+sd-cli op models.whisper.download --json '{"model":"base"}'
+sd-cli op media.transcribe --library <LIBRARY_ID> \
+  --json '{"path":"/Users/me/Footage"}'
+```
+
+`media.transcribe` takes:
+
+| Field | Meaning |
+| --- | --- |
+| `path` | A file or directory under a source tracked on this device. The source must read file contents. Required. |
+| `model` | `tiny`, `base`, `small`, `medium` or `large`. It must be downloaded. Without it, the job uses the most accurate downloaded model up to `small`, then `medium` or `large`. |
+| `language` | An ISO 639-1 code such as `en`. Without it, the job detects the language from each file's first speech and keeps it for that file. |
+| `force` | Transcribe again even where a transcript exists for the same bytes. |
+
+It answers with the job id, the model, and `pending_files`: the audio and
+video files under the path with no transcript for their current bytes.
+
+The job reads files with these extensions: mp3, wav, m4a, m4b, aac, flac,
+ogg, oga, opus, wma, aif, aiff, caf, amr, mp4, m4v, mov, qt, mkv, webm, avi,
+wmv, mpg, mpeg, mts, m2ts, mxf, 3gp and flv.
+
+## How a file is transcribed
+
+1. The job reads the file's [speech audio sidecar](./virtual-sidecars#media-sidecars),
+   `audio/16k_mono.wav`, when one exists. Otherwise it decodes the first audio
+   track of the original with FFmpeg, downmixed to mono at 16 kHz. A file with
+   no audio track is recorded as having none and is not tried again until it
+   changes.
+2. It reads the audio two minutes at a time and cuts each chunk at its
+   quietest moment in the last ten seconds, so a cut rarely lands in a word.
+   Memory follows the chunk: decoding a 40-minute recording peaks at about
+   50 MB, against about 200 MB to hold it whole.
+3. In each chunk it finds the stretches with voice, splitting at pauses of
+   three seconds or more, and runs Whisper on each stretch alone. Silence
+   never reaches the model, which would invent words for it, and each
+   timestamp counts from where the voice starts rather than from a stretch of
+   silence before it.
+4. Segments that are only a sound description, such as `[BLANK_AUDIO]` or
+   `(music)`, are dropped, and so are segments over audio with no voice in
+   it.
+
+Whisper uses the GPU where whisper-rs was built with one: Metal on macOS and
+iOS. Elsewhere it runs on the CPU with up to eight threads.
+
+## The sidecars
+
+A transcript is three files in the content's `transcript` directory, keyed by
+the candidate content uuid like every [media sidecar](./virtual-sidecars#media-sidecars):
+
+| File | Holds |
+| --- | --- |
+| `transcript/default.json` | The transcript, read by search and by other steps |
+| `transcript/default.srt` | SubRip subtitles, for editors |
+| `transcript/default.vtt` | WebVTT subtitles, for players |
+
+```json
+{
+  "version": 1,
+  "model": "whisper-base",
+  "language": "en",
+  "duration_ms": 23981,
+  "segments": [
+    { "id": "seg_14500", "start_ms": 14500, "end_ms": 18500, "text": "The lighthouse was built in 1902 by the harbour master." }
+  ]
+}
+```
+
+- Segments are in order and do not overlap.
+- A segment's `id` is `seg_<start_ms>`, with `_2`, `_3` added when two
+  segments start in the same millisecond. It is unique within the file and
+  stays the same for as long as the file does. A search hit carries the same
+  start, so a hit can be joined back to its segment.
+- Each file is written as `.default.partial.<ext>` and renamed into place. The
+  JSON is written last, so when it exists the subtitles exist too.
+- Rust code reads a transcript with
+  `sd_core::ops::transcription::transcript::read_transcript(library_path, content_uuid)`.
+  It needs no speech engine and is compiled in every build.
+
+The same bytes in another file reuse the transcript: a later pass reads the
+JSON back instead of running the model again.
+
+## Search
+
+Transcript segments are rows in the source's text index, so
+`search.content`, `sd-cli search content` and the agent MCP `search_content`
+tool all find spoken words. A transcript hit has kind `transcript` and the
+start and end of its segment, in seconds. [Spoken words](./content-search#spoken-words)
+covers the details.
+
+## What is not covered yet
+
+- Nothing starts a transcription on its own. New footage is transcribed when
+  `media.transcribe` runs over it.
+- Searching a source owned by another device is not available, the same as
+  for the rest of content search.

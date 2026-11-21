@@ -41,6 +41,8 @@ without hyphens. For a video whose content uuid is
 | Proxy, default | `content/ab/cd/abcd1234-…/proxies/720p.mp4` | H.264 High, yuv420p, short side 720 |
 | Proxy, optional | `content/ab/cd/abcd1234-…/proxies/1080p.mp4` | H.264 High, yuv420p, short side 1080 |
 | Speech audio | `content/ab/cd/abcd1234-…/audio/16k_mono.wav` | PCM signed 16-bit little-endian, 16 kHz, mono |
+| Transcript | `content/ab/cd/abcd1234-…/transcript/default.json` | Timed segments, described in [Transcription](./transcription#the-sidecars) |
+| Subtitles | `content/ab/cd/abcd1234-…/transcript/default.srt`, `default.vtt` | SubRip and WebVTT made from the transcript |
 
 The rules every reader can rely on:
 
@@ -65,7 +67,8 @@ The rules every reader can rely on:
 
 Resolve paths with `ContentSidecar` in `core/src/domain/sidecar.rs`
 (`ContentSidecar::proxy(uuid, ProxyResolution::P720).path_in(library.path())`,
-`ContentSidecar::speech_audio(uuid)`), and get a file's content uuid with
+`ContentSidecar::speech_audio(uuid)`,
+`ContentSidecar::transcript(uuid, SidecarFormat::Json)`), and get a file's content uuid with
 `content_uuid_of_file`. Processes that do not link the core use the
 `sd-sidecar-path` crate, which owns the directory names. The daemon serves the
 same files at `/sidecar/<library_id>/<content_uuid>/<kind>/<variant>.<ext>`,

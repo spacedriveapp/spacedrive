@@ -447,7 +447,12 @@ snippet: SnippetFragment[];
  * The file holds more than 1 MiB of text and only the start was
  * indexed, so a match later in the file is not found.
  */
-truncated: boolean };
+truncated: boolean; 
+/**
+ * Where in the recording the words were said, for a `transcript` hit.
+ * One recording can answer with several hits, one per moment.
+ */
+time: SpokenTime | null };
 
 /**
  * Search the indexed text of the files under `scope`.
@@ -4826,6 +4831,8 @@ version: number; created_at: string; updated_at: string };
  * - MessagePack: Binary structured data (embeddings, vectors)
  * - Text: Plain text extractions
  * - Ply: 3D model format for Gaussian splats
+ * - Wav: Uncompressed audio that speech models read without decoding
+ * - Srt, Vtt: Subtitles that editors and players import as they are
  * 
  * MessagePack is preferred for embeddings because:
  * - 6x smaller than JSON (1.7KB vs 10KB per 384-dim vector)
@@ -4833,7 +4840,7 @@ version: number; created_at: string; updated_at: string };
  * - Already used in Spacedrive (job serialization)
  * - Enables sub-30ms semantic search on 1M+ files
  */
-export type SidecarFormat = "webp" | "mp_4" | "json" | "message_pack" | "text" | "ply";
+export type SidecarFormat = "webp" | "mp_4" | "json" | "message_pack" | "text" | "ply" | "wav" | "srt" | "vtt";
 
 /**
  * What a sidecar holds. The core kinds are closed; an extension declares
@@ -4841,7 +4848,7 @@ export type SidecarFormat = "webp" | "mp_4" | "json" | "message_pack" | "text" |
  * extension's namespace, so two extensions' `faces` never collide and no
  * extension can write a core kind.
  */
-export type SidecarKind = "thumb" | "thumbstrip" | "proxy" | "embeddings" | "ocr" | "transcript" | "gaussian_splat" | { extension: { extension_id: string; kind: string } };
+export type SidecarKind = "thumb" | "thumbstrip" | "proxy" | "embeddings" | "ocr" | "transcript" | "gaussian_splat" | "audio" | { extension: { extension_id: string; kind: string } };
 
 export type SidecarVariant = string;
 
@@ -5233,6 +5240,11 @@ export type SpacesListOutput = { spaces: Space[] };
 
 export type SpacesListQueryInput = null;
 
+/**
+ * A stretch of a recording, in seconds from its start.
+ */
+export type SpokenTime = { start_seconds: number; end_seconds: number };
+
 export type StartupIndexingDisposition = "started" | "already_started" | "disabled";
 
 export type StartupIndexingInput = { 
@@ -5474,7 +5486,12 @@ export type TextHighlight = { field: string; text: string; start: number; end: n
 /**
  * Which extractor read a file. Search filters by it.
  */
-export type TextKind = "text" | "markdown" | "csv" | "json" | "code" | "pdf" | "docx";
+export type TextKind = "text" | "markdown" | "csv" | "json" | "code" | "pdf" | "docx" | 
+/**
+ * Words spoken in an audio or video file, from its transcript. No
+ * extension maps to it; the transcription job writes these rows.
+ */
+"transcript";
 
 /**
  * Paths in draw order. The first is the most urgent, so a client sends its

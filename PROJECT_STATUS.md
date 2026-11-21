@@ -36,6 +36,18 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Transcription job, footage piece 2 (Capy FAN-12387, November 22, behind the
+off-by-default `speech-to-text` feature, not on the beta.1 path).
+`media.transcribe` runs Whisper over the audio and video under a path
+(`core/src/ops/transcription`): it reads the speech audio sidecar or streams
+the original through `sd_ffmpeg::AudioStream`, transcribes only the voiced
+stretches of each two-minute chunk, and writes `transcript/default.{json,srt,vtt}`
+on the media sidecar layout. Segments land in `text.db` as their own FTS rows,
+so `search.content` and the agent `search_content` tool return a hit per
+segment with its start and end seconds (`docs/core/transcription.mdx`).
+Proven on Linux with generated speech; Metal acceleration and the desktop app
+are unverified. Nothing starts a transcription automatically yet.
+
 Beta.1 log and churn polish from the signed Studio proof (Capy FAN-12343,
 November 21). The desktop app checks the release feed from Rust
 (`apps/tauri/src-tauri/src/updater.rs`): a missing or unparseable
