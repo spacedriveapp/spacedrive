@@ -12666,6 +12666,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-timeline"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "specta",
+ "thiserror 2.0.16",
+]
+
+[[package]]
 name = "sd-utils"
 version = "0.1.0"
 dependencies = [

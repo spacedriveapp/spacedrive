@@ -215,7 +215,7 @@ Output:
     { "format": "otio", "path": "cuts/Train rough cut.otio", "undo_id": "..." }
   ],
   "warnings": [
-    "A003_C011.mov is 25 fps on a 23.976 fps timeline; Final Cut and Resolve conform it, the EDL keeps source frames."
+    "A003_C011.mov is 25 fps on a 23.976 fps timeline; Final Cut and Resolve conform it from the FCPXML or OTIO, but an EDL holds one rate, so do not use the EDL for this cut"
   ]
 }
 ```
@@ -236,8 +236,14 @@ sit end to end with no gaps, each with its picture and its first audio track.
 
 Source in and out points in every format are the original's timecode: its
 start timecode plus the clip's frames. That is what lets an editor relink a
-proxy cut to the originals. The FCPXML is checked against Apple's FCPXML 1.10
-DTD and the OTIO file against OpenTimelineIO's reader in CI.
+proxy cut to the originals. An EDL holds one frame rate, so a cut that mixes
+rates should go to an editor as FCPXML or OTIO.
+
+The writers live in the `sd-timeline` crate. `scripts/footage/validate-timelines.sh`
+makes test media with FFmpeg, writes a cut in every format, checks the FCPXML
+against Apple's FCPXML 1.10 DTD (it ships inside Final Cut Pro, so you pass its
+path), and reads all three files back with OpenTimelineIO and its FCPXML and
+CMX 3600 adapters to confirm the in and out points agree.
 
 ## Library ops and CLI
 
