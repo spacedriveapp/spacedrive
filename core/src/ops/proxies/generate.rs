@@ -334,35 +334,59 @@ async fn publish(
 		.expect("sidecar paths have a file name")
 		.to_string_lossy();
 	let (stem, extension) = name.rsplit_once('.').unwrap_or((&name, ""));
-	let writer = WRITERS
-		.lock()
-		.unwrap_or_else(|e| e.into_inner())
-		.entry(output.to_path_buf())
-		.or_default()
-		.clone();
-	let result = {
-		let _held = writer.lock().await;
-		if output.is_file() {
-			Ok(Ok(()))
-		} else {
-			encode(
-				ctx,
-				ffmpeg,
-				output,
-				parent,
-				stem,
-				extension,
-				args,
-				on_progress,
-			)
-			.await
+	let writer = Writer::claim(output);
+	let _held = loop {
+		tokio::select! {
+			held = writer.lock.lock() => break held,
+			// Another job is writing this sidecar; stay cancellable meanwhile.
+			_ = tokio::time::sleep(std::time::Duration::from_millis(500)) => ctx.check_interrupt().await?,
 		}
 	};
-	let mut writers = WRITERS.lock().unwrap_or_else(|e| e.into_inner());
-	if Arc::strong_count(&writer) == 2 {
-		writers.remove(output);
+	if output.is_file() {
+		return Ok(Ok(()));
 	}
-	result
+	encode(
+		ctx,
+		ffmpeg,
+		output,
+		parent,
+		stem,
+		extension,
+		args,
+		on_progress,
+	)
+	.await
+}
+
+/// A claim on a sidecar path's writer lock, released from `WRITERS` when
+/// the last claimant drops it, on every return path.
+struct Writer {
+	path: PathBuf,
+	lock: Arc<tokio::sync::Mutex<()>>,
+}
+
+impl Writer {
+	fn claim(path: &Path) -> Self {
+		let lock = WRITERS
+			.lock()
+			.unwrap_or_else(|e| e.into_inner())
+			.entry(path.to_path_buf())
+			.or_default()
+			.clone();
+		Self {
+			path: path.to_path_buf(),
+			lock,
+		}
+	}
+}
+
+impl Drop for Writer {
+	fn drop(&mut self) {
+		let mut writers = WRITERS.lock().unwrap_or_else(|e| e.into_inner());
+		if Arc::strong_count(&self.lock) == 2 {
+			writers.remove(&self.path);
+		}
+	}
 }
 
 #[allow(clippy::too_many_arguments)]
