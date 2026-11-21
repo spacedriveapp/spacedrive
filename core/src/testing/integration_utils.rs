@@ -226,6 +226,7 @@ impl TestConfigBuilder {
 			mounts: crate::config::app_config::MountsConfig::default(),
 			replication: crate::config::app_config::ReplicationConfig::default(),
 			backup: crate::config::app_config::BackupConfig::default(),
+			agent_mcp: crate::config::app_config::AgentMcpConfig::default(),
 		}
 	}
 

@@ -73,6 +73,7 @@ impl TestConfigBuilder {
 			proxy_pairing: sd_core::config::app_config::ProxyPairingConfig::default(),
 			mounts: sd_core::config::app_config::MountsConfig::default(),
 			backup: sd_core::config::app_config::BackupConfig::default(),
+			agent_mcp: sd_core::config::app_config::AgentMcpConfig::default(),
 			replication: sd_core::config::app_config::ReplicationConfig::default(),
 		};
 

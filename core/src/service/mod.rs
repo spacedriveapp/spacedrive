@@ -9,6 +9,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::info;
 
+pub mod agent_mcp;
 pub mod device;
 pub mod external_tools;
 pub mod file_sharing;

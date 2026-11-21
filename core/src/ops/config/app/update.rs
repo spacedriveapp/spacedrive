@@ -54,6 +54,15 @@ pub struct UpdateAppConfigInput {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub backup_restore_trash_keep: Option<u32>,
 
+	/// Whether the daemon serves the agent MCP endpoint. Applies at restart.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub agent_mcp_enabled: Option<bool>,
+
+	/// The loopback address the agent MCP endpoint listens on. Applies at
+	/// restart.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub agent_mcp_listen: Option<String>,
+
 	/// Whether networking is enabled
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub networking_enabled: Option<bool>,
@@ -155,6 +164,10 @@ impl CoreAction for UpdateAppConfigAction {
 			}
 		}
 
+		if let Some(listen) = &input.agent_mcp_listen {
+			crate::service::agent_mcp::listen_addr(listen)?;
+		}
+
 		if input.proxy_pairing_vouch_signature_max_age == Some(0) {
 			return Err("Signature max age must be greater than 0".to_string());
 		}
@@ -234,6 +247,22 @@ impl CoreAction for UpdateAppConfigAction {
 			if config.backup.restore_trash_keep != keep {
 				config.backup.restore_trash_keep = keep;
 				changes.push("backup_restore_trash_keep");
+			}
+		}
+
+		if let Some(enabled) = self.input.agent_mcp_enabled {
+			if config.agent_mcp.enabled != enabled {
+				config.agent_mcp.enabled = enabled;
+				changes.push("agent_mcp_enabled");
+				requires_restart = true;
+			}
+		}
+
+		if let Some(ref listen) = self.input.agent_mcp_listen {
+			if config.agent_mcp.listen != *listen {
+				config.agent_mcp.listen = listen.clone();
+				changes.push("agent_mcp_listen");
+				requires_restart = true;
 			}
 		}
 

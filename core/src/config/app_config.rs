@@ -53,6 +53,35 @@ pub struct AppConfig {
 	/// Library backup and restore
 	#[serde(default)]
 	pub backup: BackupConfig,
+
+	/// The agent MCP endpoint
+	#[serde(default)]
+	pub agent_mcp: AgentMcpConfig,
+}
+
+/// Settings for the agent MCP endpoint, which serves grant holders a
+/// read-only tool set over streamable HTTP.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AgentMcpConfig {
+	/// Whether the daemon serves the endpoint. Off until the user turns it on.
+	#[serde(default)]
+	pub enabled: bool,
+	/// The address to listen on. Only loopback addresses are accepted.
+	#[serde(default = "default_agent_mcp_listen")]
+	pub listen: String,
+}
+
+fn default_agent_mcp_listen() -> String {
+	crate::service::agent_mcp::DEFAULT_LISTEN.to_string()
+}
+
+impl Default for AgentMcpConfig {
+	fn default() -> Self {
+		Self {
+			enabled: false,
+			listen: default_agent_mcp_listen(),
+		}
+	}
 }
 
 /// Settings for library backup and restore.
@@ -330,6 +359,7 @@ impl AppConfig {
 			mounts: MountsConfig::default(),
 			replication: ReplicationConfig::default(),
 			backup: BackupConfig::default(),
+			agent_mcp: AgentMcpConfig::default(),
 		}
 	}
 
