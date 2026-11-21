@@ -130,7 +130,8 @@ schemas evolve. Keep the 2.0 generation and explain the skipped stable 1.0 and
 the rewrite honestly in the launch post. The README and release policy now
 name the beta target; `docs/plans/2026-09-17-beta-launch.md` records the rationale
 and draft launch wording. The target moved from October 1 to November 1, 2026
-on 2026-10-05 (Jamie), and again to November 15, 2026 on 2026-10-31 (Jamie).
+on 2026-10-05 (Jamie), to November 15, 2026 on 2026-10-31 (Jamie), and to
+November 27, 2026 on 2026-11-21 (Jamie).
 This is a release goal, not a claim that the gates have passed. No package
 versions, tags, builds or published releases changed.
 
