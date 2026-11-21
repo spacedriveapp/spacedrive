@@ -549,6 +549,17 @@ export function updateBatchResources<O>(
 
 	// Apply client-side filtering (safety fallback)
 	const filteredResources = filterBatchResources(resources, options);
+	const filteredResourceIds = new Set(
+		filteredResources.map((resource) => resource.id).filter(Boolean),
+	);
+	const outOfScopeResourceIds = new Set<string>(
+		resources
+			.filter(
+				(resource) =>
+					resource.id && !filteredResourceIds.has(resource.id),
+			)
+			.map((resource) => resource.id),
+	);
 
 	const wireMethod = toWireMethod(options.query);
 	if (options.debug) {
@@ -558,49 +569,77 @@ export function updateBatchResources<O>(
 		}
 	}
 
-	// If all resources were filtered out, they may have moved OUT of scope
-	// Remove them from cache if they exist (handles file moves out of current view)
-	if (filteredResources.length === 0) {
-		for (const resource of resources) {
-			if (resource.id) {
-				deleteResource(resource.id, queryKey, queryClient);
-			}
-		}
-		return;
-	}
-
 	queryClient.setQueryData<O>(queryKey, (oldData: any) => {
 		if (options.debug) {
 			console.log(`[useNormalizedQuery] ${wireMethod} setQueryData: oldData has`, Array.isArray(oldData) ? oldData.length : Object.keys(oldData || {}).join(','), `adding ${filteredResources.length} resources`);
 		}
+
+		// Atomic server batches are forwarded when any resource matches the scope.
+		// Prune resources that moved out before merging those that still match.
+		const scopedOldData = removeResourcesFromCacheData(
+			oldData,
+			outOfScopeResourceIds,
+		);
+
 		// If the query hasn't returned yet, seed the cache with the event data.
 		// This handles the race where the subscription's buffer replay delivers
 		// events before the initial query response arrives. Without this, the
 		// events would be silently dropped and the UI stays empty.
-		if (!oldData) {
+		if (!scopedOldData) {
+			if (filteredResources.length === 0) {
+				return scopedOldData;
+			}
 			return { files: filteredResources, total_count: filteredResources.length, has_more: false } as O;
 		}
 
 		// Handle array responses
-		if (Array.isArray(oldData)) {
+		if (Array.isArray(scopedOldData)) {
 			return updateArrayCache(
-				oldData,
+				scopedOldData,
 				filteredResources,
 				noMergeFields,
 			) as O;
 		}
 
 		// Handle wrapped responses { files: [...] }
-		if (oldData && typeof oldData === "object") {
+		if (typeof scopedOldData === "object") {
 			return updateWrappedCache(
-				oldData,
+				scopedOldData,
 				filteredResources,
 				noMergeFields,
 			) as O;
 		}
 
-		return oldData;
+		return scopedOldData;
 	});
+}
+
+function removeResourcesFromCacheData(
+	oldData: any,
+	resourceIds: ReadonlySet<string>,
+): any {
+	if (!oldData || resourceIds.size === 0) return oldData;
+
+	if (Array.isArray(oldData)) {
+		return oldData.filter((item: any) => !resourceIds.has(item.id));
+	}
+
+	if (typeof oldData === "object") {
+		const arrayField = Object.keys(oldData).find((key) =>
+			Array.isArray(oldData[key]),
+		);
+
+		if (arrayField) {
+			return {
+				...oldData,
+				[arrayField]: oldData[arrayField].filter(
+					(item: any) => !resourceIds.has(item.id),
+				),
+			};
+		}
+	}
+
+	return oldData;
 }
 
 /**
