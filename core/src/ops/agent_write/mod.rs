@@ -62,7 +62,10 @@ pub use action::{
 	AgentDeleteAction, AgentMakeDirAction, AgentMoveAction, AgentStatQuery, AgentWriteFileAction,
 };
 pub use conflict::conflict_name;
-pub use ops::{delete, make_dir, move_path, stat, write_file};
+pub use ops::{
+	delete, delete_in, make_dir, make_dir_in, move_path, move_path_in, stat, write_file,
+	write_file_in, WriteTurn,
+};
 
 /// The state of a path a grant check already resolved: what a precondition
 /// names. For surfaces that ran `authorize` themselves. Setting `cancel`
@@ -180,6 +183,8 @@ pub enum WriteError {
 	Placeholder(String),
 	#[error("{0}")]
 	Io(String),
+	#[error("the call was cancelled before anything changed")]
+	Cancelled,
 }
 
 impl WriteError {

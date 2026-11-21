@@ -8,10 +8,14 @@
 use std::{
 	io::{Seek, SeekFrom, Write},
 	path::{Path, PathBuf},
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 };
 
 use base64::Engine;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, MutexGuard};
 use tracing::{info, warn};
 use uuid::Uuid;
 
@@ -36,6 +40,42 @@ use crate::{
 
 static WRITES: Mutex<()> = Mutex::const_new(());
 
+/// One agent write's turn: the process-wide write lock, and the flag that
+/// cancels the write while nothing has changed yet.
+///
+/// A surface that gives up on a call, as the agent endpoint does on a
+/// timeout or a revoked grant, sets the flag. Hashing stops, and the write
+/// refuses at its first change. Once it has changed something it runs to its
+/// commit or rollback and its journal row, so the surface runs it as its own
+/// task and waits for the turn before spawning it.
+pub struct WriteTurn {
+	_one_writer: MutexGuard<'static, ()>,
+	cancel: Arc<AtomicBool>,
+}
+
+impl WriteTurn {
+	/// Wait for the write lock. Dropping the future while it waits leaves the
+	/// queue.
+	pub async fn take(cancel: Arc<AtomicBool>) -> Self {
+		Self {
+			_one_writer: WRITES.lock().await,
+			cancel,
+		}
+	}
+
+	async fn own() -> Self {
+		Self::take(Arc::new(AtomicBool::new(false))).await
+	}
+
+	/// Refuse if the caller gave up. Called just before a write's first change.
+	fn proceed(&self) -> Result<(), WriteError> {
+		if self.cancel.load(Ordering::Relaxed) {
+			return Err(WriteError::Cancelled);
+		}
+		Ok(())
+	}
+}
+
 /// A path's state: the values a precondition names.
 pub async fn stat(context: &CoreContext, input: StatInput) -> Result<PathState, WriteError> {
 	let scope = authorize(
@@ -58,6 +98,15 @@ pub async fn write_file(
 	context: &CoreContext,
 	input: WriteFileInput,
 ) -> Result<WriteOutcome, WriteError> {
+	write_file_in(context, input, WriteTurn::own().await).await
+}
+
+/// [`write_file`] in a turn the caller already holds.
+pub async fn write_file_in(
+	context: &CoreContext,
+	input: WriteFileInput,
+	turn: WriteTurn,
+) -> Result<WriteOutcome, WriteError> {
 	let bytes = match input.encoding.unwrap_or_default() {
 		ContentEncoding::Utf8 => input.content.into_bytes(),
 		ContentEncoding::Base64 => base64::engine::general_purpose::STANDARD
@@ -76,9 +125,9 @@ pub async fn write_file(
 		));
 	}
 
-	let _one_writer = WRITES.lock().await;
 	let scope = writable(context, &input.token, "agent.write_file", &input.path).await?;
-	let (current, metadata) = state::read(context, &scope.root, &scope.path).await?;
+	let (current, metadata) =
+		state::read_until(context, &scope.root, &scope.path, turn.cancel.clone()).await?;
 	let id = Uuid::now_v7();
 	let mut effects = Vec::new();
 
@@ -89,6 +138,7 @@ pub async fn write_file(
 			} else {
 				scope.path.clone()
 			};
+			turn.proceed()?;
 			effects.extend(make_parents(&scope.root, &wanted).await?);
 			let mut staged = stage(context, &wanted).await?;
 			write_bytes(staged.path(), &bytes, None).await?;
@@ -134,6 +184,7 @@ pub async fn write_file(
 				));
 			}
 			still_inside(&scope).await?;
+			turn.proceed()?;
 			let previous = trash::trash(&scope.path, Some(&context.volume_manager), JobId(id))
 				.await
 				.map_err(|e| WriteError::Io(format!("set the previous bytes aside: {e}")))?;
@@ -181,9 +232,18 @@ pub async fn make_dir(
 	context: &CoreContext,
 	input: MakeDirInput,
 ) -> Result<WriteOutcome, WriteError> {
-	let _one_writer = WRITES.lock().await;
+	make_dir_in(context, input, WriteTurn::own().await).await
+}
+
+/// [`make_dir`] in a turn the caller already holds.
+pub async fn make_dir_in(
+	context: &CoreContext,
+	input: MakeDirInput,
+	turn: WriteTurn,
+) -> Result<WriteOutcome, WriteError> {
 	let scope = writable(context, &input.token, "agent.make_dir", &input.path).await?;
-	let (current, _) = state::read(context, &scope.root, &scope.path).await?;
+	let (current, _) =
+		state::read_until(context, &scope.root, &scope.path, turn.cancel.clone()).await?;
 	let id = Uuid::now_v7();
 	if current.kind == Some(PathKind::Directory) {
 		return finish(context, &scope, id, Vec::new(), &scope.path, false).await;
@@ -193,6 +253,7 @@ pub async fn make_dir(
 	} else {
 		scope.path.clone()
 	};
+	turn.proceed()?;
 	let mut effects = make_parents(&scope.root, &wanted).await?;
 	still_inside(&scope).await?;
 	loop {
@@ -218,10 +279,19 @@ pub async fn move_path(
 	context: &CoreContext,
 	input: MoveInput,
 ) -> Result<WriteOutcome, WriteError> {
-	let _one_writer = WRITES.lock().await;
+	move_path_in(context, input, WriteTurn::own().await).await
+}
+
+/// [`move_path`] in a turn the caller already holds.
+pub async fn move_path_in(
+	context: &CoreContext,
+	input: MoveInput,
+	turn: WriteTurn,
+) -> Result<WriteOutcome, WriteError> {
 	let from = writable(context, &input.token, "agent.move", &input.from).await?;
 	let to = writable(context, &input.token, "agent.move", &input.to).await?;
-	let (current, metadata) = state::read(context, &from.root, &from.path).await?;
+	let (current, metadata) =
+		state::read_until(context, &from.root, &from.path, turn.cancel.clone()).await?;
 	check(&input.expect, &current)?;
 	let metadata = metadata.ok_or_else(|| stale(current.clone()))?;
 	if to.path.starts_with(&from.path) {
@@ -237,6 +307,7 @@ pub async fn move_path(
 	} else {
 		to.path.clone()
 	};
+	turn.proceed()?;
 	let mut effects = make_parents(&to.root, &wanted).await?;
 
 	unchanged(context, &from, &current, &metadata).await?;
@@ -280,9 +351,18 @@ pub async fn move_path(
 /// The platform's trash where the volume has one, otherwise a Spacedrive
 /// trash at the volume's root. Nothing is ever removed for good.
 pub async fn delete(context: &CoreContext, input: DeleteInput) -> Result<WriteOutcome, WriteError> {
-	let _one_writer = WRITES.lock().await;
+	delete_in(context, input, WriteTurn::own().await).await
+}
+
+/// [`delete`] in a turn the caller already holds.
+pub async fn delete_in(
+	context: &CoreContext,
+	input: DeleteInput,
+	turn: WriteTurn,
+) -> Result<WriteOutcome, WriteError> {
 	let scope = writable(context, &input.token, "agent.delete", &input.path).await?;
-	let (current, metadata) = state::read(context, &scope.root, &scope.path).await?;
+	let (current, metadata) =
+		state::read_until(context, &scope.root, &scope.path, turn.cancel.clone()).await?;
 	check(&input.expect, &current)?;
 	let metadata = metadata.ok_or_else(|| stale(current.clone()))?;
 	unchanged(context, &scope, &current, &metadata).await?;
@@ -291,6 +371,7 @@ pub async fn delete(context: &CoreContext, input: DeleteInput) -> Result<WriteOu
 	}
 	still_inside(&scope).await?;
 	let id = Uuid::now_v7();
+	turn.proceed()?;
 	let location = trash::trash(&scope.path, Some(&context.volume_manager), JobId(id))
 		.await
 		.map_err(|e| WriteError::Io(format!("trash: {e}")))?;

@@ -384,7 +384,7 @@ pub async fn call(
 		Tool::Glob => blocking(move || glob(&scope, args(arguments)?, &cancel)).await,
 		Tool::Grep => blocking(move || grep(&scope, args(arguments)?, &cancel)).await,
 		Tool::WriteFile | Tool::MakeDir | Tool::Move | Tool::Delete => {
-			write(context.clone(), token, tool, &scope, arguments).await
+			write(context.clone(), token, tool, &scope, arguments, cancel).await
 		}
 	};
 	result.map_err(|message| scrub(&message, &root))
@@ -1064,16 +1064,20 @@ struct DeleteArgs {
 /// which check the token again for every path they touch, the destination of
 /// a move included.
 ///
-/// The operation runs as its own task. A timeout or a revoked grant drops
-/// the transport's future, and a write dropped between setting the old bytes
-/// aside and its rename would lose them; the task carries on to its commit or
-/// rollback and its journal row, and only the answer is lost.
+/// The write waits for its turn here, where a timeout or a revoked grant
+/// still drops it from the queue, and then runs as its own task holding the
+/// turn. That keeps at most one write running past its call. The transport
+/// sets `cancel` when it gives up, which stops the write before its first
+/// change; after that the task carries on to its commit or rollback and its
+/// journal row, since a write dropped between setting the old bytes aside
+/// and its rename would lose them. Only the answer is lost.
 async fn write(
 	context: Arc<CoreContext>,
 	token: &str,
 	tool: Tool,
 	scope: &GrantScope,
 	arguments: Value,
+	cancel: Arc<AtomicBool>,
 ) -> Result<Output, String> {
 	let token = token.to_string();
 	let path = scope.relative.clone();
@@ -1116,12 +1120,13 @@ async fn write(
 		}
 		_ => return Err("not a write tool".to_string()),
 	};
+	let turn = agent_write::WriteTurn::take(cancel).await;
 	let task = tokio::spawn(async move {
 		match request {
-			Request::Write(input) => agent_write::write_file(&context, input).await,
-			Request::MakeDir(input) => agent_write::make_dir(&context, input).await,
-			Request::Move(input) => agent_write::move_path(&context, input).await,
-			Request::Delete(input) => agent_write::delete(&context, input).await,
+			Request::Write(input) => agent_write::write_file_in(&context, input, turn).await,
+			Request::MakeDir(input) => agent_write::make_dir_in(&context, input, turn).await,
+			Request::Move(input) => agent_write::move_path_in(&context, input, turn).await,
+			Request::Delete(input) => agent_write::delete_in(&context, input, turn).await,
 		}
 	});
 	let outcome = task

@@ -78,7 +78,7 @@ fn file_hash(path: &Path, cancel: &AtomicBool) -> Result<String, WriteError> {
 	let mut buffer = vec![0u8; 256 * 1024];
 	loop {
 		if cancel.load(Ordering::Relaxed) {
-			return Err(WriteError::Io("cancelled".to_string()));
+			return Err(WriteError::Cancelled);
 		}
 		let read = file
 			.read(&mut buffer)

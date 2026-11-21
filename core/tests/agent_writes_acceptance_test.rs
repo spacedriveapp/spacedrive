@@ -17,9 +17,9 @@ use sd_core::{
 	infra::{action::LibraryAction, job::output::JobOutput},
 	ops::{
 		agent_write::{
-			delete, make_dir, move_path, stat, write_file, ContentEncoding, DeleteInput,
-			MakeDirInput, MoveInput, PathKind, PathState, Precondition, StatInput, WriteError,
-			WriteFileInput, WriteOutcome,
+			delete, delete_in, make_dir, move_path, stat, write_file, write_file_in,
+			ContentEncoding, DeleteInput, MakeDirInput, MoveInput, PathKind, PathState,
+			Precondition, StatInput, WriteError, WriteFileInput, WriteOutcome, WriteTurn,
 		},
 		files::undo::UndoJob,
 		grants::{
@@ -484,6 +484,43 @@ async fn agent_writes_are_fresh_keep_both_and_undoable() -> anyhow::Result<()> {
 		Err(WriteError::Grant(GrantError::ReadOnly))
 	));
 	assert!(!project.join("new.md").exists());
+
+	// A caller that gave up before the first change changes nothing.
+	let given_up = || std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+	let cancelled = write_file_in(
+		&harness.core.context,
+		WriteFileInput {
+			token: agent.token.clone(),
+			path: "never/made.md".into(),
+			content: "x".to_string(),
+			encoding: None,
+			offset: None,
+			expect: None,
+		},
+		WriteTurn::take(given_up()).await,
+	)
+	.await;
+	assert!(
+		matches!(cancelled, Err(WriteError::Cancelled)),
+		"{cancelled:?}"
+	);
+	assert!(!project.join("never").exists());
+	let notes_now = agent.stat("notes.md").await;
+	let cancelled = delete_in(
+		&harness.core.context,
+		DeleteInput {
+			token: agent.token.clone(),
+			path: "notes.md".into(),
+			expect: hash(&notes_now),
+		},
+		WriteTurn::take(given_up()).await,
+	)
+	.await;
+	assert!(
+		matches!(cancelled, Err(WriteError::Cancelled)),
+		"{cancelled:?}"
+	);
+	assert!(project.join("notes.md").exists());
 
 	// No staging file is left behind anywhere in the grant.
 	let leftovers: Vec<_> = walk(&project)
