@@ -4,6 +4,8 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 use sd_core::domain::addressing::SdPath;
+use sd_core::ops::indexing::text_extract::TextKind;
+use sd_core::ops::search::content::ContentSearchInput;
 use sd_core::ops::search::grep::{GrepInput, GrepOptions};
 
 use sd_core::domain::ContentKind;
@@ -339,4 +341,56 @@ impl GrepArgs {
 			},
 		}
 	}
+}
+
+#[derive(Args, Debug)]
+pub struct ContentSearchArgs {
+	/// Words that must all appear; "quoted text" is a phrase, word* a prefix
+	pub query: String,
+
+	/// File or directory to search, under a tracked source; defaults to the
+	/// current directory
+	pub path: Option<PathBuf>,
+
+	/// Only files of this kind (repeatable): text, markdown, csv, json,
+	/// code, pdf, docx
+	#[arg(long = "kind")]
+	pub kinds: Vec<String>,
+
+	/// Hits per page
+	#[arg(long)]
+	pub max_results: Option<u32>,
+
+	/// Continue from the cursor a previous page printed
+	#[arg(long)]
+	pub cursor: Option<String>,
+}
+
+impl ContentSearchArgs {
+	pub fn into_input(self, path: PathBuf) -> anyhow::Result<ContentSearchInput> {
+		let kinds = self
+			.kinds
+			.iter()
+			.map(|kind| {
+				TextKind::parse(kind).ok_or_else(|| anyhow::anyhow!("unknown kind '{kind}'"))
+			})
+			.collect::<anyhow::Result<_>>()?;
+		Ok(ContentSearchInput {
+			scope: SdPath::Physical {
+				device_slug: "local".to_string(),
+				path,
+			},
+			query: self.query,
+			kinds,
+			max_results: self.max_results,
+			cursor: self.cursor,
+		})
+	}
+}
+
+#[derive(Args, Debug)]
+pub struct ReindexContentArgs {
+	/// A tracked source, or any path inside it; defaults to the current
+	/// directory
+	pub path: Option<PathBuf>,
 }

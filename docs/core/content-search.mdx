@@ -1,0 +1,118 @@
+---
+title: Content Search
+description: Search the text inside documents and code from an index on the device that owns them
+sidebarTitle: Content Search
+---
+
+Spacedrive answers two kinds of question about what files say:
+
+- `search.grep` reads files as they are on disk. It takes a regular
+  expression, needs no index and is never stale, but its cost grows with the
+  size of the tree.
+- `search.content` answers a word query from an index. It returns ranked
+  files with a snippet in milliseconds whatever the size of the tree, but it
+  matches words rather than patterns and knows only what the last pass read.
+
+Use `search.content` to find which files are about something, then
+`search.grep` to find every line that matches a pattern in them.
+
+## What is indexed
+
+Each source keeps its text index on the device that owns the source. The
+index covers files with these extensions:
+
+| Kind | Extensions |
+|---|---|
+| `text` | txt, text, log, rst, adoc, org, tex |
+| `markdown` | md, markdown, mdx |
+| `csv` | csv, tsv |
+| `json` | json, jsonl, ndjson, geojson |
+| `code` | rs, ts, tsx, js, py, go, swift, c, cpp, java, sh, sql, html, css, yaml, toml and other source and config formats |
+| `pdf` | pdf |
+| `docx` | docx |
+
+Text formats are read as UTF-8. A file with a NUL byte is treated as binary
+and skipped. PDF and DOCX files are parsed for their text; files over 64 MiB
+are not parsed. Every file contributes at most its first 1,048,576 bytes of
+text. A hit on a file that held more is marked `truncated`, and a word that
+only appears after the cap is not found.
+
+The index never opens a cloud placeholder whose contents are not on the
+device, because opening one downloads it. The file is indexed once its
+contents are local. Symbolic links are not followed.
+
+A source tracked without content identification reads no file contents, so it
+has no text index. `search.content` refuses it and points to
+`search.grep`. OCR and semantic search are not part of this index.
+
+## How the index stays current
+
+The index lives in `text.db`, next to the source store's `data.db`. It is
+part of the store's generation half: every row comes from bytes the origin
+still holds, so it never holds anything a person asserted and dropping it
+loses nothing. It is a separate file so that writing large text never holds
+the record store's write lock, and so a replica of the record store does not
+carry it.
+
+A background pass fills it. The pass runs after each content identification
+pass, which follows every walk, watcher change and returning volume, and when a
+volume returns with nothing to identify. It runs at background priority, on
+the same low-priority threads as hashing.
+
+Each row is keyed by the file's record and stamped with the size and modified
+time the record had when the text was read:
+
+- **Create.** A new record has no row, so the next pass reads it.
+- **Modify.** The record's size or modified time no longer matches the stamp,
+  so the next pass reads it again. Until then the file is left out of results
+  rather than answering with text it no longer holds.
+- **Rename.** The record keeps its identity, so nothing is read again. Hits
+  show the new path because paths come from the record store at query time.
+- **Delete.** The record is gone, so no search can reach its row. The next pass
+  removes the row.
+
+Each response carries `pending_files`, the number of files whose text is
+missing or out of date. Zero means the index matches the record store.
+
+## Query
+
+```json
+{
+  "scope": { "Physical": { "device_slug": "local", "path": "/Users/me/notes" } },
+  "query": "\"quarterly report\" budget",
+  "kinds": ["markdown", "pdf"],
+  "max_results": 20
+}
+```
+
+- `scope` is a directory or file under a source tracked on this device.
+- `query` matches whole words, and every word must appear. Text in double
+  quotes is a phrase, and a word ending in `*` matches as a prefix. No other
+  syntax is interpreted.
+- `kinds` limits hits to files read by those extractors.
+- `max_results` defaults to 20 and is at most 200. Pass a response's
+  `next_cursor` back as `cursor` for the next page.
+
+Each hit has a `path` relative to the scope, its `kind`, a BM25 `score`
+(larger is better), and a `snippet` as a list of fragments, each marked
+`matched` or not.
+
+From the CLI:
+
+```bash
+sd-cli search content 'quarterly report' ~/Documents --kind pdf --kind docx
+sd-cli search content 'tokio::spawn' ~/Code/project --kind code
+```
+
+## Rebuild
+
+`search.content.rebuild` drops a source's index and starts a pass that reads
+every file again. The record store is not touched.
+
+```bash
+sd-cli search reindex-content ~/Documents
+```
+
+The pass is refused while the source's volume is away, so the index stays
+empty until the volume returns. Searching a source owned by another device is
+not available yet; run the search on that device.

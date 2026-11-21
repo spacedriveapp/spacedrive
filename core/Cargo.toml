@@ -83,6 +83,10 @@ grep-regex    = "0.1"
 grep-searcher = "0.1"
 ignore        = "0.4"
 
+# Indexed content search: text from PDF and DOCX files
+pdf-extract = "0.10"
+quick-xml   = "0.38"
+
 
 # File operations
 blake3 = "1.5"  # Content addressing

@@ -85,7 +85,16 @@ One file, two halves, and the halves are marked by table membership:
 | half | tables |
 |---|---|
 | generation | `record`, `facet_*`, `content`, `edge`, `search_index`, `_sync_state`, `_schema` |
+| generation, own file | `text_doc` and `text_fts` in `text.db`, the content text index |
 | assertions | `record_overlay`, and the tag tables when they land |
+
+The content text index is the one generation table set kept outside
+`data.db`. None of its rows needs to commit with a record batch: each row is
+stamped with the size and mtime of the record it was read for, and a stamp that
+no longer matches reads as pending. Keeping it in its own file means its large
+writes never hold the record store's write lock and a `VACUUM INTO` replica of
+the store does not carry it. `search.content.rebuild` drops it alone, and
+deleting a source removes it with the source's directory.
 
 Marking it is not bookkeeping. Four operations are the same operation once the
 line is explicit:

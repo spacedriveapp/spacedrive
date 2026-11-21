@@ -16,6 +16,7 @@
 		"events",
 		"---File Management---",
 		"indexing",
+		"content-search",
 		"devices",
 		"volumes",
 		"filesystems",

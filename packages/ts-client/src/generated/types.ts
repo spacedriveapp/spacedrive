@@ -400,6 +400,74 @@ stats: ContentKindStat[];
 total_files: number };
 
 /**
+ * One ranked file.
+ */
+export type ContentSearchHit = { 
+/**
+ * The file, relative to the scope, with `/` separators. The file's
+ * name when the scope is the file itself.
+ */
+path: string; 
+/**
+ * The extractor that read it.
+ */
+kind: TextKind; 
+/**
+ * BM25 relevance. Larger is better; only the order within one response
+ * means anything.
+ */
+score: number; 
+/**
+ * Up to about 24 words around the best match.
+ */
+snippet: SnippetFragment[]; 
+/**
+ * The file holds more than 1 MiB of text and only the start was
+ * indexed, so a match later in the file is not found.
+ */
+truncated: boolean };
+
+/**
+ * Search the indexed text of the files under `scope`.
+ */
+export type ContentSearchInput = { 
+/**
+ * A directory or file under a source tracked on this device.
+ */
+scope: SdPath; 
+/**
+ * Words that must all appear. Text in double quotes is a phrase, and a
+ * word ending in `*` matches as a prefix.
+ */
+query: string; 
+/**
+ * Only files read by these extractors. Empty means every kind.
+ */
+kinds?: TextKind[]; 
+/**
+ * Hits per page. Defaults to 20.
+ */
+max_results?: number | null; 
+/**
+ * The `next_cursor` of the previous page, to continue from there.
+ */
+cursor?: string | null };
+
+/**
+ * One page of hits.
+ */
+export type ContentSearchOutput = { hits: ContentSearchHit[]; 
+/**
+ * Pass back as `cursor` to read the next page. Absent on the last page.
+ */
+next_cursor: string | null; 
+/**
+ * Files in the source whose text is not indexed yet, or was read from
+ * bytes that have since changed. Zero when the index is current.
+ */
+pending_files: number };
+
+/**
  * Metadata for a single file or directory in the copy operation.
  * For directories, this represents the entire directory (not flattened).
  */
@@ -4116,6 +4184,25 @@ export type ProxyPairingConfigOutput = { auto_accept_vouched: boolean; auto_vouc
 export type ReadSizeBucket = { range: string; reads: number };
 
 /**
+ * Which source's index to rebuild.
+ */
+export type RebuildContentIndexInput = { 
+/**
+ * The root of a source tracked on this device, or any path inside it.
+ */
+path: string };
+
+export type RebuildContentIndexOutput = { 
+/**
+ * Files the index held before it was dropped.
+ */
+cleared_files: number; 
+/**
+ * The pass that reads the source again.
+ */
+job_id: string | null };
+
+/**
  * One effect as the journal holds it.
  */
 export type Recorded = { sequence: number; effect: Effect; recorded_at: string };
@@ -4682,6 +4769,12 @@ export type SkipReason =
 export type Skips = { duplicate_candidates: Tally; duplicates_confirmed: Tally; junk: number; policy: Tally };
 
 /**
+ * A piece of a snippet: either text that matched the query or the text
+ * around it. Joined in order, the pieces are the snippet.
+ */
+export type SnippetFragment = { text: string; matched: boolean };
+
+/**
  * Sort direction
  */
 export type SortDirection = "Asc" | "Desc";
@@ -5223,6 +5316,11 @@ export type Tally = { files: number; bytes: number };
  * Text highlighting information
  */
 export type TextHighlight = { field: string; text: string; start: number; end: number };
+
+/**
+ * Which extractor read a file. Search filters by it.
+ */
+export type TextKind = "text" | "markdown" | "csv" | "json" | "code" | "pdf" | "docx";
 
 /**
  * Paths in draw order. The first is the most urgent, so a client sends its
@@ -6258,6 +6356,7 @@ export type LibraryAction =
   |  { type: 'jobs.resume'; input: JobResumeInput; output: JobResumeOutput }
   |  { type: 'libraries.backup'; input: LibraryBackupInput; output: LibraryBackupOutput }
   |  { type: 'libraries.rename'; input: LibraryRenameInput; output: LibraryRenameOutput }
+  |  { type: 'search.content.rebuild'; input: RebuildContentIndexInput; output: RebuildContentIndexOutput }
   |  { type: 'sources.assertions.merge'; input: MergeAssertionsInput; output: MergeAssertionsOutput }
   |  { type: 'sources.create'; input: CreateSourceInput; output: CreateSourceOutput }
   |  { type: 'sources.delete'; input: DeleteSourceInput; output: DeleteSourceOutput }
@@ -6348,6 +6447,7 @@ export type LibraryQuery =
   |  { type: 'paths.context'; input: PathContextInput; output: PathContextOutput }
   |  { type: 'paths.system_folders'; input: SystemFoldersInput; output: SystemFoldersOutput }
   |  { type: 'redundancy.summary'; input: RedundancySummaryInput; output: RedundancySummaryOutput }
+  |  { type: 'search.content'; input: ContentSearchInput; output: ContentSearchOutput }
   |  { type: 'search.files'; input: FileSearchInput; output: FileSearchOutput }
   |  { type: 'search.grep'; input: GrepInput; output: GrepOutput }
   |  { type: 'search.media'; input: MediaSearchInput; output: MediaSearchOutput }
@@ -6468,6 +6568,7 @@ export const WIRE_METHODS = {
     'jobs.resume': 'action:jobs.resume.input',
     'libraries.backup': 'action:libraries.backup.input',
     'libraries.rename': 'action:libraries.rename.input',
+    'search.content.rebuild': 'action:search.content.rebuild.input',
     'sources.assertions.merge': 'action:sources.assertions.merge.input',
     'sources.create': 'action:sources.create.input',
     'sources.delete': 'action:sources.delete.input',
@@ -6558,6 +6659,7 @@ export const WIRE_METHODS = {
     'paths.context': 'query:paths.context',
     'paths.system_folders': 'query:paths.system_folders',
     'redundancy.summary': 'query:redundancy.summary',
+    'search.content': 'query:search.content',
     'search.files': 'query:search.files',
     'search.grep': 'query:search.grep',
     'search.media': 'query:search.media',
