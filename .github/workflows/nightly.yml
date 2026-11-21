@@ -17,7 +17,9 @@
 # first run of a browser download; `sd update` replaces binaries in place and
 # is not affected.
 #
-# The binaries are built with sd-core's default features: no bundled FFmpeg,
+# The binaries are built with sd-core's default features plus `fuse`, which
+# only compiles on Linux and links no libfuse: the daemon calls fusermount3 when
+# someone mounts, so a machine without FUSE still runs it. No bundled FFmpeg,
 # libheif or Pdfium, so they do not depend on apps/.deps at runtime. macOS
 # reaches the same formats through its system codecs. Because `-p sd-cli -p
 # sd-core` without the `ffmpeg` feature never compiles crates/ffmpeg, the Linux
@@ -101,6 +103,7 @@ jobs:
         run: |
           cargo build --release --locked \
             -p sd-cli -p sd-core --bin sd-cli --bin sd-daemon \
+            --features sd-core/fuse \
             --target ${{ matrix.settings.target }}
 
       # Names are <binary>-<platform>, plus .exe on Windows; the updater

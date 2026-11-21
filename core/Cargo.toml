@@ -23,6 +23,9 @@ mobile = []
 cli = []
 # WASM plugin system. Pulls in the wasmer runtime, and is unavailable on mobile.
 wasm = ["dep:wasmer", "dep:wasmer-middlewares"]
+# Read-only FUSE mount of every source on Linux. Mounting needs fusermount3
+# at runtime; the build needs no libfuse headers.
+fuse = ["dep:fuser"]
 
 
 [dependencies]
@@ -247,6 +250,7 @@ libc = "0.2"
 # keeps cross-compiled and musl builds self-contained instead of hunting for
 # system openssl headers.
 openssl-sys = { version = "0.9", features = ["vendored"] }
+fuser = { version = "0.19", default-features = false, optional = true }
 
 [target.'cfg(target_env = "musl")'.dependencies]
 # The daemon's global allocator on static musl builds; see src/bin/daemon.rs.

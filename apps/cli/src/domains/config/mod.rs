@@ -18,14 +18,15 @@ pub enum ConfigCmd {
 	Get {
 		/// Configuration key: current_library_id, update.repo,
 		/// update.channel, replication.max_bytes_per_sec, replication.paused,
-		/// backup.restore_trash_keep
+		/// backup.restore_trash_keep, mounts.fuse_enabled
 		key: String,
 	},
 	/// Set a configuration value
 	Set {
 		/// Configuration key: update.repo, update.channel,
 		/// replication.max_bytes_per_sec (bytes, or K/M/G suffix),
-		/// replication.paused (true/false), backup.restore_trash_keep (count)
+		/// replication.paused (true/false), backup.restore_trash_keep (count),
+		/// mounts.fuse_enabled (true/false)
 		key: String,
 		/// Configuration value
 		value: String,
@@ -38,6 +39,7 @@ pub enum ConfigCmd {
 const REPLICATION_MAX_BYTES_PER_SEC: &str = "replication.max_bytes_per_sec";
 const REPLICATION_PAUSED: &str = "replication.paused";
 const BACKUP_RESTORE_TRASH_KEEP: &str = "backup.restore_trash_keep";
+const MOUNTS_FUSE_ENABLED: &str = "mounts.fuse_enabled";
 
 async fn daemon_config(socket_addr: &str) -> Result<AppConfigOutput> {
 	let core = CoreClient::new(socket_addr.to_string());
@@ -100,6 +102,10 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 					BACKUP_RESTORE_TRASH_KEEP,
 					&daemon.backup.restore_trash_keep.to_string(),
 				]);
+				table.add_row(vec![
+					MOUNTS_FUSE_ENABLED,
+					&daemon.mounts.fuse_enabled.to_string(),
+				]);
 			}
 
 			println!("{}", table);
@@ -131,6 +137,11 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 					.await?
 					.backup
 					.restore_trash_keep
+					.to_string(),
+				MOUNTS_FUSE_ENABLED => daemon_config(&socket_addr)
+					.await?
+					.mounts
+					.fuse_enabled
 					.to_string(),
 				_ => return Err(anyhow::anyhow!("Unknown config key: {}", key)),
 			};
@@ -187,6 +198,23 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 					return Err(anyhow::anyhow!(out.message));
 				}
 				println!("Set {} = {}", BACKUP_RESTORE_TRASH_KEEP, keep);
+			}
+			MOUNTS_FUSE_ENABLED => {
+				let enabled = parse_bool(&value)?;
+				let core = CoreClient::new(socket_addr.clone());
+				let input = UpdateAppConfigInput {
+					mounts_fuse_enabled: Some(enabled),
+					..UpdateAppConfigInput::default()
+				};
+				let out: UpdateAppConfigOutput = serde_json::from_value(
+					core.action(&input, None)
+						.await
+						.map_err(|e| anyhow::anyhow!("daemon refused the change: {e}"))?,
+				)?;
+				if !out.success {
+					return Err(anyhow::anyhow!(out.message));
+				}
+				println!("Set {} = {}", MOUNTS_FUSE_ENABLED, enabled);
 			}
 			"update.repo" => {
 				config.set_update_repo(value.clone(), &data_dir)?;

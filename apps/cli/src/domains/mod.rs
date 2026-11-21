@@ -4,6 +4,7 @@ pub mod daemon;
 pub mod devices;
 pub mod events;
 pub mod file;
+pub mod fuse;
 pub mod grant;
 pub mod index;
 pub mod job;

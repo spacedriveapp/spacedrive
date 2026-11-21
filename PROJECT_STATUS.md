@@ -36,6 +36,21 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Read-only FUSE mount on Linux (Capy FAN-12103, November 20). A daemon built
+with the `fuse` feature and `mounts.fuse_enabled` on mounts every source, local
+and replicated from paired devices, at a path through `sd-cli fuse mount`.
+Listings and attributes come from the arenas, bytes from the byte plane, so
+peer reads go through the block cache. `--grant` narrows a mount to one
+grant's folder, checks `authorize` on every listing and open, and takes the
+mount down within five seconds of revocation or expiry. Shutdown unmounts
+everything. `core/tests/fuse_mount_test.rs` runs in the acceptance group and,
+with `SD_REQUIRE_FUSE`, in the hosted zfs job. Linux release and nightly builds
+turn the feature on; it links no libfuse. Symlinks are left out of the mount.
+The block cache's L2 write now uses a unique temp per write, since a demand
+fetch and a read-ahead storing one block could tear it. The macOS mount stays
+the SMB share.
+`docs/core/fuse-mount.mdx`.
+
 Content reads never hydrate cloud placeholders (Capy SPAC-86, November 19,
 beta.1 blocker). Every path that reads file bytes stats the file first and
 refuses one macOS reports `SF_DATALESS`

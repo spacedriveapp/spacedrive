@@ -101,6 +101,10 @@ pub struct MountsConfig {
 	/// lowering this only costs refetching; it never loses anything.
 	#[serde(default = "default_cache_max_bytes")]
 	pub cache_max_bytes: u64,
+	/// Allow FUSE mounts on Linux. Off by default: a mount shows every
+	/// source to any process running as the daemon's user.
+	#[serde(default)]
+	pub fuse_enabled: bool,
 }
 
 fn default_cache_max_bytes() -> u64 {
@@ -111,6 +115,7 @@ impl Default for MountsConfig {
 	fn default() -> Self {
 		Self {
 			cache_max_bytes: default_cache_max_bytes(),
+			fuse_enabled: false,
 		}
 	}
 }

@@ -319,6 +319,16 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		features: Some("wasm"),
 		group: Group::Acceptance,
 	},
+	// The Linux FUSE mount. Its own build with the `fuse` feature; it skips
+	// with a reason where /dev/fuse or fusermount3 is missing unless
+	// SD_REQUIRE_FUSE is set.
+	TestSuite {
+		name: "FUSE mount test",
+		package: "sd-core",
+		test_args: &["--test", "fuse_mount_test"],
+		features: Some("fuse"),
+		group: Group::Acceptance,
+	},
 	// core("Sync event log test", &["--test", "sync_event_log_test"]),
 	// core("Sync metrics test", &["--test", "sync_metrics_test"]),
 	// core("Sync backfill test", &["--test", "sync_backfill_test"]),
