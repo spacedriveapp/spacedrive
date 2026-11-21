@@ -1810,6 +1810,44 @@ export type FsPlanSummary = { creates: Tally; directories_created: number; repla
  */
 collisions: number; attributes: number };
 
+export type FuseListInput = Record<string, never>;
+
+export type FuseListOutput = { 
+/**
+ * This daemon was built with FUSE support and runs on Linux.
+ */
+supported: boolean; 
+/**
+ * The daemon's config allows mounts.
+ */
+enabled: boolean; mounts: FuseMountInfo[] };
+
+/**
+ * A mount the daemon holds.
+ */
+export type FuseMountInfo = { path: string; 
+/**
+ * The grant the mount is bound to, when it shows only one directory.
+ */
+grant_id: string | null; 
+/**
+ * The granted directory the mount shows.
+ */
+granted_path: string | null; expires_at: string | null; mounted_at: string };
+
+export type FuseMountInput = { 
+/**
+ * An existing, empty directory to mount at.
+ */
+path: string; 
+/**
+ * Show only the directory this grant lends, checking the grant on
+ * every listing and open. Without one, every source is shown.
+ */
+grant_token?: string | null };
+
+export type FuseUnmountInput = { path: string };
+
 /**
  * Generic progress information that all job types can convert into
  */
@@ -3598,7 +3636,11 @@ export type MountsCacheStatusInput = Record<string, never>;
 /**
  * Mounts configuration output
  */
-export type MountsConfigOutput = { cache_max_bytes: number };
+export type MountsConfigOutput = { cache_max_bytes: number; 
+/**
+ * Whether FUSE mounts are allowed on this device.
+ */
+fuse_enabled: boolean };
 
 export type MountsReadTrace = { 
 /**
@@ -5515,6 +5557,11 @@ language?: string | null;
  */
 mounts_cache_max_bytes?: number | null; 
 /**
+ * Allow FUSE mounts on Linux. Mounts already up stay up when this is
+ * turned off; it only refuses new ones.
+ */
+mounts_fuse_enabled?: boolean | null; 
+/**
  * Ceiling on replica bytes per second, serving and fetching combined;
  * zero lifts it. Applies to transfers already in flight.
  */
@@ -6208,6 +6255,8 @@ export type CoreAction =
   |  { type: 'models.whisper.delete'; input: DeleteWhisperModelInput; output: DeleteWhisperModelOutput }
   |  { type: 'models.whisper.download'; input: DownloadWhisperModelInput; output: DownloadWhisperModelOutput }
   |  { type: 'mounts.cache_clear'; input: MountsCacheClearInput; output: MountsCacheClearOutput }
+  |  { type: 'mounts.fuse_mount'; input: FuseMountInput; output: FuseMountInfo }
+  |  { type: 'mounts.fuse_unmount'; input: FuseUnmountInput; output: FuseMountInfo }
   |  { type: 'mounts.replication_set_paused'; input: MountsReplicationSetPausedInput; output: MountsReplicationSetPausedOutput }
   |  { type: 'mounts.sync_peers'; input: MountsSyncPeersInput; output: MountsSyncPeersOutput }
   |  { type: 'mounts.trace_set'; input: MountsTraceSetInput; output: MountsTraceSetOutput }
@@ -6308,6 +6357,7 @@ export type CoreQuery =
   |  { type: 'libraries.list'; input: ListLibrariesInput; output: [LibraryInfo] }
   |  { type: 'models.whisper.list'; input: ListWhisperModelsInput; output: ListWhisperModelsOutput }
   |  { type: 'mounts.cache_status'; input: MountsCacheStatusInput; output: MountsCacheStatus }
+  |  { type: 'mounts.fuse_list'; input: FuseListInput; output: FuseListOutput }
   |  { type: 'mounts.read_trace'; input: MountsReadTraceInput; output: MountsReadTrace }
   |  { type: 'mounts.replication_status'; input: MountsReplicationStatusInput; output: ReplicationStatus }
   |  { type: 'mounts.status'; input: MountsStatusInput; output: MountsStatus }
@@ -6418,6 +6468,8 @@ export const WIRE_METHODS = {
     'models.whisper.delete': 'action:models.whisper.delete.input',
     'models.whisper.download': 'action:models.whisper.download.input',
     'mounts.cache_clear': 'action:mounts.cache_clear.input',
+    'mounts.fuse_mount': 'action:mounts.fuse_mount.input',
+    'mounts.fuse_unmount': 'action:mounts.fuse_unmount.input',
     'mounts.replication_set_paused': 'action:mounts.replication_set_paused.input',
     'mounts.sync_peers': 'action:mounts.sync_peers.input',
     'mounts.trace_set': 'action:mounts.trace_set.input',
@@ -6518,6 +6570,7 @@ export const WIRE_METHODS = {
     'libraries.list': 'query:libraries.list',
     'models.whisper.list': 'query:models.whisper.list',
     'mounts.cache_status': 'query:mounts.cache_status',
+    'mounts.fuse_list': 'query:mounts.fuse_list',
     'mounts.read_trace': 'query:mounts.read_trace',
     'mounts.replication_status': 'query:mounts.replication_status',
     'mounts.status': 'query:mounts.status',

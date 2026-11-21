@@ -38,6 +38,11 @@ pub struct UpdateAppConfigInput {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub mounts_cache_max_bytes: Option<u64>,
 
+	/// Allow FUSE mounts on Linux. Mounts already up stay up when this is
+	/// turned off; it only refuses new ones.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub mounts_fuse_enabled: Option<bool>,
+
 	/// Ceiling on replica bytes per second, serving and fetching combined;
 	/// zero lifts it. Applies to transfers already in flight.
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -207,6 +212,13 @@ impl CoreAction for UpdateAppConfigAction {
 				if let Some(cache) = crate::service::mounts::cache::cache() {
 					cache.set_max_bytes(cache_max_bytes).await;
 				}
+			}
+		}
+
+		if let Some(fuse_enabled) = self.input.mounts_fuse_enabled {
+			if config.mounts.fuse_enabled != fuse_enabled {
+				config.mounts.fuse_enabled = fuse_enabled;
+				changes.push("mounts_fuse_enabled");
 			}
 		}
 
