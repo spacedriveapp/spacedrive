@@ -113,11 +113,11 @@ CREATE TABLE board_member (
 
 Three kinds of member, one row shape:
 
-- **File.** `in_frame` and `out_frame` are NULL. Any kind of file can be a
+- File. `in_frame` and `out_frame` are NULL. Any kind of file can be a
   member: video, photo, audio, a document.
-- **Clip.** A frame range at the source's own rate. The fields match the clips
+- Clip. A frame range at the source's own rate. The fields match the clips
   contract, so a clip returned by `search_clips` can be added to a board as-is.
-- **Shot.** A clip whose range came from the shots sidecar. The row keeps the
+- Shot. A clip whose range came from the shots sidecar. The row keeps the
   frames and the `shot_id`. The frames are the truth. If the shot job reruns
   and that shot id no longer exists, the member keeps its frames and the board
   marks it "shot changed". A member never disappears because a detector moved a
@@ -164,17 +164,17 @@ rule hits  +  added members  -  removed members
 
 Nothing new. Each half rides a path that already exists for tags.
 
-- **Members** live in the store of the source that owns the record, in its
+- Members live in the store of the source that owns the record, in its
   assertion half. A member added on a device that does not own the source goes
   through `assertion_outbox` and `sources.assertions.merge` (`core/src/ops/tags/outbox.rs`)
   with a new kind, `board`. The owner merges it, and replicas receive it with
   the store. Two devices that add and remove the same member offline converge
   by HLC.
-- **Definitions** are copied into every store that holds a member, reconciled
+- Definitions are copied into every store that holds a member, reconciled
   by `updated_hlc`, and kept in a `board_staging` table in `library.db` while
   a board has no members, the same way `tag_staging` works. A detached drive
   carries the names of its boards.
-- **A rule-only board** has no members and lives only in `board_staging`.
+- A rule-only board has no members and lives only in `board_staging`.
   `board_staging` does not sync between devices in v1, exactly like
   `tag_staging` today. A rule board made on one device appears on another
   once it has an added member somewhere, or once library-plane assertion sync
@@ -188,11 +188,11 @@ boards.
 
 Agents point at a board by its uuid or its name. Two scopes follow from that.
 
-**Read through a directory grant.** An agent with an ordinary grant can list
+Read through a directory grant. An agent with an ordinary grant can list
 the boards that have members inside its directory, and read those members. It
 sees only members inside the grant. A board does not widen a grant.
 
-**A board grant.** A grant whose scope is a board instead of a directory:
+A board grant. A grant whose scope is a board instead of a directory:
 
 ```
 grant:
@@ -200,11 +200,13 @@ grant:
   caps    read | curate
 ```
 
-- `authorize` checks membership instead of containment: the path's record has
-  a current `asserted = 1` row, or is a rule hit. The membership lookup is an
-  indexed read on `board_member`. A rule hit costs a search, so the grant
-  resolves the rule once when it is created and on `grants.extend`, and holds
-  the result as a pinned set. A rule change does not widen a live grant.
+- The read set is fixed by the owner. When the owner creates the grant, and
+  again on `grants.extend`, the grant resolves the whole board (rule hits,
+  added members, removed members) and holds the result as a pinned set of
+  record uuids. `authorize` checks that the path's record is in the pinned set,
+  an indexed lookup. Nothing that changes the board later widens a live grant:
+  not a rule change, and not a member added by anyone, the grant holder
+  included.
 - The agent sees a flat virtual root of members, named by file name, with
   collisions numbered the way keep-both numbers them. Paths stay grant-relative,
   so the existing tools need no change.
@@ -216,7 +218,12 @@ grant:
   and a board spans sources and devices.
 - `curate` lets the agent add and remove members. That is an assertion write,
   not a file write, so the stale-refusal rules for files do not apply. It merges
-  by HLC like any other assertion.
+  by HLC like any other assertion. Curation can never grant the agent access it
+  did not already have. It may remove any member and narrow any member to a
+  clip or shot of the same file. It may add a record only when the agent can
+  already read that record, through this grant's pinned set or through a
+  directory grant it presents in the same request. A member the agent adds
+  enters its read set only after the owner extends or recreates the grant.
 - No grant can mint a public link.
 
 ## Decision 2: a share uploads a frozen manifest, and nothing else
@@ -301,10 +308,10 @@ target's id for the share. It does not sync in v1, again like grants.
 
 ### View-only and download
 
-- **View-only** streams renditions and shows no download control. This stops
+- View-only streams renditions and shows no download control. This stops
   casual saving and nothing more: a viewer can still record the screen. The UI
   says "view only" and does not promise protection.
-- **Download** adds per-item download and a zip of the share. Download offers
+- Download adds per-item download and a zip of the share. Download offers
   what was uploaded: renditions, and originals only when the share included
   them.
 - An optional password gates the page, and the owner sees when the link was
@@ -393,29 +400,29 @@ never combines two versions of a file."
 
 What this record does against them:
 
-1. **Board membership merges.** Members from several devices merge by HLC.
+1. Board membership merges. Members from several devices merge by HLC.
    That is assertion merge, which the Aug 20 previs kept HLC for and which tags
    already do. The amendment governs file writes, and its "merges of any kind"
    are out of scope for writes only
    ([agent-writes.md, line 25-26](agent-writes.md#L25-L26)). No conflict, but
    the plan docs should say so, since "frozen sync" and "no merges of any kind"
    both read as covering assertions.
-2. **Definitions avoid the frozen framework.** Spaces still sync through
+2. Definitions avoid the frozen framework. Spaces still sync through
    `Syncable` on main, although the Aug 20 teardown says that framework goes.
    This record keeps boards off it and on the tag path instead. The cost is that
    a rule-only board does not reach another device in v1.
-3. **Rules are matched at query time.** The previs says "Collections are
+3. Rules are matched at query time. The previs says "Collections are
    classified at index time, never matched at query time."
    ([line 226](../../plans/2026-08-20-architecture-previs.md#L226)). A board rule
    is matched at query time. These are different things: a collection is a
    built-in classification flag, a rule is a person's saved query. The name
    "collection" stays with the built-in ones.
-4. **Shares upload.** `shares-and-remote-libraries.md` (Aug 19) says a share
+4. Shares upload. `shares-and-remote-libraries.md` (Aug 19) says a share
    "reads from one authority" and moves no bytes, and puts the relay last.
    Selective shares hold pinned bytes. That is the storage service the same doc
    names, so this record extends that doc and does not contradict it. Its share
    record needs a `board` scope beside `subtree`.
-5. **No file writes.** Neither a board nor a share writes to a file. Nothing
+5. No file writes. Neither a board nor a share writes to a file. Nothing
    here touches the single-owner write rules.
 
 ## Name
@@ -427,12 +434,12 @@ board will sit under.
 
 | Name | Reads as | Collides with |
 |---|---|---|
-| **Board** | "the Japan board", "add these shots to the board" | nothing in core |
+| Board | "the Japan board", "add these shots to the board" | nothing in core |
 | Reel | footage, natural for shoots | the reel name field in EDL export, and short-video "reels" |
 | Set | neutral, an old word for a photo group | `Set` in code, "settings" and the verb in the UI |
 | Bin | the editor word for a group of clips | reads as trash outside editing |
 
-**Recommendation: Board.** It works for a trip, a shoot, and a mix of photos
+Recommendation: Board. It works for a trip, a shoot, and a mix of photos
 and clips, and it collides with nothing. Its cost is a hint of a spatial
 canvas, which v1 does not have.
 
