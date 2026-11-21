@@ -41,5 +41,6 @@ pub use detect::DetectParams;
 pub use job::{ShotDetectionJob, ShotDetectionOutput};
 pub use query::{ShotListInput, ShotListOutput, ShotListQuery};
 pub use sidecar::{
-	read_shots, shots_of_file, AnalyzedMedia, FramePoint, FrameRate, Shot, ShotList, SHOTS_VERSION,
+	content_uuid_of_video, read_shots, shots_of_file, AnalyzedMedia, FramePoint, FrameRate, Shot,
+	ShotList, SHOTS_VERSION,
 };

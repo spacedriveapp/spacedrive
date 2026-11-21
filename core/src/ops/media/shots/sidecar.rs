@@ -1,4 +1,6 @@
-//! The shots sidecar: its shape, and the one place that reads and writes it.
+//! # Shots sidecar
+//!
+//! The shape of the shot list, and the one place that reads and writes it.
 
 use std::{
 	io,
@@ -9,7 +11,10 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
 
-use crate::domain::sidecar::{content_uuid_of_file, ContentSidecar};
+use crate::{
+	domain::sidecar::{content_uuid_of_file, ContentSidecar},
+	ops::indexing::metadata::refuse_dataless,
+};
 
 /// The `version` of the shot list this build writes. A reader refuses a
 /// newer one rather than guess at fields it does not know the meaning of.
@@ -246,10 +251,16 @@ pub async fn read_shots(library_path: &Path, content_uuid: Uuid) -> io::Result<O
 
 /// The shot list of a local file, found by its candidate content uuid.
 pub async fn shots_of_file(library_path: &Path, file: &Path) -> io::Result<Option<ShotList>> {
-	let content_uuid = content_uuid_of_file(file)
+	read_shots(library_path, content_uuid_of_video(file).await?).await
+}
+
+/// The candidate content uuid of a local video. A cloud placeholder is
+/// refused rather than hashed, since hashing would download it.
+pub async fn content_uuid_of_video(file: &Path) -> io::Result<Uuid> {
+	refuse_dataless(file).await?;
+	content_uuid_of_file(file)
 		.await
-		.map_err(|error| io::Error::other(error.to_string()))?;
-	read_shots(library_path, content_uuid).await
+		.map_err(|error| io::Error::other(error.to_string()))
 }
 
 /// Write the shot list through a partial file, so a reader never sees half

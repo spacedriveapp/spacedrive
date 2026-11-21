@@ -135,7 +135,12 @@ The shot list holds every shot of the video, in order and with no gaps:
   The second rule catches jump cuts within one setup, which score low, without
   splitting fast handheld movement, which raises every frame around it. Of
   cuts closer together than `min_shot_seconds`, only the strongest is kept.
-  The defaults are 0.3 and 1 second.
+  The defaults are 0.3 and 1 second. The minimum length is measured on the
+  frames' own timestamps, so a variable frame rate video gets shots of the
+  length a viewer sees; its `seconds` fields still follow `rate`.
+- Runs on the same content take turns, and a rerun publishes its shot list
+  before removing keyframes the old list named. A cloud placeholder is refused
+  rather than downloaded.
 
 Read a shot list with `ops::media::shots::read_shots(library.path(), uuid)` or
 `shots_of_file`, never by parsing the file. The `media.shots.detect` action

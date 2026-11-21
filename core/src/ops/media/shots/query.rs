@@ -4,10 +4,14 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
 
-use super::{action::local_path, sidecar::read_shots, ShotList};
+use super::{
+	action::local_path,
+	sidecar::{content_uuid_of_video, read_shots},
+	ShotList,
+};
 use crate::{
 	context::CoreContext,
-	domain::{sidecar::content_uuid_of_file, SdPath},
+	domain::SdPath,
 	infra::query::{LibraryQuery, QueryError, QueryResult},
 };
 
@@ -51,7 +55,7 @@ impl LibraryQuery for ShotListQuery {
 			.await
 			.ok_or(QueryError::LibraryNotFound(library_id))?;
 		let path = local_path(&self.input.path).map_err(QueryError::InvalidInput)?;
-		let content_uuid = content_uuid_of_file(&path).await.map_err(|error| {
+		let content_uuid = content_uuid_of_video(&path).await.map_err(|error| {
 			QueryError::InvalidInput(format!("could not read the file: {error}"))
 		})?;
 		let shots = read_shots(library.path(), content_uuid)
