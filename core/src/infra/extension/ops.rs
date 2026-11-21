@@ -343,7 +343,7 @@ impl JobOps {
 			"jobs.dispatch" => self.job_dispatch(parse(payload)?).await,
 			"tags.add" => self.tag_change(parse(payload)?, true).await,
 			"tags.remove" => self.tag_change(parse(payload)?, false).await,
-			"ai.infer" => self.ai_infer(payload).await,
+			"ai.infer" => self.ai_infer(payload, ctx).await,
 			"config.get" => self.config_get().await,
 			"assertions.stamp" => self.assertion_stamp(),
 			_ => Err(OpError::new(
@@ -1078,7 +1078,7 @@ impl JobOps {
 	/// `{"ok": ...}` or `{"error": {...}}`, so one unreadable file fails
 	/// only itself. A build without the `ai-providers` feature, or a category
 	/// with no installed model, answers `not_available`.
-	async fn ai_infer(&self, payload: &[u8]) -> OpResult {
+	async fn ai_infer(&self, payload: &[u8], ctx: &JobContext<'_>) -> OpResult {
 		let (header, input) = split_frame(payload)?;
 		let inference: Inference = parse(header)?;
 		let category = inference
@@ -1100,12 +1100,18 @@ impl JobOps {
 		};
 		#[cfg(feature = "ai-providers")]
 		{
-			self.infer(&inference, category, grant.preference.as_deref(), input)
-				.await
+			self.infer(
+				&inference,
+				category,
+				grant.preference.as_deref(),
+				input,
+				ctx,
+			)
+			.await
 		}
 		#[cfg(not(feature = "ai-providers"))]
 		{
-			let _ = (grant, input);
+			let _ = (grant, input, ctx);
 			Err(OpError::not_available(format!(
 				"no {category} provider is installed for {} ({})",
 				inference.model, inference.task
@@ -1120,6 +1126,7 @@ impl JobOps {
 		category: &str,
 		preference: Option<&str>,
 		input: &[u8],
+		ctx: &JobContext<'_>,
 	) -> OpResult {
 		use crate::ops::ai::{AiError, Category, Preference, Provider};
 
@@ -1128,6 +1135,7 @@ impl JobOps {
 				"no {category} provider is installed; download one with ai.models.download"
 			)),
 			AiError::Input(message) => OpError::invalid_input(message),
+			AiError::Interrupted => OpError::new("interrupted", "job interrupted"),
 			other => OpError::failed(other.to_string()),
 		};
 		let Some(category) = Category::parse(category) else {
@@ -1143,7 +1151,10 @@ impl JobOps {
 						"a batch carries at most {MAX_INFER_ITEMS} items"
 					)));
 				}
-				if lengths.iter().sum::<usize>() != input.len() {
+				let total = lengths
+					.iter()
+					.try_fold(0usize, |sum, &len| sum.checked_add(len));
+				if total != Some(input.len()) {
 					return Err(OpError::invalid_input(
 						"item lengths do not match the input",
 					));
@@ -1189,7 +1200,12 @@ impl JobOps {
 			None
 		};
 		let mut results = registry
-			.run(provider, &inference.task, items, embedder)
+			.run(provider, &inference.task, items, embedder, || {
+				matches!(
+					futures::FutureExt::now_or_never(ctx.check_interrupt()),
+					Some(Err(_))
+				)
+			})
 			.await
 			.map_err(op_error)?;
 
