@@ -6,8 +6,6 @@
 
 use std::sync::Arc;
 
-use chrono::Utc;
-use sea_orm::{sea_query::Expr, ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tracing::info;
@@ -16,10 +14,7 @@ use uuid::Uuid;
 use super::{store, GrantInfo};
 use crate::{
 	context::CoreContext,
-	infra::{
-		action::{error::ActionError, LibraryAction},
-		db::entities::agent_grant,
-	},
+	infra::action::{error::ActionError, LibraryAction},
 	library::Library,
 };
 
@@ -60,11 +55,7 @@ impl LibraryAction for RevokeGrantAction {
 		{
 			return Err(ActionError::InvalidInput(format!("no grant {id}")));
 		}
-		agent_grant::Entity::update_many()
-			.col_expr(agent_grant::Column::RevokedAt, Expr::value(Utc::now()))
-			.filter(agent_grant::Column::Uuid.eq(id))
-			.filter(agent_grant::Column::RevokedAt.is_null())
-			.exec(db)
+		store::revoke(db, id)
 			.await
 			.map_err(|e| ActionError::Internal(format!("revoke grant: {e}")))?;
 		info!(grant = %id, "grant revoked");

@@ -29,6 +29,13 @@ pub struct Model {
 	pub created_at: DateTimeUtc,
 	pub expires_at: DateTimeUtc,
 	pub revoked_at: Option<DateTimeUtc>,
+	/// The OAuth client the grant was issued to, if it came from the
+	/// authorization flow rather than from the owner.
+	pub oauth_client: Option<String>,
+	/// Lowercase hex SHA-256 of the current refresh token. Replaced hashes
+	/// move to `agent_grant_spent_refresh`.
+	#[sea_orm(unique)]
+	pub refresh_hash: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

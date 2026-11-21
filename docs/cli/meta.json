@@ -6,6 +6,7 @@
 		"overview",
 		"mcp",
 		"agent-access",
+		"mcp-oauth",
 		"linux-deployment",
 		"library-sync-setup",
 		"multi-instance",

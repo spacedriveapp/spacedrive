@@ -67,6 +67,20 @@ pub async fn info_by_id(db: &DatabaseConnection, id: Uuid) -> Result<GrantInfo, 
 	Ok(info(row, last_used))
 }
 
+/// End one grant now. Revoking twice keeps the first revocation time.
+pub async fn revoke(db: &DatabaseConnection, id: Uuid) -> Result<u64, sea_orm::DbErr> {
+	Ok(agent_grant::Entity::update_many()
+		.col_expr(
+			agent_grant::Column::RevokedAt,
+			sea_orm::sea_query::Expr::value(Utc::now()),
+		)
+		.filter(agent_grant::Column::Uuid.eq(id))
+		.filter(agent_grant::Column::RevokedAt.is_null())
+		.exec(db)
+		.await?
+		.rows_affected)
+}
+
 /// End every live grant on a source. Returns how many were ended.
 pub async fn revoke_for_source(
 	db: &DatabaseConnection,
