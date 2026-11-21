@@ -74,7 +74,6 @@ export interface UseJobsReturn {
  * Handles job list queries, event subscriptions, and speed history tracking.
  */
 export function useJobs(options: UseJobsOptions = {}): UseJobsReturn {
-	const {onJobCompleted, onJobFailed, onJobCancelled} = options;
 	const [jobs, setJobs] = useState<ExtendedJobListItem[]>([]);
 	const client = useSpacedriveClient();
 
@@ -98,6 +97,14 @@ export function useJobs(options: UseJobsOptions = {}): UseJobsReturn {
 	useEffect(() => {
 		refetchRef.current = refetch;
 	}, [refetch]);
+
+	// Callers pass inline callbacks, and every JobProgress event re-renders
+	// the caller, so reading them through a ref keeps one subscription per
+	// mount instead of reopening it on every progress tick.
+	const optionsRef = useRef(options);
+	useEffect(() => {
+		optionsRef.current = options;
+	});
 
 	// Ref for stable jobs access to avoid stale closures in event handlers
 	const jobsRef = useRef<ExtendedJobListItem[]>([]);
@@ -157,6 +164,8 @@ export function useJobs(options: UseJobsOptions = {}): UseJobsReturn {
 						speedHistoryRef.current.delete(jobId);
 
 						// Call callbacks
+						const {onJobCompleted, onJobFailed, onJobCancelled} =
+							optionsRef.current;
 						if ('JobCompleted' in event) {
 							const jobType = event.JobCompleted?.job_type || '';
 							onJobCompleted?.(jobId, jobType);
@@ -240,7 +249,7 @@ export function useJobs(options: UseJobsOptions = {}): UseJobsReturn {
 			isCancelled = true;
 			unsubscribe?.();
 		};
-	}, [client, onJobCompleted, onJobFailed, onJobCancelled]);
+	}, [client]);
 
 	const pause = async (jobId: string) => {
 		try {

@@ -118,37 +118,59 @@ impl<J: JobHandler> JobExecutor<J> {
 		}
 	}
 
-	/// Update job status in the database
 	async fn update_job_status_in_db(&self, status: super::types::JobStatus) -> JobResult<()> {
-		use super::database;
-		use chrono::Utc;
-		use sea_orm::{ActiveModelTrait, ActiveValue::Set};
-
-		let mut job = database::jobs::ActiveModel {
-			id: Set(self.state.job_id.to_string()),
-			status: Set(status.to_string()),
-			..Default::default()
-		};
-
-		// Update timestamps based on status
-		match status {
-			super::types::JobStatus::Running => {
-				job.started_at = Set(Some(Utc::now()));
-			}
-			super::types::JobStatus::Paused => {
-				job.paused_at = Set(Some(Utc::now()));
-			}
-			super::types::JobStatus::Completed
-			| super::types::JobStatus::Failed
-			| super::types::JobStatus::Cancelled => {
-				job.completed_at = Set(Some(Utc::now()));
-			}
-			_ => {}
-		}
-
-		job.update(self.state.job_db.conn()).await?;
-		Ok(())
+		write_job_status(
+			&self.state.job_db,
+			self.state.job_id,
+			self.state.should_persist,
+			status,
+		)
+		.await
 	}
+}
+
+/// Writes a job's status to its row in the jobs table.
+///
+/// Ephemeral jobs (`should_persist() == false`) never get a row, so writing
+/// their status would match nothing and fail. Their status lives only in
+/// memory and in events.
+async fn write_job_status(
+	job_db: &JobDb,
+	job_id: JobId,
+	should_persist: bool,
+	status: super::types::JobStatus,
+) -> JobResult<()> {
+	use chrono::Utc;
+	use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+
+	if !should_persist {
+		return Ok(());
+	}
+
+	let mut job = database::jobs::ActiveModel {
+		id: Set(job_id.to_string()),
+		status: Set(status.to_string()),
+		..Default::default()
+	};
+
+	// Update timestamps based on status
+	match status {
+		super::types::JobStatus::Running => {
+			job.started_at = Set(Some(Utc::now()));
+		}
+		super::types::JobStatus::Paused => {
+			job.paused_at = Set(Some(Utc::now()));
+		}
+		super::types::JobStatus::Completed
+		| super::types::JobStatus::Failed
+		| super::types::JobStatus::Cancelled => {
+			job.completed_at = Set(Some(Utc::now()));
+		}
+		_ => {}
+	}
+
+	job.update(job_db.conn()).await?;
+	Ok(())
 }
 
 #[async_trait]
@@ -210,15 +232,15 @@ impl<J: JobHandler> JobExecutor<J> {
 		);
 
 		// Update status to running
-		warn!(
-			"DEBUG: JobExecutor setting status to Running for job {}",
+		debug!(
+			"JobExecutor setting status to Running for job {}",
 			self.state.job_id
 		);
 		let _ = self.state.status_tx.send(super::types::JobStatus::Running);
 
 		// Also persist status to database
-		warn!(
-			"DEBUG: JobExecutor updating database status to Running for job {}",
+		debug!(
+			"JobExecutor updating database status to Running for job {}",
 			self.state.job_id
 		);
 		if let Err(e) = self
@@ -227,8 +249,8 @@ impl<J: JobHandler> JobExecutor<J> {
 		{
 			error!("Failed to update job status in database: {}", e);
 		} else {
-			warn!(
-				"DEBUG: JobExecutor successfully updated database status to Running for job {}",
+			debug!(
+				"JobExecutor successfully updated database status to Running for job {}",
 				self.state.job_id
 			);
 		}
@@ -252,13 +274,10 @@ impl<J: JobHandler> JobExecutor<J> {
 		// Check if we're resuming by checking if the job has existing state
 		// This is a heuristic - if the job implements resumable logic, it should have state
 		let is_resuming = self.job.is_resuming();
-		warn!(
-			"DEBUG: Job {} is_resuming: {}",
-			self.state.job_id, is_resuming
-		);
+		debug!("Job {} is_resuming: {}", self.state.job_id, is_resuming);
 
 		if is_resuming {
-			warn!("DEBUG: Calling on_resume for job {}", self.state.job_id);
+			debug!("Calling on_resume for job {}", self.state.job_id);
 			if let Err(e) = self.job.on_resume(&ctx).await {
 				error!("Job {} on_resume failed: {}", self.state.job_id, e);
 				return Err(e);
@@ -539,5 +558,39 @@ impl<J: JobHandler + std::fmt::Debug> ErasedJob for JobExecutor<J> {
 
 	fn serialize_state(&self) -> Result<Vec<u8>, JobError> {
 		rmp_serde::to_vec(&self.job).map_err(|e| JobError::serialization(format!("{}", e)))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	async fn empty_job_db() -> (tempfile::TempDir, JobDb) {
+		let dir = tempfile::tempdir().unwrap();
+		let conn = database::init_database(&dir.path().join("jobs.db"))
+			.await
+			.unwrap();
+		(dir, JobDb::new(conn))
+	}
+
+	#[tokio::test]
+	async fn ephemeral_job_status_skips_the_jobs_table() {
+		let (_dir, db) = empty_job_db().await;
+		let job_id = JobId(uuid::Uuid::now_v7());
+
+		write_job_status(&db, job_id, false, JobStatus::Running)
+			.await
+			.expect("an ephemeral job has no row to update");
+		assert!(db.get_job(job_id).await.unwrap().is_none());
+	}
+
+	#[tokio::test]
+	async fn persisted_job_status_without_a_row_is_an_error() {
+		let (_dir, db) = empty_job_db().await;
+		let job_id = JobId(uuid::Uuid::now_v7());
+
+		assert!(write_job_status(&db, job_id, true, JobStatus::Running)
+			.await
+			.is_err());
 	}
 }

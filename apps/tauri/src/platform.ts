@@ -1,5 +1,6 @@
 import type {AvailableUpdate, Platform} from '@sd/interface';
 import {
+	Channel,
 	invoke,
 	convertFileSrc as tauriConvertFileSrc
 } from '@tauri-apps/api/core';
@@ -7,7 +8,6 @@ import {listen} from '@tauri-apps/api/event';
 import {getCurrentWebviewWindow} from '@tauri-apps/api/webviewWindow';
 import {ask, open, save} from '@tauri-apps/plugin-dialog';
 import {open as shellOpen} from '@tauri-apps/plugin-shell';
-import {check} from '@tauri-apps/plugin-updater';
 import {normalizeAssetProtocolPath} from './lib/assetPath';
 import {
 	beginDrag,
@@ -25,27 +25,24 @@ let _isDragging = false;
 const updaterEnabled =
 	import.meta.env.PROD && import.meta.env.VITE_SD_UPDATER === 'true';
 
+// The check runs in Rust (src-tauri/src/updater.rs) so a missing release
+// feed is logged as "no update" instead of the plugin's ERROR.
 async function checkForUpdate(): Promise<AvailableUpdate | null> {
-	const update = await check();
+	const update = await invoke<{
+		version: string;
+		currentVersion: string;
+	} | null>('check_for_update');
 	if (!update) return null;
 
 	return {
-		version: update.version,
-		currentVersion: update.currentVersion,
+		...update,
 		async installAndRestart(onProgress) {
-			let total = 0;
-			let downloaded = 0;
-			await update.downloadAndInstall((event) => {
-				if (event.event === 'Started') {
-					total = event.data.contentLength ?? 0;
-				} else if (event.event === 'Progress') {
-					downloaded += event.data.chunkLength;
-					onProgress?.(
-						total > 0
-							? Math.round((downloaded / total) * 100)
-							: undefined
-					);
-				}
+			const progress = new Channel<number | null>();
+			progress.onmessage = (percent) =>
+				onProgress?.(percent ?? undefined);
+			await invoke('install_update', {
+				version: update.version,
+				onProgress: progress
 			});
 			await invoke('restart_after_update');
 		}
