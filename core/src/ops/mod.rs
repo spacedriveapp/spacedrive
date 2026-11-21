@@ -28,6 +28,8 @@ pub mod navigation;
 pub mod network;
 pub mod paths;
 pub mod processes;
+#[cfg(feature = "video-proxies")]
+pub mod proxies;
 pub mod redundancy;
 pub mod search;
 pub mod sources;

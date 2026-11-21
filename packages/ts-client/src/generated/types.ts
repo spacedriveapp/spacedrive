@@ -2742,6 +2742,10 @@ export type JobOutput =
  */
 { type: "ThumbnailGeneration"; data: { generated_count: number; skipped_count: number; error_count: number; total_size_bytes: number } } | 
 /**
+ * Video proxy and speech audio generation output
+ */
+{ type: "ProxyGeneration"; data: { generated_count: number; skipped_count: number; error_count: number } } | 
+/**
  * File move/rename operation output
  */
 { type: "FileMove"; data: { moved_count: number; failed_count: number; total_bytes: number } } | 

@@ -53,15 +53,24 @@ The rules every reader can rely on:
 - A proxy keeps the display orientation of the original and never upscales: the
   short side is 720 (or 1080), or the original's when that is smaller, rounded
   down to an even number. It has a keyframe every second, so a seek or a clip
-  cut lands within one second of the requested time without re-encoding. It
-  carries the first audio track as AAC stereo when the original has one, and
-  its index sits at the front of the file (`faststart`) so it plays over a
-  range request.
+  cut lands within one second of the requested time without re-encoding.
+- A proxy has the same frames as its original, at the same times. Frame timing
+  passes through with no rate conversion, a variable-rate source stays
+  variable, and the first frame is at time 0. Frame `n` of the proxy is frame
+  `n` of the original, so shot boundaries and timeline points found on the
+  proxy apply to the original unchanged. When the original has a start
+  timecode, the proxy carries the same one as a `tmcd` track and a
+  `timecode` tag, so an editor timeline that points at the proxy shows the
+  original's timecodes.
+- A proxy carries the first audio track as AAC stereo when the original has
+  one. Its index sits at the front of the file (`faststart`), so it plays over
+  a range request.
 - Speech audio is the first audio track, downmixed and resampled. A video with
   no audio track has no audio sidecar.
-- A file at one of these paths is complete. Writers produce `.<variant>.partial.<ext>`
-  in the same directory and rename it into place, so a reader never sees a
-  half-written proxy.
+- A file at one of these paths is complete. Writers produce
+  `.<variant>.partial-<id>.<ext>` in the same directory and rename it into
+  place, so a reader never sees a half-written proxy. Ignore files that start
+  with a dot.
 - A change to a recipe that alters the output takes a new variant name, such as
   `720p.r2`, rather than overwriting files readers already hold.
 

@@ -26,6 +26,8 @@ wasm = ["dep:wasmer", "dep:wasmer-middlewares"]
 # Read-only FUSE mount of every source on Linux. Mounting needs fusermount3
 # at runtime; the build needs no libfuse headers.
 fuse = ["dep:fuser"]
+# Video proxies and speech audio for footage, written with the host FFmpeg.
+video-proxies = []
 
 
 [dependencies]
