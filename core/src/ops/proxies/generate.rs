@@ -7,8 +7,9 @@
 //! what makes a rerun, or a run over moved and renamed files, do nothing.
 
 use std::{
+	collections::HashMap,
 	path::{Component, Path, PathBuf},
-	sync::Arc,
+	sync::{Arc, LazyLock, Mutex},
 };
 
 use serde::{Deserialize, Serialize};
@@ -23,8 +24,15 @@ use crate::{
 		job::{handle::JobReceipt, prelude::*, traits::DynJob},
 	},
 	library::Library,
+	ops::indexing::metadata::{refuse_dataless, DATALESS_REASON},
 	service::thumbs::is_video,
 };
+
+/// One writer per sidecar path in this daemon. Overlapping scopes, or two
+/// resolutions sharing the speech audio, otherwise encode the same output at
+/// once and clear each other's partials.
+static WRITERS: LazyLock<Mutex<HashMap<PathBuf, Arc<tokio::sync::Mutex<()>>>>> =
+	LazyLock::new(Default::default);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ProxyGenerateInput {
@@ -139,6 +147,8 @@ impl DynJob for ProxyGenerateJob {
 enum Outcome {
 	Generated,
 	Skipped,
+	/// Not read, such as a cloud placeholder that reading would download.
+	Unavailable(String),
 	Failed(String),
 }
 
@@ -190,6 +200,10 @@ impl JobHandler for ProxyGenerateJob {
 			{
 				Outcome::Generated => self.generated += 1,
 				Outcome::Skipped => self.skipped += 1,
+				Outcome::Unavailable(reason) => {
+					self.skipped += 1;
+					ctx.add_warning(format!("{}: {reason}", video.display()));
+				}
 				Outcome::Failed(reason) => {
 					self.failed += 1;
 					ctx.add_warning(format!("{}: {reason}", video.display()));
@@ -225,6 +239,11 @@ impl ProxyGenerateJob {
 		video: &Path,
 		report: impl Fn(&str, f64),
 	) -> JobResult<Outcome> {
+		// Hashing, probing or encoding a placeholder would download it, and a
+		// footage folder in a cloud drive can be terabytes.
+		if refuse_dataless(video).await.is_err() {
+			return Ok(Outcome::Unavailable(DATALESS_REASON.to_string()));
+		}
 		let content_uuid = match content_uuid_of_file(video).await {
 			Ok(uuid) => uuid,
 			Err(error) => return Ok(Outcome::Failed(format!("hash: {error}"))),
@@ -315,8 +334,51 @@ async fn publish(
 		.expect("sidecar paths have a file name")
 		.to_string_lossy();
 	let (stem, extension) = name.rsplit_once('.').unwrap_or((&name, ""));
-	// An FFmpeg orphaned by a killed daemon can still be writing an older
-	// partial. Unlinking it leaves that process writing to a file nobody
+	let writer = WRITERS
+		.lock()
+		.unwrap_or_else(|e| e.into_inner())
+		.entry(output.to_path_buf())
+		.or_default()
+		.clone();
+	let result = {
+		let _held = writer.lock().await;
+		if output.is_file() {
+			Ok(Ok(()))
+		} else {
+			encode(
+				ctx,
+				ffmpeg,
+				output,
+				parent,
+				stem,
+				extension,
+				args,
+				on_progress,
+			)
+			.await
+		}
+	};
+	let mut writers = WRITERS.lock().unwrap_or_else(|e| e.into_inner());
+	if Arc::strong_count(&writer) == 2 {
+		writers.remove(output);
+	}
+	result
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn encode(
+	ctx: &JobContext<'_>,
+	ffmpeg: &Path,
+	output: &Path,
+	parent: &Path,
+	stem: &str,
+	extension: &str,
+	args: impl FnOnce(&Path) -> Vec<std::ffi::OsString>,
+	on_progress: impl FnMut(f64),
+) -> JobResult<Result<(), String>> {
+	// Holding the writer lock, any partial here belongs to no live attempt in
+	// this daemon: it is left by a killed one, whose orphaned FFmpeg may still
+	// be writing. Unlinking leaves that process writing to a file nobody
 	// reads, and the unique name keeps it off this attempt's output.
 	let prefix = format!(".{stem}.partial");
 	if let Ok(mut entries) = tokio::fs::read_dir(parent).await {
@@ -336,7 +398,12 @@ async fn publish(
 	}
 	match tokio::fs::metadata(&partial).await {
 		Ok(metadata) if metadata.len() > 0 => {}
-		_ => return Ok(Err(format!("FFmpeg wrote no output for {name}"))),
+		_ => {
+			return Ok(Err(format!(
+				"FFmpeg wrote no output for {}",
+				output.display()
+			)))
+		}
 	}
 	Ok(tokio::fs::rename(&partial, output)
 		.await
