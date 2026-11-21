@@ -12152,6 +12152,7 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "trash",
+ "url",
  "uuid",
  "vergen",
  "wasmer",
