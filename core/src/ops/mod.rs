@@ -22,6 +22,8 @@ pub mod grants;
 pub mod indexing;
 pub mod jobs;
 pub mod libraries;
+#[cfg(feature = "video-shots")]
+pub mod media;
 pub mod models;
 pub mod mounts;
 pub mod navigation;

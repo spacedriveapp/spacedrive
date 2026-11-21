@@ -26,6 +26,9 @@ wasm = ["dep:wasmer", "dep:wasmer-middlewares"]
 # Read-only FUSE mount of every source on Linux. Mounting needs fusermount3
 # at runtime; the build needs no libfuse headers.
 fuse = ["dep:fuser"]
+# Shot detection on video with host FFmpeg: the media.shots ops, the shots
+# and keyframe sidecars, and the agent MCP list_shots tool.
+video-shots = []
 
 
 [dependencies]

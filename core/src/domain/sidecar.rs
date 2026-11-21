@@ -7,7 +7,11 @@
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::fmt;
+use std::{
+	fmt,
+	path::{Path, PathBuf},
+};
+use uuid::Uuid;
 
 /// What a sidecar holds. The core kinds are closed; an extension declares
 /// its own in its manifest (`write_sidecars`) and they live under the
@@ -23,6 +27,9 @@ pub enum SidecarKind {
 	Ocr,
 	Transcript,
 	GaussianSplat,
+	Audio,
+	Shots,
+	Keyframe,
 	Extension { extension_id: String, kind: String },
 }
 
@@ -56,6 +63,9 @@ impl SidecarKind {
 			Self::Ocr => "ocr",
 			Self::Transcript => "transcript",
 			Self::GaussianSplat => "gaussian_splat",
+			Self::Audio => "audio",
+			Self::Shots => "shots",
+			Self::Keyframe => "keyframe",
 			Self::Extension { kind, .. } => kind,
 		}
 	}
@@ -94,6 +104,9 @@ impl TryFrom<&str> for SidecarKind {
 			"ocr" => Ok(Self::Ocr),
 			"transcript" => Ok(Self::Transcript),
 			"gaussian_splat" => Ok(Self::GaussianSplat),
+			"audio" => Ok(Self::Audio),
+			"shots" => Ok(Self::Shots),
+			"keyframe" => Ok(Self::Keyframe),
 			_ => Err(format!("Invalid sidecar kind: {}", value)),
 		}
 	}
@@ -139,6 +152,8 @@ impl From<String> for SidecarVariant {
 /// - MessagePack: Binary structured data (embeddings, vectors)
 /// - Text: Plain text extractions
 /// - Ply: 3D model format for Gaussian splats
+/// - Wav: Uncompressed audio that speech models read without decoding
+/// - Jpeg: Video keyframes, which FFmpeg writes without optional encoders
 ///
 /// MessagePack is preferred for embeddings because:
 /// - 6x smaller than JSON (1.7KB vs 10KB per 384-dim vector)
@@ -154,6 +169,8 @@ pub enum SidecarFormat {
 	MessagePack,
 	Text,
 	Ply,
+	Wav,
+	Jpeg,
 }
 
 impl SidecarFormat {
@@ -165,6 +182,8 @@ impl SidecarFormat {
 			Self::MessagePack => "msgpack",
 			Self::Text => "txt",
 			Self::Ply => "ply",
+			Self::Wav => "wav",
+			Self::Jpeg => "jpg",
 		}
 	}
 
@@ -176,6 +195,8 @@ impl SidecarFormat {
 			Self::MessagePack => "messagepack",
 			Self::Text => "text",
 			Self::Ply => "ply",
+			Self::Wav => "wav",
+			Self::Jpeg => "jpeg",
 		}
 	}
 }
@@ -197,6 +218,8 @@ impl TryFrom<&str> for SidecarFormat {
 			"msgpack" | "messagepack" => Ok(Self::MessagePack),
 			"text" | "txt" => Ok(Self::Text),
 			"ply" => Ok(Self::Ply),
+			"wav" => Ok(Self::Wav),
+			"jpeg" | "jpg" => Ok(Self::Jpeg),
 			_ => Err(format!("Invalid sidecar format: {}", value)),
 		}
 	}
@@ -244,5 +267,162 @@ impl TryFrom<String> for SidecarFormat {
 
 	fn try_from(value: String) -> Result<Self, Self::Error> {
 		Self::try_from(value.as_str())
+	}
+}
+
+/// Height of the short side of a video proxy.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+pub enum ProxyResolution {
+	#[default]
+	#[serde(rename = "720p")]
+	P720,
+	#[serde(rename = "1080p")]
+	P1080,
+}
+
+impl ProxyResolution {
+	pub fn short_side(&self) -> u32 {
+		match self {
+			Self::P720 => 720,
+			Self::P1080 => 1080,
+		}
+	}
+
+	pub fn variant(&self) -> &'static str {
+		match self {
+			Self::P720 => "720p",
+			Self::P1080 => "1080p",
+		}
+	}
+}
+
+/// A sidecar addressed by the bytes it was derived from.
+///
+/// Media sidecars follow content rather than a record, so a moved, renamed
+/// or copied file finds the proxy and audio already made for its bytes. The
+/// content uuid is the candidate one, `sd_store::content::uuid_for` of the
+/// sampled hash: it exists before a full hash does and stays put when one
+/// lands. Every writer and reader resolves paths here, so the layout in
+/// `docs/core/virtual-sidecars.mdx` has one implementation.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ContentSidecar {
+	pub content_uuid: Uuid,
+	pub kind: SidecarKind,
+	pub variant: SidecarVariant,
+	pub format: SidecarFormat,
+}
+
+impl ContentSidecar {
+	/// Speech audio: 16 kHz mono 16-bit PCM WAV, the input speech models take.
+	pub const SPEECH_AUDIO_VARIANT: &'static str = "16k_mono";
+
+	/// H.264 proxy with a keyframe every second.
+	pub fn proxy(content_uuid: Uuid, resolution: ProxyResolution) -> Self {
+		Self {
+			content_uuid,
+			kind: SidecarKind::Proxy,
+			variant: SidecarVariant::new(resolution.variant()),
+			format: SidecarFormat::Mp4,
+		}
+	}
+
+	pub fn speech_audio(content_uuid: Uuid) -> Self {
+		Self {
+			content_uuid,
+			kind: SidecarKind::Audio,
+			variant: SidecarVariant::new(Self::SPEECH_AUDIO_VARIANT),
+			format: SidecarFormat::Wav,
+		}
+	}
+
+	/// The shot list the shot detection job writes.
+	pub fn shots(content_uuid: Uuid) -> Self {
+		Self {
+			content_uuid,
+			kind: SidecarKind::Shots,
+			variant: SidecarVariant::new("default"),
+			format: SidecarFormat::Json,
+		}
+	}
+
+	/// The representative frame of one shot, named by the shot id.
+	pub fn keyframe(content_uuid: Uuid, shot_id: Uuid) -> Self {
+		Self {
+			content_uuid,
+			kind: SidecarKind::Keyframe,
+			variant: SidecarVariant::new(shot_id.to_string()),
+			format: SidecarFormat::Jpeg,
+		}
+	}
+
+	/// Path relative to a library's `sidecars` directory.
+	pub fn relative_path(&self) -> PathBuf {
+		sd_sidecar_path::relative_path(
+			&self.content_uuid,
+			&self.kind.directory(),
+			self.variant.as_str(),
+			self.format.extension(),
+		)
+	}
+
+	/// Absolute path under a library directory (`Library::path()`).
+	pub fn path_in(&self, library_path: &Path) -> PathBuf {
+		library_path.join("sidecars").join(self.relative_path())
+	}
+}
+
+/// The candidate content uuid of a local file, the key media sidecars use.
+///
+/// This is the same sampled hash the indexer stores, so a file the indexer
+/// has reached and one it has not resolve to the same sidecars.
+pub async fn content_uuid_of_file(
+	path: &Path,
+) -> Result<Uuid, crate::domain::content_identity::ContentHashError> {
+	let hash =
+		crate::domain::content_identity::ContentHashGenerator::generate_content_hash(path).await?;
+	Ok(sd_store::content::uuid_for(&hash))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn media_sidecars_resolve_to_the_documented_layout() {
+		let uuid = Uuid::parse_str("abcd1234-5678-90ab-cdef-123456789012").unwrap();
+		let library = Path::new("/data/libraries/abc.sdlibrary");
+		assert_eq!(
+			ContentSidecar::proxy(uuid, ProxyResolution::P720).path_in(library),
+			PathBuf::from("/data/libraries/abc.sdlibrary/sidecars/content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/proxies/720p.mp4")
+		);
+		assert_eq!(
+			ContentSidecar::proxy(uuid, ProxyResolution::P1080).relative_path(),
+			PathBuf::from("content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/proxies/1080p.mp4")
+		);
+		assert_eq!(
+			ContentSidecar::speech_audio(uuid).relative_path(),
+			PathBuf::from("content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/audio/16k_mono.wav")
+		);
+		assert_eq!(
+			ContentSidecar::shots(uuid).relative_path(),
+			PathBuf::from("content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/shots/default.json")
+		);
+		let shot = Uuid::parse_str("00000000-0000-5000-8000-000000000001").unwrap();
+		assert_eq!(
+			ContentSidecar::keyframe(uuid, shot).relative_path(),
+			PathBuf::from("content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/keyframes/00000000-0000-5000-8000-000000000001.jpg")
+		);
+	}
+
+	#[test]
+	fn proxy_resolution_serializes_as_its_variant() {
+		assert_eq!(
+			serde_json::to_string(&ProxyResolution::P1080).unwrap(),
+			"\"1080p\""
+		);
+		assert_eq!(
+			serde_json::from_str::<ProxyResolution>("\"720p\"").unwrap(),
+			ProxyResolution::P720
+		);
 	}
 }

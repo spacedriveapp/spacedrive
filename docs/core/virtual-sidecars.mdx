@@ -10,13 +10,144 @@ representations without modifying the original bytes.
 
 ## What exists today
 
-Thumbnail tiles are the first managed sidecar kind in the source world, and the
-only one so far. They are record-scoped: every file has a record from its first
+Thumbnail tiles are the first managed sidecar kind in the source world. Video
+proxies and speech audio, described under [Media sidecars](#media-sidecars),
+are the second. They are record-scoped: every file has a record from its first
 walk, while a content id arrives later and is re-derived when a full hash
 lands. They are retained as persistent sidecars of their source, and peers
 replicate them by reading everything a source has written after their cursor.
 [Thumbnail Generation](./thumbnail-generation.mdx) describes how they are made
 and used. The rest of this page is the model the remaining kinds follow.
+
+## Media sidecars
+
+Video proxies and speech audio are the first content-scoped sidecars. Every
+later step that reads footage (transcripts, shot detection, scene descriptions,
+faces, clip export) reads these files instead of the original, so their names
+and formats are fixed here.
+
+They live under the library directory:
+
+```
+<library>/sidecars/content/<h0>/<h1>/<content_uuid>/<kind_dir>/<variant>.<ext>
+```
+
+`h0` and `h1` are the first two byte-pairs of the content uuid in lowercase hex
+without hyphens. For a video whose content uuid is
+`abcd1234-5678-90ab-cdef-123456789012`:
+
+| Artifact | Path under `sidecars/` | Format |
+| --- | --- | --- |
+| Proxy, default | `content/ab/cd/abcd1234-…/proxies/720p.mp4` | H.264 High, yuv420p, short side 720 |
+| Proxy, optional | `content/ab/cd/abcd1234-…/proxies/1080p.mp4` | H.264 High, yuv420p, short side 1080 |
+| Speech audio | `content/ab/cd/abcd1234-…/audio/16k_mono.wav` | PCM signed 16-bit little-endian, 16 kHz, mono |
+
+The rules every reader can rely on:
+
+- The content uuid is the candidate id: `sd_store::content::uuid_for` of the
+  file's sampled hash, which is the `candidate_uuid` column of a source's
+  `content` table. It exists before a full hash does and does not change when
+  one lands. A moved, renamed or copied file keeps its sidecars.
+- A proxy keeps the display orientation of the original and never upscales: the
+  short side is 720 (or 1080), or the original's when that is smaller, rounded
+  down to an even number. It has a keyframe every second, so a seek or a clip
+  cut lands within one second of the requested time without re-encoding. It
+  carries the first audio track as AAC stereo when the original has one, and
+  its index sits at the front of the file (`faststart`) so it plays over a
+  range request.
+- Speech audio is the first audio track, downmixed and resampled. A video with
+  no audio track has no audio sidecar.
+- A file at one of these paths is complete. Writers produce `.<variant>.partial.<ext>`
+  in the same directory and rename it into place, so a reader never sees a
+  half-written proxy.
+- A change to a recipe that alters the output takes a new variant name, such as
+  `720p.r2`, rather than overwriting files readers already hold.
+
+Resolve paths with `ContentSidecar` in `core/src/domain/sidecar.rs`
+(`ContentSidecar::proxy(uuid, ProxyResolution::P720).path_in(library.path())`,
+`ContentSidecar::speech_audio(uuid)`), and get a file's content uuid with
+`content_uuid_of_file`. Processes that do not link the core use the
+`sd-sidecar-path` crate, which owns the directory names. The daemon serves the
+same files at `/sidecar/<library_id>/<content_uuid>/<kind>/<variant>.<ext>`,
+where `kind` is `proxy` or `audio`.
+
+The `media.proxies.generate` action writes them. It runs only in a daemon built
+with the `video-proxies` cargo feature, which is off by default.
+
+### Shots
+
+Shot detection splits a video into shots, the unit that scene descriptions,
+faces and clip export attach to. It writes two more content sidecars beside
+the proxy:
+
+| Artifact | Path under `sidecars/` | Format |
+| --- | --- | --- |
+| Shot list | `content/ab/cd/abcd1234-…/shots/default.json` | JSON, described below |
+| Keyframe of one shot | `content/ab/cd/abcd1234-…/keyframes/<shot id>.jpg` | JPEG, short side at most 720, display orientation |
+
+The shot list holds every shot of the video, in order and with no gaps:
+
+```json
+{
+  "version": 1,
+  "content_uuid": "abcd1234-5678-90ab-cdef-123456789012",
+  "analyzed": "proxy",
+  "rate": { "num": 24000, "den": 1001 },
+  "start_timecode": "14:01:20:00",
+  "out_exclusive": true,
+  "duration": { "frame": 21600, "seconds": 900.9, "timecode": "00:15:00:00" },
+  "threshold": 0.3,
+  "min_shot_seconds": 1.0,
+  "shots": [
+    {
+      "id": "3068107f-3888-5f08-88f9-1df8db177204",
+      "index": 1,
+      "in": { "frame": 1104, "seconds": 46.046, "timecode": "14:02:06:00" },
+      "out": { "frame": 1420, "seconds": 59.2259, "timecode": "14:02:19:04" },
+      "duration_frames": 316,
+      "duration_seconds": 13.1798,
+      "keyframe": { "frame": 1262, "seconds": 52.6359, "timecode": "14:02:12:14" },
+      "cut_score": 0.41
+    }
+  ]
+}
+```
+
+- Every time is a whole frame count from the first frame of the file, at
+  `rate`, the original's average frame rate from FFprobe as a reduced
+  fraction. `seconds` is `frame * den / num`. `timecode` adds the original's
+  embedded start timecode when it has one, and is drop-frame when that start
+  timecode is. `duration` counts from zero and ignores the start timecode.
+- `out` is exclusive: the first frame after the shot. One shot's `out` is the
+  next shot's `in`, and the last shot's `out` is the frame count.
+- `id` is a UUID v5 in the content uuid's namespace of `shot:<in>:<out>`. A
+  rerun that finds the same boundaries keeps the same ids, and a shot whose
+  boundary moves gets a new one. A keyframe file is named by its shot's id,
+  so a rerun reuses the images of unchanged shots and removes the rest.
+- `keyframe` is the middle frame of the shot. `cut_score` is the scene score
+  of the cut that opens the shot, and 0 for the first.
+- `analyzed` says which file was scored: the 720p proxy when it exists, else
+  the original. A proxy keeps the original's frames, so frame numbers mean the
+  same thing either way. Re-encoding moves scene scores a little, so a cut
+  close to the threshold can come and go between the two.
+- A cut is a frame whose scene score is at least `threshold`, or at least half
+  of it and four times the mean score of the half second either side of it.
+  The second rule catches jump cuts within one setup, which score low, without
+  splitting fast handheld movement, which raises every frame around it. Of
+  cuts closer together than `min_shot_seconds`, only the strongest is kept.
+  The defaults are 0.3 and 1 second. The minimum length is measured on the
+  frames' own timestamps, so a variable frame rate video gets shots of the
+  length a viewer sees; its `seconds` fields still follow `rate`.
+- Runs on the same content take turns, and a rerun publishes its shot list
+  before removing keyframes the old list named. A cloud placeholder is refused
+  rather than downloaded.
+
+Read a shot list with `ops::media::shots::read_shots(library.path(), uuid)` or
+`shots_of_file`, never by parsing the file. The `media.shots.detect` action
+runs the job, the `media.shots.list` query returns a file's shot list, and the
+agent MCP endpoint answers `list_shots` for a video inside a grant. All of
+them, and the job, exist only in a daemon built with the `video-shots` cargo
+feature, which is off by default.
 
 ## Sidecar classes
 
