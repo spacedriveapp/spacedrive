@@ -7,8 +7,8 @@ import { useExplorerFiles } from "../hooks/useExplorerFiles";
  * once access is granted.
  */
 export function AwaitingPermissionBanner() {
-	const { awaitingPermission, files } = useExplorerFiles();
-	if (!awaitingPermission || files.length > 0) return null;
+	const { awaitingPermission } = useExplorerFiles();
+	if (!awaitingPermission) return null;
 
 	return (
 		<div className="mx-2 mb-1.5 flex items-center gap-3 rounded-md border border-app-line bg-app-box px-3 py-1.5 text-xs">

@@ -488,6 +488,9 @@ pub struct VolumeIndex {
 	/// Woken when a blocked listing returns, which is what answering the
 	/// prompt looks like from here.
 	access_answered: tokio::sync::Notify,
+	/// Opens [`Self::opens_in_time`] has under way, each with the answer its
+	/// callers wait for, so concurrent looks at one folder share one open.
+	opening: Mutex<HashMap<PathBuf, tokio::sync::watch::Receiver<Option<bool>>>>,
 	created_at: Instant,
 }
 
@@ -523,6 +526,7 @@ impl VolumeIndex {
 			refused_watches: Mutex::new(HashMap::new()),
 			awaiting_access: Mutex::new(BTreeMap::new()),
 			access_answered: tokio::sync::Notify::new(),
+			opening: Mutex::new(HashMap::new()),
 			created_at: Instant::now(),
 		})
 	}
@@ -2961,6 +2965,59 @@ impl VolumeIndex {
 			}
 			cache.access_answered.notify_one();
 		});
+	}
+
+	/// Whether `dir` opens within `bound`, trying the open `open` starts.
+	///
+	/// Concurrent callers share one open, and none starts while an earlier
+	/// open of the folder is still blocked, so however many listings ask
+	/// about a folder behind an unanswered prompt it holds one blocked
+	/// thread. The open runs on its own task, so a caller that gives up does
+	/// not strand the others. One that does not answer is recorded as
+	/// waiting on access.
+	pub async fn opens_in_time<T: Send + 'static>(
+		self: &Arc<Self>,
+		dir: &Path,
+		bound: Duration,
+		open: impl FnOnce() -> tokio::task::JoinHandle<T>,
+	) -> bool {
+		use crate::ops::indexing::reconcile::{bounded, Bounded};
+
+		if self.access_blocked(dir) {
+			return false;
+		}
+		let mut answer = {
+			let mut opening = self.opening.lock();
+			match opening.get(dir) {
+				Some(answer) => answer.clone(),
+				None => {
+					let (tell, answer) = tokio::sync::watch::channel(None);
+					opening.insert(dir.to_path_buf(), answer.clone());
+					let cache = self.clone();
+					let dir = dir.to_path_buf();
+					let listing = open();
+					tokio::spawn(async move {
+						let answered = match bounded(bound, listing).await {
+							Bounded::Answered(_) => true,
+							Bounded::Unanswered(listing) => {
+								cache.await_access(dir.clone(), bound, listing);
+								false
+							}
+						};
+						cache.opening.lock().remove(&dir);
+						let _ = tell.send(Some(answered));
+					});
+					answer
+				}
+			}
+		};
+		matches!(
+			answer
+				.wait_for(Option::is_some)
+				.await
+				.map(|answered| *answered),
+			Ok(Some(true))
+		)
 	}
 
 	/// A directory read in full, or gone: it no longer waits on anything.

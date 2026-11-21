@@ -9,7 +9,7 @@ use crate::{
 	domain::{addressing::SdPath, content_identity::ContentIdentity, file::File, tag::Tag},
 	infra::query::LibraryQuery,
 	ops::files::plan::{ChangeKind, FsPlan, SkipReason},
-	ops::indexing::reconcile::{bounded, Bounded, READ_BOUND},
+	ops::indexing::reconcile::READ_BOUND,
 };
 use sea_orm::{
 	ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, JoinType, QueryFilter,
@@ -371,23 +371,21 @@ impl DirectoryListingQuery {
 		// until someone does. The open is tried with the walk's bound before
 		// a walk is dispatched, so the explorer can say the folder waits on
 		// permission, and no second open starts while one is still blocked.
-		if cache.access_blocked(&local_path) {
-			return Ok(DirectoryListingOutput::awaiting_permission());
-		}
-		let open = {
-			let dir = local_path.clone();
-			tokio::spawn(async move {
-				#[cfg(test)]
-				crate::ops::indexing::phases::discovery::held::wait(&dir).await;
-				tokio::fs::read_dir(&dir).await.map(drop)
+		let opens = cache
+			.opens_in_time(&local_path, READ_BOUND, || {
+				let dir = local_path.clone();
+				tokio::spawn(async move {
+					#[cfg(test)]
+					crate::ops::indexing::phases::discovery::held::wait(&dir).await;
+					tokio::fs::read_dir(&dir).await.map(drop)
+				})
 			})
-		};
-		if let Bounded::Unanswered(open) = bounded(READ_BOUND, open).await {
-			tracing::warn!(
+			.await;
+		if !opens {
+			tracing::debug!(
 				path = %local_path.display(),
 				"a browsed folder did not open in time; it waits on permission"
 			);
-			cache.await_access(local_path.clone(), READ_BOUND, open);
 			return Ok(DirectoryListingOutput::awaiting_permission());
 		}
 
@@ -873,8 +871,9 @@ mod tests {
 			.expect("listed")
 		};
 
-		let first = listing().await;
+		let (first, alongside) = tokio::join!(listing(), listing());
 		assert!(first.awaiting_permission, "the folder waits on permission");
+		assert!(alongside.awaiting_permission);
 		assert!(first.files.is_empty());
 
 		let started = Instant::now();

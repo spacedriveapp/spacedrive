@@ -395,6 +395,20 @@ export function useExplorerFiles(): ExplorerFilesResult {
 						? false
 						: directoryQuery.isLoading;
 
+	const awaitingPermission =
+		source === "directory" &&
+		!!(directoryQuery.data as DirectoryListingOutput | undefined)?.awaiting_permission;
+
+	// Nothing announces that a folder's permission was granted, and an empty
+	// folder sends no file events once it opens, so the listing asks again
+	// until the folder answers.
+	const refetchDirectory = directoryQuery.refetch;
+	useEffect(() => {
+		if (!awaitingPermission) return;
+		const timer = setInterval(() => void refetchDirectory(), 5000);
+		return () => clearInterval(timer);
+	}, [awaitingPermission, refetchDirectory]);
+
 	const searchOutput = isSearchMode
 		? (searchQuery.data as FileSearchOutput | undefined)
 		: undefined;
@@ -403,9 +417,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		files,
 		isLoading,
 		source,
-		awaitingPermission:
-			source === "directory" &&
-			!!(directoryQuery.data as DirectoryListingOutput | undefined)?.awaiting_permission,
+		awaitingPermission,
 		totalFound:
 			searchOutput?.total_found != null
 				? Number(searchOutput.total_found)
