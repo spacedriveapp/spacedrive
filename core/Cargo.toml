@@ -32,6 +32,9 @@ video-proxies = []
 # and the opt-in cloud caption provider. Off by default: without it every
 # ai.infer request is answered not_available, as before.
 ai-providers = ["dep:ort", "dep:tokenizers"]
+# Shot detection on video with host FFmpeg: the media.shots ops, the shots
+# and keyframe sidecars, and the agent MCP list_shots tool.
+video-shots = []
 
 
 [dependencies]

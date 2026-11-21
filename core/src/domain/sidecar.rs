@@ -28,6 +28,8 @@ pub enum SidecarKind {
 	Transcript,
 	GaussianSplat,
 	Audio,
+	Shots,
+	Keyframe,
 	Extension { extension_id: String, kind: String },
 }
 
@@ -62,6 +64,8 @@ impl SidecarKind {
 			Self::Transcript => "transcript",
 			Self::GaussianSplat => "gaussian_splat",
 			Self::Audio => "audio",
+			Self::Shots => "shots",
+			Self::Keyframe => "keyframe",
 			Self::Extension { kind, .. } => kind,
 		}
 	}
@@ -101,6 +105,8 @@ impl TryFrom<&str> for SidecarKind {
 			"transcript" => Ok(Self::Transcript),
 			"gaussian_splat" => Ok(Self::GaussianSplat),
 			"audio" => Ok(Self::Audio),
+			"shots" => Ok(Self::Shots),
+			"keyframe" => Ok(Self::Keyframe),
 			_ => Err(format!("Invalid sidecar kind: {}", value)),
 		}
 	}
@@ -148,6 +154,7 @@ impl From<String> for SidecarVariant {
 /// - Ply: 3D model format for Gaussian splats
 /// - Wav: Uncompressed audio that speech models read without decoding
 /// - Srt, Vtt: Subtitles that editors and players import as they are
+/// - Jpeg: Video keyframes, which FFmpeg writes without optional encoders
 ///
 /// MessagePack is preferred for embeddings because:
 /// - 6x smaller than JSON (1.7KB vs 10KB per 384-dim vector)
@@ -166,6 +173,7 @@ pub enum SidecarFormat {
 	Wav,
 	Srt,
 	Vtt,
+	Jpeg,
 }
 
 impl SidecarFormat {
@@ -180,6 +188,7 @@ impl SidecarFormat {
 			Self::Wav => "wav",
 			Self::Srt => "srt",
 			Self::Vtt => "vtt",
+			Self::Jpeg => "jpg",
 		}
 	}
 
@@ -194,6 +203,7 @@ impl SidecarFormat {
 			Self::Wav => "wav",
 			Self::Srt => "srt",
 			Self::Vtt => "vtt",
+			Self::Jpeg => "jpeg",
 		}
 	}
 }
@@ -218,6 +228,7 @@ impl TryFrom<&str> for SidecarFormat {
 			"wav" => Ok(Self::Wav),
 			"srt" => Ok(Self::Srt),
 			"vtt" => Ok(Self::Vtt),
+			"jpeg" | "jpg" => Ok(Self::Jpeg),
 			_ => Err(format!("Invalid sidecar format: {}", value)),
 		}
 	}
@@ -345,6 +356,23 @@ impl ContentSidecar {
 			kind: SidecarKind::Transcript,
 			variant: SidecarVariant::new(Self::TRANSCRIPT_VARIANT),
 			format,
+	/// The shot list the shot detection job writes.
+	pub fn shots(content_uuid: Uuid) -> Self {
+		Self {
+			content_uuid,
+			kind: SidecarKind::Shots,
+			variant: SidecarVariant::new("default"),
+			format: SidecarFormat::Json,
+		}
+	}
+
+	/// The representative frame of one shot, named by the shot id.
+	pub fn keyframe(content_uuid: Uuid, shot_id: Uuid) -> Self {
+		Self {
+			content_uuid,
+			kind: SidecarKind::Keyframe,
+			variant: SidecarVariant::new(shot_id.to_string()),
+			format: SidecarFormat::Jpeg,
 		}
 	}
 
@@ -401,6 +429,13 @@ mod tests {
 			PathBuf::from(
 				"content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/transcript/default.vtt"
 			)
+			ContentSidecar::shots(uuid).relative_path(),
+			PathBuf::from("content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/shots/default.json")
+		);
+		let shot = Uuid::parse_str("00000000-0000-5000-8000-000000000001").unwrap();
+		assert_eq!(
+			ContentSidecar::keyframe(uuid, shot).relative_path(),
+			PathBuf::from("content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/keyframes/00000000-0000-5000-8000-000000000001.jpg")
 		);
 	}
 
