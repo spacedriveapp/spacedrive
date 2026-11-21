@@ -28,6 +28,8 @@ The directory must be inside a filesystem source tracked by the same library. A 
 
 A token is `sdg_` followed by 64 hex characters, which encode 32 bytes from the operating system's random source. The prefix lets a person or a secret scanner recognize a leaked token.
 
+A grant can also be minted through the MCP endpoint's OAuth flow (`docs/cli/mcp-oauth.mdx`). The owner picks the folder, caps and lifetime on a consent page the daemon serves, and the access token the client receives is the grant's own `sdg_` token, so `authorize` treats it like any other. Such a grant records its client in `oauth_client` and holds the hash of a refresh token, `sdr_` and 64 hex characters, in `refresh_hash`. A refresh rotates both hashes on the same row and keeps the replaced refresh hash in `previous_refresh_hash`; presenting that one again revokes the grant. A refresh never moves `expires_at`.
+
 Spacedrive stores only the SHA-256 of the token. `grants.create` returns the token once. No list, audit or error message shows it again. A copy of `library.db` contains no usable credential.
 
 Lookup is by hash. A string without the prefix or of the wrong length never reaches the database.

@@ -132,7 +132,9 @@ pub async fn revoke_token(context: &CoreContext, presented: &str) -> Result<bool
 	};
 	for library in context.libraries().await.list().await {
 		let db = library.db().conn();
-		let row = find(db, column, &hash).await.map_err(|e| format!("{e:?}"))?;
+		let row = find(db, column, &hash)
+			.await
+			.map_err(|e| format!("{e:?}"))?;
 		if let Some(row) = row {
 			store::revoke(db, row.uuid)
 				.await

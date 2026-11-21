@@ -205,7 +205,9 @@ enum Origin {
 fn guard(endpoint: &Endpoint, headers: &HeaderMap, origin: Origin) -> Result<String, Response> {
 	endpoint.screen_host(headers)?;
 	let base = base_url(headers);
-	let sent = headers.get(header::ORIGIN).map(|o| o.to_str().unwrap_or(""));
+	let sent = headers
+		.get(header::ORIGIN)
+		.map(|o| o.to_str().unwrap_or(""));
 	let allowed = match origin {
 		Origin::Absent => sent.is_none(),
 		Origin::Own => sent == Some(base.as_str()),
@@ -291,7 +293,10 @@ pub async fn register(
 	};
 	if registration.redirect_uris.is_empty()
 		|| registration.redirect_uris.len() > MAX_REDIRECT_URIS
-		|| !registration.redirect_uris.iter().all(|uri| redirect_allowed(uri))
+		|| !registration
+			.redirect_uris
+			.iter()
+			.all(|uri| redirect_allowed(uri))
 	{
 		return oauth_error(
 			StatusCode::BAD_REQUEST,
@@ -299,9 +304,12 @@ pub async fn register(
 			"redirect URIs must be https, http on a loopback host, or a private app scheme, without a fragment",
 		);
 	}
-	let grant_types = registration
-		.grant_types
-		.unwrap_or_else(|| vec!["authorization_code".to_string(), "refresh_token".to_string()]);
+	let grant_types = registration.grant_types.unwrap_or_else(|| {
+		vec![
+			"authorization_code".to_string(),
+			"refresh_token".to_string(),
+		]
+	});
 	let response_types = registration
 		.response_types
 		.unwrap_or_else(|| vec!["code".to_string()]);
@@ -318,7 +326,12 @@ pub async fn register(
 	}
 	let client_name = registration
 		.client_name
-		.map(|name| name.chars().filter(|c| !c.is_control()).take(100).collect::<String>())
+		.map(|name| {
+			name.chars()
+				.filter(|c| !c.is_control())
+				.take(100)
+				.collect::<String>()
+		})
 		.filter(|name| !name.trim().is_empty());
 	let client = Client {
 		client_id: format!("sdc_{}", random_hex(16)),
@@ -363,8 +376,9 @@ fn redirect_allowed(uri: &str) -> bool {
 	match url.scheme() {
 		"https" => url.host_str().is_some_and(|h| !h.is_empty()),
 		"http" => url.host_str().is_some_and(loopback_name),
-		"javascript" | "data" | "file" | "vbscript" | "about" | "blob" | "ftp" | "ws"
-		| "wss" => false,
+		"javascript" | "data" | "file" | "vbscript" | "about" | "blob" | "ftp" | "ws" | "wss" => {
+			false
+		}
 		_ => true,
 	}
 }
@@ -442,7 +456,14 @@ pub async fn authorize(
 		);
 	};
 	let redirect_uri = match query.get("redirect_uri") {
-		Some(uri) if client.redirect_uris.iter().any(|r| redirect_matches(r, uri)) => uri.clone(),
+		Some(uri)
+			if client
+				.redirect_uris
+				.iter()
+				.any(|r| redirect_matches(r, uri)) =>
+		{
+			uri.clone()
+		}
 		None if client.redirect_uris.len() == 1 => client.redirect_uris[0].clone(),
 		_ => {
 			return error_page(
@@ -466,13 +487,24 @@ pub async fn authorize(
 		)
 	};
 	if query.get("response_type").map(String::as_str) != Some("code") {
-		return back("unsupported_response_type", "only response_type=code is supported");
+		return back(
+			"unsupported_response_type",
+			"only response_type=code is supported",
+		);
 	}
-	let challenge = match (query.get("code_challenge"), query.get("code_challenge_method")) {
+	let challenge = match (
+		query.get("code_challenge"),
+		query.get("code_challenge_method"),
+	) {
 		(Some(challenge), Some(method)) if method == "S256" && challenge_ok(challenge) => {
 			challenge.clone()
 		}
-		_ => return back("invalid_request", "a PKCE code_challenge with method S256 is required"),
+		_ => {
+			return back(
+				"invalid_request",
+				"a PKCE code_challenge with method S256 is required",
+			)
+		}
 	};
 	if let Some(resource) = query.get("resource") {
 		if !resource_ok(resource, &base) {
@@ -569,7 +601,10 @@ pub async fn consent(
 	}
 
 	let choice = Choice {
-		path: form.get("path").map(|p| p.trim().to_string()).unwrap_or_default(),
+		path: form
+			.get("path")
+			.map(|p| p.trim().to_string())
+			.unwrap_or_default(),
 		write: form.get("access").map(String::as_str) == Some("read_write"),
 		ttl: form
 			.get("ttl")
@@ -579,7 +614,8 @@ pub async fn consent(
 	match mint(&endpoint, &pending, &choice).await {
 		Ok(code) => reply(&[("code", &code)]),
 		Err(problem) => {
-			let page = consent_page(&endpoint.context, &id, &pending, &choice, Some(&problem)).await;
+			let page =
+				consent_page(&endpoint.context, &id, &pending, &choice, Some(&problem)).await;
 			let mut map = endpoint.oauth.pending.lock().expect("pending lock");
 			map.insert(id, pending);
 			page
@@ -706,8 +742,12 @@ pub async fn token(
 				endpoint.auth_failed(ip);
 				return oauth_error(StatusCode::UNAUTHORIZED, "invalid_client", "unknown client");
 			}
-			match grant_oauth::refresh(&endpoint.context, field("client_id"), field("refresh_token"))
-				.await
+			match grant_oauth::refresh(
+				&endpoint.context,
+				field("client_id"),
+				field("refresh_token"),
+			)
+			.await
 			{
 				Ok(rotated) => tokens(
 					&rotated.access_token,
@@ -792,7 +832,9 @@ async fn exchange(
 		{
 			match store::revoke(library.db().conn(), grant_id).await {
 				Ok(_) => warn!(grant = %grant_id, "authorization code misused; grant revoked"),
-				Err(e) => warn!(grant = %grant_id, error = %e, "could not revoke after code misuse"),
+				Err(e) => {
+					warn!(grant = %grant_id, error = %e, "could not revoke after code misuse")
+				}
 			}
 		}
 		return invalid();
@@ -902,7 +944,10 @@ fn json_response(status: StatusCode, body: Value) -> Response {
 	(
 		status,
 		[
-			(header::CONTENT_TYPE, HeaderValue::from_static("application/json")),
+			(
+				header::CONTENT_TYPE,
+				HeaderValue::from_static("application/json"),
+			),
 			(header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
 		],
 		body.to_string(),
@@ -987,7 +1032,11 @@ async fn consent_page(
 	let lifetimes: String = LIFETIMES
 		.iter()
 		.map(|(seconds, label)| {
-			let selected = if *seconds == choice.ttl { " selected" } else { "" };
+			let selected = if *seconds == choice.ttl {
+				" selected"
+			} else {
+				""
+			};
 			format!("<option value=\"{seconds}\"{selected}>{label}</option>")
 		})
 		.collect();
@@ -1096,6 +1145,9 @@ mod tests {
 
 	#[test]
 	fn markup_is_escaped() {
-		assert_eq!(escape("<a href='x'>&\"</a>"), "&lt;a href=&#39;x&#39;&gt;&amp;&quot;&lt;/a&gt;");
+		assert_eq!(
+			escape("<a href='x'>&\"</a>"),
+			"&lt;a href=&#39;x&#39;&gt;&amp;&quot;&lt;/a&gt;"
+		);
 	}
 }

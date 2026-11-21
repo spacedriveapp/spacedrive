@@ -232,9 +232,15 @@ pub fn router(endpoint: Arc<Endpoint>) -> Router {
 	let resource_metadata = format!("{}{MCP_PATH}", oauth::PROTECTED_RESOURCE_PATH);
 	Router::new()
 		.route(MCP_PATH, any(handle))
-		.route(oauth::PROTECTED_RESOURCE_PATH, get(oauth::protected_resource))
+		.route(
+			oauth::PROTECTED_RESOURCE_PATH,
+			get(oauth::protected_resource),
+		)
 		.route(&resource_metadata, get(oauth::protected_resource))
-		.route(oauth::AUTHORIZATION_SERVER_PATH, get(oauth::authorization_server))
+		.route(
+			oauth::AUTHORIZATION_SERVER_PATH,
+			get(oauth::authorization_server),
+		)
 		.route(oauth::REGISTER_PATH, routing::post(oauth::register))
 		.route(
 			oauth::AUTHORIZE_PATH,
@@ -302,9 +308,9 @@ impl Endpoint {
 	/// The header size and Host checks every route shares.
 	pub(super) fn screen_host(&self, headers: &HeaderMap) -> Result<(), Response> {
 		let header_bytes: usize = headers
-		.iter()
-		.map(|(name, value)| name.as_str().len() + value.len())
-		.sum();
+			.iter()
+			.map(|(name, value)| name.as_str().len() + value.len())
+			.sum();
 		if header_bytes > self.limits.max_header_bytes {
 			return Err(plain(
 				StatusCode::REQUEST_HEADER_FIELDS_TOO_LARGE,

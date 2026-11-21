@@ -55,7 +55,12 @@ impl MigrationTrait for Migration {
 			"idx_agent_grant_refresh_hash",
 		] {
 			manager
-				.drop_index(Index::drop().name(index).table(AgentGrant::Table).to_owned())
+				.drop_index(
+					Index::drop()
+						.name(index)
+						.table(AgentGrant::Table)
+						.to_owned(),
+				)
 				.await?;
 		}
 		for column in [

@@ -268,6 +268,38 @@ Sessions and errors:
   `WWW-Authenticate: Bearer` header.
 - Error messages never include absolute host paths.
 
+## OAuth on the HTTP endpoint
+
+The endpoint also runs the MCP authorization flow (`docs/cli/mcp-oauth.mdx`)
+so a client can connect with only the URL. The daemon is its own authorization
+server. What it adds to the attack surface, and how each part is held:
+
+- The access token is the grant token. OAuth adds no second credential that
+  reaches `/mcp`, so every rule above applies to it unchanged.
+- A web page cannot drive the flow. Metadata, registration, token and
+  revocation requests that carry any Origin answer 403, and no CORS headers are
+  sent. The consent form accepts a post only with the daemon's own Origin and
+  a 256-bit request id that only the page itself holds. The page sends
+  `frame-ancestors 'none'` and `X-Frame-Options: DENY`.
+- The consent page is the only place a grant is minted, and only by a person
+  pressing Allow. A malicious client can register and open the page, but the
+  page shows its self-chosen name as unverified, shows where the browser will
+  return, and needs the user to pick the folder.
+- Code interception is covered by required PKCE S256, single-use codes that
+  live 60 seconds, exact redirect matching (any port for a loopback redirect,
+  RFC 8252), and revocation of the grant on a reused code or a wrong verifier.
+- Refresh tokens are bound to their client, stored as SHA-256 and rotated on
+  every use. A replay of a rotated refresh token revokes the grant.
+- Refresh never extends a grant past the lifetime the owner picked.
+- Registration is unauthenticated, as RFC 7591 allows, and capped at 100
+  clients with the oldest dropped first. A local process could churn it; local
+  processes can already reach RPC (F1), so this adds nothing they lack.
+- Logs carry client ids and grant ids, never tokens, codes or verifiers.
+- Issuer and resource URLs are built from the Host header, which is already
+  limited to loopback with the bound port. A non-loopback listener must serve
+  the metadata over HTTPS with the configured host name before OAuth is offered
+  there.
+
 ## Should RPC on 6969 stay loopback-trusted?
 
 Yes for this release, with the trust stated correctly. It is not a blocker for
