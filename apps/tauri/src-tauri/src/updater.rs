@@ -7,14 +7,17 @@
 //! such as a pre-release or an older line. That is "no update" and logs at
 //! info. A failure to reach the feed or to verify a download logs at warn.
 
+use std::collections::HashMap;
+
 use serde::Serialize;
 use tauri::{ipc::Channel, AppHandle, State};
 use tauri_plugin_updater::{Error, Update, UpdaterExt};
 use tokio::sync::Mutex;
 
-/// The update the last check found, kept for the install command.
+/// Every update a check has found, by version, so a prompt left open across
+/// later checks still installs the version it shows.
 #[derive(Default)]
-pub struct PendingUpdate(Mutex<Option<Update>>);
+pub struct PendingUpdate(Mutex<HashMap<String, Update>>);
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -69,21 +72,28 @@ pub async fn check_for_update(
 		Some(available) => tracing::info!(version = %available.version, "Update available"),
 		None => tracing::debug!("No newer release than the running version"),
 	}
-	*pending.0.lock().await = update;
+	if let Some(update) = update {
+		pending
+			.0
+			.lock()
+			.await
+			.insert(update.version.clone(), update);
+	}
 	Ok(available)
 }
 
-/// Downloads, verifies and installs the update the last check found.
+/// Downloads, verifies and installs `version`, which a check must have found.
 ///
 /// Sends the download percentage on `on_progress` when the size is known.
 /// The caller restarts the app afterwards.
 #[tauri::command]
 pub async fn install_update(
 	pending: State<'_, PendingUpdate>,
+	version: String,
 	on_progress: Channel<Option<u32>>,
 ) -> Result<(), String> {
-	let Some(update) = pending.0.lock().await.clone() else {
-		return Err("No update to install; check for updates first".into());
+	let Some(update) = pending.0.lock().await.get(&version).cloned() else {
+		return Err(format!("No checked update for version {version}"));
 	};
 
 	let mut downloaded: u64 = 0;

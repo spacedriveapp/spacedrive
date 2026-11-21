@@ -28,17 +28,22 @@ const updaterEnabled =
 // The check runs in Rust (src-tauri/src/updater.rs) so a missing release
 // feed is logged as "no update" instead of the plugin's ERROR.
 async function checkForUpdate(): Promise<AvailableUpdate | null> {
-	const update = await invoke<{version: string; currentVersion: string} | null>(
-		'check_for_update'
-	);
+	const update = await invoke<{
+		version: string;
+		currentVersion: string;
+	} | null>('check_for_update');
 	if (!update) return null;
 
 	return {
 		...update,
 		async installAndRestart(onProgress) {
 			const progress = new Channel<number | null>();
-			progress.onmessage = (percent) => onProgress?.(percent ?? undefined);
-			await invoke('install_update', {onProgress: progress});
+			progress.onmessage = (percent) =>
+				onProgress?.(percent ?? undefined);
+			await invoke('install_update', {
+				version: update.version,
+				onProgress: progress
+			});
 			await invoke('restart_after_update');
 		}
 	};
