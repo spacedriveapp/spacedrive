@@ -36,6 +36,12 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Footage preview builds (Capy FAN-12531, November 22). `release.yml` takes a
+`features` input that adds sd-core features to the daemon in a dry run only,
+both the desktop sidecar and the CLI build. With `wasm` in the list the run also
+uploads the Videos extension built from the same commit as `videos-extension`.
+Tags, nightly and the default dry run build the shipping feature set unchanged.
+
 Videos extension skeleton, footage brief 6 (Capy FAN-12393, November 22, off
 the beta.1 path). `extensions/videos` (`com.spacedrive.videos`) reads the
 core's shot lists and keyframes, sends each keyframe to `ai.infer` for a

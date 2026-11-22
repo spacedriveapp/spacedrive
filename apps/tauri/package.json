@@ -11,7 +11,7 @@
 		"dev:with-daemon": "bun ./scripts/dev-with-daemon.ts",
 		"build": "vite build",
 		"build:daemon": "bash -c 'cargo build --bin sd-daemon --manifest-path ../../Cargo.toml ${CARGO_BUILD_TARGET:+--target $CARGO_BUILD_TARGET}'",
-		"build:daemon:release": "bash -c 'cargo build --release --bin sd-daemon --manifest-path ../../Cargo.toml ${CARGO_BUILD_TARGET:+--target $CARGO_BUILD_TARGET}'",
+		"build:daemon:release": "bash -c 'cargo build --release --bin sd-daemon --manifest-path ../../Cargo.toml ${CARGO_BUILD_TARGET:+--target $CARGO_BUILD_TARGET} ${SD_PREVIEW_FEATURES:+--features $SD_PREVIEW_FEATURES}'",
 		"preview": "vite preview",
 		"typecheck": "tsc -b",
 		"tauri": "tauri",
