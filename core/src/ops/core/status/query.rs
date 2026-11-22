@@ -150,8 +150,7 @@ impl CoreQuery for CoreStatusQuery {
 		// System information
 		let system = SystemInfo {
 			uptime: None, // TODO: Calculate uptime from service start time
-			data_directory: std::env::var("SPACEDRIVE_DATA_DIR")
-				.unwrap_or_else(|_| "default".to_string()),
+			data_directory: context.data_dir.display().to_string(),
 			instance_name: std::env::var("SPACEDRIVE_INSTANCE").ok(),
 			current_library,
 		};

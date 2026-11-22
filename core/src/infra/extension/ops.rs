@@ -115,12 +115,22 @@ struct ModelPut {
 struct Inference {
 	model: String,
 	task: String,
+	/// Byte lengths of each input in a batch, in order. Without it the whole
+	/// input is one item and the answer is that item's result alone.
+	#[serde(default)]
+	items: Option<Vec<usize>>,
 }
+
+/// The most inputs one `ai.infer` call may carry.
+#[cfg(feature = "ai-providers")]
+const MAX_INFER_ITEMS: usize = 256;
 
 #[derive(Deserialize)]
 struct ModelList {
 	model: String,
 	limit: Option<usize>,
+	#[serde(default)]
+	offset: usize,
 }
 
 /// A record as the SDK's `Record` deserializes it.
@@ -135,6 +145,10 @@ struct RecordOut {
 	size: Option<u64>,
 	modified_ms: Option<i64>,
 	content_uuid: Option<Uuid>,
+	/// The uuid media sidecars (proxy, audio, transcript, shots) are keyed
+	/// by: derived from the sampled hash, so it exists before the full hash
+	/// and does not move when that lands.
+	media_uuid: Option<Uuid>,
 }
 
 impl RecordOut {
@@ -149,6 +163,10 @@ impl RecordOut {
 			size: entry.size.and_then(|s| u64::try_from(s).ok()),
 			modified_ms: entry.mtime_ms,
 			content_uuid: entry.content_uuid,
+			media_uuid: entry
+				.sampled_hash
+				.as_deref()
+				.map(sd_store::content::uuid_for),
 		}
 	}
 }
@@ -188,6 +206,16 @@ const QUERY_CAP: usize = 10_000;
 struct SidecarRef {
 	content_uuid: Uuid,
 	kind: String,
+}
+
+/// A core sidecar in the content tree, addressed the way the HTTP sidecar
+/// route addresses it.
+#[derive(Deserialize)]
+struct MediaSidecarRef {
+	content_uuid: Uuid,
+	kind: String,
+	variant: String,
+	format: String,
 }
 
 #[derive(Deserialize)]
@@ -306,6 +334,7 @@ impl JobOps {
 			"sidecars.exists" => self.sidecar_exists(parse(payload)?).await,
 			"sidecars.read" => self.sidecar_read(parse(payload)?).await,
 			"sidecars.write" => self.sidecar_write(parse(payload)?).await,
+			"sidecars.read_media" => self.media_sidecar_read(parse(payload)?).await,
 			"models.put" => self.model_put(parse(payload)?).await,
 			"models.get" => self.model_get(parse(payload)?).await,
 			"models.list" => self.model_list(parse(payload)?).await,
@@ -314,8 +343,9 @@ impl JobOps {
 			"jobs.dispatch" => self.job_dispatch(parse(payload)?).await,
 			"tags.add" => self.tag_change(parse(payload)?, true).await,
 			"tags.remove" => self.tag_change(parse(payload)?, false).await,
-			"ai.infer" => self.ai_infer(payload),
+			"ai.infer" => self.ai_infer(payload, ctx).await,
 			"config.get" => self.config_get().await,
+			"assertions.stamp" => self.assertion_stamp(),
 			_ => Err(OpError::new(
 				"unknown_op",
 				format!("unknown operation {op}"),
@@ -427,6 +457,9 @@ impl JobOps {
 		let (store, entry) = self.locate(record.uuid).await?;
 		self.check_read(&entry)?;
 		let path = store.root().join(&entry.relative_path);
+		crate::ops::indexing::metadata::refuse_dataless(&path)
+			.await
+			.map_err(|e| OpError::failed(e.to_string()))?;
 		tokio::fs::read(&path).await.map_err(|e| match e.kind() {
 			std::io::ErrorKind::NotFound => OpError::not_found(),
 			_ => OpError::failed(format!("read {}: {e}", path.display())),
@@ -507,6 +540,9 @@ impl JobOps {
 
 		let path = store.root().join(&entry.relative_path);
 		tracing::info!(record = %record.uuid, "parsing EXIF on demand; no facet row");
+		crate::ops::indexing::metadata::refuse_dataless(&path)
+			.await
+			.map_err(|e| OpError::failed(e.to_string()))?;
 		let exif = match sd_media_metadata::exif::ExifMetadata::from_path(&path).await {
 			Ok(Some(exif)) => exif,
 			Ok(None) => return json(&serde_json::Value::Null),
@@ -682,6 +718,58 @@ impl JobOps {
 		})
 	}
 
+	/// The bytes of a core sidecar (a proxy, a transcript, a shot list or a
+	/// keyframe) that the core wrote for some content.
+	///
+	/// Core kinds are read-only to every extension and need the kind named
+	/// in `read_sidecars`. A kind this core has no directory for answers
+	/// `not_available`, so a guest built against a newer layout degrades the
+	/// same way it does when the sidecar was never made (`not_found`).
+	async fn media_sidecar_read(&self, sidecar: MediaSidecarRef) -> OpResult {
+		if !self
+			.manifest
+			.permissions
+			.read_sidecars
+			.iter()
+			.any(|k| *k == sidecar.kind)
+		{
+			return Err(OpError::permission_denied(format!(
+				"{} may not read sidecar kind {}",
+				self.extension_id, sidecar.kind
+			)));
+		}
+		let Some(kind_dir) = sd_sidecar_path::kind_directory(&sidecar.kind) else {
+			return Err(OpError::not_available(format!(
+				"this core writes no {} sidecars",
+				sidecar.kind
+			)));
+		};
+		let segment = |s: &str| {
+			!s.is_empty()
+				&& s.chars()
+					.all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
+		};
+		if !segment(&sidecar.variant) || !segment(&sidecar.format) {
+			return Err(OpError::invalid_input(
+				"variant and format must be single [A-Za-z0-9_-] segments",
+			));
+		}
+		let path = self
+			.library
+			.path()
+			.join("sidecars")
+			.join(sd_sidecar_path::relative_path(
+				&sidecar.content_uuid,
+				kind_dir,
+				&sidecar.variant,
+				&sidecar.format,
+			));
+		tokio::fs::read(&path).await.map_err(|e| match e.kind() {
+			std::io::ErrorKind::NotFound => OpError::not_found(),
+			_ => OpError::failed(format!("read {}: {e}", path.display())),
+		})
+	}
+
 	/// Written whole and renamed into place, so a reader never sees a
 	/// partial document and a crash leaves either the old one or the new.
 	async fn sidecar_write(&self, sidecar: SidecarWrite) -> OpResult {
@@ -750,10 +838,11 @@ impl JobOps {
 	async fn model_list(&mut self, list: ModelList) -> OpResult {
 		let store = self.store().await?;
 		let rows = store
-			.facet_rows(
+			.facet_rows_page(
 				&list.model,
 				None,
 				list.limit.unwrap_or(QUERY_CAP).min(QUERY_CAP),
+				list.offset,
 			)
 			.await
 			.map_err(|e| OpError::failed(e.to_string()))?;
@@ -980,37 +1069,179 @@ impl JobOps {
 }
 
 impl JobOps {
-	/// Inference, when the core has a provider for the model's category.
+	/// Inference on the provider the core has for the model's category.
 	///
-	/// It has none for the categories photos asks for (face detection, scene
-	/// classification, embeddings, language models), so a granted request
-	/// is answered `not_available` with the category named, and the job
-	/// decides what to do without it. The grant is still checked first: a
-	/// request for an undeclared category is refused, not deferred.
-	fn ai_infer(&self, payload: &[u8]) -> OpResult {
-		let (header, _input) = split_frame(payload)?;
+	/// The grant is checked first: a request for an undeclared category is
+	/// refused, not deferred. The part of the model id after the category
+	/// (`face_detection:photos_v1`) names nothing; the core picks the model.
+	/// A batch (`items` in the header) answers each input with
+	/// `{"ok": ...}` or `{"error": {...}}`, so one unreadable file fails
+	/// only itself. A build without the `ai-providers` feature, or a category
+	/// with no installed model, answers `not_available`.
+	async fn ai_infer(&self, payload: &[u8], ctx: &JobContext<'_>) -> OpResult {
+		let (header, input) = split_frame(payload)?;
 		let inference: Inference = parse(header)?;
 		let category = inference
 			.model
 			.split_once(':')
 			.map(|(category, _)| category)
 			.unwrap_or(&inference.model);
-		let granted = self
+		let Some(grant) = self
 			.manifest
 			.permissions
 			.use_models
 			.iter()
-			.any(|m| m.category == category);
-		if !granted {
+			.find(|m| m.category == category)
+		else {
 			return Err(OpError::permission_denied(format!(
 				"{} has no use_models grant for {category}",
 				self.extension_id
 			)));
+		};
+		#[cfg(feature = "ai-providers")]
+		{
+			self.infer(
+				&inference,
+				category,
+				grant.preference.as_deref(),
+				input,
+				ctx,
+			)
+			.await
 		}
-		Err(OpError::not_available(format!(
-			"no {category} provider is installed for {} ({})",
-			inference.model, inference.task
-		)))
+		#[cfg(not(feature = "ai-providers"))]
+		{
+			let _ = (grant, input, ctx);
+			Err(OpError::not_available(format!(
+				"no {category} provider is installed for {} ({})",
+				inference.model, inference.task
+			)))
+		}
+	}
+
+	#[cfg(feature = "ai-providers")]
+	async fn infer(
+		&self,
+		inference: &Inference,
+		category: &str,
+		preference: Option<&str>,
+		input: &[u8],
+		ctx: &JobContext<'_>,
+	) -> OpResult {
+		use crate::ops::ai::{AiError, Category, Preference, Provider};
+
+		let op_error = |e: AiError| match e {
+			AiError::NotInstalled(category) => OpError::not_available(format!(
+				"no {category} provider is installed; download one with ai.models.download"
+			)),
+			AiError::Input(message) => OpError::invalid_input(message),
+			AiError::Interrupted => OpError::new("interrupted", "job interrupted"),
+			other => OpError::failed(other.to_string()),
+		};
+		let Some(category) = Category::parse(category) else {
+			return Err(OpError::not_available(format!(
+				"no {category} provider is installed"
+			)));
+		};
+		let items: Vec<Vec<u8>> = match &inference.items {
+			None => vec![input.to_vec()],
+			Some(lengths) => {
+				if lengths.len() > MAX_INFER_ITEMS {
+					return Err(OpError::invalid_input(format!(
+						"a batch carries at most {MAX_INFER_ITEMS} items"
+					)));
+				}
+				let total = lengths
+					.iter()
+					.try_fold(0usize, |sum, &len| sum.checked_add(len));
+				if total != Some(input.len()) {
+					return Err(OpError::invalid_input(
+						"item lengths do not match the input",
+					));
+				}
+				let mut rest = input;
+				lengths
+					.iter()
+					.map(|&len| {
+						let (item, tail) = rest.split_at(len);
+						rest = tail;
+						item.to_vec()
+					})
+					.collect()
+			}
+		};
+
+		let registry = self.library.core_context().ai.clone();
+		let provider = registry
+			.resolve(
+				category,
+				Preference::from_manifest(preference),
+				&self.library,
+			)
+			.await
+			.map_err(op_error)?;
+		let wants_embedding = category == Category::FaceDetection
+			&& self
+				.manifest
+				.permissions
+				.use_models
+				.iter()
+				.any(|m| m.category == Category::FaceEmbedding.as_str());
+		let embedder = if wants_embedding {
+			match registry
+				.local(Category::FaceEmbedding)
+				.await
+				.map_err(op_error)?
+			{
+				Some(Provider::FaceEmbedding(embedder)) => Some(embedder),
+				_ => None,
+			}
+		} else {
+			None
+		};
+		let mut results = registry
+			.run(provider, &inference.task, items, embedder, || {
+				matches!(
+					futures::FutureExt::now_or_never(ctx.check_interrupt()),
+					Some(Err(_))
+				)
+			})
+			.await
+			.map_err(op_error)?;
+
+		if inference.items.is_none() {
+			return match results.pop() {
+				Some(result) => json(&result.map_err(op_error)?),
+				None => Err(OpError::failed("provider returned no result")),
+			};
+		}
+		let answers: Vec<serde_json::Value> = results
+			.into_iter()
+			.map(|result| match result {
+				Ok(value) => serde_json::json!({ "ok": value }),
+				Err(e) => serde_json::json!({ "error": op_error(e) }),
+			})
+			.collect();
+		json(&answers)
+	}
+
+	/// A stamp for one assertion the guest is about to write: an HLC from the
+	/// same process-wide clock tag assertions use, and this device's uuid.
+	///
+	/// An extension's assertions (a name given to a face cluster, a
+	/// correction) are the half of its store nothing can rebuild, and sync
+	/// will merge them by HLC order with the device as the tiebreak
+	/// (`docs/core/design/source-durability.md`). Stamping them from the guest
+	/// clock would give wall-clock order with no tiebreak.
+	fn assertion_stamp(&self) -> OpResult {
+		let device = self
+			.library
+			.core_context()
+			.device_manager
+			.device_id()
+			.map_err(|e| OpError::failed(format!("no device identity: {e}")))?;
+		let stamp = crate::ops::tags::stamp::assertion_stamp(device);
+		json(&serde_json::json!({ "hlc": stamp.hlc, "device_uuid": stamp.device_uuid }))
 	}
 
 	/// `config.json` beside the manifest, or `{}`.

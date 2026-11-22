@@ -166,13 +166,20 @@ impl From<FileType> for super::state::EntryKind {
 /// Layout:
 /// - Bits 62-63: state (2 bits)
 /// - Bits 60-61: type (2 bits)
-/// - Bits 0-59: size (60 bits, max ~1 exabyte)
+/// - Bit 59: hidden
+/// - Bits 0-58: size (59 bits, max ~576 petabytes)
 /// - mtime: seconds since epoch (32 bits)
 /// - ctime: seconds since epoch (32 bits)
+///
+/// Hidden lives here because it is read from the entry's own stat on Windows
+/// (the hidden attribute) and only from its name elsewhere, so the arena has
+/// to keep what the walk saw rather than ask the filesystem again on every
+/// read. Snapshots written before the bit existed carry sizes under 2^59, so
+/// the bit reads as clear and the restore recomputes it where a name decides.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct PackedMetadata {
-	/// Bits 62-63: state, 60-61: type, 0-59: size
+	/// Bits 62-63: state, 60-61: type, 59: hidden, 0-58: size
 	state_type_size: u64,
 	/// Modified time (seconds since epoch, 0 = None)
 	mtime: u32,
@@ -181,13 +188,13 @@ pub struct PackedMetadata {
 }
 
 impl PackedMetadata {
-	const SIZE_MASK: u64 = (1u64 << 60) - 1;
+	const SIZE_MASK: u64 = (1u64 << 59) - 1;
+	const HIDDEN_BIT: u64 = 1u64 << 59;
 	const TYPE_SHIFT: u32 = 60;
 	const STATE_SHIFT: u32 = 62;
 
 	/// Create new packed metadata
 	pub fn new(state: NodeState, file_type: FileType, size: u64) -> Self {
-		// Clamp size to 60 bits (max ~1 exabyte)
 		let size = size.min(Self::SIZE_MASK);
 		let packed =
 			size | ((file_type as u64) << Self::TYPE_SHIFT) | ((state as u64) << Self::STATE_SHIFT);
@@ -212,6 +219,21 @@ impl PackedMetadata {
 	/// Get the node state
 	pub fn state(&self) -> NodeState {
 		NodeState::from_u8(((self.state_type_size >> Self::STATE_SHIFT) & 0b11) as u8)
+	}
+
+	/// Record whether the walk saw the entry as hidden.
+	pub fn with_hidden(mut self, hidden: bool) -> Self {
+		if hidden {
+			self.state_type_size |= Self::HIDDEN_BIT;
+		} else {
+			self.state_type_size &= !Self::HIDDEN_BIT;
+		}
+		self
+	}
+
+	/// Whether the walk saw the entry as hidden.
+	pub fn is_hidden(&self) -> bool {
+		self.state_type_size & Self::HIDDEN_BIT != 0
 	}
 
 	/// Set timestamps
@@ -539,9 +561,21 @@ mod tests {
 		// Test that large sizes are clamped
 		let meta = PackedMetadata::new(NodeState::Accessible, FileType::File, u64::MAX);
 
-		// Size should be clamped to 60-bit max
-		assert_eq!(meta.size(), (1u64 << 60) - 1);
+		// Size should be clamped to 59-bit max
+		assert_eq!(meta.size(), (1u64 << 59) - 1);
 		assert_eq!(meta.file_type(), FileType::File);
+		assert!(!meta.is_hidden());
+	}
+
+	#[test]
+	fn test_packed_metadata_hidden_bit_leaves_the_rest_alone() {
+		let meta = PackedMetadata::new(NodeState::Accessible, FileType::Directory, 12_345)
+			.with_hidden(true);
+		assert!(meta.is_hidden());
+		assert_eq!(meta.size(), 12_345);
+		assert_eq!(meta.file_type(), FileType::Directory);
+		assert_eq!(meta.state(), NodeState::Accessible);
+		assert!(!meta.with_hidden(false).is_hidden());
 	}
 
 	#[test]

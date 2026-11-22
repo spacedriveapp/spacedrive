@@ -141,6 +141,63 @@ jobs:
       #   if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
       #   run: cargo test --workspace --all-features --locked --target ${{ matrix.settings.target }}
 
+  # Nothing else in CI compiles the cfg(target_os = "macos") tree, so a
+  # field missing from a platform module's struct literal reached main and
+  # broke the nightly macOS build (a19553f). The Windows unit job in
+  # core_tests.yml covers the Windows side; this is the macOS equivalent,
+  # checking the same packages the nightly builds, plus sd-core with the
+  # wasm feature since no other job compiles that cfg.
+  check-macos:
+    name: Check (macos)
+    runs-on: macos-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check if files have changed
+        uses: dorny/paths-filter@v3
+        continue-on-error: true
+        id: filter
+        with:
+          filters: |
+            changes:
+              - 'apps/cli/**'
+              - 'core/**'
+              - 'crates/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - '.github/workflows/ci.yml'
+              - '.github/actions/setup-rust/**'
+
+      - name: Setup Rust
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
+        uses: ./.github/actions/setup-rust
+        with:
+          restore-cache: "false"
+
+      # Own key: the nightly's macOS cache holds release artifacts a debug
+      # check cannot reuse, and sharing a key would only evict it.
+      - name: Cache Rust dependencies
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: check-macos
+          # A red run still saves its build so the fix's run starts warm;
+          # delete the key after a cancelled run (it saves a near-empty cache
+          # that rust-cache never overwrites).
+          cache-on-failure: "true"
+
+      - name: Check sd-cli and sd-daemon
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
+        run: cargo check --locked -p sd-cli -p sd-core --bin sd-cli --bin sd-daemon
+
+      - name: Check sd-core with the wasm feature
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
+        run: cargo check --locked -p sd-core --features wasm
+
   typescript:
     name: TypeScript
     runs-on: blacksmith-4vcpu-ubuntu-2204

@@ -21,6 +21,12 @@ regexes = [
 ]
 
 [[allowlists]]
+description = "Key id inside the base64 Tauri updater public key in tauri.conf.json, which gitleaks decodes; public by design"
+regexes = [
+	'''^FA1DB2E94E74028C$''',
+]
+
+[[allowlists]]
 description = "Placeholders in docs and workflow cache keys"
 regexes = [
 	'''admin:yourpassword''',

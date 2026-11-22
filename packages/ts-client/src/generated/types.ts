@@ -62,6 +62,28 @@ export type AddItemOutput = { item: SpaceItem };
 export type AddOverrides = { placement?: StorePlacement | null; keep_offline_copy?: boolean | null; unfiltered?: boolean | null; identify_content?: boolean | null };
 
 /**
+ * Agent MCP endpoint configuration output
+ */
+export type AgentMcpConfigOutput = { 
+/**
+ * Whether the daemon serves the endpoint.
+ */
+enabled: boolean; 
+/**
+ * The address it listens on when enabled.
+ */
+listen: string };
+
+/**
+ * Per-library inference settings.
+ * 
+ * Inference runs on this device unless the library opts a category into a
+ * cloud provider here. Nothing is sent anywhere while `enabled` is false,
+ * which is the default, even when a key is stored.
+ */
+export type AiSettings = { cloud_caption?: CloudCaptionSettings };
+
+/**
  * Input for alternate instances query
  */
 export type AlternateInstancesInput = { 
@@ -143,6 +165,10 @@ replication: ReplicationConfigOutput;
  */
 backup: BackupConfigOutput; 
 /**
+ * The agent MCP endpoint
+ */
+agent_mcp: AgentMcpConfigOutput; 
+/**
  * Daemon logging configuration
  */
 logging: LoggingConfigOutput; 
@@ -211,6 +237,23 @@ export type ChangeKind = { type: "create"; size: number } | { type: "create_dire
  * The filesystem attributes that change, each absent where it stays.
  */
 { type: "set_attributes"; attributes: Attributes };
+
+/**
+ * Bring-your-own-key image captioning through a cloud service.
+ * 
+ * The key itself is never stored here: it lives encrypted with the library
+ * key in the library database, so `library.json` can be read or backed up
+ * without exposing it.
+ */
+export type CloudCaptionSettings = { enabled?: boolean; 
+/**
+ * Base URL of an OpenAI-compatible API, such as `https://api.openai.com/v1`.
+ */
+base_url?: string | null; 
+/**
+ * The vision model to ask for captions.
+ */
+model?: string | null };
 
 /**
  * Cloud service type identifier
@@ -353,6 +396,11 @@ export type ConnectionMethod =
 "RelayProxy";
 
 /**
+ * How `content` is encoded.
+ */
+export type ContentEncoding = "utf8" | "base64";
+
+/**
  * Domain representation of content identity
  */
 export type ContentIdentity = { uuid: string; kind: ContentKind; content_hash: string; integrity_hash: string | null; mime_type_id: number | null; text_content: string | null; total_size: number; entry_count: number; first_seen_at: string; last_verified_at: string };
@@ -398,6 +446,79 @@ stats: ContentKindStat[];
  * Total number of files across all content kinds
  */
 total_files: number };
+
+/**
+ * One ranked file.
+ */
+export type ContentSearchHit = { 
+/**
+ * The file, relative to the scope, with `/` separators. The file's
+ * name when the scope is the file itself.
+ */
+path: string; 
+/**
+ * The extractor that read it.
+ */
+kind: TextKind; 
+/**
+ * BM25 relevance. Larger is better; only the order within one response
+ * means anything.
+ */
+score: number; 
+/**
+ * Up to about 24 words around the best match.
+ */
+snippet: SnippetFragment[]; 
+/**
+ * The file holds more than 1 MiB of text and only the start was
+ * indexed, so a match later in the file is not found.
+ */
+truncated: boolean; 
+/**
+ * Where in the recording the words were said, for a `transcript` hit.
+ * One recording can answer with several hits, one per moment.
+ */
+time: SpokenTime | null };
+
+/**
+ * Search the indexed text of the files under `scope`.
+ */
+export type ContentSearchInput = { 
+/**
+ * A directory or file under a source tracked on this device.
+ */
+scope: SdPath; 
+/**
+ * Words that must all appear. Text in double quotes is a phrase, and a
+ * word ending in `*` matches as a prefix.
+ */
+query: string; 
+/**
+ * Only files read by these extractors. Empty means every kind.
+ */
+kinds?: TextKind[]; 
+/**
+ * Hits per page. Defaults to 20.
+ */
+max_results?: number | null; 
+/**
+ * The `next_cursor` of the previous page, to continue from there.
+ */
+cursor?: string | null };
+
+/**
+ * One page of hits.
+ */
+export type ContentSearchOutput = { hits: ContentSearchHit[]; 
+/**
+ * Pass back as `cursor` to read the next page. Absent on the last page.
+ */
+next_cursor: string | null; 
+/**
+ * Files under the scope whose text is not indexed yet, or was read from
+ * bytes that have since changed. Zero when the index is current there.
+ */
+pending_files: number };
 
 /**
  * Metadata for a single file or directory in the copy operation.
@@ -593,6 +714,31 @@ folder_path: SdPath;
  */
 job_receipt?: JobReceipt | null };
 
+export type CreateGrantInput = { 
+/**
+ * The directory to grant, on this device.
+ */
+path: string; 
+/**
+ * Defaults to read-only.
+ */
+caps?: GrantCap | null; 
+/**
+ * Lifetime in seconds, from 5 minutes to 12 hours. Defaults to 1 hour.
+ */
+ttl_seconds?: number | null; 
+/**
+ * A name for the owner's list, such as the agent it was made for.
+ */
+label?: string | null };
+
+export type CreateGrantOutput = { grant: GrantInfo; 
+/**
+ * The bearer token. This is the only time it is shown; Spacedrive keeps
+ * only its hash.
+ */
+token: string };
+
 /**
  * Input for creating a new archive source
  */
@@ -652,7 +798,11 @@ export type DataVolumeSnapshot = { entries_synced: { [key in string]: number }; 
 /**
  * Time-based fields that can be filtered
  */
-export type DateField = "CreatedAt" | "ModifiedAt" | "AccessedAt" | "IndexedAt";
+export type DateField = "CreatedAt" | "ModifiedAt" | "AccessedAt" | "IndexedAt" | 
+/**
+ * When the photo was taken, from its image facet.
+ */
+"CapturedAt";
 
 /**
  * Filter for a time-based field
@@ -662,6 +812,15 @@ export type DateRangeFilter = { field: DateField; start: string | null; end: str
 export type DeleteGroupInput = { group_id: string };
 
 export type DeleteGroupOutput = { success: boolean };
+
+/**
+ * Move a path to the trash.
+ */
+export type DeleteInput = { token: string; path: string; 
+/**
+ * What was read at `path`.
+ */
+expect: Precondition };
 
 export type DeleteItemInput = { item_id: string };
 
@@ -936,7 +1095,14 @@ has_more: boolean;
  * What the overlaid plan does to rows of this directory, by the row's
  * full name. Empty without an overlay
  */
-overlay?: OverlaidRow[] };
+overlay?: OverlaidRow[]; 
+/**
+ * The directory did not answer its open within the walk's bound, which
+ * on macOS is a privacy prompt nobody has answered. The listing is
+ * empty because nothing could be read, not because the folder is, and
+ * it fills in once access is granted.
+ */
+awaiting_permission?: boolean };
 
 /**
  * Sort options for directory listing
@@ -957,7 +1123,12 @@ export type DirectorySortBy =
 /**
  * Sort by type (directories first, then files)
  */
-"type";
+"type" | 
+/**
+ * Sort by capture time (newest first), from the image facet. Files
+ * without one come last.
+ */
+"datetaken";
 
 export type DiscoverRemoteLibrariesInput = { 
 /**
@@ -1280,9 +1451,18 @@ executes_on: string;
  */
 strategy: string | null; estimated_files: number | null; estimated_bytes: number | null; free_space_after: number | null };
 
+export type ExtendGrantInput = { id: string; 
+/**
+ * The new lifetime in seconds from now, from 5 minutes to 12 hours.
+ * Defaults to 1 hour.
+ */
+ttl_seconds?: number | null };
+
+export type ExtendGrantOutput = { grant: GrantInfo };
+
 export type ExtensionCase = "lower" | "keep";
 
-export type ExtensionInfo = { id: string; name: string; version: string; jobs: ExtensionJobInfo[]; kinds: ExtensionKindInfo[]; viewers: ExtensionViewerInfo[] };
+export type ExtensionInfo = { id: string; name: string; version: string; jobs: ExtensionJobInfo[]; kinds: ExtensionKindInfo[]; viewers: ExtensionViewerInfo[]; views: ExtensionViewInfo[] };
 
 export type ExtensionJobInfo = { 
 /**
@@ -1309,6 +1489,28 @@ id: string; name: string; display_name: string; parent: ContentKind;
  * Every extension the manifest claims, contested ones included
  */
 extensions: string[]; preview: PreviewSpec | null };
+
+export type ExtensionModelsInput = { extension_id: string; 
+/**
+ * A model name the extension registered, such as `Person`
+ */
+model: string; limit?: number | null };
+
+export type ExtensionModelsOutput = { 
+/**
+ * Each row as the extension wrote it, newest first
+ */
+rows: JsonValue[] };
+
+/**
+ * A library page `ui_manifest.json` declares. The client lists it in the
+ * sidebar and mounts the bundle from `/extension/<extension id>/<bundle>`.
+ */
+export type ExtensionViewInfo = { id: string; title: string; 
+/**
+ * Path inside the extension directory to one ES module
+ */
+bundle: string };
 
 /**
  * A viewer `ui_manifest.json` declares. The client mounts the bundle from
@@ -1767,6 +1969,44 @@ export type FsPlanSummary = { creates: Tally; directories_created: number; repla
  */
 collisions: number; attributes: number };
 
+export type FuseListInput = Record<string, never>;
+
+export type FuseListOutput = { 
+/**
+ * This daemon was built with FUSE support and runs on Linux.
+ */
+supported: boolean; 
+/**
+ * The daemon's config allows mounts.
+ */
+enabled: boolean; mounts: FuseMountInfo[] };
+
+/**
+ * A mount the daemon holds.
+ */
+export type FuseMountInfo = { path: string; 
+/**
+ * The grant the mount is bound to, when it shows only one directory.
+ */
+grant_id: string | null; 
+/**
+ * The granted directory the mount shows.
+ */
+granted_path: string | null; expires_at: string | null; mounted_at: string };
+
+export type FuseMountInput = { 
+/**
+ * An existing, empty directory to mount at.
+ */
+path: string; 
+/**
+ * Show only the directory this grant lends, checking the grant on
+ * every listing and open. Without one, every source is shown.
+ */
+grant_token?: string | null };
+
+export type FuseUnmountInput = { path: string };
+
 /**
  * Generic progress information that all job types can convert into
  */
@@ -1934,6 +2174,47 @@ tag_id: string | null };
 
 export type GetTagChildrenOutput = { tags: Tag[] };
 
+export type GrantAuditEntry = { grant_id: string; op: string; path: string; allowed: boolean; reason: string | null; at: string };
+
+export type GrantAuditInput = { 
+/**
+ * Only this grant's requests. Every grant's when absent.
+ */
+grant_id: string | null; 
+/**
+ * At most this many entries, newest first. Defaults to 100.
+ */
+limit: number | null };
+
+export type GrantAuditOutput = { entries: GrantAuditEntry[] };
+
+/**
+ * What a grant lets its holder do.
+ */
+export type GrantCap = "read" | "read_write";
+
+/**
+ * A grant as the owner sees it. Never carries the token.
+ */
+export type GrantInfo = { id: string; source_id: string; 
+/**
+ * The granted directory, canonical at creation.
+ */
+subtree: string; caps: GrantCap; label: string | null; 
+/**
+ * The device that minted the grant.
+ */
+created_by: string; created_at: string; expires_at: string; revoked_at: string | null; status: GrantStatus; 
+/**
+ * When the grant last authorized a request, from the audit log.
+ */
+last_used_at: string | null };
+
+/**
+ * Whether a grant can still be used.
+ */
+export type GrantStatus = "active" | "expired" | "revoked";
+
 export type Granularity = 
 /**
  * `2024`
@@ -1947,6 +2228,144 @@ export type Granularity =
  * `2024-05-06`
  */
 "year_month_day";
+
+/**
+ * Search the files under `scope` for `pattern`.
+ */
+export type GrepInput = (GrepOptions) & { 
+/**
+ * A directory or file under a source tracked on this device.
+ */
+scope: SdPath };
+
+/**
+ * One matching line.
+ */
+export type GrepMatch = { 
+/**
+ * The file, relative to the scope, with `/` separators. A name that is
+ * not valid UTF-8 is converted lossily.
+ */
+path: string; 
+/**
+ * 1-based.
+ */
+line_number: number; 
+/**
+ * The line without its terminator, converted lossily and cut at 4 KiB.
+ */
+line: string; 
+/**
+ * Up to `context_lines` lines before the match, in file order.
+ */
+before: string[]; 
+/**
+ * Up to `context_lines` lines after the match, in file order.
+ */
+after: string[] };
+
+/**
+ * What to search for and how, independent of where.
+ */
+export type GrepOptions = { 
+/**
+ * A regular expression, or a literal string when `literal` is set.
+ */
+pattern: string; 
+/**
+ * Match `pattern` as plain text rather than as a regular expression.
+ */
+literal?: boolean; 
+/**
+ * Ignore case when matching.
+ */
+case_insensitive?: boolean; 
+/**
+ * Globs a file must match to be searched, such as `*.rs`. Empty means
+ * every file.
+ */
+include?: string[]; 
+/**
+ * Globs that exclude files and directories from the search.
+ */
+exclude?: string[]; 
+/**
+ * Skip what `.gitignore`, `.ignore` and git's exclude files ignore.
+ */
+respect_gitignore?: boolean; 
+/**
+ * Search hidden files and directories, those whose names start with a dot.
+ */
+include_hidden?: boolean; 
+/**
+ * Lines of context returned before and after each match.
+ */
+context_lines?: number; 
+/**
+ * Matches per page. Defaults to 100.
+ */
+max_results?: number | null; 
+/**
+ * The `next_cursor` of the previous page, to continue from there.
+ */
+cursor?: string | null; 
+/**
+ * Files larger than this many bytes are skipped. Defaults to 1 MiB.
+ */
+max_file_bytes?: number | null };
+
+/**
+ * One page of matches.
+ */
+export type GrepOutput = { matches: GrepMatch[]; 
+/**
+ * Files searched for this page.
+ */
+files_scanned: number; 
+/**
+ * Files passed over for this page: binary, larger than `max_file_bytes`,
+ * or cloud placeholders.
+ */
+files_skipped: number; 
+/**
+ * The first 100 files counted in `files_skipped`, with the reason.
+ */
+skipped: GrepSkipped[]; 
+/**
+ * The page stopped at `max_results`. More matches may follow.
+ */
+truncated: boolean; 
+/**
+ * Pass back as `cursor` to read the next page. Set when `truncated` is.
+ */
+next_cursor: string | null };
+
+/**
+ * Why a file was passed over.
+ */
+export type GrepSkipReason = 
+/**
+ * The file holds a NUL byte.
+ */
+"binary" | 
+/**
+ * The file is larger than `max_file_bytes`.
+ */
+"too_large" | 
+/**
+ * A cloud placeholder whose bytes are not on this device. Opening it
+ * would download it, so it is never opened.
+ */
+"cloud_placeholder";
+
+/**
+ * A file the search passed over.
+ */
+export type GrepSkipped = { 
+/**
+ * Relative to the scope, as in [`GrepMatch::path`].
+ */
+path: string; reason: GrepSkipReason };
 
 /**
  * Types of groups that can appear in a space
@@ -1990,7 +2409,7 @@ export type HealthState = "ok" | "failing" | "unknown";
 /**
  * Image metadata extracted from EXIF
  */
-export type ImageMediaData = { uuid: string; width: number; height: number; blurhash: string | null; date_taken: string | null; latitude: number | null; longitude: number | null; camera_make: string | null; camera_model: string | null; lens_model: string | null; focal_length: string | null; aperture: string | null; shutter_speed: string | null; iso: number | null; orientation: number | null; color_space: string | null; color_profile: string | null; bit_depth: string | null; artist: string | null; copyright: string | null; description: string | null };
+export type ImageMediaData = { uuid: string; width: number | null; height: number | null; blurhash: string | null; date_taken: string | null; latitude: number | null; longitude: number | null; camera_make: string | null; camera_model: string | null; lens_model: string | null; focal_length: string | null; aperture: string | null; shutter_speed: string | null; iso: number | null; orientation: number | null; color_space: string | null; color_profile: string | null; bit_depth: string | null; artist: string | null; copyright: string | null; description: string | null };
 
 /**
  * Canonical input for indexing requests from any interface (CLI, API, etc.)
@@ -2097,7 +2516,13 @@ thumbs_path: string | null;
  * attached, `offline_copy` while the drive is away and the library's
  * copy answers, and `away` when the drive is away and there is no copy.
  */
-catalog?: CatalogAvailability };
+catalog?: CatalogAvailability; 
+/**
+ * Folders under the source whose listing never answered, such as a
+ * macOS folder behind a privacy prompt nobody answered. Read again once
+ * the listing returns, and every few minutes until it does.
+ */
+awaiting_permission?: string[] };
 
 /**
  * Status of the volume index
@@ -2364,6 +2789,10 @@ export type JobOutput =
  * Thumbnail generation output (detailed)
  */
 { type: "ThumbnailGeneration"; data: { generated_count: number; skipped_count: number; error_count: number; total_size_bytes: number } } | 
+/**
+ * Video proxy and speech audio generation output
+ */
+{ type: "ProxyGeneration"; data: { generated_count: number; skipped_count: number; error_count: number } } | 
 /**
  * File move/rename operation output
  */
@@ -2803,7 +3232,11 @@ indexer?: IndexerSettings;
 /**
  * What a new source starts with when nothing on the add overrides it.
  */
-adding?: AddDefaults };
+adding?: AddDefaults; 
+/**
+ * Which inference may leave this device for this library.
+ */
+ai?: AiSettings };
 
 /**
  * Library settings output
@@ -3011,6 +3444,18 @@ supported: boolean; extensions: ExtensionInfo[];
  */
 conflicts: KindConflict[] };
 
+export type ListGrantsInput = { 
+/**
+ * Include expired and revoked grants. Only active ones otherwise.
+ */
+include_inactive?: boolean };
+
+export type ListGrantsOutput = { 
+/**
+ * Newest first.
+ */
+grants: GrantInfo[] };
+
 export type ListLibrariesInput = { 
 /**
  * Whether to include detailed statistics for each library
@@ -3079,6 +3524,11 @@ export type LocalPathOutput = { path: string };
  * Logging configuration output
  */
 export type LoggingConfigOutput = { main_filter: string };
+
+/**
+ * Create a directory and any missing parents.
+ */
+export type MakeDirInput = { token: string; path: string };
 
 /**
  * A place in the order pages are served in: source by source, by root, then
@@ -3364,7 +3814,11 @@ export type MountsCacheStatusInput = Record<string, never>;
 /**
  * Mounts configuration output
  */
-export type MountsConfigOutput = { cache_max_bytes: number };
+export type MountsConfigOutput = { cache_max_bytes: number; 
+/**
+ * Whether FUSE mounts are allowed on this device.
+ */
+fuse_enabled: boolean };
 
 export type MountsReadTrace = { 
 /**
@@ -3429,6 +3883,15 @@ export type MountsTraceSetInput = {
 enabled: boolean };
 
 export type MountsTraceSetOutput = { recording: boolean; message: string };
+
+/**
+ * Move or rename a path inside the grant.
+ */
+export type MoveInput = { token: string; from: string; to: string; 
+/**
+ * What was read at `from`.
+ */
+expect: Precondition };
 
 /**
  * Where one focus group is currently looking.
@@ -3668,6 +4131,8 @@ canonical_path: SdPath; availability: PathAvailability; map_state: PathMapState;
  */
 system_place: string | null; storage: PathStorageContext };
 
+export type PathKind = "file" | "directory" | "symlink" | "other";
+
 export type PathMapState = "unseen" | "indexing" | "detailed" | "summarised";
 
 /**
@@ -3676,6 +4141,28 @@ export type PathMapState = "unseen" | "indexing" | "detailed" | "summarised";
 export type PathMapping = { virtual_path: string; actual_path: string };
 
 export type PathSourceContext = { id: string; name: string; root: string; attached: boolean };
+
+/**
+ * A path inside a grant as it is now.
+ */
+export type PathState = { 
+/**
+ * Relative to the granted directory, with `/` separators.
+ */
+path: string; 
+/**
+ * `None` when nothing is at the path.
+ */
+kind: PathKind | null; size: number | null; 
+/**
+ * `None` when absent, or when the file is a cloud placeholder whose
+ * contents are not on this device.
+ */
+content_hash: string | null; 
+/**
+ * `None` when the source has no store on this device yet.
+ */
+revision: string | null };
 
 export type PathStorageContext = { 
 /**
@@ -3801,6 +4288,25 @@ export type PortPolicy =
 export type PortRange = { from: number; to: number };
 
 /**
+ * What the agent read before it asked to change a path.
+ * 
+ * At least one field is required for any write that changes an existing
+ * path. Every field given must match the path as it is now.
+ */
+export type Precondition = { 
+/**
+ * The revision of the source's store, as `agent.stat` or an earlier
+ * write reported it. It counts every change the store has ingested
+ * anywhere in the source, so it is the strict form.
+ */
+revision?: string | null; 
+/**
+ * The BLAKE3 hash of the path's contents, hex. For a directory it is the
+ * hash of its listing. It is computed from the disk on every check.
+ */
+content_hash?: string | null };
+
+/**
  * User preferences output
  */
 export type PreferencesOutput = { theme: string; language: string };
@@ -3880,6 +4386,25 @@ total_bytes: number | null };
 export type ProxyPairingConfigOutput = { auto_accept_vouched: boolean; auto_vouch_to_all: boolean; vouch_signature_max_age: number; vouch_response_timeout: number; vouch_queue_retry_limit: number };
 
 export type ReadSizeBucket = { range: string; reads: number };
+
+/**
+ * Which source's index to rebuild.
+ */
+export type RebuildContentIndexInput = { 
+/**
+ * The root of a source tracked on this device, or any path inside it.
+ */
+path: string };
+
+export type RebuildContentIndexOutput = { 
+/**
+ * Files the index held when the rebuild was requested.
+ */
+cleared_files: number; 
+/**
+ * The pass that reads the source again.
+ */
+job_id: string | null };
 
 /**
  * One effect as the journal holds it.
@@ -4078,6 +4603,10 @@ export type RestoreMode =
  */
 "new";
 
+export type RevokeGrantInput = { id: string };
+
+export type RevokeGrantOutput = { grant: GrantInfo };
+
 /**
  * Risk level for adding a path as a source
  */
@@ -4202,6 +4731,11 @@ kinds: { [key in string]: number }; tags: { [key in string]: number }; date_rang
  * Container for all structured filters
  */
 export type SearchFilters = { file_types: string[] | null; tags: TagFilter | null; date_range: DateRangeFilter | null; size_range: SizeRangeFilter | null; content_types: ContentKind[] | null; include_hidden: boolean | null; include_archived: boolean | null; 
+/**
+ * Only photos whose EXIF places them (true) or does not (false). A
+ * file with no image facet has no place and fails `true`.
+ */
+has_location?: boolean | null; 
 /**
  * Only return files that are at risk (true) or redundant (false).
  * At risk = content exists on exactly one volume.
@@ -4353,6 +4887,9 @@ version: number; created_at: string; updated_at: string };
  * - MessagePack: Binary structured data (embeddings, vectors)
  * - Text: Plain text extractions
  * - Ply: 3D model format for Gaussian splats
+ * - Wav: Uncompressed audio that speech models read without decoding
+ * - Srt, Vtt: Subtitles that editors and players import as they are
+ * - Jpeg: Video keyframes, which FFmpeg writes without optional encoders
  * 
  * MessagePack is preferred for embeddings because:
  * - 6x smaller than JSON (1.7KB vs 10KB per 384-dim vector)
@@ -4360,7 +4897,7 @@ version: number; created_at: string; updated_at: string };
  * - Already used in Spacedrive (job serialization)
  * - Enables sub-30ms semantic search on 1M+ files
  */
-export type SidecarFormat = "webp" | "mp_4" | "json" | "message_pack" | "text" | "ply";
+export type SidecarFormat = "webp" | "mp_4" | "json" | "message_pack" | "text" | "ply" | "wav" | "srt" | "vtt" | "jpeg";
 
 /**
  * What a sidecar holds. The core kinds are closed; an extension declares
@@ -4368,7 +4905,7 @@ export type SidecarFormat = "webp" | "mp_4" | "json" | "message_pack" | "text" |
  * extension's namespace, so two extensions' `faces` never collide and no
  * extension can write a core kind.
  */
-export type SidecarKind = "thumb" | "thumbstrip" | "proxy" | "embeddings" | "ocr" | "transcript" | "gaussian_splat" | { extension: { extension_id: string; kind: string } };
+export type SidecarKind = "thumb" | "thumbstrip" | "proxy" | "embeddings" | "ocr" | "transcript" | "gaussian_splat" | "audio" | "shots" | "keyframe" | { extension: { extension_id: string; kind: string } };
 
 export type SidecarVariant = string;
 
@@ -4439,6 +4976,12 @@ export type SkipReason =
 export type Skips = { duplicate_candidates: Tally; duplicates_confirmed: Tally; junk: number; policy: Tally };
 
 /**
+ * A piece of a snippet: either text that matched the query or the text
+ * around it. Joined in order, the pieces are the snippet.
+ */
+export type SnippetFragment = { text: string; matched: boolean };
+
+/**
  * Sort direction
  */
 export type SortDirection = "Asc" | "Desc";
@@ -4446,7 +4989,12 @@ export type SortDirection = "Asc" | "Desc";
 /**
  * Fields that can be used for sorting
  */
-export type SortField = "Relevance" | "Name" | "Size" | "ModifiedAt" | "CreatedAt" | "IndexedAt";
+export type SortField = "Relevance" | "Name" | "Size" | "ModifiedAt" | "CreatedAt" | "IndexedAt" | 
+/**
+ * When the photo was taken, from its image facet. Files without one
+ * sort last whichever way the order runs.
+ */
+"CapturedAt";
 
 /**
  * Sorting options for search results
@@ -4568,7 +5116,13 @@ settings?: SourceConfig | null;
  * taken and how far behind the origin it is. Absent unless the
  * catalog lives on the source.
  */
-offline_copy?: OfflineCopyInfo | null };
+offline_copy?: OfflineCopyInfo | null; 
+/**
+ * Folders under the source that have not been read because their
+ * listing never answered, such as a macOS folder whose privacy prompt
+ * nobody has answered yet. They are read again once access is granted.
+ */
+awaiting_permission?: string[] };
 
 export type SourceItem = { id: string; external_id: string; title: string; preview: string | null; subtitle: string | null };
 
@@ -4743,6 +5297,11 @@ export type SpacesListOutput = { spaces: Space[] };
 
 export type SpacesListQueryInput = null;
 
+/**
+ * A stretch of a recording, in seconds from its start.
+ */
+export type SpokenTime = { start_seconds: number; end_seconds: number };
+
 export type StartupIndexingDisposition = "started" | "already_started" | "disabled";
 
 export type StartupIndexingInput = { 
@@ -4752,6 +5311,11 @@ export type StartupIndexingInput = {
 force?: boolean };
 
 export type StartupIndexingOutput = { disposition: StartupIndexingDisposition };
+
+/**
+ * Read a path's state, the values a precondition names.
+ */
+export type StatInput = { token: string; path: string };
 
 /**
  * State transition event
@@ -4975,6 +5539,16 @@ export type Tally = { files: number; bytes: number };
  * Text highlighting information
  */
 export type TextHighlight = { field: string; text: string; start: number; end: number };
+
+/**
+ * Which extractor read a file. Search filters by it.
+ */
+export type TextKind = "text" | "markdown" | "csv" | "json" | "code" | "pdf" | "docx" | 
+/**
+ * Words spoken in an audio or video file, from its transcript. No
+ * extension maps to it; the transcription job writes these rows.
+ */
+"transcript";
 
 /**
  * Paths in draw order. The first is the most urgent, so a client sends its
@@ -5267,6 +5841,11 @@ language?: string | null;
  */
 mounts_cache_max_bytes?: number | null; 
 /**
+ * Allow FUSE mounts on Linux. Mounts already up stay up when this is
+ * turned off; it only refuses new ones.
+ */
+mounts_fuse_enabled?: boolean | null; 
+/**
  * Ceiling on replica bytes per second, serving and fetching combined;
  * zero lifts it. Applies to transfers already in flight.
  */
@@ -5277,6 +5856,15 @@ replication_max_bytes_per_sec?: number | null;
  * is kept whatever the number.
  */
 backup_restore_trash_keep?: number | null; 
+/**
+ * Whether the daemon serves the agent MCP endpoint. Applies at restart.
+ */
+agent_mcp_enabled?: boolean | null; 
+/**
+ * The loopback address the agent MCP endpoint listens on. Applies at
+ * restart.
+ */
+agent_mcp_listen?: string | null; 
 /**
  * Whether networking is enabled
  */
@@ -5946,6 +6534,51 @@ export type WholeVolumeSuggestion = { volume_fingerprint: string; volume_name: s
 export type WireAssertion = { tag_uuid: string; record_uuid: string; external_id: string | null; content_uuid: string | null; asserted: boolean; hlc: string; device_uuid: string };
 
 export type WireDefinition = { uuid: string; slug_id: string; path: string; color: string | null; icon: string | null; updated_hlc: string; origin_device: string };
+
+/**
+ * Write a whole file, or a byte range of one.
+ */
+export type WriteFileInput = { 
+/**
+ * The grant token.
+ */
+token: string; 
+/**
+ * Relative to the granted directory.
+ */
+path: string; content: string; encoding?: ContentEncoding | null; 
+/**
+ * Write `content` starting at this byte of the existing file, keeping
+ * the bytes around it. Needs `expect`. The whole file when absent.
+ */
+offset?: number | null; 
+/**
+ * What was read. Absent for a create, which never replaces anything.
+ */
+expect?: Precondition | null };
+
+/**
+ * What a write did.
+ */
+export type WriteOutcome = { 
+/**
+ * The path as the request named it, relative to the granted directory.
+ */
+requested: string; 
+/**
+ * The result's state after the write. Its path differs from
+ * `requested` when a create found the name taken.
+ */
+state: PathState; 
+/**
+ * Whether the name was taken and the result was given a conflict name.
+ */
+conflict: boolean; 
+/**
+ * Pass this to `files.undo` as `job` to reverse the write. `None` when
+ * the write changed nothing, or when its journal could not be written.
+ */
+undo: string | null };
 // ===== API Type Unions =====
 
 export type CoreAction =
@@ -5960,6 +6593,8 @@ export type CoreAction =
   |  { type: 'models.whisper.delete'; input: DeleteWhisperModelInput; output: DeleteWhisperModelOutput }
   |  { type: 'models.whisper.download'; input: DownloadWhisperModelInput; output: DownloadWhisperModelOutput }
   |  { type: 'mounts.cache_clear'; input: MountsCacheClearInput; output: MountsCacheClearOutput }
+  |  { type: 'mounts.fuse_mount'; input: FuseMountInput; output: FuseMountInfo }
+  |  { type: 'mounts.fuse_unmount'; input: FuseUnmountInput; output: FuseMountInfo }
   |  { type: 'mounts.replication_set_paused'; input: MountsReplicationSetPausedInput; output: MountsReplicationSetPausedOutput }
   |  { type: 'mounts.sync_peers'; input: MountsSyncPeersInput; output: MountsSyncPeersOutput }
   |  { type: 'mounts.trace_set'; input: MountsTraceSetInput; output: MountsTraceSetOutput }
@@ -5984,6 +6619,10 @@ export type CoreAction =
 
 export type LibraryAction =
      { type: 'adapters.update'; input: UpdateAdapterInput; output: UpdateAdapterOutput }
+  |  { type: 'agent.delete'; input: DeleteInput; output: WriteOutcome }
+  |  { type: 'agent.make_dir'; input: MakeDirInput; output: WriteOutcome }
+  |  { type: 'agent.move'; input: MoveInput; output: WriteOutcome }
+  |  { type: 'agent.write_file'; input: WriteFileInput; output: WriteOutcome }
   |  { type: 'config.library.update'; input: UpdateLibraryConfigInput; output: UpdateLibraryConfigOutput }
   |  { type: 'extensions.run_job'; input: RunExtensionJobInput; output: RunExtensionJobOutput }
   |  { type: 'files.archive'; input: FileArchiveInput; output: JobReceipt }
@@ -6000,6 +6639,9 @@ export type LibraryAction =
   |  { type: 'files.set_attributes'; input: FileSetAttributesInput; output: JobReceipt }
   |  { type: 'files.trash_empty'; input: FileTrashEmptyInput; output: TrashEmptyOutput }
   |  { type: 'files.undo'; input: FileUndoInput; output: JobReceipt }
+  |  { type: 'grants.create'; input: CreateGrantInput; output: CreateGrantOutput }
+  |  { type: 'grants.extend'; input: ExtendGrantInput; output: ExtendGrantOutput }
+  |  { type: 'grants.revoke'; input: RevokeGrantInput; output: RevokeGrantOutput }
   |  { type: 'indexing.start'; input: IndexInput; output: JobReceipt }
   |  { type: 'indexing.startup'; input: StartupIndexingInput; output: StartupIndexingOutput }
   |  { type: 'jobs.cancel'; input: JobCancelInput; output: JobCancelOutput }
@@ -6007,6 +6649,7 @@ export type LibraryAction =
   |  { type: 'jobs.resume'; input: JobResumeInput; output: JobResumeOutput }
   |  { type: 'libraries.backup'; input: LibraryBackupInput; output: LibraryBackupOutput }
   |  { type: 'libraries.rename'; input: LibraryRenameInput; output: LibraryRenameOutput }
+  |  { type: 'search.content.rebuild'; input: RebuildContentIndexInput; output: RebuildContentIndexOutput }
   |  { type: 'sources.assertions.merge'; input: MergeAssertionsInput; output: MergeAssertionsOutput }
   |  { type: 'sources.create'; input: CreateSourceInput; output: CreateSourceOutput }
   |  { type: 'sources.delete'; input: DeleteSourceInput; output: DeleteSourceOutput }
@@ -6057,6 +6700,7 @@ export type CoreQuery =
   |  { type: 'libraries.list'; input: ListLibrariesInput; output: [LibraryInfo] }
   |  { type: 'models.whisper.list'; input: ListWhisperModelsInput; output: ListWhisperModelsOutput }
   |  { type: 'mounts.cache_status'; input: MountsCacheStatusInput; output: MountsCacheStatus }
+  |  { type: 'mounts.fuse_list'; input: FuseListInput; output: FuseListOutput }
   |  { type: 'mounts.read_trace'; input: MountsReadTraceInput; output: MountsReadTrace }
   |  { type: 'mounts.replication_status'; input: MountsReplicationStatusInput; output: ReplicationStatus }
   |  { type: 'mounts.status'; input: MountsStatusInput; output: MountsStatus }
@@ -6075,8 +6719,10 @@ export type CoreQuery =
 export type LibraryQuery =
      { type: 'adapters.config'; input: GetAdapterConfigInput; output: [AdapterConfigField] }
   |  { type: 'adapters.list'; input: ListAdaptersInput; output: [AdapterInfo] }
+  |  { type: 'agent.stat'; input: StatInput; output: PathState }
   |  { type: 'config.library.get'; input: GetLibraryConfigQueryInput; output: LibrarySettingsOutput }
   |  { type: 'devices.list'; input: ListLibraryDevicesInput; output: [Device] }
+  |  { type: 'extensions.models'; input: ExtensionModelsInput; output: ExtensionModelsOutput }
   |  { type: 'files.alternate_instances'; input: AlternateInstancesInput; output: AlternateInstancesOutput }
   |  { type: 'files.by_id'; input: FileByIdQuery; output: File }
   |  { type: 'files.by_path'; input: FileByPathQuery; output: File }
@@ -6085,6 +6731,8 @@ export type LibraryQuery =
   |  { type: 'files.directory_listing'; input: DirectoryListingInput; output: DirectoryListingOutput }
   |  { type: 'files.media_listing'; input: MediaListingInput; output: MediaListingOutput }
   |  { type: 'files.trash_list'; input: TrashListInput; output: TrashListOutput }
+  |  { type: 'grants.audit'; input: GrantAuditInput; output: GrantAuditOutput }
+  |  { type: 'grants.list'; input: ListGrantsInput; output: ListGrantsOutput }
   |  { type: 'jobs.active'; input: ActiveJobsInput; output: ActiveJobsOutput }
   |  { type: 'jobs.get_copy_metadata'; input: CopyMetadataQueryInput; output: CopyMetadataOutput }
   |  { type: 'jobs.info'; input: JobInfoQueryInput; output: JobInfoOutput }
@@ -6095,7 +6743,9 @@ export type LibraryQuery =
   |  { type: 'paths.context'; input: PathContextInput; output: PathContextOutput }
   |  { type: 'paths.system_folders'; input: SystemFoldersInput; output: SystemFoldersOutput }
   |  { type: 'redundancy.summary'; input: RedundancySummaryInput; output: RedundancySummaryOutput }
+  |  { type: 'search.content'; input: ContentSearchInput; output: ContentSearchOutput }
   |  { type: 'search.files'; input: FileSearchInput; output: FileSearchOutput }
+  |  { type: 'search.grep'; input: GrepInput; output: GrepOutput }
   |  { type: 'search.media'; input: MediaSearchInput; output: MediaSearchOutput }
   |  { type: 'sources.get'; input: GetSourceInput; output: SourceInfo }
   |  { type: 'sources.list'; input: ListSourcesInput; output: [SourceInfo] }
@@ -6164,6 +6814,8 @@ export const WIRE_METHODS = {
     'models.whisper.delete': 'action:models.whisper.delete.input',
     'models.whisper.download': 'action:models.whisper.download.input',
     'mounts.cache_clear': 'action:mounts.cache_clear.input',
+    'mounts.fuse_mount': 'action:mounts.fuse_mount.input',
+    'mounts.fuse_unmount': 'action:mounts.fuse_unmount.input',
     'mounts.replication_set_paused': 'action:mounts.replication_set_paused.input',
     'mounts.sync_peers': 'action:mounts.sync_peers.input',
     'mounts.trace_set': 'action:mounts.trace_set.input',
@@ -6188,6 +6840,10 @@ export const WIRE_METHODS = {
 
   libraryActions: {
     'adapters.update': 'action:adapters.update.input',
+    'agent.delete': 'action:agent.delete.input',
+    'agent.make_dir': 'action:agent.make_dir.input',
+    'agent.move': 'action:agent.move.input',
+    'agent.write_file': 'action:agent.write_file.input',
     'config.library.update': 'action:config.library.update.input',
     'extensions.run_job': 'action:extensions.run_job.input',
     'files.archive': 'action:files.archive.input',
@@ -6204,6 +6860,9 @@ export const WIRE_METHODS = {
     'files.set_attributes': 'action:files.set_attributes.input',
     'files.trash_empty': 'action:files.trash_empty.input',
     'files.undo': 'action:files.undo.input',
+    'grants.create': 'action:grants.create.input',
+    'grants.extend': 'action:grants.extend.input',
+    'grants.revoke': 'action:grants.revoke.input',
     'indexing.start': 'action:indexing.start.input',
     'indexing.startup': 'action:indexing.startup.input',
     'jobs.cancel': 'action:jobs.cancel.input',
@@ -6211,6 +6870,7 @@ export const WIRE_METHODS = {
     'jobs.resume': 'action:jobs.resume.input',
     'libraries.backup': 'action:libraries.backup.input',
     'libraries.rename': 'action:libraries.rename.input',
+    'search.content.rebuild': 'action:search.content.rebuild.input',
     'sources.assertions.merge': 'action:sources.assertions.merge.input',
     'sources.create': 'action:sources.create.input',
     'sources.delete': 'action:sources.delete.input',
@@ -6261,6 +6921,7 @@ export const WIRE_METHODS = {
     'libraries.list': 'query:libraries.list',
     'models.whisper.list': 'query:models.whisper.list',
     'mounts.cache_status': 'query:mounts.cache_status',
+    'mounts.fuse_list': 'query:mounts.fuse_list',
     'mounts.read_trace': 'query:mounts.read_trace',
     'mounts.replication_status': 'query:mounts.replication_status',
     'mounts.status': 'query:mounts.status',
@@ -6279,8 +6940,10 @@ export const WIRE_METHODS = {
   libraryQueries: {
     'adapters.config': 'query:adapters.config',
     'adapters.list': 'query:adapters.list',
+    'agent.stat': 'query:agent.stat',
     'config.library.get': 'query:config.library.get',
     'devices.list': 'query:devices.list',
+    'extensions.models': 'query:extensions.models',
     'files.alternate_instances': 'query:files.alternate_instances',
     'files.by_id': 'query:files.by_id',
     'files.by_path': 'query:files.by_path',
@@ -6289,6 +6952,8 @@ export const WIRE_METHODS = {
     'files.directory_listing': 'query:files.directory_listing',
     'files.media_listing': 'query:files.media_listing',
     'files.trash_list': 'query:files.trash_list',
+    'grants.audit': 'query:grants.audit',
+    'grants.list': 'query:grants.list',
     'jobs.active': 'query:jobs.active',
     'jobs.get_copy_metadata': 'query:jobs.get_copy_metadata',
     'jobs.info': 'query:jobs.info',
@@ -6299,7 +6964,9 @@ export const WIRE_METHODS = {
     'paths.context': 'query:paths.context',
     'paths.system_folders': 'query:paths.system_folders',
     'redundancy.summary': 'query:redundancy.summary',
+    'search.content': 'query:search.content',
     'search.files': 'query:search.files',
+    'search.grep': 'query:search.grep',
     'search.media': 'query:search.media',
     'sources.get': 'query:sources.get',
     'sources.list': 'query:sources.list',

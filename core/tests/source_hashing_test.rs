@@ -67,6 +67,22 @@ async fn tracking_hashes_every_file_the_walk_records(
 	}
 	assert_eq!(store.files_needing_content_count().await?, 0);
 
+	// The library reports contents off the source's registry row, which the
+	// walk wrote before anything was hashed. Hashing has to bring it along.
+	let deadline = Instant::now() + Duration::from_secs(30);
+	loop {
+		let stats = library.calculate_statistics_for_query().await?;
+		if stats.unique_content_count == files {
+			break;
+		}
+		assert!(
+			Instant::now() < deadline,
+			"library reports {} unique contents for {files} distinct files",
+			stats.unique_content_count
+		);
+		sleep(Duration::from_millis(50)).await;
+	}
+
 	core.shutdown().await?;
 	Ok(())
 }

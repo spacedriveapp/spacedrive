@@ -17,6 +17,11 @@
 //! search_index    FTS5 over the fields the search contract names
 //! ```
 //!
+//! Beside `data.db` sits `text.db`, the content text index
+//! ([`content_text`]): FTS5 over text extracted from the files. It is part of
+//! the generation, kept in its own file so its writes never hold the record
+//! store's lock.
+//!
 //! One shape is the point. Every question across sources reads each store and
 //! joins on it; two shapes would mean two of everything downstream.
 //! [`TrustTier`] travels with a source rather than with its ingest for the same
@@ -26,7 +31,8 @@
 //! question across them asks each store and merges the answers.
 //!
 //! **A store has two halves, and only one of them can ever be rebuilt.** The
-//! generation (`record`, `facet_*`, `content`, `edge`, `search_index`) can be
+//! generation (`record`, `facet_*`, `content`, `edge`, `search_index`, and
+//! the content text index in `text.db`) can be
 //! rebuilt for as long as its origin still answers. `record_overlay` and the
 //! tag tables hold what no ingest produced, so nothing rebuilds them on any
 //! day, for any source.
@@ -42,6 +48,7 @@
 //! router, no job system. Those belong to whoever owns more than one source.
 
 pub mod content;
+pub mod content_text;
 pub mod db;
 pub mod error;
 pub mod file;
@@ -58,6 +65,11 @@ pub mod tags;
 use serde::{Deserialize, Serialize};
 
 pub use content::{uuid_for, ContentId, CONTENT_NAMESPACE};
+pub use content_text::{
+	match_expression, ContentTextIndex, PendingText, PendingTranscript, SnippetPart, TextDoc,
+	TextHit, TextIndexCounts, TextSearch, TranscriptDoc, TranscriptSpan, TEXT_INDEX_FILE,
+	TRANSCRIPT_KIND,
+};
 pub use db::{ItemRow, OverlayEvidence, SourceDb, Stamp};
 pub use error::{Error, Result};
 pub use file::{
@@ -72,7 +84,7 @@ pub use image::{
 	PendingImage,
 };
 pub use migrate::SCHEMA_VERSION;
-pub use read::{FsEntry, TitleMatches};
+pub use read::{image_facets_for_records, FsEntry, TitleMatches};
 pub use record::{ContentIdentity, Record, RECORD_SCHEMA};
 pub use revision::Revision;
 pub use schema::{DataTypeSchema, FieldType, ModelDef};

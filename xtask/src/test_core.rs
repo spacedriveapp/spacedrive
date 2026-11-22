@@ -24,8 +24,11 @@ pub struct TestSuite {
 }
 
 /// The CI job a suite belongs to. Each group is one runner, so the split is
-/// about wall time: the integration group sits near the hour and anything
-/// new goes in its own job rather than on top of it.
+/// about wall time: the integration group runs in about 10 minutes since
+/// #3149, the job's cap in `core_tests.yml` is 90, and the pull request
+/// loop wants it under 15, so a suite that takes seconds goes there and
+/// anything that needs its own build (a feature flag, a kernel module) or
+/// adds minutes goes in another group.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Group {
 	/// The `--lib` suite
@@ -114,6 +117,17 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		&["--test", "normalized_cache_fixtures_test"],
 	),
 	core("Device pairing test", &["--test", "device_pairing_test"]),
+	core(
+		"Device persistence test",
+		&["--test", "device_persistence_test"],
+	),
+	core("Proxy pairing test", &["--test", "proxy_pairing_test"]),
+	// Pairs through an iroh relay the suite runs in-process, so the relay
+	// path is covered without the public relays.
+	core(
+		"Relay only pairing test",
+		&["--test", "relay_only_pairing_test"],
+	),
 	core("File copy pull test", &["--test", "file_copy_pull_test"]),
 	core("File transfer test", &["--test", "file_transfer_test"]),
 	core(
@@ -136,6 +150,40 @@ pub const CORE_TESTS: &[TestSuite] = &[
 	// too; it rides the shorter acceptance job rather than the integration
 	// one, which sits near the hour.
 	acceptance("sd-cli", "MCP server test", &["--test", "mcp_test"]),
+	// Agent grants (docs/core/design/agent-grants.md): scope, expiry,
+	// revocation and protected files in the core, and `sd grant` end to end.
+	acceptance(
+		"sd-core",
+		"Agent grants acceptance test",
+		&["--test", "agent_grants_acceptance_test"],
+	),
+	acceptance("sd-cli", "Grant CLI test", &["--test", "grant_test"]),
+	// Agent writes (docs/core/design/agent-writes.md): preconditions, keep
+	// both on a create collision, staging, undo and protected files.
+	acceptance(
+		"sd-core",
+		"Agent writes acceptance test",
+		&["--test", "agent_writes_acceptance_test"],
+	),
+	// The agent MCP endpoint over HTTP: the read tools and refusals, and the
+	// write tools on top of the agent write operations.
+	acceptance(
+		"sd-core",
+		"Agent MCP acceptance test",
+		&["--test", "agent_mcp_acceptance_test"],
+	),
+	acceptance(
+		"sd-core",
+		"Agent MCP writes test",
+		&["--test", "agent_mcp_writes_test"],
+	),
+	// OAuth on the agent MCP endpoint (docs/cli/mcp-oauth.mdx): discovery,
+	// registration, the PKCE code flow, refresh rotation and revocation.
+	acceptance(
+		"sd-core",
+		"Agent MCP OAuth test",
+		&["--test", "agent_mcp_oauth_test"],
+	),
 	acceptance(
 		"sd-core",
 		"Source runtime acceptance test",
@@ -167,6 +215,28 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		&["--test", "delete_strategy_test"],
 	),
 	acceptance("sd-core", "Search test", &["--test", "search_test"]),
+	// Candidate validation step 4 (docs/core/acceptance/candidate-validation.md):
+	// a killed first walk heals on a volume the volume list hides.
+	acceptance(
+		"sd-core",
+		"Hidden volume heal acceptance test",
+		&["--test", "hidden_volume_heal_acceptance_test"],
+	),
+	// Candidate validation step 4: changes made while the daemon is stopped
+	// reach the index on restart.
+	acceptance(
+		"sd-core",
+		"Stopped daemon reconcile acceptance test",
+		&["--test", "stopped_daemon_reconcile_acceptance_test"],
+	),
+	// Case-only renames on a case-insensitive volume and alternate spellings
+	// of a tracked folder. The case-insensitive half needs ext4 casefold and
+	// skips with a reason on a kernel without it.
+	acceptance(
+		"sd-core",
+		"Path spelling acceptance test",
+		&["--test", "path_spelling_acceptance_test"],
+	),
 	acceptance(
 		"sd-core",
 		"Folder rename test",
@@ -201,6 +271,31 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"sd-core",
 		"Offline copy acceptance test",
 		&["--test", "offline_copy_acceptance_test"],
+	),
+	// Candidate validation step 4, disk full: a walk whose store runs out of
+	// space on a loop-mounted volume fails as disk full instead of hanging,
+	// and the heal finishes it once there is room. Skips like the locked
+	// volumes suite.
+	acceptance(
+		"sd-core",
+		"Disk full acceptance test",
+		&["--test", "disk_full_acceptance_test"],
+	),
+	// A track on a nearly full data disk whose first walk cannot start
+	// fails visibly, keeps the source registered, and the heal walks it once
+	// there is room. Skips like the locked volumes suite.
+	acceptance(
+		"sd-core",
+		"Track on a full data disk acceptance test",
+		&["--test", "track_full_data_disk_acceptance_test"],
+	),
+	// A track whose first walk is refused fails visibly, keeps the source
+	// registered and marked unfinished, and the heal walks it once the
+	// refusal clears.
+	acceptance(
+		"sd-core",
+		"Track with a refused first walk acceptance test",
+		&["--test", "track_refused_walk_acceptance_test"],
 	),
 	// A source whose drive snapshot is missing or unusable at restart lists
 	// from a map rebuilt out of its store before any walk runs.
@@ -241,6 +336,16 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		package: "sd-core",
 		test_args: &["--test", "wasm_extension_test"],
 		features: Some("wasm"),
+		group: Group::Acceptance,
+	},
+	// The Linux FUSE mount. Its own build with the `fuse` feature; it skips
+	// with a reason where /dev/fuse or fusermount3 is missing unless
+	// SD_REQUIRE_FUSE is set.
+	TestSuite {
+		name: "FUSE mount test",
+		package: "sd-core",
+		test_args: &["--test", "fuse_mount_test"],
+		features: Some("fuse"),
 		group: Group::Acceptance,
 	},
 	// core("Sync event log test", &["--test", "sync_event_log_test"]),

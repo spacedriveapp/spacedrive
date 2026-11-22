@@ -53,6 +53,35 @@ pub struct AppConfig {
 	/// Library backup and restore
 	#[serde(default)]
 	pub backup: BackupConfig,
+
+	/// The agent MCP endpoint
+	#[serde(default)]
+	pub agent_mcp: AgentMcpConfig,
+}
+
+/// Settings for the agent MCP endpoint, which serves grant holders a
+/// read-only tool set over streamable HTTP.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AgentMcpConfig {
+	/// Whether the daemon serves the endpoint. Off until the user turns it on.
+	#[serde(default)]
+	pub enabled: bool,
+	/// The address to listen on. Only loopback addresses are accepted.
+	#[serde(default = "default_agent_mcp_listen")]
+	pub listen: String,
+}
+
+fn default_agent_mcp_listen() -> String {
+	crate::service::agent_mcp::DEFAULT_LISTEN.to_string()
+}
+
+impl Default for AgentMcpConfig {
+	fn default() -> Self {
+		Self {
+			enabled: false,
+			listen: default_agent_mcp_listen(),
+		}
+	}
 }
 
 /// Settings for library backup and restore.
@@ -101,6 +130,10 @@ pub struct MountsConfig {
 	/// lowering this only costs refetching; it never loses anything.
 	#[serde(default = "default_cache_max_bytes")]
 	pub cache_max_bytes: u64,
+	/// Allow FUSE mounts on Linux. Off by default: a mount shows every
+	/// source to any process running as the daemon's user.
+	#[serde(default)]
+	pub fuse_enabled: bool,
 }
 
 fn default_cache_max_bytes() -> u64 {
@@ -111,6 +144,7 @@ impl Default for MountsConfig {
 	fn default() -> Self {
 		Self {
 			cache_max_bytes: default_cache_max_bytes(),
+			fuse_enabled: false,
 		}
 	}
 }
@@ -237,10 +271,18 @@ impl Default for ProxyPairingConfig {
 	}
 }
 
+/// The source store crate logs its schema migrations, so the default filter
+/// names it beside core: an upgrade that rebuilds a store should say so.
+const DEFAULT_MAIN_FILTER: &str = "sd_core=info,sd_store=info,spacedrive=info";
+
+/// The default filter before `sd_store` was added, replaced on migration only
+/// when the user never changed it.
+const PREVIOUS_MAIN_FILTER: &str = "sd_core=info,spacedrive=info";
+
 impl Default for LoggingConfig {
 	fn default() -> Self {
 		Self {
-			main_filter: "sd_core=info,spacedrive=info".to_string(),
+			main_filter: DEFAULT_MAIN_FILTER.to_string(),
 			streams: vec![],
 		}
 	}
@@ -317,6 +359,7 @@ impl AppConfig {
 			mounts: MountsConfig::default(),
 			replication: ReplicationConfig::default(),
 			backup: BackupConfig::default(),
+			agent_mcp: AgentMcpConfig::default(),
 		}
 	}
 
@@ -380,7 +423,7 @@ impl Migrate for AppConfig {
 	}
 
 	fn target_version() -> u32 {
-		6
+		7
 	}
 
 	fn migrate(&mut self) -> Result<()> {
@@ -406,7 +449,7 @@ impl Migrate for AppConfig {
 				// Migration from v3 to v4: Add multi-stream logging configuration
 				self.logging = LoggingConfig::default();
 				self.version = 4;
-				Ok(())
+				self.migrate()
 			}
 			4 => {
 				// Migration from v4 to v5: Add proxy pairing configuration
@@ -416,10 +459,51 @@ impl Migrate for AppConfig {
 			}
 			5 => {
 				self.version = 6;
-				Ok(())
+				self.migrate()
 			}
-			6 => Ok(()), // Already at target version
+			6 => {
+				if self.logging.main_filter == PREVIOUS_MAIN_FILTER {
+					self.logging.main_filter = DEFAULT_MAIN_FILTER.to_string();
+				}
+				self.version = 7;
+				self.migrate()
+			}
+			7 => Ok(()),
 			v => Err(anyhow!("Unknown config version: {}", v)),
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn an_unchanged_filter_gains_the_store_target() {
+		let mut config = AppConfig::default_with_dir(PathBuf::from("/tmp/sd-config-test"));
+		config.version = 6;
+		config.logging.main_filter = PREVIOUS_MAIN_FILTER.to_string();
+		config.migrate().unwrap();
+		assert_eq!(config.version, 7);
+		assert_eq!(config.logging.main_filter, DEFAULT_MAIN_FILTER);
+	}
+
+	#[test]
+	fn a_custom_filter_is_kept() {
+		let mut config = AppConfig::default_with_dir(PathBuf::from("/tmp/sd-config-test"));
+		config.version = 6;
+		config.logging.main_filter = "sd_core=debug".to_string();
+		config.migrate().unwrap();
+		assert_eq!(config.version, 7);
+		assert_eq!(config.logging.main_filter, "sd_core=debug");
+	}
+
+	#[test]
+	fn an_old_config_migrates_to_the_target_in_one_pass() {
+		let mut config = AppConfig::default_with_dir(PathBuf::from("/tmp/sd-config-test"));
+		config.version = 3;
+		config.migrate().unwrap();
+		assert_eq!(config.version, AppConfig::target_version());
+		assert_eq!(config.logging.main_filter, DEFAULT_MAIN_FILTER);
 	}
 }

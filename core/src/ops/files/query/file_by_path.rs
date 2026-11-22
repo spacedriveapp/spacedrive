@@ -37,29 +37,42 @@ impl LibraryQuery for FileByPathQuery {
 	) -> QueryResult<Self::Output> {
 		let _ = &session;
 
+		// The index holds the volume's spelling, so a path reached through a
+		// firmlink such as /Users/me is rewritten before the lookup. The path
+		// as given is tried first, since a source with no volume keeps the
+		// spelling it was tracked under. The answer goes back in the caller's
+		// spelling once the decorators, which find the store by path, are
+		// done with it.
+		let spelled = context.volume_manager.index_spelling(&self.path).await;
+		let mut candidates = vec![self.path.clone()];
+		if spelled != self.path {
+			candidates.push(spelled);
+		}
+
 		// The arena is the index for every drive; the store is its durable
 		// half rather than a second answer.
 		let volume_index = context.volume_index();
-		volume_index.ensure_restored(&self.path).await;
-		let index = volume_index.resolve_index(&self.path);
-		let index_read = index.read().await;
+		for path in candidates {
+			volume_index.ensure_restored(&path).await;
+			let index = volume_index.resolve_index(&path);
+			let index_read = index.read().await;
+			let (Some(entry_uuid), Some(metadata)) = (
+				index_read.get_entry_uuid(&path),
+				index_read.get_entry_ref(&path),
+			) else {
+				continue;
+			};
+			let content_kind = index_read.get_content_kind(&path);
+			let mut file = File::from_arena(entry_uuid, &metadata, SdPath::local(path));
+			file.content_kind = content_kind;
+			drop(index_read);
 
-		if let Some(entry_uuid) = index_read.get_entry_uuid(&self.path) {
-			if let Some(metadata) = index_read.get_entry_ref(&self.path) {
-				let content_kind = index_read.get_content_kind(&self.path);
-				let sd_path = SdPath::local(self.path.clone());
-
-				let mut file = File::from_arena(entry_uuid, &metadata, sd_path);
-				file.content_kind = content_kind;
-				drop(index_read);
-
-				let mut files = [file];
-				crate::ops::tags::decorate::decorate_files(&volume_index, &mut files).await;
-				crate::ops::indexing::kinds::decorate_kinds(&volume_index, &mut files).await;
-				let [file] = files;
-
-				return Ok(Some(file));
-			}
+			let mut files = [file];
+			crate::ops::tags::decorate::decorate_files(&volume_index, &mut files).await;
+			crate::ops::indexing::kinds::decorate_kinds(&volume_index, &mut files).await;
+			let [mut file] = files;
+			file.sd_path = SdPath::local(self.path);
+			return Ok(Some(file));
 		}
 
 		Ok(None)

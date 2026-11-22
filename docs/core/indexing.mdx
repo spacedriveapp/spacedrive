@@ -116,6 +116,20 @@ camera, lens, exposure, orientation and pixel geometry live in the store's
 extension host's `records.exif`, the rename resolver's capture time, and any
 inspector read the row first.
 
+Listings and search read it too. A store-served row carries its facet from
+the join in `sd_store::read`, which takes the row only while its content
+hash is the record's current one, so an edited photo reads as unread until
+the pass rewrites it. An arena holds none of it: a listing or search served
+from an arena reads the facet from the store ahead of its sort and filter
+(`core/src/ops/search/capture.rs`), the way a tag filter resolves its paths
+from the stores first. Both backends then hand the same `File` to one
+predicate and one order. `search.files` sorts by `CapturedAt` and filters by
+a `CapturedAt` date range and by `has_location`; `files.directory_listing`
+sorts by `datetaken`. A file without a facet has no capture time and no
+place: it fails those filters and trails every dated file in a capture
+order. A replica of another device's source has no store here and reads
+the same way.
+
 The pass claims its work from the store. A row carries the hash of the bytes
 it was read from, so a record is pending when it has no row or its row names
 other bytes. A changed file loses its content identity in the walk, gains a

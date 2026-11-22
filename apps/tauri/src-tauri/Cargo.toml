@@ -1,6 +1,6 @@
 [package]
 name = "spacedrive"
-version = "2.0.0-alpha.2"
+version = "2.0.0-beta.1"
 edition = "2021"
 
 [[bin]]
@@ -28,6 +28,7 @@ sd-tauri-core = { path = "../sd-tauri-core" }
 sd-sidecar-path = { path = "../../../crates/sidecar-path" }
 sd-extension-ui = { path = "../../../crates/extension-ui" }
 sd-pvcache = { path = "../../../crates/pvcache" }
+sd-utils = { path = "../../../crates/utils" }
 image = { workspace = true }
 
 # File opening
@@ -67,4 +68,5 @@ default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 
 [dev-dependencies]
+semver = "1"
 tempfile = { workspace = true }

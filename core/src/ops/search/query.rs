@@ -71,7 +71,7 @@ impl FileSearchQuery {
 		let cache = context.volume_index();
 		let registry = context.file_type_registry();
 
-		let page = match &self.input.scope {
+		let mut page = match &self.input.scope {
 			SearchScope::Path { path } => {
 				search_arena(
 					&self.input.query,
@@ -98,6 +98,11 @@ impl FileSearchQuery {
 				.await?
 			}
 		};
+
+		// The page shows what the facet knows whatever it was sorted by, so
+		// the inspector reads capture time and place off a search hit as it
+		// does off a listing.
+		crate::ops::search::capture::decorate_results(cache, &mut page.results).await;
 
 		let execution_time = start_time.elapsed().as_millis() as u64;
 

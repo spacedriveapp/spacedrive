@@ -16,6 +16,10 @@ inputs:
     description: Whether to save the System cache
     required: false
     default: 'false'
+  native-deps:
+    description: Download the FFmpeg, libheif and Pdfium bundle into apps/.deps
+    required: false
+    default: 'false'
 runs:
   using: 'composite'
   steps:
@@ -107,4 +111,4 @@ runs:
       env:
         TARGET_TRIPLE: ${{ inputs.target }}
         GITHUB_TOKEN: ${{ inputs.token }}
-      run: cargo run -p xtask -- setup
+      run: cargo run -p xtask -- setup ${{ inputs.native-deps == 'true' && '--native-deps' || '' }}

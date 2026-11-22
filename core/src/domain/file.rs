@@ -143,6 +143,20 @@ impl crate::domain::resource::Identifiable for File {
 }
 
 impl File {
+	/// When the photo was taken, as its EXIF says. Only the image facet
+	/// knows it, so a file listed from an arena has it once the listing
+	/// decorates from the store, and a file without EXIF never does.
+	pub fn captured_at(&self) -> Option<DateTime<Utc>> {
+		self.image_media_data.as_ref()?.date_taken
+	}
+
+	/// Whether the photo's EXIF places it: both coordinates present.
+	pub fn has_location(&self) -> bool {
+		self.image_media_data
+			.as_ref()
+			.is_some_and(|image| image.latitude.is_some() && image.longitude.is_some())
+	}
+
 	/// The file at this path, as the volume index has it.
 	///
 	/// The one place a `File` comes from now: resolve the partition, read the
@@ -323,7 +337,10 @@ impl File {
 			alternate_paths: Vec::new(),
 			tags: Vec::new(),
 			sidecars: Vec::new(),
-			image_media_data: None,
+			image_media_data: entry
+				.image
+				.as_ref()
+				.and_then(|facet| ImageMediaData::from_facet(entry.uuid, facet)),
 			video_media_data: None,
 			audio_media_data: None,
 			created_at: from_ms(entry.created_ms).unwrap_or_else(Utc::now),
@@ -537,6 +554,7 @@ mod tests {
 			content_kind,
 			content_kind_name: None,
 			content_error: None,
+			image: None,
 		}
 	}
 

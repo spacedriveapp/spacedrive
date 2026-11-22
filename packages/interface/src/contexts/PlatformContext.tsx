@@ -37,6 +37,9 @@ export type Platform = {
 	/** Convert a file path to a URL that can be loaded in the webview */
 	convertFileSrc?(filePath: string): string;
 
+	/** Rewrite a mounts share URL from `files.stream_url` to one this client can reach */
+	shareUrl?(url: string): string;
+
 	/** Reveal a file in the native file manager (Finder on macOS, Explorer on Windows, etc.) */
 	revealFile?(filePath: string): Promise<void>;
 
@@ -99,6 +102,12 @@ export type Platform = {
 
 	/** Listen for selected file changes across all windows (Tauri only) */
 	onSelectedFilesChanged?(callback: (fileIds: string[]) => void): Promise<() => void>;
+
+	/**
+	 * Check the release feed for a newer desktop build (Tauri release builds only).
+	 * Absent in dev builds and builds made without the release updater flag.
+	 */
+	checkForUpdate?(): Promise<AvailableUpdate | null>;
 
 	/** Get app version (Tauri only) */
 	getAppVersion?(): Promise<string>;
@@ -173,6 +182,14 @@ export type Platform = {
 	/** Unregister a keybind handler (Tauri only) */
 	unregisterKeybind?(id: string): Promise<void>;
 };
+
+/** A newer desktop release found on the update feed */
+export interface AvailableUpdate {
+	version: string;
+	currentVersion: string;
+	/** Download and verify the update, install it, then restart the app. Reports download progress as a percentage when the size is known. */
+	installAndRestart(onProgress?: (percent: number | undefined) => void): Promise<void>;
+}
 
 /** Application that can open a file */
 export interface OpenWithApp {

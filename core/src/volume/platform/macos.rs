@@ -1,5 +1,6 @@
 //! macOS-specific volume detection helpers
 
+use crate::common::redact::redact_url_credentials;
 use crate::volume::{
 	classification::{get_classifier, VolumeDetectionInfo},
 	error::{VolumeError, VolumeResult},
@@ -59,7 +60,11 @@ pub async fn detect_non_apfs_volumes(
 
 				// Skip certain filesystems
 				if should_skip_filesystem(filesystem) {
-					debug!("Skipping {} filesystem: {}", filesystem, mount_point);
+					debug!(
+						"Skipping {} filesystem: {}",
+						redact_url_credentials(filesystem),
+						mount_point
+					);
 					continue;
 				}
 
@@ -157,7 +162,8 @@ pub async fn detect_non_apfs_volumes(
 					available_space: available_bytes,
 					is_read_only: false,
 					is_mounted: true,
-					hardware_id: Some(filesystem.to_string()),
+					locked: false,
+					hardware_id: Some(redact_url_credentials(filesystem).into_owned()),
 					backend: None,
 					cloud_identifier: None,
 					cloud_config: None,

@@ -1,0 +1,6 @@
+[build]
+target = "wasm32-unknown-unknown"
+
+# The guest has no entropy of its own; the SDK routes getrandom to the host.
+[target.wasm32-unknown-unknown]
+rustflags = ["--cfg", "getrandom_backend=\"custom\""]

@@ -26,6 +26,5 @@
 			"~/*": ["./src/*"]
 		}
 	},
-	"include": ["src", "vite.config.ts"],
-	"exclude": ["src/updater.example.ts"]
+	"include": ["src", "vite.config.ts"]
 }

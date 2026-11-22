@@ -5,6 +5,8 @@ target, not a claim that the current build has passed its release gates. The
 existing October 1 target remains subject to those gates.
 
 2026-10-05: target moved to November 1, 2026 (Jamie).
+2026-10-31: target moved to November 15, 2026 (Jamie).
+2026-11-21: target moved to November 27, 2026 (Jamie).
 
 ## The decision
 

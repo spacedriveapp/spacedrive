@@ -1,0 +1,112 @@
+---
+title: FUSE Mount (Linux)
+description: Browse and read every source as a plain read-only directory tree
+sidebarTitle: FUSE Mount
+---
+
+On Linux the daemon can mount your sources as an ordinary directory. Any
+program that reads files, such as `grep`, `cat`, an editor or an agent, can then
+use plain filesystem calls on files that live on this device or on a paired
+device. The mount is read-only.
+
+## Requirements
+
+- Linux with `/dev/fuse` and `fusermount3` (`apt install fuse3` on Debian and Ubuntu).
+- A daemon built with the `fuse` cargo feature. Linux release and nightly builds
+  include it. The feature links no libfuse: the daemon runs `fusermount3` only
+  when you mount, so it starts normally on a machine without FUSE.
+- `mounts.fuse_enabled` set to `true` in the daemon's config. It is off by default.
+
+For a source build, turn the feature on yourself:
+
+```bash
+cargo run --bin sd-daemon --features sd-core/fuse
+sd-cli config set mounts.fuse_enabled true
+```
+
+## Mount and unmount
+
+The mount point must be an existing, empty directory.
+
+```bash
+mkdir -p ~/sd
+sd-cli fuse mount ~/sd
+ls ~/sd
+sd-cli fuse list
+sd-cli fuse unmount ~/sd
+```
+
+The top of the mount holds one directory per source. Names match the WebDAV
+and SMB shares: the root's base name and a short id, such as `Photos-3f9c21`.
+A source replicated from a paired device adds the device name, such as
+`footage@studio-a1b2c3`.
+
+The daemon unmounts every mount when it shuts down. If the daemon exits without
+shutting down, the next mount at the same path detaches the stale one first.
+You can also run `fusermount3 -u <path>`.
+
+## Mount one granted folder
+
+To give an agent one folder and nothing else, bind the mount to an
+agent grant (`docs/core/design/agent-grants.md`):
+
+```bash
+sd-cli grant create ~/projects/site --read --ttl 1h --label agent
+sd-cli fuse mount ~/agent-view --grant sdg_...
+```
+
+The mount then shows the granted folder's contents at its root. The daemon
+checks the token through the grant's `authorize` function on every directory
+listing and every file open, and records each check in the grant's audit log
+as `fuse.list` or `fuse.open`. A revoked or expired grant is refused on its next
+open with `EACCES`, and the daemon takes the mount down within five seconds.
+
+Only local sources can be granted, so a grant-bound mount never shows a peer
+device's files.
+
+## What reads cost
+
+Listings and attributes come from each source's index, so `ls` and `stat` never
+touch the disk or the network. File bytes are read only when a program reads
+them, in the ranges it asks for:
+
+- A local file is read from disk.
+- A peer's file is fetched over the byterange protocol through the block cache.
+  A range read once is served from the cache after that, and read-ahead follows
+  sequential reads.
+- A cloud source's file is read through its volume backend and the block cache.
+
+Symlinks do not appear in the mount. The index keeps no link target, and a
+target would resolve outside the mount, past any grant.
+
+The kernel keeps attributes and names for 1 second on local sources and 10
+seconds on peer sources, which refresh their index every 30 seconds.
+
+## Errors
+
+| Errno | When |
+| --- | --- |
+| `ENOENT` | The index has no entry at that path, or the file is gone from disk. |
+| `EACCES` | A grant refused the request, or the file is a cloud placeholder that Spacedrive will not download. |
+| `EIO` | The bytes are unreachable now: a detached drive, a peer that is offline. |
+| `EROFS` | Any write, create, rename or delete. |
+
+## Access
+
+The mount belongs to the daemon's user. Other users, including root, cannot
+open it, because the daemon does not set `allow_other`. Anything running as
+the daemon's user can read every source through an unbound mount, which is why
+mounts are off until you turn them on.
+
+## Ops
+
+| Op | Kind | Purpose |
+| --- | --- | --- |
+| `mounts.fuse_mount` | core action | Mount at `path`, optionally with `grant_token` |
+| `mounts.fuse_unmount` | core action | Unmount at `path` |
+| `mounts.fuse_list` | core query | Whether this daemon supports mounts, whether they are on, and the current mounts |
+
+The implementation lives in `core/src/service/mounts/fuse/`. Its tests are in
+`core/tests/fuse_mount_test.rs`: one mounts a running daemon's source, lists,
+stats, reads, binds a grant and revokes it, unmounts, and checks shutdown; the
+other mounts a simulated peer source and reads it through the block cache.

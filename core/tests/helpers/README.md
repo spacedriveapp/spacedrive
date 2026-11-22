@@ -223,6 +223,37 @@ harness.transport_alice;
 - `create_snapshot_dir()` - Create timestamped snapshot directory
 - `SnapshotCapture` - Utilities for capturing databases, logs, events
 
+### `wait.rs` - Condition Waits
+
+Polls a real condition on a 100 ms interval up to a deadline, so a test waits
+only as long as the thing it waits for. Use these instead of a fixed `sleep`:
+
+- `wait_until(what, deadline, || async { Option<T> })` - generic poll
+- `wait_for_file(path, deadline)` - a marker file another process writes (an empty read is not written yet)
+- `wait_for_file_matching(path, deadline, |content| bool)` - a marker whose content must match, checked on every poll
+- `wait_for_connected_device(core, deadline)` / `wait_for_peer(core, id, deadline)`
+- `wait_for_paired_device(core, deadline)` - connected, or paired and not yet reconnected
+- `wait_for_transfer(core, &transfer_id, deadline)` - a file sharing transfer settling
+- `wait_for_dir_entries(dir, count, deadline)` - files landing in a directory
+- `wait_for_event(&mut subscriber, deadline, |event| bool)` - the next matching event on a subscriber taken before the trigger
+
+The subprocess suites (pairing, file transfer, library join) include it on its
+own with `#[path = "helpers/wait.rs"] mod wait;`, so it depends on nothing else
+in this directory. A fixed sleep is still right when the test proves that
+nothing happens inside a window; say so in a comment next to it.
+
+A role that exits as soon as its own assertion holds can cut a reply or a
+final acknowledgement the other role still awaits, so each role writes a
+success marker and stays up until the peers it exchanged messages with have
+written theirs. A phase that restarts a role waits for the first instance to
+exit on its own (`CargoTestRunner::wait_for_exit`) rather than killing it.
+
+The relay pairing suite runs an `iroh-relay` server in-process and hands its
+URL to the roles through `SD_RELAY_URL`, with `SD_DISABLE_MDNS` set so the
+relay is the only path between the two cores. Both variables are read by the
+core itself (`service::network::core`), so a self-hosted relay works the same
+way outside tests.
+
 ### `sync_transport.rs` - Mock Network Transport
 
 Mock implementation of `NetworkTransport` for testing sync without real networking.

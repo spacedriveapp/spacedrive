@@ -6,7 +6,12 @@ use clap::Subcommand;
 use crate::context::Context;
 use crate::util::prelude::*;
 
-use sd_core::ops::search::{output::FileSearchOutput, query::FileSearchQuery};
+use sd_core::ops::search::{
+	content::{ContentSearchOutput, RebuildContentIndexInput, RebuildContentIndexOutput},
+	grep::GrepOutput,
+	output::FileSearchOutput,
+	query::FileSearchQuery,
+};
 
 use self::args::*;
 
@@ -14,13 +19,123 @@ use self::args::*;
 pub enum SearchCmd {
 	/// Search for files
 	Files(FileSearchArgs),
+	/// Search file contents under a path, live, with no index
+	Grep(GrepArgs),
+	/// Search the indexed text of documents and code under a path
+	Content(ContentSearchArgs),
+	/// Drop a source's text index and read every file again
+	ReindexContent(ReindexContentArgs),
 }
 
 pub async fn run(ctx: &Context, cmd: SearchCmd) -> Result<()> {
 	match cmd {
-		SearchCmd::Files(args) => {
+		SearchCmd::Content(args) => {
+			let path = args.path.clone().unwrap_or_else(|| ".".into());
+			let path = crate::domains::file::requested_path(ctx, &path)?;
+			let input = args.into_input(path)?;
+			let out: ContentSearchOutput = execute_query!(ctx, input);
+			print_output!(ctx, &out, |o: &ContentSearchOutput| {
+				for hit in &o.hits {
+					let snippet: String = hit
+						.snippet
+						.iter()
+						.map(|part| {
+							if part.matched {
+								format!("[{}]", part.text)
+							} else {
+								part.text.clone()
+							}
+						})
+						.collect();
+					match &hit.time {
+						Some(time) => println!(
+							"{} @ {}  ({:.2})",
+							hit.path,
+							clock(time.start_seconds),
+							hit.score
+						),
+						None => println!("{}  ({:.2})", hit.path, hit.score),
+					}
+					println!(
+						"    {}",
+						snippet.split_whitespace().collect::<Vec<_>>().join(" ")
+					);
+				}
+				eprintln!("{} hits", o.hits.len());
+				if o.pending_files > 0 {
+					eprintln!("{} files are not indexed yet", o.pending_files);
+				}
+				if let Some(cursor) = &o.next_cursor {
+					eprintln!("More hits: --cursor {cursor}");
+				}
+			});
+		}
+		SearchCmd::ReindexContent(args) => {
+			let path = args.path.clone().unwrap_or_else(|| ".".into());
+			let path = crate::domains::file::requested_path(ctx, &path)?;
+			let input = RebuildContentIndexInput { path };
+			let out: RebuildContentIndexOutput = execute_action!(ctx, input);
+			print_output!(ctx, &out, |o: &RebuildContentIndexOutput| {
+				println!(
+					"Dropped the text of {} files; reading them again",
+					o.cleared_files
+				);
+				if let Some(job) = o.job_id {
+					println!("Job: {job}");
+				}
+			});
+		}
+		SearchCmd::Grep(args) => {
+			let path = args.path.clone().unwrap_or_else(|| ".".into());
+			let path = crate::domains::file::requested_path(ctx, &path)?;
+			let input = args.into_input(path);
+			let out: GrepOutput = execute_query!(ctx, input);
+			print_output!(ctx, &out, |o: &GrepOutput| {
+				let context = o
+					.matches
+					.iter()
+					.any(|m| !m.before.is_empty() || !m.after.is_empty());
+				for (i, m) in o.matches.iter().enumerate() {
+					if context && i > 0 {
+						println!("--");
+					}
+					let first = m.line_number.saturating_sub(m.before.len() as u64);
+					for (n, line) in m.before.iter().enumerate() {
+						println!("{}-{}-{}", m.path, first + n as u64, line);
+					}
+					println!("{}:{}:{}", m.path, m.line_number, m.line);
+					for (n, line) in m.after.iter().enumerate() {
+						println!("{}-{}-{}", m.path, m.line_number + 1 + n as u64, line);
+					}
+				}
+				eprintln!(
+					"{} matches, {} files searched, {} skipped (binary or over the size cap)",
+					o.matches.len(),
+					o.files_scanned,
+					o.files_skipped
+				);
+				if let Some(cursor) = &o.next_cursor {
+					eprintln!("More matches: --cursor {cursor}");
+				}
+			});
+		}
+		SearchCmd::Files(mut args) => {
+			if let Some(scope) = args.sd_path.as_mut().filter(|scope| !scope.contains("://")) {
+				let path = crate::domains::file::requested_path(ctx, std::path::Path::new(scope))?;
+				*scope = path.to_string_lossy().into_owned();
+			}
 			let input: sd_core::ops::search::input::FileSearchInput = args.into();
-			let out: FileSearchOutput = execute_query!(ctx, input);
+			let mut out: FileSearchOutput = execute_query!(ctx, input);
+			// The index answers in the volume's spelling. On this machine a
+			// result reads the way its source was tracked, through the firmlink.
+			if ctx.core.device().is_none() {
+				for result in &mut out.results {
+					if let sd_core::domain::SdPath::Physical { path, .. } = &mut result.file.sd_path
+					{
+						*path = sd_fs_watcher::short_spelling(path);
+					}
+				}
+			}
 			print_output!(ctx, &out, |o: &FileSearchOutput| {
 				if o.results.is_empty() {
 					println!("No files found");
@@ -84,4 +199,15 @@ pub async fn run(ctx: &Context, cmd: SearchCmd) -> Result<()> {
 		}
 	}
 	Ok(())
+}
+
+/// A recording offset as h:mm:ss, or m:ss under an hour.
+fn clock(seconds: f64) -> String {
+	let total = seconds.max(0.0) as u64;
+	let (hours, minutes, secs) = (total / 3600, total / 60 % 60, total % 60);
+	if hours > 0 {
+		format!("{hours}:{minutes:02}:{secs:02}")
+	} else {
+		format!("{minutes}:{secs:02}")
+	}
 }

@@ -64,7 +64,7 @@ pub use config::{EventFilters, WatchConfig, WatcherConfig};
 pub use error::{Result, WatcherError};
 pub use event::{FsEvent, FsEventKind, RawEventKind, RawNotifyEvent, RawRenameMode};
 pub use platform::{EventHandler, PlatformHandler};
-pub use spelling::{restore, subscriptions, Subscription};
+pub use spelling::{present_as_spelled, restore, short_spelling, subscriptions, Subscription};
 pub use watcher::{FsWatcher, WatchHandle};
 
 // Re-export notify types that users might need

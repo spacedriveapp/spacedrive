@@ -3,7 +3,7 @@
 
 use anyhow::Result;
 use clap::Subcommand;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Subcommand, Debug)]
 pub enum TimerCmd {
@@ -21,9 +21,14 @@ pub enum TimerCmd {
 	Status,
 }
 
-pub async fn run_timer(data_dir: PathBuf, instance: Option<String>, cmd: TimerCmd) -> Result<()> {
+pub async fn run_timer(
+	data_dir: PathBuf,
+	base_data_dir: PathBuf,
+	instance: Option<String>,
+	cmd: TimerCmd,
+) -> Result<()> {
 	match cmd {
-		TimerCmd::InstallTimer { interval } => install(data_dir, instance, interval),
+		TimerCmd::InstallTimer { interval } => install(data_dir, base_data_dir, instance, interval),
 		TimerCmd::UninstallTimer => uninstall(instance),
 		TimerCmd::TimerStatus => print_status(instance.as_deref()),
 		TimerCmd::Status => super::status(&data_dir, instance.as_deref()),
@@ -43,13 +48,13 @@ fn label(instance: Option<&str>) -> String {
 
 /// The command the service runs. The absolute path of the running executable
 /// is used because launchd and systemd start services with a minimal PATH.
-fn update_command(data_dir: &PathBuf, instance: Option<&str>) -> Result<Vec<String>> {
+fn update_command(base_data_dir: &Path, instance: Option<&str>) -> Result<Vec<String>> {
 	let exe = std::env::current_exe()?;
 	let exe = exe.canonicalize().unwrap_or(exe);
 	let mut args = vec![
 		exe.to_string_lossy().to_string(),
 		"--data-dir".to_string(),
-		data_dir.to_string_lossy().to_string(),
+		base_data_dir.to_string_lossy().to_string(),
 	];
 	if let Some(inst) = instance {
 		args.push("--instance".to_string());
@@ -95,7 +100,12 @@ pub fn loaded_daemon_agent(instance: Option<&str>) -> Option<String> {
 }
 
 #[cfg(target_os = "macos")]
-fn install(data_dir: PathBuf, instance: Option<String>, interval: u32) -> Result<()> {
+fn install(
+	data_dir: PathBuf,
+	base_data_dir: PathBuf,
+	instance: Option<String>,
+	interval: u32,
+) -> Result<()> {
 	let label = label(instance.as_deref());
 	let plist_path = launch_agent_path(&label)?;
 	std::fs::create_dir_all(plist_path.parent().unwrap())?;
@@ -104,7 +114,7 @@ fn install(data_dir: PathBuf, instance: Option<String>, interval: u32) -> Result
 	std::fs::create_dir_all(&log_dir)?;
 	let log_path = log_dir.join("update.log");
 
-	let program_args = update_command(&data_dir, instance.as_deref())?
+	let program_args = update_command(&base_data_dir, instance.as_deref())?
 		.iter()
 		.map(|arg| format!("\t\t<string>{}</string>", arg))
 		.collect::<Vec<_>>()
@@ -215,13 +225,18 @@ fn unit_paths(instance: Option<&str>) -> Result<(PathBuf, String)> {
 }
 
 #[cfg(target_os = "linux")]
-fn install(data_dir: PathBuf, instance: Option<String>, interval: u32) -> Result<()> {
+fn install(
+	_data_dir: PathBuf,
+	base_data_dir: PathBuf,
+	instance: Option<String>,
+	interval: u32,
+) -> Result<()> {
 	let (dir, name) = unit_paths(instance.as_deref())?;
 	std::fs::create_dir_all(&dir)?;
 
 	// systemd splits ExecStart on whitespace and expands `%` specifiers, so
 	// each argument is quoted and `%` doubled.
-	let exec_start = update_command(&data_dir, instance.as_deref())?
+	let exec_start = update_command(&base_data_dir, instance.as_deref())?
 		.iter()
 		.map(|arg| {
 			format!(
@@ -308,7 +323,12 @@ fn status(instance: Option<String>) -> Result<()> {
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-fn install(_data_dir: PathBuf, _instance: Option<String>, _interval: u32) -> Result<()> {
+fn install(
+	_data_dir: PathBuf,
+	_base_data_dir: PathBuf,
+	_instance: Option<String>,
+	_interval: u32,
+) -> Result<()> {
 	Err(anyhow::anyhow!(
 		"The update timer is only available on macOS (launchd) and Linux (systemd)"
 	))
@@ -324,4 +344,23 @@ fn uninstall(_instance: Option<String>) -> Result<()> {
 fn status(_instance: Option<String>) -> Result<()> {
 	println!("Update timer is not supported on this platform.");
 	Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// The timer re-runs the CLI, which resolves the instance itself, so it
+	/// has to be handed the base directory rather than the instance's own.
+	#[test]
+	fn the_update_command_carries_the_base_data_dir() {
+		let base = PathBuf::from("/data/spacedrive");
+		let args = update_command(&base, Some("smoke")).unwrap();
+		let at = args.iter().position(|arg| arg == "--data-dir").unwrap();
+		assert_eq!(args[at + 1], base.to_string_lossy());
+		assert_eq!(
+			args[args.len() - 4..],
+			["--instance", "smoke", "update", "--yes"]
+		);
+	}
 }

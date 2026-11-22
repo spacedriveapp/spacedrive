@@ -18,6 +18,7 @@ import {
 	useSpacedriveClient,
 	type SpacedriveClient
 } from './contexts/SpacedriveContext';
+import {useAutoUpdater} from './hooks/useAutoUpdater';
 import {useDaemonStatus} from './hooks/useDaemonStatus';
 import {useLibraries} from './hooks/useLibraries';
 import {useTheme} from './hooks/useTheme';
@@ -29,6 +30,11 @@ interface ShellProps {
 
 function ThemeApplier() {
 	useTheme();
+	return null;
+}
+
+function UpdatePrompt() {
+	useAutoUpdater();
 	return null;
 }
 
@@ -120,6 +126,7 @@ function ShellWithDaemonCheck() {
 					</TabManagerProvider>
 					<Dialogs />
 					<Toaster />
+					<UpdatePrompt />
 					<ReactQueryDevtools
 						initialIsOpen={false}
 						buttonPosition="bottom-right"

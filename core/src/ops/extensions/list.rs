@@ -54,6 +54,16 @@ pub struct ExtensionViewerInfo {
 	pub bundle: String,
 }
 
+/// A library page `ui_manifest.json` declares. The client lists it in the
+/// sidebar and mounts the bundle from `/extension/<extension id>/<bundle>`.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ExtensionViewInfo {
+	pub id: String,
+	pub title: String,
+	/// Path inside the extension directory to one ES module
+	pub bundle: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ExtensionInfo {
 	pub id: String,
@@ -62,6 +72,7 @@ pub struct ExtensionInfo {
 	pub jobs: Vec<ExtensionJobInfo>,
 	pub kinds: Vec<ExtensionKindInfo>,
 	pub viewers: Vec<ExtensionViewerInfo>,
+	pub views: Vec<ExtensionViewInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -130,15 +141,27 @@ impl CoreQuery for ListExtensionsQuery {
 						preview: kind.preview.clone(),
 					})
 					.collect();
-				let viewers = pm
-					.ui_manifest(&id)
-					.await
+				let ui = pm.ui_manifest(&id).await;
+				let viewers = ui
+					.as_ref()
 					.map(|ui| {
 						ui.file_viewers
 							.iter()
 							.map(|viewer| ExtensionViewerInfo {
 								id: viewer.id.clone(),
 								bundle: viewer.bundle.clone(),
+							})
+							.collect()
+					})
+					.unwrap_or_default();
+				let views = ui
+					.map(|ui| {
+						ui.views
+							.iter()
+							.map(|view| ExtensionViewInfo {
+								id: view.id.clone(),
+								title: view.title.clone(),
+								bundle: view.bundle.clone(),
 							})
 							.collect()
 					})
@@ -150,6 +173,7 @@ impl CoreQuery for ListExtensionsQuery {
 					jobs,
 					kinds,
 					viewers,
+					views,
 				});
 			}
 			extensions.sort_by(|a, b| a.id.cmp(&b.id));

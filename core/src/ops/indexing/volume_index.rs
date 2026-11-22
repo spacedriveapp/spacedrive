@@ -21,13 +21,13 @@ use crate::volume::{Volume, VolumeFingerprint, VolumeState};
 use parking_lot::{Mutex, RwLock};
 use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{BTreeMap, HashMap, HashSet},
 	path::{Path, PathBuf},
 	sync::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
 	},
-	time::Instant,
+	time::{Duration, Instant},
 };
 use tokio::sync::mpsc;
 use tokio::sync::RwLock as TokioRwLock;
@@ -50,6 +50,9 @@ pub struct Partition {
 	/// covers everything beneath its root and the store answers for all of
 	/// it, which a walk in `indexing_in_progress` does not promise.
 	filling_from_store: RwLock<HashSet<PathBuf>>,
+	/// Trees a walk cleared or stopped partway through. The arena holds part
+	/// of each one until a walk of it lands.
+	incomplete_trees: RwLock<HashSet<PathBuf>>,
 	watched_paths: RwLock<HashSet<PathBuf>>,
 	/// A detached source's root is not present on disk; its index is served
 	/// read-only from a restored snapshot and must never trigger indexing.
@@ -65,6 +68,9 @@ pub struct Partition {
 	/// Entry count at the last completed save; identical partitions skip the
 	/// rewrite (a burst of browse jobs otherwise re-saves 100 MB per job).
 	last_saved_entries: std::sync::atomic::AtomicU64,
+	/// When this drive's snapshot was last written or found on disk, and its
+	/// size then, which paces the watcher's flush.
+	last_save: Mutex<Option<(Instant, u64)>>,
 }
 
 /// How a partition's session restore ended.
@@ -91,12 +97,14 @@ impl Partition {
 			indexed_paths: RwLock::new(HashSet::new()),
 			indexing_in_progress: RwLock::new(HashSet::new()),
 			filling_from_store: RwLock::new(HashSet::new()),
+			incomplete_trees: RwLock::new(HashSet::new()),
 			watched_paths: RwLock::new(HashSet::new()),
 			detached: AtomicBool::new(false),
 			restored: AtomicBool::new(false),
 			restore_once: tokio::sync::OnceCell::new(),
 			save_lock: tokio::sync::Mutex::new(()),
 			last_saved_entries: std::sync::atomic::AtomicU64::new(u64::MAX),
+			last_save: Mutex::new(None),
 		}))
 	}
 
@@ -339,6 +347,44 @@ const COLLAPSE_FLOOR: u64 = 1_000;
 /// as a collapse rather than a deletion someone actually performed.
 const COLLAPSE_FACTOR: u64 = 10;
 
+/// Snapshot bytes the watcher's periodic flush may write per drive per hour.
+///
+/// Every save rewrites the whole arena, so a drive with steady background
+/// churn (caches under a home folder) would otherwise rewrite a 100 MB file
+/// on every flush tick. A crash between saves loses nothing durable: the
+/// store is written live and the warm-start reconcile brings a stale map up
+/// to date on the next launch.
+const SNAPSHOT_BYTES_PER_HOUR: u64 = 512 * 1024 * 1024;
+
+/// How long after writing a snapshot of `bytes` the periodic flush waits
+/// before writing the drive's snapshot again.
+fn snapshot_flush_gap(bytes: u64) -> Duration {
+	Duration::from_secs_f64(bytes as f64 * 3600.0 / SNAPSHOT_BYTES_PER_HOUR as f64)
+}
+
+/// Which guards a snapshot save applies before writing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SaveMode {
+	/// Write whenever the arena changed.
+	Any,
+	/// Write only when no walk or fill has the arena partway.
+	Settled,
+	/// Settled, and no sooner than [`snapshot_flush_gap`] after the last save.
+	Paced,
+}
+
+/// A directory waiting on access: how many listings of it are still
+/// blocked, and how long the slowest one that answered took.
+#[derive(Debug, Default, Clone, Copy)]
+struct AwaitingAccess {
+	blocked: usize,
+	took: Duration,
+	/// A walk, reconcile or browse needs it read. A directory only a subtree
+	/// count reached is held here so nothing opens it a second time, but it is
+	/// not reported or revisited: its contents are not kept.
+	reported: bool,
+}
+
 /// A cached read-only handle and which file it reads.
 #[derive(Clone)]
 struct ReadHandle {
@@ -442,6 +488,21 @@ pub struct VolumeIndex {
 	/// both: an active watch is one the OS accepted, and a refusal is what
 	/// the status surface shows instead until a retry succeeds.
 	refused_watches: Mutex<HashMap<PathBuf, String>>,
+	/// Directories whose listing did not answer within the read bound, with
+	/// how many of their listings are still blocked and how long the slowest
+	/// one that answered took.
+	///
+	/// On macOS this is a folder behind a privacy prompt nobody answered: the
+	/// open blocks until someone does. Walks and reconciles move on without
+	/// it, and [`crate::ops::indexing::reconcile::revisit_awaiting_access`]
+	/// reads it again when the blocked listing returns or on a timer.
+	awaiting_access: Mutex<BTreeMap<PathBuf, AwaitingAccess>>,
+	/// Woken when a blocked listing returns, which is what answering the
+	/// prompt looks like from here.
+	access_answered: tokio::sync::Notify,
+	/// Opens [`Self::opens_in_time`] has under way, each with the answer its
+	/// callers wait for, so concurrent looks at one folder share one open.
+	opening: Mutex<HashMap<PathBuf, tokio::sync::watch::Receiver<Option<bool>>>>,
 	created_at: Instant,
 }
 
@@ -475,6 +536,9 @@ impl VolumeIndex {
 			restored_roots: RwLock::new(None),
 			dirty_stubs: Mutex::new(HashSet::new()),
 			refused_watches: Mutex::new(HashMap::new()),
+			awaiting_access: Mutex::new(BTreeMap::new()),
+			access_answered: tokio::sync::Notify::new(),
+			opening: Mutex::new(HashMap::new()),
 			created_at: Instant::now(),
 		})
 	}
@@ -1597,6 +1661,32 @@ impl VolumeIndex {
 		Some(store)
 	}
 
+	/// Persist what a source's store now holds on its registry row.
+	///
+	/// Listings and library statistics read these figures off the row, and a
+	/// snapshot save is not the only thing that changes them: content
+	/// identification fills in contents and unique bytes after the walk's save
+	/// has run, so without this the row reports no contents until the next
+	/// walk. A store holding nothing leaves the row as it is, the same rule a
+	/// snapshot save applies.
+	pub async fn refresh_source_counts(&self, root: &Path) -> anyhow::Result<()> {
+		let Some(located) = self.resolve_source(root) else {
+			return Ok(());
+		};
+		let Some(store) = self.store_for(root).await else {
+			return Ok(());
+		};
+		let Some(counts) = store.counts().await.filter(|counts| counts.records > 0) else {
+			return Ok(());
+		};
+		let id = located.record.id;
+		let Some(updated) = self.update_registry(id, |registry| registry.update_stats(id, counts))
+		else {
+			return Ok(());
+		};
+		self.persist(&updated).await
+	}
+
 	/// Every writable store this machine has opened so far.
 	pub fn open_stores(&self) -> Vec<Arc<SourceStore>> {
 		self.stores.read().values().cloned().collect()
@@ -2489,6 +2579,33 @@ impl VolumeIndex {
 	/// Save the owning partition to its drive's snapshot file. A path on no
 	/// tracked drive has no snapshot and skips silently.
 	pub async fn save_snapshot(&self, path: &Path) -> anyhow::Result<()> {
+		self.save_snapshot_inner(path, SaveMode::Any).await
+	}
+
+	/// Save the owning partition's snapshot only if its arena is whole: no
+	/// walk or store fill running, and no tree a walk cleared or left partway
+	/// that a later walk has not rebuilt.
+	///
+	/// A walk clears the arena before rebuilding it, so a save in between
+	/// would replace a complete snapshot with part of the drive. The check
+	/// runs under the arena's write lock, which a walk needs to clear it, so
+	/// a walk starting after the check finds the save already done.
+	pub async fn save_settled_snapshot(&self, path: &Path) -> anyhow::Result<()> {
+		self.save_snapshot_inner(path, SaveMode::Settled).await
+	}
+
+	/// Save a settled snapshot unless the drive's last save is too recent for
+	/// its size.
+	///
+	/// The watcher flushes on a short tick so a small source stays current,
+	/// but each save rewrites the whole arena. Spacing saves by size caps the
+	/// bytes a drive writes per hour at [`SNAPSHOT_BYTES_PER_HOUR`] however
+	/// often its files change.
+	pub async fn save_paced_snapshot(&self, path: &Path) -> anyhow::Result<()> {
+		self.save_snapshot_inner(path, SaveMode::Paced).await
+	}
+
+	async fn save_snapshot_inner(&self, path: &Path, mode: SaveMode) -> anyhow::Result<()> {
 		let Some(resolved) = self.locate(path) else {
 			tracing::debug!("No tracked drive for {}; skipping snapshot", path.display());
 			return Ok(());
@@ -2523,8 +2640,37 @@ impl VolumeIndex {
 		}
 
 		let _save_guard = slot.save_lock.lock().await;
+		if mode == SaveMode::Paced {
+			let last_save = *slot.last_save.lock();
+			let due = match last_save {
+				Some((at, bytes)) => at.elapsed() >= snapshot_flush_gap(bytes),
+				// The file restored at launch is the last save as far as pacing
+				// goes, so a restart does not rewrite it at once.
+				None => match tokio::fs::metadata(&snapshot_path).await {
+					Ok(metadata) => {
+						*slot.last_save.lock() = Some((Instant::now(), metadata.len()));
+						false
+					}
+					Err(_) => true,
+				},
+			};
+			if !due {
+				return Ok(());
+			}
+		}
 		let (entry_count, total_bytes) = {
-			let mut index = slot.index.write().await;
+			let mut index = slot.index.clone().write_owned().await;
+			if mode != SaveMode::Any
+				&& !(slot.indexing_in_progress.read().is_empty()
+					&& slot.filling_from_store.read().is_empty()
+					&& slot.incomplete_trees.read().is_empty())
+			{
+				tracing::debug!(
+					"Snapshot for {} held: a walk left the tree partway",
+					volume_root.display()
+				);
+				return Ok(());
+			}
 			let stats = index.get_stats();
 			let entry_count = stats.total_entries as u64;
 
@@ -2571,8 +2717,22 @@ impl VolumeIndex {
 				);
 				return Ok(());
 			}
-			index.save_snapshot(&snapshot_path, volume_index_id, &volume_root)?;
-			index.clear_dirty();
+			// Serializing and compressing a large arena takes seconds, so it runs
+			// on a blocking thread; the write guard moves with it so no change
+			// lands between the save and clearing the dirty flag.
+			let snapshot_file = snapshot_path.clone();
+			let root = volume_root.clone();
+			let bytes = tokio::task::spawn_blocking(move || -> anyhow::Result<u64> {
+				index
+					.save_snapshot(&snapshot_file, volume_index_id, &root)
+					.map_err(|error| {
+						error.context(format!("save snapshot {}", snapshot_file.display()))
+					})?;
+				index.clear_dirty();
+				Ok(std::fs::metadata(&snapshot_file).map_or(0, |metadata| metadata.len()))
+			})
+			.await??;
+			*slot.last_save.lock() = Some((Instant::now(), bytes));
 			slot.last_saved_entries
 				.store(entry_count, Ordering::Release);
 			(entry_count, stats.total_file_bytes)
@@ -2652,6 +2812,9 @@ impl VolumeIndex {
 		let indexed = slot.indexed_paths.read().clone();
 		let mut index = slot.index.write().await;
 		let (cleared, deleted_browsed_dirs) = index.clear_directory_children(path, &indexed);
+		if cleared > 0 {
+			slot.incomplete_trees.write().insert(path.to_path_buf());
+		}
 
 		if !deleted_browsed_dirs.is_empty() {
 			let mut indexed_paths = slot.indexed_paths.write();
@@ -2668,6 +2831,9 @@ impl VolumeIndex {
 		let slot = self.resolve(path);
 		slot.indexing_in_progress.write().remove(path);
 		slot.indexed_paths.write().insert(path.to_path_buf());
+		slot.incomplete_trees
+			.write()
+			.retain(|cleared| !cleared.starts_with(path));
 	}
 
 	/// Indexing ended without producing a result. Clearing the in-progress
@@ -2678,6 +2844,17 @@ impl VolumeIndex {
 		let slot = self.resolve(path);
 		slot.indexing_in_progress.write().remove(path);
 		slot.indexed_paths.write().remove(path);
+	}
+
+	/// A walk ran and failed. Whatever it wrote is part of the tree, so the
+	/// snapshot keeps its last whole copy until a walk of the tree lands.
+	pub fn mark_walk_failed(&self, path: &Path) {
+		// Mark before releasing the walk so a flush never sees neither.
+		self.resolve(path)
+			.incomplete_trees
+			.write()
+			.insert(path.to_path_buf());
+		self.mark_indexing_failed(path);
 	}
 
 	pub fn invalidate_path(&self, path: &Path) {
@@ -2771,6 +2948,183 @@ impl VolumeIndex {
 			.collect();
 		refused.sort();
 		refused
+	}
+
+	/// Record a directory whose listing did not answer in time. `listing`
+	/// is that read, still blocked after `waited`; when it returns the
+	/// directory is marked ready to read again, with how long the listing
+	/// took, and the revisit loop wakes.
+	///
+	/// While a listing is outstanding nothing reads the directory again, so
+	/// a prompt left unanswered for hours holds one blocked thread rather
+	/// than one per retry.
+	pub fn await_access<T: Send + 'static>(
+		self: &Arc<Self>,
+		dir: PathBuf,
+		waited: Duration,
+		listing: tokio::task::JoinHandle<T>,
+	) {
+		self.hold_blocked(dir, waited, listing, true);
+	}
+
+	/// Record a directory a subtree count could not read in time.
+	///
+	/// Its read is held like any other, so no later count or walk opens it
+	/// again while it is blocked, but nothing reports it or reads it again:
+	/// a count keeps no contents to bring up to date.
+	pub fn hold_uncounted<T: Send + 'static>(
+		self: &Arc<Self>,
+		dir: PathBuf,
+		waited: Duration,
+		listing: tokio::task::JoinHandle<T>,
+	) {
+		self.hold_blocked(dir, waited, listing, false);
+	}
+
+	fn hold_blocked<T: Send + 'static>(
+		self: &Arc<Self>,
+		dir: PathBuf,
+		waited: Duration,
+		listing: tokio::task::JoinHandle<T>,
+		reported: bool,
+	) {
+		{
+			let mut awaiting = self.awaiting_access.lock();
+			let waiting = awaiting.entry(dir.clone()).or_default();
+			waiting.blocked += 1;
+			waiting.reported |= reported;
+		}
+		let cache = Arc::downgrade(self);
+		let since = Instant::now();
+		tokio::spawn(async move {
+			let _ = listing.await;
+			let Some(cache) = cache.upgrade() else {
+				return;
+			};
+			{
+				let mut awaiting = cache.awaiting_access.lock();
+				if let Some(waiting) = awaiting.get_mut(&dir) {
+					waiting.blocked = waiting.blocked.saturating_sub(1);
+					waiting.took = waiting.took.max(waited + since.elapsed());
+					if !waiting.reported && waiting.blocked == 0 {
+						awaiting.remove(&dir);
+					}
+				}
+			}
+			cache.access_answered.notify_one();
+		});
+	}
+
+	/// Whether `dir` opens within `bound`, trying the open `open` starts.
+	///
+	/// Concurrent callers share one open, and none starts while an earlier
+	/// open of the folder is still blocked, so however many listings ask
+	/// about a folder behind an unanswered prompt it holds one blocked
+	/// thread. The open runs on its own task, so a caller that gives up does
+	/// not strand the others. One that does not answer is recorded as
+	/// waiting on access.
+	pub async fn opens_in_time<T: Send + 'static>(
+		self: &Arc<Self>,
+		dir: &Path,
+		bound: Duration,
+		open: impl FnOnce() -> tokio::task::JoinHandle<T>,
+	) -> bool {
+		use crate::ops::indexing::reconcile::{bounded, Bounded};
+
+		let mut answer = {
+			// Checked under the opening lock: a timed-out open records itself
+			// as blocked before it gives up its reservation, so no caller can
+			// slip between the two and start a second open.
+			let mut opening = self.opening.lock();
+			if self.access_blocked_needed(dir) {
+				return false;
+			}
+			match opening.get(dir) {
+				Some(answer) => answer.clone(),
+				None => {
+					let (tell, answer) = tokio::sync::watch::channel(None);
+					opening.insert(dir.to_path_buf(), answer.clone());
+					let cache = self.clone();
+					let dir = dir.to_path_buf();
+					let listing = open();
+					tokio::spawn(async move {
+						let answered = match bounded(bound, listing).await {
+							Bounded::Answered(_) => true,
+							Bounded::Unanswered(listing) => {
+								cache.await_access(dir.clone(), bound, listing);
+								false
+							}
+						};
+						cache.opening.lock().remove(&dir);
+						let _ = tell.send(Some(answered));
+					});
+					answer
+				}
+			}
+		};
+		matches!(
+			answer
+				.wait_for(Option::is_some)
+				.await
+				.map(|answered| *answered),
+			Ok(Some(true))
+		)
+	}
+
+	/// A directory read in full, or gone: it no longer waits on anything.
+	pub fn access_settled(&self, dir: &Path) {
+		self.awaiting_access.lock().remove(dir);
+	}
+
+	/// Whether a listing of `dir` is still blocked, recording that a walk,
+	/// reconcile or browse needs it read.
+	///
+	/// A read a subtree count left blocked is not reported or revisited on
+	/// its own, so a caller that needs the contents promotes it here, and the
+	/// folder is reported and read again once that read returns.
+	pub fn access_blocked_needed(&self, dir: &Path) -> bool {
+		self.awaiting_access
+			.lock()
+			.get_mut(dir)
+			.filter(|waiting| waiting.blocked > 0)
+			.map(|waiting| waiting.reported = true)
+			.is_some()
+	}
+
+	/// Whether a listing of `dir` is still blocked, so opening it again
+	/// would only add another blocked thread.
+	pub fn access_blocked(&self, dir: &Path) -> bool {
+		self.awaiting_access
+			.lock()
+			.get(dir)
+			.is_some_and(|waiting| waiting.blocked > 0)
+	}
+
+	/// Directories at or under `root` waiting on access, sorted.
+	pub fn awaiting_access_under(&self, root: &Path) -> Vec<PathBuf> {
+		self.awaiting_access
+			.lock()
+			.iter()
+			.filter(|(dir, waiting)| waiting.reported && dir.starts_with(root))
+			.map(|(dir, _)| dir.clone())
+			.collect()
+	}
+
+	/// Directories waiting on access with no listing still blocked on them,
+	/// so reading them again costs at most one more blocked thread each,
+	/// with how long their last listing took to answer.
+	pub fn awaiting_access_unblocked(&self) -> Vec<(PathBuf, Duration)> {
+		self.awaiting_access
+			.lock()
+			.iter()
+			.filter(|(_, waiting)| waiting.reported && waiting.blocked == 0)
+			.map(|(dir, waiting)| (dir.clone(), waiting.took))
+			.collect()
+	}
+
+	/// Resolves when a blocked listing returns.
+	pub async fn access_answered(&self) {
+		self.access_answered.notified().await;
 	}
 
 	pub fn is_watched(&self, path: &Path) -> bool {
@@ -2913,6 +3267,48 @@ pub(crate) mod tests {
 
 	fn isolated_cache() -> VolumeIndex {
 		VolumeIndex::with_sources_dir(None).expect("failed to create cache")
+	}
+
+	/// A read a count left blocked is forgotten when it returns, unless a
+	/// walk needed the folder meanwhile, which makes it one to report and
+	/// read again.
+	#[tokio::test]
+	async fn a_count_hold_is_revisited_only_once_a_walk_needs_it() {
+		let cache = Arc::new(isolated_cache());
+		let counted = PathBuf::from("/vol/Library/counted");
+		let needed = PathBuf::from("/vol/Library/needed");
+		let (answer_counted, counted_read) = tokio::sync::oneshot::channel::<()>();
+		let (answer_needed, needed_read) = tokio::sync::oneshot::channel::<()>();
+		cache.hold_uncounted(counted.clone(), Duration::ZERO, tokio::spawn(counted_read));
+		cache.hold_uncounted(needed.clone(), Duration::ZERO, tokio::spawn(needed_read));
+
+		assert!(cache.access_blocked(&counted));
+		assert!(cache.awaiting_access_under(Path::new("/vol")).is_empty());
+		assert!(cache.access_blocked_needed(&needed));
+		assert_eq!(
+			cache.awaiting_access_under(Path::new("/vol")),
+			vec![needed.clone()]
+		);
+
+		answer_counted.send(()).expect("answer");
+		answer_needed.send(()).expect("answer");
+		tokio::time::timeout(Duration::from_secs(10), async {
+			while cache.access_blocked(&counted) || cache.access_blocked(&needed) {
+				tokio::time::sleep(Duration::from_millis(10)).await;
+			}
+		})
+		.await
+		.expect("both reads returned");
+		let unblocked: Vec<PathBuf> = cache
+			.awaiting_access_unblocked()
+			.into_iter()
+			.map(|(dir, _)| dir)
+			.collect();
+		assert_eq!(
+			unblocked,
+			vec![needed],
+			"only the needed folder is read again"
+		);
 	}
 
 	#[test]
@@ -4445,6 +4841,208 @@ pub(crate) mod tests {
 		assert_eq!(
 			after, full,
 			"a collapsed partition overwrote a full index instead of being refused"
+		);
+	}
+
+	/// The watcher's flush writes a drive's snapshot no sooner than its size
+	/// allows, while a shutdown or walk save still writes at once.
+	#[tokio::test]
+	async fn a_paced_flush_spaces_saves_by_snapshot_size() {
+		let cache_dir = tempfile::tempdir().unwrap();
+		let library = test_library(cache_dir.path()).await;
+		let root = tempfile::tempdir().unwrap();
+		let root = root.path().to_path_buf();
+
+		let cache =
+			VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
+		cache
+			.attach_library(LIBRARY, library.clone())
+			.await
+			.expect("attach");
+		cache
+			.register_source(&root, Some(tracked_volume(&library, &root).await))
+			.await
+			.unwrap();
+
+		use crate::ops::indexing::metadata::EntryMetadata;
+		use crate::ops::indexing::state::EntryKind;
+		let index = cache.create_for_indexing(root.clone());
+		let add = |name: &str| {
+			let path = root.join(name);
+			let index = index.clone();
+			async move {
+				let meta = EntryMetadata {
+					kind: EntryKind::File,
+					path: path.clone(),
+					size: 1,
+					modified: None,
+					accessed: None,
+					created: None,
+					inode: None,
+					permissions: None,
+					uid: None,
+					gid: None,
+					link_target: None,
+					is_hidden: false,
+				};
+				index
+					.write()
+					.await
+					.add_entry(path, Uuid::now_v7(), meta)
+					.unwrap();
+			}
+		};
+		add("first").await;
+		cache.mark_indexing_complete(&root);
+
+		// With nothing on disk yet, the first flush writes.
+		cache.save_paced_snapshot(&root).await.unwrap();
+		assert!(!index.read().await.is_dirty(), "the first flush saved");
+
+		// A snapshot this size earns two seconds between flushes.
+		let slot = cache.slot_for(&cache.locate(&root).unwrap());
+		let two_seconds = SNAPSHOT_BYTES_PER_HOUR * 2 / 3600;
+		*slot.last_save.lock() = Some((Instant::now(), two_seconds));
+		add("second").await;
+		cache.save_paced_snapshot(&root).await.unwrap();
+		assert!(
+			index.read().await.is_dirty(),
+			"a flush inside the gap left the change for later"
+		);
+
+		// Shutdown saves whatever pacing held back.
+		cache.save_settled_snapshot(&root).await.unwrap();
+		assert!(!index.read().await.is_dirty(), "the shutdown save wrote");
+
+		// Once the gap has passed, the next flush writes.
+		*slot.last_save.lock() = Some((Instant::now(), two_seconds));
+		add("third").await;
+		tokio::time::sleep(snapshot_flush_gap(two_seconds) + Duration::from_millis(100)).await;
+		cache.save_paced_snapshot(&root).await.unwrap();
+		assert!(
+			!index.read().await.is_dirty(),
+			"a flush after the gap saved"
+		);
+	}
+
+	/// Bytes the watcher's flush writes per hour for a 1M-node arena under a
+	/// steady trickle of changes, under the old fixed 30 s flush and under
+	/// pacing. Every write is a real save of the arena; only the clock is
+	/// simulated. Run with
+	/// `cargo test -p sd-core --release --lib snapshot_flush_bytes_per_hour -- --ignored --nocapture`.
+	#[test]
+	#[ignore = "bench: builds a 1M-node arena and saves it repeatedly"]
+	fn snapshot_flush_bytes_per_hour() {
+		use crate::ops::indexing::metadata::EntryMetadata;
+		use crate::ops::indexing::state::EntryKind;
+
+		const DIRS: usize = 1_000;
+		const FILES_PER_DIR: usize = 1_000;
+		const TICK: Duration = Duration::from_secs(30);
+		const HOUR: Duration = Duration::from_secs(3600);
+
+		let _ = tracing_subscriber::fmt()
+			.with_max_level(tracing::Level::INFO)
+			.with_test_writer()
+			.try_init();
+
+		let meta = |path: &Path, kind: EntryKind| EntryMetadata {
+			kind,
+			path: path.to_path_buf(),
+			size: 4096,
+			modified: None,
+			accessed: None,
+			created: None,
+			inode: None,
+			permissions: None,
+			uid: None,
+			gid: None,
+			link_target: None,
+			is_hidden: false,
+		};
+		let root = PathBuf::from("/bench");
+		let mut arena = Arena::new().unwrap();
+		let built = Instant::now();
+		for d in 0..DIRS {
+			let dir = root.join(format!("dir-{d:04}"));
+			arena
+				.add_entry(
+					dir.clone(),
+					Uuid::now_v7(),
+					meta(&dir, EntryKind::Directory),
+				)
+				.unwrap();
+			for f in 0..FILES_PER_DIR {
+				let file = dir.join(format!("file-{f:04}.dat"));
+				arena
+					.add_entry(file.clone(), Uuid::now_v7(), meta(&file, EntryKind::File))
+					.unwrap();
+			}
+		}
+		let nodes = arena.get_stats().total_entries;
+		tracing::info!("built {nodes} nodes in {:?}", built.elapsed());
+
+		let out = tempfile::tempdir().unwrap();
+		let snapshot = out.path().join("bench.snapshot");
+		let source_id = Uuid::now_v7();
+		let mut churn = 0usize;
+
+		// One simulated hour of 30 s flush ticks. `trickle` touches one file
+		// before each tick, as a cache directory under a home folder does.
+		let mut run = |label: &str, trickle: bool, paced: bool| {
+			arena.save_snapshot(&snapshot, source_id, &root).unwrap();
+			arena.clear_dirty();
+			let mut last = (Duration::ZERO, std::fs::metadata(&snapshot).unwrap().len());
+			let (mut writes, mut bytes, mut busy) = (0u64, 0u64, Duration::ZERO);
+			let mut now = Duration::ZERO;
+			while now < HOUR {
+				now += TICK;
+				if trickle {
+					let file = root.join(format!("dir-0000/churn-{churn}.tmp"));
+					churn += 1;
+					arena
+						.add_entry(file.clone(), Uuid::now_v7(), meta(&file, EntryKind::File))
+						.unwrap();
+					arena.remove_entry(&file);
+				}
+				if !arena.is_dirty() || (paced && now - last.0 < snapshot_flush_gap(last.1)) {
+					continue;
+				}
+				let started = Instant::now();
+				arena.save_snapshot(&snapshot, source_id, &root).unwrap();
+				busy += started.elapsed();
+				arena.clear_dirty();
+				let size = std::fs::metadata(&snapshot).unwrap().len();
+				last = (now, size);
+				writes += 1;
+				bytes += size;
+			}
+			tracing::info!(
+				"{label}: {writes} writes/h, {:.1} MB/h, {:.1} s of save time/h (snapshot {:.1} MB)",
+				bytes as f64 / 1e6,
+				busy.as_secs_f64(),
+				last.1 as f64 / 1e6
+			);
+			bytes
+		};
+		let before_churn = run("fixed 30 s, trickle", true, false);
+		let after_churn = run("paced, trickle", true, true);
+		let before_idle = run("fixed 30 s, idle", false, false);
+		let after_idle = run("paced, idle", false, true);
+
+		assert!(
+			after_churn < 1_000_000_000,
+			"paced trickle stays under 1 GB/h"
+		);
+		assert!(
+			after_churn <= SNAPSHOT_BYTES_PER_HOUR,
+			"paced trickle stays within the hourly budget"
+		);
+		assert!(after_churn * 5 < before_churn, "pacing cuts trickle writes");
+		assert_eq!(
+			(before_idle, after_idle),
+			(0, 0),
+			"an idle arena writes nothing"
 		);
 	}
 

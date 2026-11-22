@@ -143,6 +143,37 @@ sd-cli volume --help
 Use Spacedrive paths when a command needs an address. The same operation can
 route to local files, remote sources, provider objects, or content identity.
 
+Search file contents under a tracked folder with `search grep`. It reads the
+files as they are on disk, so it needs no index and never answers with stale
+text. It honors `.gitignore` and skips hidden files, binary files and files
+over 1 MiB unless you say otherwise:
+
+~~~bash
+sd-cli search grep 'fn main' ~/Code/project --glob '*.rs' -C 2
+sd-cli search grep -F 'TODO(' --no-ignore --hidden --max-results 500
+~~~
+
+A page stops at `--max-results` (100 by default) and prints a cursor; pass it
+back with `--cursor` to read the next page. The search runs on the device that
+holds the files. To grep another device's source, send the command there with
+`--device`.
+
+Search the indexed text of documents and code with `search content`. It answers
+from an index the source keeps on its own device, ranks files by relevance and
+prints a snippet for each. It reads PDF and DOCX as well as text files, matches
+whole words rather than patterns, and says how many files it has not indexed
+yet:
+
+~~~bash
+sd-cli search content '"release checklist" signing' ~/Documents
+sd-cli search content migration ~/Code/project --kind code --max-results 50
+sd-cli search reindex-content ~/Documents
+~~~
+
+`search reindex-content` drops the source's text index and reads every file
+again. See [Content Search](/core/content-search) for what is indexed and
+how it stays current.
+
 Compare two indexed folders without reading either drive. The first folder is
 A and the second is B. By path, files pair by their path within each folder. By
 content, a file matches wherever its bytes sit in the other folder, which is

@@ -24,7 +24,10 @@ pub fn kind_directory(kind: &str) -> Option<&'static str> {
 		"embeddings" => Some("embeddings"),
 		"ocr" => Some("ocr"),
 		"transcript" => Some("transcript"),
+		"shots" => Some("shots"),
+		"keyframe" => Some("keyframes"),
 		"gaussian_splat" => Some("gaussian_splats"),
+		"audio" => Some("audio"),
 		_ => None,
 	}
 }
@@ -99,6 +102,9 @@ mod tests {
 		assert_eq!(kind_directory("proxy"), Some("proxies"));
 		assert_eq!(kind_directory("embeddings"), Some("embeddings"));
 		assert_eq!(kind_directory("transcript"), Some("transcript"));
+		assert_eq!(kind_directory("audio"), Some("audio"));
+		assert_eq!(kind_directory("shots"), Some("shots"));
+		assert_eq!(kind_directory("keyframe"), Some("keyframes"));
 		assert_eq!(kind_directory("bogus"), None);
 	}
 }

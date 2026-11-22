@@ -1,5 +1,6 @@
-import type {Platform} from '@sd/interface';
+import type {AvailableUpdate, Platform} from '@sd/interface';
 import {
+	Channel,
 	invoke,
 	convertFileSrc as tauriConvertFileSrc
 } from '@tauri-apps/api/core';
@@ -18,6 +19,35 @@ import {
 } from './lib/drag';
 
 let _isDragging = false;
+
+// Only the release workflow sets VITE_SD_UPDATER, so dev builds and local
+// release builds never offer to replace themselves with the latest release.
+const updaterEnabled =
+	import.meta.env.PROD && import.meta.env.VITE_SD_UPDATER === 'true';
+
+// The check runs in Rust (src-tauri/src/updater.rs) so a missing release
+// feed is logged as "no update" instead of the plugin's ERROR.
+async function checkForUpdate(): Promise<AvailableUpdate | null> {
+	const update = await invoke<{
+		version: string;
+		currentVersion: string;
+	} | null>('check_for_update');
+	if (!update) return null;
+
+	return {
+		...update,
+		async installAndRestart(onProgress) {
+			const progress = new Channel<number | null>();
+			progress.onmessage = (percent) =>
+				onProgress?.(percent ?? undefined);
+			await invoke('install_update', {
+				version: update.version,
+				onProgress: progress
+			});
+			await invoke('restart_after_update');
+		}
+	};
+}
 
 /**
  * Tauri platform implementation
@@ -208,6 +238,8 @@ export const platform: Platform = {
 		);
 		return unlisten;
 	},
+
+	checkForUpdate: updaterEnabled ? checkForUpdate : undefined,
 
 	async getAppVersion() {
 		const {getVersion} = await import('@tauri-apps/api/app');

@@ -137,6 +137,15 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 	const hotThumb = useHotThumb(file.sd_path, sidecarThumbnailUrl === null);
 	const thumbnailUrl = sidecarThumbnailUrl ?? hotThumb.url;
 
+	// A raw file with no embedded preview has no tile, and the browser cannot
+	// decode its original either. Each failure is against one URL, so a later
+	// bake of the tile is still tried.
+	const [failedThumbnail, setFailedThumbnail] = useState<string | null>(null);
+	const [failedOriginal, setFailedOriginal] = useState<string | null>(null);
+	const showThumbnail = !!thumbnailUrl && thumbnailUrl !== failedThumbnail;
+	const showOriginal = !!originalUrl && originalUrl !== failedOriginal;
+	const showIcon = !showThumbnail && !showOriginal && !hotThumb.pending;
+
 	// Stable callback to prevent re-renders that would reinitialize MeshViewer
 	const handleSplatLoaded = useCallback(() => {
 		console.log(
@@ -335,18 +344,21 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 				className="relative w-full h-full flex items-center justify-center"
 				style={transform}
 			>
+				{showIcon && <FileComponent.Thumb file={file} size={256} />}
+
 				{/* High-res thumbnail (always rendered as background layer) */}
-				{thumbnailUrl && (
+				{showThumbnail && (
 					<img
 						src={thumbnailUrl}
 						alt={file.name}
 						className="w-full h-full object-contain"
+						onError={() => setFailedThumbnail(thumbnailUrl)}
 						draggable={false}
 					/>
 				)}
 
 				{/* Original image (loads async, fades in over thumbnail when ready) */}
-				{originalUrl && (
+				{showOriginal && (
 					<img
 						src={originalUrl}
 						alt={file.name}
@@ -356,12 +368,7 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 							transition: "opacity 0.3s",
 						}}
 						onLoad={() => setOriginalLoaded(true)}
-						onError={(e) =>
-							console.error(
-								"[ImageRenderer] Original failed to load:",
-								e,
-							)
-						}
+						onError={() => setFailedOriginal(originalUrl)}
 						draggable={false}
 					/>
 				)}

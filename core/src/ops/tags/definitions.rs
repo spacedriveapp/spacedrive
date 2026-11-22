@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use sd_store::TagDefinition;
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use uuid::Uuid;
 
 use crate::infra::db::entities::tag_staging;
@@ -41,9 +41,15 @@ fn keep_later(map: &mut HashMap<Uuid, TagDefinition>, definition: TagDefinition)
 /// path. A store that fails to answer is skipped with a warning: a listing
 /// is best effort, and the store's own open path reports its failure.
 pub async fn all(library: &Library, cache: &VolumeIndex) -> Vec<TagDefinition> {
+	all_in(library.db().conn(), cache).await
+}
+
+/// [`all`] against a library database rather than an open library, for the
+/// statistics recount that runs detached from one.
+pub async fn all_in(db: &DatabaseConnection, cache: &VolumeIndex) -> Vec<TagDefinition> {
 	let mut by_uuid: HashMap<Uuid, TagDefinition> = HashMap::new();
 
-	match tag_staging::Entity::find().all(library.db().conn()).await {
+	match tag_staging::Entity::find().all(db).await {
 		Ok(models) => {
 			for model in models {
 				keep_later(&mut by_uuid, from_staging(model));

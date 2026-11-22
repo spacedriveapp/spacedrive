@@ -4,6 +4,7 @@ import {AnalyzerView} from './routes/analyzer';
 import {CollectionView} from './routes/collection';
 import {DaemonManager} from './routes/daemon';
 import {ExplorerView} from './routes/explorer';
+import {ExtensionView} from './routes/extension';
 import {RecentsView} from './routes/explorer/views/RecentsView';
 import {FileKindsView} from './routes/file-kinds';
 import {Overview} from './routes/overview';
@@ -117,6 +118,10 @@ export const explorerRoutes = [
 			{
 				path: 'daemon',
 				element: <DaemonManager />
+			},
+			{
+				path: 'extensions/:extensionId/:viewId',
+				element: <ExtensionView />
 			}
 		]
 	}

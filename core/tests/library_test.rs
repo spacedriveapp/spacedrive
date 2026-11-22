@@ -247,3 +247,29 @@ async fn stopping_the_watcher_inside_its_debounce_reopens_nothing() {
 	}
 	core.shutdown().await.unwrap();
 }
+
+/// The library directory watcher debounces a new `.sdlibrary` folder for
+/// 500 ms. A library its creator closes inside that window must stay closed:
+/// the watcher used to reopen it from the folder's own create event, and the
+/// reopened copy held the lock against the next open.
+#[tokio::test]
+async fn closing_a_new_library_inside_the_watcher_debounce_keeps_it_closed() {
+	let temp_dir = TempDir::new().unwrap();
+	let core = Core::new(temp_dir.path().to_path_buf()).await.unwrap();
+
+	let library = core
+		.libraries
+		.create_library("Closed Early", None, core.context.clone())
+		.await
+		.unwrap();
+	let id = library.id();
+	core.libraries.close_library(id).await.unwrap();
+	drop(library);
+
+	tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+
+	assert!(
+		core.libraries.get_library(id).await.is_none(),
+		"the watcher reopened a library its creator closed"
+	);
+}

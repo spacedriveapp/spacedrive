@@ -18,15 +18,66 @@ use axum::{
 	routing::get,
 	Router,
 };
-use std::{net::Ipv4Addr, path::PathBuf};
-use tokio::{fs::File, io, net::TcpListener};
+use std::{net::Ipv4Addr, path::PathBuf, sync::Arc};
+use tokio::{
+	fs::File,
+	io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader},
+	net::{TcpListener, TcpStream},
+	sync::OnceCell,
+};
 use tracing::{error, info};
 use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct ServerState {
-	/// Path to the Spacedrive data directory
-	data_dir: PathBuf,
+	/// The data directory this app would start its daemon with.
+	fallback_dir: PathBuf,
+	socket_addr: String,
+	/// The data directory the running daemon reports, once it has answered.
+	daemon_dir: Arc<OnceCell<PathBuf>>,
+}
+
+impl ServerState {
+	/// Where the daemon keeps tiles, sidecars and extensions.
+	///
+	/// The app reuses a daemon it finds listening, such as one sd-server
+	/// started with another data directory, so its own directory is only a
+	/// fallback for when the daemon cannot say.
+	async fn data_dir(&self) -> PathBuf {
+		if let Some(dir) = self.daemon_dir.get() {
+			return dir.clone();
+		}
+		match daemon_data_dir(&self.socket_addr).await {
+			Some(reported) => {
+				// Daemons before core.status reported it answer "default".
+				let dir = if reported.is_absolute() {
+					reported
+				} else {
+					self.fallback_dir.clone()
+				};
+				self.daemon_dir.get_or_init(|| async { dir }).await.clone()
+			}
+			None => self.fallback_dir.clone(),
+		}
+	}
+}
+
+/// The data directory of the daemon listening at `socket_addr`, from `core.status`.
+async fn daemon_data_dir(socket_addr: &str) -> Option<PathBuf> {
+	let mut stream = TcpStream::connect(socket_addr).await.ok()?;
+	let request = serde_json::json!({
+		"Query": { "method": "query:core.status", "library_id": null, "payload": null }
+	});
+	stream
+		.write_all(format!("{request}\n").as_bytes())
+		.await
+		.ok()?;
+	let mut line = String::new();
+	BufReader::new(stream).read_line(&mut line).await.ok()?;
+	let response: serde_json::Value = serde_json::from_str(&line).ok()?;
+	let status = response.get("JsonOk").or_else(|| response.get("json"))?;
+	let dir = status.get("system")?.get("data_directory")?.as_str()?;
+	Some(PathBuf::from(dir))
 }
 
 /// Find library folder by UUID (reads library.json files to match ID)
@@ -84,7 +135,7 @@ async fn serve_sidecar(
 	}
 
 	// Find the actual library folder (might be named differently than the ID)
-	let library_folder = find_library_folder(&state.data_dir, &library_id).await?;
+	let library_folder = find_library_folder(&state.data_dir().await, &library_id).await?;
 
 	// The layout crate joins variant and extension itself, so split the
 	// combined segment at the final dot.
@@ -179,7 +230,8 @@ async fn serve_hot_thumb(
 	// one drive share a cache. The id in the URL is the volume index id the
 	// thumbs.request output named.
 	let path = state
-		.data_dir
+		.data_dir()
+		.await
 		.join("volumes")
 		.join(source_id.simple().to_string())
 		.join("thumbs.pvcache");
@@ -208,7 +260,7 @@ async fn serve_extension_bundle(
 	State(state): State<ServerState>,
 	Path((extension_id, path)): Path<(String, String)>,
 ) -> Result<Response<Body>, StatusCode> {
-	let bundle = sd_extension_ui::resolve_bundle(&state.data_dir, &extension_id, &path)
+	let bundle = sd_extension_ui::resolve_bundle(&state.data_dir().await, &extension_id, &path)
 		.await
 		.ok_or(StatusCode::NOT_FOUND)?;
 	let file = File::open(&bundle).await.map_err(|e| {
@@ -243,7 +295,8 @@ async fn serve_hot_thumbstrip(
 	let record_uuid = Uuid::parse_str(&record_uuid).map_err(|_| StatusCode::BAD_REQUEST)?;
 	let version: u64 = version.parse().map_err(|_| StatusCode::BAD_REQUEST)?;
 	let path = state
-		.data_dir
+		.data_dir()
+		.await
 		.join("volumes")
 		.join(source_id.simple().to_string())
 		.join("thumbstrips")
@@ -294,8 +347,12 @@ fn read_tile_png(path: &std::path::Path, uuid: Uuid, version: u64) -> Option<Vec
 }
 
 /// Create the HTTP router
-fn create_router(data_dir: PathBuf) -> Router {
-	let state = ServerState { data_dir };
+fn create_router(data_dir: PathBuf, socket_addr: String) -> Router {
+	let state = ServerState {
+		fallback_dir: data_dir,
+		socket_addr,
+		daemon_dir: Arc::new(OnceCell::new()),
+	};
 
 	Router::new()
 		.route(
@@ -323,6 +380,7 @@ fn create_router(data_dir: PathBuf) -> Router {
 /// Returns the server address and a channel to trigger shutdown
 pub async fn start_server(
 	data_dir: PathBuf,
+	socket_addr: String,
 ) -> Result<(String, tokio::sync::mpsc::Sender<()>), String> {
 	// Bind to localhost on random port
 	let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
@@ -333,7 +391,7 @@ pub async fn start_server(
 
 	info!("Starting sidecar HTTP server on {}", listen_url);
 
-	let app = create_router(data_dir);
+	let app = create_router(data_dir, socket_addr);
 	let (shutdown_tx, mut shutdown_rx) = tokio::sync::mpsc::channel::<()>(1);
 
 	// Spawn server task

@@ -5,7 +5,7 @@ sidebarTitle: Releases
 ---
 
 <Callout>
-  **Spacedrive 2.0 Beta is planned for November 1, 2026.**
+  **Spacedrive 2.0 Beta is planned for November 27, 2026.**
 
   Release artifacts remain drafts until the cross-platform and destructive
   operation gates on this page pass.
@@ -59,20 +59,88 @@ git push origin v2.0.0-beta.1
 Pushing the tag starts release builds. It does not by itself publish a stable
 release.
 
+## Dry run
+
+Run the release workflow without a tag to check that it still builds:
+
+~~~bash
+gh workflow run release.yml --ref <branch> -f dry_run=true
+~~~
+
+`dry_run` defaults to true for a manual run. A dry run builds everything a
+release ships: the server tarballs, the standalone `sd` and `sd-daemon`
+binaries, the macOS desktop app and disk image, and the Linux desktop
+packages. It passes no signing secrets, so the macOS app carries only an
+ad-hoc signature and is not notarized. It turns off the Tauri updater
+artifacts and never runs the release job. The workflow's token is read-only
+for every build job, so the results exist only as workflow artifacts. The
+first job lists which signing secrets are set, without their values, and
+warns about any that a real release would stop on.
+
+To check macOS signing and notarization without a tag, add `-f sign=true`:
+
+~~~bash
+gh workflow run release.yml --ref <branch> -f dry_run=true -f sign=true
+~~~
+
+A signed dry run fails at the first job if any signing secret is missing. The
+macOS desktop jobs import the Developer ID certificate, print its validity
+dates, sign, notarize and staple the app and then the disk image, and run the
+same signature, stapler and Gatekeeper checks as a release. The macOS CLI jobs
+sign the standalone `sd` and `sd-daemon` binaries with the hardened runtime
+and a secure timestamp, notarize them as a zip, and run the same checks as a
+release. The release job still never runs.
+
 ## Artifacts
 
 The release pipeline builds:
 
 | Product | Platforms |
 | --- | --- |
-| Desktop | macOS ARM64 and x86-64, Windows x86-64, Linux x86-64 and ARM64 |
+| Desktop | macOS ARM64 and x86-64, Linux x86-64 and ARM64 |
 | Headless server | Linux x86-64 and ARM64 |
-| CLI and daemon | Every supported desktop and server platform |
+| CLI and daemon | macOS ARM64 and x86-64, Linux x86-64 and ARM64 |
 | Mobile | iOS and Android |
 | Container | Linux amd64 and arm64 |
 
+Spacedrive 2.0 beta.1 supports macOS and Linux. Windows is not part of beta.1:
+the release workflow builds no Windows artifacts, and Windows x86-64 builds of
+the CLI and daemon stay in the [nightly channel](#nightly-channel).
+
+Release and nightly builds do not enable the `wasm` cargo feature, so beta.1
+ships without the extension runtime.
+
 Each downloadable archive includes a checksum. Executable packages and update
 metadata are signed with the platform or Spacedrive release key.
+
+### Signing secrets
+
+A release build reads these repository secrets:
+
+| Secret | Holds |
+| --- | --- |
+| `APPLE_CERTIFICATE` | Developer ID Application certificate and its private key, as a base64 `.p12` |
+| `APPLE_CERTIFICATE_PASSWORD` | Password of that `.p12` |
+| `APPLE_SIGNING_IDENTITY` | Certificate name, for example `Developer ID Application: <Team> (<Team ID>)` |
+| `APPLE_API_ISSUER` | App Store Connect API issuer ID, used for notarization |
+| `APPLE_API_KEY` | App Store Connect API key ID |
+| `APPLE_API_KEY_BASE64` | That key's `AuthKey_<id>.p8` file, base64 encoded |
+| `APPLE_PROVIDER_SHORT_NAME` | Team provider short name |
+| `TAURI_PRIVATE_KEY` | Tauri updater signing key |
+| `TAURI_KEY_PASSWORD` | Password of the updater key |
+
+The first job of a real release checks that every secret is set and stops the
+run before anything builds if one is missing. After the macOS build, the
+workflow checks that `Spacedrive.app` has a Developer ID signature and a
+stapled notarization ticket. Tauri only warns when it cannot notarize, so this
+check is what keeps an unsigned or unnotarized app out of a release. The macOS
+`sd` and `sd-daemon` binaries are signed the same way and submitted to
+notarization as a zip. A bare binary cannot hold a stapled ticket, so
+Gatekeeper looks the ticket up online the first time it runs a downloaded
+copy. The job fails unless each binary passes `codesign --verify --strict`,
+carries a Developer ID authority, a Team ID, the hardened runtime and a secure
+timestamp, and passes `spctl -a -t install`. A failed macOS job also stops the
+release job, so nothing is published.
 
 Stable container releases update the **latest** tag. Prereleases keep their
 explicit version tag.
@@ -82,8 +150,8 @@ explicit version tag.
 The nightly channel is a rolling build of the CLI and daemon for people who
 want to track `main` without compiling. Every push to `main` runs
 `.github/workflows/nightly.yml`, which builds `sd` and `sd-daemon`
-in release mode for macOS ARM64 and Linux x86-64 and republishes them on the
-GitHub prerelease tagged `nightly`. There is one nightly release and the
+in release mode for macOS ARM64, Linux x86-64 and Windows x86-64 and
+republishes them on the GitHub prerelease tagged `nightly`. There is one nightly release and the
 workflow edits it in place: it rewrites the title and notes, replaces every
 asset with `gh release upload --clobber`, removes assets for platforms that no
 longer build, and only then moves the `nightly` tag to the built commit, so
@@ -91,6 +159,9 @@ the tag never names a commit whose binaries are not yet published. The
 release is created only when it does not exist. Asset URLs are stable because they are
 built from the tag and the asset name, for example
 `https://github.com/spacedriveapp/spacedrive/releases/download/nightly/sd-macos-aarch64`.
+Windows assets carry the `.exe` suffix (`sd-windows-x86_64.exe`,
+`sd-daemon-windows-x86_64.exe`), which the updater strips when it matches an
+asset to a binary.
 
 The release notes name the commit the build came from. Because GitHub freezes
 a release's `target_commitish` at creation, that field does not move with the
@@ -106,7 +177,9 @@ Nightly builds are not a release:
 - They are not signed with a Developer ID and are not notarized. The macOS
   linker adds an ad-hoc signature, which is enough to run a binary the CLI
   downloaded itself. A copy downloaded in a browser carries the quarantine
-  attribute and Gatekeeper refuses it until you remove that attribute.
+  attribute and Gatekeeper refuses it until you remove that attribute. The
+  Windows binaries have no Authenticode signature, so SmartScreen warns the
+  first time you run one you downloaded in a browser.
 - They can break, lose data, or change schemas without migrations. Keep
   backups of any library you point a nightly build at.
 - They carry sd-core's default features only: no bundled FFmpeg, libheif, or
@@ -150,8 +223,11 @@ both the package version and the installed commit, for example
 `sd update --yes` skips the confirmation prompt and does nothing when the
 installed commit already matches. `sd update --force` reinstalls the current
 nightly even when it matches. Both replace the running `sd` binary and the
-`sd-daemon` next to it through a temporary file and a rename, stop the daemon
-first, and start it again afterwards. When `sd daemon install` has launchd
+`sd-daemon` next to it through a `.bak` copy and a rename of the downloaded
+file into place, stop the daemon first, and start it again afterwards. Windows
+cannot replace or delete a running executable, so there the current binary is
+moved to `.bak` first and `sd.exe.bak` stays beside the binaries until the
+next update removes it. When `sd daemon install` has launchd
 managing the daemon, the restart goes through `launchctl kickstart` so launchd
 keeps owning the process. After an install the build's commit (or the release
 tag on the stable channel) is written to `sd-version.txt` beside the binaries.
@@ -200,9 +276,10 @@ sd update
 
 The stable channel follows the repository's latest release and installs it
 only when its tag is a newer semantic version than the installed package
-version. The repository's latest release is still a v1 desktop build, so a
-2.0 nightly on the stable channel reports that it is up to date until the
-first 2.0 release ships standalone `sd` and `sd-daemon` assets.
+version. Until beta.1 is published, the repository's latest release is the v1
+desktop build 0.4.3, so a 2.0 nightly on the stable channel reports that it is
+up to date. beta.1 is published as the latest release, so the stable channel
+installs it from then on.
 
 ## Required gates
 
@@ -245,6 +322,7 @@ first 2.0 release ships standalone `sd` and `sd-daemon` assets.
 - A client can query, stream, mount, and operate an authorized remote source.
 - Source and library state remain understandable while an origin is offline.
 - Extensions can add one real file kind and preview without core changes.
+  This is checked with the `wasm` feature; beta.1 builds do not enable it.
 - Desktop, web, CLI, and MCP exercise the same operation semantics.
 
 ## Candidate validation
@@ -255,7 +333,15 @@ Before publishing:
 2. Exercise each supported upgrade path on copies of real prior-version state.
 3. Index and verify a real large source.
 4. Interrupt jobs and daemons during writes.
-5. Pair devices across local and relayed paths.
+5. Pair devices across local and relayed paths. CI covers both on every
+   pull request: `device_pairing_test` pairs over mDNS, and
+   `relay_only_pairing_test` pairs through an iroh relay the suite runs
+   in-process with mDNS off (`SD_RELAY_URL`, `SD_DISABLE_MDNS`) and checks
+   the relay's own counters saw the handshake. The mDNS suites still need
+   a public n0 relay reachable, since the initiator waits for the endpoint
+   to come online, but no pairing bytes cross it and pkarr discovery over
+   `dns.iroh.link` is not exercised in CI; pair one real device pair across
+   networks before publishing.
 6. Exercise remote queries, ranges, mounts, and mutations.
 7. Restore the library and source stores from backup: `sd-cli library backup
    --to <dir>`, `sd-cli library backup verify --from <dir>`, then `sd-cli
@@ -266,10 +352,35 @@ Before publishing:
 
 Never run destructive release tests against the only copy of user data.
 
+Record each run in
+[`acceptance/candidate-validation.md`](./acceptance/candidate-validation.md):
+the build, what each step ran, and the result.
+
 ## Publishing
 
-The workflow creates a draft GitHub release. A maintainer verifies artifacts,
-checksums, signatures, and gate evidence before publishing it.
+The workflow creates a draft GitHub release that is not a prerelease. A
+maintainer verifies artifacts, checksums, signatures, and gate evidence before
+publishing it as the repository's latest release:
+
+~~~bash
+gh release edit v2.0.0-beta.1 --draft=false --latest
+~~~
+
+`sd update` and the desktop updater read GitHub's latest release, which never
+returns a prerelease, so beta.1 must be marked latest. It replaces the v1
+desktop app 0.4.3 as the latest release. The release notes link
+[0.4.3](https://github.com/spacedriveapp/spacedrive/releases/tag/0.4.3) for
+anyone who needs the v1 app.
+
+The desktop app reads `latest.json` from the latest release when it starts and
+every six hours after that. When the release is newer, it shows a notice that
+stays until you act. It downloads nothing until you choose Install and
+restart. It then verifies the signature against the key in `tauri.conf.json`,
+installs the update, stops the daemon the app spawned, and relaunches. A check that
+fails, for example when you are offline, writes only a debug log. Only builds
+from `release.yml` check for updates, because the workflow sets
+`VITE_SD_UPDATER=true` for the desktop build. Dev builds and local release
+builds never offer an update.
 
 Release notes state:
 
@@ -279,6 +390,9 @@ Release notes state:
 - security changes;
 - behavior that can affect file bytes;
 - backup steps required before upgrade.
+
+Each release's notes are a page under [Release notes](./release-notes/beta-1).
+The same text is the body of the GitHub release.
 
 ## Hotfixes
 

@@ -8,6 +8,7 @@ pub mod sync_harness;
 pub mod sync_transport;
 pub mod test_data;
 pub mod test_volumes;
+pub mod wait;
 
 pub use event_collector::*;
 pub use exif_fixture::*;
@@ -16,3 +17,4 @@ pub use snapshot::*;
 pub use sync_harness::*;
 pub use sync_transport::*;
 pub use test_data::*;
+pub use wait::*;

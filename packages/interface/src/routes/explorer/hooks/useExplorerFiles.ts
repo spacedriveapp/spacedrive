@@ -13,6 +13,7 @@ import {
 	useSpacedriveClient,
 } from "../../../contexts/SpacedriveContext";
 import { useExplorer } from "../context";
+import { searchSortField } from "../sortOptions";
 import { isLapsedHandle, usePlanPreviewStore } from "./usePlanPreview";
 import { useVirtualListing } from "./useVirtualListing";
 
@@ -30,6 +31,8 @@ export interface ExplorerFilesResult {
 	files: File[];
 	isLoading: boolean;
 	source: FileSource;
+	/** The open folder did not answer its open, such as one behind an unanswered privacy prompt. */
+	awaitingPermission: boolean;
 	/** True match count for a search, before pagination. */
 	totalFound?: number;
 	/** Facets over the whole match set, for the filter panel's counts. */
@@ -77,18 +80,6 @@ export function useSearchInput(): FileSearchInput | null {
 		// silently widening to the library.
 		if (scope === "source" && !sourceScopePath) return null;
 
-		// Map explorer sortBy to search SortField
-		const searchSortField = (() => {
-			if (!sortBy) return "Relevance" as const;
-			const sortMap: Record<string, "Relevance" | "Name" | "Size" | "ModifiedAt" | "CreatedAt"> = {
-				name: "Name",
-				size: "Size",
-				modified: "ModifiedAt",
-				type: "Relevance",
-			};
-			return sortMap[sortBy] || "Relevance";
-		})();
-
 		return {
 			query,
 			scope:
@@ -100,7 +91,7 @@ export function useSearchInput(): FileSearchInput | null {
 			filters: searchFilters,
 			mode: "Normal",
 			sort: {
-				field: searchSortField,
+				field: searchSortField(sortBy),
 				direction: "Desc",
 			},
 			pagination: {
@@ -143,7 +134,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 	const filteredQueryInput = useMemo<FileSearchInput | null>(() => {
 		if (!isFilteredMode || mode.type !== "filtered") return null;
 
-		const searchSortField = (() => {
+		const filteredSortField = (() => {
 			if (!sortBy) return "Size" as const;
 			const sortMap: Record<
 				string,
@@ -163,7 +154,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 			filters: mode.filters,
 			mode: "Fast",
 			sort: {
-				field: searchSortField,
+				field: filteredSortField,
 				direction: "Desc",
 			},
 			pagination: {
@@ -404,6 +395,20 @@ export function useExplorerFiles(): ExplorerFilesResult {
 						? false
 						: directoryQuery.isLoading;
 
+	const awaitingPermission =
+		source === "directory" &&
+		!!(directoryQuery.data as DirectoryListingOutput | undefined)?.awaiting_permission;
+
+	// Nothing announces that a folder's permission was granted, and an empty
+	// folder sends no file events once it opens, so the listing asks again
+	// until the folder answers.
+	const refetchDirectory = directoryQuery.refetch;
+	useEffect(() => {
+		if (!awaitingPermission) return;
+		const timer = setInterval(() => void refetchDirectory(), 5000);
+		return () => clearInterval(timer);
+	}, [awaitingPermission, refetchDirectory]);
+
 	const searchOutput = isSearchMode
 		? (searchQuery.data as FileSearchOutput | undefined)
 		: undefined;
@@ -412,6 +417,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		files,
 		isLoading,
 		source,
+		awaitingPermission,
 		totalFound:
 			searchOutput?.total_found != null
 				? Number(searchOutput.total_found)

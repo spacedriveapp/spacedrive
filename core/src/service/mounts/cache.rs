@@ -267,8 +267,10 @@ impl BlockCache {
 			}
 		}
 		// Write through a sibling temp so a torn write is never readable as
-		// a block; a failure anywhere here just means no L2 entry.
-		let tmp = path.with_extension("part");
+		// a block; a failure anywhere here just means no L2 entry. The temp is
+		// unique per write, since a demand fetch and a read-ahead can store
+		// the same block at once and must not truncate each other's file.
+		let tmp = path.with_extension(format!("part-{}", Uuid::new_v4().simple()));
 		if tokio::fs::write(&tmp, bytes.as_ref()).await.is_err() {
 			let _ = tokio::fs::remove_file(&tmp).await;
 			return;

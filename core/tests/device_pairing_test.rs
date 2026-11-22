@@ -10,6 +10,10 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tokio::time::timeout;
 
+#[path = "helpers/wait.rs"]
+mod wait;
+use wait::{wait_for_connected_device, wait_for_file};
+
 /// Alice's pairing scenario - ALL logic stays in this test file!
 #[tokio::test]
 #[ignore] // Only run when explicitly called via subprocess
@@ -47,8 +51,6 @@ async fn alice_pairing_scenario() {
 		.unwrap()
 		.unwrap();
 
-	// Wait longer for networking to fully initialize and detect external addresses
-	tokio::time::sleep(Duration::from_secs(3)).await;
 	println!("Alice: Networking initialized successfully");
 
 	// Start pairing as initiator
@@ -86,52 +88,42 @@ async fn alice_pairing_scenario() {
 
 	// Wait for pairing completion (Alice waits for Bob to connect)
 	println!("Alice: Waiting for pairing to complete...");
-	let mut attempts = 0;
-	let max_attempts = 45; // 45 seconds
+	wait_for_connected_device(&core, Duration::from_secs(45))
+		.await
+		.expect("Alice: Pairing timeout - no devices connected");
+	let connected_devices = core.services.device.get_connected_devices().await.unwrap();
+	println!("Alice: Pairing completed successfully!");
+	println!("Alice: Checking connected devices...");
+	println!("Alice: Connected {} devices", connected_devices.len());
 
-	loop {
-		tokio::time::sleep(Duration::from_secs(1)).await;
-
-		let connected_devices = core.services.device.get_connected_devices().await.unwrap();
-		if !connected_devices.is_empty() {
-			println!("Alice: Pairing completed successfully!");
-			println!("Alice: Checking connected devices...");
-			println!("Alice: Connected {} devices", connected_devices.len());
-
-			// Get detailed device info
-			let device_info = core
-				.services
-				.device
-				.get_connected_devices_info()
-				.await
-				.unwrap();
-			for device in &device_info {
-				println!(
-					"Alice sees: {} (ID: {}, OS: {}, App: {})",
-					device.device_name, device.device_id, device.os_version, device.app_version
-				);
-			}
-
-			println!("PAIRING_SUCCESS: Alice's Test Device connected to Bob successfully");
-
-			// Write success marker for orchestrator to detect
-			std::fs::write("/tmp/spacedrive-pairing-test/alice_success.txt", "success").unwrap();
-
-			// Wait a bit longer to give Bob time to detect the connection before Alice exits
-			println!("Alice: Waiting for Bob to also detect the connection...");
-			tokio::time::sleep(Duration::from_secs(5)).await;
-			break;
-		}
-
-		attempts += 1;
-		if attempts >= max_attempts {
-			panic!("Alice: Pairing timeout - no devices connected");
-		}
-
-		if attempts % 5 == 0 {
-			println!("Alice: Pairing status check {} - waiting", attempts / 5);
-		}
+	// Get detailed device info
+	let device_info = core
+		.services
+		.device
+		.get_connected_devices_info()
+		.await
+		.unwrap();
+	for device in &device_info {
+		println!(
+			"Alice sees: {} (ID: {}, OS: {}, App: {})",
+			device.device_name, device.device_id, device.os_version, device.app_version
+		);
 	}
+
+	println!("PAIRING_SUCCESS: Alice's Test Device connected to Bob successfully");
+
+	// Write success marker for orchestrator to detect
+	std::fs::write("/tmp/spacedrive-pairing-test/alice_success.txt", "success").unwrap();
+
+	// Stay up until Bob has also seen the connection, so Alice's exit cannot
+	// drop it first.
+	println!("Alice: Waiting for Bob to also detect the connection...");
+	wait_for_file(
+		"/tmp/spacedrive-pairing-test/bob_success.txt",
+		Duration::from_secs(60),
+	)
+	.await
+	.expect("Alice: Bob never reported the connection");
 
 	println!("Alice: Test completed");
 }
@@ -173,18 +165,16 @@ async fn bob_pairing_scenario() {
 		.unwrap()
 		.unwrap();
 
-	// Wait longer for networking to fully initialize and detect external addresses
-	tokio::time::sleep(Duration::from_secs(3)).await;
 	println!("Bob: Networking initialized successfully");
 
 	// Wait for initiator to create pairing code
 	println!("Bob: Looking for pairing code...");
-	let pairing_code = loop {
-		if let Ok(code) = std::fs::read_to_string("/tmp/spacedrive-pairing-test/pairing_code.txt") {
-			break code.trim().to_string();
-		}
-		tokio::time::sleep(Duration::from_millis(500)).await;
-	};
+	let pairing_code = wait_for_file(
+		"/tmp/spacedrive-pairing-test/pairing_code.txt",
+		Duration::from_secs(60),
+	)
+	.await
+	.expect("Bob: Alice never wrote a pairing code");
 	println!("Bob: Found pairing code");
 
 	// Join pairing session
@@ -204,54 +194,42 @@ async fn bob_pairing_scenario() {
 
 	// Wait for pairing completion
 	println!("Bob: Waiting for pairing to complete...");
-	let mut attempts = 0;
-	let max_attempts = 30; // 30 seconds
+	wait_for_connected_device(&core, Duration::from_secs(30))
+		.await
+		.expect("Bob: Pairing timeout - no devices connected");
+	let connected_devices = core.services.device.get_connected_devices().await.unwrap();
+	println!("Bob: Pairing completed successfully!");
+	println!("Bob: Checking connected devices...");
+	println!("Bob: Connected {} devices", connected_devices.len());
 
-	loop {
-		tokio::time::sleep(Duration::from_secs(1)).await;
-
-		// Check pairing status by looking at connected devices
-		let connected_devices = core.services.device.get_connected_devices().await.unwrap();
-		if !connected_devices.is_empty() {
-			println!("Bob: Pairing completed successfully!");
-			println!("Bob: Checking connected devices...");
-			println!("Bob: Connected {} devices", connected_devices.len());
-
-			// Get detailed device info
-			let device_info = core
-				.services
-				.device
-				.get_connected_devices_info()
-				.await
-				.unwrap();
-			for device in &device_info {
-				println!(
-					"Bob sees: {} (ID: {}, OS: {}, App: {})",
-					device.device_name, device.device_id, device.os_version, device.app_version
-				);
-			}
-
-			println!("PAIRING_SUCCESS: Bob's Test Device connected to Alice successfully");
-
-			// Wait longer to allow persistent connection to be established via auto-reconnection
-			// The pairing stream is temporary; we need to wait for Bob to reconnect
-			println!("Bob: Waiting for persistent connection to be established...");
-			tokio::time::sleep(Duration::from_secs(10)).await;
-
-			// Write success marker for orchestrator to detect
-			std::fs::write("/tmp/spacedrive-pairing-test/bob_success.txt", "success").unwrap();
-			break;
-		}
-
-		attempts += 1;
-		if attempts >= max_attempts {
-			panic!("Bob: Pairing timeout - no devices connected");
-		}
-
-		if attempts % 5 == 0 {
-			println!("Bob: Pairing status check {} - waiting", attempts / 5);
-		}
+	// Get detailed device info
+	let device_info = core
+		.services
+		.device
+		.get_connected_devices_info()
+		.await
+		.unwrap();
+	for device in &device_info {
+		println!(
+			"Bob sees: {} (ID: {}, OS: {}, App: {})",
+			device.device_name, device.device_id, device.os_version, device.app_version
+		);
 	}
+
+	println!("PAIRING_SUCCESS: Bob's Test Device connected to Alice successfully");
+
+	// The pairing stream is temporary; Alice's marker says the persistent
+	// connection reached her side too.
+	println!("Bob: Waiting for Alice to confirm the connection...");
+	wait_for_file(
+		"/tmp/spacedrive-pairing-test/alice_success.txt",
+		Duration::from_secs(60),
+	)
+	.await
+	.expect("Bob: Alice never reported the connection");
+
+	// Write success marker for orchestrator to detect
+	std::fs::write("/tmp/spacedrive-pairing-test/bob_success.txt", "success").unwrap();
 
 	println!("Bob: Test completed");
 }
@@ -285,10 +263,7 @@ async fn test_device_pairing() {
 		.await
 		.expect("Failed to spawn Alice");
 
-	// Wait for Alice to initialize and generate pairing code
-	tokio::time::sleep(Duration::from_secs(8)).await;
-
-	// Start Bob as joiner
+	// Bob waits for the pairing code file himself, so he can start at once.
 	println!("Starting Bob as joiner...");
 	runner
 		.spawn_single_process("bob")

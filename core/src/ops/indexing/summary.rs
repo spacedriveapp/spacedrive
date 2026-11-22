@@ -10,10 +10,14 @@
 //! per directory, so the numbers have to be counted whatever the policy is;
 //! what a summary saves is the retention, which is where the memory goes.
 
-use crate::ops::indexing::Rollup;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::path::{Path, PathBuf};
+
+use crate::ops::indexing::reconcile::{bounded, Bounded, READ_BOUND};
+use crate::ops::indexing::{Rollup, VolumeIndex};
 
 /// Levels below a volume root that a summarised walk keeps in full.
 ///
@@ -101,32 +105,74 @@ impl Retention {
 ///
 /// Symlinks are counted as neither, and never followed, so a link back up the
 /// tree cannot make the count run forever.
-pub async fn count_subtree(root: PathBuf) -> Rollup {
-	tokio::task::spawn_blocking(move || {
-		let mut totals = Rollup::default();
-		let mut stack = vec![root];
+///
+/// Every directory is read under the same bound a walk uses. A count of a
+/// held-back folder such as ~/Library reaches other apps' data, and on macOS
+/// opening that can wait on a privacy prompt nobody answers. A directory that
+/// does not answer, or that another read is already blocked on, is left out
+/// of the total, so the count always returns and the walk that asked for it
+/// finishes.
+pub async fn count_subtree(cache: &Arc<VolumeIndex>, root: PathBuf) -> Rollup {
+	let mut totals = Rollup::default();
+	let mut stack = vec![root];
 
-		while let Some(dir) = stack.pop() {
-			let Ok(entries) = std::fs::read_dir(&dir) else {
-				continue;
-			};
-			for entry in entries.flatten() {
-				let Ok(file_type) = entry.file_type() else {
-					continue;
-				};
-				if file_type.is_dir() {
-					stack.push(entry.path());
-				} else if file_type.is_file() {
-					let size = entry.metadata().map(|meta| meta.len()).unwrap_or(0);
-					totals += Rollup::file(size);
-				}
+	while let Some(dir) = stack.pop() {
+		if cache.access_blocked(&dir) {
+			continue;
+		}
+		let read = {
+			let dir = dir.clone();
+			tokio::spawn(async move {
+				#[cfg(test)]
+				crate::ops::indexing::phases::discovery::held::wait(&dir).await;
+				tokio::task::spawn_blocking(move || read_counted(&dir))
+					.await
+					.unwrap_or_default()
+			})
+		};
+		match bounded(READ_BOUND, read).await {
+			Bounded::Answered(Ok((dirs, counted))) => {
+				totals += counted;
+				stack.extend(dirs);
+			}
+			Bounded::Answered(Err(_)) => {}
+			Bounded::Unanswered(read) => {
+				tracing::debug!(
+					dir = %dir.display(),
+					"a counted directory did not answer in time; leaving it out of the total"
+				);
+				cache.hold_uncounted(dir, READ_BOUND, read);
 			}
 		}
+	}
 
-		totals
-	})
-	.await
-	.unwrap_or_default()
+	totals
+}
+
+/// One directory's files, totalled, and the subdirectories to count next.
+fn read_counted(dir: &Path) -> (Vec<PathBuf>, Rollup) {
+	let mut dirs = Vec::new();
+	let mut totals = Rollup::default();
+	let Ok(entries) = std::fs::read_dir(dir) else {
+		return (dirs, totals);
+	};
+	for entry in entries.flatten() {
+		let Ok(file_type) = entry.file_type() else {
+			continue;
+		};
+		if file_type.is_dir() {
+			let placeholder = entry.metadata().is_ok_and(|metadata| {
+				crate::ops::indexing::metadata::is_provider_placeholder(&metadata)
+			});
+			if !placeholder {
+				dirs.push(entry.path());
+			}
+		} else if file_type.is_file() {
+			let size = entry.metadata().map(|meta| meta.len()).unwrap_or(0);
+			totals += Rollup::file(size);
+		}
+	}
+	(dirs, totals)
 }
 
 #[cfg(test)]

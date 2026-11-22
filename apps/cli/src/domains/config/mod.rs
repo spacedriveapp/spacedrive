@@ -18,14 +18,17 @@ pub enum ConfigCmd {
 	Get {
 		/// Configuration key: current_library_id, update.repo,
 		/// update.channel, replication.max_bytes_per_sec, replication.paused,
-		/// backup.restore_trash_keep
+		/// backup.restore_trash_keep, mounts.fuse_enabled, agent_mcp.enabled,
+		/// agent_mcp.listen
 		key: String,
 	},
 	/// Set a configuration value
 	Set {
 		/// Configuration key: update.repo, update.channel,
 		/// replication.max_bytes_per_sec (bytes, or K/M/G suffix),
-		/// replication.paused (true/false), backup.restore_trash_keep (count)
+		/// replication.paused (true/false), backup.restore_trash_keep (count),
+		/// mounts.fuse_enabled (true/false), agent_mcp.enabled (true/false),
+		/// agent_mcp.listen (loopback address)
 		key: String,
 		/// Configuration value
 		value: String,
@@ -38,6 +41,9 @@ pub enum ConfigCmd {
 const REPLICATION_MAX_BYTES_PER_SEC: &str = "replication.max_bytes_per_sec";
 const REPLICATION_PAUSED: &str = "replication.paused";
 const BACKUP_RESTORE_TRASH_KEEP: &str = "backup.restore_trash_keep";
+const MOUNTS_FUSE_ENABLED: &str = "mounts.fuse_enabled";
+const AGENT_MCP_ENABLED: &str = "agent_mcp.enabled";
+const AGENT_MCP_LISTEN: &str = "agent_mcp.listen";
 
 async fn daemon_config(socket_addr: &str) -> Result<AppConfigOutput> {
 	let core = CoreClient::new(socket_addr.to_string());
@@ -100,6 +106,15 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 					BACKUP_RESTORE_TRASH_KEEP,
 					&daemon.backup.restore_trash_keep.to_string(),
 				]);
+				table.add_row(vec![
+					MOUNTS_FUSE_ENABLED,
+					&daemon.mounts.fuse_enabled.to_string(),
+				]);
+				table.add_row(vec![
+					AGENT_MCP_ENABLED,
+					&daemon.agent_mcp.enabled.to_string(),
+				]);
+				table.add_row(vec![AGENT_MCP_LISTEN, &daemon.agent_mcp.listen]);
 			}
 
 			println!("{}", table);
@@ -132,6 +147,17 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 					.backup
 					.restore_trash_keep
 					.to_string(),
+				MOUNTS_FUSE_ENABLED => daemon_config(&socket_addr)
+					.await?
+					.mounts
+					.fuse_enabled
+					.to_string(),
+				AGENT_MCP_ENABLED => daemon_config(&socket_addr)
+					.await?
+					.agent_mcp
+					.enabled
+					.to_string(),
+				AGENT_MCP_LISTEN => daemon_config(&socket_addr).await?.agent_mcp.listen,
 				_ => return Err(anyhow::anyhow!("Unknown config key: {}", key)),
 			};
 			println!("{}", value);
@@ -187,6 +213,44 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 					return Err(anyhow::anyhow!(out.message));
 				}
 				println!("Set {} = {}", BACKUP_RESTORE_TRASH_KEEP, keep);
+			}
+			MOUNTS_FUSE_ENABLED => {
+				let enabled = parse_bool(&value)?;
+				let core = CoreClient::new(socket_addr.clone());
+				let input = UpdateAppConfigInput {
+					mounts_fuse_enabled: Some(enabled),
+					..UpdateAppConfigInput::default()
+				};
+				let out: UpdateAppConfigOutput = serde_json::from_value(
+					core.action(&input, None)
+						.await
+						.map_err(|e| anyhow::anyhow!("daemon refused the change: {e}"))?,
+				)?;
+				if !out.success {
+					return Err(anyhow::anyhow!(out.message));
+				}
+				println!("Set {} = {}", MOUNTS_FUSE_ENABLED, enabled);
+			}
+			AGENT_MCP_ENABLED | AGENT_MCP_LISTEN => {
+				let mut input = UpdateAppConfigInput::default();
+				if key == AGENT_MCP_ENABLED {
+					input.agent_mcp_enabled = Some(parse_bool(&value)?);
+				} else {
+					input.agent_mcp_listen = Some(value.trim().to_string());
+				}
+				let core = CoreClient::new(socket_addr.clone());
+				let out: UpdateAppConfigOutput = serde_json::from_value(
+					core.action(&input, None)
+						.await
+						.map_err(|e| anyhow::anyhow!("daemon refused the change: {e}"))?,
+				)?;
+				if !out.success {
+					return Err(anyhow::anyhow!(out.message));
+				}
+				println!("Set {} = {}", key, value.trim());
+				if out.requires_restart {
+					println!("Restart the daemon to apply: sd restart");
+				}
 			}
 			"update.repo" => {
 				config.set_update_repo(value.clone(), &data_dir)?;

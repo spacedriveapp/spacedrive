@@ -21,7 +21,7 @@ export { TopBarProvider, TopBarPortal, useTopBar } from "./TopBar";
 export { Overview } from "./routes/overview";
 
 // Platform abstraction
-export type { Platform } from "./contexts/PlatformContext";
+export type { AvailableUpdate, Platform } from "./contexts/PlatformContext";
 export { PlatformProvider, usePlatform } from "./contexts/PlatformContext";
 
 // Context

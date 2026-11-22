@@ -679,39 +679,37 @@ impl JobHandler for FileCopyJob {
 						super::metadata::CopyFileStatus::Completed,
 					);
 
-					// If this is a move operation and the strategy didn't handle deletion,
-					// we need to delete the source after successful copy
+					// A move whose strategy copied rather than renamed still has
+					// its source. Whether the rename happened is read from the
+					// filesystem, not inferred from volume knowledge: the volume
+					// index can know less than the router did (it did on Windows,
+					// where a same-volume guess here skipped the delete after a
+					// streaming copy and left the file in both places).
 					if is_move && resolved_source.device_slug() == final_destination.device_slug() {
-						// For same-device moves, LocalMoveStrategy handles deletion atomically
-						// For cross-volume moves, LocalStreamCopyStrategy needs manual deletion
-						if let Some(vm) = volume_manager.as_deref() {
-							if let (Some(source_path), Some(dest_path)) = (
-								resolved_source.as_local_path(),
-								final_destination.as_local_path(),
-							) {
-								if !vm.same_volume(source_path, dest_path).await {
-									// Cross-volume move - delete source
-									if let Err(e) = self.delete_source_file(source_path).await {
-										failed_copies.push(CopyError {
-											source: resolved_source
-												.path()
-												.cloned()
-												.unwrap_or_default(),
-											destination: final_destination
-												.path()
-												.cloned()
-												.unwrap_or_default(),
-											error: format!(
-												"Copy succeeded but failed to delete source: {}",
-												e
-											),
-										});
-										ctx.add_non_critical_error(format!(
-											"Failed to delete source after move {}: {}",
-											resolved_source.display(),
+						if let (Some(source_path), Some(dest_path)) = (
+							resolved_source.as_local_path(),
+							final_destination.as_local_path(),
+						) {
+							let still_there =
+								tokio::fs::symlink_metadata(source_path).await.is_ok();
+							if still_there && source_path != dest_path {
+								if let Err(e) = self.delete_source_file(source_path).await {
+									failed_copies.push(CopyError {
+										source: resolved_source.path().cloned().unwrap_or_default(),
+										destination: final_destination
+											.path()
+											.cloned()
+											.unwrap_or_default(),
+										error: format!(
+											"Copy succeeded but failed to delete source: {}",
 											e
-										));
-									}
+										),
+									});
+									ctx.add_non_critical_error(format!(
+										"Failed to delete source after move {}: {}",
+										resolved_source.display(),
+										e
+									));
 								}
 							}
 						}

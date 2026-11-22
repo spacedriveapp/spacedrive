@@ -10,7 +10,7 @@ use crate::util::prelude::*;
 use std::io::Write;
 
 use crate::context::{Context, OutputFormat};
-use sd_core::domain::SdPath;
+use sd_core::domain::{EntryKind, SdPath};
 use sd_core::infra::action::preflight::{Severity, Validation};
 use sd_core::infra::job::handle::JobReceipt;
 use sd_core::infra::query::LibraryQuery;
@@ -74,16 +74,15 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 			copy_files(ctx, input, dry_run, yes).await?;
 		}
 		FileCmd::Info(args) => {
-			let file_info = get_file_info(ctx, &args.path).await?;
-			print_output!(ctx, &file_info, |info: &Option<sd_core::domain::File>| {
-				match info {
-					Some(file) => {
-						println!("{}", serde_json::to_string_pretty(file).unwrap());
-					}
-					None => {
-						println!("File not found or not indexed in Spacedrive");
-					}
-				}
+			let path = requested_path(ctx, &args.path)?;
+			let Some(file) = get_file_info(ctx, &path).await? else {
+				anyhow::bail!(
+					"{} is not found or not indexed in Spacedrive",
+					path.display()
+				);
+			};
+			print_output!(ctx, &file, |file: &sd_core::domain::File| {
+				println!("{}", serde_json::to_string_pretty(file).unwrap());
 			});
 		}
 		FileCmd::List(args) => {
@@ -92,15 +91,17 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 				"modified" => sd_core::ops::files::query::DirectorySortBy::Modified,
 				"size" => sd_core::ops::files::query::DirectorySortBy::Size,
 				"type" => sd_core::ops::files::query::DirectorySortBy::Type,
+				"datetaken" => sd_core::ops::files::query::DirectorySortBy::DateTaken,
 				_ => {
 					anyhow::bail!(
-						"Invalid sort option: {}. Valid options are: name, modified, size, type",
+						"Invalid sort option: {}. Valid options are: name, modified, size, type, datetaken",
 						args.sort_by
 					);
 				}
 			};
+			let path = requested_path(ctx, &args.path)?;
 			let directory_listing =
-				list_directory(ctx, &args.path, args.limit, args.include_hidden, sort_by).await?;
+				list_directory(ctx, &path, args.limit, args.include_hidden, sort_by).await?;
 			print_output!(
 				ctx,
 				&directory_listing,
@@ -115,17 +116,7 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 					table.set_header(vec!["Name", "Type", "Size", "Modified"]);
 
 					for file in &listing.files {
-						// Determine if this is a directory by checking if size is None
-						// In Spacedrive, directories typically have size = 0 or None
-						let is_directory = file.size == 0;
-						let file_type = if is_directory { "Directory" } else { "File" };
-
-						let size_str = if is_directory {
-							"-".to_string()
-						} else {
-							format_bytes(file.size)
-						};
-
+						let (file_type, size_str) = listing_type_and_size(file);
 						table.add_row(vec![
 							file.name.clone(),
 							file_type.to_string(),
@@ -970,7 +961,32 @@ fn print_entry(out: &mut impl Write, entry: &CompareEntry, header: bool) -> std:
 	writeln!(out, "{}   {}", cells.join("   "), entry.path)
 }
 
+/// The Type and Size cells of a directory listing row.
+///
+/// The type comes from the entry's kind, since a directory carries a size
+/// too. A directory prints "-" for size so the column compares files only.
+fn listing_type_and_size(file: &sd_core::domain::File) -> (&'static str, String) {
+	match file.kind {
+		EntryKind::Directory => ("Directory", "-".to_string()),
+		EntryKind::Symlink => ("Symlink", format_bytes(file.size)),
+		EntryKind::File => ("File", format_bytes(file.size)),
+	}
+}
+
 /// Get file information using the FileByPathQuery
+/// A path as the daemon has to receive it. The daemon has its own working
+/// directory, so a relative path is made absolute here, against the shell's.
+/// Another device's paths cannot be, so those must be absolute already.
+pub(crate) fn requested_path(ctx: &Context, path: &std::path::Path) -> Result<std::path::PathBuf> {
+	if path.is_absolute() {
+		return Ok(path.to_path_buf());
+	}
+	if ctx.core.device().is_some() {
+		anyhow::bail!("Use an absolute path when targeting another device");
+	}
+	std::path::absolute(path).map_err(|e| anyhow::anyhow!("resolve {}: {e}", path.display()))
+}
+
 async fn get_file_info(
 	ctx: &Context,
 	path: &std::path::Path,
@@ -1017,4 +1033,26 @@ async fn list_directory(
 		serde_json::from_value(json_response)?;
 
 	Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	use sd_core::domain::File;
+
+	/// Directories carry a size of their own now, so a non-empty folder
+	/// printed as "File 2 B" when the listing guessed its type from size.
+	#[test]
+	fn a_listing_types_rows_by_kind_not_size() {
+		let mut folder = File::planned(SdPath::local("/data/photos"), 0, true);
+		folder.size = 2;
+		assert_eq!(
+			listing_type_and_size(&folder),
+			("Directory", "-".to_string())
+		);
+
+		let empty = File::planned(SdPath::local("/data/empty.txt"), 0, false);
+		assert_eq!(listing_type_and_size(&empty).0, "File");
+	}
 }

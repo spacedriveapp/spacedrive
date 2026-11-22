@@ -239,7 +239,7 @@ export class HttpTransport implements Transport {
 	// is already a broadcast of every event, so we multiplex here and let
 	// subscribers filter client-side.
 	private sharedSource: EventSource | null = null;
-	private sharedCallbacks = new Set<(event: any) => void>();
+	private sharedCallbacks = new Set<(event: any, isLog: boolean) => void>();
 
 	constructor(baseUrl: string = "") {
 		// Strip trailing slash so `${baseUrl}/rpc` is well-formed.
@@ -265,13 +265,30 @@ export class HttpTransport implements Transport {
 
 	async subscribe(
 		callback: (event: any) => void,
-		_options?: SubscriptionOptions,
+		options?: SubscriptionOptions,
 	): Promise<() => void> {
-		this.sharedCallbacks.add(callback);
+		// The daemon filters by variant and resource type for the other
+		// transports. The shared stream carries everything, so a thumbnail
+		// subscriber would otherwise see thumbstrip completions for the same
+		// record and treat them as bakes.
+		const eventTypes = options?.event_types ?? [];
+		const resourceType = options?.filter?.resource_type ?? null;
+		const filtered = (event: any, isLog: boolean) => {
+			if (isLog) return callback(event);
+			const variant =
+				typeof event === "string" ? event : Object.keys(event ?? {})[0];
+			if (eventTypes.length > 0 && !eventTypes.includes(variant)) return;
+			if (resourceType !== null) {
+				const body = typeof event === "object" ? event?.[variant] : null;
+				if (body?.resource_type !== resourceType) return;
+			}
+			callback(event);
+		};
+		this.sharedCallbacks.add(filtered);
 		this.ensureSharedSource();
 
 		return () => {
-			this.sharedCallbacks.delete(callback);
+			this.sharedCallbacks.delete(filtered);
 			if (this.sharedCallbacks.size === 0 && this.sharedSource) {
 				this.sharedSource.close();
 				this.sharedSource = null;
@@ -306,10 +323,11 @@ export class HttpTransport implements Transport {
 			} else {
 				return;
 			}
+			const isLog = parsed.Event === undefined;
 
 			for (const cb of this.sharedCallbacks) {
 				try {
-					cb(payload);
+					cb(payload, isLog);
 				} catch (err) {
 					console.error("[HttpTransport] Subscriber callback threw:", err);
 				}

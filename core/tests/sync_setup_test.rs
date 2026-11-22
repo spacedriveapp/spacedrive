@@ -10,6 +10,10 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tokio::time::timeout;
 
+#[path = "helpers/wait.rs"]
+mod wait;
+use wait::{wait_for_connected_device, wait_for_file, wait_until};
+
 /// Alice's sync setup scenario
 #[tokio::test]
 #[ignore]
@@ -38,7 +42,6 @@ async fn alice_sync_setup_scenario() {
 		.unwrap()
 		.unwrap();
 
-	tokio::time::sleep(Duration::from_secs(2)).await;
 	println!("Alice: Core initialized");
 
 	// Create library
@@ -86,77 +89,79 @@ async fn alice_sync_setup_scenario() {
 
 	// Wait for pairing
 	println!("Alice: Waiting for Bob to pair...");
-	let mut attempts = 0;
-	while attempts < 45 {
-		tokio::time::sleep(Duration::from_secs(1)).await;
+	let bob_device_id = wait_for_connected_device(&core, Duration::from_secs(45))
+		.await
+		.expect("Alice: Pairing timeout");
+	println!("Alice: Pairing successful!");
 
-		let connected = core.services.device.get_connected_devices().await.unwrap();
-		if !connected.is_empty() {
-			println!("Alice: Pairing successful!");
+	// Bob's marker says his registry holds Alice too, so the share request
+	// cannot reach him before he trusts her.
+	wait_for_file(
+		"/tmp/spacedrive-sync-setup-test/bob_paired.txt",
+		Duration::from_secs(60),
+	)
+	.await
+	.expect("Alice: Bob never confirmed pairing");
 
-			// Share library with Bob - THIS IS THE CRITICAL TEST
-			let bob_device_id = connected.first().unwrap().clone();
-			println!(
-				"Alice: Sharing library with Bob (device: {})...",
-				bob_device_id
-			);
+	// Share library with Bob - THIS IS THE CRITICAL TEST
+	println!(
+		"Alice: Sharing library with Bob (device: {})...",
+		bob_device_id
+	);
 
-			use sd_core::infra::action::CoreAction;
-			use sd_core::ops::network::sync_setup::{
-				LibrarySyncAction, LibrarySyncSetupAction, LibrarySyncSetupInput,
-			};
+	use sd_core::infra::action::CoreAction;
+	use sd_core::ops::network::sync_setup::{
+		LibrarySyncAction, LibrarySyncSetupAction, LibrarySyncSetupInput,
+	};
 
-			let input = LibrarySyncSetupInput {
-				local_device_id: core.device.device_id().unwrap(),
-				remote_device_id: bob_device_id,
-				local_library_id: library.id(),
-				remote_library_id: Some(library.id()),
-				action: LibrarySyncAction::ShareLocalLibrary {
-					library_name: "Test Library".to_string(),
-				},
-				leader_device_id: core.device.device_id().unwrap(),
-			};
+	let input = LibrarySyncSetupInput {
+		local_device_id: core.device.device_id().unwrap(),
+		remote_device_id: bob_device_id,
+		local_library_id: library.id(),
+		remote_library_id: Some(library.id()),
+		action: LibrarySyncAction::ShareLocalLibrary {
+			library_name: "Test Library".to_string(),
+		},
+		leader_device_id: core.device.device_id().unwrap(),
+	};
 
-			let action = LibrarySyncSetupAction::from_input(input).unwrap();
-			let result = action.execute(core.context.clone()).await;
+	let action = LibrarySyncSetupAction::from_input(input).unwrap();
+	let result = action.execute(core.context.clone()).await;
 
-			match result {
-				Ok(_) => {
-					println!("Alice: ✅ Share library SUCCEEDED!");
-					std::fs::write(
-						"/tmp/spacedrive-sync-setup-test/alice_success.txt",
-						"success",
-					)
-					.unwrap();
-				}
-				Err(e) => {
-					println!("Alice: ❌ Share library FAILED: {:?}", e);
-					std::fs::write(
-						"/tmp/spacedrive-sync-setup-test/alice_error.txt",
-						format!("{:?}", e),
-					)
-					.unwrap();
-					panic!("Alice: Share library failed: {:?}", e);
-				}
-			}
-
+	match result {
+		Ok(_) => {
+			println!("Alice: Share library SUCCEEDED!");
 			std::fs::write(
-				"/tmp/spacedrive-sync-setup-test/alice_paired.txt",
+				"/tmp/spacedrive-sync-setup-test/alice_success.txt",
 				"success",
 			)
 			.unwrap();
-
-			// Give Bob time to process
-			tokio::time::sleep(Duration::from_secs(5)).await;
-			break;
 		}
-
-		attempts += 1;
+		Err(e) => {
+			println!("Alice: Share library FAILED: {:?}", e);
+			std::fs::write(
+				"/tmp/spacedrive-sync-setup-test/alice_error.txt",
+				format!("{:?}", e),
+			)
+			.unwrap();
+			panic!("Alice: Share library failed: {:?}", e);
+		}
 	}
 
-	if attempts >= 45 {
-		panic!("Alice: Pairing timeout");
-	}
+	std::fs::write(
+		"/tmp/spacedrive-sync-setup-test/alice_paired.txt",
+		"success",
+	)
+	.unwrap();
+
+	// Stay up until Bob has the library, so Alice's exit cannot cut the
+	// share short.
+	wait_for_file(
+		"/tmp/spacedrive-sync-setup-test/bob_success.txt",
+		Duration::from_secs(60),
+	)
+	.await
+	.expect("Alice: Bob never received the library");
 
 	println!("Alice: Test completed");
 }
@@ -189,29 +194,26 @@ async fn bob_sync_setup_scenario() {
 		.unwrap()
 		.unwrap();
 
-	tokio::time::sleep(Duration::from_secs(2)).await;
 	println!("Bob: Core initialized");
 
 	// Wait for Alice's library ID
 	println!("Bob: Waiting for Alice's library ID...");
-	let library_id = loop {
-		if let Ok(id) = std::fs::read_to_string("/tmp/spacedrive-sync-setup-test/library_id.txt") {
-			break id.trim().to_string();
-		}
-		tokio::time::sleep(Duration::from_millis(500)).await;
-	};
+	let library_id = wait_for_file(
+		"/tmp/spacedrive-sync-setup-test/library_id.txt",
+		Duration::from_secs(60),
+	)
+	.await
+	.expect("Bob: Alice never wrote a library id");
 	println!("Bob: Found library ID: {}", library_id);
 
 	// Wait for pairing code
 	println!("Bob: Waiting for pairing code...");
-	let pairing_code = loop {
-		if let Ok(code) =
-			std::fs::read_to_string("/tmp/spacedrive-sync-setup-test/pairing_code.txt")
-		{
-			break code.trim().to_string();
-		}
-		tokio::time::sleep(Duration::from_millis(500)).await;
-	};
+	let pairing_code = wait_for_file(
+		"/tmp/spacedrive-sync-setup-test/pairing_code.txt",
+		Duration::from_secs(60),
+	)
+	.await
+	.expect("Bob: Alice never wrote a pairing code");
 
 	// Join pairing
 	println!("Bob: Joining pairing...");
@@ -227,55 +229,41 @@ async fn bob_sync_setup_scenario() {
 
 	// Wait for pairing completion
 	println!("Bob: Waiting for pairing to complete...");
-	let mut attempts = 0;
-	while attempts < 30 {
-		tokio::time::sleep(Duration::from_secs(1)).await;
+	wait_for_connected_device(&core, Duration::from_secs(30))
+		.await
+		.expect("Bob: Pairing timeout");
+	println!("Bob: Pairing successful!");
+	std::fs::write("/tmp/spacedrive-sync-setup-test/bob_paired.txt", "paired").unwrap();
 
-		let connected = core.services.device.get_connected_devices().await.unwrap();
-		if !connected.is_empty() {
-			println!("Bob: Pairing successful!");
-
-			// Wait for Alice to share her library (ShareLocalLibrary creates it on Bob's side)
-			println!("Bob: Waiting for Alice's ShareLocalLibrary to create library...");
-
-			let alice_lib_uuid = uuid::Uuid::parse_str(&library_id).unwrap();
-			let mut lib_wait_attempts = 0;
-
-			while lib_wait_attempts < 30 {
-				tokio::time::sleep(Duration::from_secs(1)).await;
-
-				// Check if library was created by Alice's ShareLocalLibrary action
-				if let Some(lib) = core.libraries.get_library(alice_lib_uuid).await {
-					println!("Bob: ✅ Library received from Alice! ID: {}", lib.id());
-					std::fs::write("/tmp/spacedrive-sync-setup-test/bob_success.txt", "success")
-						.unwrap();
-
-					// Verify sync initialized
-					tokio::time::sleep(Duration::from_secs(2)).await;
-					break;
-				}
-
-				lib_wait_attempts += 1;
-			}
-
-			if lib_wait_attempts >= 30 {
-				println!("Bob: ❌ Library was never created - UNIQUE constraint may have failed");
-				std::fs::write(
-					"/tmp/spacedrive-sync-setup-test/bob_error.txt",
-					"Timeout waiting for library from Alice - ShareLocalLibrary may have failed with UNIQUE constraint",
-				)
-				.unwrap();
-				panic!("Bob: Timeout waiting for library");
-			}
-
-			break;
+	// Wait for Alice to share her library (ShareLocalLibrary creates it on Bob's side)
+	println!("Bob: Waiting for Alice's ShareLocalLibrary to create library...");
+	let alice_lib_uuid = uuid::Uuid::parse_str(&library_id).unwrap();
+	match wait_until("the shared library", Duration::from_secs(30), || async {
+		core.libraries.get_library(alice_lib_uuid).await
+	})
+	.await
+	{
+		Ok(lib) => {
+			println!("Bob: Library received from Alice! ID: {}", lib.id());
+			std::fs::write("/tmp/spacedrive-sync-setup-test/bob_success.txt", "success").unwrap();
+			// Alice's reply travels back over this connection; stay up until
+			// her action has returned, or the reply dies with the process.
+			wait_for_file(
+				"/tmp/spacedrive-sync-setup-test/alice_success.txt",
+				Duration::from_secs(60),
+			)
+			.await
+			.expect("Bob: Alice's share never returned");
 		}
-
-		attempts += 1;
-	}
-
-	if attempts >= 30 {
-		panic!("Bob: Pairing timeout");
+		Err(_) => {
+			println!("Bob: Library was never created - UNIQUE constraint may have failed");
+			std::fs::write(
+				"/tmp/spacedrive-sync-setup-test/bob_error.txt",
+				"Timeout waiting for library from Alice - ShareLocalLibrary may have failed with UNIQUE constraint",
+			)
+			.unwrap();
+			panic!("Bob: Timeout waiting for library");
+		}
 	}
 
 	println!("Bob: Test completed");
@@ -444,10 +432,7 @@ async fn test_sync_setup_no_constraint_error() {
 	println!("Starting Alice...");
 	runner.spawn_single_process("alice").await.unwrap();
 
-	// Wait for Alice to initialize
-	tokio::time::sleep(Duration::from_secs(8)).await;
-
-	// Start Bob
+	// Bob waits for the marker files himself, so he can start at once.
 	println!("Starting Bob...");
 	runner.spawn_single_process("bob").await.unwrap();
 

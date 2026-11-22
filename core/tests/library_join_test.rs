@@ -16,6 +16,10 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tokio::time::timeout;
 
+#[path = "helpers/wait.rs"]
+mod wait;
+use wait::{wait_for_file, wait_for_peer, wait_until};
+
 const TEST_DIR: &str = "/tmp/spacedrive-library-join-test";
 
 fn marker(name: &str) -> PathBuf {
@@ -33,16 +37,9 @@ fn read_marker(name: &str) -> Option<String> {
 }
 
 async fn wait_for_marker(name: &str, max: Duration) -> String {
-	let start = tokio::time::Instant::now();
-	loop {
-		if let Some(value) = read_marker(name) {
-			return value;
-		}
-		if start.elapsed() > max {
-			panic!("timed out waiting for marker {}", name);
-		}
-		tokio::time::sleep(Duration::from_millis(500)).await;
-	}
+	wait_for_file(marker(name), max)
+		.await
+		.unwrap_or_else(|e| panic!("{e}"))
 }
 
 fn fail(role: &str, message: String) -> ! {
@@ -72,7 +69,6 @@ async fn alice_join_scenario() {
 		.await
 		.unwrap()
 		.unwrap();
-	tokio::time::sleep(Duration::from_secs(2)).await;
 
 	let library = core
 		.libraries
@@ -124,21 +120,18 @@ async fn alice_join_scenario() {
 	write_marker("pairing_code.txt", &pairing_code);
 
 	// Wait for Bob to join the library: his device row lands in our table.
-	let bob_device_id = {
-		let start = tokio::time::Instant::now();
-		loop {
-			if start.elapsed() > Duration::from_secs(90) {
-				fail("alice", "Bob never registered in Alice's library".into());
-			}
-			let devices = entities::device::Entity::find().all(db).await.unwrap();
-			if let Some(bob) = devices
-				.iter()
-				.find(|d| d.uuid != core.device.device_id().unwrap())
-			{
-				break bob.uuid;
-			}
-			tokio::time::sleep(Duration::from_millis(500)).await;
-		}
+	let own_device_id = core.device.device_id().unwrap();
+	let bob_device_id = match wait_until("Bob's device row", Duration::from_secs(90), || async {
+		let devices = entities::device::Entity::find().all(db).await.unwrap();
+		devices
+			.iter()
+			.find(|d| d.uuid != own_device_id)
+			.map(|bob| bob.uuid)
+	})
+	.await
+	{
+		Ok(id) => id,
+		Err(_) => fail("alice", "Bob never registered in Alice's library".into()),
 	};
 	println!("Alice: Bob {} joined the library", bob_device_id);
 	write_marker("alice_saw_bob.txt", &bob_device_id.to_string());
@@ -153,6 +146,8 @@ async fn alice_join_scenario() {
 		.operations
 		.backfill_sessions_completed
 		.load(std::sync::atomic::Ordering::Relaxed);
+	// A fixed window is the only way to observe that nothing happens: the
+	// sync loop runs every 5 s, so 15 s covers three chances to catch up.
 	tokio::time::sleep(Duration::from_secs(15)).await;
 	let sessions_b = sync
 		.metrics()
@@ -222,7 +217,6 @@ async fn bob_join_scenario() {
 		.await
 		.unwrap()
 		.unwrap();
-	tokio::time::sleep(Duration::from_secs(2)).await;
 
 	let library_id: uuid::Uuid = wait_for_marker("library_id.txt", Duration::from_secs(30))
 		.await
@@ -244,16 +238,11 @@ async fn bob_join_scenario() {
 	.unwrap()
 	.unwrap();
 
-	let start = tokio::time::Instant::now();
-	loop {
-		if start.elapsed() > Duration::from_secs(30) {
-			fail("bob", "pairing timeout".into());
-		}
-		let connected = core.services.device.get_connected_devices().await.unwrap();
-		if connected.contains(&alice_device_id) {
-			break;
-		}
-		tokio::time::sleep(Duration::from_millis(500)).await;
+	if wait_for_peer(&core, alice_device_id, Duration::from_secs(30))
+		.await
+		.is_err()
+	{
+		fail("bob", "pairing timeout".into());
 	}
 	println!("Bob: paired with Alice");
 
@@ -322,38 +311,39 @@ async fn bob_join_scenario() {
 	}
 
 	// Backfill brings Alice's spaces across.
-	let start = tokio::time::Instant::now();
-	loop {
-		let names: Vec<String> = entities::space::Entity::find()
+	let space_names = || async {
+		entities::space::Entity::find()
 			.all(db)
 			.await
 			.unwrap()
 			.into_iter()
 			.map(|s| s.name)
-			.collect();
-		if names.iter().any(|n| n == "Alice Projects") {
-			println!("Bob: backfilled Alice's spaces: {:?}", names);
-			break;
-		}
-		if start.elapsed() > Duration::from_secs(60) {
-			fail(
-				"bob",
-				format!("Bob never received Alice's spaces, has {:?}", names),
-			);
-		}
-		tokio::time::sleep(Duration::from_millis(500)).await;
+			.collect::<Vec<String>>()
+	};
+	match wait_until("Alice's spaces", Duration::from_secs(60), || async {
+		let names = space_names().await;
+		names.iter().any(|n| n == "Alice Projects").then_some(names)
+	})
+	.await
+	{
+		Ok(names) => println!("Bob: backfilled Alice's spaces: {:?}", names),
+		Err(_) => fail(
+			"bob",
+			format!(
+				"Bob never received Alice's spaces, has {:?}",
+				space_names().await
+			),
+		),
 	}
 
 	let sync = library.sync_service().expect("sync service");
-	let start = tokio::time::Instant::now();
-	loop {
-		if sync.peer_sync().state().await.is_ready() {
-			break;
-		}
-		if start.elapsed() > Duration::from_secs(30) {
-			fail("bob", "Bob never reached Ready after backfill".into());
-		}
-		tokio::time::sleep(Duration::from_millis(500)).await;
+	if wait_until("Ready after backfill", Duration::from_secs(30), || async {
+		sync.peer_sync().state().await.is_ready().then_some(())
+	})
+	.await
+	.is_err()
+	{
+		fail("bob", "Bob never reached Ready after backfill".into());
 	}
 
 	write_marker("bob_success.txt", "success");
@@ -372,7 +362,7 @@ async fn test_join_remote_library_backfills_joiner() {
 		.add_subprocess("bob", "bob_join_scenario");
 
 	runner.spawn_single_process("alice").await.unwrap();
-	tokio::time::sleep(Duration::from_secs(8)).await;
+	// Bob waits for the marker files himself, so he can start at once.
 	runner.spawn_single_process("bob").await.unwrap();
 
 	let result = runner

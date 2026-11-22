@@ -17,6 +17,11 @@ pub async fn start_default_server(
 	// Initialize basic tracing with file logging first
 	initialize_tracing_with_file_logging(&data_dir)?;
 
+	// Before Core::new: library pools, watchers and the network endpoint open
+	// descriptors under whatever limit the process has at that moment.
+	#[cfg(unix)]
+	raise_fd_limit();
+
 	// Create a single Core instance
 	let mut core = Core::new(data_dir.clone())
 		.await
@@ -39,26 +44,80 @@ pub async fn start_default_server(
 	info!("Socket address: {}", socket_addr);
 	info!("Networking enabled: {}", enable_networking);
 
-	// Log file descriptor limits for debugging
-	#[cfg(unix)]
-	{
-		use std::process::Command;
-		if let Ok(output) = Command::new("sh").arg("-c").arg("ulimit -n").output() {
-			if let Ok(limit_str) = String::from_utf8(output.stdout) {
-				if let Ok(limit) = limit_str.trim().parse::<u64>() {
-					info!("System file descriptor limit: {}", limit);
-					if limit < 10000 {
-						warn!("File descriptor limit is low ({}), consider increasing with 'ulimit -n 65536'", limit);
-					}
-				}
-			}
-		}
-	}
-
 	let mut server = RpcServer::new(socket_addr, core.clone());
 
 	// Start the server, which will initialize event streaming
 	server.start().await
+}
+
+/// Raises the soft file descriptor limit to the hard limit.
+///
+/// Watchers, stores and peer connections each hold descriptors, and a shell or
+/// launchd starts the daemon at 256 to 8192. The hard limit is the most a
+/// process may grant itself without privileges, so that is the target. macOS
+/// reports an unlimited hard limit but refuses a soft limit above
+/// kern.maxfilesperproc, so an unlimited hard limit falls back to 65536 and
+/// then to OPEN_MAX (10240), which macOS always accepts. The warning stays
+/// when the limit is still low after the attempt, raised or not.
+#[cfg(unix)]
+fn raise_fd_limit() {
+	const LOW_WATER: libc::rlim_t = 10000;
+
+	let mut limit = libc::rlimit {
+		rlim_cur: 0,
+		rlim_max: 0,
+	};
+	if unsafe { libc::getrlimit(libc::RLIMIT_NOFILE, &mut limit) } != 0 {
+		warn!(
+			"Could not read the file descriptor limit: {}",
+			std::io::Error::last_os_error()
+		);
+		return;
+	}
+	let before = limit.rlim_cur;
+	let hard = if limit.rlim_max == libc::RLIM_INFINITY {
+		"unlimited".to_string()
+	} else {
+		limit.rlim_max.to_string()
+	};
+
+	let mut targets = Vec::new();
+	if limit.rlim_max != libc::RLIM_INFINITY {
+		targets.push(limit.rlim_max);
+	}
+	targets.extend([65536, 10240]);
+
+	for target in targets {
+		if target <= before {
+			break;
+		}
+		let raised = libc::rlimit {
+			rlim_cur: target,
+			rlim_max: limit.rlim_max,
+		};
+		if unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &raised) } == 0 {
+			info!(
+				"File descriptor limit raised from {} to {} (hard limit {})",
+				before, target, hard
+			);
+			if target < LOW_WATER {
+				warn!(
+					"File descriptor limit is still low ({}); raise the hard limit or launchd NumberOfFiles",
+					target
+				);
+			}
+			return;
+		}
+	}
+
+	if before < LOW_WATER {
+		warn!(
+			"File descriptor limit is low ({}) and could not be raised (hard limit {}); consider 'ulimit -n 65536' or a higher launchd NumberOfFiles",
+			before, hard
+		);
+	} else {
+		info!("File descriptor limit: {}", before);
+	}
 }
 
 /// Initialize tracing with file logging to {data_dir}/logs/daemon.log
@@ -66,6 +125,7 @@ pub async fn start_default_server(
 fn initialize_tracing_with_file_logging(
 	data_dir: &PathBuf,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+	use crate::common::redact::RedactingWriter;
 	use crate::config::AppConfig;
 	use crate::infra::event::log_emitter::LogEventLayer;
 	use std::sync::Once;
@@ -112,7 +172,7 @@ fn initialize_tracing_with_file_logging(
 			fmt::layer()
 				.with_target(true)
 				.with_thread_ids(true)
-				.with_writer(std::io::stdout)
+				.with_writer(|| RedactingWriter::new(std::io::stdout()))
 				.with_filter(
 					EnvFilter::try_from_default_env()
 						.unwrap_or_else(|_| EnvFilter::new(&main_filter)),
@@ -126,7 +186,7 @@ fn initialize_tracing_with_file_logging(
 				.with_target(true)
 				.with_thread_ids(true)
 				.with_ansi(false)
-				.with_writer(main_file_appender)
+				.with_writer(RedactingMakeWriter(main_file_appender))
 				.with_filter(EnvFilter::new(&main_filter))
 				.boxed(),
 		);
@@ -148,7 +208,7 @@ fn initialize_tracing_with_file_logging(
 							.with_target(true)
 							.with_thread_ids(true)
 							.with_ansi(false)
-							.with_writer(stream_appender)
+							.with_writer(RedactingMakeWriter(stream_appender))
 							.with_filter(filter)
 							.boxed(),
 					);
@@ -183,4 +243,77 @@ fn initialize_tracing_with_file_logging(
 	});
 
 	result
+}
+
+/// Wraps a log file appender so every line it writes has URL credentials
+/// redacted, whichever crate emitted the event.
+struct RedactingMakeWriter<M>(M);
+
+impl<'a, M> tracing_subscriber::fmt::MakeWriter<'a> for RedactingMakeWriter<M>
+where
+	M: tracing_subscriber::fmt::MakeWriter<'a>,
+{
+	type Writer = crate::common::redact::RedactingWriter<M::Writer>;
+
+	fn make_writer(&'a self) -> Self::Writer {
+		crate::common::redact::RedactingWriter::new(self.0.make_writer())
+	}
+
+	fn make_writer_for(&'a self, meta: &tracing::Metadata<'_>) -> Self::Writer {
+		crate::common::redact::RedactingWriter::new(self.0.make_writer_for(meta))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::RedactingMakeWriter;
+	use std::io::Write;
+	use std::sync::{Arc, Mutex};
+
+	#[derive(Clone, Default)]
+	struct Captured(Arc<Mutex<Vec<u8>>>);
+
+	impl Write for Captured {
+		fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+			self.0.lock().unwrap().extend_from_slice(buf);
+			Ok(buf.len())
+		}
+
+		fn flush(&mut self) -> std::io::Result<()> {
+			Ok(())
+		}
+	}
+
+	#[test]
+	fn log_file_lines_have_url_credentials_redacted() {
+		let captured = Captured::default();
+		let sink = captured.clone();
+		let subscriber = tracing_subscriber::fmt()
+			.with_ansi(false)
+			.with_writer(RedactingMakeWriter(move || sink.clone()))
+			.finish();
+
+		tracing::subscriber::with_default(subscriber, || {
+			tracing::info!(
+				"Mounts SMB share at {}",
+				"smb://spacedrive:0123abcd@127.0.0.1:50123/spacedrive"
+			);
+			tracing::warn!(
+				url = "smb://alice:hunter2@nas.example/media",
+				"mount failed"
+			);
+			tracing::info!("share at smb://spacedrive:pa'ssword@127.0.0.1:1/spacedrive");
+		});
+
+		let output = String::from_utf8(captured.0.lock().unwrap().clone()).unwrap();
+		assert!(
+			output.contains("smb://***@127.0.0.1:50123/spacedrive"),
+			"{output}"
+		);
+		assert!(output.contains("smb://***@nas.example/media"), "{output}");
+		assert!(!output.contains("0123abcd"), "{output}");
+		assert!(!output.contains("hunter2"), "{output}");
+		assert!(!output.contains("alice"), "{output}");
+		assert!(!output.contains("ssword"), "{output}");
+	}
 }

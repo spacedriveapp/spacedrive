@@ -1147,11 +1147,14 @@ mod tests {
 	fn listed(output: &PathCompareOutput) -> Vec<String> {
 		let named = |file: &Option<File>| {
 			file.as_ref().map(|file| match &file.sd_path {
+				// Store paths are joined onto the root with the platform's
+				// separator; the expectations are written with slashes.
 				SdPath::Physical { path, .. } => path
 					.strip_prefix("/vol")
 					.expect("beneath the volume")
 					.display()
-					.to_string(),
+					.to_string()
+					.replace('\\', "/"),
 				other => panic!("{other:?} is not a physical path"),
 			})
 		};

@@ -23,6 +23,7 @@ import type {
 	ViewMode as TabViewMode
 } from '../../components/TabManager/TabManagerContext';
 import {useTabManager} from '../../components/TabManager/useTabManager';
+import {coerceSortBy, type ExplorerViewMode} from './sortOptions';
 import {useNormalizedQuery} from '../../contexts/SpacedriveContext';
 
 export type SortBy = DirectorySortBy | MediaSortBy;
@@ -723,14 +724,12 @@ export function ExplorerProvider({
 		}
 	}, [pathKey, sortPrefs]);
 
-	// "datetaken" only applies to media view; fall back to "modified" elsewhere.
+	// An order the new view does not offer falls back to that view's first.
 	useEffect(() => {
-		if (viewMode === 'media' && uiState.sortBy === 'type') {
-			uiDispatch({type: 'SET_SORT_BY', sort: 'datetaken'});
-			sortPrefs.setPreferences(pathKey, 'datetaken');
-		} else if (viewMode !== 'media' && uiState.sortBy === 'datetaken') {
-			uiDispatch({type: 'SET_SORT_BY', sort: 'modified'});
-			sortPrefs.setPreferences(pathKey, 'modified');
+		const kept = coerceSortBy(viewMode as ExplorerViewMode, uiState.sortBy);
+		if (kept !== uiState.sortBy) {
+			uiDispatch({type: 'SET_SORT_BY', sort: kept});
+			sortPrefs.setPreferences(pathKey, kept);
 		}
 	}, [viewMode, uiState.sortBy, pathKey, sortPrefs]);
 

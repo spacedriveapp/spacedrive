@@ -25,6 +25,13 @@ export const platform: Platform = {
 		};
 	},
 
+	// The mounts share listens on the daemon's loopback; sd-server proxies it
+	// under the same path on this origin, behind its own auth.
+	shareUrl(url: string) {
+		const { pathname, search } = new URL(url);
+		return pathname + search;
+	},
+
 	confirm(message: string, callback: (result: boolean) => void) {
 		callback(window.confirm(message));
 	},

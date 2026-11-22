@@ -137,6 +137,7 @@ impl UpdateState {
 
 pub async fn run(
 	data_dir: PathBuf,
+	base_data_dir: PathBuf,
 	instance: Option<String>,
 	socket_addr: String,
 	options: UpdateOptions,
@@ -152,6 +153,7 @@ pub async fn run(
 	let mut available = None;
 	let outcome = attempt(
 		&data_dir,
+		&base_data_dir,
 		instance,
 		socket_addr,
 		&config,
@@ -208,6 +210,7 @@ fn record_attempt(data_dir: &Path, state: &UpdateState) -> Result<()> {
 
 async fn attempt(
 	data_dir: &Path,
+	base_data_dir: &Path,
 	instance: Option<String>,
 	socket_addr: String,
 	config: &CliConfig,
@@ -311,7 +314,7 @@ async fn attempt(
 	let bin_dir = current_exe
 		.parent()
 		.ok_or_else(|| anyhow::anyhow!("Could not determine binary directory"))?;
-	let daemon_path = bin_dir.join("sd-daemon");
+	let daemon_path = bin_dir.join(sd_client::daemon_binary_name());
 
 	println!();
 	println!("Installing updates...");
@@ -331,7 +334,7 @@ async fn attempt(
 	let _ = std::fs::remove_dir_all(&part_dir);
 
 	let version_marker = nightly_sha.unwrap_or_else(|| release.tag_name.clone());
-	if let Err(e) = std::fs::write(bin_dir.join(VERSION_FILE), format!("{}\n", version_marker)) {
+	if let Err(e) = write_version_marker(bin_dir, &version_marker) {
 		println!(
 			"  could not write {}: {}",
 			bin_dir.join(VERSION_FILE).display(),
@@ -343,7 +346,7 @@ async fn attempt(
 
 	if daemon_was_running {
 		println!("Starting daemon...");
-		restart_daemon(&client, &daemon_path, data_dir, instance.as_deref()).await?;
+		restart_daemon(&client, &daemon_path, base_data_dir, instance.as_deref()).await?;
 	}
 
 	println!();
@@ -428,7 +431,7 @@ fn format_age(age: chrono::Duration) -> String {
 async fn restart_daemon(
 	client: &sd_client::CoreClient,
 	daemon_path: &Path,
-	data_dir: &Path,
+	base_data_dir: &Path,
 	instance: Option<&str>,
 ) -> Result<()> {
 	#[cfg(target_os = "macos")]
@@ -451,7 +454,7 @@ async fn restart_daemon(
 
 	let launch = sd_client::DaemonLaunchConfig {
 		daemon_path: daemon_path.to_path_buf(),
-		data_dir: data_dir.to_path_buf(),
+		base_data_dir: base_data_dir.to_path_buf(),
 		instance: instance.map(str::to_string),
 		no_default_sources: false,
 	};
@@ -725,9 +728,16 @@ fn discard_other_parts(part_dir: &Path, build_key: &str) {
 	}
 }
 
-/// Replaces `path` atomically: the new bytes land in a sibling temp file that
-/// is renamed over the target, so a running binary is never truncated or
-/// partially overwritten.
+/// Replaces `path` with `data` without ever truncating the running binary.
+///
+/// The new bytes land in a sibling `.update` file and are renamed into place.
+/// Where the platform allows a rename over a running executable (Unix), the
+/// current binary is first copied to `.bak` so a kill at any instant still
+/// leaves a working file at the path. Windows lets a loaded executable be
+/// renamed but not replaced or deleted, so there the current binary is moved
+/// to `.bak` before the staged file takes its place, the path is briefly
+/// empty, and the `.bak` of the running `sd` stays behind until the next
+/// update removes it. A failed install restores the backup either way.
 fn replace_binary(path: &Path, data: &[u8]) -> Result<()> {
 	use std::fs;
 
@@ -737,6 +747,7 @@ fn replace_binary(path: &Path, data: &[u8]) -> Result<()> {
 		.ok_or_else(|| anyhow::anyhow!("Invalid binary path: {}", path.display()))?;
 	let staged = path.with_file_name(format!("{}.update", file_name));
 	let backup = path.with_file_name(format!("{}.bak", file_name));
+	let _ = fs::remove_file(&backup);
 
 	fs::write(&staged, data).with_context(|| format!("writing {}", staged.display()))?;
 
@@ -746,8 +757,14 @@ fn replace_binary(path: &Path, data: &[u8]) -> Result<()> {
 		fs::set_permissions(&staged, fs::Permissions::from_mode(0o755))?;
 	}
 
-	if path.exists() {
-		fs::copy(path, &backup)?;
+	let had_previous = path.exists();
+	if had_previous {
+		if cfg!(windows) {
+			fs::rename(path, &backup)
+				.with_context(|| format!("moving {} aside", path.display()))?;
+		} else {
+			fs::copy(path, &backup).with_context(|| format!("backing up {}", path.display()))?;
+		}
 	}
 
 	match fs::rename(&staged, path) {
@@ -756,7 +773,7 @@ fn replace_binary(path: &Path, data: &[u8]) -> Result<()> {
 			Ok(())
 		}
 		Err(e) => {
-			if backup.exists() {
+			if had_previous {
 				let _ = fs::rename(&backup, path);
 			}
 			let _ = fs::remove_file(&staged);
@@ -809,6 +826,13 @@ fn parse_sha256(text: &str) -> Option<String> {
 		.then(|| token.to_ascii_lowercase())
 }
 
+/// Writes the installed build's marker beside the binaries, the full commit
+/// sha for a nightly or the tag for a release, one line with a trailing
+/// newline, the same shape a local rebuild script writes.
+fn write_version_marker(bin_dir: &Path, marker: &str) -> std::io::Result<()> {
+	std::fs::write(bin_dir.join(VERSION_FILE), format!("{}\n", marker))
+}
+
 fn looks_like_sha(s: &str) -> bool {
 	s.len() >= 7 && s.len() <= 40 && s.chars().all(|c| c.is_ascii_hexdigit())
 }
@@ -856,6 +880,37 @@ mod tests {
 			browser_download_url: String::new(),
 			size: 0,
 		}
+	}
+
+	#[test]
+	fn version_marker_is_the_full_sha_on_one_line() {
+		let dir = tempfile::tempdir().unwrap();
+		std::fs::write(dir.path().join(VERSION_FILE), "stale\n").unwrap();
+
+		write_version_marker(dir.path(), ASSET_SHA).unwrap();
+
+		assert_eq!(
+			std::fs::read_to_string(dir.path().join("sd-version.txt")).unwrap(),
+			format!("{}\n", ASSET_SHA)
+		);
+	}
+
+	#[test]
+	fn replace_binary_swaps_the_file_and_leaves_no_backup() {
+		let dir = tempfile::tempdir().unwrap();
+		let name = format!("sd{}", std::env::consts::EXE_SUFFIX);
+		let path = dir.path().join(&name);
+		std::fs::write(&path, b"old").unwrap();
+		std::fs::write(dir.path().join(format!("{name}.bak")), b"stale").unwrap();
+
+		replace_binary(&path, b"new").unwrap();
+
+		assert_eq!(std::fs::read(&path).unwrap(), b"new");
+		let leftovers: Vec<_> = std::fs::read_dir(dir.path())
+			.unwrap()
+			.map(|e| e.unwrap().file_name())
+			.collect();
+		assert_eq!(leftovers, vec![std::ffi::OsString::from(name)]);
 	}
 
 	#[test]

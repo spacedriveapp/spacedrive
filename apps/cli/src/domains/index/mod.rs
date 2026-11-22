@@ -8,7 +8,7 @@ use crate::util::prelude::*;
 
 use crate::{context::Context, util::error::CliError};
 use sd_core::{
-	infra::job::types::JobId,
+	infra::job::handle::JobReceipt,
 	ops::{
 		indexing::startup::{
 			StartupIndexingDisposition, StartupIndexingInput, StartupIndexingOutput,
@@ -79,9 +79,9 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 					anyhow::bail!(errors.join("; "));
 				}
 
-				let out: JobId = execute_action!(&action_ctx, input);
-				print_output!(ctx, out, |_| {
-					println!("Indexing request submitted");
+				let out: JobReceipt = execute_action!(&action_ctx, input);
+				print_output!(ctx, &out, |receipt: &JobReceipt| {
+					println!("Indexing job {} submitted", receipt.id);
 				});
 			}
 		}
@@ -100,9 +100,9 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 			};
 
 			let input = args.to_input(library_id)?;
-			let out: JobId = execute_action!(ctx, input);
-			print_output!(ctx, out, |_| {
-				println!("Quick scan request submitted");
+			let out: JobReceipt = execute_action!(ctx, input);
+			print_output!(ctx, &out, |receipt: &JobReceipt| {
+				println!("Quick scan job {} submitted", receipt.id);
 			});
 		}
 		IndexCmd::Browse(args) => {
@@ -118,9 +118,9 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 			};
 
 			let input = args.to_input(library_id)?;
-			let out: JobId = execute_action!(ctx, input);
-			print_output!(ctx, out, |_| {
-				println!("Browse request submitted");
+			let out: JobReceipt = execute_action!(ctx, input);
+			print_output!(ctx, &out, |receipt: &JobReceipt| {
+				println!("Browse job {} submitted", receipt.id);
 			});
 		}
 		IndexCmd::Status(args) => {

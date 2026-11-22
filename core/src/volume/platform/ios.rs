@@ -175,6 +175,7 @@ pub async fn detect_volumes(
 		available_space: storage_info.available_capacity,
 		is_read_only: false,
 		is_mounted: true,
+		locked: false,
 		hardware_id: None,
 		backend: None,
 		cloud_identifier: None,

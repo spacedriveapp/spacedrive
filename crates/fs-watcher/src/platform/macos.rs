@@ -97,6 +97,18 @@ impl MacOsHandler {
 		}
 	}
 
+	/// Whether the path is there under exactly this spelling. APFS answers a
+	/// stat for any case of a name, so after a case-only rename the old
+	/// spelling would still read as present.
+	async fn present(path: &Path) -> bool {
+		let path = path.to_path_buf();
+		tokio::task::spawn_blocking(move || {
+			crate::spelling::present_as_spelled(&path).unwrap_or_else(|_| path.exists())
+		})
+		.await
+		.unwrap_or(true)
+	}
+
 	/// Check if path is a directory
 	async fn is_directory(path: &PathBuf) -> bool {
 		tokio::fs::metadata(path)
@@ -123,6 +135,12 @@ impl MacOsHandler {
 
 	/// Process create events, attempting rename matching
 	async fn process_create(&self, path: PathBuf) -> Result<Vec<FsEvent>> {
+		// FSEvents flags a renamed-away name as created too when both landed
+		// in one batch. Its inode would be the file's under the new name.
+		if !Self::present(&path).await {
+			return self.process_remove(path).await;
+		}
+
 		let is_dir = Self::is_directory(&path).await;
 
 		// Check if this is a directory and dedupe if needed
@@ -245,6 +263,36 @@ impl MacOsHandler {
 		};
 
 		if let Some(inode) = inode {
+			// The new name may have arrived first, which a case-only rename
+			// does as often as not.
+			let arrived = {
+				let mut creates = self.pending_creates.write().await;
+				match creates.get(&inode) {
+					Some(create) if create.path != path => creates.remove(&inode),
+					_ => None,
+				}
+			};
+			if let Some(create) = arrived {
+				debug!(
+					"Rename detected: {} -> {} (inode {})",
+					path.display(),
+					create.path.display(),
+					inode
+				);
+				let is_dir = Self::is_directory(&create.path).await;
+				if is_dir {
+					self.recent_dirs
+						.write()
+						.await
+						.insert(create.path.clone(), Instant::now());
+				}
+				return Ok(vec![FsEvent::rename_with_dir_flag(
+					path,
+					create.path,
+					is_dir,
+				)]);
+			}
+
 			// Buffer for potential rename matching
 			let mut removes = self.pending_removes.write().await;
 			removes.insert(
@@ -475,7 +523,7 @@ impl EventHandler for MacOsHandler {
 				} else if let Some(path) = event.primary_path() {
 					// Single path rename event - treat as create (file appeared) or remove (file gone)
 					// Check if path exists to determine which
-					if path.exists() {
+					if Self::present(path).await {
 						debug!("Rename event with single path (exists): {}", path.display());
 						return self.process_create(path.clone()).await;
 					} else {
@@ -560,6 +608,70 @@ mod tests {
 
 		assert!(handler.pending_updates.read().await.is_empty());
 		assert!(handler.recent_dirs.read().await.is_empty());
+	}
+
+	fn renamed(path: &Path) -> RawNotifyEvent {
+		RawNotifyEvent {
+			kind: RawEventKind::Rename(crate::event::RawRenameMode::Any),
+			paths: vec![path.to_path_buf()],
+			timestamp: std::time::SystemTime::now(),
+		}
+	}
+
+	/// A case-only rename on APFS, which the temporary directory is on. Both
+	/// names stat as present, so only the stored spelling says which one left.
+	async fn case_only_rename(new_name_first: bool, directory: bool) {
+		let dir = tempfile::tempdir().unwrap();
+		let old = dir.path().join(if directory { "keep" } else { "f01.txt" });
+		let new = dir.path().join(if directory { "Keep" } else { "F01.txt" });
+		if directory {
+			std::fs::create_dir(&old).unwrap();
+		} else {
+			std::fs::write(&old, b"x").unwrap();
+		}
+		std::fs::rename(&old, &new).unwrap();
+		if std::fs::symlink_metadata(&old).is_err() {
+			eprintln!("skipping: the temporary directory is on a case-sensitive volume");
+			return;
+		}
+
+		let handler = MacOsHandler::new();
+		let order = if new_name_first {
+			[&new, &old]
+		} else {
+			[&old, &new]
+		};
+		let mut events = Vec::new();
+		for path in order {
+			events.extend(handler.process(renamed(path)).await.unwrap());
+		}
+		tokio::time::sleep(Duration::from_millis(RENAME_TIMEOUT_MS + 100)).await;
+		events.extend(handler.tick().await.unwrap());
+
+		assert_eq!(events.len(), 1, "one event for one rename: {events:?}");
+		match &events[0].kind {
+			crate::event::FsEventKind::Rename { from, to } => {
+				assert_eq!(from, &old);
+				assert_eq!(to, &new);
+			}
+			other => panic!("expected a rename, got {other:?}"),
+		}
+	}
+
+	#[tokio::test]
+	async fn a_case_only_rename_is_a_rename_old_name_first() {
+		case_only_rename(false, false).await;
+	}
+
+	#[tokio::test]
+	async fn a_case_only_rename_is_a_rename_new_name_first() {
+		case_only_rename(true, false).await;
+	}
+
+	#[tokio::test]
+	async fn a_case_only_folder_rename_is_a_rename() {
+		case_only_rename(false, true).await;
+		case_only_rename(true, true).await;
 	}
 
 	#[tokio::test]

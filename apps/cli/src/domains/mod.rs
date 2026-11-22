@@ -4,11 +4,15 @@ pub mod daemon;
 pub mod devices;
 pub mod events;
 pub mod file;
+pub mod fuse;
+pub mod grant;
 pub mod index;
 pub mod job;
 pub mod library;
 pub mod logs;
 pub mod mcp;
+#[cfg(feature = "footage-clips")]
+pub mod media;
 pub mod network;
 pub mod redundancy;
 pub mod search;

@@ -153,6 +153,15 @@ pub struct IndexerState {
 	/// the only record that the subtree is there at all.
 	#[serde(default)]
 	pub(crate) summaries: Vec<(PathBuf, u64, u32)>,
+	/// Cloud provider placeholders recorded without being listed. What the
+	/// store holds under them was not looked at, so the sweep keeps it.
+	#[serde(default)]
+	pub(crate) placeholders: Vec<PathBuf>,
+	/// Directories whose listing did not answer within the read bound, such
+	/// as a folder behind a privacy prompt nobody answered. They were not
+	/// read, so the sweep keeps what the store holds under them.
+	#[serde(default)]
+	pub(crate) awaiting_access: Vec<PathBuf>,
 }
 
 impl IndexerState {
@@ -184,6 +193,8 @@ impl IndexerState {
 			entries_channel_capacity: 16384,
 			volume_total_capacity: None,
 			summaries: Vec::new(),
+			placeholders: Vec::new(),
+			awaiting_access: Vec::new(),
 		}
 	}
 
@@ -214,6 +225,8 @@ impl IndexerState {
 				}
 				_ => None,
 			})
+			.chain(self.placeholders.iter().cloned())
+			.chain(self.awaiting_access.iter().cloned())
 			.collect()
 	}
 

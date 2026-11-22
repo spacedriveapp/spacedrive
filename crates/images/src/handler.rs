@@ -3,6 +3,7 @@ use crate::{
 	error::{Error, Result},
 	generic::GenericHandler,
 	pdf::PdfHandler,
+	raw::RawHandler,
 	svg::SvgHandler,
 	ImageHandler,
 };
@@ -61,6 +62,14 @@ fn match_to_handler(ext: Option<&OsStr>) -> Result<Box<dyn ImageHandler>> {
 		.any(|x| x == ext)
 	{
 		handler = Some(Box::new(PdfHandler {}));
+	}
+
+	if consts::RAW_EXTENSIONS
+		.iter()
+		.map(OsString::from)
+		.any(|x| x == ext)
+	{
+		handler = Some(Box::new(RawHandler {}));
 	}
 
 	handler.ok_or(Error::Unsupported)

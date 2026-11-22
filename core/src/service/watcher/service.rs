@@ -30,6 +30,10 @@ pub struct FsWatcherServiceConfig {
 	pub debug_mode: bool,
 	/// How often a refused watch is retried
 	pub watch_retry_interval: Duration,
+	/// How often watched arenas are checked for changes to write to their
+	/// snapshots. A drive with a large snapshot is written less often; see
+	/// `VolumeIndex::save_paced_snapshot`.
+	pub snapshot_flush_interval: Duration,
 }
 
 impl Default for FsWatcherServiceConfig {
@@ -39,6 +43,7 @@ impl Default for FsWatcherServiceConfig {
 			tick_interval: Duration::from_millis(100),
 			debug_mode: false,
 			watch_retry_interval: Duration::from_secs(30),
+			snapshot_flush_interval: Duration::from_secs(30),
 		}
 	}
 }
@@ -113,6 +118,79 @@ impl FsWatcherService {
 		self.clone().arm_restored_sources();
 		self.clone().restore_registered_sources();
 		self.clone().retry_refused_watches_periodically();
+		self.clone().revisit_awaiting_access();
+		self.clone().flush_snapshots_periodically();
+	}
+
+	/// Write watched changes to each arena snapshot, paced by snapshot size.
+	///
+	/// Only a walk saved a snapshot, so every change the watcher applied after
+	/// it lived in memory alone until a restart's reconcile found it again.
+	/// The save skips a clean arena, so an idle source costs nothing, and
+	/// spaces a large drive's saves so steady churn cannot rewrite it on every
+	/// tick.
+	fn flush_snapshots_periodically(self: Arc<Self>) {
+		let interval = self.config.snapshot_flush_interval;
+		let service = Arc::downgrade(&self);
+		drop(self);
+		tokio::spawn(async move {
+			loop {
+				tokio::time::sleep(interval).await;
+				let Some(service) = service.upgrade() else {
+					return;
+				};
+				if service.is_running() {
+					service.flush_snapshots(true).await;
+				}
+			}
+		});
+	}
+
+	/// Save the snapshot of every attached source whose arena has changed.
+	/// A drive whose arena is partway through a walk keeps its last snapshot;
+	/// the walk saves its own when it lands. A paced flush also skips a drive
+	/// saved too recently for its snapshot's size.
+	pub async fn flush_snapshots(&self, paced: bool) {
+		let cache = self.context.volume_index();
+		for source in cache.sources() {
+			if !source.attached {
+				continue;
+			}
+			// Best-effort: the next flush or walk retries a failed save.
+			let saved = if paced {
+				cache.save_paced_snapshot(&source.root).await
+			} else {
+				cache.save_settled_snapshot(&source.root).await
+			};
+			if let Err(e) = saved {
+				warn!("Failed to save snapshot for {}: {e}", source.root.display());
+			}
+		}
+	}
+
+	/// Read again what a walk or a reconcile moved past because its listing
+	/// did not answer, as soon as a blocked listing returns and otherwise on
+	/// a fixed interval. A blocked listing returning is the only sign macOS
+	/// gives that a privacy prompt was answered.
+	fn revisit_awaiting_access(self: Arc<Self>) {
+		let service = Arc::downgrade(&self);
+		let cache = self.context.volume_index().clone();
+		drop(self);
+		tokio::spawn(async move {
+			loop {
+				tokio::select! {
+					_ = cache.access_answered() => {}
+					_ = tokio::time::sleep(crate::ops::indexing::reconcile::ACCESS_RETRY) => {}
+				}
+				let Some(service) = service.upgrade() else {
+					return;
+				};
+				if service.is_running() {
+					crate::ops::indexing::reconcile::revisit_awaiting_access(&service.context)
+						.await;
+				}
+			}
+		});
 	}
 
 	/// Retry every refused watch on a fixed interval while the service runs.
@@ -230,15 +308,31 @@ impl FsWatcherService {
 			let mut restored = 0usize;
 			for source in cache.sources() {
 				if !source.attached {
+					info!(
+						source = %source.id,
+						root = %source.root.display(),
+						volume = ?source.volume_uuid,
+						volume_state = ?source.volume_state,
+						"not restoring: the source is not attached"
+					);
 					continue;
 				}
 				if cache.ensure_restored(&source.root).await {
 					restored += 1;
+				} else {
+					info!(
+						source = %source.id,
+						root = %source.root.display(),
+						"nothing restored for the source at startup"
+					);
 				}
 			}
 			if restored > 0 {
 				info!("Restored {restored} registered source arena(s) at startup");
 			}
+			// The maps hold what was true when the daemon stopped; this is
+			// where what changed since reaches them.
+			crate::ops::indexing::reconcile::reconcile_attached_sources(self.context.clone()).await;
 		});
 	}
 
@@ -386,6 +480,9 @@ impl Service for FsWatcherService {
 
 		// Then stop the watcher
 		self.watcher.stop().await?;
+
+		// With no more events arriving, the arenas hold their final state.
+		self.flush_snapshots(false).await;
 
 		info!("FsWatcher service stopped");
 

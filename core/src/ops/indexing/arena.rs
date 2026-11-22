@@ -43,7 +43,7 @@
 
 use crate::domain::ContentKind;
 use crate::filetype::FileTypeRegistry;
-use crate::ops::indexing::metadata::{is_hidden_path, EntryMetadata};
+use crate::ops::indexing::metadata::EntryMetadata;
 use crate::ops::indexing::state::{EntryKind, IndexerStats};
 
 use super::types::{
@@ -63,6 +63,22 @@ use uuid::Uuid;
 /// graph, paid for by at least as many removals); the second keeps a small
 /// arena from rebuilding over a few hundred bytes of slack.
 pub const COMPACT_MIN_VACANT: usize = 4_096;
+
+/// One entry the arena holds under a directory, as `Arena::known_children`
+/// reports it.
+#[derive(Debug, Clone)]
+pub struct KnownChild {
+	pub path: PathBuf,
+	pub kind: EntryKind,
+	pub size: u64,
+	/// Whole seconds, the precision the arena keeps.
+	pub modified: Option<std::time::SystemTime>,
+	/// A directory the walk counted rather than kept, so it has no children
+	/// to compare.
+	pub summarised: bool,
+	/// The entry plus, for a directory, the files beneath it.
+	pub entries: u64,
+}
 
 /// Memory-efficient index for browsing unmanaged paths.
 pub struct Arena {
@@ -265,7 +281,10 @@ impl Arena {
 		let parent_ref = parent_id
 			.map(MaybeEntryId::some)
 			.unwrap_or(MaybeEntryId::NONE);
-		let meta = PackedMetadata::new(NodeState::Accessible, FileType::Directory, 0);
+		// A placeholder nobody has statted yet; the hidden answer has to come
+		// from somewhere, and the walk corrects it when it reaches the entry.
+		let meta = PackedMetadata::new(NodeState::Accessible, FileType::Directory, 0)
+			.with_hidden(super::metadata::is_hidden_path(path));
 		let node = FileNode::new(NameRef::new(name, parent_ref), meta);
 
 		let id = self.arena.insert(node)?;
@@ -350,6 +369,7 @@ impl Arena {
 					FileType::from(metadata.kind),
 					metadata.size,
 				)
+				.with_hidden(metadata.is_hidden)
 				.with_times(metadata.modified, metadata.created);
 				node.subtree_bytes = current.bytes;
 				node.file_count = current.files;
@@ -401,6 +421,7 @@ impl Arena {
 		let file_type = FileType::from(metadata.kind);
 
 		let meta = PackedMetadata::new(NodeState::Accessible, file_type, metadata.size)
+			.with_hidden(metadata.is_hidden)
 			.with_times(metadata.modified, metadata.created);
 
 		let parent_ref = parent_id
@@ -501,7 +522,7 @@ impl Arena {
 			uid: None,
 			gid: None,
 			link_target: None,
-			is_hidden: is_hidden_path(path),
+			is_hidden: node.meta.is_hidden(),
 		})
 	}
 
@@ -522,7 +543,7 @@ impl Arena {
 			uid: None,
 			gid: None,
 			link_target: None,
-			is_hidden: is_hidden_path(path),
+			is_hidden: node.meta.is_hidden(),
 		})
 	}
 
@@ -593,6 +614,53 @@ impl Arena {
 				.filter_map(|&child_id| self.reconstruct_path(child_id))
 				.collect(),
 		)
+	}
+
+	/// What the arena holds directly under a directory, for comparing with a
+	/// fresh read of it. `None` when the directory is not in the arena.
+	pub fn known_children(&self, dir: &Path) -> Option<Vec<KnownChild>> {
+		let id = *self.path_index.get(dir)?;
+		let node = self.arena.get(id)?;
+		Some(
+			node.children
+				.iter()
+				.filter_map(|&child_id| {
+					let child = self.arena.get(child_id)?;
+					let kind = EntryKind::from(child.meta.file_type());
+					Some(KnownChild {
+						path: self.reconstruct_path(child_id)?,
+						kind,
+						size: child.meta.size(),
+						modified: child.meta.mtime_as_system_time(),
+						summarised: self.stubs.contains_key(&child_id),
+						entries: if kind == EntryKind::Directory {
+							u64::from(child.file_count) + 1
+						} else {
+							1
+						},
+					})
+				})
+				.collect(),
+		)
+	}
+
+	/// The identity of an entry and of everything beneath it, `None` where an
+	/// entry has none. Walks the subtree's own nodes, so it costs the subtree
+	/// rather than the arena.
+	pub fn subtree_identities(&self, path: &Path) -> Vec<Option<Uuid>> {
+		let Some(&root) = self.path_index.get(path) else {
+			return Vec::new();
+		};
+		let mut pending = vec![root];
+		let mut identities = Vec::new();
+		while let Some(id) = pending.pop() {
+			let Some(node) = self.arena.get(id) else {
+				continue;
+			};
+			identities.push(self.entry_uuids.get(&id).copied());
+			pending.extend(node.children.iter().copied());
+		}
+		identities
 	}
 
 	/// Snapshot the known files in a scope without reading the filesystem.
@@ -1065,6 +1133,17 @@ impl Arena {
 	/// Runs on snapshot restore (flags are derived data and never persist),
 	/// and is safe to re-run when classification heuristics change.
 	pub fn recompute_collections(&mut self) {
+		// Snapshots written before the arena kept the hidden bit have it
+		// clear. Where the name alone decides, it is recomputed here; on
+		// Windows the bit is what the walk read from the attribute, and no
+		// snapshot there predates it.
+		#[cfg(not(windows))]
+		for (path, &id) in &self.path_index {
+			if let Some(node) = self.arena.get_mut(id) {
+				node.meta = node.meta.with_hidden(super::metadata::is_hidden_path(path));
+			}
+		}
+
 		self.collection_flags.clear();
 		// Flags are derived from name and kind, neither of which says anything
 		// about a summarised directory, so its marker is restored from the
@@ -1278,6 +1357,7 @@ impl Arena {
 			node.name_ref = NameRef::new(name, parent_ref);
 			node.meta =
 				PackedMetadata::new(NodeState::Accessible, FileType::from(to.kind), to.size)
+					.with_hidden(to.is_hidden)
 					.with_times(to.modified, to.created);
 			node.subtree_bytes = rollup.bytes;
 			node.file_count = rollup.files;
@@ -1382,7 +1462,7 @@ impl Arena {
 					uid: None,
 					gid: None,
 					link_target: None,
-					is_hidden: is_hidden_path(path),
+					is_hidden: node.meta.is_hidden(),
 				};
 				result.insert(path.clone(), metadata);
 			}

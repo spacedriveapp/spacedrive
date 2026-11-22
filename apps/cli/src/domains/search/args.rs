@@ -1,6 +1,12 @@
 use chrono::{DateTime, Utc};
 use clap::Args;
+use std::path::PathBuf;
 use uuid::Uuid;
+
+use sd_core::domain::addressing::SdPath;
+use sd_core::ops::indexing::text_extract::TextKind;
+use sd_core::ops::search::content::ContentSearchInput;
+use sd_core::ops::search::grep::{GrepInput, GrepOptions};
 
 use sd_core::domain::ContentKind;
 use sd_core::ops::search::input::{
@@ -80,6 +86,10 @@ pub struct FileSearchArgs {
 	/// Include archived files
 	#[arg(long)]
 	pub include_archived: bool,
+
+	/// Only photos whose EXIF places them (true) or does not (false)
+	#[arg(long)]
+	pub has_location: Option<bool>,
 }
 
 #[derive(clap::ValueEnum, Debug, Clone)]
@@ -94,6 +104,8 @@ pub enum DateFieldArg {
 	Created,
 	Modified,
 	Accessed,
+	/// When the photo was taken, from its EXIF
+	Captured,
 }
 
 #[derive(clap::ValueEnum, Debug, Clone)]
@@ -124,6 +136,8 @@ pub enum SortFieldArg {
 	Size,
 	Modified,
 	Created,
+	/// When the photo was taken, from its EXIF
+	Captured,
 }
 
 #[derive(clap::ValueEnum, Debug, Clone)]
@@ -172,6 +186,7 @@ impl From<FileSearchArgs> for FileSearchInput {
 						DateFieldArg::Created => DateField::CreatedAt,
 						DateFieldArg::Modified => DateField::ModifiedAt,
 						DateFieldArg::Accessed => DateField::AccessedAt,
+						DateFieldArg::Captured => DateField::CapturedAt,
 					},
 					start: args.date_start,
 					end: args.date_end,
@@ -213,6 +228,7 @@ impl From<FileSearchArgs> for FileSearchInput {
 			}),
 			include_hidden: Some(args.include_hidden),
 			include_archived: Some(args.include_archived),
+			has_location: args.has_location,
 			at_risk: None,
 			on_volumes: None,
 			not_on_volumes: None,
@@ -227,6 +243,7 @@ impl From<FileSearchArgs> for FileSearchInput {
 				SortFieldArg::Size => SortField::Size,
 				SortFieldArg::Modified => SortField::ModifiedAt,
 				SortFieldArg::Created => SortField::CreatedAt,
+				SortFieldArg::Captured => SortField::CapturedAt,
 			},
 			direction: match args.sort_direction {
 				SortDirectionArg::Asc => SortDirection::Asc,
@@ -248,4 +265,132 @@ impl From<FileSearchArgs> for FileSearchInput {
 			pagination,
 		}
 	}
+}
+
+#[derive(Args, Debug)]
+pub struct GrepArgs {
+	/// Regular expression to search for, or plain text with --fixed-strings
+	pub pattern: String,
+
+	/// File or directory to search, under a tracked source; defaults to the
+	/// current directory
+	pub path: Option<PathBuf>,
+
+	/// Treat the pattern as plain text
+	#[arg(short = 'F', long)]
+	pub fixed_strings: bool,
+
+	/// Match without regard to case
+	#[arg(short = 'i', long)]
+	pub ignore_case: bool,
+
+	/// Only search files matching this glob (repeatable)
+	#[arg(short = 'g', long = "glob")]
+	pub include: Vec<String>,
+
+	/// Skip files and directories matching this glob (repeatable)
+	#[arg(long)]
+	pub exclude: Vec<String>,
+
+	/// Search files that .gitignore and .ignore files exclude
+	#[arg(long)]
+	pub no_ignore: bool,
+
+	/// Search hidden files and directories
+	#[arg(long)]
+	pub hidden: bool,
+
+	/// Lines of context around each match
+	#[arg(short = 'C', long, default_value = "0")]
+	pub context: u32,
+
+	/// Matches per page
+	#[arg(long)]
+	pub max_results: Option<u32>,
+
+	/// Continue from the cursor a previous page printed
+	#[arg(long)]
+	pub cursor: Option<String>,
+
+	/// Skip files larger than this many bytes (default 1 MiB)
+	#[arg(long)]
+	pub max_file_bytes: Option<u64>,
+}
+
+impl GrepArgs {
+	pub fn into_input(self, path: PathBuf) -> GrepInput {
+		GrepInput {
+			// The daemon that answers resolves "local" to itself, which keeps
+			// this right when the request is routed to another device.
+			scope: SdPath::Physical {
+				device_slug: "local".to_string(),
+				path,
+			},
+			options: GrepOptions {
+				pattern: self.pattern,
+				literal: self.fixed_strings,
+				case_insensitive: self.ignore_case,
+				include: self.include,
+				exclude: self.exclude,
+				respect_gitignore: !self.no_ignore,
+				include_hidden: self.hidden,
+				context_lines: self.context,
+				max_results: self.max_results,
+				cursor: self.cursor,
+				max_file_bytes: self.max_file_bytes,
+			},
+		}
+	}
+}
+
+#[derive(Args, Debug)]
+pub struct ContentSearchArgs {
+	/// Words that must all appear; "quoted text" is a phrase, word* a prefix
+	pub query: String,
+
+	/// File or directory to search, under a tracked source; defaults to the
+	/// current directory
+	pub path: Option<PathBuf>,
+
+	/// Only files of this kind (repeatable): text, markdown, csv, json,
+	/// code, pdf, docx, transcript
+	#[arg(long = "kind")]
+	pub kinds: Vec<String>,
+
+	/// Hits per page
+	#[arg(long)]
+	pub max_results: Option<u32>,
+
+	/// Continue from the cursor a previous page printed
+	#[arg(long)]
+	pub cursor: Option<String>,
+}
+
+impl ContentSearchArgs {
+	pub fn into_input(self, path: PathBuf) -> anyhow::Result<ContentSearchInput> {
+		let kinds = self
+			.kinds
+			.iter()
+			.map(|kind| {
+				TextKind::parse(kind).ok_or_else(|| anyhow::anyhow!("unknown kind '{kind}'"))
+			})
+			.collect::<anyhow::Result<_>>()?;
+		Ok(ContentSearchInput {
+			scope: SdPath::Physical {
+				device_slug: "local".to_string(),
+				path,
+			},
+			query: self.query,
+			kinds,
+			max_results: self.max_results,
+			cursor: self.cursor,
+		})
+	}
+}
+
+#[derive(Args, Debug)]
+pub struct ReindexContentArgs {
+	/// A tracked source, or any path inside it; defaults to the current
+	/// directory
+	pub path: Option<PathBuf>,
 }

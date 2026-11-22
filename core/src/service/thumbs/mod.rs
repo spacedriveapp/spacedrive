@@ -30,6 +30,7 @@ mod service;
 pub mod sidecars;
 mod thumbstrip;
 
+pub(crate) use ffmpeg::is_video;
 pub use service::{
 	GenerationOutcome, ThumbService, Thumbnail, ThumbnailGenerationMode, Thumbstrip,
 	ThumbstripIdentity, TileIdentity, TILE,

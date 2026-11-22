@@ -170,8 +170,17 @@ async fn describe(core: &Core, library: &Library) -> String {
 	)
 }
 
+/// Jobs other than the reconcile, which reads the disk without walking it
+/// and leaves no row once it finishes.
 async fn job_count(library: &Library) -> usize {
-	library.jobs().list_jobs(None).await.expect("jobs").len()
+	library
+		.jobs()
+		.list_jobs(None)
+		.await
+		.expect("jobs")
+		.into_iter()
+		.filter(|job| job.name != "reconcile")
+		.count()
 }
 
 /// Poll `check` until it holds or ten seconds pass, for state the daemon
@@ -622,17 +631,8 @@ async fn a_remounted_volume_reattaches_its_source_and_rearms_the_watch() {
 	)
 	.await;
 
-	let created = root.join("after-remount.txt");
-	std::fs::write(&created, "seen").expect("write");
-	eventually(
-		"a file created after the return reaches the map",
-		async || match cache.get_for_search(&created) {
-			Some(index) => index.read().await.get_entry_uuid(&created).is_some(),
-			None => false,
-		},
-	)
-	.await;
-
+	// The retry is dispatched when the volume returns, so it is checked before a
+	// new file adds work only the watcher's hashing nudge picks up.
 	eventually("the failed identification is retried", async || {
 		let error: (Option<String>,) =
 			sqlx::query_as("SELECT content_error FROM facet_file WHERE record_uuid = ?")
@@ -643,6 +643,17 @@ async fn a_remounted_volume_reattaches_its_source_and_rearms_the_watch() {
 		error.0.is_none() && store.files_needing_content_count().await.unwrap() == 0
 	})
 	.await;
+
+	let created = root.join("after-remount.txt");
+	std::fs::write(&created, "seen").expect("write");
+	eventually(
+		"a file created after the return reaches the map",
+		async || match cache.get_for_search(&created) {
+			Some(index) => index.read().await.get_entry_uuid(&created).is_some(),
+			None => false,
+		},
+	)
+	.await;
 	let identity: (Option<i64>,) = sqlx::query_as("SELECT content_id FROM record WHERE uuid = ?")
 		.bind(&failed.0)
 		.fetch_one(store.db().pool())
@@ -650,6 +661,135 @@ async fn a_remounted_volume_reattaches_its_source_and_rearms_the_watch() {
 		.expect("content id");
 	assert!(identity.0.is_some(), "the record was identified after all");
 
+	drop(library);
+	core.shutdown().await.expect("shutdown");
+}
+
+/// L4 with edits: what changed on a volume while it was away (unplugged and
+/// written by another machine) reaches the map and the store when it
+/// returns. The watch only hears changes from the return on, so the return
+/// has to compare the restored map with the disk the way a restart does.
+///
+/// The edits go straight into the unmounted ext4 image through debugfs, so
+/// the daemon never sees the volume mounted anywhere else. The rename is a
+/// link and an unlink, which keeps the inode, size and modification time
+/// a moved file keeps on any filesystem.
+#[tokio::test]
+async fn edits_made_while_a_volume_was_away_reach_the_map_when_it_returns() {
+	let _ = tracing_subscriber::fmt::try_init();
+	if let Some(reason) = skip_reason().await {
+		warn!("Skipping: {reason}");
+		return;
+	}
+	if tokio::process::Command::new("debugfs")
+		.arg("-V")
+		.output()
+		.await
+		.is_err()
+	{
+		warn!("Skipping: debugfs is not installed");
+		return;
+	}
+
+	let walked = walked_volume("SdAwayEdits").await;
+	let root = walked.volume.path().clone();
+	let core = boot(walked.data_dir.path()).await;
+	let library = core
+		.libraries
+		.list()
+		.await
+		.into_iter()
+		.find(|library| library.path() == walked.library_path)
+		.expect("the library reloads");
+	let cache = core.context.volume_index();
+	eventually("the restored source is watched", async || {
+		cache.is_watched(&root)
+	})
+	.await;
+	let store = cache.store_for(&root).await.expect("store");
+	let renamed_record = store
+		.db()
+		.resolve_path("file-1.txt")
+		.await
+		.expect("query")
+		.expect("file-1.txt is in the store");
+
+	unmount(&walked.volume).await;
+	core.volumes.refresh_volumes().await.expect("refresh");
+	eventually("the source detaches on the volume's event", async || {
+		cache
+			.sources()
+			.first()
+			.is_some_and(|source| !source.attached)
+	})
+	.await;
+
+	let staging = tempfile::tempdir().expect("staging");
+	let added = staging.path().join("added.txt");
+	std::fs::write(&added, "written by another machine").expect("write");
+	let script = staging.path().join("edits");
+	std::fs::write(
+		&script,
+		format!(
+			"write {} added-away.txt\nrm file-0.txt\nln file-1.txt renamed-away.txt\nunlink file-1.txt\n",
+			added.display()
+		),
+	)
+	.expect("script");
+	let output = tokio::process::Command::new("sudo")
+		.args([
+			"debugfs",
+			"-w",
+			"-f",
+			script.to_str().unwrap(),
+			&walked.volume.platform_id,
+		])
+		.output()
+		.await
+		.expect("debugfs");
+	assert!(
+		output.status.success(),
+		"debugfs: {}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+
+	remount(&walked.volume).await;
+	core.volumes.refresh_volumes().await.expect("refresh");
+	eventually("the source reattaches on the volume's event", async || {
+		cache
+			.sources()
+			.first()
+			.is_some_and(|source| source.attached)
+	})
+	.await;
+
+	let index = cache.get_for_search(&root).expect("map");
+	eventually("the returned volume's edits reach the map", async || {
+		let index = index.read().await;
+		index.get_entry_uuid(&root.join("added-away.txt")).is_some()
+			&& index.get_entry_ref(&root.join("file-0.txt")).is_none()
+			&& index.get_entry_ref(&root.join("file-1.txt")).is_none()
+			&& index.get_entry_uuid(&root.join("renamed-away.txt")) == Some(renamed_record)
+	})
+	.await;
+	store.flush().await.expect("flush");
+	let db = store.db();
+	assert_eq!(db.resolve_path("file-0.txt").await.expect("query"), None);
+	assert_eq!(db.resolve_path("file-1.txt").await.expect("query"), None);
+	assert_eq!(
+		db.resolve_path("renamed-away.txt").await.expect("query"),
+		Some(renamed_record),
+		"a file renamed while the volume was away keeps its record"
+	);
+	assert!(
+		db.resolve_path("added-away.txt")
+			.await
+			.expect("query")
+			.is_some(),
+		"a file added while the volume was away is in the store"
+	);
+
+	drop(store);
 	drop(library);
 	core.shutdown().await.expect("shutdown");
 }

@@ -25,14 +25,17 @@ use crate::{
 	domain::{content_identity::ContentHashGenerator, ContentKind},
 	filetype::{registry::MAX_MAGIC_BYTES, FileTypeRegistry},
 	infra::job::{generic_progress::GenericProgress, prelude::*, types::JobPriority},
-	ops::indexing::SourceStore,
+	ops::indexing::{
+		metadata::{refuse_dataless, DATALESS_REASON},
+		SourceStore,
+	},
 };
 use futures::StreamExt;
 use sd_store::ContentIdentity;
 use serde::{Deserialize, Serialize};
 use std::{
 	path::{Path, PathBuf},
-	sync::Arc,
+	sync::{Arc, OnceLock},
 };
 use tokio::io::AsyncReadExt;
 use uuid::Uuid;
@@ -178,6 +181,8 @@ impl JobHandler for ContentIdentityJob {
 
 		let mut identified = 0u64;
 		let mut unreadable = 0u64;
+		let mut placeholders = 0u64;
+		let mut total = outstanding;
 		let registry = FileTypeRegistry::current();
 
 		loop {
@@ -191,13 +196,30 @@ impl JobHandler for ContentIdentityJob {
 				break;
 			}
 
+			// A walk, the reconcile or the watcher can add records while the
+			// pass runs, and they join the queue this claim drains. Recount
+			// before the done count would pass the total, so the card never
+			// reads "51136 of 50973".
+			if identified + unreadable + batch.len() as u64 > total {
+				total = identified
+					+ unreadable + store
+					.files_needing_content_count()
+					.await
+					.map_err(|e| e.to_string())?;
+			}
+
 			for chunk in batch.chunks(PROGRESS_CHUNK) {
 				ctx.check_interrupt().await?;
-				let (identities, failures) = hash_batch(chunk.to_vec(), &registry).await;
+				let (identities, failures) = hash_batch(chunk.to_vec(), registry.clone()).await;
 
 				// Failures leave the pending set with their reason recorded,
 				// so the loop always advances and the store can say
-				// afterwards which files have no identity and why.
+				// afterwards which files have no identity and why. A
+				// placeholder's reason says its bytes were never read.
+				placeholders += failures
+					.iter()
+					.filter(|(_, reason)| reason == DATALESS_REASON)
+					.count() as u64;
 				unreadable += failures.len() as u64;
 				identified += identities.len() as u64;
 				store.identified(identities).await;
@@ -205,13 +227,13 @@ impl JobHandler for ContentIdentityJob {
 
 				let done = identified + unreadable;
 				ctx.progress(Progress::generic(GenericProgress::new(
-					if outstanding > 0 {
-						(done as f32 / outstanding as f32).min(1.0)
+					if total > 0 {
+						(done as f32 / total as f32).min(1.0)
 					} else {
 						1.0
 					},
 					"Identifying",
-					format!("{label} — {done} of {outstanding} files"),
+					format!("{label} — {done} of {total} files"),
 				)));
 			}
 
@@ -226,8 +248,22 @@ impl JobHandler for ContentIdentityJob {
 		store.flush().await.map_err(|e| e.to_string())?;
 
 		ctx.log(format!(
-			"Identified {identified} files, {unreadable} unreadable"
+			"Identified {identified} files, {unreadable} unreadable, of which {placeholders} are cloud placeholders left unread"
 		));
+
+		// Statistics read the registry row, which the walk wrote before any
+		// content existed. A stale count costs a wrong figure, not the pass.
+		if identified + unreadable > 0 {
+			if let Err(error) = ctx
+				.library()
+				.core_context()
+				.volume_index()
+				.refresh_source_counts(&self.root)
+				.await
+			{
+				ctx.log(format!("Could not record content counts: {error}"));
+			}
+		}
 
 		// Images now have a kind, which is what the metadata pass claims by.
 		super::exif_enrich::enrich_after_identification(
@@ -236,6 +272,8 @@ impl JobHandler for ContentIdentityJob {
 			self.background,
 		)
 		.await;
+		// Changed files are pending for the text index once their walk landed.
+		super::content_text::index_text_soon(&ctx.library_arc(), &self.root, self.background).await;
 
 		Ok(ContentIdentityOutput {
 			identified,
@@ -259,12 +297,63 @@ pub(crate) fn source_label(root: &std::path::Path) -> String {
 /// will remove it. Either way the failure is returned with its reason, so the
 /// store can take the file out of the pending set instead of handing it back
 /// on every pass.
-async fn hash_batch(
+pub(crate) async fn hash_batch(
 	batch: Vec<(Uuid, PathBuf, u64)>,
-	registry: &FileTypeRegistry,
+	registry: Arc<FileTypeRegistry>,
 ) -> (Vec<(Uuid, ContentIdentity)>, Vec<(Uuid, String)>) {
+	let task = hashing_runtime().spawn(read_batch(batch, registry));
+	match task.await {
+		Ok(results) => results,
+		Err(error) => std::panic::resume_unwind(error.into_panic()),
+	}
+}
+
+/// The runtime every hashing read runs on.
+///
+/// A launch can hand this pass millions of files nobody is waiting for. Its
+/// threads run at background QoS on macOS and at a raised nice value on
+/// Linux, so the backlog takes the time the machine has spare rather than a
+/// core and the disk from whatever a person is doing. `CONCURRENCY` bounds the
+/// reads in flight; the runtime's own threads bound the CPU.
+pub(crate) fn hashing_runtime() -> &'static tokio::runtime::Runtime {
+	static RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
+	RUNTIME.get_or_init(|| {
+		tokio::runtime::Builder::new_multi_thread()
+			.worker_threads(2)
+			.max_blocking_threads(CONCURRENCY)
+			.thread_name("sd-hashing")
+			.on_thread_start(lower_thread_priority)
+			.enable_all()
+			.build()
+			.expect("the hashing runtime starts")
+	})
+}
+
+fn lower_thread_priority() {
+	#[cfg(target_os = "macos")]
+	// SAFETY: only sets the calling thread's own QoS class.
+	unsafe {
+		libc::pthread_set_qos_class_self_np(libc::qos_class_t::QOS_CLASS_BACKGROUND, 0);
+	}
+	#[cfg(target_os = "linux")]
+	// SAFETY: on Linux, PRIO_PROCESS with id 0 sets the calling thread's nice value.
+	unsafe {
+		libc::setpriority(libc::PRIO_PROCESS, 0, 10);
+	}
+}
+
+async fn read_batch(
+	batch: Vec<(Uuid, PathBuf, u64)>,
+	registry: Arc<FileTypeRegistry>,
+) -> (Vec<(Uuid, ContentIdentity)>, Vec<(Uuid, String)>) {
+	let registry = &registry;
 	let results: Vec<_> = futures::stream::iter(batch)
 		.map(|(uuid, path, size)| async move {
+			// Reading a placeholder would download it. The record keeps the
+			// walk's metadata and leaves the queue with the reason.
+			if refuse_dataless(&path).await.is_err() {
+				return Err((uuid, DATALESS_REASON.to_string()));
+			}
 			match ContentHashGenerator::generate_content_hash(&path).await {
 				Ok(hash) => {
 					let (kind, kind_name) = identify_kind(&path, registry).await;
@@ -384,7 +473,7 @@ mod tests {
 				(Uuid::now_v7(), dir.path().join("gone.bin"), 10),
 				(Uuid::now_v7(), real, 4096),
 			],
-			FileTypeRegistry::builtin(),
+			FileTypeRegistry::current(),
 		)
 		.await;
 
@@ -403,7 +492,7 @@ mod tests {
 
 		let (identities, _) = hash_batch(
 			vec![(Uuid::now_v7(), one, 8192), (Uuid::now_v7(), two, 8192)],
-			FileTypeRegistry::builtin(),
+			FileTypeRegistry::current(),
 		)
 		.await;
 

@@ -141,9 +141,23 @@ unsafe extern "Rust" fn __getrandom_v03_custom(
 
 /// The shape of an error the host reports from an operation.
 #[derive(serde::Deserialize)]
-struct HostError {
+pub(crate) struct HostError {
 	code: String,
 	message: String,
+}
+
+impl HostError {
+	pub(crate) fn into_error(self, op: &str) -> Error {
+		match self.code.as_str() {
+			"not_found" => Error::NotFound,
+			"permission_denied" => Error::PermissionDenied(self.message),
+			"invalid_input" => Error::InvalidInput(self.message),
+			"not_available" => Error::NotAvailable(self.message),
+			"timeout" => Error::Timeout(self.message),
+			"interrupted" => Error::Interrupted,
+			_ => Error::OperationFailed(format!("{op}: {}", self.message)),
+		}
+	}
 }
 
 /// Run one host operation and return the bytes it answered with.
@@ -176,15 +190,7 @@ pub fn op(op: &str, payload: &[u8]) -> Result<Vec<u8>> {
 	}
 	let error: HostError = serde_json::from_slice(&bytes)
 		.map_err(|_| Error::HostCall(format!("{op}: host error {status} was not readable")))?;
-	Err(match error.code.as_str() {
-		"not_found" => Error::NotFound,
-		"permission_denied" => Error::PermissionDenied(error.message),
-		"invalid_input" => Error::InvalidInput(error.message),
-		"not_available" => Error::NotAvailable(error.message),
-		"timeout" => Error::Timeout(error.message),
-		"interrupted" => Error::Interrupted,
-		_ => Error::OperationFailed(format!("{op}: {}", error.message)),
-	})
+	Err(error.into_error(op))
 }
 
 /// [`op`] with a JSON header followed by raw bytes, for inputs too large to

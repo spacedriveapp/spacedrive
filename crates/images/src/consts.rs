@@ -17,6 +17,11 @@ pub const GENERIC_EXTENSIONS: [&str; 17] = [
 ];
 pub const SVG_EXTENSIONS: [&str; 2] = ["svg", "svgz"];
 pub const PDF_EXTENSIONS: [&str; 1] = ["pdf"];
+/// Camera raw formats, drawn from the JPEG preview each one embeds.
+pub const RAW_EXTENSIONS: [&str; 23] = [
+	"3fr", "arw", "cr2", "cr3", "crw", "dcr", "dng", "erf", "iiq", "kdc", "mef", "mos", "mrw",
+	"nef", "nrw", "orf", "pef", "raf", "rw2", "rwl", "sr2", "srf", "srw",
+];
 #[cfg(feature = "heif")]
 pub const HEIF_EXTENSIONS: [&str; 8] = [
 	"hif", "heif", "heifs", "heic", "heics", "avif", "avci", "avcs",

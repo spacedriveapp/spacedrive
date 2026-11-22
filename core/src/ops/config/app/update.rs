@@ -38,6 +38,11 @@ pub struct UpdateAppConfigInput {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub mounts_cache_max_bytes: Option<u64>,
 
+	/// Allow FUSE mounts on Linux. Mounts already up stay up when this is
+	/// turned off; it only refuses new ones.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub mounts_fuse_enabled: Option<bool>,
+
 	/// Ceiling on replica bytes per second, serving and fetching combined;
 	/// zero lifts it. Applies to transfers already in flight.
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -48,6 +53,15 @@ pub struct UpdateAppConfigInput {
 	/// is kept whatever the number.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub backup_restore_trash_keep: Option<u32>,
+
+	/// Whether the daemon serves the agent MCP endpoint. Applies at restart.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub agent_mcp_enabled: Option<bool>,
+
+	/// The loopback address the agent MCP endpoint listens on. Applies at
+	/// restart.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub agent_mcp_listen: Option<String>,
 
 	/// Whether networking is enabled
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -150,6 +164,10 @@ impl CoreAction for UpdateAppConfigAction {
 			}
 		}
 
+		if let Some(listen) = &input.agent_mcp_listen {
+			crate::service::agent_mcp::listen_addr(listen)?;
+		}
+
 		if input.proxy_pairing_vouch_signature_max_age == Some(0) {
 			return Err("Signature max age must be greater than 0".to_string());
 		}
@@ -210,6 +228,13 @@ impl CoreAction for UpdateAppConfigAction {
 			}
 		}
 
+		if let Some(fuse_enabled) = self.input.mounts_fuse_enabled {
+			if config.mounts.fuse_enabled != fuse_enabled {
+				config.mounts.fuse_enabled = fuse_enabled;
+				changes.push("mounts_fuse_enabled");
+			}
+		}
+
 		if let Some(max_bytes_per_sec) = self.input.replication_max_bytes_per_sec {
 			if config.replication.max_bytes_per_sec != max_bytes_per_sec {
 				config.replication.max_bytes_per_sec = max_bytes_per_sec;
@@ -222,6 +247,22 @@ impl CoreAction for UpdateAppConfigAction {
 			if config.backup.restore_trash_keep != keep {
 				config.backup.restore_trash_keep = keep;
 				changes.push("backup_restore_trash_keep");
+			}
+		}
+
+		if let Some(enabled) = self.input.agent_mcp_enabled {
+			if config.agent_mcp.enabled != enabled {
+				config.agent_mcp.enabled = enabled;
+				changes.push("agent_mcp_enabled");
+				requires_restart = true;
+			}
+		}
+
+		if let Some(ref listen) = self.input.agent_mcp_listen {
+			if config.agent_mcp.listen != *listen {
+				config.agent_mcp.listen = listen.clone();
+				changes.push("agent_mcp_listen");
+				requires_restart = true;
 			}
 		}
 

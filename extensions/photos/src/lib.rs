@@ -43,6 +43,7 @@ use spacedrive_sdk::{extension, prelude::*};
         Permission::WriteTags,
         Permission::WriteCustomFields(namespace = "photos"),
         Permission::UseModel(category = "face_detection", preference = ModelPreference::LocalOnly),
+        Permission::UseModel(category = "face_embedding", preference = ModelPreference::LocalOnly),
         Permission::UseModel(category = "scene_classification", preference = ModelPreference::LocalOnly),
         Permission::DispatchJobs,
     ]

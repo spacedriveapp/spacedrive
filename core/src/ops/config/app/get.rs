@@ -48,6 +48,9 @@ pub struct AppConfigOutput {
 	/// Library backup and restore
 	pub backup: BackupConfigOutput,
 
+	/// The agent MCP endpoint
+	pub agent_mcp: AgentMcpConfigOutput,
+
 	/// Daemon logging configuration
 	pub logging: LoggingConfigOutput,
 
@@ -85,6 +88,8 @@ pub struct ServiceConfigOutput {
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct MountsConfigOutput {
 	pub cache_max_bytes: u64,
+	/// Whether FUSE mounts are allowed on this device.
+	pub fuse_enabled: bool,
 }
 
 /// Replication configuration output
@@ -102,6 +107,15 @@ pub struct BackupConfigOutput {
 	/// Displaced copies kept per library under `restore-trash/` after a
 	/// successful `restore --replace`.
 	pub restore_trash_keep: u32,
+}
+
+/// Agent MCP endpoint configuration output
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct AgentMcpConfigOutput {
+	/// Whether the daemon serves the endpoint.
+	pub enabled: bool,
+	/// The address it listens on when enabled.
+	pub listen: String,
 }
 
 /// Logging configuration output
@@ -140,6 +154,7 @@ impl From<&AppConfig> for AppConfigOutput {
 			},
 			mounts: MountsConfigOutput {
 				cache_max_bytes: config.mounts.cache_max_bytes,
+				fuse_enabled: config.mounts.fuse_enabled,
 			},
 			replication: ReplicationConfigOutput {
 				max_bytes_per_sec: config.replication.max_bytes_per_sec,
@@ -147,6 +162,10 @@ impl From<&AppConfig> for AppConfigOutput {
 			},
 			backup: BackupConfigOutput {
 				restore_trash_keep: config.backup.restore_trash_keep,
+			},
+			agent_mcp: AgentMcpConfigOutput {
+				enabled: config.agent_mcp.enabled,
+				listen: config.agent_mcp.listen.clone(),
 			},
 			services: ServiceConfigOutput {
 				networking_enabled: config.services.networking_enabled,

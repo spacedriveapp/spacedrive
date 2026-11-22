@@ -10,6 +10,9 @@
 
 pub mod adapters;
 pub mod addressing;
+pub mod agent_write;
+#[cfg(feature = "ai-providers")]
+pub mod ai;
 pub mod config;
 // pub mod content;
 pub mod core;
@@ -17,15 +20,20 @@ pub mod devices;
 pub mod extension_test;
 pub mod extensions;
 pub mod files;
+pub mod grants;
 pub mod indexing;
 pub mod jobs;
 pub mod libraries;
+#[cfg(feature = "video-shots")]
+pub mod media;
 pub mod models;
 pub mod mounts;
 pub mod navigation;
 pub mod network;
 pub mod paths;
 pub mod processes;
+#[cfg(feature = "video-proxies")]
+pub mod proxies;
 pub mod redundancy;
 pub mod search;
 pub mod sources;
@@ -34,4 +42,5 @@ pub mod sync;
 pub mod tags;
 pub mod thumbs;
 pub mod tools;
+pub mod transcription;
 pub mod volumes;

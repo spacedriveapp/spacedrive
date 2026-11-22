@@ -13,6 +13,12 @@ use sd_core::{
 use std::{env, path::PathBuf, time::Duration};
 use tokio::time::timeout;
 
+#[path = "helpers/wait.rs"]
+mod wait;
+use wait::{
+	wait_for_connected_device, wait_for_dir_entries, wait_for_file, wait_for_file_matching,
+};
+
 /// Alice's cross-device copy scenario - sender role
 #[tokio::test]
 #[ignore] // Only run when explicitly called via subprocess
@@ -53,8 +59,6 @@ async fn alice_cross_device_copy_scenario() {
 		.unwrap()
 		.unwrap();
 
-	// Wait longer for networking to fully initialize
-	tokio::time::sleep(Duration::from_secs(3)).await;
 	println!("Alice: Networking initialized successfully");
 
 	// Create a library for job dispatch
@@ -104,41 +108,19 @@ async fn alice_cross_device_copy_scenario() {
 
 	// Wait for pairing completion
 	println!("Alice: Waiting for Bob to connect...");
-	let mut attempts = 0;
-	let max_attempts = 45; // 45 seconds
+	let bob_id = wait_for_connected_device(&core, Duration::from_secs(45))
+		.await
+		.expect("Alice: Pairing timeout - Bob not connected");
+	println!("Alice: Bob connected! Device ID: {}", bob_id);
 
-	let bob_id = loop {
-		tokio::time::sleep(Duration::from_secs(1)).await;
-
-		let connected_devices = core
-			.services
-			.device
-			.get_connected_devices_info()
-			.await
-			.unwrap();
-		if !connected_devices.is_empty() {
-			let device_id = connected_devices[0].device_id;
-			println!("Alice: Bob connected! Device ID: {}", device_id);
-			println!(
-				"Alice: Connected device: {} ({})",
-				connected_devices[0].device_name, connected_devices[0].device_id
-			);
-
-			// Wait for session keys to be established
-			println!("Alice: Allowing extra time for session key establishment...");
-			tokio::time::sleep(Duration::from_secs(2)).await;
-			break device_id;
-		}
-
-		attempts += 1;
-		if attempts >= max_attempts {
-			panic!("Alice: Pairing timeout - Bob not connected");
-		}
-
-		if attempts % 5 == 0 {
-			println!("Alice: Pairing status check {} - waiting", attempts / 5);
-		}
-	};
+	// Bob's marker says his registry holds Alice too, so the copy cannot race
+	// his side of the pairing.
+	wait_for_file(
+		"/tmp/spacedrive-cross-device-copy-test/bob_paired.txt",
+		Duration::from_secs(60),
+	)
+	.await
+	.expect("Alice: Bob never confirmed pairing");
 
 	// Create test files to copy
 	println!("Alice: Creating test files for cross-device copy...");
@@ -240,32 +222,17 @@ async fn alice_cross_device_copy_scenario() {
 				panic!("Failed to dispatch copy action: {}", e);
 			}
 		}
-
-		// Small delay between operations
-		tokio::time::sleep(Duration::from_millis(500)).await;
 	}
 
 	// Wait for Bob to confirm receipt
 	println!("Alice: Waiting for Bob to confirm file receipt...");
-	let mut bob_confirmed = false;
-	for attempt in 1..=60 {
-		if std::fs::read_to_string("/tmp/spacedrive-cross-device-copy-test/bob_verified.txt")
-			.map(|content| content.starts_with("verified:"))
-			.unwrap_or(false)
-		{
-			println!("Alice: Bob confirmed file receipt and verification!");
-			bob_confirmed = true;
-			break;
-		}
-
-		if attempt % 10 == 0 {
-			println!(
-				"Alice: Still waiting for Bob's confirmation... ({}s)",
-				attempt
-			);
-		}
-		tokio::time::sleep(Duration::from_secs(1)).await;
-	}
+	let bob_confirmed = wait_for_file_matching(
+		"/tmp/spacedrive-cross-device-copy-test/bob_verified.txt",
+		Duration::from_secs(60),
+		|content| content.starts_with("verified:"),
+	)
+	.await
+	.is_ok();
 
 	if bob_confirmed {
 		println!("CROSS_DEVICE_COPY_SUCCESS: Alice successfully dispatched copy actions");
@@ -321,8 +288,6 @@ async fn bob_cross_device_copy_scenario() {
 		.unwrap()
 		.unwrap();
 
-	// Wait longer for networking to fully initialize
-	tokio::time::sleep(Duration::from_secs(3)).await;
 	println!("Bob: Networking initialized successfully");
 
 	// Set up allowed paths for file transfers BEFORE pairing
@@ -357,14 +322,12 @@ async fn bob_cross_device_copy_scenario() {
 
 	// Wait for Alice to create pairing code
 	println!("Bob: Looking for pairing code from Alice...");
-	let pairing_code = loop {
-		if let Ok(code) =
-			std::fs::read_to_string("/tmp/spacedrive-cross-device-copy-test/pairing_code.txt")
-		{
-			break code.trim().to_string();
-		}
-		tokio::time::sleep(Duration::from_millis(500)).await;
-	};
+	let pairing_code = wait_for_file(
+		"/tmp/spacedrive-cross-device-copy-test/pairing_code.txt",
+		Duration::from_secs(60),
+	)
+	.await
+	.expect("Bob: Alice never wrote a pairing code");
 	println!("Bob: Found pairing code");
 
 	// Join pairing session
@@ -384,60 +347,34 @@ async fn bob_cross_device_copy_scenario() {
 
 	// Wait for pairing completion
 	println!("Bob: Waiting for pairing to complete...");
-	let mut attempts = 0;
-	let max_attempts = 30;
-
-	loop {
-		tokio::time::sleep(Duration::from_secs(1)).await;
-
-		let connected_devices = core
-			.services
-			.device
-			.get_connected_devices_info()
-			.await
-			.unwrap();
-		if !connected_devices.is_empty() {
-			println!("Bob: Pairing completed successfully!");
-			println!(
-				"Bob: Connected to {} ({})",
-				connected_devices[0].device_name, connected_devices[0].device_id
-			);
-
-			// Wait for session keys
-			println!("Bob: Allowing extra time for session key establishment...");
-			tokio::time::sleep(Duration::from_secs(2)).await;
-			break;
-		}
-
-		attempts += 1;
-		if attempts >= max_attempts {
-			panic!("Bob: Pairing timeout - no devices connected");
-		}
-
-		if attempts % 5 == 0 {
-			println!("Bob: Pairing status check {} - waiting", attempts / 5);
-		}
-	}
+	let alice_id = wait_for_connected_device(&core, Duration::from_secs(30))
+		.await
+		.expect("Bob: Pairing timeout - no devices connected");
+	println!("Bob: Pairing completed successfully!");
+	println!("Bob: Connected to {}", alice_id);
+	std::fs::write(
+		"/tmp/spacedrive-cross-device-copy-test/bob_paired.txt",
+		"paired",
+	)
+	.unwrap();
 
 	// Directory already created and added to allowed paths above
 	let received_dir = std::path::Path::new("/tmp/received_files");
 
 	// Load expected files
 	println!("Bob: Loading expected file list...");
-	let expected_files = loop {
-		if let Ok(content) =
-			std::fs::read_to_string("/tmp/spacedrive-cross-device-copy-test/expected_files.txt")
-		{
-			break content
-				.lines()
-				.map(|line| {
-					let parts: Vec<&str> = line.split(':').collect();
-					(parts[0].to_string(), parts[1].parse::<usize>().unwrap_or(0))
-				})
-				.collect::<Vec<(String, usize)>>();
-		}
-		tokio::time::sleep(Duration::from_millis(500)).await;
-	};
+	let expected_files = wait_for_file(
+		"/tmp/spacedrive-cross-device-copy-test/expected_files.txt",
+		Duration::from_secs(60),
+	)
+	.await
+	.expect("Bob: Alice never wrote the expected file list")
+	.lines()
+	.map(|line| {
+		let parts: Vec<&str> = line.split(':').collect();
+		(parts[0].to_string(), parts[1].parse::<usize>().unwrap_or(0))
+	})
+	.collect::<Vec<(String, usize)>>();
 
 	println!(
 		"Bob: Expecting {} files via cross-device copy",
@@ -449,51 +386,15 @@ async fn bob_cross_device_copy_scenario() {
 
 	// Monitor for received files
 	println!("Bob: Waiting for files to arrive via action system...");
-	let mut received_files = Vec::new();
-	let start_time = std::time::Instant::now();
-	let timeout_duration = Duration::from_secs(60);
-
-	while received_files.len() < expected_files.len() && start_time.elapsed() < timeout_duration {
-		tokio::time::sleep(Duration::from_secs(1)).await;
-
-		// Check for new files in received directory
-		if let Ok(entries) = std::fs::read_dir(received_dir) {
-			for entry in entries {
-				if let Ok(entry) = entry {
-					let filename = entry.file_name().to_string_lossy().to_string();
-					if !received_files.contains(&filename) {
-						if let Ok(metadata) = entry.metadata() {
-							received_files.push(filename.clone());
-							println!(
-								"Bob: Received file: {} ({} bytes)",
-								filename,
-								metadata.len()
-							);
-
-							// Verify file size
-							if let Some((_, expected_size)) =
-								expected_files.iter().find(|(name, _)| name == &filename)
-							{
-								if metadata.len() == *expected_size as u64 {
-									println!("  Size verified: {} bytes", metadata.len());
-								} else {
-									println!(
-										"  Size mismatch: expected {}, got {}",
-										expected_size,
-										metadata.len()
-									);
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-		let elapsed = start_time.elapsed().as_secs();
-		if elapsed > 0 && elapsed % 10 == 0 && received_files.is_empty() {
-			println!("Bob: Still waiting for files... ({}s elapsed)", elapsed);
-		}
+	let received_files =
+		wait_for_dir_entries(received_dir, expected_files.len(), Duration::from_secs(60))
+			.await
+			.unwrap_or_default();
+	for filename in &received_files {
+		let size = std::fs::metadata(received_dir.join(filename))
+			.map(|metadata| metadata.len())
+			.unwrap_or(0);
+		println!("Bob: Received file: {} ({} bytes)", filename, size);
 	}
 
 	// Verify all expected files were received
@@ -515,6 +416,15 @@ async fn bob_cross_device_copy_scenario() {
 		.unwrap();
 
 		println!("CROSS_DEVICE_COPY_SUCCESS: Bob verified all received files");
+
+		// Alice's copy jobs still await their final acks; stay up until she
+		// reports success, or the acks die with the process.
+		wait_for_file(
+			"/tmp/spacedrive-cross-device-copy-test/alice_success.txt",
+			Duration::from_secs(60),
+		)
+		.await
+		.expect("Bob: Alice never reported the copies complete");
 	} else {
 		println!(
 			"Bob: Only received {}/{} expected files",
@@ -549,9 +459,7 @@ async fn test_cross_device_copy() {
 		.await
 		.expect("Failed to spawn Alice");
 
-	// Wait for Alice to initialize
-	tokio::time::sleep(Duration::from_secs(8)).await;
-
+	// Bob waits for the pairing code file himself, so he can start at once.
 	// Start Bob as receiver
 	println!("Starting Bob as copy receiver...");
 	runner

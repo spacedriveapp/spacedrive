@@ -1,184 +1,104 @@
-import { useCallback, useEffect, useState } from 'react';
+import {toast} from '@spacedrive/primitives';
+import {useEffect} from 'react';
+import {usePlatform, type AvailableUpdate} from '../contexts/PlatformContext';
 
-export interface UpdateStatus {
-	checking: boolean;
-	available: boolean;
-	version?: string;
-	downloading: boolean;
-	installing: boolean;
-	readyToInstall: boolean;
-	error?: string;
-	downloadProgress?: number;
-	downloadedBytes?: number;
-	totalBytes?: number;
+/** How often a running app checks the release feed after the startup check. */
+export const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Checks for updates now and then on every interval, calling onUpdate once
+ * per new version so a dismissed prompt does not return every interval.
+ *
+ * A failed check (offline, feed missing, no build for this platform) only
+ * logs at debug level: the next interval tries again, and nothing the user
+ * can act on went wrong. Returns a function that stops the checks.
+ */
+export function watchForUpdates(options: {
+	check: () => Promise<AvailableUpdate | null>;
+	onUpdate: (update: AvailableUpdate) => void;
+	intervalMs?: number;
+}): () => void {
+	const {check, onUpdate, intervalMs = UPDATE_CHECK_INTERVAL_MS} = options;
+	let stopped = false;
+	let promptedVersion: string | undefined;
+
+	const run = async () => {
+		try {
+			const update = await check();
+			if (stopped || !update || update.version === promptedVersion)
+				return;
+			promptedVersion = update.version;
+			onUpdate(update);
+		} catch (error) {
+			console.debug('Update check failed', error);
+		}
+	};
+
+	void run();
+	const timer = setInterval(run, intervalMs);
+	return () => {
+		stopped = true;
+		clearInterval(timer);
+	};
 }
 
-interface Update {
-	version: string;
-	date?: string;
-	body?: string;
-	download: (
-		onEvent: (event: DownloadEvent) => void
-	) => Promise<void>;
-	install: () => Promise<void>;
-}
-
-type DownloadEvent =
-	| { event: 'Started'; data: { contentLength?: number } }
-	| { event: 'Progress'; data: { chunkLength: number } }
-	| { event: 'Finished' };
-
-const isWindows = () => {
-	return navigator.userAgent.includes('Windows');
-};
-
-const isTauri = () => {
-	return '__TAURI_INTERNALS__' in window;
-};
-
-export function useAutoUpdater(checkOnMount = false) {
-	const [status, setStatus] = useState<UpdateStatus>({
-		checking: false,
-		available: false,
-		downloading: false,
-		installing: false,
-		readyToInstall: false
+async function install(update: AvailableUpdate) {
+	const id = toast.info(`Downloading Spacedrive ${update.version}...`, {
+		duration: Infinity
 	});
-
-	const [update, setUpdate] = useState<Update | null>(null);
-
-	const checkForUpdates = useCallback(async () => {
-		if (!isTauri()) {
-			return;
-		}
-
-		try {
-			setStatus((prev) => ({ ...prev, checking: true, error: undefined }));
-
-			// @ts-expect-error Tauri plugin only available on desktop
-			const { check } = await import('@tauri-apps/plugin-updater');
-			const foundUpdate = await check();
-
-			if (foundUpdate?.available) {
-				setUpdate(foundUpdate as Update);
-				setStatus({
-					checking: false,
-					available: true,
-					version: foundUpdate.version,
-					downloading: false,
-					installing: false,
-					readyToInstall: false
-				});
-			} else {
-				setStatus({
-					checking: false,
-					available: false,
-					downloading: false,
-					installing: false,
-					readyToInstall: false
-				});
-			}
-		} catch (error) {
-			setStatus({
-				checking: false,
-				available: false,
-				downloading: false,
-				installing: false,
-				readyToInstall: false,
-				error: error instanceof Error ? error.message : 'Failed to check for updates'
-			});
-		}
-	}, []);
-
-	const downloadAndInstall = async () => {
-		if (!update || !isTauri()) return;
-
-		try {
-			setStatus((prev) => ({ ...prev, downloading: true, error: undefined }));
-
-			let downloadedBytes = 0;
-			let totalBytes = 0;
-
-			await update.download((event) => {
-				switch (event.event) {
-					case 'Started':
-						totalBytes = event.data.contentLength || 0;
-						downloadedBytes = 0;
-						setStatus((prev) => ({
-							...prev,
-							downloading: true,
-							totalBytes,
-							downloadedBytes: 0,
-							downloadProgress: 0
-						}));
-						break;
-					case 'Progress': {
-						downloadedBytes += event.data.chunkLength;
-						const progress =
-							totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : undefined;
-						setStatus((prev) => ({
-							...prev,
-							downloadedBytes,
-							downloadProgress: progress
-						}));
-						break;
-					}
-					case 'Finished':
-						setStatus((prev) => ({
-							...prev,
-							downloading: false,
-							readyToInstall: true,
-							downloadProgress: 100
-						}));
-						break;
+	try {
+		await update.installAndRestart((percent) => {
+			if (percent === undefined) return;
+			toast.info(
+				`Downloading Spacedrive ${update.version}... ${percent}%`,
+				{
+					id,
+					duration: Infinity
 				}
-			});
-		} catch (error) {
-			setStatus((prev) => ({
-				...prev,
-				downloading: false,
-				installing: false,
-				readyToInstall: false,
-				downloadProgress: undefined,
-				downloadedBytes: undefined,
-				totalBytes: undefined,
-				error: error instanceof Error ? error.message : 'Failed to download update'
-			}));
-		}
-	};
+			);
+		});
+	} catch (error) {
+		toast.error(
+			{
+				title: 'Update failed',
+				body: error instanceof Error ? error.message : String(error)
+			},
+			{id}
+		);
+	}
+}
 
-	const restartAndInstall = async () => {
-		if (!update || !isTauri()) return;
-
-		try {
-			setStatus((prev) => ({ ...prev, installing: true, error: undefined }));
-
-			await update.install();
-
-			if (!isWindows()) {
-				// @ts-expect-error Tauri plugin only available on desktop
-				const { relaunch } = await import('@tauri-apps/plugin-process');
-				await relaunch();
-			}
-		} catch (error) {
-			setStatus((prev) => ({
-				...prev,
-				installing: false,
-				error: error instanceof Error ? error.message : 'Failed to install update'
-			}));
-		}
-	};
+/**
+ * Offers new desktop releases with a toast that stays until the user acts.
+ *
+ * Nothing downloads until the user picks "Install and restart". The platform
+ * only provides checkForUpdate in release desktop builds, so dev builds and
+ * the web app never check.
+ */
+export function useAutoUpdater() {
+	const platform = usePlatform();
+	const checkForUpdate = platform.checkForUpdate;
 
 	useEffect(() => {
-		if (checkOnMount && isTauri()) {
-			checkForUpdates();
-		}
-	}, [checkOnMount, checkForUpdates]);
-
-	return {
-		status,
-		checkForUpdates,
-		downloadAndInstall,
-		restartAndInstall
-	};
+		if (!checkForUpdate) return;
+		return watchForUpdates({
+			check: checkForUpdate,
+			onUpdate: (update) => {
+				toast.info(
+					{
+						title: `Spacedrive ${update.version} is available`,
+						body: `You have ${update.currentVersion}. Spacedrive restarts after the update installs.`
+					},
+					{
+						duration: Infinity,
+						action: {
+							label: 'Install and restart',
+							onClick: () => void install(update)
+						},
+						cancel: 'Later'
+					}
+				);
+			}
+		});
+	}, [checkForUpdate]);
 }

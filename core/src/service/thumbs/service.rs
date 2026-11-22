@@ -12,6 +12,7 @@ use tracing::{debug, warn};
 use uuid::Uuid;
 
 use crate::domain::resource::Identifiable;
+use crate::domain::ContentKind;
 use crate::infra::event::{Event, EventBus, ResourceMetadata};
 use crate::infra::source_dirs::SourceDirs;
 use crate::infra::source_version::source_version;
@@ -58,6 +59,11 @@ const REMOTE_CLAIMS_RETAINED: usize = 65_536;
 
 /// Bump when the tile recipe changes, independently of the source file.
 const THUMBNAIL_RECIPE: u64 = 2;
+
+/// The recipe for camera raw files. They gained a decoder for their embedded
+/// preview, so tiles baked before it (an icon, or nothing) are stale, while
+/// every other file's tile stays valid.
+const RAW_THUMBNAIL_RECIPE: u64 = 3;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
@@ -429,6 +435,15 @@ impl ThumbService {
 		path: &PathBuf,
 		mode: ThumbnailGenerationMode,
 	) -> GenerationOutcome {
+		let kind = self
+			.volume_index
+			.resolve_index(path)
+			.read()
+			.await
+			.get_content_kind(path);
+		if !thumbnailable(path, kind) {
+			return GenerationOutcome::Skipped;
+		}
 		let Some(identity) = self.thumbnail_identity(path).await else {
 			return GenerationOutcome::Failed;
 		};
@@ -813,6 +828,11 @@ impl ThumbService {
 		priority: u32,
 		mode: ThumbnailGenerationMode,
 	) -> Option<BakeSubmission> {
+		// Every producer opens the file, which would download a cloud
+		// placeholder. The tile stays empty until the bytes are here.
+		if crate::ops::indexing::metadata::refuse_dataless_blocking(&path).is_err() {
+			return Some(BakeSubmission::Skipped);
+		}
 		let dirs = self.dirs.as_ref()?;
 		// Publication and queue admission share this lock so an old completion
 		// cannot overwrite a newer request, or disappear before its write lands.
@@ -861,7 +881,12 @@ impl ThumbService {
 		} else {
 			false
 		};
-		identity.version = thumbnail_version(identity.version, THUMBNAIL_RECIPE, ffmpeg);
+		let recipe = if sd_images::is_raw(path) {
+			RAW_THUMBNAIL_RECIPE
+		} else {
+			THUMBNAIL_RECIPE
+		};
+		identity.version = thumbnail_version(identity.version, recipe, ffmpeg);
 		Some(identity)
 	}
 
@@ -1163,7 +1188,10 @@ fn run_thumbstrip_worker(
 	pending: Arc<Mutex<HashSet<(Uuid, Uuid, u64)>>>,
 ) {
 	while let Ok(work) = receiver.recv_blocking() {
-		let result = thumbstrip::generate(&tools, &work.path, &work.output);
+		// ffmpeg would open a cloud placeholder and download it.
+		let result = crate::ops::indexing::metadata::refuse_dataless_blocking(&work.path)
+			.map_err(|error| error.to_string())
+			.and_then(|()| thumbstrip::generate(&tools, &work.path, &work.output));
 		let ok = result.is_ok();
 		if let Err(error) = result {
 			warn!(path = %work.path.display(), "thumbstrip generation failed: {error}");
@@ -1216,6 +1244,23 @@ fn flush(batch: &mut Vec<Thumbnail>, events: &EventBus) {
 /// urgent, and every path in one request outranks a later request's tail.
 pub(super) fn priority_for(rank: usize, total: usize) -> u32 {
 	(total.saturating_sub(rank)) as u32
+}
+
+/// Whether a file can bake a tile on this platform.
+///
+/// A file every producer declines still takes a queue slot, a worker and a
+/// decode attempt before it fails, and a recursive pass over a source holds
+/// far more of those than images: 996,000 of a million files in a mixed tree.
+/// A file qualifies when its kind, which the arena takes from the name, is an
+/// image or a video, or when its extension is one `sd-images` decodes. The
+/// second covers what the registry files elsewhere, PDFs as documents and
+/// `.qoi` or `.svgz` as nothing. macOS renders a Quick Look preview or an
+/// icon for any file, so every file qualifies there.
+fn thumbnailable(path: &Path, kind: ContentKind) -> bool {
+	cfg!(target_os = "macos")
+		|| matches!(kind, ContentKind::Image | ContentKind::Video)
+		|| is_video(path)
+		|| sd_images::ConvertibleExtension::try_from(path).is_ok()
 }
 
 /// Raster decode, then (on macOS) the platform icon tile so a file no decoder
@@ -1368,6 +1413,78 @@ pub(super) mod tests {
 		tokio::time::timeout(Duration::from_secs(5), service.generate_one(path, mode))
 			.await
 			.unwrap()
+	}
+
+	/// A file no producer here can draw is skipped before it reaches the
+	/// pool, so a recursive pass over a mixed source does not spend a bake on
+	/// every text file and report each one as a failure.
+	#[cfg(not(target_os = "macos"))]
+	#[tokio::test]
+	async fn unthumbnailable_files_are_skipped_without_a_bake() {
+		let (temp, service, _, calls, _) = fixture().await;
+		let text = temp.path().join("notes.dat");
+		tokio::fs::write(&text, b"not a picture").await.unwrap();
+		service
+			.volume_index
+			.resolve_index(&text)
+			.write()
+			.await
+			.add_entry(
+				text.clone(),
+				Uuid::new_v4(),
+				EntryMetadata {
+					path: text.clone(),
+					kind: EntryKind::File,
+					size: 13,
+					modified: None,
+					accessed: None,
+					created: None,
+					inode: None,
+					permissions: None,
+					uid: None,
+					gid: None,
+					link_target: None,
+					is_hidden: false,
+				},
+			)
+			.unwrap();
+
+		assert_eq!(
+			generate(&service, &text, ThumbnailGenerationMode::Force).await,
+			GenerationOutcome::Skipped
+		);
+		assert_eq!(calls.load(Ordering::SeqCst), 0);
+	}
+
+	#[test]
+	fn images_videos_and_decodable_formats_are_thumbnailable() {
+		let path = |name: &str| PathBuf::from(name);
+		assert!(thumbnailable(&path("a.jpg"), ContentKind::Image));
+		assert!(thumbnailable(&path("a.mkv"), ContentKind::Video));
+		assert!(thumbnailable(&path("a.pdf"), ContentKind::Document));
+		assert!(thumbnailable(&path("a.QOI"), ContentKind::Unknown));
+		assert!(thumbnailable(&path("a.svgz"), ContentKind::Unknown));
+		assert_eq!(
+			thumbnailable(&path("a.txt"), ContentKind::Text),
+			cfg!(target_os = "macos")
+		);
+		assert_eq!(
+			thumbnailable(&path("a.dat"), ContentKind::Unknown),
+			cfg!(target_os = "macos")
+		);
+	}
+
+	/// A cloud placeholder never reaches a producer, which would open it and
+	/// make the provider download it.
+	#[tokio::test]
+	async fn a_dataless_file_is_never_handed_to_a_producer() {
+		let (_temp, service, path, calls, _) = fixture().await;
+		crate::ops::indexing::metadata::dataless_for_tests::mark(&path);
+		assert_eq!(
+			generate(&service, &path, ThumbnailGenerationMode::Force).await,
+			GenerationOutcome::Skipped
+		);
+		assert_eq!(calls.load(Ordering::SeqCst), 0);
 	}
 
 	#[tokio::test]

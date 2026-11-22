@@ -13,28 +13,28 @@ import { motion, AnimatePresence } from "framer-motion";
 import clsx from "clsx";
 import { CircleButton } from "@spacedrive/primitives";
 import type { DirectorySortBy, MediaSortBy } from "@sd/ts-client";
+import { sortOptionsFor, type ExplorerSortBy, type ExplorerViewMode } from "./sortOptions";
 
 interface SortMenuPanelProps {
   sortBy: DirectorySortBy | MediaSortBy;
   onSortChange: (sort: DirectorySortBy | MediaSortBy) => void;
-  viewMode: "grid" | "list" | "media" | "column";
+  viewMode: ExplorerViewMode;
 }
 
+const SORT_ICONS: Record<ExplorerSortBy, typeof TextAa> = {
+  name: TextAa,
+  modified: CalendarBlank,
+  created: CalendarBlank,
+  datetaken: Camera,
+  size: Ruler,
+  type: FileText,
+};
+
 export function SortMenuPanel({ sortBy, onSortChange, viewMode }: SortMenuPanelProps) {
-  const sortOptions = viewMode === "media"
-    ? [
-        { value: "datetaken", label: "Date Taken", icon: Camera },
-        { value: "modified", label: "Date Modified", icon: CalendarBlank },
-        { value: "created", label: "Date Created", icon: CalendarBlank },
-        { value: "name", label: "Name", icon: TextAa },
-        { value: "size", label: "Size", icon: Ruler },
-      ]
-    : [
-        { value: "name", label: "Name", icon: TextAa },
-        { value: "modified", label: "Date Modified", icon: CalendarBlank },
-        { value: "size", label: "Size", icon: Ruler },
-        { value: "type", label: "Type", icon: FileText },
-      ];
+  const sortOptions = sortOptionsFor(viewMode).map((option) => ({
+    ...option,
+    icon: SORT_ICONS[option.value],
+  }));
 
   return (
     <div className="w-56 bg-app-box border border-app-line rounded-lg shadow-lg overflow-hidden">
@@ -51,7 +51,7 @@ export function SortMenuPanel({ sortBy, onSortChange, viewMode }: SortMenuPanelP
             <button
               key={option.value}
               onClick={() => {
-                onSortChange(option.value as DirectorySortBy | MediaSortBy);
+                onSortChange(option.value);
               }}
               className={clsx(
                 "flex items-center gap-2.5 w-full px-3 py-2 hover:bg-app-hover transition-colors text-sm",
@@ -72,7 +72,7 @@ export function SortMenuPanel({ sortBy, onSortChange, viewMode }: SortMenuPanelP
 interface SortMenuProps {
   sortBy: DirectorySortBy | MediaSortBy;
   onSortChange: (sort: DirectorySortBy | MediaSortBy) => void;
-  viewMode: "grid" | "list" | "media" | "column";
+  viewMode: ExplorerViewMode;
   className?: string;
 }
 

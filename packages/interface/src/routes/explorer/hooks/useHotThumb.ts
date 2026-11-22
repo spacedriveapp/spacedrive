@@ -118,6 +118,9 @@ function listen(client: SpacedriveClient) {
 						}
 					}
 				}
+				// A failed bake leaves nothing new to fetch, and a fresh URL for
+				// it would only retry the same 404.
+				if ('ok' in row && row.ok === false) continue;
 				const epoch = (bakeEpochs.get(row.id) ?? 0) + 1;
 				bakeEpochs.set(row.id, epoch);
 				baking.get(row.id)?.forEach((notify) => notify(epoch));

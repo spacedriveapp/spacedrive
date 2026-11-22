@@ -112,6 +112,13 @@ impl LibraryAction for DeleteSourceAction {
 			}
 		}
 
+		// A removed source keeps its uuid in a kept catalog, and re-adding the
+		// scope adopts it, so its grants are ended for good rather than left to
+		// wake up with the source.
+		crate::ops::grants::store::revoke_for_source(library.db().conn(), source_id)
+			.await
+			.map_err(|e| ActionError::Internal(format!("Failed to revoke grants: {e}")))?;
+
 		registry::unregister(library.db().conn(), source_id)
 			.await
 			.map_err(|e| ActionError::Internal(format!("Failed to unregister source: {e}")))?;

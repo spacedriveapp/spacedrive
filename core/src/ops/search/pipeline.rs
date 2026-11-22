@@ -29,12 +29,28 @@ pub fn order(results: &mut [FileSearchResult], sort: &SortOptions) {
 			SortField::Size => a.file.size.cmp(&b.file.size),
 			SortField::ModifiedAt => a.file.modified_at.cmp(&b.file.modified_at),
 			SortField::CreatedAt => a.file.created_at.cmp(&b.file.created_at),
+			SortField::CapturedAt => match (a.file.captured_at(), b.file.captured_at()) {
+				(Some(a), Some(b)) => a.cmp(&b),
+				_ => Ordering::Equal,
+			},
 		};
 		let primary = match sort.direction {
 			SortDirection::Asc => primary,
 			SortDirection::Desc => primary.reverse(),
 		};
-		primary
+		// A file with no capture time has no place in a capture order, so it
+		// trails the dated ones in both directions rather than leading the
+		// ascending one.
+		let undated_last = match sort.field {
+			SortField::CapturedAt => a
+				.file
+				.captured_at()
+				.is_none()
+				.cmp(&b.file.captured_at().is_none()),
+			_ => Ordering::Equal,
+		};
+		undated_last
+			.then(primary)
 			.then_with(|| a.file.name.to_lowercase().cmp(&b.file.name.to_lowercase()))
 			.then_with(|| a.file.id.cmp(&b.file.id))
 	});
@@ -153,6 +169,51 @@ mod tests {
 			&sort(SortField::Relevance, SortDirection::Desc),
 		);
 		assert_eq!(names(&results), ["Alpha", "gamma", "beta"]);
+	}
+
+	/// A capture order places dated files by their EXIF time and sends
+	/// undated ones to the end whichever way it runs, so flipping the
+	/// direction reverses the photos without moving the rest to the front.
+	#[test]
+	fn a_capture_order_keeps_undated_files_last_in_both_directions() {
+		let taken = |name: &str, date: Option<&str>| {
+			let mut result = candidate(name, 1, 1, 0.5);
+			if let Some(date) = date {
+				result.file.image_media_data = crate::domain::ImageMediaData::from_facet(
+					result.file.id,
+					&sd_store::ImageFacet {
+						date_taken: Some(date.to_string()),
+						..Default::default()
+					},
+				);
+			}
+			result
+		};
+		let mut results = vec![
+			taken("undated.jpg", None),
+			taken("newest.jpg", Some("2025-01-01T08:30:00+00:00")),
+			taken("oldest.jpg", Some("2023-06-01T12:00:00+00:00")),
+			taken("middle.jpg", Some("2024-03-12T10:00:00+00:00")),
+			taken("also-undated.jpg", None),
+		];
+
+		order(
+			&mut results,
+			&sort(SortField::CapturedAt, SortDirection::Desc),
+		);
+		assert_eq!(
+			names(&results),
+			["newest", "middle", "oldest", "also-undated", "undated"]
+		);
+
+		order(
+			&mut results,
+			&sort(SortField::CapturedAt, SortDirection::Asc),
+		);
+		assert_eq!(
+			names(&results),
+			["oldest", "middle", "newest", "also-undated", "undated"]
+		);
 	}
 
 	/// Equal primary keys settle on name and then id, so two runs over the
