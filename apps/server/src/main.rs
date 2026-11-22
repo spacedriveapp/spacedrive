@@ -632,6 +632,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			tracing_subscriber::EnvFilter::try_from_default_env()
 				.unwrap_or_else(|_| "info,sd_core=debug,sd_server=debug".into()),
 		)
+		.with_writer(|| sd_core::common::redact::RedactingWriter::new(std::io::stdout()))
 		.init();
 
 	let args = Args::parse();

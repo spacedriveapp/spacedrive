@@ -2036,7 +2036,10 @@ fn main() {
 				// The plugin logs ERROR for a missing feed; updater.rs logs each check at the right level.
 				.add_directive("tauri_plugin_updater::updater=off".parse().unwrap()),
 		)
-		.with(tracing_subscriber::fmt::layer())
+		.with(
+			tracing_subscriber::fmt::layer()
+				.with_writer(|| sd_utils::redact::RedactingWriter::new(std::io::stdout())),
+		)
 		.init();
 
 	tauri::Builder::default()

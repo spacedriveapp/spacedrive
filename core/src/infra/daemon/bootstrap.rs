@@ -125,6 +125,7 @@ fn raise_fd_limit() {
 fn initialize_tracing_with_file_logging(
 	data_dir: &PathBuf,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+	use crate::common::redact::RedactingWriter;
 	use crate::config::AppConfig;
 	use crate::infra::event::log_emitter::LogEventLayer;
 	use std::sync::Once;
@@ -171,7 +172,7 @@ fn initialize_tracing_with_file_logging(
 			fmt::layer()
 				.with_target(true)
 				.with_thread_ids(true)
-				.with_writer(std::io::stdout)
+				.with_writer(|| RedactingWriter::new(std::io::stdout()))
 				.with_filter(
 					EnvFilter::try_from_default_env()
 						.unwrap_or_else(|_| EnvFilter::new(&main_filter)),
@@ -185,7 +186,7 @@ fn initialize_tracing_with_file_logging(
 				.with_target(true)
 				.with_thread_ids(true)
 				.with_ansi(false)
-				.with_writer(main_file_appender)
+				.with_writer(RedactingMakeWriter(main_file_appender))
 				.with_filter(EnvFilter::new(&main_filter))
 				.boxed(),
 		);
@@ -207,7 +208,7 @@ fn initialize_tracing_with_file_logging(
 							.with_target(true)
 							.with_thread_ids(true)
 							.with_ansi(false)
-							.with_writer(stream_appender)
+							.with_writer(RedactingMakeWriter(stream_appender))
 							.with_filter(filter)
 							.boxed(),
 					);
@@ -242,4 +243,77 @@ fn initialize_tracing_with_file_logging(
 	});
 
 	result
+}
+
+/// Wraps a log file appender so every line it writes has URL credentials
+/// redacted, whichever crate emitted the event.
+struct RedactingMakeWriter<M>(M);
+
+impl<'a, M> tracing_subscriber::fmt::MakeWriter<'a> for RedactingMakeWriter<M>
+where
+	M: tracing_subscriber::fmt::MakeWriter<'a>,
+{
+	type Writer = crate::common::redact::RedactingWriter<M::Writer>;
+
+	fn make_writer(&'a self) -> Self::Writer {
+		crate::common::redact::RedactingWriter::new(self.0.make_writer())
+	}
+
+	fn make_writer_for(&'a self, meta: &tracing::Metadata<'_>) -> Self::Writer {
+		crate::common::redact::RedactingWriter::new(self.0.make_writer_for(meta))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::RedactingMakeWriter;
+	use std::io::Write;
+	use std::sync::{Arc, Mutex};
+
+	#[derive(Clone, Default)]
+	struct Captured(Arc<Mutex<Vec<u8>>>);
+
+	impl Write for Captured {
+		fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+			self.0.lock().unwrap().extend_from_slice(buf);
+			Ok(buf.len())
+		}
+
+		fn flush(&mut self) -> std::io::Result<()> {
+			Ok(())
+		}
+	}
+
+	#[test]
+	fn log_file_lines_have_url_credentials_redacted() {
+		let captured = Captured::default();
+		let sink = captured.clone();
+		let subscriber = tracing_subscriber::fmt()
+			.with_ansi(false)
+			.with_writer(RedactingMakeWriter(move || sink.clone()))
+			.finish();
+
+		tracing::subscriber::with_default(subscriber, || {
+			tracing::info!(
+				"Mounts SMB share at {}",
+				"smb://spacedrive:0123abcd@127.0.0.1:50123/spacedrive"
+			);
+			tracing::warn!(
+				url = "smb://alice:hunter2@nas.example/media",
+				"mount failed"
+			);
+			tracing::info!("share at smb://spacedrive:pa'ssword@127.0.0.1:1/spacedrive");
+		});
+
+		let output = String::from_utf8(captured.0.lock().unwrap().clone()).unwrap();
+		assert!(
+			output.contains("smb://***@127.0.0.1:50123/spacedrive"),
+			"{output}"
+		);
+		assert!(output.contains("smb://***@nas.example/media"), "{output}");
+		assert!(!output.contains("0123abcd"), "{output}");
+		assert!(!output.contains("hunter2"), "{output}");
+		assert!(!output.contains("alice"), "{output}");
+		assert!(!output.contains("ssword"), "{output}");
+	}
 }

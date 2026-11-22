@@ -28,6 +28,7 @@ sd-tauri-core = { path = "../sd-tauri-core" }
 sd-sidecar-path = { path = "../../../crates/sidecar-path" }
 sd-extension-ui = { path = "../../../crates/extension-ui" }
 sd-pvcache = { path = "../../../crates/pvcache" }
+sd-utils = { path = "../../../crates/utils" }
 image = { workspace = true }
 
 # File opening

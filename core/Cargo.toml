@@ -150,6 +150,7 @@ job-derive     = { path = "../crates/job-derive" }  # Job derive macros
 rmp            = "0.8"                              # MessagePack core types
 rmp-serde      = "1.3"                              # MessagePack serialization for job state
 sd-task-system = { path = "../crates/task-system" }
+sd-utils       = { path = "../crates/utils" }
 
 # The per-source store, one SQLite file per source
 sd-store = { path = "../crates/store" }
