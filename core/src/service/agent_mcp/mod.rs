@@ -149,7 +149,7 @@ mod tests {
 		assert_eq!(listen_addr("[::1]:9000").unwrap().port(), 9000);
 		assert_eq!(
 			listen_addr("localhost:9001").unwrap(),
-			"127.0.0.1:9001".parse().unwrap()
+			"127.0.0.1:9001".parse::<SocketAddr>().unwrap()
 		);
 	}
 

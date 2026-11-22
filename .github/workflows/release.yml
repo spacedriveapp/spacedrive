@@ -15,7 +15,7 @@ on:
         type: boolean
         default: false
       features:
-        description: Extra sd-core features for the daemon in a dry run, comma separated (for example video-proxies,speech-to-text,wasm); ignored outside a dry run
+        description: Extra sd-core features for the desktop app's daemon in a dry run, comma separated (for example video-proxies,speech-to-text,wasm); ignored outside a dry run
         type: string
         default: ''
 
@@ -195,30 +195,6 @@ jobs:
           sudo apt-get remove libunwind-* || true
           ./scripts/setup.sh
 
-      # A dry run may turn on off-by-default sd-core features for a preview
-      # build. A tag or a non-dry run always builds the shipping feature set.
-      - name: Select preview features
-        shell: bash
-        env:
-          FEATURES: ${{ inputs.dry_run == true && inputs.features || '' }}
-        run: |
-          set -euo pipefail
-          set -f
-          list=""
-          for feature in ${FEATURES//,/ }; do
-            if ! [[ "$feature" =~ ^[a-z0-9-]+$ ]]; then
-              echo "::error::Invalid feature name: $feature"
-              exit 1
-            fi
-            list="$list,sd-core/$feature"
-          done
-          if [ -z "$list" ]; then
-            echo "No preview features"
-            exit 0
-          fi
-          echo "Preview features: ${list#,}"
-          echo "SD_PREVIEW_FEATURES=${list#,}" >> "$GITHUB_ENV"
-
       - name: Build sd-cli and sd-daemon
         shell: bash
         env:
@@ -228,7 +204,7 @@ jobs:
         run: |
           cargo build --release --locked \
             -p sd-cli -p sd-core --bin sd-cli --bin sd-daemon \
-            --features "sd-core/fuse${SD_PREVIEW_FEATURES:+,$SD_PREVIEW_FEATURES}" \
+            --features sd-core/fuse \
             --target ${{ matrix.settings.target }}
 
       - name: Prepare binaries
@@ -474,8 +450,10 @@ jobs:
           echo "CFLAGS=-march=armv8.2-a+crypto" >> $GITHUB_ENV
           echo "CXXFLAGS=-march=armv8.2-a+crypto" >> $GITHUB_ENV
 
-      # A dry run may turn on off-by-default sd-core features for a preview
-      # build. A tag or a non-dry run always builds the shipping feature set.
+      # A dry run may turn on off-by-default sd-core features in the desktop
+      # daemon, which ships the codec framework they link. The standalone CLI
+      # binaries do not, so they keep the shipping feature set. A tag or a
+      # non-dry run always builds the shipping feature set.
       - name: Select preview features
         shell: bash
         env:
@@ -497,6 +475,9 @@ jobs:
           fi
           echo "Preview features: ${list#,}"
           echo "SD_PREVIEW_FEATURES=${list#,}" >> "$GITHUB_ENV"
+          # whisper.cpp builds for the build machine's CPU unless this is set,
+          # which fails on the macOS runners and would not run on older Macs.
+          echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
 
       # tauri treats a set but empty APPLE_CERTIFICATE as a certificate to
       # import, so the Apple variables exist only in a signed build.

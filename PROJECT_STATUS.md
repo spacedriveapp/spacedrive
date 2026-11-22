@@ -37,8 +37,10 @@ Physical-drive identity remains separate from product recognition and visuals.
 ## Immediate register
 
 Footage preview builds (Capy FAN-12531, November 22). `release.yml` takes a
-`features` input that adds sd-core features to the daemon in a dry run only,
-both the desktop sidecar and the CLI build. With `wasm` in the list the run also
+`features` input that adds sd-core features to the desktop app's daemon in a
+dry run only; the standalone CLI binaries keep the shipping set because they
+do not ship the codec framework. Preview builds compile whisper.cpp for a
+generic arm64 CPU rather than the runner's. With `wasm` in the list the run also
 uploads the Videos extension built from the same commit as `videos-extension`.
 Tags, nightly and the default dry run build the shipping feature set unchanged.
 
