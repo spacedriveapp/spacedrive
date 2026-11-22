@@ -40,6 +40,13 @@ pub enum JobOutput {
 		total_size_bytes: u64,
 	},
 
+	/// Video proxy and speech audio generation output
+	ProxyGeneration {
+		generated_count: u64,
+		skipped_count: u64,
+		error_count: u64,
+	},
+
 	/// File move/rename operation output
 	FileMove {
 		moved_count: usize,
@@ -210,6 +217,17 @@ impl fmt::Display for JobOutput {
 					f,
 					"Generated {} thumbnails ({} skipped, {} errors, {} bytes)",
 					generated_count, skipped_count, error_count, total_size_bytes
+				)
+			}
+			Self::ProxyGeneration {
+				generated_count,
+				skipped_count,
+				error_count,
+			} => {
+				write!(
+					f,
+					"Generated proxies for {} videos ({} skipped, {} errors)",
+					generated_count, skipped_count, error_count
 				)
 			}
 			Self::FileMove {

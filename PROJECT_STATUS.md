@@ -36,6 +36,20 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Video proxies and speech audio (Capy FAN-12386, November 22, not beta.1).
+The `media.proxies.generate` action, compiled only with the `video-proxies`
+cargo feature (off by default), runs a resumable job over a video file or
+folder. For each video it writes an H.264 proxy (720p by default, 1080p on
+request, a keyframe every second, frame timing and start timecode passed
+through) and the first audio track as 16 kHz mono 16-bit WAV, using the host
+FFmpeg. Both live in the content-addressed sidecar tree keyed by the
+candidate content uuid (`sidecars/content/../proxies/720p.mp4`,
+`audio/16k_mono.wav`), so a rerun or a moved file does nothing; the layout
+is under "Media sidecars" in `docs/core/virtual-sidecars.mdx` and resolved by
+`ContentSidecar`. The job checkpoints after each file and resumes after a
+killed daemon; on Linux FFmpeg dies with the daemon. Transcripts, shots,
+descriptions, faces and clip export read these files.
+
 Beta.1 log and churn polish from the signed Studio proof (Capy FAN-12343,
 November 21). The desktop app checks the release feed from Rust
 (`apps/tauri/src-tauri/src/updater.rs`): a missing or unparseable
