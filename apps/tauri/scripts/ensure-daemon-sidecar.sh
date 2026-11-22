@@ -18,10 +18,11 @@ ext=""
 case "$triple" in *windows*) ext=".exe" ;; esac
 
 # A host build stays in target/release so it shares the cache of every other
-# local release build.
+# local release build. CARGO_BUILD_TARGET makes cargo use target/<triple>
+# even for the host, so the shortcut applies only without it.
 build() {
 	local out="$target_dir/$1/release" args=(--target "$1")
-	if [ "$1" = "$host" ]; then
+	if [ "$1" = "$host" ] && [ -z "${CARGO_BUILD_TARGET:-}" ]; then
 		out="$target_dir/release"
 		args=()
 	fi
