@@ -333,7 +333,10 @@ impl RpcServer {
 								}
 								Err(e) => {
 									tracing::error!("Failed to parse daemon request: {}", e);
-									tracing::error!("Raw request: {}", line.trim());
+									tracing::error!(
+										"Raw request: {}",
+										crate::common::redact::redact_url_credentials(line.trim())
+									);
 									// Send error response
 									let error_response = DaemonResponse::Error(DaemonError::SerializationError(e.to_string()));
 									let response_json = serde_json::to_string(&error_response)
@@ -395,7 +398,9 @@ impl RpcServer {
 			} => {
 				match execute_targeted_operation(device, &method, library_id, payload, core).await {
 					Ok(json_result) => DaemonResponse::JsonOk(json_result),
-					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
+					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(
+						crate::common::redact::redact_url_credentials(&e).into_owned(),
+					)),
 				}
 			}
 
@@ -407,7 +412,9 @@ impl RpcServer {
 			} => {
 				match execute_targeted_operation(device, &method, library_id, payload, core).await {
 					Ok(json_result) => DaemonResponse::JsonOk(json_result),
-					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
+					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(
+						crate::common::redact::redact_url_credentials(&e).into_owned(),
+					)),
 				}
 			}
 
@@ -455,7 +462,9 @@ impl RpcServer {
 						Ok(Some(id)) => Some(id),
 						Ok(None) => None, // The target is this device.
 						Err(e) => {
-							return DaemonResponse::Error(DaemonError::OperationFailed(e));
+							return DaemonResponse::Error(DaemonError::OperationFailed(
+								crate::common::redact::redact_url_credentials(&e).into_owned(),
+							));
 						}
 					};
 					if let Some(device_id) = device_id {

@@ -105,7 +105,11 @@ pub unsafe extern "C" fn initialize_core(
 			tracing_subscriber::EnvFilter::try_from_default_env()
 				.unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info,sd_core=debug")),
 		)
-		.with(tracing_subscriber::fmt::layer().with_ansi(false))
+		.with(
+			tracing_subscriber::fmt::layer()
+				.with_ansi(false)
+				.with_writer(|| sd_core::common::redact::RedactingWriter::new(std::io::stdout())),
+		)
 		.with(LogEventLayer::new())
 		.try_init();
 
