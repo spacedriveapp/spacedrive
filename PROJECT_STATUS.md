@@ -36,6 +36,16 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Daemon event broadcaster survives a lag (Capy FAN-12542, November 22, beta.1
+investigation of "UI doesn't update after moving files"). The RPC server's one
+forwarder from the core event bus ended on the first `Lagged`, which stopped
+every client's live updates until the daemon restarted. It now skips the lost
+events, sends `Refresh` to each connection that takes it, and keeps going; log
+followers skip lagged lines the same way. A reconcile that removed entries
+emits one `Refresh`, which now passes resource and path filters, so a view
+open inside a folder the rules newly exclude refetches. Jamie moved no files;
+the stale view followed the excluded-directory prune (FAN-12573).
+
 Beta.1 log and churn polish from the signed Studio proof (Capy FAN-12343,
 November 21). The desktop app checks the release feed from Rust
 (`apps/tauri/src-tauri/src/updater.rs`): a missing or unparseable
