@@ -205,7 +205,7 @@ async fn read(ctx: &Context, args: ReadArgs) -> Result<()> {
 		return Ok(());
 	}
 	println!(
-		"{} fps, {} long, starts at {}",
+		"{:.3} fps, {} long, starts at {}",
 		output.rate.fps(),
 		output.duration.timecode,
 		output.start_timecode
@@ -307,13 +307,16 @@ async fn export(ctx: &Context, args: ExportArgs) -> Result<()> {
 		return Ok(());
 	}
 	println!(
-		"{} clips, {} at {} fps",
+		"{} clips, {} at {:.3} fps",
 		output.timeline.clips,
 		output.timeline.duration.timecode,
 		output.timeline.rate.fps()
 	);
 	for file in &output.files {
-		println!("{}", file.path);
+		match file.path.as_local_path() {
+			Some(path) => println!("{}", path.display()),
+			None => println!("{}", file.path),
+		}
 	}
 	for warning in &output.warnings {
 		println!("warning: {warning}");
