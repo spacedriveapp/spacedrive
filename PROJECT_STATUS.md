@@ -36,6 +36,18 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Excluded-directory pruning goes through the removal fuse (Capy FAN-12573,
+November 22, beta.1 blocker). On the beta.1 MacBook the first startup
+reconcile after #3224 removed 2.77M of 5.4M records from the home source. They
+sat under directories the rules now exclude (`~/Library`, dev directories,
+gitignored folders) that older walks had kept. That prune bypassed the
+half-removal fuse. It now counts toward the fuse and waits for a whole read,
+like any removal, so a pass that would take more than half of a source
+removes nothing and logs `reconcile refused its removals`. Tag assertions on
+the removed records survive as orphans and rebind if the records return.
+Proof: `an_exclusion_that_would_take_most_of_the_source_removes_nothing`.
+Open: a source whose excluded content outweighs the rest is never pruned.
+
 Beta.1 log and churn polish from the signed Studio proof (Capy FAN-12343,
 November 21). The desktop app checks the release feed from Rust
 (`apps/tauri/src-tauri/src/updater.rs`): a missing or unparseable
@@ -88,7 +100,7 @@ walk's metadata. Hashing reads run on their own runtime at background QoS on
 macOS (nice 10 on Linux), and its progress total grows when records arrive
 mid-pass. A source walk applies rules and so never sweeps its store, so the
 reconcile now removes what the map holds under a directory today's rules
-exclude, outside the removal fuse, and the watcher rejects a path when any
+exclude, weighed by the removal fuse since FAN-12573, and the watcher rejects a path when any
 ancestor below the root is excluded (`/Users/*/Library` names only the
 directory). Open: a placeholder downloaded later keeps its error until the file
 changes or its volume remounts; the grep op held on `capy/search-grep` (#3219)
