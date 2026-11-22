@@ -1,4 +1,5 @@
 pub mod error;
+pub mod redact;
 
 // Re-export commonly used error types
 pub use error::{FileIOError, NonUtf8PathError};

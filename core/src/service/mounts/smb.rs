@@ -51,13 +51,42 @@ pub fn bound_addr() -> Option<SocketAddr> {
 /// bound to loopback and the password is regenerated every start, so this
 /// is a handle for this process's lifetime rather than a secret.
 pub fn mount_url() -> Option<String> {
-	let addr = bound_addr()?;
-	let password = PASSWORD.get()?;
-	Some(format!(
+	Some(credentialed_url(bound_addr()?, PASSWORD.get()?))
+}
+
+/// Percent-encodes the password so a value pinned through the environment
+/// with `/`, `@`, `#` or whitespace still makes a valid URL, and one whose
+/// userinfo the log redaction can find.
+fn credentialed_url(addr: SocketAddr, password: &str) -> String {
+	let password: String = password
+		.bytes()
+		.map(|byte| match byte {
+			b'A'..=b'Z'
+			| b'a'..=b'z'
+			| b'0'..=b'9'
+			| b'-'
+			| b'.'
+			| b'_'
+			| b'~'
+			| b'!'
+			| b'$'
+			| b'&'
+			| b'\''
+			| b'('
+			| b')'
+			| b'*'
+			| b'+'
+			| b','
+			| b';'
+			| b'=' => (byte as char).to_string(),
+			_ => format!("%{byte:02X}"),
+		})
+		.collect();
+	format!(
 		"smb://{USER}:{password}@{}:{}/{SHARE}",
 		addr.ip(),
 		addr.port()
-	))
+	)
 }
 
 /// How this process mounts its own share: where the server listens and the
@@ -599,9 +628,12 @@ pub async fn start(context: Arc<CoreContext>) -> anyhow::Result<SocketAddr> {
 		}
 	});
 
-	// The password is in the URL, so it goes to the log the operator already
-	// has to read to find the port. Loopback-only and per-process.
-	tracing::info!("Mounts SMB share at {}", mount_url().unwrap_or_default());
+	// The credentials stay out of the log; `mounts.status` hands them to a
+	// client that asks.
+	tracing::info!(
+		"Mounts SMB share at {}",
+		crate::common::redact::redact_url_credentials(&mount_url().unwrap_or_default())
+	);
 	Ok(addr)
 }
 
@@ -611,6 +643,25 @@ mod tests {
 	use crate::service::mounts::provider::{ByteError, ByteStat, ProviderClass};
 	use std::ops::Range;
 	use std::time::Duration;
+
+	#[test]
+	fn pinned_passwords_stay_redactable() {
+		use crate::common::redact::redact_url_credentials;
+
+		let addr = SocketAddr::from(([127, 0, 0, 1], 50123));
+		for password in ["0123abcd", "pa'ssword", "a/b@c#d e:f"] {
+			let url = credentialed_url(addr, password);
+			assert_eq!(
+				redact_url_credentials(&url),
+				"smb://***@127.0.0.1:50123/spacedrive",
+				"{url}"
+			);
+		}
+		assert_eq!(
+			credentialed_url(addr, "a/b@c#d e:f"),
+			"smb://spacedrive:a%2Fb%40c%23d%20e%3Af@127.0.0.1:50123/spacedrive"
+		);
+	}
 
 	struct StaticProvider {
 		data: bytes::Bytes,

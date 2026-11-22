@@ -314,7 +314,9 @@ impl JobDb {
 		let job = jobs::ActiveModel {
 			id: Set(id.to_string()),
 			status: Set(JobStatus::Failed.to_string()),
-			error_message: Set(Some(reason.to_string())),
+			error_message: Set(Some(
+				crate::common::redact::redact_url_credentials(reason).into_owned(),
+			)),
 			completed_at: Set(Some(Utc::now())),
 			..Default::default()
 		};
@@ -348,6 +350,8 @@ impl JobDb {
 		error_message: Option<String>,
 	) -> JobResult<()> {
 		self.settle().await;
+		let error_message = error_message
+			.map(|message| crate::common::redact::redact_url_credentials(&message).into_owned());
 		let result = self
 			.write_status(job_id, status, progress, error_message.clone())
 			.await;

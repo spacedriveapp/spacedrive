@@ -153,7 +153,7 @@ where
 		// Extract the message from the event
 		let mut visitor = MessageVisitor::default();
 		event.record(&mut visitor);
-		let message = visitor.message;
+		let message = crate::common::redact::redact_url_credentials(&visitor.message);
 
 		// Format: [timestamp] LEVEL target: message
 		let formatted = format!("[{}] {:5} {}: {}\n", timestamp, level, target, message);
@@ -246,7 +246,7 @@ impl FileJobLogger {
 			chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"),
 			level,
 			self.job_id,
-			message
+			crate::common::redact::redact_url_credentials(message)
 		);
 
 		// Write to file

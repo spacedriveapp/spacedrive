@@ -1,5 +1,6 @@
 //! Linux-specific volume detection helpers
 
+use crate::common::redact::redact_url_credentials;
 use crate::volume::{
 	classification::{get_classifier, VolumeDetectionInfo},
 	error::{VolumeError, VolumeResult},
@@ -155,7 +156,7 @@ fn parse_df_line(
 	volume.total_capacity = total_bytes;
 	volume.available_space = available_bytes;
 	volume.is_read_only = false;
-	volume.hardware_id = Some(filesystem_device.to_string());
+	volume.hardware_id = Some(redact_url_credentials(filesystem_device).into_owned());
 	volume.is_user_visible = is_user_visible;
 	volume.auto_track_eligible = auto_track_eligible;
 
@@ -428,7 +429,7 @@ pub fn create_volume_from_mount(mount: MountInfo, device_id: Uuid) -> VolumeResu
 	volume.total_capacity = mount.total_bytes;
 	volume.available_space = mount.available_bytes;
 	volume.is_read_only = false;
-	volume.hardware_id = Some(mount.device);
+	volume.hardware_id = Some(redact_url_credentials(&mount.device).into_owned());
 	volume.is_user_visible = is_user_visible;
 	volume.auto_track_eligible = auto_track_eligible;
 
