@@ -36,6 +36,14 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Daemon event broadcaster survives a lag (Capy FAN-12542, November 22, beta.1
+investigation of "UI doesn't update after moving files"). The RPC server's one
+forwarder from the core event bus ended on the first `Lagged`, which stopped
+every client's live updates until the daemon restarted. It now skips the lost
+events, sends `Refresh` to each connection that takes it, and keeps going; log
+followers skip lagged lines the same way. Not yet confirmed as the cause of
+Jamie's report; that needs his answers on what he moved and how.
+
 Footage preview builds (Capy FAN-12531, November 22). `release.yml` takes a
 `features` input that adds sd-core features to the daemon in a dry run only,
 both the desktop sidecar and the CLI build. With `wasm` in the list the run also
