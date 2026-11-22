@@ -1,26 +1,44 @@
 #!/usr/bin/env bash
-# Tauri bundles the daemon as an external binary and its build script requires
-# the triple-suffixed sidecar (target/release/sd-daemon-<host-triple>) to exist
-# before `tauri dev` or `tauri build` can start. Cargo makes the rebuild a
-# fast no-op when the daemon is unchanged, so running this every time is cheap.
+# Tauri bundles the daemon as an external binary named
+# target/release/sd-daemon-<target-triple>, and its build script requires that
+# file to exist before `tauri dev` or `tauri build` can start. The daemon is
+# built for the triple Tauri is building, so a cross build such as
+# x86_64-apple-darwin on an Apple silicon runner ships a daemon the target Mac
+# can run. Cargo makes the rebuild a fast no-op when the daemon is unchanged,
+# so running this every time is cheap.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-cargo build --release --bin sd-daemon --manifest-path ../../Cargo.toml \
-	${CARGO_BUILD_TARGET:+--target "$CARGO_BUILD_TARGET"}
-
 target_dir="${CARGO_TARGET_DIR:-../../target}"
-if [ -n "${CARGO_BUILD_TARGET:-}" ]; then
-	triple="$CARGO_BUILD_TARGET"
-	release_dir="$target_dir/$CARGO_BUILD_TARGET/release"
-else
-	triple="$(rustc -vV | sed -n 's/^host: //p')"
-	release_dir="$target_dir/release"
-fi
+host="$(rustc -vV | sed -n 's/^host: //p')"
+triple="${CARGO_BUILD_TARGET:-${TAURI_ENV_TARGET_TRIPLE:-$host}}"
 
 ext=""
 case "$triple" in *windows*) ext=".exe" ;; esac
 
-cp "$release_dir/sd-daemon$ext" "$release_dir/sd-daemon-$triple$ext"
-echo "daemon sidecar ready: $release_dir/sd-daemon-$triple$ext"
+# A host build stays in target/release so it shares the cache of every other
+# local release build.
+build() {
+	local out="$target_dir/$1/release" args=(--target "$1")
+	if [ "$1" = "$host" ]; then
+		out="$target_dir/release"
+		args=()
+	fi
+	cargo build --release --bin sd-daemon --manifest-path ../../Cargo.toml "${args[@]}" \
+		${SD_PREVIEW_FEATURES:+--features "$SD_PREVIEW_FEATURES"}
+	mkdir -p "$target_dir/release"
+	cp "$out/sd-daemon$ext" "$target_dir/release/sd-daemon-$1$ext"
+}
+
+if [ "$triple" = universal-apple-darwin ]; then
+	build aarch64-apple-darwin
+	build x86_64-apple-darwin
+	lipo -create -output "$target_dir/release/sd-daemon-$triple" \
+		"$target_dir/release/sd-daemon-aarch64-apple-darwin" \
+		"$target_dir/release/sd-daemon-x86_64-apple-darwin"
+else
+	build "$triple"
+fi
+
+echo "daemon sidecar ready: $target_dir/release/sd-daemon-$triple$ext"
