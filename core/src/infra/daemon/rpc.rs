@@ -251,6 +251,11 @@ impl RpcServer {
 			}
 		}
 
+		// Refresh speaks for every resource and path, so no filter narrows it.
+		if matches!(event, Event::Refresh) {
+			return true;
+		}
+
 		// Apply additional filters if specified
 		if let Some(filter) = filter {
 			// Filter by resource type
@@ -725,6 +730,33 @@ mod tests {
 			Ok(DaemonResponse::Event(event)) => Some(event),
 			_ => None,
 		}
+	}
+
+	#[test]
+	fn refresh_reaches_a_folder_scoped_subscription() {
+		let filter = Some(EventFilter {
+			library_id: None,
+			job_id: None,
+			device_id: None,
+			resource_type: Some("file".to_string()),
+			path_scope: Some(crate::domain::SdPath::Physical {
+				device_slug: "local".to_string(),
+				path: "/a".into(),
+			}),
+			include_descendants: Some(false),
+		});
+		let event_types = vec!["ResourceDeleted".to_string(), "Refresh".to_string()];
+
+		assert!(RpcServer::should_forward_event(
+			&Event::Refresh,
+			&event_types,
+			&filter
+		));
+		assert!(!RpcServer::should_forward_event(
+			&Event::Refresh,
+			&["ResourceDeleted".to_string()],
+			&filter
+		));
 	}
 
 	#[tokio::test]

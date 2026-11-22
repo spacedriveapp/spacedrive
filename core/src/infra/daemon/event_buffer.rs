@@ -105,6 +105,11 @@ impl EventBuffer {
 			}
 		}
 
+		// Refresh speaks for every resource and path, so no filter narrows it.
+		if matches!(event, Event::Refresh) {
+			return true;
+		}
+
 		// Apply additional filters if specified
 		if let Some(filter) = filter {
 			// Filter by resource type
