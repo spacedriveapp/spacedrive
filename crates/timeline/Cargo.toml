@@ -1,0 +1,11 @@
+[package]
+name = "sd-timeline"
+version = "0.1.0"
+edition = "2021"
+description = "Frame-accurate time and rough-cut timelines written as FCPXML, CMX 3600 EDL and OpenTimelineIO"
+
+[dependencies]
+serde      = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+specta     = { workspace = true, features = ["derive"] }
+thiserror  = { workspace = true }
