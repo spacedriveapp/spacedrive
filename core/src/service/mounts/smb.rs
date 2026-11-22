@@ -599,9 +599,12 @@ pub async fn start(context: Arc<CoreContext>) -> anyhow::Result<SocketAddr> {
 		}
 	});
 
-	// The password is in the URL, so it goes to the log the operator already
-	// has to read to find the port. Loopback-only and per-process.
-	tracing::info!("Mounts SMB share at {}", mount_url().unwrap_or_default());
+	// The credentials stay out of the log; `mounts.status` hands them to a
+	// client that asks.
+	tracing::info!(
+		"Mounts SMB share at {}",
+		crate::common::redact::redact_url_credentials(&mount_url().unwrap_or_default())
+	);
 	Ok(addr)
 }
 
