@@ -353,7 +353,7 @@ pub struct ContentSearchArgs {
 	pub path: Option<PathBuf>,
 
 	/// Only files of this kind (repeatable): text, markdown, csv, json,
-	/// code, pdf, docx
+	/// code, pdf, docx, transcript
 	#[arg(long = "kind")]
 	pub kinds: Vec<String>,
 
