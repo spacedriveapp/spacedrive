@@ -272,13 +272,9 @@ export function handleResourceEvent(
 	debug?: boolean,
 ) {
 	const wireMethod = toWireMethod(options.query);
-	// Skip string events (like "CoreStarted", "CoreShutdown")
-	if (typeof event === "string") {
-		return;
-	}
-
-	// Refresh event - invalidate all queries
-	if ("Refresh" in event) {
+	// Refresh is a unit variant, so it arrives as the bare string "Refresh".
+	// The daemon sends it when events were lost, so every query refetches.
+	if (event === "Refresh") {
 		if (debug) {
 			console.log(
 				`[useNormalizedQuery] ${wireMethod} processing Refresh`,
@@ -286,6 +282,11 @@ export function handleResourceEvent(
 			);
 		}
 		queryClient.invalidateQueries();
+		return;
+	}
+
+	// Skip other unit events (like "CoreStarted", "CoreShutdown")
+	if (typeof event === "string") {
 		return;
 	}
 
