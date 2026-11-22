@@ -356,6 +356,9 @@ impl ContentSidecar {
 			kind: SidecarKind::Transcript,
 			variant: SidecarVariant::new(Self::TRANSCRIPT_VARIANT),
 			format,
+		}
+	}
+
 	/// The shot list the shot detection job writes.
 	pub fn shots(content_uuid: Uuid) -> Self {
 		Self {
@@ -429,6 +432,8 @@ mod tests {
 			PathBuf::from(
 				"content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/transcript/default.vtt"
 			)
+		);
+		assert_eq!(
 			ContentSidecar::shots(uuid).relative_path(),
 			PathBuf::from("content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/shots/default.json")
 		);
