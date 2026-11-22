@@ -475,8 +475,9 @@ snippet: SnippetFragment[];
  */
 truncated: boolean; 
 /**
- * Where in the recording the words were said, for a `transcript` hit.
- * One recording can answer with several hits, one per moment.
+ * Where in the recording the match is: when the words were said, for a
+ * `transcript` hit, or the shot's in and out points, for a `scene`
+ * hit. One recording can answer with several hits, one per moment.
  */
 time: SpokenTime | null };
 
@@ -5548,7 +5549,17 @@ export type TextKind = "text" | "markdown" | "csv" | "json" | "code" | "pdf" | "
  * Words spoken in an audio or video file, from its transcript. No
  * extension maps to it; the transcription job writes these rows.
  */
-"transcript";
+"transcript" | 
+/**
+ * What a video shot shows, from the Videos extension's `scene`
+ * sidecar. Written when the sidecar is, behind `video-shots`.
+ */
+"scene" | 
+/**
+ * What a photo shows, from the Photos extension's `caption` sidecar.
+ * Written when the sidecar is, behind `ai-providers`.
+ */
+"caption";
 
 /**
  * Paths in draw order. The first is the most urgent, so a client sends its
