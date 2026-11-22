@@ -258,6 +258,31 @@ export function useNormalizedQuery<I, O = any, TSelected = O>(
 
 // Event Handling
 
+/** How long a Refresh waits for the copies other listeners receive. */
+export const REFRESH_SETTLE_MS = 100;
+
+const pendingRefreshes = new WeakMap<QueryClient, ReturnType<typeof setTimeout>>();
+
+/**
+ * Invalidate every query once the Refresh copies stop arriving.
+ *
+ * Every listener receives its own copy of each Refresh, and each
+ * invalidation would restart the refetch of every active query. Waiting for
+ * the last copy gives one invalidation per burst, and it still cancels any
+ * refetch that started before the change, so no query keeps a pre-change
+ * response.
+ */
+function scheduleRefresh(queryClient: QueryClient) {
+	clearTimeout(pendingRefreshes.get(queryClient));
+	pendingRefreshes.set(
+		queryClient,
+		setTimeout(() => {
+			pendingRefreshes.delete(queryClient);
+			queryClient.invalidateQueries();
+		}, REFRESH_SETTLE_MS),
+	);
+}
+
 /**
  * Event handler dispatcher with runtime validation
  *
@@ -281,7 +306,7 @@ export function handleResourceEvent(
 				event,
 			);
 		}
-		queryClient.invalidateQueries();
+		scheduleRefresh(queryClient);
 		return;
 	}
 
