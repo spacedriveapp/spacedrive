@@ -23,6 +23,7 @@
 			"faces",
 			"places",
 			"scene",
+			"caption",
 			"aesthetics"
 		],
 		"write_tags": true,
@@ -41,6 +42,10 @@
 			},
 			{
 				"category": "scene_classification",
+				"preference": "local"
+			},
+			{
+				"category": "image_caption",
 				"preference": "local"
 			},
 			{
@@ -67,6 +72,15 @@
 				"id": "siglip-base-patch16-224"
 			},
 			"description": "Zero-shot scene labels, run by the core"
+		},
+		{
+			"name": "photos_caption_v1",
+			"category": "image_caption",
+			"source": {
+				"type": "core",
+				"id": "florence-2-base-ft"
+			},
+			"description": "Photo descriptions, run by the core"
 		}
 	],
 	"kinds": [

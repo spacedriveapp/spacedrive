@@ -4,19 +4,23 @@
 //! CoreML cannot place. Each session sits behind a mutex because a run needs
 //! exclusive access; a batch is one run where the model has a batch axis.
 
+use std::borrow::Cow;
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 
+use async_trait::async_trait;
 use image::RgbImage;
 use ort::environment::Environment;
-use ort::session::Session;
-use ort::value::Tensor;
+use ort::session::{Session, SessionInputValue};
+use ort::value::{DynValue, Tensor};
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
 
 use super::catalog::{Engine, ModelSpec, SCENE_LABELS};
 use super::image as img;
-use super::registry::{FaceDetector, FaceEmbedder, Provider, SceneClassifier, TextEmbedder};
-use super::{AiError, BoundingBox, Face, Label};
+use super::registry::{
+	Captioner, FaceDetector, FaceEmbedder, Provider, SceneClassifier, TextEmbedder,
+};
+use super::{AiError, BoundingBox, Face, Label, Locality};
 
 pub fn load(spec: &ModelSpec, dir: &Path) -> Result<Provider, AiError> {
 	let file = |name: &str| dir.join(name);
@@ -36,6 +40,10 @@ pub fn load(spec: &ModelSpec, dir: &Path) -> Result<Provider, AiError> {
 			&file("model.onnx"),
 			&file("tokenizer.json"),
 		)?)),
+		Engine::Florence2 => Provider::ImageCaption(
+			Arc::new(Florence2Captioner(Arc::new(Florence2::new(dir)?))),
+			Locality::Local,
+		),
 	})
 }
 
@@ -570,6 +578,228 @@ impl TextEmbedder for E5 {
 	}
 }
 
+/// What Florence-2 is asked for. The processor turns each task token into
+/// a fixed English prompt; the model was trained on those prompts, not on
+/// the tokens.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CaptionTask {
+	/// `<CAPTION>`: one short sentence.
+	Caption,
+	/// `<MORE_DETAILED_CAPTION>`: a paragraph of two to four sentences.
+	MoreDetailedCaption,
+}
+
+impl CaptionTask {
+	fn prompt(self) -> &'static str {
+		match self {
+			CaptionTask::Caption => "What does the image describe?",
+			CaptionTask::MoreDetailedCaption => {
+				"Describe with a paragraph what is shown in the image."
+			}
+		}
+	}
+}
+
+/// Florence-2: a DaViT vision encoder whose image tokens are prepended to
+/// the prompt's token embeddings, a BART encoder over both, and a BART
+/// decoder run token by token with its key-value cache.
+///
+/// Decoding is greedy with Florence's no-repeat trigram rule. Beam search
+/// (upstream uses three beams) costs three decoder runs per token for a
+/// caption that is rarely different enough to matter for search.
+pub struct Florence2 {
+	vision: Mutex<Session>,
+	embed: Mutex<Session>,
+	encoder: Mutex<Session>,
+	decoder: Mutex<Session>,
+	tokenizer: Tokenizer,
+}
+
+const FLORENCE_SIDE: u32 = 768;
+const IMAGENET_MEAN: [f32; 3] = [0.485, 0.456, 0.406];
+const IMAGENET_STD: [f32; 3] = [0.229, 0.224, 0.225];
+const FLORENCE_LAYERS: usize = 6;
+const FLORENCE_HEADS: usize = 12;
+const FLORENCE_HEAD_DIM: usize = 64;
+/// BART's `</s>` starts the decoder, `<s>` is forced as the first token,
+/// and `</s>` again ends the caption.
+const FLORENCE_DECODER_START: u32 = 2;
+const FLORENCE_BOS: u32 = 0;
+const FLORENCE_EOS: u32 = 2;
+/// A detailed caption runs 40 to 80 tokens; the cap only stops a
+/// degenerate loop.
+const FLORENCE_MAX_TOKENS: usize = 256;
+const FLORENCE_NO_REPEAT_NGRAM: usize = 3;
+
+impl Florence2 {
+	pub fn new(dir: &Path) -> Result<Self, AiError> {
+		Ok(Self {
+			vision: session(&dir.join("vision_encoder.onnx"))?,
+			embed: session(&dir.join("embed_tokens.onnx"))?,
+			encoder: session(&dir.join("encoder_model.onnx"))?,
+			decoder: session(&dir.join("decoder_model_merged.onnx"))?,
+			tokenizer: tokenizer(&dir.join("tokenizer.json"), None, 1024)?,
+		})
+	}
+
+	pub fn caption(&self, image: &RgbImage, task: CaptionTask) -> Result<String, AiError> {
+		let side = FLORENCE_SIDE as usize;
+		let mut pixels = Vec::with_capacity(3 * side * side);
+		img::push_nchw(
+			&mut pixels,
+			image,
+			FLORENCE_SIDE,
+			IMAGENET_MEAN,
+			IMAGENET_STD,
+		);
+		let pixels = Tensor::from_array(([1usize, 3, side, side], pixels))?;
+		let (shape, mut embeds) =
+			run(&self.vision, Vec::new(), Some(("pixel_values", pixels)), "")?;
+		let dim = *shape.last().unwrap_or(&768) as usize;
+
+		let prompt = self
+			.tokenizer
+			.encode(task.prompt(), true)
+			.map_err(|e| AiError::Model(e.to_string()))?;
+		embeds.extend(self.embed_tokens(prompt.get_ids())?);
+		let len = embeds.len() / dim;
+		let mask = Tensor::from_array(([1usize, len], vec![1i64; len]))?;
+		let embeds = Tensor::from_array(([1usize, len, dim], embeds))?;
+		let hidden: DynValue = {
+			let mut encoder = lock(&self.encoder)?;
+			let mut outputs = encoder.run(vec![
+				("attention_mask", SessionInputValue::from(&mask)),
+				("inputs_embeds", SessionInputValue::from(embeds)),
+			])?;
+			outputs
+				.remove("last_hidden_state")
+				.ok_or_else(|| AiError::Model("encoder returned no hidden state".into()))?
+		};
+
+		let mut decoder = lock(&self.decoder)?;
+		let mut past: Vec<(String, DynValue)> = Vec::with_capacity(FLORENCE_LAYERS * 4);
+		for layer in 0..FLORENCE_LAYERS {
+			for half in ["decoder", "encoder"] {
+				for part in ["key", "value"] {
+					let empty = Tensor::from_array((
+						[1usize, FLORENCE_HEADS, 0, FLORENCE_HEAD_DIM],
+						Vec::<f32>::new(),
+					))?;
+					past.push((
+						format!("past_key_values.{layer}.{half}.{part}"),
+						empty.into_dyn(),
+					));
+				}
+			}
+		}
+		let mut tokens = vec![FLORENCE_DECODER_START];
+		for step in 0..FLORENCE_MAX_TOKENS {
+			let last = *tokens.last().unwrap_or(&FLORENCE_DECODER_START);
+			let token = Tensor::from_array(([1usize, 1, dim], self.embed_tokens(&[last])?))?;
+			let mut inputs: Vec<(Cow<str>, SessionInputValue)> = vec![
+				("inputs_embeds".into(), token.into()),
+				("encoder_hidden_states".into(), (&hidden).into()),
+				("encoder_attention_mask".into(), (&mask).into()),
+				(
+					"use_cache_branch".into(),
+					Tensor::from_array(([1usize], vec![step > 0]))?.into(),
+				),
+			];
+			for (name, value) in &past {
+				inputs.push((name.as_str().into(), value.into()));
+			}
+			let mut outputs = decoder.run(inputs)?;
+			let next = if step == 0 {
+				FLORENCE_BOS
+			} else {
+				let (_, logits) = outputs["logits"].try_extract_tensor::<f32>()?;
+				let vocab = logits.len();
+				let mut logits = logits.to_vec();
+				for banned in repeated_ngram_tokens(&tokens, FLORENCE_NO_REPEAT_NGRAM) {
+					if (banned as usize) < vocab {
+						logits[banned as usize] = f32::NEG_INFINITY;
+					}
+				}
+				logits
+					.iter()
+					.enumerate()
+					.max_by(|a, b| a.1.total_cmp(b.1))
+					.map_or(FLORENCE_EOS, |(i, _)| i as u32)
+			};
+			// The cross-attention cache is computed once, on the first step;
+			// later steps return it unchanged, so only self-attention is kept.
+			let mut kept = Vec::with_capacity(past.len());
+			for (name, value) in past {
+				let fresh = (step == 0 || name.contains(".decoder."))
+					.then(|| outputs.remove(name.replacen("past_key_values", "present", 1)))
+					.flatten();
+				kept.push((name, fresh.unwrap_or(value)));
+			}
+			past = kept;
+			tokens.push(next);
+			if next == FLORENCE_EOS {
+				break;
+			}
+		}
+
+		let text = self
+			.tokenizer
+			.decode(&tokens, true)
+			.map_err(|e| AiError::Model(e.to_string()))?;
+		Ok(text.split_whitespace().collect::<Vec<_>>().join(" "))
+	}
+
+	/// BART token embeddings, already scaled, for `ids`.
+	fn embed_tokens(&self, ids: &[u32]) -> Result<Vec<f32>, AiError> {
+		let ids: Vec<i64> = ids.iter().map(|&id| id as i64).collect();
+		let input = Tensor::from_array(([1usize, ids.len()], ids))?;
+		let (_, embeds) = run(
+			&self.embed,
+			vec![("input_ids", input)],
+			None,
+			"inputs_embeds",
+		)?;
+		Ok(embeds)
+	}
+}
+
+fn lock(session: &Mutex<Session>) -> Result<std::sync::MutexGuard<'_, Session>, AiError> {
+	session
+		.lock()
+		.map_err(|_| AiError::Model("session poisoned".into()))
+}
+
+/// Tokens that would repeat an n-gram already in `tokens`, the rule
+/// Hugging Face's `no_repeat_ngram_size` applies.
+fn repeated_ngram_tokens(tokens: &[u32], n: usize) -> Vec<u32> {
+	if n == 0 || tokens.len() < n {
+		return Vec::new();
+	}
+	let prefix = &tokens[tokens.len() + 1 - n..];
+	tokens
+		.windows(n)
+		.filter(|w| &w[..n - 1] == prefix)
+		.map(|w| w[n - 1])
+		.collect()
+}
+
+/// Runs Florence-2 off the async runtime. Captions use the detailed task
+/// because every extra noun is another word a search can match.
+pub struct Florence2Captioner(pub Arc<Florence2>);
+
+#[async_trait]
+impl Captioner for Florence2Captioner {
+	async fn caption(&self, image: &[u8]) -> Result<String, AiError> {
+		let (model, bytes) = (self.0.clone(), image.to_vec());
+		tokio::task::spawn_blocking(move || {
+			let image = img::decode(&bytes, FLORENCE_SIDE * 2)?;
+			model.caption(&image, CaptionTask::MoreDetailedCaption)
+		})
+		.await
+		.map_err(|e| AiError::Model(e.to_string()))?
+	}
+}
+
 /// Runs the real models when `SD_AI_MODELS_DIR` holds them (one directory
 /// per catalog id) and `SD_AI_PHOTOS_DIR` holds the sample photos, so CI
 /// without the downloads skips them.
@@ -678,5 +908,40 @@ mod tests {
 			"{:?}",
 			(dot(&v[0], &v[1]), dot(&v[0], &v[2]))
 		);
+	}
+
+	#[test]
+	fn repeated_trigrams_are_banned() {
+		assert_eq!(repeated_ngram_tokens(&[5, 6, 7, 5, 6], 3), vec![7]);
+		assert!(repeated_ngram_tokens(&[5, 6, 7, 8], 3).is_empty());
+		assert!(repeated_ngram_tokens(&[5], 3).is_empty());
+	}
+
+	#[test]
+	fn images_are_captioned() {
+		let Some((models, photos)) = dirs() else {
+			return;
+		};
+		let id = "florence-2-base-ft";
+		let model = Florence2::new(&models.join(id)).unwrap();
+		let matterhorn = photo(&photos, "matterhorn.jpg");
+		for task in [CaptionTask::Caption, CaptionTask::MoreDetailedCaption] {
+			let started = std::time::Instant::now();
+			let caption = model.caption(&matterhorn, task).unwrap();
+			eprintln!("{task:?} in {:?}: {caption}", started.elapsed());
+			let lower = caption.to_lowercase();
+			assert!(lower.contains("mountain"), "{caption}");
+			assert!(caption.ends_with('.'), "{caption}");
+		}
+		let Provider::ImageCaption(captioner, Locality::Local) = provider(&models, id) else {
+			panic!("wrong provider");
+		};
+		let bytes = std::fs::read(photos.join("matterhorn.jpg")).unwrap();
+		let caption = tokio::runtime::Builder::new_current_thread()
+			.build()
+			.unwrap()
+			.block_on(captioner.caption(&bytes))
+			.unwrap();
+		assert!(caption.split_whitespace().count() > 10, "{caption}");
 	}
 }
