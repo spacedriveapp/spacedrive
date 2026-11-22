@@ -18,7 +18,8 @@
 //!
 //! Removals follow the sweep rules every walk follows. Nothing is removed
 //! unless the pass read every directory it needed to, a pass that would remove
-//! more than half of what it compared removes nothing, and each removal is
+//! more than half of what it compared removes nothing, counting what the
+//! directories the rules now exclude hold, and each removal is
 //! checked against the disk once more before it is applied, since the watcher
 //! is live while this runs. That check reads the name the directory stores,
 //! because a case-insensitive volume answers a stat for the old spelling of a
@@ -827,7 +828,12 @@ pub async fn reconcile_source_with(
 	// directory was never descended into, so its subtree counts toward what
 	// the map held only here. Weighed now, before the arrivals that wait on a
 	// replacement, the count can only overstate what leaves.
-	let (doomed, replacing) = {
+	//
+	// What a directory the rules now exclude holds leaves too. The rules
+	// decide that rather than an absence, but a rule no earlier walk applied
+	// can take most of a source with it, such as a home folder walked before
+	// `Users/*/Library` and the dev-directory rules, so it is weighed too.
+	let (doomed, replacing, pruning) = {
 		let index = index.read().await;
 		let mut doomed = 0u64;
 		for (path, ..) in &missing {
@@ -842,7 +848,15 @@ pub async fn reconcile_source_with(
 			doomed += weighed.beneath;
 			replacing.push((path, is_directory, weighed));
 		}
-		(doomed, replacing)
+		let mut pruning = Vec::new();
+		for dir in &excluded {
+			let children = index.known_children(&map_spelling(dir)).unwrap_or_default();
+			let held: u64 = children.iter().map(|child| child.entries).sum();
+			known_entries += held;
+			doomed += held;
+			pruning.extend(children);
+		}
+		(doomed, replacing, pruning)
 	};
 
 	let destructive = doomed > 0;
@@ -854,6 +868,7 @@ pub async fn reconcile_source_with(
 		warn!(
 			root = %root.display(),
 			withheld = missing.len() + replacing.len(),
+			excluded = excluded.len(),
 			"reconcile left removals alone: part of the source could not be read"
 		);
 		true
@@ -862,6 +877,7 @@ pub async fn reconcile_source_with(
 			root = %root.display(),
 			doomed,
 			known = known_entries,
+			excluded = excluded.len(),
 			"reconcile refused its removals: it would remove more than half of the source"
 		);
 		true
@@ -889,27 +905,18 @@ pub async fn reconcile_source_with(
 	}
 
 	// What is held under a directory the rules now exclude leaves, and the
-	// directory stays as the walk keeps one. The rules decide this, not an
-	// absence, so the fuse does not weigh it: a home folder walked before
-	// `Users/*/Library` can hold more under Library than everywhere else.
-	if !walk_owns_removals {
-		for dir in &excluded {
-			let children = index
-				.read()
-				.await
-				.known_children(&map_spelling(dir))
-				.unwrap_or_default();
-			// One deletion event per direct child, since a batched writer
-			// announces no deletions, so an open listing drops what left.
-			// A child directory's subtree goes with it in one event.
-			for child in children {
-				loud.apply(Seen::Lost {
-					path: child.path,
-					is_directory: child.kind == EntryKind::Directory,
-				})
-				.await;
-				report.removed += child.entries;
-			}
+	// directory stays as the walk keeps one. One deletion event per direct
+	// child, since a batched writer announces no deletions, so an open
+	// listing drops what left. A child directory's subtree goes with it in
+	// one event.
+	if !refused {
+		for child in pruning {
+			loud.apply(Seen::Lost {
+				path: child.path,
+				is_directory: child.kind == EntryKind::Directory,
+			})
+			.await;
+			report.removed += child.entries;
 		}
 	}
 
@@ -1613,6 +1620,88 @@ mod tests {
 			);
 		}
 		assert!(store.contains_path(&output.root.join("keep.txt")).await);
+		drop(index);
+		drop(store);
+		drop(library);
+		core.shutdown().await.expect("shutdown");
+	}
+
+	/// A rule no earlier walk applied can exclude most of a source, such as a
+	/// home folder walked before `Users/*/Library` and the dev-directory rules.
+	/// What the excluded directories hold counts toward the half-removal fuse,
+	/// so the pass removes nothing and the store keeps every record.
+	#[tokio::test(flavor = "multi_thread")]
+	async fn an_exclusion_that_would_take_most_of_the_source_removes_nothing() {
+		let data = tempfile::tempdir().expect("data dir");
+		let files = tempfile::tempdir().expect("files dir");
+		let root = files.path().canonicalize().expect("root");
+		std::fs::create_dir(root.join(".git")).expect("git dir");
+		std::fs::write(root.join(".gitignore"), "").expect("gitignore");
+		std::fs::create_dir_all(root.join("cache/deep")).expect("mkdir");
+		for n in 0..150 {
+			std::fs::write(root.join(format!("cache/deep/{n}.txt")), "old").expect("write");
+		}
+		for n in 0..20 {
+			std::fs::write(root.join(format!("keep{n}.txt")), "keep").expect("write");
+		}
+
+		let core = crate::Core::new(data.path().to_path_buf())
+			.await
+			.expect("core");
+		let library = core
+			.libraries
+			.create_library("Excluded", None, core.context.clone())
+			.await
+			.expect("library");
+		let output = TrackSourceAction::from_input(TrackSourceInput {
+			path: root.clone(),
+			name: None,
+			overrides: Default::default(),
+		})
+		.expect("input")
+		.execute(library.clone(), core.context.clone())
+		.await
+		.expect("track");
+		library
+			.jobs()
+			.get_job(JobId(output.job_id.expect("tracking dispatched a walk")))
+			.await
+			.expect("walk job")
+			.wait()
+			.await
+			.expect("walk");
+
+		let store = core
+			.context
+			.volume_index()
+			.store_for(&output.root)
+			.await
+			.expect("store");
+		store.flush().await.expect("flush");
+		let held = output.root.join("cache/deep/0.txt");
+		assert!(store.contains_path(&held).await, "walked before the rule");
+
+		std::fs::write(root.join(".gitignore"), "cache/\n").expect("gitignore");
+		let report = reconcile_source_with(
+			&core.context,
+			Some(library.id()),
+			&output.root,
+			false,
+			Pass::default(),
+		)
+		.await
+		.expect("the pass ran");
+		store.flush().await.expect("flush");
+		assert_eq!(report.excluded, 1, "the held directory is left unread");
+		assert_eq!(report.removed, 0, "the fuse withheld the prune");
+		assert!(report.removals_refused);
+		assert!(
+			store.contains_path(&held).await,
+			"the store kept the records the fuse protected"
+		);
+		let index = core.context.volume_index().resolve_index(&output.root);
+		assert!(index.read().await.get_entry_uuid(&held).is_some());
+
 		drop(index);
 		drop(store);
 		drop(library);
