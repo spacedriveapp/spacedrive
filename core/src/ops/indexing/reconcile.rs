@@ -1032,6 +1032,12 @@ pub async fn reconcile_source_with(
 	if let Err(error) = cache.refresh_source_counts(root).await {
 		warn!(root = %root.display(), %error, "could not record the source's counts");
 	}
+	// A removal announces only the entry itself, so a view open anywhere
+	// beneath a removed folder, such as one the rules now exclude, would keep
+	// its rows. One refresh covers them all.
+	if report.removed > 0 {
+		context.events.emit(crate::infra::event::Event::Refresh);
+	}
 
 	info!(
 		root = %root.display(),
