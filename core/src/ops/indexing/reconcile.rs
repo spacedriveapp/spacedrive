@@ -848,13 +848,16 @@ pub async fn reconcile_source_with(
 			doomed += weighed.beneath;
 			replacing.push((path, is_directory, weighed));
 		}
+		// A child's `entries` counts only the files beneath it, so the
+		// subtree is walked to count the directories the prune takes too.
 		let mut pruning = Vec::new();
 		for dir in &excluded {
-			let children = index.known_children(&map_spelling(dir)).unwrap_or_default();
-			let held: u64 = children.iter().map(|child| child.entries).sum();
-			known_entries += held;
-			doomed += held;
-			pruning.extend(children);
+			for child in index.known_children(&map_spelling(dir)).unwrap_or_default() {
+				let held = index.subtree_identities(&child.path).len().max(1) as u64;
+				known_entries += held;
+				doomed += held;
+				pruning.push((child, held));
+			}
 		}
 		(doomed, replacing, pruning)
 	};
@@ -910,13 +913,13 @@ pub async fn reconcile_source_with(
 	// listing drops what left. A child directory's subtree goes with it in
 	// one event.
 	if !refused {
-		for child in pruning {
+		for (child, held) in pruning {
 			loud.apply(Seen::Lost {
 				path: child.path,
 				is_directory: child.kind == EntryKind::Directory,
 			})
 			.await;
-			report.removed += child.entries;
+			report.removed += held;
 		}
 	}
 
@@ -1628,22 +1631,15 @@ mod tests {
 
 	/// A rule no earlier walk applied can exclude most of a source, such as a
 	/// home folder walked before `Users/*/Library` and the dev-directory rules.
-	/// What the excluded directories hold counts toward the half-removal fuse,
+	/// What the excluded directory holds counts toward the half-removal fuse,
 	/// so the pass removes nothing and the store keeps every record.
-	#[tokio::test(flavor = "multi_thread")]
-	async fn an_exclusion_that_would_take_most_of_the_source_removes_nothing() {
+	async fn an_exclusion_of_most_of_the_source_is_refused(held: &str, populate: fn(&Path)) {
 		let data = tempfile::tempdir().expect("data dir");
 		let files = tempfile::tempdir().expect("files dir");
 		let root = files.path().canonicalize().expect("root");
 		std::fs::create_dir(root.join(".git")).expect("git dir");
 		std::fs::write(root.join(".gitignore"), "").expect("gitignore");
-		std::fs::create_dir_all(root.join("cache/deep")).expect("mkdir");
-		for n in 0..150 {
-			std::fs::write(root.join(format!("cache/deep/{n}.txt")), "old").expect("write");
-		}
-		for n in 0..20 {
-			std::fs::write(root.join(format!("keep{n}.txt")), "keep").expect("write");
-		}
+		populate(&root);
 
 		let core = crate::Core::new(data.path().to_path_buf())
 			.await
@@ -1678,7 +1674,7 @@ mod tests {
 			.await
 			.expect("store");
 		store.flush().await.expect("flush");
-		let held = output.root.join("cache/deep/0.txt");
+		let held = output.root.join(held);
 		assert!(store.contains_path(&held).await, "walked before the rule");
 
 		std::fs::write(root.join(".gitignore"), "cache/\n").expect("gitignore");
@@ -1706,5 +1702,34 @@ mod tests {
 		drop(store);
 		drop(library);
 		core.shutdown().await.expect("shutdown");
+	}
+
+	#[tokio::test(flavor = "multi_thread")]
+	async fn an_exclusion_that_would_take_most_of_the_source_removes_nothing() {
+		an_exclusion_of_most_of_the_source_is_refused("cache/deep/0.txt", |root| {
+			std::fs::create_dir_all(root.join("cache/deep")).expect("mkdir");
+			for n in 0..150 {
+				std::fs::write(root.join(format!("cache/deep/{n}.txt")), "old").expect("write");
+			}
+			for n in 0..20 {
+				std::fs::write(root.join(format!("keep{n}.txt")), "keep").expect("write");
+			}
+		})
+		.await;
+	}
+
+	/// The same with directories: an arena child counts only the files
+	/// beneath it, so empty directories have to be counted too.
+	#[tokio::test(flavor = "multi_thread")]
+	async fn an_exclusion_of_mostly_directories_removes_nothing() {
+		an_exclusion_of_most_of_the_source_is_refused("cache/deep/0", |root| {
+			for n in 0..150 {
+				std::fs::create_dir_all(root.join(format!("cache/deep/{n}"))).expect("mkdir");
+			}
+			for n in 0..20 {
+				std::fs::write(root.join(format!("keep{n}.txt")), "keep").expect("write");
+			}
+		})
+		.await;
 	}
 }
