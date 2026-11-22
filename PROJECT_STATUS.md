@@ -73,8 +73,10 @@ downloaded through `ModelDownloadJob` with a pinned hash after the user
 accepts the license (`ai.models.download`), batched `ai.infer` requests, and a
 per-library bring-your-own-key cloud caption opt-in, off by default
 (`ai.cloud_caption.configure`). Photos gets face boxes with embeddings and
-scene labels from a daemon built with `wasm,ai-providers`. The model catalog
-waits on Jamie's approval of the license shortlist; CoreML is unproven.
+scene labels from a daemon built with `wasm,ai-providers`. The catalog pins
+BlazeFace, AuraFace, SigLIP and E5 (approved November 22); BlazeFace's ONNX
+conversion is hosted under the spacedriveapp Hugging Face org once uploaded.
+Local captioning (Florence-2) needs a generation loop; CoreML is unproven.
 See `docs/core/inference.mdx`.
 
 Beta.1 log and churn polish from the signed Studio proof (Capy FAN-12343,

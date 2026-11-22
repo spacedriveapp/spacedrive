@@ -52,6 +52,21 @@ refuses unless `accept_license` matches the model's license, then queues one
 `model_download` job per missing file. Files land in
 `<data dir>/models/providers/<model id>/` and are checked against their hash.
 
+The catalog holds these models. Each one's code and weights allow commercial
+use, and so does its training data as far as its model card says.
+
+| Category | Model | License | Download |
+|----------|-------|---------|----------|
+| face_detection | MediaPipe BlazeFace full-range | Apache-2.0 | 2 MB |
+| face_embedding | AuraFace v1 | Apache-2.0 | 261 MB |
+| scene_classification | SigLIP base patch16-224, 8-bit | Apache-2.0 | 213 MB |
+| text_embedding | Multilingual E5 small, 8-bit | MIT | 135 MB |
+
+Google publishes BlazeFace only as TFLite. Spacedrive hosts an ONNX conversion
+that `scripts/models/convert_blazeface.py` reproduces byte for byte with the
+tool versions in `scripts/models/requirements-blazeface.txt`. The other files
+download from their upstream repositories.
+
 Sessions run on ONNX Runtime with half the cores. On macOS they ask for CoreML
 first and fall back to the CPU for operators CoreML cannot place.
 
