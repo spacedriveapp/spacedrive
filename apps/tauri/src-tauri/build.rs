@@ -75,7 +75,16 @@ fn main() {
 		""
 	};
 
-	for source_profile in [profile.as_str(), "release"] {
+	// target/<profile>/sd-daemon is a host build, so copying it under another
+	// triple would bundle a daemon of the wrong architecture. Cross builds get
+	// their sidecar from ensure-daemon-sidecar.sh.
+	let host_triple = std::env::var("HOST").expect("HOST not set");
+	let source_profiles: &[&str] = if host_triple == target_triple {
+		&[profile.as_str(), "release"]
+	} else {
+		&[]
+	};
+	for source_profile in source_profiles {
 		let daemon_source = format!(
 			"{}/target/{}/sd-daemon{}",
 			workspace_dir, source_profile, exe_ext

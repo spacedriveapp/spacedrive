@@ -485,6 +485,22 @@ jobs:
             --target ${{ matrix.settings.target }}
             --bundles ${{ matrix.settings.bundles }}
 
+      # A cross build that bundled a host daemon would ship an app whose
+      # daemon cannot start on the target Mac.
+      - name: Verify macOS binary architectures
+        if: matrix.settings.os == 'darwin'
+        run: |
+          set -euo pipefail
+          app="target/${{ matrix.settings.target }}/release/bundle/macos/Spacedrive.app"
+          arch=${{ matrix.settings.arch == 'aarch64' && 'arm64' || matrix.settings.arch }}
+          for bin in "$app/Contents/MacOS/Spacedrive" "$app/Contents/MacOS/sd-daemon"; do
+            lipo -info "$bin"
+            if ! lipo "$bin" -verify_arch "$arch"; then
+              echo "::error::$(basename "$bin") in Spacedrive.app is not built for $arch"
+              exit 1
+            fi
+          done
+
       # tauri warns and carries on when it cannot sign or notarize, so a real
       # release checks the result itself and fails rather than ship an app
       # Gatekeeper rejects.
