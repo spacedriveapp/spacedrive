@@ -274,6 +274,8 @@ export function handleResourceEvent(
 	const wireMethod = toWireMethod(options.query);
 	// Refresh is a unit variant, so it arrives as the bare string "Refresh".
 	// The daemon sends it when events were lost, so every query refetches.
+	// Every listener receives the same Refresh; keeping in-flight refetches
+	// lets the first one's requests serve the rest instead of restarting them.
 	if (event === "Refresh") {
 		if (debug) {
 			console.log(
@@ -281,7 +283,7 @@ export function handleResourceEvent(
 				event,
 			);
 		}
-		queryClient.invalidateQueries();
+		queryClient.invalidateQueries(undefined, { cancelRefetch: false });
 		return;
 	}
 
