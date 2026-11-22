@@ -1,0 +1,310 @@
+---
+title: Footage clips and timeline export
+description: Clips, transcripts and shots for agents, and rough cuts for editors
+sidebarTitle: Footage clips
+---
+
+Spacedrive answers footage questions with clips: a range of one video, with
+the words spoken in it and the shot it sits in. An agent searches for clips,
+reads a file's transcript and shot list, and hands an ordered list of clips
+back to get a rough cut that Final Cut Pro, DaVinci Resolve or Premiere Pro
+opens.
+
+> **Status:** Built behind the `footage-clips` cargo feature, which is off by
+> default and not part of beta.1. It builds the shot detection module too.
+
+## Run it
+
+Build a daemon and CLI with the feature, plus the steps that make the
+sidecars a clip reads:
+
+```bash
+cargo build --bin sd-daemon --bin sd-cli \
+  --features sd-core/footage-clips,sd-core/speech-to-text,sd-core/video-proxies,sd-cli/footage-clips
+```
+
+Then make proxies (`media.proxies.generate`), shots (`media.shots.detect`)
+and transcripts (`media.transcribe`) for the footage, and cut:
+
+```bash
+sd media clips search "train" --path ~/Footage/japan
+sd media clips search "train" --path ~/Footage/japan --json \
+  | sd media timeline export - --name "Train rough cut" --out ~/Desktop
+```
+
+## What a clip reads
+
+A clip is computed at query time. Nothing stores clips. Each one joins three
+sidecars of the same content uuid, the candidate uuid described under
+[Media sidecars](./virtual-sidecars#media-sidecars):
+
+| Sidecar | Path under `sidecars/content/<h0>/<h1>/<uuid>/` | Written by |
+| --- | --- | --- |
+| Transcript | `transcript/default.json` | `media.transcribe` |
+| Shots | `shots/default.json` | `media.shots.detect` |
+| Proxy | `proxies/720p.mp4` | `media.proxies.generate` |
+
+This page does not define those formats. It reads them through the helpers
+their jobs export. A file with a transcript and no shots still returns clips,
+with no `shot_id`. A file with shots and no transcript appears in
+`read_footage`, not in a text search.
+
+Later sidecars (scene descriptions, faces) attach to a clip as new optional
+fields. Clients must ignore fields they do not know.
+
+## Time
+
+Every time in this contract is a whole frame count at the source's own frame
+rate. Seconds and timecode strings are carried beside it for people and are
+never the source of truth. This is what keeps an FCPXML in point exact: frame
+`n` at `24000/1001` is written as `n*1001/24000s`, with no rounding.
+
+```json
+"rate": { "num": 24000, "den": 1001 },
+"in":   { "frame": 1230, "seconds": 51.3013, "timecode": "00:00:51:06" },
+"out":  { "frame": 1302, "seconds": 54.3042, "timecode": "00:00:54:06" }
+```
+
+- `rate` is the original file's frame rate as a reduced fraction.
+- `out` is exclusive: the first frame after the clip. Duration is
+  `out.frame - in.frame`.
+- Frames count from the first frame of the file, not from its embedded
+  timecode. `timecode` adds the file's start timecode when it has one, so it
+  matches what an editor shows for the original.
+- A proxy has the same frames as its original, so a clip cut from the proxy
+  and one cut from the original cover the same pictures.
+- Speech times arrive in seconds. An in point rounds down to a frame and an
+  out point rounds up, so a clip never cuts a word short.
+
+Wherever a request takes a time, it takes `{ "frame": n }` or
+`{ "seconds": x }`. Seconds round to the nearest frame.
+
+## Agent MCP tools
+
+The agent endpoint (`core/src/service/agent_mcp`) adds three tools. Every path
+is relative to the grant root, like the existing tools, and a grant sees only
+clips of files inside its granted directory. A hit whose file moved out of the
+grant is dropped, the same rule `search` and `search_content` follow.
+
+Clips and timelines cover files on the device that runs the daemon. A video on
+another device is refused, because a timeline's paths would name files that
+exist only there.
+
+### search_clips
+
+Finds the places where words were spoken and returns each as a clip.
+
+Input:
+
+```json
+{
+  "query": "train",
+  "path": "trips/2026-japan",
+  "snap": "segment",
+  "pad_seconds": 0.5,
+  "max_results": 20,
+  "cursor": null
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `query` | Words that must all appear in one transcript segment, with the same syntax as `search_content`: quoted phrases, `word*` prefixes. Required. |
+| `path` | Directory or file to search. Defaults to the grant root. |
+| `snap` | `segment` (default) cuts the matched speech plus padding, kept inside its shot. `shot` returns the whole shot that holds the match. |
+| `pad_seconds` | Handles added before and after the speech, 0 to 5, default 0.5. Ignored for `snap: shot`. |
+| `max_results` | 1 to 100, default 20. |
+| `cursor` | The `next_cursor` of the previous page. |
+
+Output:
+
+```json
+{
+  "clips": [
+    {
+      "path": "trips/2026-japan/A001_C004.mov",
+      "file_id": "0193c7e2-6a4b-7c1d-9a52-3f0b8e1d2a44",
+      "content_uuid": "abcd1234-5678-90ab-cdef-123456789012",
+      "rate": { "num": 24000, "den": 1001 },
+      "in": { "frame": 1230, "seconds": 51.3013, "timecode": "14:02:11:06" },
+      "out": { "frame": 1302, "seconds": 54.3042, "timecode": "14:02:14:06" },
+      "shot_id": "98fbe9d4-9447-5c2d-a23a-55a3898d951f",
+      "transcript": {
+        "text": "and this is the train we almost missed",
+        "language": "en"
+      },
+      "matched": ["train"],
+      "score": 7.21,
+      "proxy": true
+    }
+  ],
+  "next_cursor": "20",
+  "pending_files": 3,
+  "note": "Clips come from the transcript index, which can lag new footage. pending_files counts videos not transcribed yet."
+}
+```
+
+One clip is returned per matching segment. Matching segments in the same
+shot whose clips overlap merge into one clip. `shot_id` is the shot list's id
+and `file_id` the record uuid in the source store; either is null until shot
+detection or a walk has reached the file. Clips are ordered by relevance; an agent that
+wants story order sorts by `path` and `in.frame`.
+
+### read_footage
+
+Reads one video's shot list and transcript, so an agent can pick and trim
+clips by reading rather than searching.
+
+Input:
+
+```json
+{ "path": "trips/2026-japan/A001_C004.mov", "from": { "seconds": 0 }, "to": { "seconds": 300 } }
+```
+
+`from` and `to` are optional and bound the answer for long files. A response
+holds at most 500 segments; `next_from` continues after the last one.
+
+Output:
+
+```json
+{
+  "path": "trips/2026-japan/A001_C004.mov",
+  "file_id": "0193c7e2-6a4b-7c1d-9a52-3f0b8e1d2a44",
+  "content_uuid": "abcd1234-5678-90ab-cdef-123456789012",
+  "rate": { "num": 24000, "den": 1001 },
+  "duration": { "frame": 21600, "seconds": 900.9 },
+  "start_timecode": "14:01:20:00",
+  "language": "en",
+  "proxy": true,
+  "shots": [
+    {
+      "shot_id": "98fbe9d4-9447-5c2d-a23a-55a3898d951f",
+      "in": { "frame": 1104, "seconds": 46.046, "timecode": "14:02:06:00" },
+      "out": { "frame": 1420, "seconds": 59.2259, "timecode": "14:02:19:04" },
+      "text": "okay we're at the station ... and this is the train we almost missed"
+    }
+  ],
+  "segments": [
+    { "start": 51.80, "end": 53.84, "text": "and this is the train we almost missed", "shot_id": "98fbe9d4-9447-5c2d-a23a-55a3898d951f" }
+  ],
+  "missing": [],
+  "next_from": null
+}
+```
+
+`missing` names what is not there yet: `transcript`, `shots` or `proxy`.
+Segment times are the transcript's own seconds; an agent converts them with
+`rate`, or passes `{ "seconds": x }` to `export_timeline`.
+
+### export_timeline
+
+Builds a rough cut from an ordered list of clips and writes it in the formats
+asked for.
+
+Input:
+
+```json
+{
+  "name": "Train rough cut",
+  "clips": [
+    { "path": "trips/2026-japan/A001_C004.mov", "in": { "frame": 1230 }, "out": { "frame": 1302 } },
+    { "path": "trips/2026-japan/A003_C011.mov", "in": { "seconds": 12.5 }, "out": { "seconds": 18 }, "label": "platform wide" }
+  ],
+  "formats": ["fcpxml", "edl", "otio"],
+  "media": "original",
+  "write_to": "cuts"
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `name` | Project and file name. Required. |
+| `clips` | 1 to 500 clips in timeline order. A clip object from `search_clips` can be passed as is; only `path`, `in`, `out` and `label` are read. |
+| `formats` | Any of `fcpxml`, `edl`, `otio`. Default all three. |
+| `media` | `original` (default) references the original files. `proxy` references the 720p proxies, and fails for a clip whose proxy does not exist yet. |
+| `write_to` | Directory in the grant to write the files into. Needs a read-write grant, and writes like `write_file` without `expect`: a taken name gets a conflict suffix, and each file returns an undo id. Without it, the documents come back in the response. |
+
+Output:
+
+```json
+{
+  "timeline": {
+    "rate": { "num": 24000, "den": 1001 },
+    "duration": { "frame": 204, "seconds": 8.5085, "timecode": "00:00:08:12" },
+    "clips": 2
+  },
+  "files": [
+    { "format": "fcpxml", "path": "cuts/Train rough cut.fcpxml", "undo_id": "..." },
+    { "format": "edl", "path": "cuts/Train rough cut.edl", "undo_id": "..." },
+    { "format": "otio", "path": "cuts/Train rough cut.otio", "undo_id": "..." }
+  ],
+  "warnings": [
+    "A003_C011.mov is 25 fps on a 23.976 fps timeline; Final Cut and Resolve conform it from the FCPXML or OTIO, but an EDL holds one rate, so do not use the EDL for this cut"
+  ]
+}
+```
+
+Each file also says whether its name was taken (`conflict`). Without
+`write_to`, `files` is replaced by `documents`:
+`[{ "format": "fcpxml", "file_name": "Train rough cut.fcpxml", "content": "<?xml ..." }]`.
+
+The files hold absolute `file://` paths, because an editor needs them. That
+is the one place a host path reaches an agent, and it names only videos inside
+the grant, or with `media: proxy`, their proxies in the library's sidecar
+directory.
+
+The timeline takes the frame rate and picture size of its first clip. Clips
+sit end to end with no gaps, each with its picture and its first audio track.
+
+## What each format holds
+
+| Format | Version | References media by | Opens in |
+| --- | --- | --- | --- |
+| FCPXML | 1.10 | `file://` URL per asset, in and out as rational time | Final Cut Pro 10.6 and later, Resolve |
+| OTIO | OpenTimelineIO JSON | `ExternalReference.target_url`, `RationalTime` at the source rate | Resolve, any OTIO tool |
+| EDL | CMX 3600 | Reel name, plus `* FROM CLIP NAME` and `* SOURCE FILE` comments | Resolve, Premiere Pro |
+
+Premiere Pro does not import FCPXML. Use the EDL there and relink by clip
+name.
+
+Source in and out points in every format are the original's timecode: its
+start timecode plus the clip's frames. That is what lets an editor relink a
+proxy cut to the originals. An EDL holds one frame rate, so a cut that mixes
+rates should go to an editor as FCPXML or OTIO.
+
+The writers live in the `sd-timeline` crate. `scripts/footage/validate-timelines.sh`
+makes test media with FFmpeg, writes a cut in every format, checks the FCPXML
+against Apple's FCPXML 1.10 DTD (it ships inside Final Cut Pro, so you pass its
+path), and reads all three files back with OpenTimelineIO and its FCPXML and
+CMX 3600 adapters to confirm the in and out points agree.
+
+## Library ops and CLI
+
+The agent tools are thin wrappers over three library ops, which the CLI, the
+local `sd mcp` server and the generated clients reach too. The ops take
+`SdPath`s and return them, rather than grant-relative paths.
+`media.timeline.export` writes into `destination` when it is given, numbering a
+taken name (`Train rough cut (2).fcpxml`), and otherwise returns the
+documents.
+
+| Agent tool | Library op | CLI |
+| --- | --- | --- |
+| `search_clips` | `media.clips.search` (query) | `sd media clips search <query> [--path DIR] [--snap shot] [--pad 0.5] [--json]` |
+| `read_footage` | `media.footage.read` (query) | `sd media footage read <file> [--from S] [--to S] [--json]` |
+| `export_timeline` | `media.timeline.export` (action) | `sd media timeline export <CLIPS_JSON> --name NAME --out DIR [--format fcpxml,edl,otio] [--proxy]` |
+
+`timeline export` reads the output of `clips search --json` from a file, or
+from standard input when `CLIPS_JSON` is `-`. A hand-written list works too:
+each entry names its file by `sd_path` or `path` and has `in`, `out` and an
+optional `label`.
+
+## Where the facts come from
+
+| Fact | Source |
+| --- | --- |
+| Frame rate, start timecode, duration | The shots sidecar when present, else a probe of the original with the host FFprobe. Export always probes the original. |
+| Picture size, sound | A probe of the file the timeline references: the original or its proxy |
+| Speech | `transcript/default.json` and its hits in the `search.content` index |
+| Shots and shot ids | The shots sidecar |
+| Proxy | `proxies/720p.mp4` |
+| File id | The record uuid in the source store |

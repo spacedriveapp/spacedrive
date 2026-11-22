@@ -4,7 +4,8 @@
 //!
 //! A tool is a [`Tool`] variant with its name, the capability it needs, its
 //! entry in [`definitions`] and its arm in [`call`]. The transport reads all of
-//! that from here, so adding a tool touches only this file.
+//! that from here, so adding a tool touches only this file. The footage tools
+//! keep their bodies and schemas in `footage.rs`.
 //!
 //! Every tool takes a path relative to the grant root and works on the
 //! [`GrantScope::path`] the grant check resolved, never on the path it was
@@ -28,6 +29,8 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use tracing::warn;
 
+#[cfg(feature = "footage-clips")]
+use super::footage;
 use super::{limits::*, paths, SKILL};
 use crate::{
 	context::CoreContext,
@@ -71,6 +74,12 @@ pub enum Tool {
 	Delete,
 	#[cfg(feature = "video-shots")]
 	ListShots,
+	#[cfg(feature = "footage-clips")]
+	SearchClips,
+	#[cfg(feature = "footage-clips")]
+	ReadFootage,
+	#[cfg(feature = "footage-clips")]
+	ExportTimeline,
 }
 
 impl Tool {
@@ -89,6 +98,12 @@ impl Tool {
 		Self::Delete,
 		#[cfg(feature = "video-shots")]
 		Self::ListShots,
+		#[cfg(feature = "footage-clips")]
+		Self::SearchClips,
+		#[cfg(feature = "footage-clips")]
+		Self::ReadFootage,
+		#[cfg(feature = "footage-clips")]
+		Self::ExportTimeline,
 	];
 
 	pub fn name(self) -> &'static str {
@@ -107,6 +122,12 @@ impl Tool {
 			Self::Delete => "delete",
 			#[cfg(feature = "video-shots")]
 			Self::ListShots => "list_shots",
+			#[cfg(feature = "footage-clips")]
+			Self::SearchClips => "search_clips",
+			#[cfg(feature = "footage-clips")]
+			Self::ReadFootage => "read_footage",
+			#[cfg(feature = "footage-clips")]
+			Self::ExportTimeline => "export_timeline",
 		}
 	}
 
@@ -139,7 +160,7 @@ pub struct Output {
 impl Output {
 	/// The structured value, also as JSON text for clients that only read
 	/// text content.
-	fn json(structured: Value) -> Self {
+	pub(super) fn json(structured: Value) -> Self {
 		let text = serde_json::to_string_pretty(&structured).unwrap_or_default();
 		Self {
 			content: vec![json!({ "type": "text", "text": text })],
@@ -416,6 +437,10 @@ pub fn definitions() -> Value {
 			"annotations": annotations("List a video's shots"),
 		}));
 	}
+	#[cfg(feature = "footage-clips")]
+	if let Some(list) = tools.as_array_mut() {
+		list.extend(footage::definitions(&path));
+	}
 	tools
 }
 
@@ -446,6 +471,12 @@ pub async fn call(
 		}
 		#[cfg(feature = "video-shots")]
 		Tool::ListShots => list_shots(&context, &scope).await,
+		#[cfg(feature = "footage-clips")]
+		Tool::SearchClips => footage::search_clips(&context, &scope, args(arguments)?).await,
+		#[cfg(feature = "footage-clips")]
+		Tool::ReadFootage => footage::read_footage(&context, &scope, args(arguments)?).await,
+		#[cfg(feature = "footage-clips")]
+		Tool::ExportTimeline => footage::export_timeline(&context, token, &scope, args(arguments)?).await,
 	};
 	result.map_err(|message| scrub(&message, &root))
 }
@@ -472,7 +503,7 @@ async fn blocking(
 		.map_err(|_| "the call failed".to_string())?
 }
 
-fn io_message(error: &std::io::Error) -> String {
+pub(super) fn io_message(error: &std::io::Error) -> String {
 	use std::io::ErrorKind::*;
 	match error.kind() {
 		NotFound => "no such file or directory".to_string(),
@@ -1219,34 +1250,8 @@ async fn search_content(
 			"the query is longer than {PATTERN_MAX_BYTES} bytes"
 		));
 	}
-	// The grant's canonical path can differ from the source's registered
-	// spelling by a firmlink, and the store answers only to the registered one.
-	let Some((source_id, in_source)) =
-		owning_source(context, scope.library_id, &scope.path).await?
-	else {
-		return Err(
-			"this path is not inside a source Spacedrive tracks, so it has no text index; use grep"
-				.to_string(),
-		);
-	};
-	// Checked here so the refusal names this endpoint's tools.
-	if !context
-		.volume_index()
-		.source_config(source_id)
-		.is_some_and(|config| config.identify_content)
-	{
-		return Err(
-			"this source does not read file contents, so it has no text index; use grep"
-				.to_string(),
-		);
-	}
-
-	let device_id = context
-		.device_manager
-		.device_id()
-		.map_err(|_| "content search failed".to_string())?;
-	let session = SessionContext::device_session(device_id, "Agent MCP".to_string())
-		.with_library(scope.library_id);
+	let in_source = text_index_path(context, scope).await?;
+	let session = session(context, scope)?;
 	let found = ContentSearchQuery::from_input(ContentSearchInput {
 		scope: SdPath::local(in_source),
 		query: args.query,
@@ -1259,31 +1264,8 @@ async fn search_content(
 	.await
 	.map_err(content_error)?;
 
-	// Hit paths are relative to the searched path, and a file scope answers
-	// with its own name. The index can lag the disk, so each hit is placed
-	// by where it is now, like a search hit.
-	let root = scope.root.clone();
-	let base = scope.path.clone();
 	let names: Vec<String> = found.hits.iter().map(|hit| hit.path.clone()).collect();
-	let placed: Vec<Option<PathBuf>> = tokio::task::spawn_blocking(move || {
-		let file_scope = std::fs::metadata(&base).is_ok_and(|meta| meta.is_file());
-		names
-			.iter()
-			.map(|name| {
-				let path = if file_scope {
-					base.clone()
-				} else {
-					base.join(name)
-				};
-				std::fs::symlink_metadata(&path).ok()?;
-				crate::ops::grants::scope::resolve(&root, &path)
-					.ok()
-					.map(|resolved| resolved.relative)
-			})
-			.collect()
-	})
-	.await
-	.map_err(|_| "content search failed".to_string())?;
+	let placed = place(scope, names).await?;
 
 	let results: Vec<Value> = found
 		.hits
@@ -1379,10 +1361,83 @@ async fn list_shots(context: &Arc<CoreContext>, scope: &GrantScope) -> Result<Ou
 	})))
 }
 
+/// The spelling of the request's path that its source's store answers to,
+/// once the source is known to keep a text index.
+pub(super) async fn text_index_path(
+	context: &Arc<CoreContext>,
+	scope: &GrantScope,
+) -> Result<PathBuf, String> {
+	// The grant's canonical path can differ from the source's registered
+	// spelling by a firmlink, and the store answers only to the registered one.
+	let Some((source_id, in_source)) =
+		owning_source(context, scope.library_id, &scope.path).await?
+	else {
+		return Err(
+			"this path is not inside a source Spacedrive tracks, so it has no text index; use grep"
+				.to_string(),
+		);
+	};
+	// Checked here so the refusal names this endpoint's tools.
+	if !context
+		.volume_index()
+		.source_config(source_id)
+		.is_some_and(|config| config.identify_content)
+	{
+		return Err(
+			"this source does not read file contents, so it has no text index; use grep"
+				.to_string(),
+		);
+	}
+	Ok(in_source)
+}
+
+/// The session a library op runs in for this grant.
+pub(super) fn session(context: &CoreContext, scope: &GrantScope) -> Result<SessionContext, String> {
+	let device_id = context
+		.device_manager
+		.device_id()
+		.map_err(|_| "the device is not ready".to_string())?;
+	Ok(
+		SessionContext::device_session(device_id, "Agent MCP".to_string())
+			.with_library(scope.library_id),
+	)
+}
+
+/// Places index hits named relative to the request's path where they are
+/// now, relative to the grant root. A file scope answers with its own name.
+/// The index can lag the disk, so a hit that moved out of the grant, or whose
+/// link resolves out of it, is None.
+pub(super) async fn place(
+	scope: &GrantScope,
+	names: Vec<String>,
+) -> Result<Vec<Option<PathBuf>>, String> {
+	let root = scope.root.clone();
+	let base = scope.path.clone();
+	tokio::task::spawn_blocking(move || {
+		let file_scope = std::fs::metadata(&base).is_ok_and(|meta| meta.is_file());
+		names
+			.iter()
+			.map(|name| {
+				let path = if file_scope {
+					base.clone()
+				} else {
+					base.join(name)
+				};
+				std::fs::symlink_metadata(&path).ok()?;
+				crate::ops::grants::scope::resolve(&root, &path)
+					.ok()
+					.map(|resolved| resolved.relative)
+			})
+			.collect()
+	})
+	.await
+	.map_err(|_| "the search failed".to_string())
+}
+
 /// The op's refusals of the request reach the agent; anything else is
 /// logged and answered generically, since it can name host paths outside
 /// the grant.
-fn content_error(error: QueryError) -> String {
+pub(super) fn content_error(error: QueryError) -> String {
 	match error {
 		QueryError::Validation { message, .. } | QueryError::InvalidInput(message) => message,
 		other => {
