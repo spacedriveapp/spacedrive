@@ -548,7 +548,7 @@ jobs:
           arch=${{ matrix.settings.arch == 'aarch64' && 'arm64' || matrix.settings.arch }}
           for bin in "$app/Contents/MacOS/Spacedrive" "$app/Contents/MacOS/sd-daemon"; do
             lipo -info "$bin"
-            if ! lipo -verify_arch "$arch" "$bin"; then
+            if ! lipo "$bin" -verify_arch "$arch"; then
               echo "::error::$(basename "$bin") in Spacedrive.app is not built for $arch"
               exit 1
             fi
