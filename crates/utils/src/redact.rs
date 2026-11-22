@@ -27,9 +27,10 @@ pub const REDACTED: &str = "***";
 /// The scan works on free text rather than parsing one URL, so it also
 /// covers a URL inside an error message, a JSON payload or a log line.
 /// Every `//` opens an authority that runs to the next `/`, `?`, `#`,
-/// quote, backslash or whitespace, and everything before the last `@` in
-/// it is userinfo. Taking the last `@` keeps an unencoded `@` in a
-/// password from leaking the rest of it. Text with nothing to redact is
+/// double quote, backslash, angle bracket, backtick or whitespace, and
+/// everything before the last `@` in it is userinfo. Apostrophes are valid
+/// in userinfo, so they do not end it. Taking the last `@` keeps an
+/// unencoded `@` in a password from leaking the rest of it. Text with nothing to redact is
 /// returned borrowed, so the common case does not allocate.
 pub fn redact_url_credentials(text: &str) -> Cow<'_, str> {
 	if !text.contains('@') || !text.contains("//") {
@@ -60,7 +61,7 @@ pub fn redact_url_credentials(text: &str) -> Cow<'_, str> {
 }
 
 fn is_authority_end(c: char) -> bool {
-	c.is_whitespace() || matches!(c, '/' | '?' | '#' | '"' | '\'' | '\\' | '<' | '>' | '`')
+	c.is_whitespace() || matches!(c, '/' | '?' | '#' | '"' | '\\' | '<' | '>' | '`')
 }
 
 /// An `io::Write` that redacts URL credentials from what passes through it.
@@ -133,6 +134,18 @@ mod tests {
 		assert_eq!(
 			redact_url_credentials("smb://alice:p@ss@nas.example/media"),
 			"smb://***@nas.example/media"
+		);
+	}
+
+	#[test]
+	fn password_with_apostrophe_is_fully_hidden() {
+		assert_eq!(
+			redact_url_credentials("smb://spacedrive:pa'ssword@127.0.0.1:1/spacedrive"),
+			"smb://***@127.0.0.1:1/spacedrive"
+		);
+		assert_eq!(
+			redact_url_credentials("url='smb://u:it's@host/share'"),
+			"url='smb://***@host/share'"
 		);
 	}
 

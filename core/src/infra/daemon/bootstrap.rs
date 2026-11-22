@@ -302,6 +302,7 @@ mod tests {
 				url = "smb://alice:hunter2@nas.example/media",
 				"mount failed"
 			);
+			tracing::info!("share at smb://spacedrive:pa'ssword@127.0.0.1:1/spacedrive");
 		});
 
 		let output = String::from_utf8(captured.0.lock().unwrap().clone()).unwrap();
@@ -313,5 +314,6 @@ mod tests {
 		assert!(!output.contains("0123abcd"), "{output}");
 		assert!(!output.contains("hunter2"), "{output}");
 		assert!(!output.contains("alice"), "{output}");
+		assert!(!output.contains("ssword"), "{output}");
 	}
 }
