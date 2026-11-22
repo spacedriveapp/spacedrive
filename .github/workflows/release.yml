@@ -14,6 +14,10 @@ on:
         description: Sign and notarize the macOS desktop app and CLI binaries in a dry run, then verify them; still creates no tag or release
         type: boolean
         default: false
+      features:
+        description: Extra sd-core features for the daemon in a dry run, comma separated (for example video-proxies,speech-to-text,wasm); ignored outside a dry run
+        type: string
+        default: ''
 
 # Every job reads the repository only; the release job alone gets write access,
 # and it never runs in a dry run.
@@ -191,6 +195,30 @@ jobs:
           sudo apt-get remove libunwind-* || true
           ./scripts/setup.sh
 
+      # A dry run may turn on off-by-default sd-core features for a preview
+      # build. A tag or a non-dry run always builds the shipping feature set.
+      - name: Select preview features
+        shell: bash
+        env:
+          FEATURES: ${{ inputs.dry_run == true && inputs.features || '' }}
+        run: |
+          set -euo pipefail
+          set -f
+          list=""
+          for feature in ${FEATURES//,/ }; do
+            if ! [[ "$feature" =~ ^[a-z0-9-]+$ ]]; then
+              echo "::error::Invalid feature name: $feature"
+              exit 1
+            fi
+            list="$list,sd-core/$feature"
+          done
+          if [ -z "$list" ]; then
+            echo "No preview features"
+            exit 0
+          fi
+          echo "Preview features: ${list#,}"
+          echo "SD_PREVIEW_FEATURES=${list#,}" >> "$GITHUB_ENV"
+
       - name: Build sd-cli and sd-daemon
         shell: bash
         env:
@@ -200,7 +228,7 @@ jobs:
         run: |
           cargo build --release --locked \
             -p sd-cli -p sd-core --bin sd-cli --bin sd-daemon \
-            --features sd-core/fuse \
+            --features "sd-core/fuse${SD_PREVIEW_FEATURES:+,$SD_PREVIEW_FEATURES}" \
             --target ${{ matrix.settings.target }}
 
       - name: Prepare binaries
@@ -446,6 +474,30 @@ jobs:
           echo "CFLAGS=-march=armv8.2-a+crypto" >> $GITHUB_ENV
           echo "CXXFLAGS=-march=armv8.2-a+crypto" >> $GITHUB_ENV
 
+      # A dry run may turn on off-by-default sd-core features for a preview
+      # build. A tag or a non-dry run always builds the shipping feature set.
+      - name: Select preview features
+        shell: bash
+        env:
+          FEATURES: ${{ inputs.dry_run == true && inputs.features || '' }}
+        run: |
+          set -euo pipefail
+          set -f
+          list=""
+          for feature in ${FEATURES//,/ }; do
+            if ! [[ "$feature" =~ ^[a-z0-9-]+$ ]]; then
+              echo "::error::Invalid feature name: $feature"
+              exit 1
+            fi
+            list="$list,sd-core/$feature"
+          done
+          if [ -z "$list" ]; then
+            echo "No preview features"
+            exit 0
+          fi
+          echo "Preview features: ${list#,}"
+          echo "SD_PREVIEW_FEATURES=${list#,}" >> "$GITHUB_ENV"
+
       # tauri treats a set but empty APPLE_CERTIFICATE as a certificate to
       # import, so the Apple variables exist only in a signed build.
       - name: Export macOS signing environment
@@ -583,6 +635,41 @@ jobs:
       - name: Cleanup keychain
         if: always() && runner.os == 'macOS'
         run: security delete-keychain signing_temp.keychain || true
+
+  # A preview dry run with the wasm feature also ships the Videos extension,
+  # built from this commit, as a folder to copy into the data directory.
+  videos-extension:
+    if: inputs.dry_run == true && contains(inputs.features, 'wasm')
+    runs-on: ubuntu-24.04
+    name: Videos extension
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          target: wasm32-unknown-unknown
+          restore-cache: 'false'
+
+      - name: Build the extension
+        working-directory: extensions/videos
+        run: |
+          set -euo pipefail
+          cargo build --release
+          out=../../videos-extension/videos
+          mkdir -p "$out"
+          cp manifest.json ui_manifest.json "$out/"
+          cp -R ui "$out/"
+          cp target/wasm32-unknown-unknown/release/videos_extension.wasm "$out/videos.wasm"
+          ls -lR ../../videos-extension
+
+      - name: Upload the extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: videos-extension
+          path: videos-extension
+          if-no-files-found: error
 
   # latest.json is what the desktop updater reads from the latest release.
   # Every signature is checked against the public key in tauri.conf.json
