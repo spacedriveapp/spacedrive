@@ -63,6 +63,38 @@ const TEXT_SCHEMA: [&str; 3] = [
 	"CREATE TABLE IF NOT EXISTS text_meta (key TEXT PRIMARY KEY, value INTEGER NOT NULL)",
 ];
 
+/// Spoken words, one FTS row per transcript segment so a hit carries the
+/// time it was said. Kept apart from `text_doc` because no extractor can
+/// rebuild it cheaply: `clear` leaves it, and the transcription job that
+/// wrote it is what refills it, from the transcript sidecar when one exists.
+const TRANSCRIPT_SCHEMA: [&str; 4] = [
+	"CREATE TABLE IF NOT EXISTS transcript_doc (
+    id INTEGER PRIMARY KEY,
+    record_uuid BLOB NOT NULL UNIQUE,
+    size INTEGER,
+    mtime INTEGER,
+    extension TEXT NOT NULL,
+    language TEXT,
+    model TEXT NOT NULL,
+    duration_ms INTEGER,
+    skipped TEXT
+)",
+	"CREATE TABLE IF NOT EXISTS transcript_span (
+    id INTEGER PRIMARY KEY,
+    doc_id INTEGER NOT NULL,
+    start_ms INTEGER NOT NULL,
+    end_ms INTEGER NOT NULL
+)",
+	"CREATE INDEX IF NOT EXISTS transcript_span_doc ON transcript_span (doc_id)",
+	"CREATE VIRTUAL TABLE IF NOT EXISTS transcript_fts USING fts5(
+    body,
+    tokenize = 'unicode61 remove_diacritics 2'
+)",
+];
+
+/// The kind a transcript hit reports, beside the extractor names.
+pub const TRANSCRIPT_KIND: &str = "transcript";
+
 /// A file whose text is missing from the index or was read from other bytes.
 #[derive(Debug, Clone)]
 pub struct PendingText {
@@ -95,6 +127,52 @@ pub struct TextDoc {
 	/// Why the file yielded no text, when it was read and nothing was
 	/// indexable. The row still records the stamp so the bytes are not read
 	/// again until they change.
+	pub skipped: Option<String>,
+}
+
+/// An audio or video file whose transcript is missing or was made from
+/// other bytes.
+#[derive(Debug, Clone)]
+pub struct PendingTranscript {
+	pub record_uuid: Uuid,
+	/// Row id in the record store, the cursor a pass claims by.
+	pub rowid: i64,
+	/// Path relative to the source root.
+	pub external_id: String,
+	pub size: Option<i64>,
+	pub mtime: Option<i64>,
+	/// Lowercase, without the dot.
+	pub extension: String,
+	/// The candidate content uuid, or the content uuid when the record has
+	/// no candidate. None until identification reaches the file.
+	pub content_uuid: Option<Uuid>,
+}
+
+/// One timed piece of a transcript.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TranscriptSpan {
+	pub start_ms: i64,
+	pub end_ms: i64,
+	pub text: String,
+}
+
+/// What a transcription pass made of one file.
+#[derive(Debug, Clone)]
+pub struct TranscriptDoc {
+	pub record_uuid: Uuid,
+	/// The stamp of the bytes the transcript came from.
+	pub size: Option<i64>,
+	pub mtime: Option<i64>,
+	pub extension: String,
+	/// Detected or requested language, such as `en`.
+	pub language: Option<String>,
+	/// The model that made it, such as `whisper-base`.
+	pub model: String,
+	pub duration_ms: Option<i64>,
+	pub spans: Vec<TranscriptSpan>,
+	/// Why the file has no transcript, such as `no audio track`. The row
+	/// still records the stamp so the file is not tried again until it
+	/// changes.
 	pub skipped: Option<String>,
 }
 
@@ -132,6 +210,9 @@ pub struct TextHit {
 	pub score: f64,
 	pub snippet: Vec<SnippetPart>,
 	pub truncated: bool,
+	/// Where in the recording the match was said, for a transcript hit.
+	pub start_ms: Option<i64>,
+	pub end_ms: Option<i64>,
 }
 
 /// What the index holds.
@@ -193,7 +274,7 @@ impl ContentTextIndex {
 			.await?;
 
 		let mut tx = pool.begin().await?;
-		for statement in TEXT_SCHEMA {
+		for statement in TEXT_SCHEMA.into_iter().chain(TRANSCRIPT_SCHEMA) {
 			sqlx::query(statement).execute(&mut *tx).await?;
 		}
 		tx.commit().await?;
@@ -429,52 +510,108 @@ impl ContentTextIndex {
 	///
 	/// Only rows whose stamp still matches the record's facet are returned,
 	/// so a file changed since it was read never answers with its old text.
+	/// Document hits and transcript segment hits are ranked together by
+	/// BM25. A segment is short, so it tends to outrank a long document
+	/// that holds the same words; order across the two is approximate.
 	pub async fn search(&self, search: &TextSearch) -> Result<Vec<TextHit>> {
 		if search.expression.is_empty() {
 			return Ok(Vec::new());
 		}
-		let path = RECORD_PATH;
-		let mut sql = String::from(
-			"SELECT d.record_uuid, r.parent_uuid, p.path, r.title, d.kind, bm25(text_fts), \
-			 snippet(text_fts, 0, ?, ?, '…', ?), d.truncated \
-			 FROM text_fts \
-			 JOIN text_doc d ON d.id = text_fts.rowid \
-			 JOIN src.record r ON r.uuid = d.record_uuid \
-			 JOIN src.facet_file f ON f.record_uuid = r.uuid \
-			 LEFT JOIN src.directory_path p ON p.record_uuid = r.parent_uuid \
-			 WHERE text_fts MATCH ? AND f.size IS d.size AND f.mtime IS d.mtime \
-			 AND lower(f.extension) = d.extension",
-		);
 		let under = search.under.trim_matches('/');
-		if !under.is_empty() {
-			sql.push_str(&format!(" AND ({path} = ? OR substr({path}, 1, ?) = ?)"));
-		}
-		if !search.kinds.is_empty() {
-			sql.push_str(&format!(
-				" AND d.kind IN ({})",
-				vec!["?"; search.kinds.len()].join(", ")
-			));
-		}
-		sql.push_str(" ORDER BY bm25(text_fts) LIMIT ? OFFSET ?");
+		let want_transcripts =
+			search.kinds.is_empty() || search.kinds.iter().any(|kind| kind == TRANSCRIPT_KIND);
+		let text_kinds: Vec<&String> = search
+			.kinds
+			.iter()
+			.filter(|kind| *kind != TRANSCRIPT_KIND)
+			.collect();
+		let want_text = search.kinds.is_empty() || !text_kinds.is_empty();
 
-		let mut query = sqlx::query(&sql)
-			.bind(MATCH_START.to_string())
-			.bind(MATCH_END.to_string())
-			.bind(search.snippet_tokens.clamp(1, 64) as i64)
-			.bind(search.expression.clone());
-		if !under.is_empty() {
+		let mut binds: Vec<Bind> = Vec::new();
+		let mut branches = Vec::new();
+		let snippet_tokens = i64::from(search.snippet_tokens.clamp(1, 64));
+		let path = RECORD_PATH;
+		let under_clause = |binds: &mut Vec<Bind>| {
+			if under.is_empty() {
+				return String::new();
+			}
 			let prefix = format!("{under}/");
-			query = query
-				.bind(under.to_string())
-				.bind(prefix.chars().count() as i64)
-				.bind(prefix);
+			binds.push(Bind::Text(under.to_string()));
+			binds.push(Bind::Int(prefix.chars().count() as i64));
+			binds.push(Bind::Text(prefix));
+			format!(" AND ({path} = ? OR substr({path}, 1, ?) = ?)")
+		};
+
+		if want_text {
+			binds.extend([
+				Bind::Text(MATCH_START.to_string()),
+				Bind::Text(MATCH_END.to_string()),
+				Bind::Int(snippet_tokens),
+				Bind::Text(search.expression.clone()),
+			]);
+			let mut sql = String::from(
+				"SELECT d.record_uuid AS hit_uuid, r.parent_uuid AS hit_parent, p.path AS hit_dir, \
+				 r.title AS hit_title, d.kind AS hit_kind, bm25(text_fts) AS hit_rank, \
+				 snippet(text_fts, 0, ?, ?, '…', ?) AS hit_snippet, d.truncated AS hit_truncated, \
+				 NULL AS hit_start, NULL AS hit_end \
+				 FROM text_fts \
+				 JOIN text_doc d ON d.id = text_fts.rowid \
+				 JOIN src.record r ON r.uuid = d.record_uuid \
+				 JOIN src.facet_file f ON f.record_uuid = r.uuid \
+				 LEFT JOIN src.directory_path p ON p.record_uuid = r.parent_uuid \
+				 WHERE text_fts MATCH ? AND f.size IS d.size AND f.mtime IS d.mtime \
+				 AND lower(f.extension) = d.extension",
+			);
+			sql.push_str(&under_clause(&mut binds));
+			if !text_kinds.is_empty() {
+				sql.push_str(&format!(
+					" AND d.kind IN ({})",
+					vec!["?"; text_kinds.len()].join(", ")
+				));
+				binds.extend(text_kinds.iter().map(|kind| Bind::Text((*kind).clone())));
+			}
+			branches.push(sql);
 		}
-		for kind in &search.kinds {
-			query = query.bind(kind.clone());
+		if want_transcripts {
+			binds.extend([
+				Bind::Text(TRANSCRIPT_KIND.to_string()),
+				Bind::Text(MATCH_START.to_string()),
+				Bind::Text(MATCH_END.to_string()),
+				Bind::Int(snippet_tokens),
+				Bind::Text(search.expression.clone()),
+			]);
+			let mut sql = String::from(
+				"SELECT d.record_uuid AS hit_uuid, r.parent_uuid AS hit_parent, p.path AS hit_dir, \
+				 r.title AS hit_title, ? AS hit_kind, bm25(transcript_fts) AS hit_rank, \
+				 snippet(transcript_fts, 0, ?, ?, '…', ?) AS hit_snippet, 0 AS hit_truncated, \
+				 s.start_ms AS hit_start, s.end_ms AS hit_end \
+				 FROM transcript_fts \
+				 JOIN transcript_span s ON s.id = transcript_fts.rowid \
+				 JOIN transcript_doc d ON d.id = s.doc_id \
+				 JOIN src.record r ON r.uuid = d.record_uuid \
+				 JOIN src.facet_file f ON f.record_uuid = r.uuid \
+				 LEFT JOIN src.directory_path p ON p.record_uuid = r.parent_uuid \
+				 WHERE transcript_fts MATCH ? AND f.size IS d.size AND f.mtime IS d.mtime \
+				 AND lower(f.extension) = d.extension",
+			);
+			sql.push_str(&under_clause(&mut binds));
+			branches.push(sql);
+		}
+		let sql = format!(
+			"SELECT * FROM ({}) ORDER BY hit_rank, hit_start LIMIT ? OFFSET ?",
+			branches.join(" UNION ALL ")
+		);
+		binds.push(Bind::Int(search.limit as i64));
+		binds.push(Bind::Int(search.offset as i64));
+
+		let mut query = sqlx::query(&sql);
+		for bind in binds {
+			query = match bind {
+				Bind::Text(text) => query.bind(text),
+				Bind::Int(value) => query.bind(value),
+			};
 		}
 		let rows = query
-			.bind(search.limit as i64)
-			.bind(search.offset as i64)
 			.fetch_all(&self.pool)
 			.await
 			.map_err(|error| match &error {
@@ -495,10 +632,203 @@ impl ContentTextIndex {
 					score: -row.get::<f64, _>(5),
 					snippet: split_snippet(&snippet),
 					truncated: row.get(7),
+					start_ms: row.get(8),
+					end_ms: row.get(9),
 				})
 			})
 			.collect())
 	}
+
+	/// Audio and video files past `after` with one of `extensions` whose
+	/// transcript row is missing or stamped with other bytes, in row order,
+	/// at or under `under` (relative to the source root; empty is the whole
+	/// source).
+	pub async fn pending_transcripts(
+		&self,
+		extensions: &[&str],
+		under: &str,
+		after: i64,
+		limit: usize,
+	) -> Result<Vec<PendingTranscript>> {
+		if extensions.is_empty() {
+			return Ok(Vec::new());
+		}
+		let mut sql = format!(
+			"SELECT r.rowid, r.uuid, r.parent_uuid, p.path, r.title, f.size, f.mtime, \
+			 lower(f.extension), COALESCE(c.candidate_uuid, c.uuid) \
+			 FROM src.record r \
+			 JOIN src.facet_file f ON f.record_uuid = r.uuid \
+			 LEFT JOIN src.directory_path p ON p.record_uuid = r.parent_uuid \
+			 LEFT JOIN src.content c ON c.id = r.content_id \
+			 LEFT JOIN transcript_doc d ON d.record_uuid = r.uuid \
+			 WHERE r.type = 'file' AND f.link_target IS NULL AND lower(f.extension) IN ({}) \
+			 AND (d.id IS NULL OR d.size IS NOT f.size OR d.mtime IS NOT f.mtime \
+			 OR d.extension IS NOT lower(f.extension)) AND r.rowid > ?",
+			vec!["?"; extensions.len()].join(", ")
+		);
+		let under = under.trim_matches('/');
+		if !under.is_empty() {
+			sql.push_str(&format!(
+				" AND ({RECORD_PATH} = ? OR substr({RECORD_PATH}, 1, ?) = ?)"
+			));
+		}
+		sql.push_str(" ORDER BY r.rowid LIMIT ?");
+		let mut query = sqlx::query(&sql);
+		for extension in extensions {
+			query = query.bind(extension.to_string());
+		}
+		query = query.bind(after);
+		if !under.is_empty() {
+			let prefix = format!("{under}/");
+			query = query
+				.bind(under.to_string())
+				.bind(prefix.chars().count() as i64)
+				.bind(prefix);
+		}
+		let rows = query.bind(limit as i64).fetch_all(&self.pool).await?;
+		Ok(rows
+			.into_iter()
+			.filter_map(|row| {
+				Some(PendingTranscript {
+					rowid: row.get(0),
+					record_uuid: row.get(1),
+					external_id: address(row.get(2), row.get(3), row.get(4))?,
+					size: row.get(5),
+					mtime: row.get(6),
+					extension: row.get(7),
+					content_uuid: row.get(8),
+				})
+			})
+			.collect())
+	}
+
+	/// Write a file's transcript, replacing any older one for the record.
+	pub async fn write_transcript(&self, doc: &TranscriptDoc) -> Result<()> {
+		let _writer = self.writer.lock().await;
+		let mut tx = self.pool.begin().await?;
+		let old: Option<i64> =
+			sqlx::query_scalar("SELECT id FROM transcript_doc WHERE record_uuid = ?")
+				.bind(doc.record_uuid)
+				.fetch_optional(&mut *tx)
+				.await?;
+		if let Some(id) = old {
+			delete_spans(&mut tx, id).await?;
+		}
+		let id: i64 = sqlx::query_scalar(
+			"INSERT INTO transcript_doc (record_uuid, size, mtime, extension, language, model, duration_ms, skipped) \
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?) \
+			 ON CONFLICT (record_uuid) DO UPDATE SET size = excluded.size, mtime = excluded.mtime, \
+			 extension = excluded.extension, language = excluded.language, model = excluded.model, \
+			 duration_ms = excluded.duration_ms, skipped = excluded.skipped \
+			 RETURNING id",
+		)
+		.bind(doc.record_uuid)
+		.bind(doc.size)
+		.bind(doc.mtime)
+		.bind(&doc.extension)
+		.bind(&doc.language)
+		.bind(&doc.model)
+		.bind(doc.duration_ms)
+		.bind(&doc.skipped)
+		.fetch_one(&mut *tx)
+		.await?;
+		for span in doc.spans.iter().filter(|span| !span.text.trim().is_empty()) {
+			let span_id: i64 = sqlx::query_scalar(
+				"INSERT INTO transcript_span (doc_id, start_ms, end_ms) VALUES (?, ?, ?) RETURNING id",
+			)
+			.bind(id)
+			.bind(span.start_ms)
+			.bind(span.end_ms)
+			.fetch_one(&mut *tx)
+			.await?;
+			sqlx::query("INSERT INTO transcript_fts (rowid, body) VALUES (?, ?)")
+				.bind(span_id)
+				.bind(&span.text)
+				.execute(&mut *tx)
+				.await?;
+		}
+		tx.commit().await?;
+		Ok(())
+	}
+
+	/// Drop the transcripts of files at or under `under`, so the next pass
+	/// makes them again. Empty means the whole source. Returns how many.
+	pub async fn forget_transcripts(&self, under: &str) -> Result<u64> {
+		let under = under.trim_matches('/');
+		let mut sql = String::from(
+			"SELECT d.id FROM transcript_doc d \
+			 LEFT JOIN src.record r ON r.uuid = d.record_uuid \
+			 LEFT JOIN src.directory_path p ON p.record_uuid = r.parent_uuid",
+		);
+		if !under.is_empty() {
+			sql.push_str(&format!(
+				" WHERE ({RECORD_PATH} = ? OR substr({RECORD_PATH}, 1, ?) = ?)"
+			));
+		}
+		self.delete_transcripts(&sql, under).await
+	}
+
+	/// Remove transcripts whose record is gone.
+	pub async fn prune_transcripts(&self) -> Result<u64> {
+		self.delete_transcripts(
+			"SELECT d.id FROM transcript_doc d \
+			 LEFT JOIN src.record r ON r.uuid = d.record_uuid AND r.type = 'file' \
+			 WHERE r.uuid IS NULL",
+			"",
+		)
+		.await
+	}
+
+	/// How many files have a transcript row, spoken words or not.
+	pub async fn transcript_count(&self) -> Result<u64> {
+		let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM transcript_doc")
+			.fetch_one(&self.pool)
+			.await?;
+		Ok(count.max(0) as u64)
+	}
+
+	async fn delete_transcripts(&self, select_ids: &str, under: &str) -> Result<u64> {
+		let _writer = self.writer.lock().await;
+		let mut tx = self.pool.begin().await?;
+		let mut ids = sqlx::query_scalar::<_, i64>(select_ids);
+		if !under.is_empty() {
+			let prefix = format!("{under}/");
+			ids = ids
+				.bind(under.to_string())
+				.bind(prefix.chars().count() as i64)
+				.bind(prefix);
+		}
+		let ids = ids.fetch_all(&mut *tx).await?;
+		for id in &ids {
+			delete_spans(&mut tx, *id).await?;
+			sqlx::query("DELETE FROM transcript_doc WHERE id = ?")
+				.bind(id)
+				.execute(&mut *tx)
+				.await?;
+		}
+		tx.commit().await?;
+		Ok(ids.len() as u64)
+	}
+}
+
+/// A value bound into a query assembled from optional parts.
+enum Bind {
+	Text(String),
+	Int(i64),
+}
+
+async fn delete_spans(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>, doc_id: i64) -> Result<()> {
+	sqlx::query(
+		"DELETE FROM transcript_fts WHERE rowid IN (SELECT id FROM transcript_span WHERE doc_id = ?)",
+	)
+	.bind(doc_id)
+	.execute(&mut **tx)
+	.await?;
+	sqlx::query("DELETE FROM transcript_span WHERE doc_id = ?")
+		.bind(doc_id)
+		.execute(&mut **tx)
+		.await?;
+	Ok(())
 }
 
 /// A record's path relative to the source root, over `r` and its parent's

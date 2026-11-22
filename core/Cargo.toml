@@ -173,7 +173,7 @@ ort        = { workspace = true, optional = true, features = ["std"] }
 tokenizers = { version = "0.21", default-features = false, features = ["fancy-regex"], optional = true }
 
 # Speech-to-text dependencies (optional, behind whisper feature)
-whisper-rs = { version = "0.15.1", optional = true }
+whisper-rs = { version = "0.15.1", features = ["tracing_backend"], optional = true }
 hound      = { version = "3.5", optional = true }   # WAV file reading
 rubato     = { version = "0.16", optional = true }  # Audio resampling to 16kHz
 

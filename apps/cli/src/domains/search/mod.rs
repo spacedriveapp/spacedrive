@@ -47,7 +47,15 @@ pub async fn run(ctx: &Context, cmd: SearchCmd) -> Result<()> {
 							}
 						})
 						.collect();
-					println!("{}  ({:.2})", hit.path, hit.score);
+					match &hit.time {
+						Some(time) => println!(
+							"{} @ {}  ({:.2})",
+							hit.path,
+							clock(time.start_seconds),
+							hit.score
+						),
+						None => println!("{}  ({:.2})", hit.path, hit.score),
+					}
 					println!(
 						"    {}",
 						snippet.split_whitespace().collect::<Vec<_>>().join(" ")
@@ -191,4 +199,15 @@ pub async fn run(ctx: &Context, cmd: SearchCmd) -> Result<()> {
 		}
 	}
 	Ok(())
+}
+
+/// A recording offset as h:mm:ss, or m:ss under an hour.
+fn clock(seconds: f64) -> String {
+	let total = seconds.max(0.0) as u64;
+	let (hours, minutes, secs) = (total / 3600, total / 60 % 60, total % 60);
+	if hours > 0 {
+		format!("{hours}:{minutes:02}:{secs:02}")
+	} else {
+		format!("{minutes}:{secs:02}")
+	}
 }

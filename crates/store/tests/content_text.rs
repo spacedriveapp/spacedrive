@@ -4,7 +4,7 @@
 use sd_store::file::{FileKind, FileWrite, Ledger, Observation};
 use sd_store::{
 	filesystem_schema, match_expression, ContentTextIndex, PendingText, SourceDb, SourceManager,
-	TextDoc, TextSearch,
+	TextDoc, TextSearch, TranscriptDoc, TranscriptSpan,
 };
 use uuid::Uuid;
 
@@ -364,4 +364,163 @@ async fn a_search_with_nothing_to_match_returns_nothing() {
 	let index = f.index().await;
 	assert!(index.search(&search("   ")).await.unwrap().is_empty());
 	assert!(index.search(&search("anything")).await.unwrap().is_empty());
+}
+
+const MEDIA: &[&str] = &["mp4", "m4a"];
+
+fn transcript(pending: &sd_store::PendingTranscript, spans: &[(i64, i64, &str)]) -> TranscriptDoc {
+	TranscriptDoc {
+		record_uuid: pending.record_uuid,
+		size: pending.size,
+		mtime: pending.mtime,
+		extension: pending.extension.clone(),
+		language: Some("en".into()),
+		model: "whisper-tiny".into(),
+		duration_ms: Some(60_000),
+		spans: spans
+			.iter()
+			.map(|(start_ms, end_ms, text)| TranscriptSpan {
+				start_ms: *start_ms,
+				end_ms: *end_ms,
+				text: text.to_string(),
+			})
+			.collect(),
+		skipped: None,
+	}
+}
+
+#[tokio::test]
+async fn a_transcript_hit_carries_the_time_it_was_said() {
+	let mut f = Fixture::new().await;
+	f.observe(&[
+		("clips/talk.mp4", 20),
+		("clips/memo.m4a", 21),
+		("notes/a.md", 22),
+	])
+	.await;
+	let index = f.index().await;
+
+	let pending = index
+		.pending_transcripts(MEDIA, "", 0, 100)
+		.await
+		.expect("pending");
+	let mut names: Vec<&str> = pending.iter().map(|p| p.external_id.as_str()).collect();
+	names.sort();
+	assert_eq!(names, ["clips/memo.m4a", "clips/talk.mp4"]);
+	assert_eq!(
+		index
+			.pending_transcripts(MEDIA, "clips/talk.mp4", 0, 100)
+			.await
+			.unwrap()
+			.len(),
+		1
+	);
+	let by_name = |name: &str| pending.iter().find(|p| p.external_id == name).unwrap();
+
+	index
+		.write_transcript(&transcript(
+			by_name("clips/talk.mp4"),
+			&[
+				(0, 4_000, "Welcome to the harbour tour."),
+				(41_500, 45_000, "The lighthouse was built in 1902."),
+			],
+		))
+		.await
+		.unwrap();
+	let mut silent = transcript(by_name("clips/memo.m4a"), &[]);
+	silent.skipped = Some("no audio track".into());
+	index.write_transcript(&silent).await.unwrap();
+	let notes = index.pending(EXTENSIONS, 0, 100).await.unwrap();
+	index
+		.write(&[doc(&notes[0], "markdown", "the lighthouse keeper's notes")])
+		.await
+		.unwrap();
+
+	assert!(index
+		.pending_transcripts(MEDIA, "", 0, 100)
+		.await
+		.unwrap()
+		.is_empty());
+	assert_eq!(index.transcript_count().await.unwrap(), 2);
+
+	let hits = index
+		.search(&search("\"lighthouse was built\""))
+		.await
+		.unwrap();
+	assert_eq!(hits.len(), 1);
+	assert_eq!(hits[0].external_id, "clips/talk.mp4");
+	assert_eq!(hits[0].kind, "transcript");
+	assert_eq!(
+		(hits[0].start_ms, hits[0].end_ms),
+		(Some(41_500), Some(45_000))
+	);
+
+	// Both a document and a spoken segment answer a word they share, and
+	// a kind filter picks one.
+	let mut kinds: Vec<String> = index
+		.search(&search("lighthouse"))
+		.await
+		.unwrap()
+		.into_iter()
+		.map(|hit| hit.kind)
+		.collect();
+	kinds.sort();
+	assert_eq!(kinds, ["markdown", "transcript"]);
+	let only = |kind: &str| TextSearch {
+		kinds: vec![kind.to_string()],
+		..search("lighthouse")
+	};
+	assert_eq!(
+		hit_paths(&index, &only("transcript")).await,
+		["clips/talk.mp4"]
+	);
+	assert_eq!(hit_paths(&index, &only("markdown")).await, ["notes/a.md"]);
+	let under = TextSearch {
+		under: "notes".into(),
+		..search("lighthouse")
+	};
+	assert_eq!(hit_paths(&index, &under).await, ["notes/a.md"]);
+
+	// Rebuilding the document index keeps what was said.
+	index.clear().await.unwrap();
+	assert_eq!(
+		hit_paths(&index, &only("transcript")).await,
+		["clips/talk.mp4"]
+	);
+
+	// Forgetting a folder's transcripts queues its files again.
+	assert_eq!(index.forget_transcripts("clips").await.unwrap(), 2);
+	assert!(hit_paths(&index, &only("transcript")).await.is_empty());
+	assert_eq!(
+		index
+			.pending_transcripts(MEDIA, "", 0, 100)
+			.await
+			.unwrap()
+			.len(),
+		2
+	);
+}
+
+#[tokio::test]
+async fn an_edited_recording_leaves_results_until_transcribed_again() {
+	let mut f = Fixture::new().await;
+	f.observe(&[("talk.mp4", 30)]).await;
+	let index = f.index().await;
+	let pending = index.pending_transcripts(MEDIA, "", 0, 10).await.unwrap();
+	index
+		.write_transcript(&transcript(&pending[0], &[(1_000, 2_000, "first take")]))
+		.await
+		.unwrap();
+	assert_eq!(hit_paths(&index, &search("take")).await, ["talk.mp4"]);
+
+	f.observe(&[("talk.mp4", 31)]).await;
+	assert!(hit_paths(&index, &search("take")).await.is_empty());
+	assert_eq!(
+		index
+			.pending_transcripts(MEDIA, "", 0, 10)
+			.await
+			.unwrap()
+			.len(),
+		1
+	);
 }
