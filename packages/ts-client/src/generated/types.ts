@@ -1431,7 +1431,7 @@ export type ExtendGrantOutput = { grant: GrantInfo };
 
 export type ExtensionCase = "lower" | "keep";
 
-export type ExtensionInfo = { id: string; name: string; version: string; jobs: ExtensionJobInfo[]; kinds: ExtensionKindInfo[]; viewers: ExtensionViewerInfo[] };
+export type ExtensionInfo = { id: string; name: string; version: string; jobs: ExtensionJobInfo[]; kinds: ExtensionKindInfo[]; viewers: ExtensionViewerInfo[]; views: ExtensionViewInfo[] };
 
 export type ExtensionJobInfo = { 
 /**
@@ -1458,6 +1458,28 @@ id: string; name: string; display_name: string; parent: ContentKind;
  * Every extension the manifest claims, contested ones included
  */
 extensions: string[]; preview: PreviewSpec | null };
+
+export type ExtensionModelsInput = { extension_id: string; 
+/**
+ * A model name the extension registered, such as `Person`
+ */
+model: string; limit?: number | null };
+
+export type ExtensionModelsOutput = { 
+/**
+ * Each row as the extension wrote it, newest first
+ */
+rows: JsonValue[] };
+
+/**
+ * A library page `ui_manifest.json` declares. The client lists it in the
+ * sidebar and mounts the bundle from `/extension/<extension id>/<bundle>`.
+ */
+export type ExtensionViewInfo = { id: string; title: string; 
+/**
+ * Path inside the extension directory to one ES module
+ */
+bundle: string };
 
 /**
  * A viewer `ui_manifest.json` declares. The client mounts the bundle from
@@ -6653,6 +6675,7 @@ export type LibraryQuery =
   |  { type: 'agent.stat'; input: StatInput; output: PathState }
   |  { type: 'config.library.get'; input: GetLibraryConfigQueryInput; output: LibrarySettingsOutput }
   |  { type: 'devices.list'; input: ListLibraryDevicesInput; output: [Device] }
+  |  { type: 'extensions.models'; input: ExtensionModelsInput; output: ExtensionModelsOutput }
   |  { type: 'files.alternate_instances'; input: AlternateInstancesInput; output: AlternateInstancesOutput }
   |  { type: 'files.by_id'; input: FileByIdQuery; output: File }
   |  { type: 'files.by_path'; input: FileByPathQuery; output: File }
@@ -6873,6 +6896,7 @@ export const WIRE_METHODS = {
     'agent.stat': 'query:agent.stat',
     'config.library.get': 'query:config.library.get',
     'devices.list': 'query:devices.list',
+    'extensions.models': 'query:extensions.models',
     'files.alternate_instances': 'query:files.alternate_instances',
     'files.by_id': 'query:files.by_id',
     'files.by_path': 'query:files.by_path',

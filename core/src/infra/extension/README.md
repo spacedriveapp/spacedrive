@@ -62,6 +62,16 @@ extension when the extension loads and when a store opens
 unloads; `File.content_kind` is then the parent and `File.content_kind_name`
 the name, so a client can fall back until the extension returns.
 
+## Library views
+
+`ui_manifest.json` may declare `views`: an id, a sidebar title and an ES module
+bundle, served from the same `/extension/<id>/<bundle>` route as a viewer. The
+client lists them under Extensions and mounts the bundle with a context that
+reads the extension's own models (`extensions.models`, a library query that
+answers no rows for a library the extension never ran in) and starts its own
+jobs (`extensions.run_job`). A view writes nothing directly: a correction is a
+job the extension runs.
+
 ## Running a job
 
 1. `extensions.run_job` looks the job up in the registry and dispatches a
@@ -84,7 +94,7 @@ that the SDK maps onto its own error type.
 | Operation | Grant | What it does |
 | --- | --- | --- |
 | `task.begin`, `task.end` | none | Bracket one `#[task]` attempt. The host writes an attempt line to the job log and refuses a task that outlives the SDK's deadline. |
-| `records.get`, `records.query` | `read_records` | A record by uuid, or the records of the library's sources filtered by kind and extension. The optional `glob` on the grant is honored for its trailing extension list only (`*.jpg`, `**/*.{jpg,png}`); the directory part is ignored, and a glob of another shape is refused at load. A tag filter names a path; an undefined tag matches nothing. |
+| `records.get`, `records.query` | `read_records` | A record by uuid, or the records of the library's sources filtered by kind and extension. A record carries `media_uuid`, the key the core's media sidecars use, derived from the sampled hash. The optional `glob` on the grant is honored for its trailing extension list only (`*.jpg`, `**/*.{jpg,png}`); the directory part is ignored, and a glob of another shape is refused at load. A tag filter names a path; an undefined tag matches nothing. |
 | `records.read` | `read_records` | The bytes of a record, read from its source store's root. |
 | `records.exif` | `read_records` | Capture time, GPS and camera for an image record, from the store's `facet_image` row the metadata pass behind identification wrote (`docs/core/indexing.mdx`, Photo metadata). A record the pass has not reached is parsed from the file instead; the op never writes the facet. |
 | `records.set_field`, `records.get_field` | `write_custom_fields` (per namespace) for writes; reads are the extension's own | One custom field per record, namespace and name, as JSON text in the `custom_field` model every extension's store carries. The source store holds no per-record extension metadata, so fields live beside the extension's models. |
@@ -92,7 +102,9 @@ that the SDK maps onto its own error type.
 | `jobs.dispatch` | `dispatch_jobs` | Queue one of the calling extension's own jobs by registered name with a starting state; the name resolves under the caller's id. |
 | `sidecars.exists`, `sidecars.read` | `read_sidecars` | One JSON document under `<library>/sidecars/`, keyed by content uuid and `SidecarKind::Extension { extension_id, kind }`. |
 | `sidecars.write` | `write_sidecars` (per kind) | Writes that document. |
-| `models.put`, `models.get`, `models.list` | none, models are the extension's own | A row in the extension's store, keyed by the model's uuid or `content:<uuid>` for a content-scoped model. |
+| `sidecars.read_media` | `read_sidecars` (per kind) | The bytes of a core sidecar in the content tree (a proxy, a transcript, a shot list, a keyframe) by media uuid, kind, variant and format. Core kinds are never writable by an extension. A kind this core has no directory for answers `not_available`. |
+| `models.put`, `models.get`, `models.list` | none, models are the extension's own | A row in the extension's store, keyed by the model's uuid or `content:<uuid>` for a content-scoped model. `models.list` answers at most 10,000 rows from `offset`; the SDK's unlimited `collect()` pages through all of them. |
+| `assertions.stamp` | none | An HLC from the assertion clock tag assertions use, and this device's uuid, for a row the guest writes to its assertion half. |
 | `ai.infer` | `use_models` (per category) | Checks the grant, then answers `not_available`: the core has no inference provider yet. |
 | `config.get` | none | `config.json` beside the manifest, or `null`. |
 

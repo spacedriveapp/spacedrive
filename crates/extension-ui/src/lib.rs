@@ -1,16 +1,19 @@
 //! # Extension UI manifest
 //!
 //! An extension's `ui_manifest.json` declares what it contributes to the
-//! client. This crate reads the one section the daemon acts on today,
+//! client. This crate reads the two sections the daemon acts on today.
 //! `file_viewers`: each entry names a viewer by `id` and the ES module
 //! (`bundle`) the client mounts for a file kind whose `preview.viewer` names
-//! it. The HTTP servers that serve those bundles (sd-server and the desktop
+//! it. `views`: each entry is a page the client lists in its sidebar and
+//! mounts the same way, for what belongs to the library rather than one
+//! file. The HTTP servers that serve those bundles (sd-server and the desktop
 //! app's local server) do not link the full core, so the parser and the path
 //! resolution live here, the way `sd-sidecar-path` shares the sidecar layout.
 //!
 //! Only a declared bundle is ever served. `resolve_bundle` answers a request
 //! for `/extension/<id>/<path>` with the file on disk when `<path>` is one of
-//! the extension's `file_viewers[].bundle` values and nothing else, so a
+//! the extension's `file_viewers[].bundle` or `views[].bundle` values and
+//! nothing else, so a
 //! `config.json` or the `.wasm` beside it stays private.
 
 use std::path::{Component, Path, PathBuf};
@@ -27,6 +30,19 @@ pub const UI_MANIFEST_FILE: &str = "ui_manifest.json";
 pub struct UiManifest {
 	#[serde(default)]
 	pub file_viewers: Vec<FileViewer>,
+	#[serde(default)]
+	pub views: Vec<View>,
+}
+
+/// A library page the client lists under the extension's name.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct View {
+	pub id: String,
+	/// The sidebar label.
+	pub title: String,
+	/// One ES module, as a path inside the extension directory, exporting
+	/// `mount(el, ctx)`.
+	pub bundle: String,
 }
 
 /// A viewer the client can mount for a file kind.
@@ -77,6 +93,21 @@ impl UiManifest {
 				));
 			}
 		}
+		let mut seen = std::collections::HashSet::new();
+		for view in &self.views {
+			if view.id.is_empty() {
+				return Err("a view has an empty id".into());
+			}
+			if !seen.insert(view.id.as_str()) {
+				return Err(format!("view {:?} is declared twice", view.id));
+			}
+			if !is_inside_relative(&view.bundle) {
+				return Err(format!(
+					"view {:?} bundle {:?} must be a relative path inside the extension directory",
+					view.id, view.bundle
+				));
+			}
+		}
 		Ok(())
 	}
 
@@ -88,6 +119,7 @@ impl UiManifest {
 	/// Whether `path`, as a request names it, is one of the declared bundles.
 	pub fn declares_bundle(&self, path: &str) -> bool {
 		self.file_viewers.iter().any(|v| v.bundle == path)
+			|| self.views.iter().any(|v| v.bundle == path)
 	}
 }
 
@@ -166,6 +198,25 @@ mod tests {
 	}
 
 	#[test]
+	fn a_view_bundle_is_declared_and_checked_like_a_viewer() {
+		let ui = UiManifest::parse(
+			r#"{"views":[{"id":"library","title":"Videos","bundle":"ui/videos.js"}]}"#,
+		)
+		.unwrap();
+		assert_eq!(ui.validate(), Ok(()));
+		assert!(ui.declares_bundle("ui/videos.js"));
+		let escaping = UiManifest {
+			views: vec![View {
+				id: "library".into(),
+				title: "Videos".into(),
+				bundle: "../x.js".into(),
+			}],
+			..Default::default()
+		};
+		assert!(escaping.validate().is_err());
+	}
+
+	#[test]
 	fn a_bundle_that_leaves_the_directory_is_refused() {
 		for bundle in ["../x.js", "/etc/passwd", "ui/../../x.js", ""] {
 			let ui = UiManifest {
@@ -173,6 +224,7 @@ mod tests {
 					id: "v".into(),
 					bundle: bundle.into(),
 				}],
+				..Default::default()
 			};
 			assert!(ui.validate().is_err(), "{bundle:?}");
 		}
@@ -187,6 +239,7 @@ mod tests {
 					bundle: "b.js".into(),
 				},
 			],
+			..Default::default()
 		};
 		assert!(twice.validate().unwrap_err().contains("twice"));
 	}

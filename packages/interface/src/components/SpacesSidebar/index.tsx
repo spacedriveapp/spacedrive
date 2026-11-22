@@ -10,6 +10,7 @@ import {
 	Images,
 	ListBullets,
 	Lock,
+	PuzzlePiece,
 	ShieldCheck,
 	Trash
 } from '@phosphor-icons/react';
@@ -32,6 +33,7 @@ import {useLocation, useNavigate} from 'react-router-dom';
 import {usePlatform} from '../../contexts/PlatformContext';
 import {SHELL_SIDEBAR_WIDTH} from '../../contexts/ShellGeometryContext';
 import {
+	useCoreQuery,
 	useLibraryMutation,
 	useLibraryQuery,
 	useNormalizedQuery,
@@ -236,6 +238,15 @@ export function SpacesSidebar({
 		resourceType: 'tag'
 	});
 	const tags = tagsData?.tags ?? [];
+	// Library pages loaded extensions declare in ui_manifest.json.
+	const {data: extensionsData} = useCoreQuery(
+		{type: 'extensions.list', input: {}},
+		{staleTime: 30_000}
+	);
+	const extensionViews = (extensionsData?.extensions ?? []).flatMap(
+		(extension) =>
+			extension.views.map((view) => ({extension, view}))
+	);
 
 	const deviceSlug = devicesData?.find((device) => device.is_current)?.slug;
 	const deviceSlugById = Object.fromEntries(
@@ -534,6 +545,21 @@ export function SpacesSidebar({
 										/>
 									);
 								})}
+							</SidebarSection>
+						)}
+
+						{extensionViews.length > 0 && (
+							<SidebarSection title="Extensions">
+								{extensionViews.map(({extension, view}) => (
+									<SidebarItem
+										key={`${extension.id}:${view.id}`}
+										id={`extension-${extension.id}-${view.id}`}
+										label={view.title}
+										icon={PuzzlePiece}
+										href={`/extensions/${encodeURIComponent(extension.id)}/${encodeURIComponent(view.id)}`}
+										title={extension.name}
+									/>
+								))}
 							</SidebarSection>
 						)}
 

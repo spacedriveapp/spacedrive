@@ -916,6 +916,19 @@ impl SourceDb {
 		external_id: Option<&str>,
 		limit: usize,
 	) -> Result<Vec<serde_json::Value>> {
+		self.facet_rows_page(model, external_id, limit, 0).await
+	}
+
+	/// [`Self::facet_rows`] from `offset` on, so a reader that must see
+	/// every row, such as an assertion log replayed in full, can page past
+	/// any one call's limit.
+	pub async fn facet_rows_page(
+		&self,
+		model: &str,
+		external_id: Option<&str>,
+		limit: usize,
+		offset: usize,
+	) -> Result<Vec<serde_json::Value>> {
 		let model_def = self
 			.schema
 			.models
@@ -939,12 +952,13 @@ impl SourceDb {
 			 LEFT JOIN \"{table}\" f ON f.record_uuid = r.uuid \
 			 WHERE r.type = ?1 AND (?2 IS NULL OR r.external_id = ?2) \
 			 ORDER BY COALESCE(r.modified_at, r.created_at) DESC, r.rowid DESC \
-			 LIMIT ?3"
+			 LIMIT ?3 OFFSET ?4"
 		);
 		let rows = sqlx::query_as::<_, (Uuid, Option<String>)>(&sql)
 			.bind(model)
 			.bind(external_id)
 			.bind(limit as i64)
+			.bind(offset as i64)
 			.fetch_all(&self.pool)
 			.await?;
 

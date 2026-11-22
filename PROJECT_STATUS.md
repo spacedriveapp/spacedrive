@@ -36,6 +36,21 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Videos extension skeleton, footage brief 6 (Capy FAN-12393, November 22, off
+the beta.1 path). `extensions/videos` (`com.spacedrive.videos`) reads the
+core's shot lists and keyframes, sends each keyframe to `ai.infer` for a
+caption, place labels and faces, and writes `scene` and `faces` sidecars. Faces
+cluster into a people roster whose names and corrections are an append-only
+edit log in the extension's store, stamped with an HLC and device uuid from the
+host's `assertions.stamp` and replayed in full, in HLC order, after every
+clustering pass. The view's Tags tab lists every library tag. Until
+the provider layer lands every category answers `not_available` and the job
+completes with the shot list browsable. The host side is behind the `wasm`
+feature: `sidecars.read_media` for core sidecars, `media_uuid` on records, the
+`extensions.models` query, and `ui_manifest.json` `views`, which the client
+lists under Extensions in the sidebar. Live inference and real shot lists wait
+on the provider layer and the shot detection job.
+
 Video proxies and speech audio (Capy FAN-12386, November 22, not beta.1).
 The `media.proxies.generate` action, compiled only with the `video-proxies`
 cargo feature (off by default), runs a resumable job over a video file or

@@ -56,6 +56,28 @@ impl VdfsContext {
 		)
 	}
 
+	/// The bytes of a sidecar the core made for some content: a transcript,
+	/// a shot list, a keyframe. Addressed by the record's
+	/// [`Record::media_uuid`] and the kind, variant and format the core
+	/// wrote it under. Needs the kind in `read_sidecars`. `NotFound` means
+	/// the core has not made it yet; `NotAvailable` means this core writes
+	/// no sidecar of that kind.
+	pub async fn read_media_sidecar(
+		&self,
+		media_uuid: Uuid,
+		kind: &str,
+		variant: &str,
+		format: &str,
+	) -> Result<Vec<u8>> {
+		let payload = serde_json::to_vec(&serde_json::json!({
+			"content_uuid": media_uuid,
+			"kind": kind,
+			"variant": variant,
+			"format": format,
+		}))?;
+		crate::ffi::op("sidecars.read_media", &payload)
+	}
+
 	/// Write a sidecar of one of this extension's `write_sidecars` kinds, as
 	/// JSON, replacing any earlier one for the same content.
 	pub async fn write_sidecar<T: Serialize>(
@@ -381,10 +403,27 @@ impl<T: ExtensionModel> ModelQuery<T> {
 				"model queries cannot filter yet; list and filter in the guest".into(),
 			));
 		}
-		crate::ffi::op_json(
-			"models.list",
-			&serde_json::json!({ "model": T::MODEL_TYPE, "limit": self.limit }),
-		)
+		if self.limit.is_some() {
+			return crate::ffi::op_json(
+				"models.list",
+				&serde_json::json!({ "model": T::MODEL_TYPE, "limit": self.limit }),
+			);
+		}
+		// The host caps one answer, so an unlimited listing pages until a
+		// short page rather than stopping silently at the cap.
+		const PAGE: usize = 1_000;
+		let mut all = Vec::new();
+		loop {
+			let page: Vec<T> = crate::ffi::op_json(
+				"models.list",
+				&serde_json::json!({ "model": T::MODEL_TYPE, "limit": PAGE, "offset": all.len() }),
+			)?;
+			let done = page.len() < PAGE;
+			all.extend(page);
+			if done {
+				return Ok(all);
+			}
+		}
 	}
 }
 
