@@ -26,7 +26,7 @@ build() {
 		out="$target_dir/release"
 		args=()
 	fi
-	cargo build --release --bin sd-daemon --manifest-path ../../Cargo.toml "${args[@]}" \
+	cargo build --release --bin sd-daemon --manifest-path ../../Cargo.toml ${args[@]+"${args[@]}"} \
 		${SD_PREVIEW_FEATURES:+--features "$SD_PREVIEW_FEATURES"}
 	mkdir -p "$target_dir/release"
 	cp "$out/sd-daemon$ext" "$target_dir/release/sd-daemon-$1$ext"
