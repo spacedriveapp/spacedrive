@@ -4,11 +4,14 @@
 //! NOT to be confused with data models (Person, Album) - those are in models.rs
 //!
 //! Inference goes to the host as `ai.infer`, which checks the manifest's
-//! `use_models` grant and hands the input to whatever provider the core has
-//! for the model's category. The core has no face detection, scene
-//! classification, embedding or language model provider today, so those
-//! calls return [`Error::NotAvailable`], which a job handles rather than
-//! fails on.
+//! `use_models` grant and hands the input to the provider the core has for
+//! the model's category. A core built without inference providers, or with
+//! no model of that category downloaded, answers [`Error::NotAvailable`],
+//! which a job handles rather than fails on.
+//!
+//! The `_batch` methods send many inputs in one host call, such as a
+//! folder of photos or a shot's keyframes, and answer each input on its own,
+//! so one unreadable file fails only its own entry.
 
 use crate::types::*;
 use serde::{de::DeserializeOwned, Serialize};
@@ -104,14 +107,65 @@ impl ModelHandle {
 		)
 	}
 
-	/// Detect faces in image
+	fn infer_batch<O: DeserializeOwned>(
+		&self,
+		task: &str,
+		inputs: &[&[u8]],
+	) -> Result<Vec<Result<O>>> {
+		let lengths: Vec<usize> = inputs.iter().map(|input| input.len()).collect();
+		let items: Vec<BatchItem<O>> = crate::ffi::op_framed(
+			"ai.infer",
+			&serde_json::json!({ "model": self.model_id, "task": task, "items": lengths }),
+			&inputs.concat(),
+		)?;
+		Ok(items
+			.into_iter()
+			.map(|item| match item {
+				BatchItem::Ok(output) => Ok(output),
+				BatchItem::Error(error) => Err(error.into_error("ai.infer")),
+			})
+			.collect())
+	}
+
+	/// Detect faces in image. Boxes are fractions of the upright image.
+	/// Each face carries an embedding when the manifest also grants
+	/// `face_embedding` and the core has a face embedding model.
 	pub async fn detect_faces(&self, image_data: &[u8]) -> Result<Vec<FaceDetection>> {
 		self.infer("detect_faces", image_data)
+	}
+
+	/// [`Self::detect_faces`] over many images in one host call.
+	pub async fn detect_faces_batch(
+		&self,
+		images: &[&[u8]],
+	) -> Result<Vec<Result<Vec<FaceDetection>>>> {
+		self.infer_batch("detect_faces", images)
+	}
+
+	/// Embed a face crop, through a `face_embedding` handle.
+	pub async fn embed_face(&self, face_crop: &[u8]) -> Result<Vec<f32>> {
+		self.infer("embed_face", face_crop)
 	}
 
 	/// Classify scene in image
 	pub async fn classify(&self, image_data: &[u8]) -> Result<Vec<SceneTag>> {
 		self.infer("classify", image_data)
+	}
+
+	/// [`Self::classify`] over many images in one host call.
+	pub async fn classify_batch(&self, images: &[&[u8]]) -> Result<Vec<Result<Vec<SceneTag>>>> {
+		self.infer_batch("classify", images)
+	}
+
+	/// Describe an image in a sentence or two, through an `image_caption`
+	/// handle.
+	pub async fn caption(&self, image_data: &[u8]) -> Result<String> {
+		self.infer("caption", image_data)
+	}
+
+	/// [`Self::caption`] over many images in one host call.
+	pub async fn caption_batch(&self, images: &[&[u8]]) -> Result<Vec<Result<String>>> {
+		self.infer_batch("caption", images)
 	}
 
 	/// OCR document
@@ -124,11 +178,25 @@ impl ModelHandle {
 		self.infer("embed_text", text.as_bytes())
 	}
 
+	/// [`Self::embed_text`] over many texts in one host call.
+	pub async fn embed_text_batch(&self, texts: &[&str]) -> Result<Vec<Result<Vec<f32>>>> {
+		let inputs: Vec<&[u8]> = texts.iter().map(|text| text.as_bytes()).collect();
+		self.infer_batch("embed_text", &inputs)
+	}
+
 	/// Generate text from a prompt, through a language model of this
 	/// handle's category.
 	pub async fn generate_text(&self, prompt: &str) -> Result<String> {
 		self.infer("generate_text", prompt.as_bytes())
 	}
+}
+
+/// One input's answer in a batch.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum BatchItem<O> {
+	Ok(O),
+	Error(crate::ffi::HostError),
 }
 
 /// Prompt builder with Jinja templates

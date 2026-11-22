@@ -115,7 +115,15 @@ struct ModelPut {
 struct Inference {
 	model: String,
 	task: String,
+	/// Byte lengths of each input in a batch, in order. Without it the whole
+	/// input is one item and the answer is that item's result alone.
+	#[serde(default)]
+	items: Option<Vec<usize>>,
 }
+
+/// The most inputs one `ai.infer` call may carry.
+#[cfg(feature = "ai-providers")]
+const MAX_INFER_ITEMS: usize = 256;
 
 #[derive(Deserialize)]
 struct ModelList {
@@ -335,7 +343,7 @@ impl JobOps {
 			"jobs.dispatch" => self.job_dispatch(parse(payload)?).await,
 			"tags.add" => self.tag_change(parse(payload)?, true).await,
 			"tags.remove" => self.tag_change(parse(payload)?, false).await,
-			"ai.infer" => self.ai_infer(payload),
+			"ai.infer" => self.ai_infer(payload, ctx).await,
 			"config.get" => self.config_get().await,
 			"assertions.stamp" => self.assertion_stamp(),
 			_ => Err(OpError::new(
@@ -1061,37 +1069,160 @@ impl JobOps {
 }
 
 impl JobOps {
-	/// Inference, when the core has a provider for the model's category.
+	/// Inference on the provider the core has for the model's category.
 	///
-	/// It has none for the categories photos asks for (face detection, scene
-	/// classification, embeddings, language models), so a granted request
-	/// is answered `not_available` with the category named, and the job
-	/// decides what to do without it. The grant is still checked first: a
-	/// request for an undeclared category is refused, not deferred.
-	fn ai_infer(&self, payload: &[u8]) -> OpResult {
-		let (header, _input) = split_frame(payload)?;
+	/// The grant is checked first: a request for an undeclared category is
+	/// refused, not deferred. The part of the model id after the category
+	/// (`face_detection:photos_v1`) names nothing; the core picks the model.
+	/// A batch (`items` in the header) answers each input with
+	/// `{"ok": ...}` or `{"error": {...}}`, so one unreadable file fails
+	/// only itself. A build without the `ai-providers` feature, or a category
+	/// with no installed model, answers `not_available`.
+	async fn ai_infer(&self, payload: &[u8], ctx: &JobContext<'_>) -> OpResult {
+		let (header, input) = split_frame(payload)?;
 		let inference: Inference = parse(header)?;
 		let category = inference
 			.model
 			.split_once(':')
 			.map(|(category, _)| category)
 			.unwrap_or(&inference.model);
-		let granted = self
+		let Some(grant) = self
 			.manifest
 			.permissions
 			.use_models
 			.iter()
-			.any(|m| m.category == category);
-		if !granted {
+			.find(|m| m.category == category)
+		else {
 			return Err(OpError::permission_denied(format!(
 				"{} has no use_models grant for {category}",
 				self.extension_id
 			)));
+		};
+		#[cfg(feature = "ai-providers")]
+		{
+			self.infer(
+				&inference,
+				category,
+				grant.preference.as_deref(),
+				input,
+				ctx,
+			)
+			.await
 		}
-		Err(OpError::not_available(format!(
-			"no {category} provider is installed for {} ({})",
-			inference.model, inference.task
-		)))
+		#[cfg(not(feature = "ai-providers"))]
+		{
+			let _ = (grant, input, ctx);
+			Err(OpError::not_available(format!(
+				"no {category} provider is installed for {} ({})",
+				inference.model, inference.task
+			)))
+		}
+	}
+
+	#[cfg(feature = "ai-providers")]
+	async fn infer(
+		&self,
+		inference: &Inference,
+		category: &str,
+		preference: Option<&str>,
+		input: &[u8],
+		ctx: &JobContext<'_>,
+	) -> OpResult {
+		use crate::ops::ai::{AiError, Category, Preference, Provider};
+
+		let op_error = |e: AiError| match e {
+			AiError::NotInstalled(category) => OpError::not_available(format!(
+				"no {category} provider is installed; download one with ai.models.download"
+			)),
+			AiError::Input(message) => OpError::invalid_input(message),
+			AiError::Interrupted => OpError::new("interrupted", "job interrupted"),
+			other => OpError::failed(other.to_string()),
+		};
+		let Some(category) = Category::parse(category) else {
+			return Err(OpError::not_available(format!(
+				"no {category} provider is installed"
+			)));
+		};
+		let items: Vec<Vec<u8>> = match &inference.items {
+			None => vec![input.to_vec()],
+			Some(lengths) => {
+				if lengths.len() > MAX_INFER_ITEMS {
+					return Err(OpError::invalid_input(format!(
+						"a batch carries at most {MAX_INFER_ITEMS} items"
+					)));
+				}
+				let total = lengths
+					.iter()
+					.try_fold(0usize, |sum, &len| sum.checked_add(len));
+				if total != Some(input.len()) {
+					return Err(OpError::invalid_input(
+						"item lengths do not match the input",
+					));
+				}
+				let mut rest = input;
+				lengths
+					.iter()
+					.map(|&len| {
+						let (item, tail) = rest.split_at(len);
+						rest = tail;
+						item.to_vec()
+					})
+					.collect()
+			}
+		};
+
+		let registry = self.library.core_context().ai.clone();
+		let provider = registry
+			.resolve(
+				category,
+				Preference::from_manifest(preference),
+				&self.library,
+			)
+			.await
+			.map_err(op_error)?;
+		let wants_embedding = category == Category::FaceDetection
+			&& self
+				.manifest
+				.permissions
+				.use_models
+				.iter()
+				.any(|m| m.category == Category::FaceEmbedding.as_str());
+		let embedder = if wants_embedding {
+			match registry
+				.local(Category::FaceEmbedding)
+				.await
+				.map_err(op_error)?
+			{
+				Some(Provider::FaceEmbedding(embedder)) => Some(embedder),
+				_ => None,
+			}
+		} else {
+			None
+		};
+		let mut results = registry
+			.run(provider, &inference.task, items, embedder, || {
+				matches!(
+					futures::FutureExt::now_or_never(ctx.check_interrupt()),
+					Some(Err(_))
+				)
+			})
+			.await
+			.map_err(op_error)?;
+
+		if inference.items.is_none() {
+			return match results.pop() {
+				Some(result) => json(&result.map_err(op_error)?),
+				None => Err(OpError::failed("provider returned no result")),
+			};
+		}
+		let answers: Vec<serde_json::Value> = results
+			.into_iter()
+			.map(|result| match result {
+				Ok(value) => serde_json::json!({ "ok": value }),
+				Err(e) => serde_json::json!({ "error": op_error(e) }),
+			})
+			.collect();
+		json(&answers)
 	}
 
 	/// A stamp for one assertion the guest is about to write: an HLC from the

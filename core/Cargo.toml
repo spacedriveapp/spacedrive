@@ -28,6 +28,10 @@ wasm = ["dep:wasmer", "dep:wasmer-middlewares"]
 fuse = ["dep:fuser"]
 # Video proxies and speech audio for footage, written with the host FFmpeg.
 video-proxies = []
+# Local inference providers behind ai.infer (ONNX Runtime, model tokenizers)
+# and the opt-in cloud caption provider. Off by default: without it every
+# ai.infer request is answered not_available, as before.
+ai-providers = ["dep:ort", "dep:tokenizers"]
 
 
 [dependencies]
@@ -164,6 +168,10 @@ sd-media-metadata = { path = "../crates/media-metadata" }
 tokio-rustls     = "0.26"
 webp             = "0.3"
 
+# Inference providers (optional, behind ai-providers feature)
+ort        = { workspace = true, optional = true, features = ["std"] }
+tokenizers = { version = "0.21", default-features = false, features = ["fancy-regex"], optional = true }
+
 # Speech-to-text dependencies (optional, behind whisper feature)
 whisper-rs = { version = "0.15.1", optional = true }
 hound      = { version = "3.5", optional = true }   # WAV file reading
@@ -283,6 +291,11 @@ objc2-foundation = { version = "0.3", features = [
 	"NSString",
 	"NSError",
 ] }
+
+[target.'cfg(target_os = "macos")'.dependencies.ort]
+workspace = true
+optional  = true
+features  = ["std", "coreml"]
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 whisper-rs = { version = "0.15.1", features = ["metal"], optional = true }

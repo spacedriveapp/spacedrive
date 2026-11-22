@@ -26,6 +26,9 @@ pub struct ModelDownloadState {
 	temp_path: PathBuf,
 	total_bytes: u64,
 	downloaded_bytes: u64,
+	/// Checked after download when the model's source pins a hash.
+	#[serde(default)]
+	sha256: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,6 +56,7 @@ impl ModelDownloadJob {
 				temp_path: PathBuf::new(),
 				total_bytes: 0,
 				downloaded_bytes: 0,
+				sha256: None,
 			},
 			config,
 		}
@@ -138,13 +142,46 @@ impl ModelDownloadJob {
 				self.state.total_bytes / 1024 / 1024
 			));
 		} else {
+			self.initialize_provider_file(ctx).await?;
+		}
+
+		Ok(())
+	}
+
+	/// A file of an inference provider model, named `<model id>/<file>`.
+	#[cfg(feature = "ai-providers")]
+	async fn initialize_provider_file(&mut self, ctx: &JobContext<'_>) -> JobResult<()> {
+		let Some((spec, file)) = crate::ops::ai::catalog::find_file(&self.config.model_id) else {
 			return Err(JobError::execution(format!(
 				"Unknown model ID: {}",
 				self.config.model_id
 			)));
-		}
-
+		};
+		let dir = super::get_models_dir(&self.config.data_dir)
+			.join("providers")
+			.join(spec.id);
+		tokio::fs::create_dir_all(&dir).await?;
+		self.state.download_url = file.url.to_string();
+		self.state.target_path = dir.join(file.name);
+		self.state.temp_path = dir.join(format!("{}.tmp", file.name));
+		self.state.total_bytes = file.size;
+		self.state.sha256 = Some(file.sha256.to_string());
+		ctx.log(format!(
+			"Downloading {} {} ({} MB, {})",
+			spec.name,
+			file.name,
+			file.size / 1024 / 1024,
+			spec.license
+		));
 		Ok(())
+	}
+
+	#[cfg(not(feature = "ai-providers"))]
+	async fn initialize_provider_file(&mut self, _ctx: &JobContext<'_>) -> JobResult<()> {
+		Err(JobError::execution(format!(
+			"Unknown model ID: {}",
+			self.config.model_id
+		)))
 	}
 
 	async fn download(&mut self, ctx: &JobContext<'_>) -> JobResult<()> {
@@ -238,6 +275,25 @@ impl ModelDownloadJob {
 				self.state.total_bytes,
 				metadata.len()
 			)));
+		}
+
+		if let Some(expected) = &self.state.sha256 {
+			let path = self.state.temp_path.clone();
+			let actual = tokio::task::spawn_blocking(move || -> std::io::Result<String> {
+				use sha2::Digest;
+				let mut hasher = sha2::Sha256::new();
+				std::io::copy(&mut std::fs::File::open(path)?, &mut hasher)?;
+				Ok(hex::encode(hasher.finalize()))
+			})
+			.await
+			.map_err(|e| JobError::execution(e.to_string()))?
+			.map_err(|e| JobError::execution(format!("Failed to hash download: {e}")))?;
+			if &actual != expected {
+				let _ = tokio::fs::remove_file(&self.state.temp_path).await;
+				return Err(JobError::execution(format!(
+					"Downloaded file hash mismatch: expected {expected}, got {actual}"
+				)));
+			}
 		}
 
 		// Move to final location
