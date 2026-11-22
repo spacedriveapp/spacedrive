@@ -28,8 +28,6 @@ pub fn kind_directory(kind: &str) -> Option<&'static str> {
 		"keyframe" => Some("keyframes"),
 		"gaussian_splat" => Some("gaussian_splats"),
 		"audio" => Some("audio"),
-		"shots" => Some("shots"),
-		"keyframe" => Some("keyframes"),
 		_ => None,
 	}
 }
