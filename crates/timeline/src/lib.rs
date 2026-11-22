@@ -53,9 +53,15 @@ pub use timeline::{Audio, Clip, Edit, Media, Timeline, TimelineError};
 
 /// A `file://` URL for an absolute path, with every byte outside the
 /// unreserved set and `/` percent-encoded, so spaces and non-ASCII names
-/// survive every editor's URL parser.
+/// survive every editor's URL parser. A backslash is a separator only on
+/// Windows; elsewhere it is part of a file name and is encoded.
 pub fn file_url(path: &std::path::Path) -> String {
-	let text = path.to_string_lossy().replace('\\', "/");
+	let text = path.to_string_lossy();
+	let text = if cfg!(windows) {
+		text.replace('\\', "/")
+	} else {
+		text.into_owned()
+	};
 	let mut url = String::from("file://");
 	if !text.starts_with('/') {
 		url.push('/');
@@ -83,9 +89,23 @@ mod tests {
 			file_url(Path::new("/Volumes/Footage/Day 2/Café.mov")),
 			"file:///Volumes/Footage/Day%202/Caf%C3%A9.mov"
 		);
+	}
+
+	#[cfg(windows)]
+	#[test]
+	fn file_urls_turn_windows_separators_into_slashes() {
 		assert_eq!(
 			file_url(Path::new("C:\\Footage\\a.mov")),
 			"file:///C:/Footage/a.mov"
+		);
+	}
+
+	#[cfg(not(windows))]
+	#[test]
+	fn file_urls_keep_a_unix_backslash_in_the_name() {
+		assert_eq!(
+			file_url(Path::new("/footage/take\\1.mov")),
+			"file:///footage/take%5C1.mov"
 		);
 	}
 }

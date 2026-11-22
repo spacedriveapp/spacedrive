@@ -275,9 +275,11 @@ fn parse_clips(ctx: &Context, text: &str) -> Result<Vec<ExportClip>> {
 
 async fn export(ctx: &Context, args: ExportArgs) -> Result<()> {
 	let text = if args.clips == "-" {
-		std::io::read_to_string(std::io::stdin())?
+		tokio::task::spawn_blocking(|| std::io::read_to_string(std::io::stdin())).await??
 	} else {
-		std::fs::read_to_string(&args.clips).with_context(|| format!("reading {}", args.clips))?
+		tokio::fs::read_to_string(&args.clips)
+			.await
+			.with_context(|| format!("reading {}", args.clips))?
 	};
 	let clips = parse_clips(ctx, &text)?;
 	let output: TimelineExportOutput = execute_action!(

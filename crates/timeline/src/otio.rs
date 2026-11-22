@@ -80,13 +80,13 @@ pub fn write(timeline: &Timeline) -> Result<String, TimelineError> {
 	let video: Vec<Value> = edits.iter().map(clip).collect();
 	let mut tracks = vec![track("V1", "Video", video)];
 	if edits.iter().any(|edit| edit.media.audio.is_some()) {
-		// A clip without sound leaves a gap of its timeline length, so the
-		// audio stays in sync with the picture above it.
+		// A clip without sound leaves a gap as long as its picture, at the
+		// same source rate, so the audio stays in sync with the video track.
 		let audio = edits
 			.iter()
 			.map(|edit| match edit.media.audio {
 				Some(_) => clip(edit),
-				None => gap(edit.record_out - edit.record_in, timeline.rate),
+				None => gap(edit.clip.source_out - edit.clip.source_in, edit.media.rate),
 			})
 			.collect();
 		tracks.push(track("A1", "Audio", audio));
@@ -133,12 +133,11 @@ mod tests {
 		let second = &tracks[0]["children"][1];
 		assert_eq!(second["name"], "platform wide");
 		assert_eq!(second["source_range"]["start_time"]["rate"], 25.0);
-		// The second clip has no sound, so the audio track holds a gap the
-		// length it takes on the timeline.
-		assert_eq!(tracks[1]["children"][1]["OTIO_SCHEMA"], "Gap.1");
-		assert_eq!(
-			tracks[1]["children"][1]["source_range"]["duration"]["value"],
-			131.0
-		);
+		// The second clip has no sound, so the audio track holds a gap as
+		// long as its picture, at its own rate.
+		let gap = &tracks[1]["children"][1];
+		assert_eq!(gap["OTIO_SCHEMA"], "Gap.1");
+		assert_eq!(gap["source_range"]["duration"]["value"], 137.0);
+		assert_eq!(gap["source_range"]["duration"]["rate"], 25.0);
 	}
 }

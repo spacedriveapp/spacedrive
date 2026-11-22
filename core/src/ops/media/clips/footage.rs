@@ -16,6 +16,7 @@ use crate::{
 	},
 	library::Library,
 	ops::{
+		indexing::metadata::{refuse_dataless, DATALESS_REASON},
 		media::shots::{content_uuid_of_video, read_shots, ShotList},
 		transcription::transcript::{read_transcript, Transcript},
 	},
@@ -225,6 +226,13 @@ pub(crate) async fn record_uuid(context: &CoreContext, path: &SdPath) -> Option<
 }
 
 pub(crate) async fn probe(tools: &Arc<ExternalTools>, path: &Path) -> Result<Probe, String> {
+	// FFprobe opening a cloud placeholder would download the whole file.
+	if refuse_dataless(path).await.is_err() {
+		return Err(format!(
+			"{} is a cloud placeholder ({DATALESS_REASON}); it is not read so it is not downloaded",
+			display_name(path)
+		));
+	}
 	let args: Vec<OsString> = vec![
 		"-v".into(),
 		"error".into(),
