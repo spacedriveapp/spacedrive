@@ -45,9 +45,23 @@ uuid and are replaced when the host writes or deletes the sidecar; the host
 gained `sidecars.delete` and the SDK `delete_sidecar`. No backfill pass yet:
 sidecars written before this build are indexed on their next write.
 
+Excluded-directory pruning goes through the removal fuse (Capy FAN-12573,
+November 22, beta.1 blocker). On the beta.1 MacBook the first startup
+reconcile after #3224 removed 2.77M of 5.4M records from the home source. They
+sat under directories the rules now exclude (`~/Library`, dev directories,
+gitignored folders) that older walks had kept. That prune bypassed the
+half-removal fuse. It now counts toward the fuse and waits for a whole read,
+like any removal, so a pass that would take more than half of a source
+removes nothing and logs `reconcile refused its removals`. Tag assertions on
+the removed records survive as orphans and rebind if the records return.
+Proof: `an_exclusion_that_would_take_most_of_the_source_removes_nothing`.
+Open: a source whose excluded content outweighs the rest is never pruned.
+
 Footage preview builds (Capy FAN-12531, November 22). `release.yml` takes a
-`features` input that adds sd-core features to the daemon in a dry run only,
-both the desktop sidecar and the CLI build. With `wasm` in the list the run also
+`features` input that adds sd-core features to the desktop app's daemon in a
+dry run only; the standalone CLI binaries keep the shipping set because they
+do not ship the codec framework. Preview builds compile whisper.cpp for a
+generic arm64 CPU rather than the runner's. With `wasm` in the list the run also
 uploads the Videos extension built from the same commit as `videos-extension`.
 Tags, nightly and the default dry run build the shipping feature set unchanged.
 
@@ -171,7 +185,7 @@ walk's metadata. Hashing reads run on their own runtime at background QoS on
 macOS (nice 10 on Linux), and its progress total grows when records arrive
 mid-pass. A source walk applies rules and so never sweeps its store, so the
 reconcile now removes what the map holds under a directory today's rules
-exclude, outside the removal fuse, and the watcher rejects a path when any
+exclude, weighed by the removal fuse since FAN-12573, and the watcher rejects a path when any
 ancestor below the root is excluded (`/Users/*/Library` names only the
 directory). Open: a placeholder downloaded later keeps its error until the file
 changes or its volume remounts; the grep op held on `capy/search-grep` (#3219)
@@ -339,6 +353,7 @@ Recent landed.
 | Startup reconcile on a large macOS home source | in review 2026-11-19 (SPAC-84, FAN-11141) | Opus | On the beta.1 MacBook the startup reconcile of a 1.8M-entry home source ran past 35 minutes with nothing visible. It read every directory the map held, including `~/Library`, which the map kept from walks before the Nov 5 `Users/*/Library` rule, and iCloud listings in it timed out (os error 60). It also checked each new entry with a ruler built from that entry's own path, which skipped `.gitignore` for files, so every pass added gitignored files to the store (10,000 of them on the generated tree); the watcher shared that check and now builds it for the file's directory too. The pass now builds one ruler per directory as the walk does, leaves held directories the rules now exclude unread, never lists a cloud provider placeholder (`SF_DATALESS`; the walk and its summary count skip them too), bounds each listing at 10 s, and runs as a `reconcile` job with progress and an ETA. Every skip logs at info. Next: SPAC-79 relaunch on the MacBook to confirm the time and the `excluded`/`placeholders` counts. |
 | Candidate validation follow-ups | in progress 2026-11-05 (SPAC-64); one PR per finding against `main` | Opus | Four findings from the SPAC-58 run. A full disk hangs the indexer: reproduce on a loop-mounted data dir with a debug build, fail the job with a disk-full error and leave the store consistent, with an acceptance test on the loop-device helper. The receive side of a peer transfer writes in place: stage beside the destination and rename on verified completion as #3170 does for local copies, keeping the #3109 resume rules, with a kill-mid-receive case in the two-core transfer suite. `sd daemon install` without systemd or launchd now says so and prints the command to run instead. The README names Windows as a preview platform, matching the beta.1 fact sheet. |
 | Footage 3: shot detection | in review 2026-11-22 (SPAC-102, FAN-12391); behind the `video-shots` cargo feature, off by default, not on the beta.1 path | Opus | `media.shots.detect` runs a job that scores every frame of the 720p proxy (or the original) with FFmpeg's scene score, cuts at 0.3 or at an isolated spike above half of that, and keeps every shot at least 1 s long. It writes `shots/default.json` and one `keyframes/<shot id>.jpg` per shot, which `media.shots.list`, `ops::media::shots::read_shots` and the agent MCP `list_shots` read. On a 20-minute 480p vlog it found 143 shots in 12 to 26 s, and a rerun kept every shot id. Next: Jamie's OK to merge, then a rerun on a SPAC-99 proxy once that lands. |
+| Footage 5: clips and timeline export | in review 2026-11-22 (FAN-12392); behind the `footage-clips` cargo feature, off by default, not on the beta.1 path | Opus | `media.clips.search`, `media.footage.read` and `media.timeline.export` join the transcript, shots and proxy sidecars of a video into clips with whole-frame in and out points, and write a rough cut as FCPXML 1.10, CMX 3600 EDL or OTIO through the new `sd-timeline` crate. The CLI (`sd media clips search`, `sd media footage read`, `sd media timeline export`) and the agent MCP tools `search_clips`, `read_footage` and `export_timeline` wrap them, scoped to the grant's directory (`docs/core/footage-clips.mdx`). A daemon run on generated 23.976 and 25 fps footage cut a DTD-valid FCPXML whose in frames match the search. Opening the files in an editor is unverified. Next: Jamie's check in the editors. |
 | Agent grants core (G1) | landed 2026-11-20 (#3221, FAN-11130) | Opus | A grant lends one directory of a tracked source to an agent: `grants.create/list/revoke/extend/audit`, `sd grant`, tokens stored as SHA-256 and shown once, 5 min to 12 h lifetimes, revocation on the next request. `ops::grants::authorize` is the one enforcement point; it resolves paths by filesystem identity (`..`, symlinks out, firmlink and case aliases) and keeps writable grants off AGENTS.md, CLAUDE.md, SKILL.md and .git. Bounded audit table. Design in `docs/core/design/agent-grants.md`; `agent_grants_acceptance_test` and the sd-cli `grant_test`. The agent MCP HTTP surface (M1, #3223) builds on `authorize`. |
 | Track on a full data disk | in review 2026-11-06 (SPAC-68, FAN-5078) | Opus | `sources.track` on a nearly full data disk registered the source, failed to queue its walk, returned success, and the heal never walked it because the root stayed flagged as indexing. The store is now marked walk-unfinished before the walk is queued, a failed dispatch clears the indexing flag, a walk whose store cannot open is refused, and the action returns an error saying the walk will retry at the next start. Proof: `track_full_data_disk_acceptance_test`. |
 | macOS Data volume read as unmounted | in review 2026-11-13 (SPAC-73, FAN-6659) | Opus | On macOS 26.1, `/`, `/System/Volumes` and `/System/Volumes/Data` report the same `st_dev`, so the device comparison in `is_mount_point` (from #3151) called the Data volume unmounted and every walk and browse under `/Users` was refused. macOS and iOS now judge a mount point by `statfs` `f_mntonname`; Linux keeps the device comparison. A refused first walk now fails `sources.track` with the reason, and a store kept in the library is marked walk-unfinished so the heal retries. Proof: `statfs_mount_point_tests` (Linux and Mac), `track_refused_walk_acceptance_test` (its macOS case ran on the Mac Studio), and a real daemon on the Studio walking a folder under `/Users`. |

@@ -12321,6 +12321,7 @@ dependencies = [
  "sd-store",
  "sd-supervisor",
  "sd-task-system",
+ "sd-timeline",
  "sea-orm",
  "sea-orm-migration",
  "serde",
@@ -12663,6 +12664,16 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "sd-timeline"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "specta",
+ "thiserror 2.0.16",
 ]
 
 [[package]]

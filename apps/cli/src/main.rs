@@ -263,6 +263,10 @@ enum Commands {
 	/// Thumbnail generation and regeneration
 	#[command(subcommand)]
 	Thumbs(ThumbsCmd),
+	/// Footage clips, shots and transcripts, and rough-cut export
+	#[cfg(feature = "footage-clips")]
+	#[command(subcommand)]
+	Media(domains::media::MediaCmd),
 	/// Source operations (track, list, freeze)
 	#[command(subcommand)]
 	Sources(SourceCmd),
@@ -850,6 +854,8 @@ async fn run_client_command(
 		Commands::Fuse(cmd) => fuse::run(&ctx, cmd).await?,
 		Commands::Index(cmd) => index::run(&ctx, cmd).await?,
 		Commands::Thumbs(cmd) => thumbs::run(&ctx, cmd).await?,
+		#[cfg(feature = "footage-clips")]
+		Commands::Media(cmd) => domains::media::run(&ctx, cmd).await?,
 		Commands::Sources(cmd) => source::run(&ctx, cmd).await?,
 		Commands::Network(cmd) => network::run(&ctx, cmd).await?,
 		Commands::Job(cmd) => job::run(&ctx, cmd).await?,
