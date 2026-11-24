@@ -33,6 +33,8 @@ const SCAN_FILTER: &str = "scale=-2:270,select='gte(scene,0)'";
 /// Short side at most 720, in the full-range 4:2:0 a JPEG stores.
 const KEYFRAME_FILTER: &str =
 	"scale='if(gt(iw,ih),-2,min(720,iw))':'if(gt(iw,ih),min(720,ih),-2)',format=yuvj420p";
+const PROBE_TIMEOUT: Duration = Duration::from_secs(30);
+const KEYFRAME_TIMEOUT: Duration = Duration::from_secs(60);
 /// MJPEG quantizer scale, as `-q:v 3`.
 const KEYFRAME_QUALITY: i32 = 3;
 
@@ -223,7 +225,7 @@ struct Probe {
 }
 
 fn probe(path: &Path) -> Result<Probe, String> {
-	let json = sd_ffmpeg::footage::probe(path)
+	let json = sd_ffmpeg::footage::probe(path, PROBE_TIMEOUT)
 		.map_err(|error| format!("could not read the video: {error}"))?;
 	parse_probe(&json)
 }
@@ -340,9 +342,14 @@ fn extract_keyframe(scanned: &Path, time: f64, path: &Path) -> Result<(), String
 	if let Some(parent) = path.parent() {
 		std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
 	}
-	if let Err(error) =
-		sd_ffmpeg::footage::write_jpeg(scanned, time, KEYFRAME_FILTER, KEYFRAME_QUALITY, &partial)
-	{
+	if let Err(error) = sd_ffmpeg::footage::write_jpeg(
+		scanned,
+		time,
+		KEYFRAME_FILTER,
+		KEYFRAME_QUALITY,
+		&partial,
+		KEYFRAME_TIMEOUT,
+	) {
 		let _ = std::fs::remove_file(&partial);
 		return Err(format!("could not extract a keyframe: {error}"));
 	}

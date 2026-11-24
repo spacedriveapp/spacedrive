@@ -1,13 +1,12 @@
-use std::sync::Arc;
 #[cfg(not(feature = "ffmpeg"))]
-use std::{ffi::OsString, time::Duration};
+use std::ffi::OsString;
+use std::{sync::Arc, time::Duration};
 
 use image::DynamicImage;
 use sd_bake::{Decline, Producer, Tile, WorkItem};
 
 use crate::service::external_tools::ExternalTools;
 
-#[cfg(not(feature = "ffmpeg"))]
 const THUMBNAIL_TIMEOUT: Duration = Duration::from_secs(30);
 #[cfg(not(feature = "ffmpeg"))]
 const THUMBNAIL_OUTPUT_LIMIT: usize = 32 * 1024 * 1024;
@@ -47,11 +46,13 @@ impl Producer for VideoProducer {
 		}
 		#[cfg(feature = "ffmpeg")]
 		{
-			let picture = sd_ffmpeg::footage::read_rgba(&item.path, &thumbnail_filter(tile_size))
-				.map_err(|error| {
-					Decline::Failed(format!("could not decode a video frame: {error}"))
-				})?
-				.ok_or_else(|| Decline::Failed("the video has no frames".to_string()))?;
+			let picture = sd_ffmpeg::footage::read_rgba(
+				&item.path,
+				&thumbnail_filter(tile_size),
+				THUMBNAIL_TIMEOUT,
+			)
+			.map_err(|error| Decline::Failed(format!("could not decode a video frame: {error}")))?
+			.ok_or_else(|| Decline::Failed("the video has no frames".to_string()))?;
 			let image = image::RgbaImage::from_raw(picture.width, picture.height, picture.rgba)
 				.ok_or_else(|| {
 					Decline::Failed("the decoded frame has the wrong size".to_string())
@@ -180,5 +181,56 @@ mod linked_tests {
 		let tile = producer.produce(&WorkItem::file(video), 256).unwrap();
 		assert_eq!((tile.width(), tile.height()), (256, 144));
 		assert!(video_decoding_available(&ExternalTools::new()));
+	}
+
+	/// A flipped picture comes out of the filter with a negative stride; it
+	/// must read as the upright one with its rows reversed.
+	#[test]
+	fn flipped_frames_read_row_by_row() {
+		let dir = tempfile::tempdir().unwrap();
+		let video = dir.path().join("clip.mp4");
+		sd_ffmpeg::footage::render(
+			"testsrc2=s=64x36:r=25:d=1",
+			"libx264",
+			&[("preset".to_string(), "ultrafast".to_string())],
+			"mp4",
+			&[],
+			&video,
+		)
+		.unwrap();
+		let read = |filter: &str| {
+			sd_ffmpeg::footage::read_rgba(&video, filter, THUMBNAIL_TIMEOUT)
+				.unwrap()
+				.unwrap()
+		};
+		let upright = read("format=rgba");
+		let flipped = read("format=rgba,vflip");
+		let row = upright.width as usize * 4;
+		let reversed: Vec<u8> = upright.rgba.chunks(row).rev().flatten().copied().collect();
+		assert_eq!(flipped.rgba, reversed);
+	}
+
+	/// A read past its deadline gives up instead of holding the worker.
+	#[test]
+	fn reads_give_up_at_their_deadline() {
+		let dir = tempfile::tempdir().unwrap();
+		let video = dir.path().join("clip.mp4");
+		sd_ffmpeg::footage::render(
+			"testsrc2=s=64x36:r=25:d=1",
+			"libx264",
+			&[("preset".to_string(), "ultrafast".to_string())],
+			"mp4",
+			&[],
+			&video,
+		)
+		.unwrap();
+		assert!(matches!(
+			sd_ffmpeg::footage::read_rgba(&video, "", Duration::ZERO),
+			Err(sd_ffmpeg::Error::TimedOut)
+		));
+		assert!(matches!(
+			sd_ffmpeg::footage::probe(&video, Duration::ZERO),
+			Err(sd_ffmpeg::Error::TimedOut)
+		));
 	}
 }

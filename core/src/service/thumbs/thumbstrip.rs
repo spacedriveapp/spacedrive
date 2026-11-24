@@ -1,6 +1,6 @@
 #[cfg(not(feature = "ffmpeg"))]
-use std::{ffi::OsString, time::Duration};
-use std::{fs, path::Path};
+use std::ffi::OsString;
+use std::{fs, path::Path, time::Duration};
 
 use tempfile::Builder;
 
@@ -12,7 +12,7 @@ pub const COLUMNS: u8 = 5;
 pub const ROWS: u8 = 5;
 const FRAME_WIDTH: u16 = 160;
 const FRAME_HEIGHT: u16 = 90;
-#[cfg(not(feature = "ffmpeg"))]
+const PROBE_TIMEOUT: Duration = Duration::from_secs(15);
 const PROCESS_TIMEOUT: Duration = Duration::from_secs(120);
 #[cfg(not(feature = "ffmpeg"))]
 const PROCESS_OUTPUT_LIMIT: usize = 1024 * 1024;
@@ -65,7 +65,7 @@ pub(super) fn generate(tools: &ExternalTools, input: &Path, output: &Path) -> Re
 /// The tiled frame as an RGB PNG, as the executable writes it.
 #[cfg(feature = "ffmpeg")]
 fn render(_tools: &ExternalTools, input: &Path, filter: &str, output: &Path) -> Result<(), String> {
-	let picture = sd_ffmpeg::footage::read_rgba(input, filter)
+	let picture = sd_ffmpeg::footage::read_rgba(input, filter, PROCESS_TIMEOUT)
 		.map_err(|error| format!("FFmpeg could not generate the thumbstrip: {error}"))?
 		.ok_or("FFmpeg generated no thumbstrip frame")?;
 	let image = image::RgbaImage::from_raw(picture.width, picture.height, picture.rgba)
@@ -117,7 +117,7 @@ fn render(tools: &ExternalTools, input: &Path, filter: &str, output: &Path) -> R
 
 #[cfg(feature = "ffmpeg")]
 fn duration_seconds(_tools: &ExternalTools, input: &Path) -> Result<f64, String> {
-	let report = sd_ffmpeg::footage::probe(input)
+	let report = sd_ffmpeg::footage::probe(input, PROBE_TIMEOUT)
 		.map_err(|error| format!("could not read video duration: {error}"))?;
 	parse_duration(report["format"]["duration"].as_str().unwrap_or_default())
 }
@@ -134,7 +134,7 @@ fn duration_seconds(tools: &ExternalTools, input: &Path) -> Result<f64, String> 
 		input.as_os_str().to_owned(),
 	];
 	let result = tools
-		.run_ffprobe(&args, Duration::from_secs(15), PROCESS_OUTPUT_LIMIT)
+		.run_ffprobe(&args, PROBE_TIMEOUT, PROCESS_OUTPUT_LIMIT)
 		.map_err(|error| error.to_string())?;
 	if !result.status.success() {
 		return Err(process_failure(

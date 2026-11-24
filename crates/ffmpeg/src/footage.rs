@@ -38,12 +38,13 @@
 
 use std::{
 	cell::Cell,
-	ffi::{c_char, c_int, CStr, CString},
+	ffi::{c_char, c_int, c_void, CStr, CString},
 	fmt::Write,
 	fs,
 	path::Path,
 	ptr,
 	sync::atomic::{AtomicBool, AtomicU64, Ordering},
+	time::{Duration, Instant},
 };
 
 use ffmpeg_sys_next as ff;
@@ -112,9 +113,10 @@ pub struct Transcode {
 /// `avg_frame_rate` and `r_frame_rate`, audio streams `sample_rate` and
 /// `channels`, and any stream `nb_frames` when the container counts them.
 /// A `timecode` tag sits under `tags` of the stream or the format, and the
-/// format has `duration` when the container knows it.
-pub fn probe(path: &Path) -> Result<Value, Error> {
-	let input = Input::open(path)?;
+/// format has `duration` when the container knows it. Gives up with
+/// [`Error::TimedOut`] after `timeout`.
+pub fn probe(path: &Path, timeout: Duration) -> Result<Value, Error> {
+	let input = Input::open(path, Interrupt::after(timeout))?;
 	let streams: Vec<Value> = input
 		.streams()
 		.iter()
@@ -176,7 +178,7 @@ pub fn scene_scores(
 	filter: &str,
 	cancel: &AtomicBool,
 ) -> Result<Vec<SceneScore>, Error> {
-	let input = Input::open(path)?;
+	let input = Input::open(path, Interrupt::on(cancel))?;
 	let stream = input
 		.first(ff::AVMediaType::AVMEDIA_TYPE_VIDEO)
 		.ok_or_else(|| Error::Media("the file has no video stream".into()))?;
@@ -203,9 +205,6 @@ pub fn scene_scores(
 	};
 	let packet = Packet::new()?;
 	while input.read(&packet)? {
-		if cancel.load(Ordering::Relaxed) {
-			return Err(Error::Cancelled);
-		}
 		if packet.stream_index() == lane.index {
 			lane.feed(packet.0, &mut each)?;
 		}
@@ -220,15 +219,16 @@ pub fn scene_scores(
 /// -c:v mjpeg -q:v quality` does.
 ///
 /// `filter` must leave the frame in a pixel format the MJPEG encoder takes,
-/// such as `yuvj420p`.
+/// such as `yuvj420p`. Gives up with [`Error::TimedOut`] after `timeout`.
 pub fn write_jpeg(
 	input: &Path,
 	seconds: f64,
 	filter: &str,
 	quality: i32,
 	output: &Path,
+	timeout: Duration,
 ) -> Result<(), Error> {
-	let (frame, time_base) = first_frame(input, Some(seconds), filter, "auto")?
+	let (frame, time_base) = first_frame(input, Some(seconds), filter, "auto", timeout)?
 		.ok_or_else(|| Error::Media(format!("no frame at {seconds:.3}s, the video is shorter")))?;
 	let codec = find_encoder("mjpeg")?;
 	let encoder = Codec::alloc(codec)?;
@@ -278,26 +278,30 @@ pub struct Picture {
 ///
 /// The decoder runs on one thread: callers make thumbnails of many files at
 /// once, so parallel work belongs across files rather than inside one
-/// decode. Returns `None` when the filter outputs no frame.
-pub fn read_rgba(input: &Path, filter: &str) -> Result<Option<Picture>, Error> {
+/// decode. Returns `None` when the filter outputs no frame, and gives up
+/// with [`Error::TimedOut`] after `timeout`.
+pub fn read_rgba(input: &Path, filter: &str, timeout: Duration) -> Result<Option<Picture>, Error> {
 	let chain = if filter.is_empty() {
 		"format=rgba".to_string()
 	} else {
 		format!("{filter},format=rgba")
 	};
-	let Some((frame, _)) = first_frame(input, None, &chain, "1")? else {
+	let Some((frame, _)) = first_frame(input, None, &chain, "1", timeout)? else {
 		return Ok(None);
 	};
 	// SAFETY: the frame holds an RGBA picture whose first plane has
 	// `height` rows of `linesize[0]` bytes.
 	let picture = unsafe { &*frame.0 };
 	let (width, height) = (picture.width as usize, picture.height as usize);
-	let stride = picture.linesize[0] as usize;
+	// Signed: a flipped picture walks its rows backwards from `data[0]`.
+	let stride = picture.linesize[0] as isize;
 	let mut rgba = Vec::with_capacity(width * height * 4);
 	for row in 0..height {
-		// SAFETY: as above, each row starts `stride` bytes after the last.
-		let line =
-			unsafe { std::slice::from_raw_parts(picture.data[0].add(row * stride), width * 4) };
+		// SAFETY: as above, each row starts `stride` bytes after the last,
+		// within the frame's buffer whichever way the rows run.
+		let line = unsafe {
+			std::slice::from_raw_parts(picture.data[0].offset(row as isize * stride), width * 4)
+		};
 		rgba.extend_from_slice(line);
 	}
 	Ok(Some(Picture {
@@ -314,8 +318,9 @@ fn first_frame(
 	seconds: Option<f64>,
 	filter: &str,
 	threads: &str,
+	timeout: Duration,
 ) -> Result<Option<(Frame, ff::AVRational)>, Error> {
-	let source = Input::open(input)?;
+	let source = Input::open(input, Interrupt::after(timeout))?;
 	let stream = source
 		.first(ff::AVMediaType::AVMEDIA_TYPE_VIDEO)
 		.ok_or_else(|| Error::Media("the file has no video stream".into()))?;
@@ -326,7 +331,7 @@ fn first_frame(
 		let target = (seconds * f64::from(ff::AV_TIME_BASE)).round() as i64 + source.start_time();
 		// SAFETY: the context is open. A failed seek leaves it at the
 		// start, from where decoding reaches the time anyway.
-		unsafe { ff::avformat_seek_file(source.0, -1, i64::MIN, target, target, 0) };
+		unsafe { ff::avformat_seek_file(source.context, -1, i64::MIN, target, target, 0) };
 		lane.shift(-target);
 		lane.drop_before_zero = true;
 	}
@@ -372,7 +377,7 @@ pub fn transcode(
 	cancel: &AtomicBool,
 	written_us: &AtomicU64,
 ) -> Result<(), Error> {
-	let source = Input::open(input)?;
+	let source = Input::open(input, Interrupt::on(cancel))?;
 	let mut muxer = Output::new(output, &recipe.format)?;
 	let mut lanes = Vec::new();
 	if let Some(video) = &recipe.video {
@@ -394,9 +399,6 @@ pub fn transcode(
 	let packet = Packet::new()?;
 	let written = Packet::new()?;
 	while source.read(&packet)? {
-		if cancel.load(Ordering::Relaxed) {
-			return Err(Error::Cancelled);
-		}
 		let index = packet.stream_index();
 		if let Some(position) = lanes.iter().position(|lane| lane.lane.index == index) {
 			let progress = (position == 0).then_some(written_us);
@@ -547,7 +549,7 @@ struct Lane {
 
 impl Lane {
 	fn video(
-		input: &Input,
+		input: &Input<'_>,
 		stream: *mut ff::AVStream,
 		filter: &str,
 		threads: &str,
@@ -557,7 +559,8 @@ impl Lane {
 		let decoder = Codec::decoder(stream_ref)?;
 		// SAFETY: as above; the frame argument may be null.
 		unsafe {
-			(*decoder.0).framerate = ff::av_guess_frame_rate(input.0, stream, ptr::null_mut());
+			(*decoder.0).framerate =
+				ff::av_guess_frame_rate(input.context, stream, ptr::null_mut());
 		}
 		decoder.open_decoder(threads)?;
 		// SAFETY: the decoder is open, so its picture parameters are set.
@@ -589,7 +592,7 @@ impl Lane {
 		Self::new(input, stream_ref, decoder, graph)
 	}
 
-	fn audio(input: &Input, stream: *mut ff::AVStream, filter: &str) -> Result<Self, Error> {
+	fn audio(input: &Input<'_>, stream: *mut ff::AVStream, filter: &str) -> Result<Self, Error> {
 		// SAFETY: the stream belongs to the open input.
 		let stream_ref = unsafe { &*stream };
 		let decoder = Codec::decoder(stream_ref)?;
@@ -610,7 +613,7 @@ impl Lane {
 	}
 
 	fn new(
-		input: &Input,
+		input: &Input<'_>,
 		stream: &ff::AVStream,
 		decoder: Codec,
 		graph: Graph,
@@ -697,7 +700,7 @@ struct Encoding {
 
 impl Encoding {
 	fn video(
-		input: &Input,
+		input: &Input<'_>,
 		stream: *mut ff::AVStream,
 		recipe: &VideoEncode,
 		muxer: &mut Output,
@@ -719,7 +722,7 @@ impl Encoding {
 	}
 
 	fn audio(
-		input: &Input,
+		input: &Input<'_>,
 		stream: *mut ff::AVStream,
 		recipe: &AudioEncode,
 		muxer: &mut Output,
@@ -839,32 +842,102 @@ impl Encoding {
 	}
 }
 
-struct Input(*mut ff::AVFormatContext);
+/// What stops reading a file: a cancel flag set by the caller, or a
+/// deadline. `FFmpeg` polls it inside blocking reads too, so a stalled file
+/// or volume cannot hold a worker forever.
+struct Interrupt<'a> {
+	cancel: Option<&'a AtomicBool>,
+	deadline: Option<Instant>,
+}
 
-impl Input {
-	fn open(path: &Path) -> Result<Self, Error> {
+impl<'a> Interrupt<'a> {
+	const fn on(cancel: &'a AtomicBool) -> Self {
+		Self {
+			cancel: Some(cancel),
+			deadline: None,
+		}
+	}
+
+	fn after(timeout: Duration) -> Self {
+		Self {
+			cancel: None,
+			deadline: Some(Instant::now() + timeout),
+		}
+	}
+
+	fn reason(&self) -> Option<Error> {
+		if self
+			.cancel
+			.is_some_and(|cancel| cancel.load(Ordering::Relaxed))
+		{
+			return Some(Error::Cancelled);
+		}
+		if self
+			.deadline
+			.is_some_and(|deadline| Instant::now() >= deadline)
+		{
+			return Some(Error::TimedOut);
+		}
+		None
+	}
+
+	/// Turn an error from an interrupted call into the reason it stopped.
+	fn explain(&self, error: Error) -> Error {
+		self.reason().unwrap_or(error)
+	}
+}
+
+unsafe extern "C" fn interrupted(opaque: *mut c_void) -> c_int {
+	// SAFETY: the opaque pointer is the boxed §Interrupt§ the input owns,
+	// which outlives its format context.
+	let interrupt = unsafe { &*opaque.cast::<Interrupt<'_>>() };
+	c_int::from(interrupt.reason().is_some())
+}
+
+struct Input<'a> {
+	context: *mut ff::AVFormatContext,
+	interrupt: Box<Interrupt<'a>>,
+}
+
+impl<'a> Input<'a> {
+	fn open(path: &Path, interrupt: Interrupt<'a>) -> Result<Self, Error> {
 		quiet();
 		let name = from_path(path)?;
-		let mut context = ptr::null_mut();
-		// SAFETY: a null context and options make FFmpeg allocate them.
+		let interrupt = Box::new(interrupt);
+		// SAFETY: allocates an empty context to carry the callback.
+		let mut context = unsafe { ff::avformat_alloc_context() };
+		if context.is_null() {
+			return Err(FFmpegError::ContextAllocation.into());
+		}
+		// SAFETY: the context is allocated; the box stays at one address
+		// for as long as the input holds it.
+		unsafe {
+			(*context).interrupt_callback = ff::AVIOInterruptCB {
+				callback: Some(interrupted),
+				opaque: ptr::from_ref::<Interrupt<'_>>(&interrupt).cast_mut().cast(),
+			};
+		}
+		// SAFETY: on failure FFmpeg frees the context it was given.
 		check(
 			unsafe {
 				ff::avformat_open_input(&mut context, name.as_ptr(), ptr::null(), ptr::null_mut())
 			},
 			"open the file",
-		)?;
-		let input = Self(context);
+		)
+		.map_err(|error| interrupt.explain(error))?;
+		let input = Self { context, interrupt };
 		// SAFETY: the context is open.
 		check(
-			unsafe { ff::avformat_find_stream_info(input.0, ptr::null_mut()) },
+			unsafe { ff::avformat_find_stream_info(input.context, ptr::null_mut()) },
 			"read the stream information",
-		)?;
+		)
+		.map_err(|error| input.interrupt.explain(error))?;
 		Ok(input)
 	}
 
 	const fn context(&self) -> &ff::AVFormatContext {
 		// SAFETY: open for as long as `self`.
-		unsafe { &*self.0 }
+		unsafe { &*self.context }
 	}
 
 	const fn streams(&self) -> &[*mut ff::AVStream] {
@@ -893,20 +966,27 @@ impl Input {
 		}
 	}
 
-	/// Read the next packet; false at the end of the file.
+	/// Read the next packet; false at the end of the file. Checked between
+	/// packets as well, since decoding a packet can take longer than
+	/// reading it.
 	fn read(&self, packet: &Packet) -> Result<bool, Error> {
+		if let Some(reason) = self.interrupt.reason() {
+			return Err(reason);
+		}
 		// SAFETY: the context is open and the packet allocated and empty.
-		match unsafe { ff::av_read_frame(self.0, packet.0) } {
+		match unsafe { ff::av_read_frame(self.context, packet.0) } {
 			ff::AVERROR_EOF => Ok(false),
-			status => check(status, "read the file").map(|_| true),
+			status => check(status, "read the file")
+				.map(|_| true)
+				.map_err(|error| self.interrupt.explain(error)),
 		}
 	}
 }
 
-impl Drop for Input {
+impl Drop for Input<'_> {
 	fn drop(&mut self) {
 		// SAFETY: opened by avformat_open_input; this nulls the pointer.
-		unsafe { ff::avformat_close_input(&mut self.0) };
+		unsafe { ff::avformat_close_input(&mut self.context) };
 	}
 }
 
