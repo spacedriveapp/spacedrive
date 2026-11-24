@@ -51,8 +51,11 @@ Homebrew lacks. They now run in-process on the linked FFmpeg libraries
 through `sd_ffmpeg::footage` (probe, scene scores, JPEG frame, transcode),
 with the same filter strings and encoder settings, so `video-proxies` and
 `video-shots` now turn on the `ffmpeg` feature. The footage unit tests make
-their own media with the libraries and need no executable. Thumbnails and
-thumbstrips still use the host tool.
+their own media with the libraries and need no executable. Video thumbnails
+and thumbstrips use the same libraries in builds with the `ffmpeg` feature,
+and the host tool only in builds that ship no codecs. The release desktop
+daemon builds without that feature outside dry runs, so it reaches users once
+the footage features are on in release builds.
 
 Content search in the explorer (Capy FAN-13827, November 24, footage beta).
 Explorer search runs `search.content` beside `search.files` over the same
