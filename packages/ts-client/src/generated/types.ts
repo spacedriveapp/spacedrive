@@ -117,6 +117,11 @@ instances: File[];
 total_count: number };
 
 /**
+ * Which file the scene scores were read from.
+ */
+export type AnalyzedMedia = "proxy" | "original";
+
+/**
  * Represents an APFS container (physical storage with multiple volumes)
  */
 export type ApfsContainer = { container_id: string; uuid: string; physical_store: string; total_capacity: number; capacity_in_use: number; capacity_free: number; volumes: ApfsVolumeInfo[] };
@@ -2086,6 +2091,17 @@ export type FootageSupport = { available: boolean;
  */
 reason: string | null };
 
+/**
+ * One frame as the frame count from the start of the file (the source of
+ * truth), and as seconds and timecode for people.
+ */
+export type FramePoint = { frame: number; seconds: number; timecode: string };
+
+/**
+ * A frame rate as a reduced fraction, such as 24000/1001.
+ */
+export type FrameRate = { num: number; den: number };
+
 export type FreezeSourceInput = { source_id: string };
 
 export type FreezeSourceOutput = { 
@@ -3790,6 +3806,26 @@ next: MediaCursor | null;
  */
 covered: boolean };
 
+export type MediaSidecarsInput = { path: SdPath };
+
+export type MediaSidecarsOutput = { 
+/**
+ * The key the sidecar server addresses this file's sidecars by.
+ */
+content_uuid: string; 
+/**
+ * `None` until the recording has been transcribed.
+ */
+transcript: Transcript | null; 
+/**
+ * The largest proxy made for this content.
+ */
+proxy: ProxySidecar | null; 
+/**
+ * `None` until shot detection has run.
+ */
+shots: ShotList | null };
+
 /**
  * Sort options for media listing
  */
@@ -4576,6 +4612,16 @@ license: string; license_url: string; size_bytes: number; installed: boolean };
  */
 export type ProxyPairingConfigOutput = { auto_accept_vouched: boolean; auto_vouch_to_all: boolean; vouch_signature_max_age: number; vouch_response_timeout: number; vouch_queue_retry_limit: number };
 
+/**
+ * A proxy file, named the way the sidecar server addresses it.
+ */
+export type ProxySidecar = { variant: string; format: string; 
+/**
+ * Modification time in milliseconds. The server marks sidecars
+ * immutable, so a URL carries this to see a regenerated proxy.
+ */
+version: number };
+
 export type ReadSizeBucket = { range: string; reads: number };
 
 /**
@@ -5057,6 +5103,48 @@ export type Severity =
  * Worth showing; never blocks.
  */
 "warning" | "info";
+
+/**
+ * One continuous shot.
+ */
+export type Shot = { 
+/**
+ * UUID v5 of the content uuid and the in and out frames.
+ */
+id: string; index: number; 
+/**
+ * The first frame of the shot.
+ */
+in: FramePoint; 
+/**
+ * The first frame after the shot.
+ */
+out: FramePoint; duration_frames: number; duration_seconds: number; 
+/**
+ * The frame the keyframe image shows, the middle of the shot.
+ */
+keyframe: FramePoint; 
+/**
+ * Scene score of the cut that opens this shot, 0 for the first shot.
+ */
+cut_score: number };
+
+/**
+ * Every shot of one video, in order, with no gaps.
+ */
+export type ShotList = { version: number; content_uuid: string; analyzed: AnalyzedMedia; 
+/**
+ * The original's frame rate. Every frame number counts at this rate.
+ */
+rate: FrameRate; 
+/**
+ * The original's embedded start timecode, when it has one.
+ */
+start_timecode: string | null; 
+/**
+ * Always true: an out point is the first frame after the range.
+ */
+out_exclusive: boolean; duration: FramePoint; threshold: number; min_shot_seconds: number; shots: Shot[] };
 
 /**
  * Domain representation of a sidecar
@@ -5911,6 +5999,39 @@ store_path: string | null;
  * rather than starting a fresh one.
  */
 catalog_reused: boolean; job_id: string | null };
+
+/**
+ * What was said in a recording, as `transcript/default.json` holds it.
+ */
+export type Transcript = { version: number; 
+/**
+ * The model that made it, such as `whisper-base`.
+ */
+model: string; 
+/**
+ * ISO 639-1 code of the language, detected unless one was asked for.
+ * None when the recording had no speech to detect it from.
+ */
+language: string | null; 
+/**
+ * How much audio was read.
+ */
+duration_ms: number; 
+/**
+ * In order, without overlaps.
+ */
+segments: TranscriptSegment[] };
+
+/**
+ * One timed stretch of speech.
+ */
+export type TranscriptSegment = { 
+/**
+ * `seg_<start_ms>`, unique within the transcript. It names the same
+ * segment for as long as this transcript file exists, and a search hit
+ * carries the same start, so a hit can be joined back to its segment.
+ */
+id: string; start_ms: number; end_ms: number; text: string };
 
 export type TrashEmptyOutput = { 
 /**
@@ -6965,6 +7086,7 @@ export type LibraryQuery =
   |  { type: 'libraries.info'; input: LibraryInfoQueryInput; output: Library }
   |  { type: 'media.footage.capabilities'; input: FootageCapabilitiesInput; output: FootageCapabilities }
   |  { type: 'media.footage.status'; input: FootageStatusInput; output: FootageStatusOutput }
+  |  { type: 'media.sidecars'; input: MediaSidecarsInput; output: MediaSidecarsOutput }
   |  { type: 'paths.compare'; input: PathCompareInput; output: PathCompareOutput }
   |  { type: 'paths.context'; input: PathContextInput; output: PathContextOutput }
   |  { type: 'paths.system_folders'; input: SystemFoldersInput; output: SystemFoldersOutput }
@@ -7194,6 +7316,7 @@ export const WIRE_METHODS = {
     'libraries.info': 'query:libraries.info',
     'media.footage.capabilities': 'query:media.footage.capabilities',
     'media.footage.status': 'query:media.footage.status',
+    'media.sidecars': 'query:media.sidecars',
     'paths.compare': 'query:paths.compare',
     'paths.context': 'query:paths.context',
     'paths.system_folders': 'query:paths.system_folders',

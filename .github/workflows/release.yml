@@ -15,7 +15,7 @@ on:
         type: boolean
         default: false
       features:
-        description: Extra sd-core features for the desktop app's daemon in a dry run, comma separated (for example video-proxies,speech-to-text,wasm); ignored outside a dry run
+        description: sd-core features to add to the desktop app's daemon in a dry run, on top of footage, comma separated (for example fuse); ignored outside a dry run
         type: string
         default: ''
 
@@ -450,18 +450,20 @@ jobs:
           echo "CFLAGS=-march=armv8.2-a+crypto" >> $GITHUB_ENV
           echo "CXXFLAGS=-march=armv8.2-a+crypto" >> $GITHUB_ENV
 
-      # A dry run may turn on off-by-default sd-core features in the desktop
-      # daemon, which ships the codec framework they link. The standalone CLI
-      # binaries do not, so they keep the shipping feature set. A tag or a
-      # non-dry run always builds the shipping feature set.
-      - name: Select preview features
+      # The desktop daemon ships the footage features, because the app ships
+      # the codec framework speech-to-text links. A dry run may add more
+      # sd-core features on top. The standalone CLI binaries ship no codec
+      # framework, so they keep the default feature set. ort has no ONNX
+      # Runtime build for Intel Macs, so that daemon leaves out local inference.
+      - name: Select daemon features
         shell: bash
         env:
           FEATURES: ${{ inputs.dry_run == true && inputs.features || '' }}
+          FOOTAGE: ${{ matrix.settings.target == 'x86_64-apple-darwin' && 'footage-without-inference' || 'footage' }}
         run: |
           set -euo pipefail
           set -f
-          list=""
+          list="sd-core/$FOOTAGE"
           for feature in ${FEATURES//,/ }; do
             if ! [[ "$feature" =~ ^[a-z0-9-]+$ ]]; then
               echo "::error::Invalid feature name: $feature"
@@ -469,12 +471,8 @@ jobs:
             fi
             list="$list,sd-core/$feature"
           done
-          if [ -z "$list" ]; then
-            echo "No preview features"
-            exit 0
-          fi
-          echo "Preview features: ${list#,}"
-          echo "SD_PREVIEW_FEATURES=${list#,}" >> "$GITHUB_ENV"
+          echo "Daemon features: $list"
+          echo "SD_DAEMON_FEATURES=$list" >> "$GITHUB_ENV"
           # whisper.cpp builds for the build machine's CPU unless this is set,
           # which fails on the macOS runners and would not run on older Macs.
           echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
@@ -497,6 +495,19 @@ jobs:
             delimiter="EOF_$(openssl rand -hex 16)"
             printf '%s<<%s\n%s\n%s\n' "$name" "$delimiter" "${!name}" "$delimiter" >> "$GITHUB_ENV"
           done
+
+      # The app bundles the Videos extension from extensions/videos and
+      # installs it into the data directory on launch. Rebuilding the wasm here
+      # makes the bundled copy match this commit rather than the one in the tree.
+      - name: Build the Videos extension
+        working-directory: extensions/videos
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup target add wasm32-unknown-unknown
+          cargo build --release
+          cp target/wasm32-unknown-unknown/release/videos_extension.wasm videos.wasm
+          ls -l videos.wasm
 
       # The updater key signs in a dry run too, so a dry run proves the
       # signatures verify against the public key the app ships with. Without a
@@ -632,41 +643,6 @@ jobs:
       - name: Cleanup keychain
         if: always() && runner.os == 'macOS'
         run: security delete-keychain signing_temp.keychain || true
-
-  # A preview dry run with the wasm feature also ships the Videos extension,
-  # built from this commit, as a folder to copy into the data directory.
-  videos-extension:
-    if: inputs.dry_run == true && contains(inputs.features, 'wasm')
-    runs-on: ubuntu-24.04
-    name: Videos extension
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: ./.github/actions/setup-rust
-        with:
-          target: wasm32-unknown-unknown
-          restore-cache: 'false'
-
-      - name: Build the extension
-        working-directory: extensions/videos
-        run: |
-          set -euo pipefail
-          cargo build --release
-          out=../../videos-extension/videos
-          mkdir -p "$out"
-          cp manifest.json ui_manifest.json "$out/"
-          cp -R ui "$out/"
-          cp target/wasm32-unknown-unknown/release/videos_extension.wasm "$out/videos.wasm"
-          ls -lR ../../videos-extension
-
-      - name: Upload the extension
-        uses: actions/upload-artifact@v4
-        with:
-          name: videos-extension
-          path: videos-extension
-          if-no-files-found: error
 
   # latest.json is what the desktop updater reads from the latest release.
   # Every signature is checked against the public key in tauri.conf.json

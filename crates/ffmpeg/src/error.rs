@@ -48,6 +48,8 @@ pub enum Error {
 	SeekNotAllowed,
 	#[error("cancelled")]
 	Cancelled,
+	#[error("timed out")]
+	TimedOut,
 	#[error("{0}")]
 	Media(String),
 

@@ -18,6 +18,8 @@ use crate::{
 	infra::job::prelude::{JobContext, JobResult},
 };
 
+const PROBE_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// What a video holds, from one probe.
 #[derive(Debug, Clone, PartialEq)]
 pub(super) struct Probe {
@@ -55,7 +57,7 @@ struct ProbeTags {
 }
 
 pub(super) fn probe(input: &Path) -> Result<Probe, String> {
-	let report = sd_ffmpeg::footage::probe(input)
+	let report = sd_ffmpeg::footage::probe(input, PROBE_TIMEOUT)
 		.map_err(|error| format!("could not read the video: {error}"))?;
 	parse_probe(report)
 }
@@ -359,7 +361,8 @@ mod tests {
 			);
 			assert_eq!(probe(&output).unwrap().timecode, original.timecode);
 		}
-		let streams = sd_ffmpeg::footage::probe(&ntsc.with_extension("proxy.mp4")).unwrap();
+		let streams =
+			sd_ffmpeg::footage::probe(&ntsc.with_extension("proxy.mp4"), PROBE_TIMEOUT).unwrap();
 		assert!(
 			streams["streams"]
 				.as_array()
@@ -399,7 +402,7 @@ mod tests {
 		.unwrap();
 		let speech = dir.path().join("speech.wav");
 		transcode(&tone, &speech, &speech_audio());
-		let report = sd_ffmpeg::footage::probe(&speech).unwrap();
+		let report = sd_ffmpeg::footage::probe(&speech, PROBE_TIMEOUT).unwrap();
 		let stream = &report["streams"][0];
 		assert_eq!(stream["sample_rate"], "16000");
 		assert_eq!(stream["channels"], 1);

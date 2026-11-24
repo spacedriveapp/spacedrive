@@ -1,6 +1,6 @@
 //! What one video file is, as the clip ops need it.
 
-use std::path::Path;
+use std::{path::Path, time::Duration};
 
 use sd_timeline::{timecode, Audio, Rate, Rounding};
 use serde::{Deserialize, Serialize};
@@ -221,6 +221,8 @@ pub(crate) async fn record_uuid(context: &CoreContext, path: &SdPath) -> Option<
 	None
 }
 
+const PROBE_TIMEOUT: Duration = Duration::from_secs(30);
+
 pub(crate) async fn probe(path: &Path) -> Result<Probe, String> {
 	// Opening a cloud placeholder would download the whole file.
 	if refuse_dataless(path).await.is_err() {
@@ -231,7 +233,7 @@ pub(crate) async fn probe(path: &Path) -> Result<Probe, String> {
 	}
 	let name = display_name(path);
 	let path = path.to_path_buf();
-	let json = tokio::task::spawn_blocking(move || sd_ffmpeg::footage::probe(&path))
+	let json = tokio::task::spawn_blocking(move || sd_ffmpeg::footage::probe(&path, PROBE_TIMEOUT))
 		.await
 		.map_err(|_| "the probe did not finish".to_string())?
 		.map_err(|error| format!("could not read {name}: {error}"))?;

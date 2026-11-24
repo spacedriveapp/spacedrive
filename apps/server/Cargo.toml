@@ -27,7 +27,7 @@ tokio      = { version = "1", features = ["rt-multi-thread", "signal", "sync", "
 tokio-stream = "0.1"
 tokio-util = { version = "0.7", features = ["io"] }
 uuid = "1.10"
-tower      = "0.4"
+tower      = { version = "0.4", features = ["util"] }
 tower-http = { version = "0.5", features = ["fs", "cors"] }
 futures    = "0.3"
 reqwest    = { version = "0.12", default-features = false, features = ["stream"] }

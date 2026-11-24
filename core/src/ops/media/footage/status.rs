@@ -100,17 +100,11 @@ impl LibraryQuery for FootageStatusQuery {
 
 crate::register_library_query!(FootageStatusQuery, "media.footage.status");
 
-#[cfg(feature = "video-shots")]
 async fn shot_count(library_path: &Path, content_uuid: Uuid) -> QueryResult<Option<u32>> {
 	let list = crate::ops::media::shots::read_shots(library_path, content_uuid)
 		.await
 		.map_err(|error| QueryError::Internal(format!("could not read the shot list: {error}")))?;
 	Ok(list.map(|list| u32::try_from(list.shots.len()).unwrap_or(u32::MAX)))
-}
-
-#[cfg(not(feature = "video-shots"))]
-async fn shot_count(_library_path: &Path, _content_uuid: Uuid) -> QueryResult<Option<u32>> {
-	Ok(None)
 }
 
 /// The Videos extension's `scene` sidecar holds one entry per shot it has

@@ -9,15 +9,9 @@ import {
 } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import type { File } from "@sd/ts-client";
-import { useServer } from "../../contexts/ServerContext";
+import { activeSegmentIndex } from "./TranscriptPanel";
+import { useMediaSidecars } from "./useMediaSidecars";
 import { useStartSeconds } from "./useStartSeconds";
-
-interface SubtitleCue {
-	index: number;
-	startTime: number;
-	endTime: number;
-	text: string;
-}
 
 interface AudioPlayerProps {
 	src: string;
@@ -31,133 +25,28 @@ function formatTime(seconds: number): string {
 	return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
-function parseSRT(srtContent: string): SubtitleCue[] {
-	const cues: SubtitleCue[] = [];
-	const blocks = srtContent.trim().split(/\n\s*\n/);
-
-	for (const block of blocks) {
-		const lines = block.trim().split("\n");
-		if (lines.length < 3) continue;
-
-		const index = parseInt(lines[0], 10);
-		const timecodeMatch = lines[1].match(
-			/(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2}),(\d{3})/,
-		);
-
-		if (!timecodeMatch) continue;
-
-		const startTime =
-			parseInt(timecodeMatch[1]) * 3600 +
-			parseInt(timecodeMatch[2]) * 60 +
-			parseInt(timecodeMatch[3]) +
-			parseInt(timecodeMatch[4]) / 1000;
-
-		const endTime =
-			parseInt(timecodeMatch[5]) * 3600 +
-			parseInt(timecodeMatch[6]) * 60 +
-			parseInt(timecodeMatch[7]) +
-			parseInt(timecodeMatch[8]) / 1000;
-
-		const text = lines.slice(2).join("\n");
-
-		cues.push({ index, startTime, endTime, text });
-	}
-
-	return cues;
-}
-
 export function AudioPlayer({ src, file, startSeconds }: AudioPlayerProps) {
 	const audioRef = useRef<HTMLAudioElement>(null);
 	useStartSeconds(audioRef, file.id, startSeconds);
 	const lyricsContainerRef = useRef<HTMLDivElement>(null);
-	const { buildSidecarUrl } = useServer();
 	const [playing, setPlaying] = useState(false);
 	const [currentTime, setCurrentTime] = useState(0);
 	const [duration, setDuration] = useState(0);
 	const [volume, setVolume] = useState(1);
 	const [muted, setMuted] = useState(false);
 	const [seeking, setSeeking] = useState(false);
-	const [cues, setCues] = useState<SubtitleCue[]>([]);
-	const [currentCueIndex, setCurrentCueIndex] = useState<number>(-1);
+	const sidecars = useMediaSidecars(file);
+	const segments = sidecars?.transcript?.segments ?? [];
+	const currentCueIndex = activeSegmentIndex(segments, currentTime * 1000);
 
-	// Load SRT transcripts if available
+	// Keep the line being spoken in view.
 	useEffect(() => {
-		const srtSidecar = file.sidecars?.find(
-			(s) => s.kind === "transcript" && s.variant === "srt",
-		);
-
-		if (!srtSidecar || !file.content_identity?.uuid) {
-			return;
-		}
-
-		const extension =
-			srtSidecar.format === "text" ? "txt" : srtSidecar.format;
-		const srtUrl = buildSidecarUrl(
-			file.content_identity.uuid,
-			srtSidecar.kind,
-			srtSidecar.variant,
-			extension,
-			srtSidecar.version,
-		);
-
-		if (!srtUrl) return;
-
-		fetch(srtUrl)
-			.then(async (res) => {
-				if (!res.ok) return null;
-				return res.text();
-			})
-			.then((srtContent) => {
-				if (!srtContent) return;
-				const parsed = parseSRT(srtContent);
-				console.log(
-					"[AudioPlayer] Loaded",
-					parsed.length,
-					"lyric lines",
-				);
-				setCues(parsed);
-			})
-			.catch((err) =>
-				console.log("[AudioPlayer] Lyrics not available:", err.message),
-			);
-	}, [file, buildSidecarUrl]);
-
-	// Sync lyrics with audio playback
-	useEffect(() => {
-		if (!audioRef.current || cues.length === 0) return;
-
-		const updateLyrics = () => {
-			const time = audioRef.current!.currentTime;
-			const index = cues.findIndex(
-				(cue) => time >= cue.startTime && time <= cue.endTime,
-			);
-
-			if (index !== currentCueIndex) {
-				setCurrentCueIndex(index);
-
-				// Auto-scroll to active lyric
-				if (index >= 0 && lyricsContainerRef.current) {
-					const activeElement = lyricsContainerRef.current.children[
-						index
-					] as HTMLElement;
-					if (activeElement) {
-						activeElement.scrollIntoView({
-							behavior: "smooth",
-							block: "center",
-						});
-					}
-				}
-			}
-		};
-
-		audioRef.current.addEventListener("timeupdate", updateLyrics);
-		audioRef.current.addEventListener("seeked", updateLyrics);
-
-		return () => {
-			audioRef.current?.removeEventListener("timeupdate", updateLyrics);
-			audioRef.current?.removeEventListener("seeked", updateLyrics);
-		};
-	}, [audioRef.current, cues, currentCueIndex]);
+		if (currentCueIndex < 0) return;
+		const line = lyricsContainerRef.current?.children[currentCueIndex] as
+			| HTMLElement
+			| undefined;
+		line?.scrollIntoView({ behavior: "smooth", block: "center" });
+	}, [currentCueIndex]);
 
 	useEffect(() => {
 		if (!audioRef.current) return;
@@ -264,7 +153,7 @@ export function AudioPlayer({ src, file, startSeconds }: AudioPlayerProps) {
 			<div className="flex flex-1 overflow-hidden">
 				<div className="relative flex min-w-0 flex-1 items-center justify-center p-8">
 					<div className="absolute inset-0 flex w-full items-center justify-center p-8">
-						{cues.length > 0 ? (
+						{segments.length > 0 ? (
 							<div
 								ref={lyricsContainerRef}
 								className="max-h-full w-full space-y-6 overflow-y-auto px-4 scrollbar-hide"
@@ -273,16 +162,16 @@ export function AudioPlayer({ src, file, startSeconds }: AudioPlayerProps) {
 									msOverflowStyle: "none",
 								}}
 							>
-								{cues.map((cue, index) => {
+								{segments.map((segment, index) => {
 									const isActive = index === currentCueIndex;
 									return (
 										<div
-											key={cue.index}
+											key={segment.id}
 											className="flex justify-center"
 											onClick={() => {
 												if (audioRef.current) {
 													audioRef.current.currentTime =
-														cue.startTime;
+														segment.start_ms / 1000;
 												}
 											}}
 										>
@@ -290,7 +179,7 @@ export function AudioPlayer({ src, file, startSeconds }: AudioPlayerProps) {
 												initial={{ opacity: 0, y: 20 }}
 												animate={{ opacity: 1, y: 0 }}
 												transition={{
-													delay: index * 0.05,
+													delay: Math.min(index, 20) * 0.05,
 												}}
 												className={`cursor-pointer text-center text-2xl transition-all duration-300 ${
 													isActive
@@ -298,13 +187,11 @@ export function AudioPlayer({ src, file, startSeconds }: AudioPlayerProps) {
 														: "text-white/40 hover:text-white/60"
 												}`}
 												style={{
-													transform: isActive
-														? "scale(1.15)"
-														: "scale(1)",
+													transform: isActive ? "scale(1.15)" : "scale(1)",
 													transformOrigin: "center",
 												}}
 											>
-												{cue.text}
+												{segment.text}
 											</motion.div>
 										</div>
 									);
@@ -312,12 +199,8 @@ export function AudioPlayer({ src, file, startSeconds }: AudioPlayerProps) {
 							</div>
 						) : (
 							<div className="text-center">
-								<div className="mb-4 text-6xl font-bold text-white/30">
-									♪
-								</div>
-								<p className="text-white/50">
-									No lyrics available
-								</p>
+								<div className="mb-4 text-6xl font-bold text-white/30">♪</div>
+								<p className="text-white/50">No transcript</p>
 							</div>
 						)}
 					</div>
@@ -340,7 +223,7 @@ export function AudioPlayer({ src, file, startSeconds }: AudioPlayerProps) {
 					<div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/20 transition-all group-hover:h-2">
 						{/* Progress */}
 						<div
-							className="absolute left-0 top-0 h-full bg-accent transition-all"
+							className="bg-accent absolute left-0 top-0 h-full transition-all"
 							style={{
 								width: `${(currentTime / duration) * 100}%`,
 							}}
@@ -353,7 +236,7 @@ export function AudioPlayer({ src, file, startSeconds }: AudioPlayerProps) {
 								left: `${(currentTime / duration) * 100}%`,
 							}}
 						>
-							<div className="size-3.5 -translate-x-1/2 rounded-full bg-accent opacity-0 shadow-lg transition-opacity group-hover:opacity-100" />
+							<div className="bg-accent size-3.5 -translate-x-1/2 rounded-full opacity-0 shadow-lg transition-opacity group-hover:opacity-100" />
 						</div>
 					</div>
 				</div>
@@ -363,7 +246,7 @@ export function AudioPlayer({ src, file, startSeconds }: AudioPlayerProps) {
 					{/* Left side - Fixed width */}
 					<div className="flex w-[200px] items-center gap-3">
 						{/* Time */}
-						<div className="text-sm font-medium text-white/70 tabular-nums">
+						<div className="text-sm font-medium tabular-nums text-white/70">
 							{formatTime(currentTime)}
 						</div>
 					</div>
@@ -380,16 +263,12 @@ export function AudioPlayer({ src, file, startSeconds }: AudioPlayerProps) {
 
 						<button
 							onClick={togglePlay}
-							className="rounded-full bg-accent p-3 text-white shadow-lg transition-all hover:scale-105 hover:bg-accent/90"
+							className="bg-accent hover:bg-accent/90 rounded-full p-3 text-white shadow-lg transition-all hover:scale-105"
 						>
 							{playing ? (
 								<Pause size={28} weight="fill" />
 							) : (
-								<Play
-									size={28}
-									weight="fill"
-									className="translate-x-0.5"
-								/>
+								<Play size={28} weight="fill" className="translate-x-0.5" />
 							)}
 						</button>
 
@@ -405,7 +284,7 @@ export function AudioPlayer({ src, file, startSeconds }: AudioPlayerProps) {
 					{/* Right side - Fixed width matching left */}
 					<div className="flex w-[200px] items-center justify-end gap-3">
 						{/* Time remaining */}
-						<div className="text-sm font-medium text-white/70 tabular-nums">
+						<div className="text-sm font-medium tabular-nums text-white/70">
 							-{formatTime(duration - currentTime)}
 						</div>
 
@@ -430,10 +309,8 @@ export function AudioPlayer({ src, file, startSeconds }: AudioPlayerProps) {
 									max="1"
 									step="0.01"
 									value={volume}
-									onChange={(e) =>
-										setVolume(parseFloat(e.target.value))
-									}
-									className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/20 [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:transition-all [&::-webkit-slider-thumb]:hover:scale-110"
+									onChange={(e) => setVolume(parseFloat(e.target.value))}
+									className="[&::-webkit-slider-thumb]:bg-accent h-1 w-full cursor-pointer appearance-none rounded-full bg-white/20 [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:transition-all [&::-webkit-slider-thumb]:hover:scale-110"
 								/>
 							</div>
 						</div>

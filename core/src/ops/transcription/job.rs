@@ -143,8 +143,7 @@ impl JobHandler for TranscribeJob {
 
 		let model = WhisperModel::from_str(&self.model)
 			.ok_or_else(|| JobError::execution(format!("unknown model {}", self.model)))?;
-		let data_dir = crate::config::default_data_dir().map_err(|e| e.to_string())?;
-		let models = WhisperModelManager::new(&data_dir);
+		let models = WhisperModelManager::new(&ctx.library().core_context().data_dir);
 		if !models.is_downloaded(&model).await {
 			return Err(JobError::execution(format!(
 				"the {} model is not downloaded; run models.whisper.download first",

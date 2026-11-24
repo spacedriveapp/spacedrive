@@ -53,19 +53,14 @@ impl LibraryAction for DownloadWhisperModelAction {
 	async fn execute(
 		self,
 		library: Arc<Library>,
-		_context: Arc<CoreContext>,
+		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
 		// Parse model
 		let model = WhisperModel::from_str(&self.input.model).ok_or_else(|| {
 			ActionError::InvalidInput(format!("Invalid model name: {}", self.input.model))
 		})?;
 
-		// Get data directory
-		let data_dir = crate::config::default_data_dir()
-			.map_err(|e| ActionError::Internal(format!("Failed to get data dir: {}", e)))?;
-
-		// Create download job
-		let job = ModelDownloadJob::for_whisper_model(model, data_dir);
+		let job = ModelDownloadJob::for_whisper_model(model, context.data_dir.clone());
 
 		// The model id rides on the job so a client can match a running
 		// download to its model after a restart.
@@ -119,15 +114,12 @@ impl CoreAction for DeleteWhisperModelAction {
 		Ok(Self { input })
 	}
 
-	async fn execute(self, _context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
+	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
 		let model = WhisperModel::from_str(&self.input.model).ok_or_else(|| {
 			ActionError::InvalidInput(format!("Invalid model name: {}", self.input.model))
 		})?;
 
-		let data_dir = crate::config::default_data_dir()
-			.map_err(|e| ActionError::Internal(format!("Failed to get data dir: {}", e)))?;
-
-		let manager = super::whisper::WhisperModelManager::new(&data_dir);
+		let manager = super::whisper::WhisperModelManager::new(&context.data_dir);
 
 		manager
 			.delete_model(&model)

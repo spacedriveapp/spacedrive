@@ -1,4 +1,6 @@
-use std::{ffi::OsString, sync::Arc, time::Duration};
+#[cfg(not(feature = "ffmpeg"))]
+use std::ffi::OsString;
+use std::{sync::Arc, time::Duration};
 
 use image::DynamicImage;
 use sd_bake::{Decline, Producer, Tile, WorkItem};
@@ -6,75 +8,103 @@ use sd_bake::{Decline, Producer, Tile, WorkItem};
 use crate::service::external_tools::ExternalTools;
 
 const THUMBNAIL_TIMEOUT: Duration = Duration::from_secs(30);
+#[cfg(not(feature = "ffmpeg"))]
 const THUMBNAIL_OUTPUT_LIMIT: usize = 32 * 1024 * 1024;
 
-/// Video-frame producer backed by the FFmpeg executable installed on the host.
-pub(super) struct HostFfmpegProducer {
+/// Video-frame producer. Builds with the `ffmpeg` feature decode with the
+/// linked libraries, so a machine without an `ffmpeg` executable still gets
+/// video thumbnails. Builds without it, which ship no codecs, use the
+/// executable installed on the host.
+pub(super) struct VideoProducer {
+	#[cfg_attr(feature = "ffmpeg", allow(dead_code))]
 	tools: Arc<ExternalTools>,
 }
 
-impl HostFfmpegProducer {
+impl VideoProducer {
 	pub fn new(tools: Arc<ExternalTools>) -> Self {
 		Self { tools }
 	}
 }
 
-impl Producer for HostFfmpegProducer {
+/// Scale before selecting. `thumbnail` holds a window of frames to pick a
+/// representative one from, and at source resolution that window is the
+/// whole cost of the run: 4264x2408 ProRes peaks at 1,290 MB, against 233 MB
+/// for the same frame chosen from scaled input.
+fn thumbnail_filter(tile_size: u32) -> String {
+	format!("scale={tile_size}:{tile_size}:force_original_aspect_ratio=decrease,thumbnail=30")
+}
+
+/// Whether video frames can be decoded at all in this build on this host.
+pub(super) fn video_decoding_available(tools: &ExternalTools) -> bool {
+	cfg!(feature = "ffmpeg") || tools.ffmpeg_path().is_some()
+}
+
+impl Producer for VideoProducer {
 	fn produce(&self, item: &WorkItem, tile_size: u32) -> Result<Tile, Decline> {
 		if item.is_dir || !is_video(&item.path) {
 			return Err(Decline::Unsupported);
 		}
-		if self.tools.ffmpeg_path().is_none() {
-			return Err(Decline::Unavailable);
+		#[cfg(feature = "ffmpeg")]
+		{
+			let picture = sd_ffmpeg::footage::read_rgba(
+				&item.path,
+				&thumbnail_filter(tile_size),
+				THUMBNAIL_TIMEOUT,
+			)
+			.map_err(|error| Decline::Failed(format!("could not decode a video frame: {error}")))?
+			.ok_or_else(|| Decline::Failed("the video has no frames".to_string()))?;
+			let image = image::RgbaImage::from_raw(picture.width, picture.height, picture.rgba)
+				.ok_or_else(|| {
+					Decline::Failed("the decoded frame has the wrong size".to_string())
+				})?;
+			Ok(dynamic_image_tile(DynamicImage::ImageRgba8(image)))
 		}
-
-		// Scale before selecting. `thumbnail` holds a window of frames to pick a
-		// representative one from, and at source resolution that window is the
-		// whole cost of the run: 4264x2408 ProRes peaks at 1,290 MB, against
-		// 233 MB for the same frame chosen from scaled input.
-		let filter = format!(
-			"scale={tile_size}:{tile_size}:force_original_aspect_ratio=decrease,thumbnail=30"
-		);
-		let args = vec![
-			"-hide_banner".into(),
-			"-loglevel".into(),
-			"error".into(),
-			"-nostdin".into(),
-			// One frame is wanted, and the caller already runs a batch of these
-			// at once, so parallelism belongs across files rather than inside a
-			// single decode.
-			"-threads".into(),
-			"1".into(),
-			"-i".into(),
-			item.path.as_os_str().to_owned(),
-			"-map".into(),
-			"0:v:0".into(),
-			"-an".into(),
-			"-sn".into(),
-			"-dn".into(),
-			"-frames:v".into(),
-			"1".into(),
-			"-vf".into(),
-			OsString::from(filter),
-			"-f".into(),
-			"image2pipe".into(),
-			"-c:v".into(),
-			"png".into(),
-			"pipe:1".into(),
-		];
-		let output = self
-			.tools
-			.run_ffmpeg(&args, THUMBNAIL_TIMEOUT, THUMBNAIL_OUTPUT_LIMIT)
-			.map_err(|error| Decline::Failed(error.to_string()))?;
-		if !output.status.success() {
-			return Err(Decline::Failed(process_failure(
-				"FFmpeg could not decode a video frame",
-				&output.stderr,
-			)));
+		#[cfg(not(feature = "ffmpeg"))]
+		{
+			if self.tools.ffmpeg_path().is_none() {
+				return Err(Decline::Unavailable);
+			}
+			let args = vec![
+				"-hide_banner".into(),
+				"-loglevel".into(),
+				"error".into(),
+				"-nostdin".into(),
+				// One frame is wanted, and the caller already runs a batch of
+				// these at once, so parallelism belongs across files rather
+				// than inside a single decode.
+				"-threads".into(),
+				"1".into(),
+				"-i".into(),
+				item.path.as_os_str().to_owned(),
+				"-map".into(),
+				"0:v:0".into(),
+				"-an".into(),
+				"-sn".into(),
+				"-dn".into(),
+				"-frames:v".into(),
+				"1".into(),
+				"-vf".into(),
+				OsString::from(thumbnail_filter(tile_size)),
+				"-f".into(),
+				"image2pipe".into(),
+				"-c:v".into(),
+				"png".into(),
+				"pipe:1".into(),
+			];
+			let output = self
+				.tools
+				.run_ffmpeg(&args, THUMBNAIL_TIMEOUT, THUMBNAIL_OUTPUT_LIMIT)
+				.map_err(|error| Decline::Failed(error.to_string()))?;
+			if !output.status.success() {
+				return Err(Decline::Failed(process_failure(
+					"FFmpeg could not decode a video frame",
+					&output.stderr,
+				)));
+			}
+			let decoded = image::load_from_memory(&output.stdout)
+				.map_err(|error| Decline::Failed(format!("decode FFmpeg frame: {error}")))?;
+			Ok(dynamic_image_tile(decoded))
 		}
-		let decoded = image::load_from_memory(&output.stdout)
-			.map_err(|error| Decline::Failed(format!("decode FFmpeg frame: {error}")))?;
-		Ok(dynamic_image_tile(decoded))
 	}
 }
 
@@ -106,6 +136,7 @@ pub(crate) fn is_video(path: &std::path::Path) -> bool {
 	)
 }
 
+#[cfg(not(feature = "ffmpeg"))]
 pub(super) fn process_failure(context: &str, stderr: &str) -> String {
 	let reason = stderr.lines().map(str::trim).find(|line| !line.is_empty());
 	match reason {
@@ -124,5 +155,82 @@ mod tests {
 		assert!(is_video(std::path::Path::new("clip.mkv")));
 		assert!(!is_video(std::path::Path::new("report.pdf")));
 		assert!(!is_video(std::path::Path::new("README")));
+	}
+}
+
+#[cfg(all(test, feature = "ffmpeg"))]
+mod linked_tests {
+	use super::*;
+
+	/// A video tile from the linked libraries, fit inside the tile size at
+	/// the video's own proportions, with no `ffmpeg` executable needed.
+	#[test]
+	fn video_thumbnail_decodes_with_the_linked_libraries() {
+		let dir = tempfile::tempdir().unwrap();
+		let video = dir.path().join("clip.mp4");
+		sd_ffmpeg::footage::render(
+			"testsrc2=s=640x360:r=25:d=2",
+			"libx264",
+			&[("preset".to_string(), "ultrafast".to_string())],
+			"mp4",
+			&[],
+			&video,
+		)
+		.unwrap();
+		let producer = VideoProducer::new(Arc::new(ExternalTools::new()));
+		let tile = producer.produce(&WorkItem::file(video), 256).unwrap();
+		assert_eq!((tile.width(), tile.height()), (256, 144));
+		assert!(video_decoding_available(&ExternalTools::new()));
+	}
+
+	/// A flipped picture comes out of the filter with a negative stride; it
+	/// must read as the upright one with its rows reversed.
+	#[test]
+	fn flipped_frames_read_row_by_row() {
+		let dir = tempfile::tempdir().unwrap();
+		let video = dir.path().join("clip.mp4");
+		sd_ffmpeg::footage::render(
+			"testsrc2=s=64x36:r=25:d=1",
+			"libx264",
+			&[("preset".to_string(), "ultrafast".to_string())],
+			"mp4",
+			&[],
+			&video,
+		)
+		.unwrap();
+		let read = |filter: &str| {
+			sd_ffmpeg::footage::read_rgba(&video, filter, THUMBNAIL_TIMEOUT)
+				.unwrap()
+				.unwrap()
+		};
+		let upright = read("format=rgba");
+		let flipped = read("format=rgba,vflip");
+		let row = upright.width as usize * 4;
+		let reversed: Vec<u8> = upright.rgba.chunks(row).rev().flatten().copied().collect();
+		assert_eq!(flipped.rgba, reversed);
+	}
+
+	/// A read past its deadline gives up instead of holding the worker.
+	#[test]
+	fn reads_give_up_at_their_deadline() {
+		let dir = tempfile::tempdir().unwrap();
+		let video = dir.path().join("clip.mp4");
+		sd_ffmpeg::footage::render(
+			"testsrc2=s=64x36:r=25:d=1",
+			"libx264",
+			&[("preset".to_string(), "ultrafast".to_string())],
+			"mp4",
+			&[],
+			&video,
+		)
+		.unwrap();
+		assert!(matches!(
+			sd_ffmpeg::footage::read_rgba(&video, "", Duration::ZERO),
+			Err(sd_ffmpeg::Error::TimedOut)
+		));
+		assert!(matches!(
+			sd_ffmpeg::footage::probe(&video, Duration::ZERO),
+			Err(sd_ffmpeg::Error::TimedOut)
+		));
 	}
 }

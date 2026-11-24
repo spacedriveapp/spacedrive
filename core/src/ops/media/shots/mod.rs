@@ -14,7 +14,9 @@
 //! seconds and timecode beside them for people; see
 //! `docs/core/virtual-sidecars.mdx`.
 //!
-//! Everything here is built only with the `video-shots` cargo feature.
+//! The shot list format in `sidecar` is always compiled, so readers such as
+//! `media.sidecars` need no FFmpeg. Detection, its job and its ops are built
+//! only with the `video-shots` cargo feature.
 //!
 //! ## Example
 //! ```rust,no_run
@@ -30,15 +32,23 @@
 //! # }
 //! ```
 
+#[cfg(feature = "video-shots")]
 mod action;
+#[cfg(feature = "video-shots")]
 pub mod detect;
+#[cfg(feature = "video-shots")]
 mod job;
+#[cfg(feature = "video-shots")]
 mod query;
 mod sidecar;
 
+#[cfg(feature = "video-shots")]
 pub use action::{ShotDetectAction, ShotDetectInput};
+#[cfg(feature = "video-shots")]
 pub use detect::DetectParams;
+#[cfg(feature = "video-shots")]
 pub use job::{ShotDetectionJob, ShotDetectionOutput};
+#[cfg(feature = "video-shots")]
 pub use query::{ShotListInput, ShotListOutput, ShotListQuery};
 pub use sidecar::{
 	content_uuid_of_video, read_shots, shots_of_file, AnalyzedMedia, FramePoint, FrameRate, Shot,

@@ -6,9 +6,6 @@ CPATH = { force = true, value = "{{{nativeDeps}}}/include" }
 {{#isMacOS}}
 BINDGEN_EXTRA_CLANG_ARGS = { force = true, value = "-isysroot {{{sdkPath}}}" }
 {{/isMacOS}}
-{{#isLinux}}
-ORT_LIB_LOCATION = { force = true, value = "{{{nativeDeps}}}/lib" }
-{{/isLinux}}
 {{/nativeDeps}}
 # openssl-sys reaches Linux builds through reqwest's default TLS, independently of
 # the codec bundle, so these stay set either way.

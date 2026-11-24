@@ -19,7 +19,7 @@ use crate::infra::source_version::source_version;
 use crate::ops::indexing::VolumeIndex;
 use crate::service::external_tools::ExternalTools;
 
-use super::ffmpeg::HostFfmpegProducer;
+use super::ffmpeg::{video_decoding_available, VideoProducer};
 use super::sidecars::{self, SidecarRow, SidecarStore, StoredTile};
 use super::{
 	ffmpeg::is_video,
@@ -875,7 +875,7 @@ impl ThumbService {
 		let video = is_video(path);
 		let tools = self.external_tools.clone();
 		let ffmpeg = if video {
-			tokio::task::spawn_blocking(move || tools.ffmpeg_path().is_some())
+			tokio::task::spawn_blocking(move || video_decoding_available(&tools))
 				.await
 				.ok()?
 		} else {
@@ -915,7 +915,7 @@ impl ThumbService {
 
 	/// Resolve and queue one video thumbstrip. Generation starts only after a
 	/// client asks, normally on hover, and a fresh artifact is returned without
-	/// requiring FFmpeg to remain installed.
+	/// requiring a way to decode video.
 	pub async fn request_thumbstrip(&self, path: &PathBuf) -> Option<ThumbstripIdentity> {
 		if !is_video(path) {
 			return None;
@@ -930,9 +930,7 @@ impl ThumbService {
 			return Some(thumbstrip_identity(identity, true, false, true));
 		}
 
-		let available = self.external_tools.ffmpeg_path().is_some()
-			&& self.external_tools.ffprobe_path().is_some();
-		if !available {
+		if !thumbstrip::available(&self.external_tools) {
 			return Some(thumbstrip_identity(identity, false, false, false));
 		}
 
@@ -1274,7 +1272,7 @@ fn producer_chain(external_tools: Arc<ExternalTools>) -> Vec<Box<dyn Producer>> 
 	let mut chain: Vec<Box<dyn Producer>> = vec![Box::new(ImageProducer::new(ScaleMode::Fit))];
 	#[cfg(target_os = "macos")]
 	chain.push(Box::new(PlatformProducer));
-	chain.push(Box::new(HostFfmpegProducer::new(external_tools)));
+	chain.push(Box::new(VideoProducer::new(external_tools)));
 	#[cfg(target_os = "macos")]
 	chain.push(Box::new(sd_bake::IconProducer::new()));
 	chain
