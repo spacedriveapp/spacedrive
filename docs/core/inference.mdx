@@ -5,8 +5,11 @@ description: Models the core runs for extensions through ai.infer
 
 Extensions are WASM, so they cannot load a model. They call `ai.infer` and the
 core runs the model on this device. The provider layer lives in
-`core/src/ops/ai/` and builds only with the `ai-providers` cargo feature, which
+`core/src/ops/ai/`. Running models needs the `ai-providers` cargo feature, which
 is off by default. Without it every `ai.infer` request answers `not_available`.
+The catalog, the model ops and the cloud caption settings build either way, so
+clients always have their types; `ai.providers.list` reports
+`inference_available: false` and `ai.models.download` refuses.
 
 ## Categories
 
@@ -47,9 +50,14 @@ sd op ai.models.download --library <id> --json '{"model_id":"<id>","accept_licen
 sd op ai.models.delete --library <id> --json '{"model_id":"<id>"}'
 ```
 
-`ai.providers.list` shows each model's size and license. `ai.models.download`
-refuses unless `accept_license` matches the model's license, then queues one
-`model_download` job per missing file. Files land in
+`ai.providers.list` shows each model's size, license and installed state, and
+in `active` the model each category resolves to (or the cloud captioner).
+`ai.models.download` refuses unless `accept_license` matches the model's
+license, then queues one `model_download` job per missing file. Each job
+carries the model id in its action context (`action_input.model_id`, with the
+file's `size_bytes` in `context`), so a client can show progress per model and
+cancel it with `jobs.cancel`. Settings > Models in the app does this, for Whisper
+models too. Files land in
 `<data dir>/models/providers/<model id>/` and are checked against their hash.
 
 Sessions run on ONNX Runtime with half the cores. On macOS they ask for CoreML

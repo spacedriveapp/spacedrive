@@ -163,9 +163,8 @@ async fn relative_under(root: &std::path::Path, path: &std::path::Path) -> Optio
 	)
 }
 
-/// The model the person named, or the best downloaded one. Small is the
-/// default ceiling because medium and large are several times slower on a
-/// CPU for a modest gain in accuracy.
+/// The model the person named, or the best downloaded one in
+/// [`WhisperModel::PREFERENCE`] order.
 async fn choose_model(
 	models: &WhisperModelManager,
 	requested: Option<&str>,
@@ -183,20 +182,11 @@ async fn choose_model(
 		}
 		return Ok(model);
 	}
-	for model in [
-		WhisperModel::Small,
-		WhisperModel::Base,
-		WhisperModel::Tiny,
-		WhisperModel::Medium,
-		WhisperModel::Large,
-	] {
-		if models.is_downloaded(&model).await {
-			return Ok(model);
-		}
-	}
-	Err(ActionError::InvalidInput(
-		"no Whisper model is downloaded; run models.whisper.download first".into(),
-	))
+	models.preferred_downloaded().await.ok_or_else(|| {
+		ActionError::InvalidInput(
+			"no Whisper model is downloaded; run models.whisper.download first".into(),
+		)
+	})
 }
 
 crate::register_library_action!(TranscribeAction, "media.transcribe");

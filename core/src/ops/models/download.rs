@@ -149,7 +149,6 @@ impl ModelDownloadJob {
 	}
 
 	/// A file of an inference provider model, named `<model id>/<file>`.
-	#[cfg(feature = "ai-providers")]
 	async fn initialize_provider_file(&mut self, ctx: &JobContext<'_>) -> JobResult<()> {
 		let Some((spec, file)) = crate::ops::ai::catalog::find_file(&self.config.model_id) else {
 			return Err(JobError::execution(format!(
@@ -157,9 +156,7 @@ impl ModelDownloadJob {
 				self.config.model_id
 			)));
 		};
-		let dir = super::get_models_dir(&self.config.data_dir)
-			.join("providers")
-			.join(spec.id);
+		let dir = crate::ops::ai::model_dir(&self.config.data_dir, spec);
 		tokio::fs::create_dir_all(&dir).await?;
 		self.state.download_url = file.url.to_string();
 		self.state.target_path = dir.join(file.name);
@@ -174,14 +171,6 @@ impl ModelDownloadJob {
 			spec.license
 		));
 		Ok(())
-	}
-
-	#[cfg(not(feature = "ai-providers"))]
-	async fn initialize_provider_file(&mut self, _ctx: &JobContext<'_>) -> JobResult<()> {
-		Err(JobError::execution(format!(
-			"Unknown model ID: {}",
-			self.config.model_id
-		)))
 	}
 
 	async fn download(&mut self, ctx: &JobContext<'_>) -> JobResult<()> {

@@ -36,6 +36,15 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Models settings page (Capy FAN-13824, November 24, beta footage scope). Settings
+> Models lists Whisper and the inference catalog by category with size,
+license and installed state, downloads with a license confirm, shows per-model
+progress, cancels and deletes. It shows the active provider per category and
+configures the bring-your-own-key cloud caption client. The `ai` ops, catalog
+and caption key store now build without `ai-providers`, so their types are in
+the ts-client; only inference stays behind the feature. The catalog is empty on
+`main` until #3249 lands.
+
 Scene and caption search (Capy FAN-12538, November 22). `search.content`
 finds files by the descriptions extensions write: the Videos extension's
 `scene` sidecar (kind `scene`, one row per shot with its in and out points,

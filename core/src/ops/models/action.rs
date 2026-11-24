@@ -3,7 +3,10 @@
 use super::{download::ModelDownloadJob, whisper::WhisperModel};
 use crate::{
 	context::CoreContext,
-	infra::action::{error::ActionError, CoreAction},
+	infra::{
+		action::{context::ActionContext, error::ActionError, CoreAction},
+		job::types::JobPriority,
+	},
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -64,10 +67,16 @@ impl CoreAction for DownloadWhisperModelAction {
 			.await
 			.ok_or_else(|| ActionError::Internal("No library available".to_string()))?;
 
-		// Dispatch job
+		// The model id rides on the job so a client can match a running
+		// download to its model after a restart.
+		let action_context = ActionContext::new(
+			"models.whisper.download",
+			serde_json::json!({ "model_id": model.id() }),
+			serde_json::json!({ "size_bytes": model.size_bytes() }),
+		);
 		let job_handle = library
 			.jobs()
-			.dispatch(job)
+			.dispatch_with_priority(job, JobPriority::NORMAL, Some(action_context))
 			.await
 			.map_err(|e| ActionError::Internal(format!("Failed to dispatch job: {}", e)))?;
 

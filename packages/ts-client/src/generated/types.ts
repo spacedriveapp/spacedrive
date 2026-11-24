@@ -14,6 +14,17 @@ export type ActiveJobsInput = Record<string, never>;
 
 export type ActiveJobsOutput = { jobs: ActiveJobItem[]; running_count: number; paused_count: number };
 
+/**
+ * The provider a category resolves to, picked the way `ai.infer` picks it.
+ */
+export type ActiveProvider = { category: Category; locality: Locality; 
+/**
+ * The catalog model that answers locally. `None` for the cloud
+ * captioner, whose model is in `cloud_caption`. An extension whose
+ * manifest asks for local inference never reaches the cloud one.
+ */
+model_id: string | null };
+
 export type AdapterConfigField = { key: string; name: string; description: string; field_type: string; required: boolean; secret: boolean; default: string | null };
 
 export type AdapterInfo = { id: string; name: string; description: string; version: string; author: string; data_type: string; icon_svg: string | null; update_available: boolean };
@@ -224,6 +235,12 @@ export type CaseRule = "lower" | "upper" | "title" | "keep";
 
 export type CatalogAvailability = "library" | "drive" | "offline_copy" | "away";
 
+/**
+ * What a provider does. The string form is the prefix an extension puts on
+ * a model id (`face_detection:photos_v1`) and the manifest's grant name.
+ */
+export type Category = "face_detection" | "face_embedding" | "scene_classification" | "image_caption" | "text_embedding";
+
 export type ChangeKind = { type: "create"; size: number } | { type: "create_directory" } | { type: "replace"; existing_size: number; incoming_size: number; reason: ReplaceReason } | 
 /**
  * A directory on both sides; the plan continues inside it.
@@ -254,6 +271,12 @@ base_url?: string | null;
  * The vision model to ask for captions.
  */
 model?: string | null };
+
+export type CloudCaptionStatus = { enabled: boolean; base_url: string | null; model: string | null; 
+/**
+ * Whether a key is stored. The key itself is never returned.
+ */
+has_key: boolean };
 
 /**
  * Cloud service type identifier
@@ -355,6 +378,16 @@ export type Comparison = { a: SdPath; b: SdPath; by: CompareBy; show: CompareSet
  * Whether hidden files take part.
  */
 include_hidden?: boolean };
+
+/**
+ * Changes the library's cloud caption opt-in. Each named field replaces the
+ * stored one; `api_key` is written encrypted and never echoed back.
+ */
+export type ConfigureCloudCaptionInput = { enabled?: boolean | null; base_url?: string | null; model?: string | null; api_key?: string | null; 
+/**
+ * Removes the stored key, which also turns the opt-in off.
+ */
+clear_key?: boolean };
 
 export type ConflictKind = 
 /**
@@ -827,6 +860,10 @@ export type DeleteItemInput = { item_id: string };
 
 export type DeleteItemOutput = { success: boolean };
 
+export type DeleteModelInput = { model_id: string };
+
+export type DeleteModelOutput = { deleted: boolean };
+
 export type DeleteSourceInput = { source_id: string; 
 /**
  * Also delete the source's store, assertions included. Off by default:
@@ -1182,6 +1219,20 @@ export type DiskType =
  * Unknown type
  */
 "Unknown";
+
+export type DownloadModelInput = { model_id: string; 
+/**
+ * The model's license identifier, as `ai.providers.list` shows it. A
+ * download without it is refused, so no client can fetch a model the
+ * user was not shown the license of.
+ */
+accept_license: string };
+
+export type DownloadModelOutput = { 
+/**
+ * One download job per file still missing.
+ */
+job_ids: string[]; size_bytes: number };
 
 export type DownloadWhisperModelInput = { 
 /**
@@ -3503,6 +3554,19 @@ total: number;
  */
 connected: number };
 
+export type ListProvidersInput = Record<string, never>;
+
+export type ListProvidersOutput = { models: ProviderModel[]; cloud_caption: CloudCaptionStatus; 
+/**
+ * Categories with a provider. A category missing here has none.
+ */
+active: ActiveProvider[]; 
+/**
+ * Whether this build can run models. Without it the catalog is listed
+ * but nothing can be downloaded or run.
+ */
+inference_available: boolean };
+
 export type ListSourceItemsInput = { source_id: string; limit: number; offset: number };
 
 export type ListSourceRecordsInput = { source_id: string; limit: number; offset: number };
@@ -3515,11 +3579,17 @@ data_type: string | null };
 
 export type ListWhisperModelsInput = Record<string, never>;
 
-export type ListWhisperModelsOutput = { models: ModelInfo[]; total_downloaded_size: number };
+export type ListWhisperModelsOutput = { models: ModelInfo[]; total_downloaded_size: number; 
+/**
+ * The model transcription uses when none is named.
+ */
+active: string | null };
 
 export type LocalPathInput = { path: SdPath };
 
 export type LocalPathOutput = { path: string };
+
+export type Locality = "local" | "cloud";
 
 /**
  * Logging configuration output
@@ -3717,7 +3787,11 @@ downloaded: boolean;
 /**
  * Optional description
  */
-description: string | null };
+description: string | null; 
+/**
+ * SPDX identifier of the weights' license
+ */
+license: string | null };
 
 /**
  * Model provider
@@ -4380,6 +4454,15 @@ bytes_completed: number | null;
  * Total bytes to process (if applicable)
  */
 total_bytes: number | null };
+
+/**
+ * A catalog model, with what the user needs to decide on a download.
+ */
+export type ProviderModel = { id: string; name: string; category: Category; description: string; 
+/**
+ * SPDX identifier the user accepts by downloading.
+ */
+license: string; license_url: string; size_bytes: number; installed: boolean };
 
 /**
  * Proxy pairing configuration output
@@ -6634,6 +6717,9 @@ export type LibraryAction =
   |  { type: 'agent.make_dir'; input: MakeDirInput; output: WriteOutcome }
   |  { type: 'agent.move'; input: MoveInput; output: WriteOutcome }
   |  { type: 'agent.write_file'; input: WriteFileInput; output: WriteOutcome }
+  |  { type: 'ai.cloud_caption.configure'; input: ConfigureCloudCaptionInput; output: CloudCaptionStatus }
+  |  { type: 'ai.models.delete'; input: DeleteModelInput; output: DeleteModelOutput }
+  |  { type: 'ai.models.download'; input: DownloadModelInput; output: DownloadModelOutput }
   |  { type: 'config.library.update'; input: UpdateLibraryConfigInput; output: UpdateLibraryConfigOutput }
   |  { type: 'extensions.run_job'; input: RunExtensionJobInput; output: RunExtensionJobOutput }
   |  { type: 'files.archive'; input: FileArchiveInput; output: JobReceipt }
@@ -6731,6 +6817,7 @@ export type LibraryQuery =
      { type: 'adapters.config'; input: GetAdapterConfigInput; output: [AdapterConfigField] }
   |  { type: 'adapters.list'; input: ListAdaptersInput; output: [AdapterInfo] }
   |  { type: 'agent.stat'; input: StatInput; output: PathState }
+  |  { type: 'ai.providers.list'; input: ListProvidersInput; output: ListProvidersOutput }
   |  { type: 'config.library.get'; input: GetLibraryConfigQueryInput; output: LibrarySettingsOutput }
   |  { type: 'devices.list'; input: ListLibraryDevicesInput; output: [Device] }
   |  { type: 'extensions.models'; input: ExtensionModelsInput; output: ExtensionModelsOutput }
@@ -6855,6 +6942,9 @@ export const WIRE_METHODS = {
     'agent.make_dir': 'action:agent.make_dir.input',
     'agent.move': 'action:agent.move.input',
     'agent.write_file': 'action:agent.write_file.input',
+    'ai.cloud_caption.configure': 'action:ai.cloud_caption.configure.input',
+    'ai.models.delete': 'action:ai.models.delete.input',
+    'ai.models.download': 'action:ai.models.download.input',
     'config.library.update': 'action:config.library.update.input',
     'extensions.run_job': 'action:extensions.run_job.input',
     'files.archive': 'action:files.archive.input',
@@ -6952,6 +7042,7 @@ export const WIRE_METHODS = {
     'adapters.config': 'query:adapters.config',
     'adapters.list': 'query:adapters.list',
     'agent.stat': 'query:agent.stat',
+    'ai.providers.list': 'query:ai.providers.list',
     'config.library.get': 'query:config.library.get',
     'devices.list': 'query:devices.list',
     'extensions.models': 'query:extensions.models',
