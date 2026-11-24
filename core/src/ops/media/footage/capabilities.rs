@@ -72,32 +72,28 @@ impl LibraryQuery for FootageCapabilitiesQuery {
 crate::register_library_query!(FootageCapabilitiesQuery, "media.footage.capabilities");
 
 /// What this daemon can run now. Checked again when a job is asked for,
-/// since FFmpeg, a model or the extension can come or go in between.
+/// since a model or the extension can come or go in between. Proxies, shots
+/// and export run on the linked FFmpeg libraries, so the build decides them.
 pub(crate) async fn capabilities(context: &CoreContext) -> FootageCapabilities {
-	let tools = &context.external_tools;
-	let has_ffmpeg = tools.ffmpeg_path().is_some() && tools.ffprobe_path().is_some();
-	let needs_ffmpeg = || FootageSupport::no("Install FFmpeg in Settings > Services first");
-	let host_ffmpeg = |built: bool, missing: &str| {
-		if !built {
-			FootageSupport::no(missing)
-		} else if has_ffmpeg {
+	let built = |built: bool, missing: &str| {
+		if built {
 			FootageSupport::yes()
 		} else {
-			needs_ffmpeg()
+			FootageSupport::no(missing)
 		}
 	};
 	FootageCapabilities {
 		transcribe: transcribe_support().await,
-		proxy: host_ffmpeg(
+		proxy: built(
 			cfg!(feature = "video-proxies"),
 			"This build of Spacedrive does not make proxies",
 		),
-		shots: host_ffmpeg(
+		shots: built(
 			cfg!(feature = "video-shots"),
 			"This build of Spacedrive does not detect shots",
 		),
 		analyze: analyze_support(context).await,
-		export: host_ffmpeg(
+		export: built(
 			cfg!(feature = "footage-clips"),
 			"This build of Spacedrive does not export timelines",
 		),
