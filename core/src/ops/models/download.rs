@@ -318,6 +318,12 @@ impl DynJob for ModelDownloadJob {
 	fn job_name(&self) -> &'static str {
 		"Model Download"
 	}
+
+	/// Two downloads of one file would write the same temporary file, so a
+	/// second request joins the live job.
+	fn dedup_key(&self) -> Option<String> {
+		Some(self.config.model_id.clone())
+	}
 }
 
 impl From<ModelDownloadJob> for Box<dyn DynJob> {

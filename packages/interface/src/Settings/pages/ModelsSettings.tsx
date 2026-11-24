@@ -21,6 +21,7 @@ import {
 	useCoreQuery,
 	useLibraryMutation,
 	useLibraryQuery,
+	useSpacedriveClient,
 } from "../../contexts/SpacedriveContext";
 import { formatBytes } from "../../routes/overview/DevicePanel";
 import {
@@ -395,6 +396,7 @@ function CloudCaptionForm({
 
 export function ModelsSettings() {
 	const platform = usePlatform();
+	const client = useSpacedriveClient();
 	const providersQuery = useLibraryQuery({
 		type: "ai.providers.list",
 		input: {},
@@ -414,7 +416,7 @@ export function ModelsSettings() {
 	const deleteModel = useLibraryMutation("ai.models.delete", {
 		onSuccess: refetch,
 	});
-	const downloadWhisper = useCoreMutation("models.whisper.download");
+	const downloadWhisper = useLibraryMutation("models.whisper.download");
 	const deleteWhisper = useCoreMutation("models.whisper.delete", {
 		onSuccess: refetch,
 	});
@@ -579,7 +581,7 @@ export function ModelsSettings() {
 				description="Caption images through any service that speaks the OpenAI chat completions format, with your own key. Images leave this device only while this is on. The key is stored encrypted in the library and is never shown again."
 			>
 				<CloudCaptionForm
-					key={`${providers.cloud_caption.base_url}|${providers.cloud_caption.model}`}
+					key={`${client.getCurrentLibraryId()}|${providers.cloud_caption.base_url}|${providers.cloud_caption.model}`}
 					status={providers.cloud_caption}
 					onSaved={refetch}
 				/>

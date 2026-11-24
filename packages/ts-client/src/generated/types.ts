@@ -6685,7 +6685,6 @@ export type CoreAction =
   |  { type: 'libraries.open'; input: LibraryOpenInput; output: LibraryOpenOutput }
   |  { type: 'libraries.restore'; input: LibraryRestoreInput; output: LibraryRestoreOutput }
   |  { type: 'models.whisper.delete'; input: DeleteWhisperModelInput; output: DeleteWhisperModelOutput }
-  |  { type: 'models.whisper.download'; input: DownloadWhisperModelInput; output: DownloadWhisperModelOutput }
   |  { type: 'mounts.cache_clear'; input: MountsCacheClearInput; output: MountsCacheClearOutput }
   |  { type: 'mounts.fuse_mount'; input: FuseMountInput; output: FuseMountInfo }
   |  { type: 'mounts.fuse_unmount'; input: FuseUnmountInput; output: FuseMountInfo }
@@ -6746,6 +6745,7 @@ export type LibraryAction =
   |  { type: 'jobs.resume'; input: JobResumeInput; output: JobResumeOutput }
   |  { type: 'libraries.backup'; input: LibraryBackupInput; output: LibraryBackupOutput }
   |  { type: 'libraries.rename'; input: LibraryRenameInput; output: LibraryRenameOutput }
+  |  { type: 'models.whisper.download'; input: DownloadWhisperModelInput; output: DownloadWhisperModelOutput }
   |  { type: 'search.content.rebuild'; input: RebuildContentIndexInput; output: RebuildContentIndexOutput }
   |  { type: 'sources.assertions.merge'; input: MergeAssertionsInput; output: MergeAssertionsOutput }
   |  { type: 'sources.create'; input: CreateSourceInput; output: CreateSourceOutput }
@@ -6910,7 +6910,6 @@ export const WIRE_METHODS = {
     'libraries.open': 'action:libraries.open.input',
     'libraries.restore': 'action:libraries.restore.input',
     'models.whisper.delete': 'action:models.whisper.delete.input',
-    'models.whisper.download': 'action:models.whisper.download.input',
     'mounts.cache_clear': 'action:mounts.cache_clear.input',
     'mounts.fuse_mount': 'action:mounts.fuse_mount.input',
     'mounts.fuse_unmount': 'action:mounts.fuse_unmount.input',
@@ -6971,6 +6970,7 @@ export const WIRE_METHODS = {
     'jobs.resume': 'action:jobs.resume.input',
     'libraries.backup': 'action:libraries.backup.input',
     'libraries.rename': 'action:libraries.rename.input',
+    'models.whisper.download': 'action:models.whisper.download.input',
     'search.content.rebuild': 'action:search.content.rebuild.input',
     'sources.assertions.merge': 'action:sources.assertions.merge.input',
     'sources.create': 'action:sources.create.input',
