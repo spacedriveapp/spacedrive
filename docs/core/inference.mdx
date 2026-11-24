@@ -15,7 +15,7 @@ is off by default. Without it every `ai.infer` request answers `not_available`.
 | `face_detection` | `detect_faces` | image bytes | faces with a box, confidence, landmarks and an embedding |
 | `face_embedding` | `embed_face` | a face crop | a 512-dimension vector |
 | `scene_classification` | `classify` | image bytes | the top 5 scene labels with confidences |
-| `image_caption` | `caption` | image bytes | one or two sentences |
+| `image_caption` | `caption` | image bytes | a few sentences |
 | `text_embedding` | `embed_text` | UTF-8 text | a 384-dimension vector |
 
 Boxes and landmarks are fractions of the upright image, after EXIF orientation.
@@ -61,6 +61,7 @@ use, and so does its training data as far as its model card says.
 | face_embedding | AuraFace v1 | Apache-2.0 | 261 MB |
 | scene_classification | SigLIP base patch16-224, 8-bit | Apache-2.0 | 213 MB |
 | text_embedding | Multilingual E5 small, 8-bit | MIT | 135 MB |
+| image_caption | Florence-2 base, 8-bit | MIT | 275 MB |
 
 Google publishes BlazeFace only as TFLite. Spacedrive hosts an ONNX conversion
 in the `spacedrive/spacedrive-models` Hugging Face repository, pinned to a
@@ -68,8 +69,39 @@ revision, that `scripts/models/convert_blazeface.py` reproduces byte for byte wi
 tool versions in `scripts/models/requirements-blazeface.txt`. The other files
 download from their upstream repositories.
 
+Florence-2's files come from one pinned revision of the ONNX export, because
+its four graphs have to match each other.
+
 Sessions run on ONNX Runtime with half the cores. On macOS they ask for CoreML
 first and fall back to the CPU for operators CoreML cannot place.
+
+## Local captioning
+
+Florence-2 describes an image on this device. It runs four graphs: a vision
+encoder over the image stretched to 768x768, a token embedding, a BART encoder
+over the image tokens followed by the prompt, and a BART decoder run one token
+at a time with its key-value cache. The cross-attention cache is computed on the
+first step and reused. Decoding is greedy and never repeats a three-token
+sequence, and stops at the end token or after 256 tokens.
+
+Florence-2 picks its task from the prompt. `caption` uses
+`<MORE_DETAILED_CAPTION>` ("Describe with a paragraph what is shown in the
+image."), which gives two to four sentences. The code also has `<CAPTION>`
+("What does the image describe?") for a single sentence. Other Florence tasks,
+such as OCR and grounding, are not exposed.
+
+On a 4-core Linux machine with two inference threads, a detailed caption of a
+1280x853 photo takes about 2.3 seconds. Most of that is the vision encoder.
+
+Two extensions write captions:
+
+- Videos writes each shot's caption as its `description` in the `scene`
+  sidecar.
+- Photos' `analyze_scenes` writes a `caption` sidecar,
+  `{"version": 1, "text": "..."}`, for each photo that has none.
+
+`search.content` finds files by both kinds of caption. See
+[Content search](./content-search).
 
 ## Cloud captioning
 

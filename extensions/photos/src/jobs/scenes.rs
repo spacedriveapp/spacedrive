@@ -15,15 +15,17 @@ pub struct AnalyzeScenesState {
 	pub photo_ids: Vec<Uuid>,
 	pub current_index: usize,
 	pub classified: usize,
+	pub captioned: usize,
 	pub skipped: usize,
 }
 
-/// Classify each photo's scene and tag it `Scenes/<label>` above the
-/// configured confidence.
+/// Classify each photo's scene, tag it `Scenes/<label>` above the
+/// configured confidence, and describe it in a `caption` sidecar.
 ///
-/// Classification is inference, so with no scene provider on the host
-/// every photo is skipped after one warning and keeps no scene sidecar;
-/// a photo that already has one is left alone. The sidecar, the tags and
+/// Classification and captioning are inference, so with no provider on
+/// the host each is skipped after one warning and writes no sidecar; a
+/// photo that already has one is left alone, so a later run with a model
+/// installed fills in only what is missing. The sidecar, the tags and
 /// the resume bookkeeping need no provider.
 #[job(name = "analyze_scenes")]
 pub async fn analyze_scenes(ctx: &JobContext, state: &mut AnalyzeScenesState) -> JobResult<()> {
@@ -44,6 +46,7 @@ pub async fn analyze_scenes(ctx: &JobContext, state: &mut AnalyzeScenesState) ->
 	let photo_ids = state.photo_ids.clone();
 	let total = photo_ids.len();
 	let mut classifier_missing = false;
+	let mut captioner_missing = false;
 
 	for (idx, photo_id) in photo_ids.iter().enumerate().skip(state.current_index) {
 		let photo = ctx.vdfs().get_record(*photo_id).await?;
@@ -74,6 +77,20 @@ pub async fn analyze_scenes(ctx: &JobContext, state: &mut AnalyzeScenesState) ->
 			}
 		};
 
+		if !captioner_missing && !ctx.sidecar_exists(content_uuid, "caption")? {
+			match ctx.run(caption_photo, photo.clone()).await {
+				Ok(caption) => {
+					ctx.save_sidecar(content_uuid, "caption", &caption).await?;
+					state.captioned += 1;
+				}
+				Err(Error::NotAvailable(reason)) => {
+					ctx.add_warning(&format!("captioning skipped: {reason}"));
+					captioner_missing = true;
+				}
+				Err(e) => ctx.add_warning(&format!("caption {}: {e}", photo.name())),
+			}
+		}
+
 		for scene in scenes.iter().filter(|s| s.confidence > threshold) {
 			ctx.vdfs()
 				.add_tag(photo.id(), &format!("Scenes/{}", scene.label))
@@ -96,5 +113,6 @@ pub async fn analyze_scenes(ctx: &JobContext, state: &mut AnalyzeScenesState) ->
 		"Scenes: {} classified, {} skipped",
 		state.classified, state.skipped
 	));
+	ctx.log(&format!("Captions: {} written", state.captioned));
 	Ok(())
 }
