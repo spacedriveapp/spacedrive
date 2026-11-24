@@ -1,0 +1,9 @@
+# Pinned so convert_blazeface.py reproduces the hash core/src/ops/ai/catalog.rs pins.
+# Python 3.12, Linux x86_64.
+flatbuffers==25.12.19
+keras==3.15.1
+numpy==2.5.5
+onnx==1.23.2
+protobuf==7.36.2
+tensorflow-cpu==2.21.0
+tf2onnx==1.17.0

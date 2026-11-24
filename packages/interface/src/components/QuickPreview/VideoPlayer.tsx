@@ -5,6 +5,7 @@ import { SubtitleSettingsMenu } from "./SubtitleSettingsMenu";
 import { TranscriptPanel } from "./TranscriptPanel";
 import { useMediaSidecars, useProxyUrl } from "./useMediaSidecars";
 import { useZoomPan } from "./useZoomPan";
+import { useStartSeconds } from "./useStartSeconds";
 import type {
 	VideoControlsState,
 	VideoControlsCallbacks,
@@ -13,6 +14,7 @@ import type {
 interface VideoPlayerProps {
 	src: string;
 	file: File;
+	startSeconds?: number;
 	onZoomChange?: (isZoomed: boolean) => void;
 	onControlsStateChange?: (state: VideoControlsState) => void;
 	onShowControlsChange?: (show: boolean) => void;
@@ -22,6 +24,7 @@ interface VideoPlayerProps {
 export function VideoPlayer({
 	src,
 	file,
+	startSeconds,
 	onZoomChange,
 	onControlsStateChange,
 	onShowControlsChange,
@@ -78,6 +81,7 @@ export function VideoPlayer({
 	const { zoom, zoomIn, zoomOut, reset, isZoomed, transform } = useZoomPan(
 		videoContainerRef as React.RefObject<HTMLElement>,
 	);
+	useStartSeconds(videoRef, file.id, startSeconds);
 
 	// Expose controls state to parent
 	useEffect(() => {

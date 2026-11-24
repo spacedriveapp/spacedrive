@@ -11,10 +11,12 @@ import { motion } from "framer-motion";
 import type { File } from "@sd/ts-client";
 import { activeSegmentIndex } from "./TranscriptPanel";
 import { useMediaSidecars } from "./useMediaSidecars";
+import { useStartSeconds } from "./useStartSeconds";
 
 interface AudioPlayerProps {
 	src: string;
 	file: File;
+	startSeconds?: number;
 }
 
 function formatTime(seconds: number): string {
@@ -23,8 +25,9 @@ function formatTime(seconds: number): string {
 	return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
-export function AudioPlayer({ src, file }: AudioPlayerProps) {
+export function AudioPlayer({ src, file, startSeconds }: AudioPlayerProps) {
 	const audioRef = useRef<HTMLAudioElement>(null);
+	useStartSeconds(audioRef, file.id, startSeconds);
 	const lyricsContainerRef = useRef<HTMLDivElement>(null);
 	const [playing, setPlaying] = useState(false);
 	const [currentTime, setCurrentTime] = useState(0);
