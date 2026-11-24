@@ -348,6 +348,24 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		features: Some("video-shots"),
 		group: Group::Acceptance,
 	},
+	// Proxies, shot detection and clip probes on the linked FFmpeg
+	// libraries. The tests make their own media with those libraries, so no
+	// ffmpeg executable is needed. One build with the off-by-default footage
+	// features serves both suites.
+	TestSuite {
+		name: "Footage proxy unit tests",
+		package: "sd-core",
+		test_args: &["--lib", "ops::proxies"],
+		features: Some("video-proxies,video-shots,footage-clips"),
+		group: Group::Unit,
+	},
+	TestSuite {
+		name: "Footage shot and clip unit tests",
+		package: "sd-core",
+		test_args: &["--lib", "ops::media"],
+		features: Some("video-proxies,video-shots,footage-clips"),
+		group: Group::Unit,
+	},
 	// The Linux FUSE mount. Its own build with the `fuse` feature; it skips
 	// with a reason where /dev/fuse or fusermount3 is missing unless
 	// SD_REQUIRE_FUSE is set.

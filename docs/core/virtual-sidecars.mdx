@@ -126,7 +126,7 @@ The shot list holds every shot of the video, in order and with no gaps:
 ```
 
 - Every time is a whole frame count from the first frame of the file, at
-  `rate`, the original's average frame rate from FFprobe as a reduced
+  `rate`, the original's average frame rate from the probe as a reduced
   fraction. `seconds` is `frame * den / num`. `timecode` adds the original's
   embedded start timecode when it has one, and is drop-frame when that start
   timecode is. `duration` counts from zero and ignores the start timecode.

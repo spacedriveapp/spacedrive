@@ -46,6 +46,10 @@ pub enum Error {
 	SeekError,
 	#[error("Seek not allowed")]
 	SeekNotAllowed,
+	#[error("cancelled")]
+	Cancelled,
+	#[error("{0}")]
+	Media(String),
 
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
