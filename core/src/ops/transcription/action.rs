@@ -104,10 +104,8 @@ impl LibraryAction for TranscribeAction {
 		}
 		let under = relative_under(&root, path).await.ok_or_else(not_tracked)?;
 
-		let data_dir = crate::config::default_data_dir()
-			.map_err(|e| ActionError::Internal(format!("data directory: {e}")))?;
 		let model = choose_model(
-			&WhisperModelManager::new(&data_dir),
+			&WhisperModelManager::new(&context.data_dir),
 			self.input.model.as_deref(),
 		)
 		.await?;

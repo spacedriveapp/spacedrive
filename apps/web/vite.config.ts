@@ -88,6 +88,11 @@ export default defineConfig({
 				target: "http://localhost:8080",
 				changeOrigin: true,
 			},
+			// Job progress and other live updates arrive over sd-server's SSE stream
+			"/events": {
+				target: "http://localhost:8080",
+				changeOrigin: true,
+			},
 		},
 	},
 	optimizeDeps: {
