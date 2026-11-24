@@ -3,11 +3,13 @@
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use specta::Type;
 
-use super::{catalog, cloud, Category};
+use super::{catalog, cloud_key, Category, Locality};
 use crate::context::CoreContext;
-use crate::infra::action::{error::ActionError, LibraryAction};
+use crate::infra::action::{context::ActionContext, error::ActionError, LibraryAction};
+use crate::infra::job::types::JobPriority;
 use crate::infra::query::{LibraryQuery, QueryError, QueryResult};
 use crate::library::Library;
 use crate::ops::models::download::{ModelDownloadConfig, ModelDownloadJob};
@@ -41,17 +43,33 @@ async fn cloud_status(library: &Library) -> CloudCaptionStatus {
 		enabled: settings.enabled,
 		base_url: settings.base_url,
 		model: settings.model,
-		has_key: cloud::has_key(library).await,
+		has_key: cloud_key::has_key(library).await,
 	}
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ListProvidersInput {}
 
+/// The provider a category resolves to, picked the way `ai.infer` picks it.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ActiveProvider {
+	pub category: Category,
+	pub locality: Locality,
+	/// The catalog model that answers locally. `None` for the cloud
+	/// captioner, whose model is in `cloud_caption`. An extension whose
+	/// manifest asks for local inference never reaches the cloud one.
+	pub model_id: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ListProvidersOutput {
 	pub models: Vec<ProviderModel>,
 	pub cloud_caption: CloudCaptionStatus,
+	/// Categories with a provider. A category missing here has none.
+	pub active: Vec<ActiveProvider>,
+	/// Whether this build can run models. Without it the catalog is listed
+	/// but nothing can be downloaded or run.
+	pub inference_available: bool,
 }
 
 pub struct ListProvidersQuery;
@@ -88,12 +106,39 @@ impl LibraryQuery for ListProvidersQuery {
 				license: spec.license.to_string(),
 				license_url: spec.license_url.to_string(),
 				size_bytes: spec.size(),
-				installed: context.ai.is_installed(spec).await,
+				installed: super::is_installed(&context.data_dir, spec).await,
 			});
 		}
+		let cloud_caption = cloud_status(&library).await;
+		let inference_available = cfg!(feature = "ai-providers");
+		let active = Category::ALL
+			.into_iter()
+			.filter(|_| inference_available)
+			.filter_map(|category| {
+				if let Some(model) = models
+					.iter()
+					.find(|m| m.category == category && m.installed)
+				{
+					return Some(ActiveProvider {
+						category,
+						locality: Locality::Local,
+						model_id: Some(model.id.clone()),
+					});
+				}
+				(category == Category::ImageCaption && cloud_caption.enabled).then_some(
+					ActiveProvider {
+						category,
+						locality: Locality::Cloud,
+						model_id: None,
+					},
+				)
+			})
+			.collect();
 		Ok(ListProvidersOutput {
 			models,
-			cloud_caption: cloud_status(&library).await,
+			cloud_caption,
+			active,
+			inference_available,
 		})
 	}
 }
@@ -136,13 +181,18 @@ impl LibraryAction for DownloadModelAction {
 		let spec = catalog::find(&self.input.model_id).ok_or_else(|| {
 			ActionError::InvalidInput(format!("unknown model {}", self.input.model_id))
 		})?;
+		if !cfg!(feature = "ai-providers") {
+			return Err(ActionError::InvalidInput(
+				"this build of Spacedrive cannot run inference models".to_string(),
+			));
+		}
 		if self.input.accept_license != spec.license {
 			return Err(ActionError::InvalidInput(format!(
 				"{} is licensed {}; pass accept_license \"{}\" to download it",
 				spec.id, spec.license, spec.license
 			)));
 		}
-		let dir = context.ai.model_dir(spec);
+		let dir = super::model_dir(&context.data_dir, spec);
 		let mut job_ids = Vec::new();
 		let mut size_bytes = 0;
 		for file in spec.files {
@@ -154,10 +204,18 @@ impl LibraryAction for DownloadModelAction {
 				model_id: spec.file_id(file),
 				data_dir: context.data_dir.clone(),
 			});
-			let handle =
-				library.jobs().dispatch(job).await.map_err(|e| {
-					ActionError::Internal(format!("Failed to dispatch download: {e}"))
-				})?;
+			// The model id rides on the job so a client can match a running
+			// download to its model after a restart.
+			let action_context = ActionContext::new(
+				"ai.models.download",
+				json!({ "model_id": spec.id }),
+				json!({ "file": file.name, "size_bytes": file.size }),
+			);
+			let handle = library
+				.jobs()
+				.dispatch_with_priority(job, JobPriority::NORMAL, Some(action_context))
+				.await
+				.map_err(|e| ActionError::Internal(format!("Failed to dispatch download: {e}")))?;
 			job_ids.push(handle.id().to_string());
 			size_bytes += file.size;
 		}
@@ -204,8 +262,9 @@ impl LibraryAction for DeleteModelAction {
 		let spec = catalog::find(&self.input.model_id).ok_or_else(|| {
 			ActionError::InvalidInput(format!("unknown model {}", self.input.model_id))
 		})?;
+		#[cfg(feature = "ai-providers")]
 		context.ai.unload(spec).await;
-		let dir = context.ai.model_dir(spec);
+		let dir = super::model_dir(&context.data_dir, spec);
 		let deleted = match tokio::fs::remove_dir_all(&dir).await {
 			Ok(()) => true,
 			Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
@@ -262,10 +321,10 @@ impl LibraryAction for ConfigureCloudCaptionAction {
 	) -> Result<Self::Output, ActionError> {
 		let internal = |e: super::AiError| ActionError::Internal(e.to_string());
 		if self.input.clear_key {
-			cloud::clear_key(&library).await.map_err(internal)?;
+			cloud_key::clear_key(&library).await.map_err(internal)?;
 		}
 		if let Some(key) = self.input.api_key.filter(|k| !k.trim().is_empty()) {
-			cloud::store_key(&library, key.trim().to_string())
+			cloud_key::store_key(&library, key.trim().to_string())
 				.await
 				.map_err(internal)?;
 		}
@@ -273,7 +332,8 @@ impl LibraryAction for ConfigureCloudCaptionAction {
 		let base_url = self.input.base_url.or(current.base_url);
 		let model = self.input.model.or(current.model);
 		let enabled = !self.input.clear_key && self.input.enabled.unwrap_or(current.enabled);
-		if enabled && (base_url.is_none() || model.is_none() || !cloud::has_key(&library).await) {
+		if enabled && (base_url.is_none() || model.is_none() || !cloud_key::has_key(&library).await)
+		{
 			return Err(ActionError::InvalidInput(
 				"cloud captioning needs a base_url, a model and an api_key before it can be enabled"
 					.to_string(),

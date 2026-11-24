@@ -23,16 +23,44 @@
 //! batch.
 
 pub mod catalog;
+#[cfg(feature = "ai-providers")]
 pub mod cloud;
+pub mod cloud_key;
+#[cfg(feature = "ai-providers")]
 pub mod image;
+#[cfg(feature = "ai-providers")]
 pub mod local;
 pub mod ops;
+#[cfg(feature = "ai-providers")]
 pub mod registry;
+
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+#[cfg(feature = "ai-providers")]
 pub use registry::{Provider, ProviderRegistry};
+
+/// Where a catalog model's files live under the data directory.
+pub fn model_dir(data_dir: &Path, spec: &catalog::ModelSpec) -> PathBuf {
+	crate::ops::models::get_models_dir(data_dir)
+		.join("providers")
+		.join(spec.id)
+}
+
+/// Every file is on disk at its catalog size. The hash was checked when the
+/// download finished, so it is not recomputed on each lookup.
+pub async fn is_installed(data_dir: &Path, spec: &catalog::ModelSpec) -> bool {
+	let dir = model_dir(data_dir, spec);
+	for file in spec.files {
+		match tokio::fs::metadata(dir.join(file.name)).await {
+			Ok(meta) if meta.len() == file.size => {}
+			_ => return false,
+		}
+	}
+	true
+}
 
 /// What a provider does. The string form is the prefix an extension puts on
 /// a model id (`face_detection:photos_v1`) and the manifest's grant name.
@@ -139,6 +167,7 @@ pub enum AiError {
 	Interrupted,
 }
 
+#[cfg(feature = "ai-providers")]
 impl From<::ort::Error> for AiError {
 	fn from(e: ::ort::Error) -> Self {
 		AiError::Model(e.to_string())

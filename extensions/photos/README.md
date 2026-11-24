@@ -148,7 +148,9 @@ scene models downloaded, `analyze_photos` writes a faces sidecar per photo
 (boxes as fractions of the upright image, each with a 512-dimension
 embedding because the manifest also grants `face_embedding`) and clusters the
 faces into people, and `analyze_scenes` writes a scene sidecar and tags each
-photo `Scenes/<label>` above the confidence threshold. Without the feature or
+photo `Scenes/<label>` above the confidence threshold. With an `image_caption`
+model installed, `analyze_scenes` also writes a `caption` sidecar that
+describes the photo in a few sentences. Without the feature or
 the models the host answers `not_available`; the job warns once, skips, and
 completes, so a later run picks the photos up.
 `core/tests/wasm_extension_test.rs` proves the `not_available` path against a

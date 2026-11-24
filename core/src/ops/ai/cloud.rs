@@ -4,7 +4,8 @@
 //! with image inputs, including local servers. It is used only when a library
 //! has turned `ai.cloud_caption` on and stored a key; the key is encrypted with
 //! the library key in the library database through `CloudCredentialManager`,
-//! like cloud volume credentials, and is never logged or returned.
+//! like cloud volume credentials (see `cloud_key`), and is never logged or
+//! returned.
 
 use std::io::Cursor;
 use std::time::Duration;
@@ -14,13 +15,9 @@ use base64::Engine as _;
 use image::{imageops::FilterType, ImageFormat};
 
 use super::registry::Captioner;
-use super::{image as img, AiError};
-use crate::crypto::cloud_credentials::{CloudCredential, CloudCredentialManager, CredentialData};
+use super::{cloud_key, image as img, AiError};
 use crate::library::Library;
-use crate::volume::CloudServiceType;
 
-/// The credential slot the caption key is stored under.
-const KEY_SLOT: &str = "ai:image_caption";
 /// Images are downscaled before upload: captions need no more, and it keeps
 /// what leaves the device small.
 const UPLOAD_SIDE: u32 = 1024;
@@ -34,43 +31,6 @@ pub struct OpenAiCompatible {
 	key: String,
 }
 
-fn credentials(library: &Library) -> CloudCredentialManager {
-	CloudCredentialManager::new(
-		library.core_context().key_manager.clone(),
-		library.db().clone(),
-		library.id(),
-	)
-}
-
-pub async fn store_key(library: &Library, key: String) -> Result<(), AiError> {
-	let credential = CloudCredential::new_api_key(CloudServiceType::Other, key);
-	credentials(library)
-		.store_credential(library.id(), KEY_SLOT, &credential)
-		.await
-		.map_err(|e| AiError::Cloud(e.to_string()))
-}
-
-pub async fn clear_key(library: &Library) -> Result<(), AiError> {
-	let manager = credentials(library);
-	tokio::task::block_in_place(|| manager.delete_credential(library.id(), KEY_SLOT))
-		.map_err(|e| AiError::Cloud(e.to_string()))
-}
-
-pub async fn has_key(library: &Library) -> bool {
-	load_key(library).await.is_some()
-}
-
-async fn load_key(library: &Library) -> Option<String> {
-	let credential = credentials(library)
-		.get_credential(library.id(), KEY_SLOT)
-		.await
-		.ok()?;
-	match credential.data {
-		CredentialData::ApiKey(key) => Some(key),
-		_ => None,
-	}
-}
-
 /// The library's captioner, when it has opted in and is fully configured.
 pub async fn captioner(library: &Library) -> Result<Option<OpenAiCompatible>, AiError> {
 	let settings = library.config().await.settings.ai.cloud_caption;
@@ -80,7 +40,7 @@ pub async fn captioner(library: &Library) -> Result<Option<OpenAiCompatible>, Ai
 	let (Some(base_url), Some(model)) = (settings.base_url, settings.model) else {
 		return Ok(None);
 	};
-	let Some(key) = load_key(library).await else {
+	let Some(key) = cloud_key::load(library).await else {
 		return Ok(None);
 	};
 	let client = reqwest::Client::builder()
