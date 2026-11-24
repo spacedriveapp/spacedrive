@@ -3,6 +3,7 @@
 
 mod apps;
 mod drag;
+mod extensions;
 mod file_opening;
 mod files;
 mod keybinds;
@@ -2243,11 +2244,37 @@ fn main() {
 			app.manage(file_opening::FileOpeningService::new());
 
 			let _handle = app.handle().clone();
+			let resource_dir = app.path().resource_dir().ok();
 
 			// Initialize daemon connection in background
 			tauri::async_runtime::spawn(async move {
 				tracing::info!("Data directory: {:?}", data_dir_clone);
 				tracing::info!("Socket address: {:?}", socket_addr);
+
+				// A dev build leaves the extensions directory to the developer,
+				// who installs extensions built from their own checkout.
+				let mut extensions_changed = false;
+				if !cfg!(debug_assertions) {
+					if let Some(resource_dir) = resource_dir {
+						extensions_changed =
+							extensions::install_bundled(resource_dir, data_dir_clone.clone()).await;
+					}
+				}
+
+				// A daemon loads extensions only at startup, so one that is
+				// already running would keep the old set. Restart a daemon this
+				// app spawned; a service or CLI daemon is not ours to stop.
+				if extensions_changed && is_daemon_running(&socket_addr).await {
+					match earlier_bundled_daemon(&data_dir_clone).await {
+						Some(pid) => {
+							stop_daemon_for_update(&socket_addr, pid).await;
+							forget_spawned_daemon(&data_dir_clone).await;
+						}
+						None => tracing::info!(
+							"Bundled extensions changed; they load when the running daemon restarts"
+						),
+					}
+				}
 
 				// Start HTTP server for serving files/sidecars
 				match server::start_server(data_dir_clone.clone(), socket_addr.clone()).await {

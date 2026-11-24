@@ -39,6 +39,20 @@ video-shots = ["ffmpeg"]
 # media.timeline.export and their agent MCP tools. Reads shots, so it builds
 # the shot detection module too.
 footage-clips = ["video-shots", "dep:sd-timeline"]
+# Everything the desktop app ships for footage: proxies, transcripts, shots,
+# clips and timeline export, local inference, and the extension runtime the
+# bundled Videos extension needs. Every job stays an explicit action.
+footage = ["ai-providers", "footage-without-inference"]
+# The footage features that need no ONNX Runtime. ONNX Runtime publishes no
+# build for Intel Macs after 1.23 and ort has no prebuilt binaries for them,
+# so the Intel Mac daemon ships this set and ai.infer answers not_available.
+footage-without-inference = [
+	"footage-clips",
+	"speech-to-text",
+	"video-proxies",
+	"video-shots",
+	"wasm",
+]
 
 
 [dependencies]

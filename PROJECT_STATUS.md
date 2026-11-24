@@ -1,6 +1,6 @@
 # Project Status
 
-> Last updated: 2026-11-21
+> Last updated: 2026-11-24
 > Code baseline: `b1a58be`
 > Branch of record: `main` (fast-forwarded from `sources` on 2026-10-05)
 > Purpose: short-term working context across development sessions while
@@ -93,13 +93,22 @@ the removed records survive as orphans and rebind if the records return.
 Proof: `an_exclusion_that_would_take_most_of_the_source_removes_nothing`.
 Open: a source whose excluded content outweighs the rest is never pruned.
 
-Footage preview builds (Capy FAN-12531, November 22). `release.yml` takes a
-`features` input that adds sd-core features to the desktop app's daemon in a
-dry run only; the standalone CLI binaries keep the shipping set because they
-do not ship the codec framework. Preview builds compile whisper.cpp for a
-generic arm64 CPU rather than the runner's. With `wasm` in the list the run also
-uploads the Videos extension built from the same commit as `videos-extension`.
-Tags, nightly and the default dry run build the shipping feature set unchanged.
+Footage ships in the desktop app (Capy FAN-13822, November 24, beta footage
+steps 1 and 3). sd-core has a `footage` umbrella feature (`ai-providers`,
+`footage-clips`, `speech-to-text`, `video-proxies`, `video-shots`, `wasm`).
+`release.yml` builds the desktop daemon with it on every run, tagged or dry,
+on macOS arm64 and Linux x86_64 and aarch64; a dry run's `features` input
+adds more on top. The Intel Mac daemon gets `footage-without-inference` (no
+`ai-providers`): ONNX Runtime stopped publishing Intel macOS builds after 1.23
+and ort rc.15 has no prebuilt binary for x86_64-apple-darwin, so local and
+cloud inference answer not_available there. The standalone CLI, nightly and server binaries keep
+their feature sets: the CLI and nightly ship no codec framework for
+speech-to-text to link, and nightly builds no desktop app. Linux now takes ONNX
+Runtime from ort's download, as macOS does; the old `libonnxruntime.so` in
+apps/.deps no longer links. The app bundles `extensions/videos` (wasm rebuilt
+from the same commit in the release job) and a release build installs or
+updates it in `<data dir>/extensions` before it starts the daemon. Every
+footage job is still an explicit action.
 
 Videos extension skeleton, footage brief 6 (Capy FAN-12393, November 22, off
 the beta.1 path). `extensions/videos` (`com.spacedrive.videos`) reads the

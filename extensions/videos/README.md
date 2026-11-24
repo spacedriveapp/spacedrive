@@ -83,5 +83,14 @@ cargo build --release
 cp target/wasm32-unknown-unknown/release/videos_extension.wasm videos.wasm
 ```
 
-Install by copying `manifest.json`, `ui_manifest.json`, `videos.wasm` and `ui/`
-into `<data dir>/extensions/videos/` of a daemon built with the `wasm` feature.
+The desktop app bundles this folder. A release build of the app installs it into
+`<data dir>/extensions/videos/` on launch, and replaces the installed copy
+whenever the bundled one differs, so an app update also updates the extension.
+The release workflow rebuilds `videos.wasm` from the same commit before it
+bundles it. The app's daemon is built with the `footage` feature, which
+includes the `wasm` runtime.
+
+To try a local build with any other daemon built with `wasm`, copy
+`manifest.json`, `ui_manifest.json`, `videos.wasm` and `ui/` into
+`<data dir>/extensions/videos/` and restart the daemon. A dev build of the app
+does not install bundled extensions, so it never overwrites that copy.

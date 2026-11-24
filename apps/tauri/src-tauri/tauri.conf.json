@@ -65,7 +65,11 @@
     ],
     "externalBin": ["../../../target/release/sd-daemon"],
     "resources": {
-      "gen/**/*": "./"
+      "gen/**/*": "./",
+      "../../../extensions/videos/manifest.json": "extensions/videos/manifest.json",
+      "../../../extensions/videos/ui_manifest.json": "extensions/videos/ui_manifest.json",
+      "../../../extensions/videos/videos.wasm": "extensions/videos/videos.wasm",
+      "../../../extensions/videos/ui/": "extensions/videos/ui/"
     },
     "fileAssociations": [
       {
