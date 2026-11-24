@@ -5,11 +5,20 @@ description: Models the core runs for extensions through ai.infer
 
 Extensions are WASM, so they cannot load a model. They call `ai.infer` and the
 core runs the model on this device. The provider layer lives in
-`core/src/ops/ai/`. Running models needs the `ai-providers` cargo feature, which
-is off by default. Without it every `ai.infer` request answers `not_available`.
-The catalog, the model ops and the cloud caption settings build either way, so
-clients always have their types; `ai.providers.list` reports
-`inference_available: false` and `ai.models.download` refuses.
+`core/src/ops/ai/`. Two cargo features turn it on, and both are off by default:
+
+- `ai-cloud` builds the provider registry, `ai.infer` and the cloud caption
+  client. It needs no ONNX Runtime, so it builds on every target.
+- `ai-local` adds the local ONNX models on top of `ai-cloud`. ONNX Runtime has
+  no Intel macOS build, so that target ships `ai-cloud` alone.
+
+`ai-providers` turns on both. Without `ai-cloud` every `ai.infer` request
+answers `not_available`. With `ai-cloud` alone, a request for a local
+category answers `not_available` the same way, and only `image_caption`
+reaches the cloud captioner. The catalog, the model ops and the cloud caption
+settings build either way, so clients always have their types. Without
+`ai-local`, `ai.providers.list` reports `inference_available: false` and
+`ai.models.download` refuses.
 
 ## Categories
 

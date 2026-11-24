@@ -65,8 +65,8 @@ Models settings page (Capy FAN-13824, November 24, beta footage scope). Settings
 license and installed state, downloads with a license confirm, shows per-model
 progress, cancels and deletes. It shows the active provider per category and
 configures the bring-your-own-key cloud caption client. The `ai` ops, catalog
-and caption key store now build without `ai-providers`, so their types are in
-the ts-client; only inference stays behind the feature.
+and caption key store now build without any ai feature, so their types are in
+the ts-client; only inference stays behind `ai-cloud` and `ai-local`.
 
 Footage without a system FFmpeg (Capy FAN-13823, November 24, beta footage
 scope). Proxies, speech audio, shot detection, keyframes and the clip probes
@@ -93,7 +93,7 @@ Scene and caption search (Capy FAN-12538, November 22). `search.content`
 finds files by the descriptions extensions write: the Videos extension's
 `scene` sidecar (kind `scene`, one row per shot with its in and out points,
 behind `video-shots`) and the Photos extension's `caption` sidecar (kind
-`caption`, behind `ai-providers`). Rows live in `text.db` keyed by content
+`caption`, behind `ai-cloud`). Rows live in `text.db` keyed by content
 uuid and are replaced when the host writes or deletes the sidecar; the host
 gained `sidecars.delete` and the SDK `delete_sidecar`. No backfill pass yet:
 sidecars written before this build are indexed on their next write.
@@ -121,14 +121,16 @@ Proof: `an_exclusion_that_would_take_most_of_the_source_removes_nothing`.
 Open: a source whose excluded content outweighs the rest is never pruned.
 
 Footage ships in the desktop app (Capy FAN-13822, November 24, beta footage
-steps 1 and 3). sd-core has a `footage` umbrella feature (`ai-providers`,
-`footage-clips`, `speech-to-text`, `video-proxies`, `video-shots`, `wasm`).
+steps 1 and 3). sd-core has a `footage` umbrella feature (`ai-local`,
+`ai-cloud`, `footage-clips`, `speech-to-text`, `video-proxies`,
+`video-shots`, `wasm`).
 `release.yml` builds the desktop daemon with it on every run, tagged or dry,
 on macOS arm64 and Linux x86_64 and aarch64; a dry run's `features` input
-adds more on top. The Intel Mac daemon gets `footage-without-inference` (no
-`ai-providers`): ONNX Runtime stopped publishing Intel macOS builds after 1.23
-and ort rc.15 has no prebuilt binary for x86_64-apple-darwin, so local and
-cloud inference answer not_available there. The standalone CLI, nightly and server binaries keep
+adds more on top. The Intel Mac daemon gets `footage-without-onnx` (`ai-cloud`
+without `ai-local`): ONNX Runtime stopped publishing Intel macOS builds after
+1.23 and ort rc.15 has no prebuilt binary for x86_64-apple-darwin, so local
+categories answer not_available there while bring-your-own-key cloud captions
+work. The standalone CLI, nightly and server binaries keep
 their feature sets: the CLI and nightly ship no codec framework for
 speech-to-text to link, and nightly builds no desktop app. Linux now takes ONNX
 Runtime from ort's download, as macOS does; the old `libonnxruntime.so` in
@@ -180,7 +182,9 @@ descriptions, faces and clip export read these files.
 
 Inference providers behind `ai.infer` (Capy FAN-12388, November 22, off the
 beta.1 path). The `ai-providers` cargo feature, off by default, adds
-`core/src/ops/ai`: a registry per category (face detection, face embedding,
+`core/src/ops/ai`. It is the union of `ai-cloud` (the registry, `ai.infer`
+and the cloud caption client, no ONNX Runtime) and `ai-local` (the ONNX
+providers): a registry per category (face detection, face embedding,
 scene classification, image caption, text embedding), local ONNX models
 downloaded through `ModelDownloadJob` with a pinned hash after the user
 accepts the license (`ai.models.download`), batched `ai.infer` requests, and a

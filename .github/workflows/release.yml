@@ -454,12 +454,13 @@ jobs:
       # the codec framework speech-to-text links. A dry run may add more
       # sd-core features on top. The standalone CLI binaries ship no codec
       # framework, so they keep the default feature set. ort has no ONNX
-      # Runtime build for Intel Macs, so that daemon leaves out local inference.
+      # Runtime build for Intel Macs, so that daemon leaves out local inference
+      # and keeps the cloud caption provider.
       - name: Select daemon features
         shell: bash
         env:
           FEATURES: ${{ inputs.dry_run == true && inputs.features || '' }}
-          FOOTAGE: ${{ matrix.settings.target == 'x86_64-apple-darwin' && 'footage-without-inference' || 'footage' }}
+          FOOTAGE: ${{ matrix.settings.target == 'x86_64-apple-darwin' && 'footage-without-onnx' || 'footage' }}
         run: |
           set -euo pipefail
           set -f

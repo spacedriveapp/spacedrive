@@ -23,15 +23,15 @@
 //! batch.
 
 pub mod catalog;
-#[cfg(feature = "ai-providers")]
+#[cfg(feature = "ai-cloud")]
 pub mod cloud;
 pub mod cloud_key;
-#[cfg(feature = "ai-providers")]
+#[cfg(feature = "ai-cloud")]
 pub mod image;
-#[cfg(feature = "ai-providers")]
+#[cfg(feature = "ai-local")]
 pub mod local;
 pub mod ops;
-#[cfg(feature = "ai-providers")]
+#[cfg(feature = "ai-cloud")]
 pub mod registry;
 
 use std::path::{Path, PathBuf};
@@ -39,7 +39,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-#[cfg(feature = "ai-providers")]
+#[cfg(feature = "ai-cloud")]
 pub use registry::{Provider, ProviderRegistry};
 
 /// Where a catalog model's files live under the data directory.
@@ -167,7 +167,7 @@ pub enum AiError {
 	Interrupted,
 }
 
-#[cfg(feature = "ai-providers")]
+#[cfg(feature = "ai-local")]
 impl From<::ort::Error> for AiError {
 	fn from(e: ::ort::Error) -> Self {
 		AiError::Model(e.to_string())

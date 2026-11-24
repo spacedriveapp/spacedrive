@@ -20,7 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	// ONNX Runtime's prebuilt macOS archive guards newer APIs with `@available`,
 	// which calls a clang runtime helper that rustc's -nodefaultlibs link drops.
-	if std::env::var_os("CARGO_FEATURE_AI_PROVIDERS").is_some()
+	if std::env::var_os("CARGO_FEATURE_AI_LOCAL").is_some()
 		&& std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos")
 	{
 		println!("cargo:rustc-link-arg=-fapple-link-rtlib");

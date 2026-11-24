@@ -3685,8 +3685,9 @@ export type ListProvidersOutput = { models: ProviderModel[]; cloud_caption: Clou
  */
 active: ActiveProvider[]; 
 /**
- * Whether this build can run models. Without it the catalog is listed
- * but nothing can be downloaded or run.
+ * Whether this build can run local models (the `ai-local` feature).
+ * Without it the catalog is listed but nothing can be downloaded or run
+ * on this device. The cloud captioner needs only `ai-cloud`.
  */
 inference_available: boolean };
 
@@ -5835,7 +5836,7 @@ export type TextKind = "text" | "markdown" | "csv" | "json" | "code" | "pdf" | "
 "scene" | 
 /**
  * What a photo shows, from the Photos extension's `caption` sidecar.
- * Written when the sidecar is, behind `ai-providers`.
+ * Written when the sidecar is, behind `ai-cloud`.
  */
 "caption";
 

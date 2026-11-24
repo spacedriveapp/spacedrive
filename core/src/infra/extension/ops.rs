@@ -122,7 +122,7 @@ struct Inference {
 }
 
 /// The most inputs one `ai.infer` call may carry.
-#[cfg(feature = "ai-providers")]
+#[cfg(feature = "ai-cloud")]
 const MAX_INFER_ITEMS: usize = 256;
 
 #[derive(Deserialize)]
@@ -807,7 +807,7 @@ impl JobOps {
 	/// deleted. Best-effort: the sidecar is the source of truth, and a
 	/// failure here leaves search behind it, never the sidecar wrong.
 	async fn index_sidecar(&self, kind: &str, content_uuid: Uuid) {
-		#[cfg(any(feature = "video-shots", feature = "ai-providers"))]
+		#[cfg(any(feature = "video-shots", feature = "ai-cloud"))]
 		if let Err(error) = crate::ops::search::content::descriptions::index_sidecar(
 			&self.library,
 			&self.extension_id,
@@ -818,7 +818,7 @@ impl JobOps {
 		{
 			tracing::warn!(extension = %self.extension_id, %kind, %content_uuid, %error, "sidecar text not indexed");
 		}
-		#[cfg(not(any(feature = "video-shots", feature = "ai-providers")))]
+		#[cfg(not(any(feature = "video-shots", feature = "ai-cloud")))]
 		let _ = (kind, content_uuid);
 	}
 }
@@ -1112,8 +1112,9 @@ impl JobOps {
 	/// (`face_detection:photos_v1`) names nothing; the core picks the model.
 	/// A batch (`items` in the header) answers each input with
 	/// `{"ok": ...}` or `{"error": {...}}`, so one unreadable file fails
-	/// only itself. A build without the `ai-providers` feature, or a category
-	/// with no installed model, answers `not_available`.
+	/// only itself. A build without the `ai-cloud` feature, a local category
+	/// in a build without `ai-local`, or a category with no installed model
+	/// answers `not_available`.
 	async fn ai_infer(&self, payload: &[u8], ctx: &JobContext<'_>) -> OpResult {
 		let (header, input) = split_frame(payload)?;
 		let inference: Inference = parse(header)?;
@@ -1134,7 +1135,7 @@ impl JobOps {
 				self.extension_id
 			)));
 		};
-		#[cfg(feature = "ai-providers")]
+		#[cfg(feature = "ai-cloud")]
 		{
 			self.infer(
 				&inference,
@@ -1145,7 +1146,7 @@ impl JobOps {
 			)
 			.await
 		}
-		#[cfg(not(feature = "ai-providers"))]
+		#[cfg(not(feature = "ai-cloud"))]
 		{
 			let _ = (grant, input, ctx);
 			Err(OpError::not_available(format!(
@@ -1155,7 +1156,7 @@ impl JobOps {
 		}
 	}
 
-	#[cfg(feature = "ai-providers")]
+	#[cfg(feature = "ai-cloud")]
 	async fn infer(
 		&self,
 		inference: &Inference,
@@ -1167,9 +1168,14 @@ impl JobOps {
 		use crate::ops::ai::{AiError, Category, Preference, Provider};
 
 		let op_error = |e: AiError| match e {
-			AiError::NotInstalled(category) => OpError::not_available(format!(
-				"no {category} provider is installed; download one with ai.models.download"
-			)),
+			AiError::NotInstalled(category) if cfg!(feature = "ai-local") => {
+				OpError::not_available(format!(
+					"no {category} provider is installed; download one with ai.models.download"
+				))
+			}
+			AiError::NotInstalled(category) => {
+				OpError::not_available(format!("no {category} provider is installed"))
+			}
 			AiError::Input(message) => OpError::invalid_input(message),
 			AiError::Interrupted => OpError::new("interrupted", "job interrupted"),
 			other => OpError::failed(other.to_string()),
