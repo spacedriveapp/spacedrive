@@ -63,7 +63,8 @@ use, and so does its training data as far as its model card says.
 | text_embedding | Multilingual E5 small, 8-bit | MIT | 135 MB |
 
 Google publishes BlazeFace only as TFLite. Spacedrive hosts an ONNX conversion
-that `scripts/models/convert_blazeface.py` reproduces byte for byte with the
+in the `spacedrive/spacedrive-models` Hugging Face repository, pinned to a
+revision, that `scripts/models/convert_blazeface.py` reproduces byte for byte with the
 tool versions in `scripts/models/requirements-blazeface.txt`. The other files
 download from their upstream repositories.
 

@@ -67,7 +67,7 @@ pub static CATALOG: &[ModelSpec] = &[
 		// which reproduces this hash.
 		files: &[ModelFile {
 			name: "blaze_face_full_range.onnx",
-			url: "https://huggingface.co/spacedriveapp/models/resolve/main/blazeface-full-range/blaze_face_full_range.onnx",
+			url: "https://huggingface.co/spacedrive/spacedrive-models/resolve/da0ee1af007f12b788310d4ea8df2cf00f04fe44/blazeface-full-range/blaze_face_full_range.onnx",
 			sha256: "494c597f51002a1ccbdc3571cc3d02a60fea914a7ad8abf6968e31768adf422a",
 			size: 2_065_224,
 		}],
