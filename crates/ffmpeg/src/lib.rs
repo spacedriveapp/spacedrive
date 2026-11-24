@@ -38,6 +38,7 @@ mod codec_ctx;
 mod dict;
 mod error;
 mod filter_graph;
+pub mod footage;
 mod format_ctx;
 mod frame_decoder;
 pub mod model;

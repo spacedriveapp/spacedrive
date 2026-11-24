@@ -1,6 +1,6 @@
 //! What one video file is, as the clip ops need it.
 
-use std::{ffi::OsString, path::Path, sync::Arc, time::Duration};
+use std::path::Path;
 
 use sd_timeline::{timecode, Audio, Rate, Rounding};
 use serde::{Deserialize, Serialize};
@@ -20,11 +20,7 @@ use crate::{
 		media::shots::{content_uuid_of_video, read_shots, ShotList},
 		transcription::transcript::{read_transcript, Transcript},
 	},
-	service::external_tools::ExternalTools,
 };
-
-const PROBE_TIMEOUT: Duration = Duration::from_secs(30);
-const PROBE_OUTPUT_LIMIT: usize = 1024 * 1024;
 
 /// A time a caller hands in: a frame at the file's rate, or seconds, which
 /// round to the nearest frame. A frame wins when both are present, so a clip
@@ -116,7 +112,7 @@ impl Footage {
 		let facts = match shots.as_ref().and_then(timing_of_shots) {
 			Some(facts) => facts,
 			None => {
-				let probe = probe(&context.external_tools, path).await?;
+				let probe = probe(path).await?;
 				(
 					probe.rate,
 					probe.start_timecode,
@@ -225,40 +221,20 @@ pub(crate) async fn record_uuid(context: &CoreContext, path: &SdPath) -> Option<
 	None
 }
 
-pub(crate) async fn probe(tools: &Arc<ExternalTools>, path: &Path) -> Result<Probe, String> {
-	// FFprobe opening a cloud placeholder would download the whole file.
+pub(crate) async fn probe(path: &Path) -> Result<Probe, String> {
+	// Opening a cloud placeholder would download the whole file.
 	if refuse_dataless(path).await.is_err() {
 		return Err(format!(
 			"{} is a cloud placeholder ({DATALESS_REASON}); it is not read so it is not downloaded",
 			display_name(path)
 		));
 	}
-	let args: Vec<OsString> = vec![
-		"-v".into(),
-		"error".into(),
-		"-show_entries".into(),
-		"stream=codec_type,width,height,avg_frame_rate,r_frame_rate,nb_frames,sample_rate,channels:stream_tags=timecode:format=duration:format_tags=timecode"
-			.into(),
-		"-of".into(),
-		"json".into(),
-		path.as_os_str().to_owned(),
-	];
-	let tools = tools.clone();
 	let name = display_name(path);
-	let output = tokio::task::spawn_blocking(move || {
-		tools.run_ffprobe(&args, PROBE_TIMEOUT, PROBE_OUTPUT_LIMIT)
-	})
-	.await
-	.map_err(|_| "FFprobe did not finish".to_string())?
-	.map_err(|error| error.to_string())?;
-	if !output.status.success() {
-		return Err(format!(
-			"FFprobe could not read {name}: {}",
-			output.stderr.trim()
-		));
-	}
-	let json: Value = serde_json::from_slice(&output.stdout)
-		.map_err(|error| format!("FFprobe output for {name} was not JSON: {error}"))?;
+	let path = path.to_path_buf();
+	let json = tokio::task::spawn_blocking(move || sd_ffmpeg::footage::probe(&path))
+		.await
+		.map_err(|_| "the probe did not finish".to_string())?
+		.map_err(|error| format!("could not read {name}: {error}"))?;
 	parse_probe(&json).map_err(|reason| format!("{name}: {reason}"))
 }
 
