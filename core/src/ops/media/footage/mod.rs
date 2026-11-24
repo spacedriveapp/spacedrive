@@ -173,10 +173,12 @@ mod tests {
 			path: "/Footage/a.mp4".into(),
 		};
 		assert!(local_footage_path(&remote).is_err());
-		assert!(local_footage_path(&SdPath::local("/Footage/../etc")).is_err());
+		let footage = std::env::temp_dir().join("Footage");
+		assert!(local_footage_path(&SdPath::local(footage.join("..").join("etc"))).is_err());
+		assert!(local_footage_path(&SdPath::local("Footage/a.mp4")).is_err());
 		assert_eq!(
-			local_footage_path(&SdPath::local("/Footage/a.mp4")).unwrap(),
-			PathBuf::from("/Footage/a.mp4")
+			local_footage_path(&SdPath::local(footage.join("a.mp4"))).unwrap(),
+			footage.join("a.mp4")
 		);
 	}
 }
