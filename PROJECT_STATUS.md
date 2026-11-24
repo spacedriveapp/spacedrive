@@ -71,8 +71,11 @@ Footage ships in the desktop app (Capy FAN-13822, November 24, beta footage
 steps 1 and 3). sd-core has a `footage` umbrella feature (`ai-providers`,
 `footage-clips`, `speech-to-text`, `video-proxies`, `video-shots`, `wasm`).
 `release.yml` builds the desktop daemon with it on every run, tagged or dry,
-on macOS arm64 and x86_64 and Linux x86_64 and aarch64; a dry run's `features`
-input adds more on top. The standalone CLI, nightly and server binaries keep
+on macOS arm64 and Linux x86_64 and aarch64; a dry run's `features` input
+adds more on top. The Intel Mac daemon gets `footage-without-inference` (no
+`ai-providers`): ONNX Runtime stopped publishing Intel macOS builds after 1.23
+and ort rc.15 has no prebuilt binary for x86_64-apple-darwin, so local and
+cloud inference answer not_available there. The standalone CLI, nightly and server binaries keep
 their feature sets: the CLI and nightly ship no codec framework for
 speech-to-text to link, and nightly builds no desktop app. Linux now takes ONNX
 Runtime from ort's download, as macOS does; the old `libonnxruntime.so` in

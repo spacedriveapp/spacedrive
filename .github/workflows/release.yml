@@ -453,15 +453,17 @@ jobs:
       # The desktop daemon ships the footage features, because the app ships
       # the codec framework speech-to-text links. A dry run may add more
       # sd-core features on top. The standalone CLI binaries ship no codec
-      # framework, so they keep the default feature set.
+      # framework, so they keep the default feature set. ort has no ONNX
+      # Runtime build for Intel Macs, so that daemon leaves out local inference.
       - name: Select daemon features
         shell: bash
         env:
           FEATURES: ${{ inputs.dry_run == true && inputs.features || '' }}
+          FOOTAGE: ${{ matrix.settings.target == 'x86_64-apple-darwin' && 'footage-without-inference' || 'footage' }}
         run: |
           set -euo pipefail
           set -f
-          list="sd-core/footage"
+          list="sd-core/$FOOTAGE"
           for feature in ${FEATURES//,/ }; do
             if ! [[ "$feature" =~ ^[a-z0-9-]+$ ]]; then
               echo "::error::Invalid feature name: $feature"
