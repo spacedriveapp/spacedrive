@@ -67,8 +67,9 @@ pub struct ListProvidersOutput {
 	pub cloud_caption: CloudCaptionStatus,
 	/// Categories with a provider. A category missing here has none.
 	pub active: Vec<ActiveProvider>,
-	/// Whether this build can run models. Without it the catalog is listed
-	/// but nothing can be downloaded or run.
+	/// Whether this build can run local models (the `ai-local` feature).
+	/// Without it the catalog is listed but nothing can be downloaded or run
+	/// on this device. The cloud captioner needs only `ai-cloud`.
 	pub inference_available: bool,
 }
 
@@ -110,14 +111,13 @@ impl LibraryQuery for ListProvidersQuery {
 			});
 		}
 		let cloud_caption = cloud_status(&library).await;
-		let inference_available = cfg!(feature = "ai-providers");
+		let inference_available = cfg!(feature = "ai-local");
 		let active = Category::ALL
 			.into_iter()
-			.filter(|_| inference_available)
 			.filter_map(|category| {
 				if let Some(model) = models
 					.iter()
-					.find(|m| m.category == category && m.installed)
+					.find(|m| inference_available && m.category == category && m.installed)
 				{
 					return Some(ActiveProvider {
 						category,
@@ -125,13 +125,14 @@ impl LibraryQuery for ListProvidersQuery {
 						model_id: Some(model.id.clone()),
 					});
 				}
-				(category == Category::ImageCaption && cloud_caption.enabled).then_some(
-					ActiveProvider {
+				(cfg!(feature = "ai-cloud")
+					&& category == Category::ImageCaption
+					&& cloud_caption.enabled)
+					.then_some(ActiveProvider {
 						category,
 						locality: Locality::Cloud,
 						model_id: None,
-					},
-				)
+					})
 			})
 			.collect();
 		Ok(ListProvidersOutput {
@@ -181,9 +182,9 @@ impl LibraryAction for DownloadModelAction {
 		let spec = catalog::find(&self.input.model_id).ok_or_else(|| {
 			ActionError::InvalidInput(format!("unknown model {}", self.input.model_id))
 		})?;
-		if !cfg!(feature = "ai-providers") {
+		if !cfg!(feature = "ai-local") {
 			return Err(ActionError::InvalidInput(
-				"this build of Spacedrive cannot run inference models".to_string(),
+				"this build of Spacedrive cannot run local inference models".to_string(),
 			));
 		}
 		if self.input.accept_license != spec.license {
@@ -262,7 +263,7 @@ impl LibraryAction for DeleteModelAction {
 		let spec = catalog::find(&self.input.model_id).ok_or_else(|| {
 			ActionError::InvalidInput(format!("unknown model {}", self.input.model_id))
 		})?;
-		#[cfg(feature = "ai-providers")]
+		#[cfg(feature = "ai-cloud")]
 		context.ai.unload(spec).await;
 		let dir = super::model_dir(&context.data_dir, spec);
 		let deleted = match tokio::fs::remove_dir_all(&dir).await {

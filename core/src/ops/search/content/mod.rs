@@ -28,7 +28,7 @@
 //! };
 //! ```
 
-#[cfg(any(feature = "video-shots", feature = "ai-providers"))]
+#[cfg(any(feature = "video-shots", feature = "ai-cloud"))]
 pub mod descriptions;
 pub mod input;
 pub mod output;

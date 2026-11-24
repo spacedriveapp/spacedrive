@@ -12,7 +12,7 @@
 //! The host calls [`index_sidecar`] after it writes or deletes an extension
 //! sidecar. Each kind is indexed only in a build with the feature that makes
 //! its descriptions: `scene` with `video-shots`, `caption` with
-//! `ai-providers`.
+//! `ai-cloud`, which every build that captions has.
 
 use std::{io, path::Path};
 
@@ -36,7 +36,7 @@ pub fn indexed_kind(extension_id: &str, kind: &str) -> Option<&'static str> {
 	match (extension_id, kind) {
 		#[cfg(feature = "video-shots")]
 		(VIDEOS_EXTENSION, "scene") => Some(sd_store::SCENE_KIND),
-		#[cfg(feature = "ai-providers")]
+		#[cfg(feature = "ai-cloud")]
 		(PHOTOS_EXTENSION, "caption") => Some(sd_store::CAPTION_KIND),
 		_ => None,
 	}
@@ -100,7 +100,7 @@ async fn spans_of(
 	match index_kind {
 		#[cfg(feature = "video-shots")]
 		sd_store::SCENE_KIND => scene_spans(library_path, content_uuid, bytes).await,
-		#[cfg(feature = "ai-providers")]
+		#[cfg(feature = "ai-cloud")]
 		sd_store::CAPTION_KIND => {
 			let caption: Caption = serde_json::from_slice(bytes)?;
 			Ok(vec![sd_store::DescriptionSpan {
@@ -132,7 +132,7 @@ struct ShotScene {
 }
 
 /// The fields of the Photos extension's `caption` sidecar this reads.
-#[cfg(feature = "ai-providers")]
+#[cfg(feature = "ai-cloud")]
 #[derive(Deserialize)]
 struct Caption {
 	text: String,

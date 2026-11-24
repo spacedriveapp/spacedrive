@@ -28,10 +28,16 @@ wasm = ["dep:wasmer", "dep:wasmer-middlewares"]
 fuse = ["dep:fuser"]
 # Video proxies and speech audio for footage, written with the linked FFmpeg.
 video-proxies = ["ffmpeg"]
-# Local inference providers behind ai.infer (ONNX Runtime, model tokenizers)
-# and the opt-in cloud caption provider. Off by default: without it every
-# ai.infer request is answered not_available, as before.
-ai-providers = ["dep:ort", "dep:tokenizers"]
+# The provider registry behind ai.infer and the opt-in cloud caption provider.
+# Pulls in neither ONNX Runtime nor tokenizers, so it builds on every target,
+# Intel Macs included. Off by default: without it every ai.infer request is
+# answered not_available.
+ai-cloud = []
+# The local ONNX providers, on top of ai-cloud. ONNX Runtime ships no Intel
+# macOS build, so that target uses ai-cloud alone.
+ai-local = ["ai-cloud", "dep:ort", "dep:tokenizers"]
+# Both, for builds that run local models and the cloud captioner.
+ai-providers = ["ai-cloud", "ai-local"]
 # Shot detection on video with the linked FFmpeg: the media.shots ops, the
 # shots and keyframe sidecars, and the agent MCP list_shots tool.
 video-shots = ["ffmpeg"]
@@ -40,13 +46,16 @@ video-shots = ["ffmpeg"]
 # the shot detection module too.
 footage-clips = ["video-shots", "dep:sd-timeline"]
 # Everything the desktop app ships for footage: proxies, transcripts, shots,
-# clips and timeline export, local inference, and the extension runtime the
-# bundled Videos extension needs. Every job stays an explicit action.
-footage = ["ai-providers", "footage-without-inference"]
+# clips and timeline export, local and cloud inference, and the extension
+# runtime the bundled Videos extension needs. Every job stays an explicit
+# action.
+footage = ["ai-local", "footage-without-onnx"]
 # The footage features that need no ONNX Runtime. ONNX Runtime publishes no
 # build for Intel Macs after 1.23 and ort has no prebuilt binaries for them,
-# so the Intel Mac daemon ships this set and ai.infer answers not_available.
-footage-without-inference = [
+# so the Intel Mac daemon ships this set: cloud captions work there, and a
+# local category in ai.infer answers not_available.
+footage-without-onnx = [
+	"ai-cloud",
 	"footage-clips",
 	"speech-to-text",
 	"video-proxies",
@@ -191,7 +200,7 @@ sd-media-metadata = { path = "../crates/media-metadata" }
 tokio-rustls     = "0.26"
 webp             = "0.3"
 
-# Inference providers (optional, behind ai-providers feature)
+# Local inference providers (optional, behind the ai-local feature)
 ort        = { workspace = true, optional = true, features = ["std"] }
 tokenizers = { version = "0.21", default-features = false, features = ["fancy-regex"], optional = true }
 

@@ -8,8 +8,10 @@ use async_trait::async_trait;
 use image::RgbImage;
 use tokio::sync::Mutex;
 
-use super::catalog::{self, ModelSpec};
-use super::{cloud, image as img, local, AiError, Category, Face, Label, Locality, Preference};
+use super::catalog::ModelSpec;
+#[cfg(feature = "ai-local")]
+use super::{catalog, local};
+use super::{cloud, image as img, AiError, Category, Face, Label, Locality, Preference};
 use crate::library::Library;
 
 /// The long edge images are decoded to before detection. Faces need more
@@ -85,7 +87,11 @@ impl ProviderRegistry {
 	}
 
 	/// The first installed model of `category`, loading it if needed.
+	///
+	/// A build without `ai-local` has no ONNX Runtime, so it never loads a
+	/// model, even one a full build left on disk.
 	pub async fn local(&self, category: Category) -> Result<Option<Provider>, AiError> {
+		#[cfg(feature = "ai-local")]
 		for spec in catalog::for_category(category) {
 			if !self.is_installed(spec).await {
 				continue;
@@ -102,6 +108,8 @@ impl ProviderRegistry {
 			loaded.insert(spec.id, provider.clone());
 			return Ok(Some(provider));
 		}
+		#[cfg(not(feature = "ai-local"))]
+		let _ = category;
 		Ok(None)
 	}
 

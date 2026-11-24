@@ -49,7 +49,7 @@ pub enum TextKind {
 	/// sidecar. Written when the sidecar is, behind `video-shots`.
 	Scene,
 	/// What a photo shows, from the Photos extension's `caption` sidecar.
-	/// Written when the sidecar is, behind `ai-providers`.
+	/// Written when the sidecar is, behind `ai-cloud`.
 	Caption,
 }
 
