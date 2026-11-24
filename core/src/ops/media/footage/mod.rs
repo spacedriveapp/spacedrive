@@ -131,3 +131,52 @@ pub(crate) async fn videos_at(path: &Path) -> std::io::Result<Vec<PathBuf>> {
 	videos.sort();
 	Ok(videos)
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[tokio::test]
+	async fn videos_at_walks_a_folder_in_path_order_and_skips_hidden_files() {
+		let root = tempfile::tempdir().unwrap();
+		let day = root.path().join("day1");
+		tokio::fs::create_dir_all(day.join(".cache")).await.unwrap();
+		for path in [
+			day.join("b.mov"),
+			day.join("a.mp4"),
+			day.join("notes.txt"),
+			day.join(".hidden.mp4"),
+			day.join(".cache/c.mp4"),
+			root.path().join("z.mkv"),
+		] {
+			tokio::fs::write(&path, b"").await.unwrap();
+		}
+
+		assert_eq!(
+			videos_at(root.path()).await.unwrap(),
+			vec![
+				day.join("a.mp4"),
+				day.join("b.mov"),
+				root.path().join("z.mkv")
+			]
+		);
+		assert_eq!(
+			videos_at(&day.join("b.mov")).await.unwrap(),
+			vec![day.join("b.mov")]
+		);
+	}
+
+	#[test]
+	fn a_path_on_another_device_is_refused() {
+		let remote = SdPath::Physical {
+			device_slug: "another-device".into(),
+			path: "/Footage/a.mp4".into(),
+		};
+		assert!(local_footage_path(&remote).is_err());
+		assert!(local_footage_path(&SdPath::local("/Footage/../etc")).is_err());
+		assert_eq!(
+			local_footage_path(&SdPath::local("/Footage/a.mp4")).unwrap(),
+			PathBuf::from("/Footage/a.mp4")
+		);
+	}
+}
