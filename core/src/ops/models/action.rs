@@ -3,7 +3,11 @@
 use super::{download::ModelDownloadJob, whisper::WhisperModel};
 use crate::{
 	context::CoreContext,
-	infra::action::{error::ActionError, CoreAction},
+	infra::{
+		action::{context::ActionContext, error::ActionError, CoreAction, LibraryAction},
+		job::types::JobPriority,
+	},
+	library::Library,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -36,7 +40,9 @@ impl DownloadWhisperModelAction {
 	}
 }
 
-impl CoreAction for DownloadWhisperModelAction {
+/// Runs in the caller's library, so the client that started a download sees
+/// its job in that library's job list and can cancel it.
+impl LibraryAction for DownloadWhisperModelAction {
 	type Input = DownloadWhisperModelInput;
 	type Output = DownloadWhisperModelOutput;
 
@@ -44,7 +50,11 @@ impl CoreAction for DownloadWhisperModelAction {
 		Ok(Self::new(input))
 	}
 
-	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
+	async fn execute(
+		self,
+		library: Arc<Library>,
+		_context: Arc<CoreContext>,
+	) -> Result<Self::Output, ActionError> {
 		// Parse model
 		let model = WhisperModel::from_str(&self.input.model).ok_or_else(|| {
 			ActionError::InvalidInput(format!("Invalid model name: {}", self.input.model))
@@ -57,17 +67,16 @@ impl CoreAction for DownloadWhisperModelAction {
 		// Create download job
 		let job = ModelDownloadJob::for_whisper_model(model, data_dir);
 
-		// Get the first library to dispatch the job
-		// TODO: Model downloads should be core-level jobs, not library-level
-		let library = context
-			.get_primary_library()
-			.await
-			.ok_or_else(|| ActionError::Internal("No library available".to_string()))?;
-
-		// Dispatch job
+		// The model id rides on the job so a client can match a running
+		// download to its model after a restart.
+		let action_context = ActionContext::new(
+			"models.whisper.download",
+			serde_json::json!({ "model_id": model.id() }),
+			serde_json::json!({ "size_bytes": model.size_bytes() }),
+		);
 		let job_handle = library
 			.jobs()
-			.dispatch(job)
+			.dispatch_with_priority(job, JobPriority::NORMAL, Some(action_context))
 			.await
 			.map_err(|e| ActionError::Internal(format!("Failed to dispatch job: {}", e)))?;
 
@@ -81,7 +90,7 @@ impl CoreAction for DownloadWhisperModelAction {
 	}
 }
 
-crate::register_core_action!(DownloadWhisperModelAction, "models.whisper.download");
+crate::register_library_action!(DownloadWhisperModelAction, "models.whisper.download");
 
 // ============================================================================
 // Delete Whisper Model Action

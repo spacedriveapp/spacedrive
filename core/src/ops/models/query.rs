@@ -17,6 +17,8 @@ pub struct ListWhisperModelsInput {}
 pub struct ListWhisperModelsOutput {
 	pub models: Vec<ModelInfo>,
 	pub total_downloaded_size: u64,
+	/// The model transcription uses when none is named.
+	pub active: Option<String>,
 }
 
 pub struct ListWhisperModelsQuery;
@@ -39,10 +41,15 @@ impl CoreQuery for ListWhisperModelsQuery {
 
 		let models = manager.list_models().await?;
 		let total_size = manager.total_downloaded_size().await;
+		let active = manager
+			.preferred_downloaded()
+			.await
+			.map(|model| model.id().to_string());
 
 		Ok(ListWhisperModelsOutput {
 			models,
 			total_downloaded_size: total_size,
+			active,
 		})
 	}
 }

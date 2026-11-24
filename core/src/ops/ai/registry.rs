@@ -59,33 +59,24 @@ pub enum Provider {
 /// Every model this device can run, loaded on first use and kept for the
 /// daemon's lifetime.
 pub struct ProviderRegistry {
-	models_dir: PathBuf,
+	data_dir: PathBuf,
 	loaded: Mutex<HashMap<&'static str, Provider>>,
 }
 
 impl ProviderRegistry {
 	pub fn new(data_dir: &Path) -> Self {
 		Self {
-			models_dir: crate::ops::models::get_models_dir(data_dir).join("providers"),
+			data_dir: data_dir.to_path_buf(),
 			loaded: Mutex::new(HashMap::new()),
 		}
 	}
 
 	pub fn model_dir(&self, spec: &ModelSpec) -> PathBuf {
-		self.models_dir.join(spec.id)
+		super::model_dir(&self.data_dir, spec)
 	}
 
-	/// Every file is on disk at its catalog size. The hash was checked when
-	/// the download finished, so it is not recomputed on each lookup.
 	pub async fn is_installed(&self, spec: &ModelSpec) -> bool {
-		let dir = self.model_dir(spec);
-		for file in spec.files {
-			match tokio::fs::metadata(dir.join(file.name)).await {
-				Ok(meta) if meta.len() == file.size => {}
-				_ => return false,
-			}
-		}
-		true
+		super::is_installed(&self.data_dir, spec).await
 	}
 
 	/// Drops a loaded model so its files can be deleted.

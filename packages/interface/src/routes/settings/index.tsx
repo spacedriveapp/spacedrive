@@ -3,6 +3,7 @@ import clsx from "clsx";
 import {
 	Books,
 	Broadcast,
+	Cube,
 	Gear,
 	Info,
 	MagnifyingGlass,
@@ -17,6 +18,7 @@ import {
 	LibrarySettings,
 	IndexerSettings,
 	ServicesSettings,
+	ModelsSettings,
 	PrivacySettings,
 	AdvancedSettings,
 	AboutSettings,
@@ -37,6 +39,7 @@ const sections: Section[] = [
 	{ id: "library", label: "Library", icon: Books },
 	{ id: "indexer", label: "Indexer", icon: MagnifyingGlass },
 	{ id: "services", label: "Services", icon: Broadcast },
+	{ id: "models", label: "Models", icon: Cube },
 	{ id: "privacy", label: "Privacy", icon: ShieldCheck },
 	{ id: "advanced", label: "Advanced", icon: Wrench },
 	{ id: "about", label: "About", icon: Info },
@@ -151,6 +154,8 @@ function SettingsContent({ page }: { page: string }) {
 			return <IndexerSettings />;
 		case "services":
 			return <ServicesSettings />;
+		case "models":
+			return <ModelsSettings />;
 		case "privacy":
 			return <PrivacySettings />;
 		case "advanced":

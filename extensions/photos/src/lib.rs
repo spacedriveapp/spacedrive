@@ -39,12 +39,13 @@ use spacedrive_sdk::{extension, prelude::*};
     permissions = [
         Permission::ReadEntries,
         Permission::ReadSidecars(kinds = vec!["exif", "thumbnail"]),
-        Permission::WriteSidecars(kinds = vec!["faces", "places", "scene"]),
+        Permission::WriteSidecars(kinds = vec!["faces", "places", "scene", "caption"]),
         Permission::WriteTags,
         Permission::WriteCustomFields(namespace = "photos"),
         Permission::UseModel(category = "face_detection", preference = ModelPreference::LocalOnly),
         Permission::UseModel(category = "face_embedding", preference = ModelPreference::LocalOnly),
         Permission::UseModel(category = "scene_classification", preference = ModelPreference::LocalOnly),
+        Permission::UseModel(category = "image_caption", preference = ModelPreference::LocalOnly),
         Permission::DispatchJobs,
     ]
 )]
