@@ -19,6 +19,8 @@ pub enum Engine {
 	Siglip,
 	/// E5 sentence embedding, mean pooled.
 	E5,
+	/// Florence-2 vision encoder, BART encoder and decoder, greedy decoding.
+	Florence2,
 }
 
 #[derive(Debug)]
@@ -136,6 +138,49 @@ pub static CATALOG: &[ModelSpec] = &[
 				url: "https://huggingface.co/Xenova/multilingual-e5-small/resolve/main/tokenizer.json",
 				sha256: "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39",
 				size: 17_082_730,
+			},
+		],
+	},
+	ModelSpec {
+		id: "florence-2-base-ft",
+		name: "Florence-2 base",
+		category: Category::ImageCaption,
+		engine: Engine::Florence2,
+		description: "Describes an image in a few sentences, on this device, 8-bit. 275 MB.",
+		license: "MIT",
+		license_url: "https://huggingface.co/microsoft/Florence-2-base-ft",
+		// Pinned to a revision rather than main: the export is regenerated
+		// upstream from time to time and every file has to come from one export.
+		files: &[
+			ModelFile {
+				name: "vision_encoder.onnx",
+				url: "https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/e88a44eaf3791a35eae0c5a47b3dbcd36e67eb6f/onnx/vision_encoder_quantized.onnx",
+				sha256: "3b79d54f23f666f731549db23cb070c35a979ce19cbd9720e90e67a78dc9768c",
+				size: 93_746_540,
+			},
+			ModelFile {
+				name: "embed_tokens.onnx",
+				url: "https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/e88a44eaf3791a35eae0c5a47b3dbcd36e67eb6f/onnx/embed_tokens_quantized.onnx",
+				sha256: "6b2258db1c8ee9b160576ccde3cd3814d83a2edaed0dd1c6ca9ff3c38fa62214",
+				size: 39_390_433,
+			},
+			ModelFile {
+				name: "encoder_model.onnx",
+				url: "https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/e88a44eaf3791a35eae0c5a47b3dbcd36e67eb6f/onnx/encoder_model_quantized.onnx",
+				sha256: "f4ad7a68f1fb875d3bcf735ea14a7021b7ba7e83baf7cf10289881b4ed6d9b85",
+				size: 43_651_493,
+			},
+			ModelFile {
+				name: "decoder_model_merged.onnx",
+				url: "https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/e88a44eaf3791a35eae0c5a47b3dbcd36e67eb6f/onnx/decoder_model_merged_quantized.onnx",
+				sha256: "f22f52f980c33df0efa15932c2f3db6d9d3595ce6387eca938b8cfe23dc4c641",
+				size: 98_177_697,
+			},
+			ModelFile {
+				name: "tokenizer.json",
+				url: "https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/e88a44eaf3791a35eae0c5a47b3dbcd36e67eb6f/tokenizer.json",
+				sha256: "d69dcdb2323e124ac4f800cb9863ddccea0d7bb11e16125e8df3bd60f2f8aeac",
+				size: 2_297_961,
 			},
 		],
 	},

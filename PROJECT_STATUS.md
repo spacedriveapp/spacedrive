@@ -154,7 +154,11 @@ scene labels from a daemon built with `wasm,ai-providers`. The catalog pins
 BlazeFace, AuraFace, SigLIP and E5 (approved November 22); BlazeFace's ONNX
 conversion is hosted at `spacedrive/spacedrive-models` on Hugging Face,
 pinned to a revision.
-Local captioning (Florence-2) needs a generation loop; CoreML is unproven.
+Local captioning runs Florence-2 base (8-bit ONNX, 275 MB, MIT): vision
+encoder, BART encoder and a greedy decoder with its key-value cache, so a
+video shot's `scene` sidecar and a photo's `caption` sidecar get a
+description with no cloud key (Capy FAN-12532).
+CoreML is unproven.
 See `docs/core/inference.mdx`.
 
 Beta.1 log and churn polish from the signed Studio proof (Capy FAN-12343,
