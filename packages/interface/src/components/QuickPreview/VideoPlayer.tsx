@@ -58,7 +58,8 @@ export function VideoPlayer({
 	const hasTranscript = segments.length > 0;
 	const proxyUrl = useProxyUrl(sidecars);
 	// The original stays the source until the webview shows it cannot decode
-	// it; the proxy then takes over at the same position.
+	// it; the proxy then takes over at the same position. The renderer keys
+	// this component by source, so a new file starts with this state fresh.
 	const [originalFailed, setOriginalFailed] = useState(false);
 	const resumeAt = useRef<number | null>(null);
 	const playingProxy = originalFailed && proxyUrl !== null;
@@ -110,11 +111,6 @@ export function VideoPlayer({
 		timelineHover,
 		onControlsStateChange,
 	]);
-
-	useEffect(() => {
-		setOriginalFailed(false);
-		resumeAt.current = null;
-	}, [src]);
 
 	const handleOriginalUnplayable = useCallback(
 		(video: HTMLVideoElement) => {

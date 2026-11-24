@@ -400,6 +400,7 @@ function VideoRenderer({
 
 	return (
 		<VideoPlayer
+			key={videoUrl}
 			src={videoUrl}
 			file={file}
 			onZoomChange={onZoomChange}

@@ -1,6 +1,7 @@
 import type { TranscriptSegment } from "@sd/ts-client";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import clsx from "clsx";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export const TRANSCRIPT_PANEL_WIDTH = 320;
 
@@ -62,24 +63,36 @@ interface TranscriptPanelProps {
 /**
  * A recording's transcript beside its player. Clicking a line seeks to it,
  * and the line being spoken stays in view unless the reader has just
- * scrolled away from it.
+ * scrolled away from it. Long recordings run to thousands of lines, so only
+ * the visible ones are mounted.
  */
 export function TranscriptPanel({ segments, media }: TranscriptPanelProps) {
 	const timeMs = useMediaTimeMs(media);
 	const active = activeSegmentIndex(segments, timeMs);
 	const listRef = useRef<HTMLDivElement>(null);
 	const lastManualScroll = useRef(0);
+	const holdFollow = () => {
+		lastManualScroll.current = Date.now();
+	};
+	// A new key function invalidates the virtualizer's measurements, which
+	// re-renders during render, so it changes only with the segments.
+	const getItemKey = useCallback(
+		(index: number) => segments[index].id,
+		[segments],
+	);
+	const virtualizer = useVirtualizer({
+		count: segments.length,
+		getScrollElement: () => listRef.current,
+		estimateSize: () => 44,
+		getItemKey,
+		paddingEnd: 96,
+	});
 
 	useEffect(() => {
 		if (active < 0) return;
 		if (Date.now() - lastManualScroll.current < MANUAL_SCROLL_HOLD_MS) return;
-		const line = listRef.current?.children[active] as HTMLElement | undefined;
-		line?.scrollIntoView({ behavior: "smooth", block: "center" });
-	}, [active]);
-
-	const holdScroll = () => {
-		lastManualScroll.current = Date.now();
-	};
+		virtualizer.scrollToIndex(active, { align: "center" });
+	}, [active, virtualizer]);
 
 	return (
 		<div
@@ -91,37 +104,56 @@ export function TranscriptPanel({ segments, media }: TranscriptPanelProps) {
 			</div>
 			<div
 				ref={listRef}
-				className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-24"
-				onWheel={holdScroll}
-				onTouchMove={holdScroll}
+				className="flex-1 overflow-y-auto px-2"
+				// Scroll events can't tell the reader from follow-along, so watch the
+				// inputs that scroll: wheel, touch, keys, and the scrollbar, whose
+				// presses land on the list itself rather than on a line.
+				onWheel={holdFollow}
+				onTouchMove={holdFollow}
+				onKeyDown={holdFollow}
+				onPointerDown={(event) => {
+					if (event.target === event.currentTarget) holdFollow();
+				}}
 			>
-				{segments.map((segment, index) => (
-					<button
-						key={segment.id}
-						type="button"
-						onClick={() => {
-							if (!media) return;
-							media.currentTime = segment.start_ms / 1000;
-							lastManualScroll.current = 0;
-						}}
-						className={clsx(
-							"flex w-full gap-3 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
-							index === active
-								? "bg-accent/20 text-white"
-								: "text-white/60 hover:bg-white/5 hover:text-white/90",
-						)}
-					>
-						<span
-							className={clsx(
-								"shrink-0 pt-px text-xs tabular-nums",
-								index === active ? "text-accent" : "text-white/40",
-							)}
-						>
-							{formatTimestamp(segment.start_ms)}
-						</span>
-						<span className="leading-snug">{segment.text}</span>
-					</button>
-				))}
+				<div
+					className="relative w-full"
+					style={{ height: virtualizer.getTotalSize() }}
+				>
+					{virtualizer.getVirtualItems().map((item) => {
+						const segment = segments[item.index];
+						const isActive = item.index === active;
+						return (
+							<button
+								key={item.key}
+								ref={virtualizer.measureElement}
+								data-index={item.index}
+								type="button"
+								onClick={() => {
+									if (!media) return;
+									media.currentTime = segment.start_ms / 1000;
+									lastManualScroll.current = 0;
+								}}
+								className={clsx(
+									"absolute left-0 top-0 flex w-full gap-3 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
+									isActive
+										? "bg-accent/20 text-white"
+										: "text-white/60 hover:bg-white/5 hover:text-white/90",
+								)}
+								style={{ transform: `translateY(${item.start}px)` }}
+							>
+								<span
+									className={clsx(
+										"shrink-0 pt-px text-xs tabular-nums",
+										isActive ? "text-accent" : "text-white/40",
+									)}
+								>
+									{formatTimestamp(segment.start_ms)}
+								</span>
+								<span className="leading-snug">{segment.text}</span>
+							</button>
+						);
+					})}
+				</div>
 			</div>
 		</div>
 	);
