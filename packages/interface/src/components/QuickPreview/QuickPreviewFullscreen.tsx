@@ -11,6 +11,8 @@ import {
 import { TopBarPortal, TopBarItem } from "../../TopBar";
 import { getContentKind } from "@sd/ts-client";
 import { useExplorer } from "../../routes/explorer/context";
+import { useNormalizedQuery } from "../../contexts/SpacedriveContext";
+import type { File } from "@sd/ts-client";
 
 interface QuickPreviewFullscreenProps {
 	fileId: string;
@@ -22,6 +24,7 @@ interface QuickPreviewFullscreenProps {
 	hasNext?: boolean;
 	sidebarWidth?: number;
 	inspectorWidth?: number;
+	startSeconds?: number;
 }
 
 const PREVIEW_LAYER_ID = "quick-preview-layer";
@@ -36,6 +39,7 @@ export function QuickPreviewFullscreen({
 	hasNext,
 	sidebarWidth = 0,
 	inspectorWidth = 0,
+	startSeconds,
 }: QuickPreviewFullscreenProps) {
 	const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 	const [isZoomed, setIsZoomed] = useState(false);
@@ -51,15 +55,23 @@ export function QuickPreviewFullscreen({
 		setIsZoomed(false);
 	}, [fileId]);
 
-	// Get file directly from currentFiles - instant, no network request
-	const file = useMemo(
+	const listedFile = useMemo(
 		() => currentFiles.find((f) => f.id === fileId) ?? null,
 		[currentFiles, fileId],
 	);
 
-	// No query needed - files are already loaded by the explorer views
-	const isLoading = false;
-	const error = null as Error | null;
+	// A content search hit can name a file the current listing does not hold.
+	const fetched = useNormalizedQuery<{ file_id: string }, File>({
+		query: "files.by_id",
+		input: { file_id: fileId },
+		resourceType: "file",
+		resourceId: fileId,
+		enabled: isOpen && !listedFile,
+	});
+
+	const file = listedFile ?? fetched.data ?? null;
+	const isLoading = !listedFile && fetched.isLoading;
+	const error = listedFile ? null : (fetched.error as Error | null);
 
 	// Find portal target on mount
 	useEffect(() => {
@@ -226,6 +238,7 @@ export function QuickPreviewFullscreen({
 							>
 								<ContentRenderer
 									file={file}
+									startSeconds={startSeconds}
 									onZoomChange={setIsZoomed}
 									onVideoControlsStateChange={
 										setVideoControlsState

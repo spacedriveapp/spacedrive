@@ -379,6 +379,7 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 
 function VideoRenderer({
 	file,
+	startSeconds,
 	onZoomChange,
 	onVideoControlsStateChange,
 	onShowVideoControlsChange,
@@ -402,6 +403,7 @@ function VideoRenderer({
 		<VideoPlayer
 			src={videoUrl}
 			file={file}
+			startSeconds={startSeconds}
 			onZoomChange={onZoomChange}
 			onControlsStateChange={onVideoControlsStateChange}
 			onShowControlsChange={onShowVideoControlsChange}
@@ -410,7 +412,7 @@ function VideoRenderer({
 	);
 }
 
-function AudioRenderer({ file }: ContentRendererProps) {
+function AudioRenderer({ file, startSeconds }: ContentRendererProps) {
 	const audioUrl = useOriginalUrl(file);
 
 	if (!audioUrl) {
@@ -426,7 +428,7 @@ function AudioRenderer({ file }: ContentRendererProps) {
 		);
 	}
 
-	return <AudioPlayer src={audioUrl} file={file} />;
+	return <AudioPlayer src={audioUrl} file={file} startSeconds={startSeconds} />;
 }
 
 function DocumentRenderer({ file }: ContentRendererProps) {
