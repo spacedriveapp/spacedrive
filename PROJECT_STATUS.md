@@ -36,6 +36,14 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Content search in the explorer (Capy FAN-13827, November 24, footage beta).
+Explorer search runs `search.content` beside `search.files` over the same
+scope, limited to `transcript`, `scene` and `caption`, and lists hits by file
+above the file results with their snippets. A timestamp chip opens Quick
+Preview at that moment through `openQuickPreview(id, { startSeconds })`, which
+the video and audio players honour once metadata loads. Library scope asks
+every attached local filesystem source that reads contents, one query each.
+
 Scene and caption search (Capy FAN-12538, November 22). `search.content`
 finds files by the descriptions extensions write: the Videos extension's
 `scene` sidecar (kind `scene`, one row per shot with its in and out points,

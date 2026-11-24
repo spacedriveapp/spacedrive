@@ -16,8 +16,12 @@ export const QuickPreviewController = memo(function QuickPreviewController({
 	sidebarWidth: number;
 	inspectorWidth: number;
 }) {
-	const { quickPreviewFileId, closeQuickPreview, currentFiles } =
-		useExplorer();
+	const {
+		quickPreviewFileId,
+		quickPreviewStartSeconds,
+		closeQuickPreview,
+		currentFiles,
+	} = useExplorer();
 	const { selectFile } = useSelection();
 
 	// Early return if no preview - this component won't re-render on selection changes
@@ -28,7 +32,7 @@ export const QuickPreviewController = memo(function QuickPreviewController({
 		(f) => f.id === quickPreviewFileId,
 	);
 	const hasPrevious = currentIndex > 0;
-	const hasNext = currentIndex < currentFiles.length - 1;
+	const hasNext = currentIndex >= 0 && currentIndex < currentFiles.length - 1;
 
 	const handleNext = () => {
 		if (hasNext && currentFiles[currentIndex + 1]) {
@@ -63,6 +67,7 @@ export const QuickPreviewController = memo(function QuickPreviewController({
 			hasNext={hasNext}
 			sidebarWidth={sidebarWidth}
 			inspectorWidth={inspectorWidth}
+			startSeconds={quickPreviewStartSeconds ?? undefined}
 		/>
 	);
 });
