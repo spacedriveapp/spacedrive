@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import type { File } from "@sd/ts-client";
 import { Subtitles, type SubtitleSettings } from "./Subtitles";
 import { SubtitleSettingsMenu } from "./SubtitleSettingsMenu";
+import { TranscriptPanel } from "./TranscriptPanel";
+import { useMediaSidecars, useProxyUrl } from "./useMediaSidecars";
 import { useZoomPan } from "./useZoomPan";
 import type {
 	VideoControlsState,
@@ -25,7 +27,14 @@ export function VideoPlayer({
 	onShowControlsChange,
 	getCallbacks,
 }: VideoPlayerProps) {
-	const videoRef = useRef<HTMLVideoElement>(null);
+	const videoRef = useRef<HTMLVideoElement | null>(null);
+	const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
+		null,
+	);
+	const attachVideo = useCallback((element: HTMLVideoElement | null) => {
+		videoRef.current = element;
+		setVideoElement(element);
+	}, []);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const videoContainerRef = useRef<HTMLDivElement>(null);
 	const [playing, setPlaying] = useState(false);
@@ -43,6 +52,17 @@ export function VideoPlayer({
 	const [showControls, setShowControls] = useState(true);
 	const [seeking, setSeeking] = useState(false);
 	const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
+	const [transcriptOpen, setTranscriptOpen] = useState(true);
+	const sidecars = useMediaSidecars(file);
+	const segments = sidecars?.transcript?.segments ?? [];
+	const hasTranscript = segments.length > 0;
+	const proxyUrl = useProxyUrl(sidecars);
+	// The original stays the source until the webview shows it cannot decode
+	// it; the proxy then takes over at the same position.
+	const [originalFailed, setOriginalFailed] = useState(false);
+	const resumeAt = useRef<number | null>(null);
+	const playingProxy = originalFailed && proxyUrl !== null;
+	const videoSrc = playingProxy ? proxyUrl : src;
 	const [showSubtitleSettings, setShowSubtitleSettings] = useState(false);
 	const [subtitleSettings, setSubtitleSettings] = useState<SubtitleSettings>({
 		fontSize: 1.5,
@@ -54,8 +74,9 @@ export function VideoPlayer({
 		mouseX: number;
 	} | null>(null);
 	const hideControlsTimeout = useRef<number | undefined>(undefined);
-	const { zoom, zoomIn, zoomOut, reset, isZoomed, transform } =
-		useZoomPan(videoContainerRef as React.RefObject<HTMLElement>);
+	const { zoom, zoomIn, zoomOut, reset, isZoomed, transform } = useZoomPan(
+		videoContainerRef as React.RefObject<HTMLElement>,
+	);
 
 	// Expose controls state to parent
 	useEffect(() => {
@@ -69,6 +90,7 @@ export function VideoPlayer({
 			zoom,
 			subtitlesEnabled,
 			showSubtitleSettings,
+			transcriptOpen: hasTranscript && transcriptOpen,
 			seeking,
 			timelineHover,
 		});
@@ -82,10 +104,26 @@ export function VideoPlayer({
 		zoom,
 		subtitlesEnabled,
 		showSubtitleSettings,
+		hasTranscript,
+		transcriptOpen,
 		seeking,
 		timelineHover,
 		onControlsStateChange,
 	]);
+
+	useEffect(() => {
+		setOriginalFailed(false);
+		resumeAt.current = null;
+	}, [src]);
+
+	const handleOriginalUnplayable = useCallback(
+		(video: HTMLVideoElement) => {
+			if (originalFailed) return;
+			resumeAt.current = video.currentTime;
+			setOriginalFailed(true);
+		},
+		[originalFailed],
+	);
 
 	// Expose showControls state to parent
 	useEffect(() => {
@@ -151,6 +189,10 @@ export function VideoPlayer({
 		() => setShowSubtitleSettings((s) => !s),
 		[],
 	);
+	const handleTranscriptToggle = useCallback(
+		() => setTranscriptOpen((open) => !open),
+		[],
+	);
 
 	// Show controls on mouse move, hide after 1s of inactivity
 	const handleMouseMove = useCallback(() => {
@@ -182,6 +224,7 @@ export function VideoPlayer({
 			onZoomReset: reset,
 			onSubtitlesToggle: handleSubtitlesToggle,
 			onSubtitleSettingsToggle: handleSubtitleSettingsToggle,
+			onTranscriptToggle: handleTranscriptToggle,
 			onFullscreenToggle: toggleFullscreen,
 			onMouseMove: handleMouseMove,
 		});
@@ -196,6 +239,7 @@ export function VideoPlayer({
 		handleLoopToggle,
 		handleSubtitlesToggle,
 		handleSubtitleSettingsToggle,
+		handleTranscriptToggle,
 		toggleFullscreen,
 		handleMouseMove,
 		zoomIn,
@@ -252,6 +296,10 @@ export function VideoPlayer({
 					e.preventDefault();
 					handleLoopToggle();
 					break;
+				case "KeyT":
+					e.preventDefault();
+					handleTranscriptToggle();
+					break;
 			}
 		};
 
@@ -264,6 +312,7 @@ export function VideoPlayer({
 		handleMuteToggle,
 		handleSubtitlesToggle,
 		handleLoopToggle,
+		handleTranscriptToggle,
 	]);
 
 	// Sync video element state and persist to localStorage
@@ -287,65 +336,99 @@ export function VideoPlayer({
 	return (
 		<div
 			ref={containerRef}
-			className="relative flex h-full w-full items-center justify-center bg-black"
+			className="relative flex h-full w-full bg-black"
 			onMouseMove={handleMouseMove}
 		>
-			{/* Zoom level indicator */}
-			{zoom > 1 && (
-				<div className="absolute top-4 left-4 z-20 rounded-lg bg-black/80 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-xl">
-					{Math.round(zoom * 100)}%
-				</div>
-			)}
+			<div className="relative flex h-full min-w-0 flex-1 items-center justify-center">
+				{/* Zoom level indicator */}
+				{zoom > 1 && (
+					<div className="absolute left-4 top-4 z-20 rounded-lg bg-black/80 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-xl">
+						{Math.round(zoom * 100)}%
+					</div>
+				)}
 
-			{/* Video container with zoom/pan */}
-			<div
-				ref={videoContainerRef}
-				className={`relative flex h-full w-full items-center justify-center ${isZoomed ? "overflow-visible" : "overflow-hidden"}`}
-			>
+				{playingProxy && zoom <= 1 && (
+					<div
+						className="absolute left-4 top-4 z-20 rounded-md bg-black/70 px-2 py-1 text-xs font-medium text-white/80 backdrop-blur-xl"
+						title="This webview cannot decode the original, so its proxy is playing"
+					>
+						Proxy
+					</div>
+				)}
+
+				{originalFailed && !proxyUrl && (
+					<div className="absolute inset-x-0 top-1/2 z-20 -translate-y-1/2 px-8 text-center text-sm text-white/70">
+						This video cannot be played here. Make a proxy to preview it.
+					</div>
+				)}
+
+				{/* Video container with zoom/pan */}
 				<div
-					style={transform}
-					className="flex items-center justify-center"
+					ref={videoContainerRef}
+					className={`relative flex h-full w-full items-center justify-center ${isZoomed ? "overflow-visible" : "overflow-hidden"}`}
 				>
-					<video
-						ref={videoRef}
-						src={src}
-						autoPlay
-						playsInline
-						className="max-h-screen max-w-screen"
-						onPlay={() => setPlaying(true)}
-						onPause={() => setPlaying(false)}
-						onTimeUpdate={(e) =>
-							!seeking &&
-							setCurrentTime(e.currentTarget.currentTime)
-						}
-						onDurationChange={(e) =>
-							setDuration(e.currentTarget.duration)
-						}
-						onLoadedMetadata={(e) =>
-							setDuration(e.currentTarget.duration)
-						}
-					/>
+					<div
+						style={transform}
+						className="flex max-w-full items-center justify-center"
+					>
+						<video
+							ref={attachVideo}
+							src={videoSrc}
+							autoPlay
+							playsInline
+							className="max-h-screen max-w-full"
+							onPlay={() => setPlaying(true)}
+							onPause={() => setPlaying(false)}
+							onTimeUpdate={(e) =>
+								!seeking && setCurrentTime(e.currentTarget.currentTime)
+							}
+							onDurationChange={(e) => setDuration(e.currentTarget.duration)}
+							onLoadedMetadata={(e) => {
+								const video = e.currentTarget;
+								setDuration(video.duration);
+								// A codec the webview cannot decode can still
+								// load, with sound and no picture.
+								if (!playingProxy && video.videoWidth === 0) {
+									handleOriginalUnplayable(video);
+									return;
+								}
+								if (resumeAt.current !== null) {
+									video.currentTime = resumeAt.current;
+									resumeAt.current = null;
+								}
+							}}
+							onError={(e) => {
+								if (!playingProxy) {
+									handleOriginalUnplayable(e.currentTarget);
+								}
+							}}
+						/>
+					</div>
 				</div>
+
+				{/* Subtitles */}
+				{subtitlesEnabled && hasTranscript && (
+					<div className="absolute inset-0 z-10 pointer-events-none">
+						<Subtitles
+							segments={segments}
+							videoElement={videoElement}
+							settings={subtitleSettings}
+						/>
+					</div>
+				)}
+
+				{/* Subtitle Settings Menu */}
+				<SubtitleSettingsMenu
+					isOpen={showSubtitleSettings}
+					settings={subtitleSettings}
+					onSettingsChange={setSubtitleSettings}
+					onClose={() => setShowSubtitleSettings(false)}
+				/>
 			</div>
 
-			{/* Subtitles */}
-			{subtitlesEnabled && (
-				<div className="absolute inset-0 z-10 pointer-events-none">
-					<Subtitles
-						file={file}
-						videoElement={videoRef.current}
-						settings={subtitleSettings}
-					/>
-				</div>
+			{hasTranscript && transcriptOpen && (
+				<TranscriptPanel segments={segments} media={videoElement} />
 			)}
-
-			{/* Subtitle Settings Menu */}
-			<SubtitleSettingsMenu
-				isOpen={showSubtitleSettings}
-				settings={subtitleSettings}
-				onSettingsChange={setSubtitleSettings}
-				onClose={() => setShowSubtitleSettings(false)}
-			/>
 		</div>
 	);
 }

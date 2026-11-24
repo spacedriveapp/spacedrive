@@ -25,7 +25,9 @@ use tokio::{
 	net::{TcpListener, TcpStream},
 	sync::OnceCell,
 };
-use tracing::{error, info};
+use tower::ServiceExt;
+use tower_http::services::ServeFile;
+use tracing::{debug, error, info};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -116,10 +118,14 @@ async fn find_library_folder(
 	Err(StatusCode::NOT_FOUND)
 }
 
-/// Serve a sidecar file (e.g., thumbnail)
+/// Serve a sidecar file: a thumbnail, a transcript, or a proxy a video plays.
+///
+/// Byte ranges are answered, because a video element only plays and seeks a
+/// proxy from a server that honours them.
 async fn serve_sidecar(
 	State(state): State<ServerState>,
 	Path((library_id, content_uuid, kind, variant_and_ext)): Path<(String, String, String, String)>,
+	request: Request<Body>,
 ) -> Result<Response<Body>, StatusCode> {
 	let content_uuid = content_uuid
 		.parse::<uuid::Uuid>()
@@ -151,55 +157,18 @@ async fn serve_sidecar(
 			ext,
 		));
 
-	// Open the file
-	let file = File::open(&sidecar_path).await.map_err(|e| {
-		if e.kind() == io::ErrorKind::NotFound {
-			error!("Sidecar file not found: {:?}", sidecar_path);
-			StatusCode::NOT_FOUND
-		} else {
-			error!("Error opening sidecar {:?}: {}", sidecar_path, e);
-			StatusCode::INTERNAL_SERVER_ERROR
-		}
-	})?;
-
-	let metadata = file.metadata().await.map_err(|e| {
-		error!("Error reading metadata for {:?}: {}", sidecar_path, e);
-		StatusCode::INTERNAL_SERVER_ERROR
-	})?;
-
-	// Determine content type from extension
-	let content_type = variant_and_ext
-		.rsplit('.')
-		.next()
-		.and_then(|ext| match ext {
-			"webp" => Some("image/webp"),
-			"jpg" | "jpeg" => Some("image/jpeg"),
-			"png" => Some("image/png"),
-			_ => None,
-		})
-		.unwrap_or("application/octet-stream");
-
-	// Build response with proper headers
-	let content_length = metadata.len();
-	let body = Body::from_stream(tokio_util::io::ReaderStream::new(file));
-
-	Response::builder()
-		.status(StatusCode::OK)
-		.header(header::CONTENT_TYPE, HeaderValue::from_static(content_type))
-		.header(header::CONTENT_LENGTH, content_length)
-		.header(
+	let Ok(mut response) = ServeFile::new(&sidecar_path).oneshot(request).await;
+	if response.status() == StatusCode::NOT_FOUND {
+		debug!("Sidecar file not found: {:?}", sidecar_path);
+		return Err(StatusCode::NOT_FOUND);
+	}
+	if response.status().is_success() {
+		response.headers_mut().insert(
 			header::CACHE_CONTROL,
 			HeaderValue::from_static("public, max-age=31536000, immutable"),
-		)
-		.header(
-			header::ACCESS_CONTROL_ALLOW_ORIGIN,
-			HeaderValue::from_static("*"),
-		)
-		.body(body)
-		.map_err(|e| {
-			error!("Error building response: {}", e);
-			StatusCode::INTERNAL_SERVER_ERROR
-		})
+		);
+	}
+	Ok(response.map(Body::new))
 }
 
 /// CORS middleware to add headers to all responses (including errors)

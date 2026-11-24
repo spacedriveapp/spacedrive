@@ -36,6 +36,19 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Transcript in Quick Preview (Capy FAN-13826, November 24, beta footage scope
+item 6). `File.sidecars` is never filled, so the old subtitle code never
+showed anything. The new library query `media.sidecars` takes one file and
+answers its content uuid, transcript segments, largest proxy (with its
+modification time as a cache buster) and shot list; Quick Preview asks for it
+per previewed file, so the listing pays nothing. The video player shows
+subtitles, a transcript panel with click to seek that follows playback, and
+shot boundaries on the timeline, and swaps to the proxy at the same position
+when the webview cannot decode the original. The audio view reads the same
+transcript. Both sidecar HTTP servers now answer byte ranges, which video
+playback needs. `ops::media` and the shot list reader are always compiled;
+only detection stays behind `video-shots`.
+
 Scene and caption search (Capy FAN-12538, November 22). `search.content`
 finds files by the descriptions extensions write: the Videos extension's
 `scene` sidecar (kind `scene`, one row per shot with its in and out points,

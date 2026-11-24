@@ -10,10 +10,13 @@ import {
 	ArrowCounterClockwise,
 	Gear,
 	Repeat,
+	Article,
 } from "@phosphor-icons/react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { File } from "@sd/ts-client";
 import { TimelineScrubber } from "./TimelineScrubber";
+import { TRANSCRIPT_PANEL_WIDTH } from "./TranscriptPanel";
+import { useMediaSidecars } from "./useMediaSidecars";
 
 export interface VideoControlsState {
 	playing: boolean;
@@ -25,6 +28,7 @@ export interface VideoControlsState {
 	zoom: number;
 	subtitlesEnabled: boolean;
 	showSubtitleSettings: boolean;
+	transcriptOpen: boolean;
 	seeking: boolean;
 	timelineHover: { percent: number; mouseX: number } | null;
 }
@@ -44,6 +48,7 @@ export interface VideoControlsCallbacks {
 	onZoomReset: () => void;
 	onSubtitlesToggle: () => void;
 	onSubtitleSettingsToggle: () => void;
+	onTranscriptToggle: () => void;
 	onFullscreenToggle: () => void;
 	onMouseMove: () => void;
 }
@@ -76,9 +81,10 @@ export function VideoControls({
 	sidebarWidth = 0,
 	inspectorWidth = 0,
 }: VideoControlsProps) {
-	const hasSubs = file.sidecars?.some(
-		(s) => s.kind === "transcript" && s.variant === "srt",
-	);
+	const sidecars = useMediaSidecars(file);
+	const hasSubs = (sidecars?.transcript?.segments.length ?? 0) > 0;
+	const shotStarts =
+		sidecars?.shots?.shots.slice(1).map((shot) => shot.in.seconds) ?? [];
 
 	return (
 		<AnimatePresence>
@@ -92,7 +98,9 @@ export function VideoControls({
 					style={{
 						pointerEvents: "auto",
 						left: sidebarWidth,
-						right: inspectorWidth,
+						right:
+							inspectorWidth +
+							(state.transcriptOpen ? TRANSCRIPT_PANEL_WIDTH : 0),
 					}}
 					onMouseMove={callbacks.onMouseMove}
 				>
@@ -131,6 +139,18 @@ export function VideoControls({
 									width: `${(state.currentTime / state.duration) * 100}%`,
 								}}
 							/>
+
+							{/* Shot boundaries */}
+							{state.duration > 0 &&
+								shotStarts.map((seconds) => (
+									<div
+										key={seconds}
+										className="absolute top-0 h-full w-px bg-black/60"
+										style={{
+											left: `${(seconds / state.duration) * 100}%`,
+										}}
+									/>
+								))}
 
 							{/* Scrubber */}
 							<div
@@ -173,8 +193,7 @@ export function VideoControls({
 
 						{/* Time */}
 						<div className="text-sm font-medium text-white">
-							{formatTime(state.currentTime)} /{" "}
-							{formatTime(state.duration)}
+							{formatTime(state.currentTime)} / {formatTime(state.duration)}
 						</div>
 
 						<div className="flex-1" />
@@ -189,15 +208,24 @@ export function VideoControls({
 											? "bg-accent/20 text-accent"
 											: "text-white hover:bg-white/10"
 									}`}
-									title="Toggle subtitles"
+									title="Toggle subtitles (C)"
 								>
 									<ClosedCaptioning size={20} weight="fill" />
 								</button>
+								<button
+									onClick={callbacks.onTranscriptToggle}
+									className={`rounded-md p-2 transition-colors ${
+										state.transcriptOpen
+											? "bg-accent/20 text-accent"
+											: "text-white hover:bg-white/10"
+									}`}
+									title="Toggle transcript (T)"
+								>
+									<Article size={20} weight="fill" />
+								</button>
 								{state.subtitlesEnabled && (
 									<button
-										onClick={
-											callbacks.onSubtitleSettingsToggle
-										}
+										onClick={callbacks.onSubtitleSettingsToggle}
 										className="rounded-md p-2 text-white transition-colors hover:bg-white/10"
 										title="Subtitle settings"
 									>
@@ -231,10 +259,7 @@ export function VideoControls({
 									className="rounded-md p-2 text-white transition-colors hover:bg-white/10"
 									title="Reset zoom (0)"
 								>
-									<ArrowCounterClockwise
-										size={18}
-										weight="bold"
-									/>
+									<ArrowCounterClockwise size={18} weight="bold" />
 								</button>
 							)}
 						</div>
@@ -261,9 +286,7 @@ export function VideoControls({
 									step="0.01"
 									value={state.volume}
 									onChange={(e) =>
-										callbacks.onVolumeChange(
-											parseFloat(e.target.value),
-										)
+										callbacks.onVolumeChange(parseFloat(e.target.value))
 									}
 									className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/20 [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
 								/>

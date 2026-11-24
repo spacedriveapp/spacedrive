@@ -5,6 +5,7 @@
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use uuid::Uuid;
 
 use crate::domain::sidecar::{ContentSidecar, SidecarFormat};
@@ -21,7 +22,7 @@ pub const MEDIA_EXTENSIONS: &[&str] = &[
 ];
 
 /// What was said in a recording, as `transcript/default.json` holds it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct Transcript {
 	pub version: u32,
 	/// The model that made it, such as `whisper-base`.
@@ -36,7 +37,7 @@ pub struct Transcript {
 }
 
 /// One timed stretch of speech.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct TranscriptSegment {
 	/// `seg_<start_ms>`, unique within the transcript. It names the same
 	/// segment for as long as this transcript file exists, and a search hit
