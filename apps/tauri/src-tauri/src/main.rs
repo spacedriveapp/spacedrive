@@ -3,6 +3,7 @@
 
 mod apps;
 mod drag;
+mod extensions;
 mod file_opening;
 mod files;
 mod keybinds;
@@ -2243,11 +2244,20 @@ fn main() {
 			app.manage(file_opening::FileOpeningService::new());
 
 			let _handle = app.handle().clone();
+			let resource_dir = app.path().resource_dir().ok();
 
 			// Initialize daemon connection in background
 			tauri::async_runtime::spawn(async move {
 				tracing::info!("Data directory: {:?}", data_dir_clone);
 				tracing::info!("Socket address: {:?}", socket_addr);
+
+				// A dev build leaves the extensions directory to the developer,
+				// who installs extensions built from their own checkout.
+				if !cfg!(debug_assertions) {
+					if let Some(resource_dir) = resource_dir {
+						extensions::install_bundled(resource_dir, data_dir_clone.clone()).await;
+					}
+				}
 
 				// Start HTTP server for serving files/sidecars
 				match server::start_server(data_dir_clone.clone(), socket_addr.clone()).await {
