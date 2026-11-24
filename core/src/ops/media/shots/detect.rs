@@ -62,35 +62,6 @@ pub struct FrameScore {
 	pub score: f32,
 }
 
-/// Read the output of FFmpeg's `metadata=print` filter after
-/// `select='gte(scene,0)'`: a `frame:N pts:P pts_time:T` line and then a
-/// `lavfi.scene_score=S` line for every decoded frame, in order.
-pub fn parse_scores(output: &str) -> Vec<FrameScore> {
-	let mut frames = Vec::new();
-	let mut time = None;
-	for line in output.lines() {
-		let line = line.trim();
-		if line.starts_with("frame:") {
-			time = line
-				.split_whitespace()
-				.find_map(|field| field.strip_prefix("pts_time:"))
-				.and_then(|value| value.parse::<f64>().ok());
-		} else if let Some(score) = line.strip_prefix("lavfi.scene_score=") {
-			let score = score.parse::<f32>().unwrap_or(0.0);
-			let time = time.take().unwrap_or_else(|| {
-				frames
-					.last()
-					.map_or(0.0, |previous: &FrameScore| previous.time)
-			});
-			frames.push(FrameScore {
-				time,
-				score: if score.is_finite() { score } else { 0.0 },
-			});
-		}
-	}
-	frames
-}
-
 /// The frames that open a new shot, ascending, each with its score. Frame 0
 /// is never one of them.
 ///
@@ -160,15 +131,6 @@ mod tests {
 				score,
 			})
 			.collect()
-	}
-
-	#[test]
-	fn parses_metadata_print_output() {
-		let output = "frame:0    pts:0       pts_time:0\nlavfi.scene_score=0.000000\nframe:1    pts:800     pts_time:0.0417014\nlavfi.scene_score=0.106277\n";
-		let frames = parse_scores(output);
-		assert_eq!(frames.len(), 2);
-		assert_eq!(frames[1].time, 0.0417014);
-		assert!((frames[1].score - 0.106277).abs() < 1e-6);
 	}
 
 	#[test]

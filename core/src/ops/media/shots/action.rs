@@ -60,7 +60,7 @@ impl LibraryAction for ShotDetectAction {
 	}
 }
 
-/// Shot detection reads the file with host FFmpeg, so it has to be here.
+/// Shot detection reads the file on this device, so it has to be here.
 pub(super) fn local_path(path: &SdPath) -> Result<PathBuf, String> {
 	match path {
 		SdPath::Physical { device_slug, path }

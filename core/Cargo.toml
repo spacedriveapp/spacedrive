@@ -26,15 +26,15 @@ wasm = ["dep:wasmer", "dep:wasmer-middlewares"]
 # Read-only FUSE mount of every source on Linux. Mounting needs fusermount3
 # at runtime; the build needs no libfuse headers.
 fuse = ["dep:fuser"]
-# Video proxies and speech audio for footage, written with the host FFmpeg.
-video-proxies = []
+# Video proxies and speech audio for footage, written with the linked FFmpeg.
+video-proxies = ["ffmpeg"]
 # Local inference providers behind ai.infer (ONNX Runtime, model tokenizers)
 # and the opt-in cloud caption provider. Off by default: without it every
 # ai.infer request is answered not_available, as before.
 ai-providers = ["dep:ort", "dep:tokenizers"]
-# Shot detection on video with host FFmpeg: the media.shots ops, the shots
-# and keyframe sidecars, and the agent MCP list_shots tool.
-video-shots = []
+# Shot detection on video with the linked FFmpeg: the media.shots ops, the
+# shots and keyframe sidecars, and the agent MCP list_shots tool.
+video-shots = ["ffmpeg"]
 # Clips for agents and rough-cut export: media.clips.search, media.footage.read,
 # media.timeline.export and their agent MCP tools. Reads shots, so it builds
 # the shot detection module too.

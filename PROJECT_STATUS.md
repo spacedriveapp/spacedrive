@@ -44,6 +44,16 @@ configures the bring-your-own-key cloud caption client. The `ai` ops, catalog
 and caption key store now build without `ai-providers`, so their types are in
 the ts-client; only inference stays behind the feature.
 
+Footage without a system FFmpeg (Capy FAN-13823, November 24, beta footage
+scope). Proxies, speech audio, shot detection, keyframes and the clip probes
+ran the `ffmpeg` and `ffprobe` executables from the PATH, which a Mac without
+Homebrew lacks. They now run in-process on the linked FFmpeg libraries
+through `sd_ffmpeg::footage` (probe, scene scores, JPEG frame, transcode),
+with the same filter strings and encoder settings, so `video-proxies` and
+`video-shots` now turn on the `ffmpeg` feature. The footage unit tests make
+their own media with the libraries and need no executable. Thumbnails and
+thumbstrips still use the host tool.
+
 Content search in the explorer (Capy FAN-13827, November 24, footage beta).
 Explorer search runs `search.content` beside `search.files` over the same
 scope, limited to `transcript`, `scene` and `caption`, and lists hits by file
@@ -123,8 +133,8 @@ The `media.proxies.generate` action, compiled only with the `video-proxies`
 cargo feature (off by default), runs a resumable job over a video file or
 folder. For each video it writes an H.264 proxy (720p by default, 1080p on
 request, a keyframe every second, frame timing and start timecode passed
-through) and the first audio track as 16 kHz mono 16-bit WAV, using the host
-FFmpeg. Both live in the content-addressed sidecar tree keyed by the
+through) and the first audio track as 16 kHz mono 16-bit WAV, using the
+FFmpeg libraries the app links (no `ffmpeg` executable since FAN-13823). Both live in the content-addressed sidecar tree keyed by the
 candidate content uuid (`sidecars/content/../proxies/720p.mp4`,
 `audio/16k_mono.wav`), so a rerun or a moved file does nothing; the layout
 is under "Media sidecars" in `docs/core/virtual-sidecars.mdx` and resolved by
