@@ -1,8 +1,10 @@
 use std::{
 	collections::HashMap,
-	ffi::OsString,
 	path::{Path, PathBuf},
-	sync::{Arc, LazyLock, Mutex, PoisonError, Weak},
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc, LazyLock, Mutex, PoisonError, Weak,
+	},
 	time::{Duration, Instant},
 };
 
@@ -12,7 +14,7 @@ use specta::Type;
 use uuid::Uuid;
 
 use super::{
-	detect::{parse_scores, pick_cuts, DetectParams, FrameScore},
+	detect::{pick_cuts, DetectParams, FrameScore},
 	sidecar::{
 		content_uuid_of_video, partial_path, write_shots, AnalyzedMedia, FrameRate, Shot, ShotList,
 		SHOTS_VERSION,
@@ -21,18 +23,18 @@ use super::{
 use crate::{
 	domain::sidecar::{ContentSidecar, ProxyResolution},
 	infra::job::{generic_progress::GenericProgress, prelude::*},
-	service::external_tools::ExternalTools,
 };
 
 /// Height the scan decodes to. Scene scores barely change below 720p and
 /// decoding gets several times faster.
 const SCAN_HEIGHT: u32 = 270;
-/// Upper bound on the scan's text output: two short lines per frame, so
-/// about 30 hours of 60 fps video.
-const SCAN_OUTPUT_LIMIT: usize = 512 * 1024 * 1024;
-const PROBE_TIMEOUT: Duration = Duration::from_secs(30);
-const KEYFRAME_TIMEOUT: Duration = Duration::from_secs(60);
-const SMALL_OUTPUT_LIMIT: usize = 1024 * 1024;
+/// Scores every frame, at the scan height, for the cut picker.
+const SCAN_FILTER: &str = "scale=-2:270,select='gte(scene,0)'";
+/// Short side at most 720, in the full-range 4:2:0 a JPEG stores.
+const KEYFRAME_FILTER: &str =
+	"scale='if(gt(iw,ih),-2,min(720,iw))':'if(gt(iw,ih),min(720,ih),-2)',format=yuvj420p";
+/// MJPEG quantizer scale, as `-q:v 3`.
+const KEYFRAME_QUALITY: i32 = 3;
 
 #[derive(Debug, Serialize, Deserialize, Job)]
 pub struct ShotDetectionJob {
@@ -85,7 +87,6 @@ impl JobHandler for ShotDetectionJob {
 
 	async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
 		let library_path = ctx.library().path().to_path_buf();
-		let tools = ctx.library().core_context().external_tools.clone();
 
 		let content_uuid = content_uuid_of_video(&self.path)
 			.await
@@ -104,21 +105,15 @@ impl JobHandler for ShotDetectionJob {
 
 		progress(&ctx, 0.0, "Probing", "reading the frame rate", None);
 		let probe = {
-			let tools = tools.clone();
 			let path = self.path.clone();
-			blocking(move || probe(&tools, &path)).await?
+			blocking(move || probe(&path)).await?
 		};
 
 		progress(&ctx, 0.05, "Scanning", "scoring every frame", None);
 		ctx.check_interrupt().await?;
-		let frames = {
-			let tools = tools.clone();
-			let path = scanned.clone();
-			let timeout = scan_timeout(probe.duration);
-			blocking(move || scan(&tools, &path, timeout)).await?
-		};
+		let frames = scan(&ctx, scanned.clone()).await?;
 		if frames.is_empty() {
-			return Err(JobError::execution("FFmpeg decoded no video frames"));
+			return Err(JobError::execution("the scan decoded no video frames"));
 		}
 		ctx.log(format!(
 			"scanned {} frames of the {:?} file",
@@ -146,9 +141,8 @@ impl JobHandler for ShotDetectionJob {
 				let time = frames
 					.get(shot.keyframe.frame as usize)
 					.map_or(shot.keyframe.seconds, |frame| frame.time);
-				let tools = tools.clone();
 				let scanned = scanned.clone();
-				blocking(move || extract_keyframe(&tools, &scanned, time, &path)).await?;
+				blocking(move || extract_keyframe(&scanned, time, &path)).await?;
 				written += 1;
 			}
 			progress(
@@ -223,51 +217,28 @@ async fn blocking<T: Send + 'static>(
 		.map_err(JobError::execution)
 }
 
-/// Long enough for a slow machine to decode a 4K original without a proxy.
-fn scan_timeout(duration: Option<f64>) -> Duration {
-	let seconds = duration.unwrap_or(4.0 * 3600.0);
-	Duration::from_secs_f64((seconds * 4.0).max(600.0))
-}
-
 struct Probe {
 	rate: FrameRate,
 	start_timecode: Option<String>,
-	duration: Option<f64>,
 }
 
-fn probe(tools: &Arc<ExternalTools>, path: &Path) -> Result<Probe, String> {
-	let args: Vec<OsString> = vec![
-		"-v".into(),
-		"error".into(),
-		"-select_streams".into(),
-		"v:0".into(),
-		"-show_entries".into(),
-		"stream=avg_frame_rate,r_frame_rate:stream_tags=timecode:format=duration:format_tags=timecode"
-			.into(),
-		"-of".into(),
-		"json".into(),
-		path.as_os_str().to_owned(),
-	];
-	let output = tools
-		.run_ffprobe(&args, PROBE_TIMEOUT, SMALL_OUTPUT_LIMIT)
-		.map_err(|error| error.to_string())?;
-	if !output.status.success() {
-		return Err(format!(
-			"FFprobe could not read the video: {}",
-			output.stderr.trim()
-		));
-	}
-	let json: Value = serde_json::from_slice(&output.stdout)
-		.map_err(|error| format!("FFprobe output was not JSON: {error}"))?;
+fn probe(path: &Path) -> Result<Probe, String> {
+	let json = sd_ffmpeg::footage::probe(path)
+		.map_err(|error| format!("could not read the video: {error}"))?;
 	parse_probe(&json)
 }
 
-/// The original's frame rate, start timecode and duration. The average rate
+/// The original's frame rate and start timecode. The average rate
 /// is the one that maps frame numbers onto the file's clock; the nominal
 /// rate is the fallback for containers that do not report an average.
 fn parse_probe(json: &Value) -> Result<Probe, String> {
 	let stream = json["streams"]
-		.get(0)
+		.as_array()
+		.and_then(|streams| {
+			streams
+				.iter()
+				.find(|stream| stream["codec_type"] == "video")
+		})
 		.ok_or("the file has no video stream")?;
 	let rate = [&stream["avg_frame_rate"], &stream["r_frame_rate"]]
 		.into_iter()
@@ -279,49 +250,45 @@ fn parse_probe(json: &Value) -> Result<Probe, String> {
 	]
 	.into_iter()
 	.find_map(|value| value.as_str().map(str::to_string));
-	let duration = json["format"]["duration"]
-		.as_str()
-		.and_then(|value| value.parse().ok());
 	Ok(Probe {
 		rate,
 		start_timecode,
-		duration,
 	})
 }
 
-fn scan(
-	tools: &Arc<ExternalTools>,
-	path: &Path,
-	timeout: Duration,
-) -> Result<Vec<FrameScore>, String> {
-	let args: Vec<OsString> = vec![
-		"-hide_banner".into(),
-		"-loglevel".into(),
-		"error".into(),
-		"-nostdin".into(),
-		"-i".into(),
-		path.as_os_str().to_owned(),
-		"-map".into(),
-		"0:v:0".into(),
-		"-an".into(),
-		"-sn".into(),
-		"-dn".into(),
-		"-vf".into(),
-		format!("scale=-2:{SCAN_HEIGHT},select='gte(scene,0)',metadata=print:file=-").into(),
-		"-f".into(),
-		"null".into(),
-		"-".into(),
-	];
-	let output = tools
-		.run_ffmpeg(&args, timeout, SCAN_OUTPUT_LIMIT)
-		.map_err(|error| error.to_string())?;
-	if !output.status.success() {
-		return Err(format!(
-			"FFmpeg could not scan the video: {}",
-			output.stderr.trim()
-		));
-	}
-	Ok(parse_scores(&String::from_utf8_lossy(&output.stdout)))
+/// Score every frame, checking for pause and cancel as the scan runs.
+///
+/// A 4K original without a proxy takes minutes to decode, so waiting for
+/// the scan before honouring an interrupt would hold a pause that long.
+async fn scan(ctx: &JobContext<'_>, path: PathBuf) -> JobResult<Vec<FrameScore>> {
+	let cancel = Arc::new(AtomicBool::new(false));
+	let mut work = tokio::task::spawn_blocking({
+		let cancel = cancel.clone();
+		move || sd_ffmpeg::footage::scene_scores(&path, SCAN_FILTER, &cancel)
+	});
+	let mut tick = tokio::time::interval(Duration::from_millis(500));
+	let scores = loop {
+		tokio::select! {
+			done = &mut work => break done,
+			_ = tick.tick() => {
+				if let Err(interrupt) = ctx.check_interrupt().await {
+					cancel.store(true, Ordering::Relaxed);
+					let _ = work.await;
+					return Err(interrupt);
+				}
+			}
+		}
+	};
+	let scores = scores
+		.map_err(|error| JobError::execution(format!("shot detection worker failed: {error}")))?
+		.map_err(|error| JobError::execution(format!("could not scan the video: {error}")))?;
+	Ok(scores
+		.into_iter()
+		.map(|frame| FrameScore {
+			time: frame.time,
+			score: frame.score,
+		})
+		.collect())
 }
 
 fn build_list(
@@ -368,54 +335,16 @@ fn build_list(
 }
 
 /// One JPEG at `time` in the scanned file, short side at most 720.
-fn extract_keyframe(
-	tools: &Arc<ExternalTools>,
-	scanned: &Path,
-	time: f64,
-	path: &Path,
-) -> Result<(), String> {
+fn extract_keyframe(scanned: &Path, time: f64, path: &Path) -> Result<(), String> {
 	let partial = partial_path(path);
 	if let Some(parent) = path.parent() {
 		std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
 	}
-	let args: Vec<OsString> = vec![
-		"-hide_banner".into(),
-		"-loglevel".into(),
-		"error".into(),
-		"-nostdin".into(),
-		"-y".into(),
-		"-ss".into(),
-		format!("{time:.6}").into(),
-		"-i".into(),
-		scanned.as_os_str().to_owned(),
-		"-map".into(),
-		"0:v:0".into(),
-		"-an".into(),
-		"-sn".into(),
-		"-dn".into(),
-		"-vf".into(),
-		"scale='if(gt(iw,ih),-2,min(720,iw))':'if(gt(iw,ih),min(720,ih),-2)'".into(),
-		"-frames:v".into(),
-		"1".into(),
-		"-c:v".into(),
-		"mjpeg".into(),
-		"-q:v".into(),
-		"3".into(),
-		"-f".into(),
-		"image2".into(),
-		"-update".into(),
-		"1".into(),
-		partial.as_os_str().to_owned(),
-	];
-	let output = tools
-		.run_ffmpeg(&args, KEYFRAME_TIMEOUT, SMALL_OUTPUT_LIMIT)
-		.map_err(|error| error.to_string())?;
-	if !output.status.success() || !partial.exists() {
+	if let Err(error) =
+		sd_ffmpeg::footage::write_jpeg(scanned, time, KEYFRAME_FILTER, KEYFRAME_QUALITY, &partial)
+	{
 		let _ = std::fs::remove_file(&partial);
-		return Err(format!(
-			"FFmpeg could not extract a keyframe: {}",
-			output.stderr.trim()
-		));
+		return Err(format!("could not extract a keyframe: {error}"));
 	}
 	std::fs::rename(&partial, path).map_err(|error| error.to_string())
 }
@@ -454,7 +383,7 @@ mod tests {
 	#[test]
 	fn probe_prefers_the_average_rate_and_reads_the_timecode() {
 		let json = serde_json::json!({
-			"streams": [{ "avg_frame_rate": "24000/1001", "r_frame_rate": "24/1", "tags": { "timecode": "01:00:00:00" } }],
+			"streams": [{ "codec_type": "video", "avg_frame_rate": "24000/1001", "r_frame_rate": "24/1", "tags": { "timecode": "01:00:00:00" } }],
 			"format": { "duration": "12.5" }
 		});
 		let probe = parse_probe(&json).unwrap();
@@ -466,10 +395,9 @@ mod tests {
 			}
 		);
 		assert_eq!(probe.start_timecode.as_deref(), Some("01:00:00:00"));
-		assert_eq!(probe.duration, Some(12.5));
 
 		let json = serde_json::json!({
-			"streams": [{ "avg_frame_rate": "0/0", "r_frame_rate": "25/1" }],
+			"streams": [{ "codec_type": "audio" }, { "codec_type": "video", "avg_frame_rate": "0/0", "r_frame_rate": "25/1" }],
 			"format": { "tags": { "timecode": "10:00:00:00" } }
 		});
 		let probe = parse_probe(&json).unwrap();
@@ -510,5 +438,48 @@ mod tests {
 		);
 		assert_eq!(again.shots[0].id, list.shots[0].id);
 		assert_ne!(again.shots[1].id, list.shots[1].id);
+	}
+
+	/// Three shots rendered with the linked libraries, cut where the
+	/// picture changes, with a keyframe for each. No `ffmpeg` executable is
+	/// involved.
+	#[test]
+	fn hard_cuts_in_rendered_footage_split_into_shots() {
+		let dir = tempfile::tempdir().unwrap();
+		let video = dir.path().join("three.mov");
+		sd_ffmpeg::footage::render(
+			"color=c=red:s=320x180:r=24:d=2,format=yuv420p[a];testsrc2=s=320x180:r=24:d=2,format=yuv420p[b];color=c=blue:s=320x180:r=24:d=2,format=yuv420p[c];[a][b][c]concat=n=3:v=1:a=0",
+			"libx264",
+			&[("preset".to_string(), "ultrafast".to_string())],
+			"mov",
+			&[("timecode".to_string(), "01:00:00:00".to_string())],
+			&video,
+		)
+		.unwrap();
+		let probe = probe(&video).unwrap();
+		assert_eq!(probe.rate, FrameRate { num: 24, den: 1 });
+		assert_eq!(probe.start_timecode.as_deref(), Some("01:00:00:00"));
+
+		let frames: Vec<FrameScore> =
+			sd_ffmpeg::footage::scene_scores(&video, SCAN_FILTER, &AtomicBool::new(false))
+				.unwrap()
+				.into_iter()
+				.map(|frame| FrameScore {
+					time: frame.time,
+					score: frame.score,
+				})
+				.collect();
+		assert_eq!(frames.len(), 144);
+		assert_eq!(frames[48].time, 2.0);
+		let cuts: Vec<u64> = pick_cuts(&frames, probe.rate.fps(), DetectParams::default())
+			.into_iter()
+			.map(|(frame, _)| frame)
+			.collect();
+		assert_eq!(cuts, vec![48, 96]);
+
+		let keyframe = dir.path().join("shot.jpg");
+		extract_keyframe(&video, frames[72].time, &keyframe).unwrap();
+		let image = image::open(&keyframe).unwrap();
+		assert_eq!((image.width(), image.height()), (320, 180));
 	}
 }

@@ -302,7 +302,7 @@ optional `label`.
 
 | Fact | Source |
 | --- | --- |
-| Frame rate, start timecode, duration | The shots sidecar when present, else a probe of the original with the host FFprobe. Export always probes the original. |
+| Frame rate, start timecode, duration | The shots sidecar when present, else a probe of the original with the linked FFmpeg libraries. Export always probes the original. |
 | Picture size, sound | A probe of the file the timeline references: the original or its proxy |
 | Speech | `transcript/default.json` and its hits in the `search.content` index |
 | Shots and shot ids | The shots sidecar |

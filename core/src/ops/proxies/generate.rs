@@ -82,13 +82,6 @@ impl LibraryAction for ProxyGenerateAction {
 				"Select a regular file or directory".into(),
 			));
 		}
-		if context.external_tools.ffmpeg_path().is_none()
-			|| context.external_tools.ffprobe_path().is_none()
-		{
-			return Err(ActionError::InvalidInput(
-				"Proxy generation needs FFmpeg and FFprobe installed".into(),
-			));
-		}
 		let job = ProxyGenerateJob {
 			scope,
 			recursive: self.input.recursive,
@@ -161,10 +154,6 @@ impl JobHandler for ProxyGenerateJob {
 		if let Some(saved) = ctx.load_state::<Self>().await? {
 			*self = saved;
 		}
-		let tools = ctx.library().core_context().external_tools.clone();
-		let ffmpeg = tools
-			.ffmpeg_path()
-			.ok_or_else(|| JobError::execution("FFmpeg is not installed"))?;
 		let library_path = ctx.library().path().to_path_buf();
 
 		let (scope, recursive) = (self.scope.clone(), self.recursive);
@@ -194,10 +183,7 @@ impl JobHandler for ProxyGenerateJob {
 					format!("{}/{total}: {}", done + 1, video.display()),
 				)));
 			};
-			match self
-				.process(&ctx, &tools, &ffmpeg, &library_path, &video, report)
-				.await?
-			{
+			match self.process(&ctx, &library_path, &video, report).await? {
 				Outcome::Generated => self.generated += 1,
 				Outcome::Skipped => self.skipped += 1,
 				Outcome::Unavailable(reason) => {
@@ -233,8 +219,6 @@ impl ProxyGenerateJob {
 	async fn process(
 		&self,
 		ctx: &JobContext<'_>,
-		tools: &Arc<crate::service::external_tools::ExternalTools>,
-		ffmpeg: &Path,
 		library_path: &Path,
 		video: &Path,
 		report: impl Fn(&str, f64),
@@ -257,8 +241,8 @@ impl ProxyGenerateJob {
 		}
 
 		let probe = {
-			let (tools, video) = (tools.clone(), video.to_path_buf());
-			match tokio::task::spawn_blocking(move || recipe::probe(&tools, &video))
+			let video = video.to_path_buf();
+			match tokio::task::spawn_blocking(move || recipe::probe(&video))
 				.await
 				.map_err(|error| JobError::execution(error.to_string()))?
 			{
@@ -279,11 +263,9 @@ impl ProxyGenerateJob {
 			let phase = format!("Writing {} proxy", self.resolution.variant());
 			let result = publish(
 				ctx,
-				ffmpeg,
+				video,
 				&proxy,
-				|partial| {
-					recipe::proxy_args(video, partial, self.resolution, probe.timecode.as_deref())
-				},
+				recipe::proxy(self.resolution, probe.timecode.as_deref()),
 				|seconds| {
 					if duration > 0.0 {
 						report(&phase, seconds / duration * 0.9);
@@ -296,17 +278,11 @@ impl ProxyGenerateJob {
 			}
 		}
 		if audio_missing {
-			let result = publish(
-				ctx,
-				ffmpeg,
-				&audio,
-				|partial| recipe::speech_audio_args(video, partial),
-				|seconds| {
-					if duration > 0.0 {
-						report("Extracting speech audio", 0.9 + seconds / duration * 0.1);
-					}
-				},
-			)
+			let result = publish(ctx, video, &audio, recipe::speech_audio(), |seconds| {
+				if duration > 0.0 {
+					report("Extracting speech audio", 0.9 + seconds / duration * 0.1);
+				}
+			})
 			.await?;
 			if let Err(error) = result {
 				return Ok(Outcome::Failed(error));
@@ -320,9 +296,9 @@ impl ProxyGenerateJob {
 /// at a sidecar path is always complete.
 async fn publish(
 	ctx: &JobContext<'_>,
-	ffmpeg: &Path,
+	video: &Path,
 	output: &Path,
-	args: impl FnOnce(&Path) -> Vec<std::ffi::OsString>,
+	recipe: sd_ffmpeg::footage::Transcode,
 	on_progress: impl FnMut(f64),
 ) -> JobResult<Result<(), String>> {
 	let parent = output.parent().expect("sidecar paths have a parent");
@@ -347,12 +323,12 @@ async fn publish(
 	}
 	encode(
 		ctx,
-		ffmpeg,
+		video,
 		output,
 		parent,
 		stem,
 		extension,
-		args,
+		recipe,
 		on_progress,
 	)
 	.await
@@ -392,18 +368,16 @@ impl Drop for Writer {
 #[allow(clippy::too_many_arguments)]
 async fn encode(
 	ctx: &JobContext<'_>,
-	ffmpeg: &Path,
+	video: &Path,
 	output: &Path,
 	parent: &Path,
 	stem: &str,
 	extension: &str,
-	args: impl FnOnce(&Path) -> Vec<std::ffi::OsString>,
+	recipe: sd_ffmpeg::footage::Transcode,
 	on_progress: impl FnMut(f64),
 ) -> JobResult<Result<(), String>> {
 	// Holding the writer lock, any partial here belongs to no live attempt in
-	// this daemon: it is left by a killed one, whose orphaned FFmpeg may still
-	// be writing. Unlinking leaves that process writing to a file nobody
-	// reads, and the unique name keeps it off this attempt's output.
+	// this daemon: it is left by an attempt that a crash or kill cut short.
 	let prefix = format!(".{stem}.partial");
 	if let Ok(mut entries) = tokio::fs::read_dir(parent).await {
 		while let Ok(Some(entry)) = entries.next_entry().await {
@@ -416,7 +390,7 @@ async fn encode(
 		"{prefix}-{}.{extension}",
 		uuid::Uuid::now_v7().simple()
 	));
-	if let Err(error) = recipe::run_ffmpeg(ctx, ffmpeg, &args(&partial), on_progress).await? {
+	if let Err(error) = recipe::run(ctx, video, &partial, recipe, on_progress).await? {
 		let _ = tokio::fs::remove_file(&partial).await;
 		return Ok(Err(error));
 	}
@@ -424,7 +398,7 @@ async fn encode(
 		Ok(metadata) if metadata.len() > 0 => {}
 		_ => {
 			return Ok(Err(format!(
-				"FFmpeg wrote no output for {}",
+				"the encoder wrote no output for {}",
 				output.display()
 			)))
 		}

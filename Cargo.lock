@@ -12426,6 +12426,7 @@ dependencies = [
  "image",
  "libc",
  "sd-utils",
+ "serde_json",
  "tempfile",
  "thiserror 2.0.16",
  "tokio",
