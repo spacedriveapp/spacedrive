@@ -1,0 +1,142 @@
+//! `media.footage.status`: what the footage work has already made for a file.
+
+use std::{path::Path, sync::Arc};
+
+use serde::{Deserialize, Serialize};
+use specta::Type;
+use uuid::Uuid;
+
+use super::{local_footage_path, VIDEOS_EXTENSION_ID};
+use crate::{
+	context::CoreContext,
+	domain::{
+		sidecar::content_uuid_of_file, ContentSidecar, ProxyResolution, SdPath, SidecarFormat,
+		SidecarKind,
+	},
+	infra::{
+		api::SessionContext,
+		query::{LibraryQuery, QueryError, QueryResult},
+	},
+	ops::indexing::metadata::refuse_dataless,
+};
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct FootageStatusInput {
+	/// A video file on this device.
+	pub path: SdPath,
+}
+
+/// The sidecars a video's bytes have. They follow content, so a copy or a
+/// renamed file reports what was made for the same bytes elsewhere.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct FootageStatusOutput {
+	pub content_uuid: Uuid,
+	pub transcript: bool,
+	pub proxy: bool,
+	/// Shots in the shot list, `None` until shot detection has run.
+	pub shots: Option<u32>,
+	/// Shots the Videos extension has analyzed, `None` until it has run on
+	/// this file.
+	pub analyzed_shots: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FootageStatusQuery {
+	input: FootageStatusInput,
+}
+
+impl LibraryQuery for FootageStatusQuery {
+	type Input = FootageStatusInput;
+	type Output = FootageStatusOutput;
+
+	fn from_input(input: Self::Input) -> QueryResult<Self> {
+		Ok(Self { input })
+	}
+
+	async fn execute(
+		self,
+		context: Arc<CoreContext>,
+		session: SessionContext,
+	) -> QueryResult<Self::Output> {
+		let library_id = session
+			.current_library_id
+			.ok_or_else(|| QueryError::Internal("No library in session".to_string()))?;
+		let library = context
+			.libraries()
+			.await
+			.get_library(library_id)
+			.await
+			.ok_or(QueryError::LibraryNotFound(library_id))?;
+		let path = local_footage_path(&self.input.path).map_err(QueryError::InvalidInput)?;
+		// Hashing a cloud placeholder would download it just to show status.
+		refuse_dataless(&path)
+			.await
+			.map_err(|error| QueryError::InvalidInput(error.to_string()))?;
+		let content_uuid = content_uuid_of_file(&path).await.map_err(|error| {
+			QueryError::InvalidInput(format!("could not read {}: {error}", path.display()))
+		})?;
+		let library_path = library.path();
+		let exists = |path: std::path::PathBuf| async move {
+			tokio::fs::try_exists(path).await.unwrap_or(false)
+		};
+		let transcript = exists(
+			ContentSidecar::transcript(content_uuid, SidecarFormat::Json).path_in(library_path),
+		)
+		.await;
+		let mut proxy = false;
+		for resolution in [ProxyResolution::P720, ProxyResolution::P1080] {
+			proxy |=
+				exists(ContentSidecar::proxy(content_uuid, resolution).path_in(library_path)).await;
+		}
+		Ok(FootageStatusOutput {
+			content_uuid,
+			transcript,
+			proxy,
+			shots: shot_count(library_path, content_uuid).await?,
+			analyzed_shots: analyzed_shots(library_path, content_uuid).await?,
+		})
+	}
+}
+
+crate::register_library_query!(FootageStatusQuery, "media.footage.status");
+
+async fn shot_count(library_path: &Path, content_uuid: Uuid) -> QueryResult<Option<u32>> {
+	let list = crate::ops::media::shots::read_shots(library_path, content_uuid)
+		.await
+		.map_err(|error| QueryError::Internal(format!("could not read the shot list: {error}")))?;
+	Ok(list.map(|list| u32::try_from(list.shots.len()).unwrap_or(u32::MAX)))
+}
+
+/// The Videos extension's `scene` sidecar holds one entry per shot it has
+/// analyzed. Its shape belongs to the extension, so only the count is read.
+async fn analyzed_shots(library_path: &Path, content_uuid: Uuid) -> QueryResult<Option<u32>> {
+	#[derive(Deserialize)]
+	struct SceneDoc {
+		#[serde(default)]
+		shots: Vec<serde::de::IgnoredAny>,
+	}
+
+	let kind =
+		SidecarKind::extension(VIDEOS_EXTENSION_ID, "scene").map_err(QueryError::Internal)?;
+	let path = library_path
+		.join("sidecars")
+		.join(sd_sidecar_path::relative_path(
+			&content_uuid,
+			&kind.directory(),
+			"default",
+			SidecarFormat::Json.extension(),
+		));
+	let bytes = match tokio::fs::read(&path).await {
+		Ok(bytes) => bytes,
+		Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+		Err(error) => {
+			return Err(QueryError::Internal(format!(
+				"could not read the scene descriptions: {error}"
+			)))
+		}
+	};
+	let scene: SceneDoc = serde_json::from_slice(&bytes).map_err(|error| {
+		QueryError::Internal(format!("could not read the scene descriptions: {error}"))
+	})?;
+	Ok(Some(u32::try_from(scene.shots.len()).unwrap_or(u32::MAX)))
+}

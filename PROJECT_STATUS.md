@@ -47,6 +47,17 @@ set survived 44 to 131 runs each. The disk full suite now runs in the hosted
 `zfs` job through `xtask test-core --hosted`. Next: three green acceptance
 runs on the PR.
 
+Footage actions in the app (Capy FAN-13825, November 24, beta footage scope).
+Videos and folders get Transcribe, Make proxy, Detect shots, Analyze and
+Export timeline in the context menu and the inspector, with per-file state
+(transcript, proxy, shot count, analyzed shots) and the progress of jobs started
+there. The always-registered `media.footage.capabilities`, `media.footage.status`,
+`media.footage.run` and `media.footage.export` ops dispatch to the feature-gated
+actions or say what is missing (the build, a Whisper model, the Videos
+extension), so the generated client types reach them in every build. The dead
+`useJobDispatch` hook, which called the extension-only `jobs.dispatch`, is gone.
+Nothing runs automatically.
+
 Transcript in Quick Preview (Capy FAN-13826, November 24, beta footage scope
 item 6). `File.sidecars` is never filled, so the old subtitle code never
 showed anything. The new library query `media.sidecars` takes one file and
