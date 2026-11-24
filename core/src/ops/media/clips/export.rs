@@ -236,7 +236,7 @@ async fn media_of(
 	path: &Path,
 	kind: ExportMedia,
 ) -> Result<Media, String> {
-	let original = probe(&context.external_tools, path).await?;
+	let original = probe(path).await?;
 	let (referenced, picture) = match kind {
 		ExportMedia::Original => (path.to_path_buf(), original.clone()),
 		ExportMedia::Proxy => {
@@ -248,7 +248,7 @@ async fn media_of(
 					display_name(path)
 				));
 			}
-			let picture = probe(&context.external_tools, &proxy).await?;
+			let picture = probe(&proxy).await?;
 			(proxy, picture)
 		}
 	};
