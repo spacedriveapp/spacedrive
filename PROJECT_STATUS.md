@@ -36,6 +36,19 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Transcript in Quick Preview (Capy FAN-13826, November 24, beta footage scope
+item 6). `File.sidecars` is never filled, so the old subtitle code never
+showed anything. The new library query `media.sidecars` takes one file and
+answers its content uuid, transcript segments, largest proxy (with its
+modification time as a cache buster) and shot list; Quick Preview asks for it
+per previewed file, so the listing pays nothing. The video player shows
+subtitles, a transcript panel with click to seek that follows playback, and
+shot boundaries on the timeline, and swaps to the proxy at the same position
+when the webview cannot decode the original. The audio view reads the same
+transcript. Both sidecar HTTP servers now answer byte ranges, which video
+playback needs. `ops::media` and the shot list reader are always compiled;
+only detection stays behind `video-shots`.
+
 Models settings page (Capy FAN-13824, November 24, beta footage scope). Settings
 > Models lists Whisper and the inference catalog by category with size,
 license and installed state, downloads with a license confirm, shows per-model

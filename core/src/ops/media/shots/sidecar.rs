@@ -265,6 +265,7 @@ pub async fn content_uuid_of_video(file: &Path) -> io::Result<Uuid> {
 
 /// Write the shot list through a partial file, so a reader never sees half
 /// of one.
+#[cfg_attr(not(feature = "video-shots"), allow(dead_code))]
 pub(super) async fn write_shots(library_path: &Path, list: &ShotList) -> io::Result<()> {
 	let path = ContentSidecar::shots(list.content_uuid).path_in(library_path);
 	let partial = partial_path(&path);
@@ -278,6 +279,7 @@ pub(super) async fn write_shots(library_path: &Path, list: &ShotList) -> io::Res
 
 /// `.<variant>.partial.<ext>` beside `path`, the name the media sidecar
 /// rules reserve for a file being written.
+#[cfg_attr(not(feature = "video-shots"), allow(dead_code))]
 pub(super) fn partial_path(path: &Path) -> PathBuf {
 	let stem = path
 		.file_stem()

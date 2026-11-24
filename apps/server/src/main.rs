@@ -1,7 +1,7 @@
 use axum::{
 	body::Body,
 	extract::{FromRequestParts, Request, State},
-	http::{header, HeaderMap, StatusCode, Uri},
+	http::{header, HeaderMap, HeaderValue, StatusCode, Uri},
 	middleware::{self, Next},
 	response::{
 		sse::{Event as SseEvent, KeepAlive, Sse},
@@ -26,6 +26,8 @@ use tokio::{
 	sync::{mpsc, RwLock},
 };
 use tokio_stream::wrappers::ReceiverStream;
+use tower::ServiceExt;
+use tower_http::services::ServeFile;
 use tracing::{info, warn};
 
 /// Embedded web UI assets, built from `apps/web` via `bun run build`.
@@ -162,6 +164,7 @@ async fn serve_sidecar(
 		String,
 		String,
 	)>,
+	request: Request,
 ) -> Response {
 	let Ok(content_uuid) = content_uuid.parse::<uuid::Uuid>() else {
 		return plain_status(StatusCode::BAD_REQUEST, "invalid content uuid");
@@ -189,35 +192,27 @@ async fn serve_sidecar(
 			ext,
 		));
 
-	let Ok(file) = tokio::fs::File::open(&path).await else {
+	// ServeFile answers byte ranges, which a video element needs to play and
+	// seek a proxy. Sidecar paths are content-addressed (uuid + variant), so
+	// clients may cache indefinitely; a regenerated proxy is asked for with a
+	// new version in its query string.
+	let Ok(mut response) = ServeFile::new(&path).oneshot(request).await;
+	let status = response.status();
+	if status == StatusCode::NOT_FOUND {
 		return plain_status(StatusCode::NOT_FOUND, "sidecar not found");
-	};
-	let content_length = file.metadata().await.ok().map(|m| m.len());
-
-	let content_type = match ext {
-		"webp" => "image/webp",
-		"jpg" | "jpeg" => "image/jpeg",
-		"png" => "image/png",
-		"mp4" => "video/mp4",
-		"json" => "application/json",
-		"txt" => "text/plain; charset=utf-8",
-		_ => "application/octet-stream",
-	};
-
-	// Sidecar paths are content-addressed (uuid + variant), so clients may
-	// cache indefinitely; regenerated variants land at the same path only
-	// when the content itself is unchanged.
-	let mut builder = Response::builder()
-		.status(StatusCode::OK)
-		.header(header::CONTENT_TYPE, content_type)
-		.header(header::CACHE_CONTROL, "public, max-age=31536000, immutable")
-		.header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*");
-	if let Some(len) = content_length {
-		builder = builder.header(header::CONTENT_LENGTH, len);
 	}
-	builder
-		.body(Body::from_stream(tokio_util::io::ReaderStream::new(file)))
-		.expect("sidecar response is well-formed")
+	let headers = response.headers_mut();
+	if status.is_success() {
+		headers.insert(
+			header::CACHE_CONTROL,
+			HeaderValue::from_static("public, max-age=31536000, immutable"),
+		);
+	}
+	headers.insert(
+		header::ACCESS_CONTROL_ALLOW_ORIGIN,
+		HeaderValue::from_static("*"),
+	);
+	response.map(Body::new)
 }
 
 /// Stream a file from the daemon's mounts share.
