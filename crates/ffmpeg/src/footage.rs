@@ -180,7 +180,7 @@ pub fn scene_scores(
 	let stream = input
 		.first(ff::AVMediaType::AVMEDIA_TYPE_VIDEO)
 		.ok_or_else(|| Error::Media("the file has no video stream".into()))?;
-	let mut lane = Lane::video(&input, stream, filter)?;
+	let mut lane = Lane::video(&input, stream, filter, "auto")?;
 	let time_base = lane.graph.output_time_base();
 	let mut scores = Vec::new();
 	let mut each = |frame: &mut ff::AVFrame| {
@@ -228,19 +228,108 @@ pub fn write_jpeg(
 	quality: i32,
 	output: &Path,
 ) -> Result<(), Error> {
+	let (frame, time_base) = first_frame(input, Some(seconds), filter, "auto")?
+		.ok_or_else(|| Error::Media(format!("no frame at {seconds:.3}s, the video is shorter")))?;
+	let codec = find_encoder("mjpeg")?;
+	let encoder = Codec::alloc(codec)?;
+	// SAFETY: the context was just allocated and the frame holds a picture.
+	unsafe {
+		let context = &mut *encoder.0;
+		let picture = &mut *frame.0;
+		context.width = picture.width;
+		context.height = picture.height;
+		context.pix_fmt = pixel_format(picture.format);
+		context.sample_aspect_ratio = picture.sample_aspect_ratio;
+		context.time_base = time_base;
+		context.flags |= ff::AV_CODEC_FLAG_QSCALE as c_int;
+		context.global_quality = ff::FF_QP2LAMBDA * quality;
+		picture.quality = context.global_quality;
+		picture.pict_type = ff::AVPictureType::AV_PICTURE_TYPE_NONE;
+	}
+	encoder.open(codec, &[])?;
+	let mut jpeg = Vec::new();
+	let packet = Packet::new()?;
+	for picture in [frame.0, ptr::null_mut()] {
+		// SAFETY: the encoder is open; a null frame flushes it.
+		check(
+			unsafe { ff::avcodec_send_frame(encoder.0, picture) },
+			"encode the JPEG",
+		)?;
+		while encoder.receive(&packet)? {
+			jpeg.extend_from_slice(packet.data());
+			packet.unref();
+		}
+	}
+	if jpeg.is_empty() {
+		return Err(Error::Media("the JPEG encoder wrote nothing".into()));
+	}
+	fs::write(output, jpeg).map_err(|error| Error::Media(format!("write the JPEG: {error}")))
+}
+
+/// A decoded picture, 8-bit RGBA, rows packed without padding.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Picture {
+	pub width: u32,
+	pub height: u32,
+	pub rgba: Vec<u8>,
+}
+
+/// The first frame `filter` outputs from the first video stream, as RGBA.
+///
+/// The decoder runs on one thread: callers make thumbnails of many files at
+/// once, so parallel work belongs across files rather than inside one
+/// decode. Returns `None` when the filter outputs no frame.
+pub fn read_rgba(input: &Path, filter: &str) -> Result<Option<Picture>, Error> {
+	let chain = if filter.is_empty() {
+		"format=rgba".to_string()
+	} else {
+		format!("{filter},format=rgba")
+	};
+	let Some((frame, _)) = first_frame(input, None, &chain, "1")? else {
+		return Ok(None);
+	};
+	// SAFETY: the frame holds an RGBA picture whose first plane has
+	// `height` rows of `linesize[0]` bytes.
+	let picture = unsafe { &*frame.0 };
+	let (width, height) = (picture.width as usize, picture.height as usize);
+	let stride = picture.linesize[0] as usize;
+	let mut rgba = Vec::with_capacity(width * height * 4);
+	for row in 0..height {
+		// SAFETY: as above, each row starts `stride` bytes after the last.
+		let line =
+			unsafe { std::slice::from_raw_parts(picture.data[0].add(row * stride), width * 4) };
+		rgba.extend_from_slice(line);
+	}
+	Ok(Some(Picture {
+		width: width as u32,
+		height: height as u32,
+		rgba,
+	}))
+}
+
+/// The first frame `filter` outputs, from `seconds` when set, with the time
+/// base it is timed in.
+fn first_frame(
+	input: &Path,
+	seconds: Option<f64>,
+	filter: &str,
+	threads: &str,
+) -> Result<Option<(Frame, ff::AVRational)>, Error> {
 	let source = Input::open(input)?;
 	let stream = source
 		.first(ff::AVMediaType::AVMEDIA_TYPE_VIDEO)
 		.ok_or_else(|| Error::Media("the file has no video stream".into()))?;
-	let mut lane = Lane::video(&source, stream, filter)?;
-	// As `-ss` does: seek to the keyframe before the time, then drop every
-	// frame before it, measuring from the start of the file.
-	let target = (seconds * f64::from(ff::AV_TIME_BASE)).round() as i64 + source.start_time();
-	// SAFETY: the context is open. A failed seek leaves it at the start,
-	// from where decoding reaches the time anyway.
-	unsafe { ff::avformat_seek_file(source.0, -1, i64::MIN, target, target, 0) };
-	lane.shift(-target);
-	lane.drop_before_zero = true;
+	let mut lane = Lane::video(&source, stream, filter, threads)?;
+	if let Some(seconds) = seconds {
+		// As `-ss` does: seek to the keyframe before the time, then drop
+		// every frame before it, measuring from the start of the file.
+		let target = (seconds * f64::from(ff::AV_TIME_BASE)).round() as i64 + source.start_time();
+		// SAFETY: the context is open. A failed seek leaves it at the
+		// start, from where decoding reaches the time anyway.
+		unsafe { ff::avformat_seek_file(source.0, -1, i64::MIN, target, target, 0) };
+		lane.shift(-target);
+		lane.drop_before_zero = true;
+	}
 
 	let frame = Frame::new()?;
 	let captured = Cell::new(false);
@@ -266,46 +355,8 @@ pub fn write_jpeg(
 	if !captured.get() {
 		lane.feed(ptr::null_mut(), &mut each)?;
 	}
-	if !captured.get() {
-		return Err(Error::Media(format!(
-			"no frame at {seconds:.3}s, the video is shorter"
-		)));
-	}
-
-	let codec = find_encoder("mjpeg")?;
-	let encoder = Codec::alloc(codec)?;
-	// SAFETY: the context was just allocated and the frame holds a picture.
-	unsafe {
-		let context = &mut *encoder.0;
-		let picture = &mut *frame.0;
-		context.width = picture.width;
-		context.height = picture.height;
-		context.pix_fmt = pixel_format(picture.format);
-		context.sample_aspect_ratio = picture.sample_aspect_ratio;
-		context.time_base = lane.graph.output_time_base();
-		context.flags |= ff::AV_CODEC_FLAG_QSCALE as c_int;
-		context.global_quality = ff::FF_QP2LAMBDA * quality;
-		picture.quality = context.global_quality;
-		picture.pict_type = ff::AVPictureType::AV_PICTURE_TYPE_NONE;
-	}
-	encoder.open(codec, &[])?;
-	let mut jpeg = Vec::new();
-	let packet = Packet::new()?;
-	for picture in [frame.0, ptr::null_mut()] {
-		// SAFETY: the encoder is open; a null frame flushes it.
-		check(
-			unsafe { ff::avcodec_send_frame(encoder.0, picture) },
-			"encode the JPEG",
-		)?;
-		while encoder.receive(&packet)? {
-			jpeg.extend_from_slice(packet.data());
-			packet.unref();
-		}
-	}
-	if jpeg.is_empty() {
-		return Err(Error::Media("the JPEG encoder wrote nothing".into()));
-	}
-	fs::write(output, jpeg).map_err(|error| Error::Media(format!("write the JPEG: {error}")))
+	let time_base = lane.graph.output_time_base();
+	Ok(captured.get().then_some((frame, time_base)))
 }
 
 /// Encode `input` to `output` as `recipe` says, until done or `cancel` is
@@ -495,7 +546,12 @@ struct Lane {
 }
 
 impl Lane {
-	fn video(input: &Input, stream: *mut ff::AVStream, filter: &str) -> Result<Self, Error> {
+	fn video(
+		input: &Input,
+		stream: *mut ff::AVStream,
+		filter: &str,
+		threads: &str,
+	) -> Result<Self, Error> {
 		// SAFETY: the stream belongs to the open input.
 		let stream_ref = unsafe { &*stream };
 		let decoder = Codec::decoder(stream_ref)?;
@@ -503,7 +559,7 @@ impl Lane {
 		unsafe {
 			(*decoder.0).framerate = ff::av_guess_frame_rate(input.0, stream, ptr::null_mut());
 		}
-		decoder.open_decoder()?;
+		decoder.open_decoder(threads)?;
 		// SAFETY: the decoder is open, so its picture parameters are set.
 		let context = unsafe { &*decoder.0 };
 		if context.pix_fmt == ff::AVPixelFormat::AV_PIX_FMT_NONE {
@@ -537,7 +593,7 @@ impl Lane {
 		// SAFETY: the stream belongs to the open input.
 		let stream_ref = unsafe { &*stream };
 		let decoder = Codec::decoder(stream_ref)?;
-		decoder.open_decoder()?;
+		decoder.open_decoder("auto")?;
 		// SAFETY: the decoder is open, so its sample parameters are set.
 		let context = unsafe { &*decoder.0 };
 		// SAFETY: returns a static name or null.
@@ -646,7 +702,7 @@ impl Encoding {
 		recipe: &VideoEncode,
 		muxer: &mut Output,
 	) -> Result<Self, Error> {
-		let lane = Lane::video(input, stream, &recipe.filter)?;
+		let lane = Lane::video(input, stream, &recipe.filter, "auto")?;
 		let codec = find_encoder(&recipe.codec)?;
 		let encoder = Codec::alloc(codec)?;
 		lane.graph
@@ -1026,10 +1082,10 @@ impl Codec {
 		Ok(decoder)
 	}
 
-	fn open_decoder(&self) -> Result<(), Error> {
+	fn open_decoder(&self, threads: &str) -> Result<(), Error> {
 		// SAFETY: the context was allocated for this codec.
 		let codec = unsafe { (*self.0).codec };
-		self.open(codec, &[])
+		self.open(codec, &[("threads".to_string(), threads.to_string())])
 	}
 
 	fn open(&self, codec: *const ff::AVCodec, options: &[(String, String)]) -> Result<(), Error> {

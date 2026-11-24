@@ -366,6 +366,15 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		features: Some("video-proxies,video-shots,footage-clips"),
 		group: Group::Unit,
 	},
+	// Video thumbnails and thumbstrips on the linked libraries, which the
+	// footage features turn on through `ffmpeg`.
+	TestSuite {
+		name: "Video thumbnail unit tests",
+		package: "sd-core",
+		test_args: &["--lib", "service::thumbs"],
+		features: Some("video-proxies,video-shots,footage-clips"),
+		group: Group::Unit,
+	},
 	// The Linux FUSE mount. Its own build with the `fuse` feature; it skips
 	// with a reason where /dev/fuse or fusermount3 is missing unless
 	// SD_REQUIRE_FUSE is set.
