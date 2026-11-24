@@ -10,6 +10,7 @@ import {
 import { motion } from "framer-motion";
 import type { File } from "@sd/ts-client";
 import { useServer } from "../../contexts/ServerContext";
+import { useStartSeconds } from "./useStartSeconds";
 
 interface SubtitleCue {
 	index: number;
@@ -21,6 +22,7 @@ interface SubtitleCue {
 interface AudioPlayerProps {
 	src: string;
 	file: File;
+	startSeconds?: number;
 }
 
 function formatTime(seconds: number): string {
@@ -64,8 +66,9 @@ function parseSRT(srtContent: string): SubtitleCue[] {
 	return cues;
 }
 
-export function AudioPlayer({ src, file }: AudioPlayerProps) {
+export function AudioPlayer({ src, file, startSeconds }: AudioPlayerProps) {
 	const audioRef = useRef<HTMLAudioElement>(null);
+	useStartSeconds(audioRef, file.id, startSeconds);
 	const lyricsContainerRef = useRef<HTMLDivElement>(null);
 	const { buildSidecarUrl } = useServer();
 	const [playing, setPlaying] = useState(false);
