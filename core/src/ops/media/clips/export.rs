@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use super::footage::{display_name, local_path, probe, proxy_path, Footage, TimeInput};
+pub use crate::ops::media::footage::{ExportMedia, TimelineFormat};
 use crate::{
 	context::CoreContext,
 	domain::SdPath,
@@ -20,39 +21,6 @@ use crate::{
 
 /// The most clips one timeline takes.
 pub const MAX_EXPORT_CLIPS: usize = 500;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
-#[serde(rename_all = "snake_case")]
-pub enum TimelineFormat {
-	/// FCPXML 1.10, for Final Cut Pro and Resolve.
-	Fcpxml,
-	/// CMX 3600, for Resolve and Premiere Pro.
-	Edl,
-	/// OpenTimelineIO JSON.
-	Otio,
-}
-
-impl TimelineFormat {
-	pub const ALL: [Self; 3] = [Self::Fcpxml, Self::Edl, Self::Otio];
-
-	pub fn extension(self) -> &'static str {
-		match self {
-			Self::Fcpxml => "fcpxml",
-			Self::Edl => "edl",
-			Self::Otio => "otio",
-		}
-	}
-}
-
-/// Which file each clip points the editor at.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
-#[serde(rename_all = "snake_case")]
-pub enum ExportMedia {
-	#[default]
-	Original,
-	/// The 720p proxy, which has the original's frames.
-	Proxy,
-}
 
 /// One clip of the cut, in timeline order.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]

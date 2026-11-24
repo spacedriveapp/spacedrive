@@ -33,6 +33,7 @@ pub use export::{
 	TimelineExportOutput, TimelineFormat, TimelineSummary, WrittenTimeline, MAX_EXPORT_CLIPS,
 };
 pub use footage::TimeInput;
+pub(crate) use footage::{display_name, Footage};
 pub use read::{
 	FootageReadInput, FootageReadOutput, FootageReadQuery, FootageSegment, FootageShot,
 	MAX_READ_SEGMENTS,

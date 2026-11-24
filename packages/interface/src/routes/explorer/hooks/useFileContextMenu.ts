@@ -4,7 +4,9 @@ import {
 	Books,
 	Browsers,
 	Copy,
+	Export,
 	Eye,
+	FilmReel,
 	FileArchive,
 	FileZip,
 	FolderOpen,
@@ -42,6 +44,12 @@ import {useRefetchTagQueries} from '../../../hooks/useRefetchTagQueries';
 import {useTabManager} from '../../../components/TabManager';
 import {targetToUrl, useExplorer} from '../context';
 import {useSelection} from '../SelectionContext';
+import {
+	FOOTAGE_JOBS,
+	isFootageTarget,
+	useFootageActions,
+	useFootageCapabilities
+} from '../../../components/Footage/useFootage';
 import {useDuplicateFiles} from './useDuplicateFiles';
 import {useMakeLink} from './useMakeLink';
 
@@ -81,6 +89,8 @@ export function useFileContextMenu({
 	const openExtract = useExtractDialog();
 	const openAttributes = useAttributesDialog();
 	const {startRename} = useSelection();
+	const footageCapabilities = useFootageCapabilities().data;
+	const footage = useFootageActions();
 
 	const openTargets = (selected && selectedFiles.length > 0 ? selectedFiles : [file]).filter(
 		(f): f is File => f != null && f.sd_path != null && 'Physical' in f.sd_path
@@ -112,6 +122,12 @@ export function useFileContextMenu({
 	};
 
 	// Check if any selected files are virtual (to disable certain operations)
+	// Footage work reads the bytes here, so every target must be a local
+	// video or folder.
+	const footageTargets = getTargetFiles();
+	const canRunFootage =
+		footageTargets.length > 0 && footageTargets.every(isFootageTarget);
+
 	const hasVirtualFiles = selected
 		? selectedFiles.some((f) => isVirtualFile(f))
 		: file
@@ -276,6 +292,27 @@ export function useFileContextMenu({
 					selectedFiles.length === 1 &&
 					'Physical' in file.sd_path &&
 					!hasVirtualFiles
+			},
+			{
+				type: 'submenu',
+				icon: FilmReel,
+				label: 'Footage',
+				condition: () => canRunFootage,
+				submenu: [
+					...FOOTAGE_JOBS.map(({job, label, icon}) => ({
+						icon,
+						label,
+						disabled: !footageCapabilities?.[job].available,
+						onClick: () => void footage.start(footageTargets, job)
+					})),
+					{type: 'separator' as const},
+					{
+						icon: Export,
+						label: 'Export timeline…',
+						disabled: !footageCapabilities?.export.available || !footage.canPickFolder,
+						onClick: () => void footage.startExport(footageTargets)
+					}
+				]
 			},
 			{type: 'separator'},
 			{
