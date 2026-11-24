@@ -37,6 +37,9 @@ pub enum Group {
 	Integration,
 	/// The acceptance-matrix suites (docs/core/acceptance/)
 	Acceptance,
+	/// Acceptance suites that run on GitHub's hosted image instead of a
+	/// Blacksmith runner, in the `zfs` job of `core_tests.yml`
+	Hosted,
 }
 
 impl TestSuite {
@@ -275,12 +278,15 @@ pub const CORE_TESTS: &[TestSuite] = &[
 	// Candidate validation step 4, disk full: a walk whose store runs out of
 	// space on a loop-mounted volume fails as disk full instead of hanging,
 	// and the heal finishes it once there is room. Skips like the locked
-	// volumes suite.
-	acceptance(
-		"sd-core",
-		"Disk full acceptance test",
-		&["--test", "disk_full_acceptance_test"],
-	),
+	// volumes suite. It runs on the hosted image because it takes down the
+	// Blacksmith VM the acceptance job runs on (FAN-11240).
+	TestSuite {
+		name: "Disk full acceptance test",
+		package: "sd-core",
+		test_args: &["--test", "disk_full_acceptance_test"],
+		features: None,
+		group: Group::Hosted,
+	},
 	// A track on a nearly full data disk whose first walk cannot start
 	// fails visibly, keeps the source registered, and the heal walks it once
 	// there is room. Skips like the locked volumes suite.

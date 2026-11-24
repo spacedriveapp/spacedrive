@@ -36,6 +36,17 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Acceptance runner losses (Capy FAN-11240, November 24, in PR). About four
+in ten runs of the acceptance job lost their Blacksmith runner with no log.
+The VM was not short of memory or disk: a monitor that posted samples as
+commit statuses showed more than 14 GB free and no OOM kills up to the moment
+it went silent. Looping each loop-volume suite on its own pair of Blacksmith
+runners lost both runners on `disk_full_acceptance_test` within 20 minutes,
+while locked volumes, offline copy, track on a full data disk and a control
+set survived 44 to 131 runs each. The disk full suite now runs in the hosted
+`zfs` job through `xtask test-core --hosted`. Next: three green acceptance
+runs on the PR.
+
 Transcript in Quick Preview (Capy FAN-13826, November 24, beta footage scope
 item 6). `File.sidecars` is never filled, so the old subtitle code never
 showed anything. The new library query `media.sidecars` takes one file and

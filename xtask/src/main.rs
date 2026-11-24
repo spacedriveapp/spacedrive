@@ -70,7 +70,7 @@ fn main() -> Result<()> {
 		eprintln!("                              the daemon with the ffmpeg and heif features");
 		eprintln!("  build-ios    Build sd-ios-core XCFramework for iOS devices and simulator");
 		eprintln!("  build-mobile Build sd-mobile-core for React Native iOS/Android");
-		eprintln!("  test-core    Run all core tests with progress tracking (--unit, --integration or --acceptance to pick a group)");
+		eprintln!("  test-core    Run all core tests with progress tracking (--unit, --integration, --acceptance or --hosted to pick a group)");
 		eprintln!("  bump <ver>   Bump version across all packages (e.g. bump 2.0.0-alpha.2)");
 		eprintln!(
 			"  update-contributors  Fetch contributors from GitHub and update contributors.json"
@@ -99,6 +99,8 @@ fn main() -> Result<()> {
 				test_core::Selection::Group(test_core::Group::Integration)
 			} else if flags.iter().any(|s| s == "--acceptance") {
 				test_core::Selection::Group(test_core::Group::Acceptance)
+			} else if flags.iter().any(|s| s == "--hosted") {
+				test_core::Selection::Group(test_core::Group::Hosted)
 			} else {
 				test_core::Selection::All
 			};
