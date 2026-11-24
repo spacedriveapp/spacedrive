@@ -36,7 +36,6 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
-<<<<<<< HEAD
 Footage without a system FFmpeg (Capy FAN-13823, November 24, beta footage
 scope). Proxies, speech audio, shot detection, keyframes and the clip probes
 ran the `ffmpeg` and `ffprobe` executables from the PATH, which a Mac without
@@ -46,7 +45,7 @@ with the same filter strings and encoder settings, so `video-proxies` and
 `video-shots` now turn on the `ffmpeg` feature. The footage unit tests make
 their own media with the libraries and need no executable. Thumbnails and
 thumbstrips still use the host tool.
-=======
+
 Content search in the explorer (Capy FAN-13827, November 24, footage beta).
 Explorer search runs `search.content` beside `search.files` over the same
 scope, limited to `transcript`, `scene` and `caption`, and lists hits by file
@@ -54,7 +53,6 @@ above the file results with their snippets. A timestamp chip opens Quick
 Preview at that moment through `openQuickPreview(id, { startSeconds })`, which
 the video and audio players honour once metadata loads. Library scope asks
 every attached local filesystem source that reads contents, one query each.
->>>>>>> origin/main
 
 Scene and caption search (Capy FAN-12538, November 22). `search.content`
 finds files by the descriptions extensions write: the Videos extension's
