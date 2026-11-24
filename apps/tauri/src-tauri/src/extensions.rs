@@ -6,20 +6,24 @@
 //! An installed copy that differs from the bundled one in any file is
 //! replaced, so an app update also updates its extensions. A copy that
 //! matches is left alone, which keeps launches that change nothing cheap.
+//! Copying is not loading: the caller restarts a daemon that was already
+//! running when anything changed.
 
 use std::path::{Path, PathBuf};
 
-/// Installs or updates every extension under `<resource dir>/extensions`.
+/// Installs or updates every extension under `<resource dir>/extensions`,
+/// and returns whether any installed copy changed.
 ///
 /// Each extension is written to a staging directory outside the extensions
-/// directory first and then renamed into place, so a daemon starting at the
-/// same time never loads a half-written extension. A failure leaves that
-/// extension as it was and moves on to the next.
-pub async fn install_bundled(resource_dir: PathBuf, data_dir: PathBuf) {
+/// directory first and swapped in with renames, so a daemon never reads a
+/// half-written extension. A failure leaves that extension as it was and
+/// moves on to the next.
+pub async fn install_bundled(resource_dir: PathBuf, data_dir: PathBuf) -> bool {
 	let result = tokio::task::spawn_blocking(move || {
+		let mut changed = false;
 		let bundled = resource_dir.join("extensions");
 		let Ok(entries) = std::fs::read_dir(&bundled) else {
-			return;
+			return changed;
 		};
 		for entry in entries.flatten() {
 			let source = entry.path();
@@ -30,18 +34,23 @@ pub async fn install_bundled(resource_dir: PathBuf, data_dir: PathBuf) {
 			let target = data_dir.join("extensions").join(&name);
 			let staging = data_dir.join(".extensions-staging").join(&name);
 			match install(&source, &target, &staging) {
-				Ok(true) => tracing::info!(extension = ?name, "Installed bundled extension"),
+				Ok(true) => {
+					changed = true;
+					tracing::info!(extension = ?name, "Installed bundled extension")
+				}
 				Ok(false) => tracing::debug!(extension = ?name, "Bundled extension is current"),
 				Err(e) => {
 					tracing::warn!(extension = ?name, error = %e, "Could not install bundled extension")
 				}
 			}
 		}
+		changed
 	})
 	.await;
-	if let Err(e) = result {
+	result.unwrap_or_else(|e| {
 		tracing::warn!(error = %e, "Bundled extension install did not finish");
-	}
+		false
+	})
 }
 
 /// Returns whether the extension had to be written.
@@ -65,13 +74,30 @@ fn install(source: &Path, target: &Path, staging: &Path) -> std::io::Result<bool
 		std::fs::write(dest, bytes)?;
 	}
 
-	if target.exists() {
-		std::fs::remove_dir_all(target)?;
+	// The old copy moves aside rather than being deleted in place, so a
+	// failed swap can put it back and a loader never sees a partly deleted
+	// directory.
+	let mut previous_name = staging.file_name().unwrap_or_default().to_os_string();
+	previous_name.push(".previous");
+	let previous = staging.with_file_name(previous_name);
+	if previous.exists() {
+		std::fs::remove_dir_all(&previous)?;
 	}
-	if let Some(parent) = target.parent() {
+	let had_previous = target.exists();
+	if had_previous {
+		std::fs::rename(target, &previous)?;
+	} else if let Some(parent) = target.parent() {
 		std::fs::create_dir_all(parent)?;
 	}
-	std::fs::rename(staging, target)?;
+	if let Err(e) = std::fs::rename(staging, target) {
+		if had_previous {
+			let _ = std::fs::rename(&previous, target);
+		}
+		return Err(e);
+	}
+	if had_previous {
+		std::fs::remove_dir_all(&previous)?;
+	}
 	Ok(true)
 }
 
@@ -120,6 +146,9 @@ mod tests {
 		);
 		assert!(!target.join("stale.wasm").exists());
 		assert!(!staging.exists());
+		assert!(!dir
+			.join("data/.extensions-staging/videos.previous")
+			.exists());
 
 		std::fs::remove_dir_all(&dir).unwrap();
 	}
