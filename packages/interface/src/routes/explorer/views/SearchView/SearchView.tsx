@@ -36,7 +36,7 @@ export function SearchView() {
 	return (
 		<div className="flex h-full flex-col">
 			<ContentHits />
-			<div className="min-h-0 flex-1">
+			<div className="relative min-h-0 flex-1">
 				<FileResults viewMode={viewMode} />
 			</div>
 		</div>
