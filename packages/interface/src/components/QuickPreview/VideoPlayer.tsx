@@ -3,6 +3,7 @@ import type { File } from "@sd/ts-client";
 import { Subtitles, type SubtitleSettings } from "./Subtitles";
 import { SubtitleSettingsMenu } from "./SubtitleSettingsMenu";
 import { useZoomPan } from "./useZoomPan";
+import { useStartSeconds } from "./useStartSeconds";
 import type {
 	VideoControlsState,
 	VideoControlsCallbacks,
@@ -11,6 +12,7 @@ import type {
 interface VideoPlayerProps {
 	src: string;
 	file: File;
+	startSeconds?: number;
 	onZoomChange?: (isZoomed: boolean) => void;
 	onControlsStateChange?: (state: VideoControlsState) => void;
 	onShowControlsChange?: (show: boolean) => void;
@@ -20,6 +22,7 @@ interface VideoPlayerProps {
 export function VideoPlayer({
 	src,
 	file,
+	startSeconds,
 	onZoomChange,
 	onControlsStateChange,
 	onShowControlsChange,
@@ -56,6 +59,7 @@ export function VideoPlayer({
 	const hideControlsTimeout = useRef<number | undefined>(undefined);
 	const { zoom, zoomIn, zoomOut, reset, isZoomed, transform } =
 		useZoomPan(videoContainerRef as React.RefObject<HTMLElement>);
+	useStartSeconds(videoRef, file.id, startSeconds);
 
 	// Expose controls state to parent
 	useEffect(() => {

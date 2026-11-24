@@ -207,6 +207,7 @@ interface UIState {
 	sidebarVisible: boolean;
 	inspectorVisible: boolean;
 	quickPreviewFileId: string | null;
+	quickPreviewStartSeconds: number | null;
 	tagModeActive: boolean;
 	mode: ExplorerMode;
 	searchBar: SearchBarState;
@@ -219,7 +220,7 @@ type UIAction =
 	| {type: 'SET_VIEW_SETTINGS'; settings: Partial<ViewSettings>}
 	| {type: 'SET_SIDEBAR_VISIBLE'; visible: boolean}
 	| {type: 'SET_INSPECTOR_VISIBLE'; visible: boolean}
-	| {type: 'SET_QUICK_PREVIEW'; fileId: string | null}
+	| {type: 'SET_QUICK_PREVIEW'; fileId: string | null; startSeconds?: number}
 	| {type: 'SET_TAG_MODE'; active: boolean}
 	| {type: 'OPEN_SEARCH'}
 	| {type: 'PIN_SEARCH'}
@@ -299,7 +300,11 @@ function uiReducer(state: UIState, action: UIAction): UIState {
 			return {...state, inspectorVisible: action.visible};
 
 		case 'SET_QUICK_PREVIEW':
-			return {...state, quickPreviewFileId: action.fileId};
+			return {
+				...state,
+				quickPreviewFileId: action.fileId,
+				quickPreviewStartSeconds: action.startSeconds ?? null
+			};
 
 		case 'SET_TAG_MODE':
 			return {...state, tagModeActive: action.active};
@@ -427,6 +432,7 @@ const initialUIState: UIState = {
 	sidebarVisible: true,
 	inspectorVisible: true,
 	quickPreviewFileId: null,
+	quickPreviewStartSeconds: null,
 	tagModeActive: false,
 	mode: {type: 'browse'},
 	...CLOSED_SEARCH
@@ -542,7 +548,12 @@ interface ExplorerContextValue {
 	setInspectorVisible: (visible: boolean) => void;
 
 	quickPreviewFileId: string | null;
-	openQuickPreview: (fileId: string) => void;
+	/** Where a video or audio preview starts playing, in seconds. */
+	quickPreviewStartSeconds: number | null;
+	openQuickPreview: (
+		fileId: string,
+		options?: {startSeconds?: number}
+	) => void;
 	closeQuickPreview: () => void;
 
 	currentFiles: File[];
@@ -868,9 +879,16 @@ export function ExplorerProvider({
 		uiDispatch({type: 'SET_INSPECTOR_VISIBLE', visible});
 	}, []);
 
-	const openQuickPreview = useCallback((fileId: string) => {
-		uiDispatch({type: 'SET_QUICK_PREVIEW', fileId});
-	}, []);
+	const openQuickPreview = useCallback(
+		(fileId: string, options?: {startSeconds?: number}) => {
+			uiDispatch({
+				type: 'SET_QUICK_PREVIEW',
+				fileId,
+				startSeconds: options?.startSeconds
+			});
+		},
+		[]
+	);
 
 	const closeQuickPreview = useCallback(() => {
 		uiDispatch({type: 'SET_QUICK_PREVIEW', fileId: null});
@@ -998,6 +1016,7 @@ export function ExplorerProvider({
 			inspectorVisible: uiState.inspectorVisible,
 			setInspectorVisible,
 			quickPreviewFileId: uiState.quickPreviewFileId,
+			quickPreviewStartSeconds: uiState.quickPreviewStartSeconds,
 			openQuickPreview,
 			closeQuickPreview,
 			currentFiles,
@@ -1055,6 +1074,7 @@ export function ExplorerProvider({
 			uiState.inspectorVisible,
 			setInspectorVisible,
 			uiState.quickPreviewFileId,
+			uiState.quickPreviewStartSeconds,
 			openQuickPreview,
 			closeQuickPreview,
 			currentFiles,
