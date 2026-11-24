@@ -91,6 +91,17 @@ impl WhisperModel {
 		}
 	}
 
+	/// The order transcription picks a downloaded model in when none is named.
+	/// Small comes first because medium and large are several times slower on
+	/// a CPU for a modest gain in accuracy.
+	pub const PREFERENCE: [Self; 5] = [
+		Self::Small,
+		Self::Base,
+		Self::Tiny,
+		Self::Medium,
+		Self::Large,
+	];
+
 	pub fn all() -> Vec<Self> {
 		vec![
 			Self::Tiny,
@@ -160,10 +171,21 @@ impl WhisperModelManager {
 				filename: model.filename().to_string(),
 				downloaded,
 				description: Some(model.description().to_string()),
+				license: Some("MIT".to_string()),
 			});
 		}
 
 		Ok(models)
+	}
+
+	/// The model transcription uses when the person names none.
+	pub async fn preferred_downloaded(&self) -> Option<WhisperModel> {
+		for model in WhisperModel::PREFERENCE {
+			if self.is_downloaded(&model).await {
+				return Some(model);
+			}
+		}
+		None
 	}
 
 	/// Delete a model

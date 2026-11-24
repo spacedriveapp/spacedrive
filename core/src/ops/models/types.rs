@@ -42,4 +42,6 @@ pub struct ModelInfo {
 	pub downloaded: bool,
 	/// Optional description
 	pub description: Option<String>,
+	/// SPDX identifier of the weights' license
+	pub license: Option<String>,
 }
