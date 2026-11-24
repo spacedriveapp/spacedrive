@@ -1,13 +1,12 @@
 import {Export, FilmReel} from '@phosphor-icons/react';
 import type {File, FootageStatusOutput} from '@sd/ts-client';
-import {getContentKind} from '@sd/ts-client';
+import {getContentKind, useFootageJobStore} from '@sd/ts-client';
 import clsx from 'clsx';
 import {useEffect, useMemo} from 'react';
 import {useLibraryQuery} from '../../contexts/SpacedriveContext';
 import {InfoRow, Section} from '../Inspector/primitives';
 import {JobProgressBar} from '../JobManager/components/JobProgressBar';
 import {useOptionalJobsContext} from '../JobManager/hooks/JobsContext';
-import {useFootageJobStore} from './footageJobStore';
 import {
 	FOOTAGE_JOBS,
 	footageJobLabel,

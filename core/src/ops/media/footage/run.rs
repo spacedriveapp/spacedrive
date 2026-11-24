@@ -207,61 +207,61 @@ async fn analyze(
 	unreachable!("capabilities refuse analysis in this build")
 }
 
-/// Record uuids of the videos at or beneath `path` in the source that holds it.
+/// Record uuids of the videos at or beneath `path`. A folder can span
+/// several sources, since a nested source keeps its own records, so every
+/// store the path reaches is read.
 #[cfg(feature = "wasm")]
 async fn video_records(context: &CoreContext, path: &Path) -> Result<Vec<Uuid>, ActionError> {
-	let index = context.volume_index();
-	let not_tracked = || {
-		ActionError::InvalidInput(format!(
-			"{} is not under a source on this device, so the Videos extension cannot read it",
+	let reaches = crate::ops::paths::reach::stores_beneath(context, &SdPath::local(path)).await;
+	if reaches.is_empty() {
+		return Err(ActionError::InvalidInput(format!(
+			"{} is not in a source on this device, so the Videos extension cannot read it",
 			path.display()
-		))
-	};
-	let root = index.source_root_for(path).ok_or_else(not_tracked)?;
-	let store = index.store_for(&root).await.ok_or_else(not_tracked)?;
-	let canonical_root = tokio::fs::canonicalize(&root).await.unwrap_or(root);
-	let canonical = tokio::fs::canonicalize(path)
-		.await
-		.map_err(|error| ActionError::InvalidInput(format!("{}: {error}", path.display())))?;
-	let relative = canonical
-		.strip_prefix(&canonical_root)
-		.map_err(|_| not_tracked())?
-		.components()
-		.map(|part| part.as_os_str().to_string_lossy())
-		.collect::<Vec<_>>()
-		.join("/");
-	let pool = store.db().pool();
-	let failed = |error: sd_store::Error| ActionError::Internal(error.to_string());
-
-	if !relative.is_empty() {
-		if let Some(entry) = sd_store::read::entry_by_path(pool, &relative)
-			.await
-			.map_err(failed)?
-		{
-			if entry.kind == sd_store::FileKind::File {
-				return Ok(vec![entry.uuid]);
-			}
-		}
+		)));
 	}
+	let failed = |error: sd_store::Error| ActionError::Internal(error.to_string());
 	let extensions: Vec<String> = VIDEO_EXTENSIONS.iter().map(|e| e.to_string()).collect();
 	let mut records = Vec::new();
-	let mut cursor: Option<(String, String)> = None;
-	loop {
-		let start = match &cursor {
-			Some((directory, name)) => sd_store::read::Start::After { directory, name },
-			None => sd_store::read::Start::First,
+	for reach in reaches {
+		let Some(db) = context.volume_index().read_store(reach.source.id).await else {
+			continue;
 		};
-		let batch =
-			sd_store::read::files_beneath(pool, &relative, start, Some(&extensions), false, PAGE)
+		let pool = db.pool();
+		if reach.prefix.is_empty() && !reach.scope.is_empty() {
+			if let Some(entry) = sd_store::read::entry_by_path(pool, &reach.scope)
 				.await
-				.map_err(failed)?;
-		records.extend(batch.iter().map(|entry| entry.uuid));
-		if batch.len() < PAGE {
-			break;
+				.map_err(failed)?
+			{
+				if entry.kind == sd_store::FileKind::File {
+					records.push(entry.uuid);
+					continue;
+				}
+			}
 		}
-		cursor = batch
-			.last()
-			.map(|entry| (entry.directory().to_string(), entry.name.clone()));
+		let mut cursor: Option<(String, String)> = None;
+		loop {
+			let start = match &cursor {
+				Some((directory, name)) => sd_store::read::Start::After { directory, name },
+				None => sd_store::read::Start::First,
+			};
+			let batch = sd_store::read::files_beneath(
+				pool,
+				&reach.scope,
+				start,
+				Some(&extensions),
+				false,
+				PAGE,
+			)
+			.await
+			.map_err(failed)?;
+			records.extend(batch.iter().map(|entry| entry.uuid));
+			if batch.len() < PAGE {
+				break;
+			}
+			cursor = batch
+				.last()
+				.map(|entry| (entry.directory().to_string(), entry.name.clone()));
+		}
 	}
 	Ok(records)
 }

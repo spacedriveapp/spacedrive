@@ -64,6 +64,7 @@ export * from "./stores/sidebar";
 export * from "./stores/viewPreferences";
 export * from "./stores/sortPreferences";
 export * from "./stores/syncPreferences";
+export * from "./stores/footageJobs";
 
 // Device and volume utilities
 export * from "./deviceIcons";

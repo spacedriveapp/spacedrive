@@ -1,11 +1,10 @@
 import type {Icon} from '@phosphor-icons/react';
 import {FilmSlate, FilmStrip, MagicWand, Subtitles} from '@phosphor-icons/react';
 import type {File, FootageJob, SdPath} from '@sd/ts-client';
-import {getContentKind, isVirtualFile} from '@sd/ts-client';
+import {getContentKind, isVirtualFile, useFootageJobStore} from '@sd/ts-client';
 import {toast} from '@spacedrive/primitives';
 import {usePlatform} from '../../contexts/PlatformContext';
 import {useLibraryMutation, useLibraryQuery} from '../../contexts/SpacedriveContext';
-import {useFootageJobStore} from './footageJobStore';
 
 export const FOOTAGE_JOBS: {job: FootageJob; label: string; icon: Icon}[] = [
 	{job: 'transcribe', label: 'Transcribe', icon: Subtitles},

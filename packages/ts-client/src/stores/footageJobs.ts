@@ -1,4 +1,4 @@
-import type {FootageJob} from '@sd/ts-client';
+import type {FootageJob} from '../generated/types';
 import {create} from 'zustand';
 
 export interface StartedFootageJob {
