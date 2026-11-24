@@ -49,6 +49,14 @@ and the host tool only in builds that ship no codecs. The release desktop
 daemon builds without that feature outside dry runs, so it reaches users once
 the footage features are on in release builds.
 
+Content search in the explorer (Capy FAN-13827, November 24, footage beta).
+Explorer search runs `search.content` beside `search.files` over the same
+scope, limited to `transcript`, `scene` and `caption`, and lists hits by file
+above the file results with their snippets. A timestamp chip opens Quick
+Preview at that moment through `openQuickPreview(id, { startSeconds })`, which
+the video and audio players honour once metadata loads. Library scope asks
+every attached local filesystem source that reads contents, one query each.
+
 Scene and caption search (Capy FAN-12538, November 22). `search.content`
 finds files by the descriptions extensions write: the Videos extension's
 `scene` sidecar (kind `scene`, one row per shot with its in and out points,
@@ -137,8 +145,11 @@ downloaded through `ModelDownloadJob` with a pinned hash after the user
 accepts the license (`ai.models.download`), batched `ai.infer` requests, and a
 per-library bring-your-own-key cloud caption opt-in, off by default
 (`ai.cloud_caption.configure`). Photos gets face boxes with embeddings and
-scene labels from a daemon built with `wasm,ai-providers`. The model catalog
-waits on Jamie's approval of the license shortlist; CoreML is unproven.
+scene labels from a daemon built with `wasm,ai-providers`. The catalog pins
+BlazeFace, AuraFace, SigLIP and E5 (approved November 22); BlazeFace's ONNX
+conversion is hosted at `spacedrive/spacedrive-models` on Hugging Face,
+pinned to a revision.
+Local captioning (Florence-2) needs a generation loop; CoreML is unproven.
 See `docs/core/inference.mdx`.
 
 Beta.1 log and churn polish from the signed Studio proof (Capy FAN-12343,

@@ -15,6 +15,8 @@ import type { VideoControlsCallbacks, VideoControlsState } from "./VideoControls
 
 export interface ContentRendererProps {
 	file: File;
+	/** Seconds into a video or audio file where playback starts. */
+	startSeconds?: number;
 	onZoomChange?: (isZoomed: boolean) => void;
 	onVideoControlsStateChange?: (state: VideoControlsState) => void;
 	onShowVideoControlsChange?: (show: boolean) => void;
