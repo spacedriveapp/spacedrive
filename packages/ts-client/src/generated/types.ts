@@ -1508,6 +1508,15 @@ executes_on: string;
  */
 strategy: string | null; estimated_files: number | null; estimated_bytes: number | null; free_space_after: number | null };
 
+/**
+ * Which file each clip points the editor at.
+ */
+export type ExportMedia = "original" | 
+/**
+ * The 720p proxy, which has the original's frames.
+ */
+"proxy";
+
 export type ExtendGrantInput = { id: string; 
 /**
  * The new lifetime in seconds from now, from 5 minutes to 12 hours.
@@ -1983,6 +1992,104 @@ export type FlattenPolicy =
  * The deeper file stays where it is.
  */
 "skip";
+
+export type FootageCapabilities = { transcribe: FootageSupport; proxy: FootageSupport; shots: FootageSupport; analyze: FootageSupport; export: FootageSupport };
+
+export type FootageCapabilitiesInput = Record<string, never>;
+
+export type FootageExportInput = { 
+/**
+ * Videos and folders of videos, in timeline order. A folder adds its
+ * videos at any depth in path order.
+ */
+paths: SdPath[]; 
+/**
+ * A folder on this device for the timeline files. A taken name gets a
+ * number.
+ */
+destination: SdPath; 
+/**
+ * The project and file name.
+ */
+name: string; 
+/**
+ * Every format when empty.
+ */
+formats?: TimelineFormat[]; media?: ExportMedia };
+
+export type FootageExportOutput = { 
+/**
+ * The timeline files written, one per format.
+ */
+files: SdPath[]; clips: number; 
+/**
+ * What an editor will do differently from what the timeline says.
+ */
+warnings: string[] };
+
+/**
+ * A job a person can start on footage.
+ */
+export type FootageJob = 
+/**
+ * Timestamped transcripts with a downloaded Whisper model.
+ */
+"transcribe" | 
+/**
+ * A 720p proxy and speech audio.
+ */
+"proxy" | 
+/**
+ * The shot list and one keyframe per shot.
+ */
+"shots" | 
+/**
+ * Scene descriptions, places and faces per shot, by the Videos extension.
+ */
+"analyze";
+
+export type FootageRunInput = { 
+/**
+ * A video, or a folder whose videos are processed at any depth.
+ */
+path: SdPath; job: FootageJob };
+
+export type FootageRunOutput = { 
+/**
+ * The jobs started: one for most work, one per video for shot detection
+ * over a folder, none when the folder holds no video.
+ */
+job_ids: string[] };
+
+export type FootageStatusInput = { 
+/**
+ * A video file on this device.
+ */
+path: SdPath };
+
+/**
+ * The sidecars a video's bytes have. They follow content, so a copy or a
+ * renamed file reports what was made for the same bytes elsewhere.
+ */
+export type FootageStatusOutput = { content_uuid: string; transcript: boolean; proxy: boolean; 
+/**
+ * Shots in the shot list, `None` until shot detection has run.
+ */
+shots: number | null; 
+/**
+ * Shots the Videos extension has analyzed, `None` until it has run on
+ * this file.
+ */
+analyzed_shots: number | null };
+
+/**
+ * Whether a footage job can start, and if not, what the person can do.
+ */
+export type FootageSupport = { available: boolean; 
+/**
+ * Why it cannot start, written for a person. `None` when available.
+ */
+reason: string | null };
 
 /**
  * One frame as the frame count from the start of the file (the source of
@@ -5801,6 +5908,23 @@ export type TileIdentity = { source_id: string; uuid: string;
 version: string };
 
 /**
+ * A timeline file format an editor opens.
+ */
+export type TimelineFormat = 
+/**
+ * FCPXML 1.10, for Final Cut Pro and Resolve.
+ */
+"fcpxml" | 
+/**
+ * CMX 3600, for Resolve and Premiere Pro.
+ */
+"edl" | 
+/**
+ * OpenTimelineIO JSON.
+ */
+"otio";
+
+/**
  * A feature made runnable by an external tool.
  */
 export type ToolCapability = "video_thumbnail" | "video_thumbstrip" | "media_metadata";
@@ -6866,6 +6990,8 @@ export type LibraryAction =
   |  { type: 'jobs.resume'; input: JobResumeInput; output: JobResumeOutput }
   |  { type: 'libraries.backup'; input: LibraryBackupInput; output: LibraryBackupOutput }
   |  { type: 'libraries.rename'; input: LibraryRenameInput; output: LibraryRenameOutput }
+  |  { type: 'media.footage.export'; input: FootageExportInput; output: FootageExportOutput }
+  |  { type: 'media.footage.run'; input: FootageRunInput; output: FootageRunOutput }
   |  { type: 'models.whisper.download'; input: DownloadWhisperModelInput; output: DownloadWhisperModelOutput }
   |  { type: 'search.content.rebuild'; input: RebuildContentIndexInput; output: RebuildContentIndexOutput }
   |  { type: 'sources.assertions.merge'; input: MergeAssertionsInput; output: MergeAssertionsOutput }
@@ -6958,6 +7084,8 @@ export type LibraryQuery =
   |  { type: 'jobs.journal'; input: JobJournalInput; output: JobJournalOutput }
   |  { type: 'jobs.list'; input: JobListInput; output: JobListOutput }
   |  { type: 'libraries.info'; input: LibraryInfoQueryInput; output: Library }
+  |  { type: 'media.footage.capabilities'; input: FootageCapabilitiesInput; output: FootageCapabilities }
+  |  { type: 'media.footage.status'; input: FootageStatusInput; output: FootageStatusOutput }
   |  { type: 'media.sidecars'; input: MediaSidecarsInput; output: MediaSidecarsOutput }
   |  { type: 'paths.compare'; input: PathCompareInput; output: PathCompareOutput }
   |  { type: 'paths.context'; input: PathContextInput; output: PathContextOutput }
@@ -7092,6 +7220,8 @@ export const WIRE_METHODS = {
     'jobs.resume': 'action:jobs.resume.input',
     'libraries.backup': 'action:libraries.backup.input',
     'libraries.rename': 'action:libraries.rename.input',
+    'media.footage.export': 'action:media.footage.export.input',
+    'media.footage.run': 'action:media.footage.run.input',
     'models.whisper.download': 'action:models.whisper.download.input',
     'search.content.rebuild': 'action:search.content.rebuild.input',
     'sources.assertions.merge': 'action:sources.assertions.merge.input',
@@ -7184,6 +7314,8 @@ export const WIRE_METHODS = {
     'jobs.journal': 'query:jobs.journal',
     'jobs.list': 'query:jobs.list',
     'libraries.info': 'query:libraries.info',
+    'media.footage.capabilities': 'query:media.footage.capabilities',
+    'media.footage.status': 'query:media.footage.status',
     'media.sidecars': 'query:media.sidecars',
     'paths.compare': 'query:paths.compare',
     'paths.context': 'query:paths.context',

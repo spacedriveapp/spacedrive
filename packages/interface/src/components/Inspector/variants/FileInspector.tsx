@@ -39,6 +39,7 @@ import {
 } from '../../../contexts/SpacedriveContext';
 import {useContextMenu} from '../../../hooks/useContextMenu';
 import {useExtensionKinds} from '../../../hooks/useExtensionKinds';
+import {FootageSection} from '../../Footage/FootageSection';
 import {kindLabel} from '../../QuickPreview/renderers';
 import {File as FileComponent} from '../../../routes/explorer/File';
 import { formatBytes } from '../../../routes/explorer/utils';
@@ -869,6 +870,8 @@ function OverviewTab({file}: {file: File}) {
 						/>
 				</div>
 			</Section>
+
+			<FootageSection file={file} />
 
 			{/* Extracted text, when something has produced it */}
 			{(isImage || isVideo || isAudio) && (

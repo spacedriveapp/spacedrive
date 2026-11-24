@@ -26,6 +26,11 @@ export function JobsProvider({ children }: { children: ReactNode }) {
 	);
 }
 
+/** The jobs list, or null in a window without a JobsProvider. */
+export function useOptionalJobsContext() {
+	return useContext(JobsContext);
+}
+
 export function useJobsContext() {
 	const context = useContext(JobsContext);
 	if (!context) {
