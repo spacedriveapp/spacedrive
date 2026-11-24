@@ -103,6 +103,8 @@ mod tests {
 		assert_eq!(kind_directory("embeddings"), Some("embeddings"));
 		assert_eq!(kind_directory("transcript"), Some("transcript"));
 		assert_eq!(kind_directory("audio"), Some("audio"));
+		assert_eq!(kind_directory("shots"), Some("shots"));
+		assert_eq!(kind_directory("keyframe"), Some("keyframes"));
 		assert_eq!(kind_directory("bogus"), None);
 	}
 }

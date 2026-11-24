@@ -28,6 +28,8 @@ pub enum SidecarKind {
 	Transcript,
 	GaussianSplat,
 	Audio,
+	Shots,
+	Keyframe,
 	Extension { extension_id: String, kind: String },
 }
 
@@ -62,6 +64,8 @@ impl SidecarKind {
 			Self::Transcript => "transcript",
 			Self::GaussianSplat => "gaussian_splat",
 			Self::Audio => "audio",
+			Self::Shots => "shots",
+			Self::Keyframe => "keyframe",
 			Self::Extension { kind, .. } => kind,
 		}
 	}
@@ -101,6 +105,8 @@ impl TryFrom<&str> for SidecarKind {
 			"transcript" => Ok(Self::Transcript),
 			"gaussian_splat" => Ok(Self::GaussianSplat),
 			"audio" => Ok(Self::Audio),
+			"shots" => Ok(Self::Shots),
+			"keyframe" => Ok(Self::Keyframe),
 			_ => Err(format!("Invalid sidecar kind: {}", value)),
 		}
 	}
@@ -147,6 +153,8 @@ impl From<String> for SidecarVariant {
 /// - Text: Plain text extractions
 /// - Ply: 3D model format for Gaussian splats
 /// - Wav: Uncompressed audio that speech models read without decoding
+/// - Srt, Vtt: Subtitles that editors and players import as they are
+/// - Jpeg: Video keyframes, which FFmpeg writes without optional encoders
 ///
 /// MessagePack is preferred for embeddings because:
 /// - 6x smaller than JSON (1.7KB vs 10KB per 384-dim vector)
@@ -163,6 +171,9 @@ pub enum SidecarFormat {
 	Text,
 	Ply,
 	Wav,
+	Srt,
+	Vtt,
+	Jpeg,
 }
 
 impl SidecarFormat {
@@ -175,6 +186,9 @@ impl SidecarFormat {
 			Self::Text => "txt",
 			Self::Ply => "ply",
 			Self::Wav => "wav",
+			Self::Srt => "srt",
+			Self::Vtt => "vtt",
+			Self::Jpeg => "jpg",
 		}
 	}
 
@@ -187,6 +201,9 @@ impl SidecarFormat {
 			Self::Text => "text",
 			Self::Ply => "ply",
 			Self::Wav => "wav",
+			Self::Srt => "srt",
+			Self::Vtt => "vtt",
+			Self::Jpeg => "jpeg",
 		}
 	}
 }
@@ -209,6 +226,9 @@ impl TryFrom<&str> for SidecarFormat {
 			"text" | "txt" => Ok(Self::Text),
 			"ply" => Ok(Self::Ply),
 			"wav" => Ok(Self::Wav),
+			"srt" => Ok(Self::Srt),
+			"vtt" => Ok(Self::Vtt),
+			"jpeg" | "jpg" => Ok(Self::Jpeg),
 			_ => Err(format!("Invalid sidecar format: {}", value)),
 		}
 	}
@@ -305,6 +325,9 @@ impl ContentSidecar {
 	/// Speech audio: 16 kHz mono 16-bit PCM WAV, the input speech models take.
 	pub const SPEECH_AUDIO_VARIANT: &'static str = "16k_mono";
 
+	/// A transcript; the model that made it is recorded inside the JSON.
+	pub const TRANSCRIPT_VARIANT: &'static str = "default";
+
 	/// H.264 proxy with a keyframe every second.
 	pub fn proxy(content_uuid: Uuid, resolution: ProxyResolution) -> Self {
 		Self {
@@ -321,6 +344,38 @@ impl ContentSidecar {
 			kind: SidecarKind::Audio,
 			variant: SidecarVariant::new(Self::SPEECH_AUDIO_VARIANT),
 			format: SidecarFormat::Wav,
+		}
+	}
+
+	/// The transcript of a recording. One variant in three formats: segment
+	/// JSON (`Json`, what search and the core read), and `Srt` and `Vtt`
+	/// for editors and players.
+	pub fn transcript(content_uuid: Uuid, format: SidecarFormat) -> Self {
+		Self {
+			content_uuid,
+			kind: SidecarKind::Transcript,
+			variant: SidecarVariant::new(Self::TRANSCRIPT_VARIANT),
+			format,
+		}
+	}
+
+	/// The shot list the shot detection job writes.
+	pub fn shots(content_uuid: Uuid) -> Self {
+		Self {
+			content_uuid,
+			kind: SidecarKind::Shots,
+			variant: SidecarVariant::new("default"),
+			format: SidecarFormat::Json,
+		}
+	}
+
+	/// The representative frame of one shot, named by the shot id.
+	pub fn keyframe(content_uuid: Uuid, shot_id: Uuid) -> Self {
+		Self {
+			content_uuid,
+			kind: SidecarKind::Keyframe,
+			variant: SidecarVariant::new(shot_id.to_string()),
+			format: SidecarFormat::Jpeg,
 		}
 	}
 
@@ -371,6 +426,21 @@ mod tests {
 		assert_eq!(
 			ContentSidecar::speech_audio(uuid).relative_path(),
 			PathBuf::from("content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/audio/16k_mono.wav")
+		);
+		assert_eq!(
+			ContentSidecar::transcript(uuid, SidecarFormat::Vtt).relative_path(),
+			PathBuf::from(
+				"content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/transcript/default.vtt"
+			)
+		);
+		assert_eq!(
+			ContentSidecar::shots(uuid).relative_path(),
+			PathBuf::from("content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/shots/default.json")
+		);
+		let shot = Uuid::parse_str("00000000-0000-5000-8000-000000000001").unwrap();
+		assert_eq!(
+			ContentSidecar::keyframe(uuid, shot).relative_path(),
+			PathBuf::from("content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/keyframes/00000000-0000-5000-8000-000000000001.jpg")
 		);
 	}
 

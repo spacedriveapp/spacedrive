@@ -32,6 +32,13 @@ video-proxies = []
 # and the opt-in cloud caption provider. Off by default: without it every
 # ai.infer request is answered not_available, as before.
 ai-providers = ["dep:ort", "dep:tokenizers"]
+# Shot detection on video with host FFmpeg: the media.shots ops, the shots
+# and keyframe sidecars, and the agent MCP list_shots tool.
+video-shots = []
+# Clips for agents and rough-cut export: media.clips.search, media.footage.read,
+# media.timeline.export and their agent MCP tools. Reads shots, so it builds
+# the shot detection module too.
+footage-clips = ["video-shots", "dep:sd-timeline"]
 
 
 [dependencies]
@@ -143,6 +150,7 @@ job-derive     = { path = "../crates/job-derive" }  # Job derive macros
 rmp            = "0.8"                              # MessagePack core types
 rmp-serde      = "1.3"                              # MessagePack serialization for job state
 sd-task-system = { path = "../crates/task-system" }
+sd-utils       = { path = "../crates/utils" }
 
 # The per-source store, one SQLite file per source
 sd-store = { path = "../crates/store" }
@@ -163,6 +171,7 @@ sd-ffmpeg        = { path = "../crates/ffmpeg", optional = true }
 sd-fs-watcher    = { path = "../crates/fs-watcher" }
 sd-images        = { path = "../crates/images" }
 sd-sidecar-path  = { path = "../crates/sidecar-path" }
+sd-timeline      = { path = "../crates/timeline", optional = true }
 sd-extension-ui  = { path = "../crates/extension-ui" }
 sd-media-metadata = { path = "../crates/media-metadata" }
 tokio-rustls     = "0.26"
@@ -173,7 +182,7 @@ ort        = { workspace = true, optional = true, features = ["std"] }
 tokenizers = { version = "0.21", default-features = false, features = ["fancy-regex"], optional = true }
 
 # Speech-to-text dependencies (optional, behind whisper feature)
-whisper-rs = { version = "0.15.1", optional = true }
+whisper-rs = { version = "0.15.1", features = ["tracing_backend"], optional = true }
 hound      = { version = "3.5", optional = true }   # WAV file reading
 rubato     = { version = "0.16", optional = true }  # Audio resampling to 16kHz
 

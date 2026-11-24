@@ -113,7 +113,7 @@ where
 			timestamp: Utc::now(),
 			level: event.metadata().level().to_string(),
 			target: event.metadata().target().to_string(),
-			message: visitor.message,
+			message: crate::common::redact::redact_url_credentials(&visitor.message).into_owned(),
 			job_id,
 			library_id,
 		};

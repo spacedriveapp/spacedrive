@@ -41,6 +41,11 @@ The index never opens a cloud placeholder whose contents are not on the
 device, because opening one downloads it. The file is indexed once its
 contents are local. Symbolic links are not followed.
 
+Words spoken in audio and video files are indexed too, once the files are
+transcribed. See [Spoken words](#spoken-words). So are the descriptions
+extensions write of what video shots and photos show. See
+[Descriptions](#descriptions).
+
 A source tracked without content identification reads no file contents, so it
 has no text index. `search.content` refuses it and points to
 `search.grep`. OCR and semantic search are not part of this index.
@@ -100,7 +105,9 @@ store there.
 
 Each hit has a `path` relative to the scope, its `kind`, a BM25 `score`
 (larger is better), and a `snippet` as a list of fragments, each marked
-`matched` or not.
+`matched` or not. A `transcript` hit also has a `time` with `start_seconds`
+and `end_seconds`: the stretch of the recording where the words were said.
+A `scene` hit has one too: the shot's in and out points.
 
 From the CLI:
 
@@ -118,10 +125,70 @@ it. Hits whose file has moved out of the folder since the last pass are
 dropped. The folder must sit inside a source tracked on the daemon's device
 with content identification, otherwise the tool refuses and points to `grep`.
 
+## Spoken words
+
+The `media.transcribe` action transcribes audio and video files and adds what
+was said to this index. It runs only in a daemon built with the
+`speech-to-text` cargo feature, which is off by default. See
+[Transcription](./transcription).
+
+Each transcript segment is a row of its own, so a hit names the moment, not
+only the file. A recording that says the words in three places answers with
+three hits, each with its `time`. Filter to spoken words with the
+`transcript` kind:
+
+```bash
+sd-cli search content '"lighthouse was built"' ~/Footage --kind transcript
+clips/talk.mp4 @ 0:14  (0.77)
+    The [lighthouse was built] in 1902 by the Harbour Master.
+```
+
+The words of one hit must sit in one segment. Whisper ends a segment at a
+sentence or a pause, so a phrase that runs across one is not found as a
+phrase; search for its words without quotes.
+
+Transcript rows follow the record like the other rows: an edited recording
+drops out of results until it is transcribed again, and a renamed one keeps
+its transcript. The ranks of a segment and a whole document are on the same
+scale, but a segment is short, so it tends to rank above a long document
+that holds the same words.
+
+## Descriptions
+
+Extensions describe what content shows in sidecars, and this index holds
+their text so a word query finds a file by what is in it:
+
+| Kind | Sidecar | Written by | Indexed in a build with |
+|---|---|---|---|
+| `scene` | `scene`, one description per shot keyframe | Videos extension | `video-shots` |
+| `caption` | `caption`, one description per photo | Photos extension | `ai-providers` |
+
+Both cargo features are off by default, and the host runs extensions only in
+a build with `wasm`. The index is updated when the extension writes, replaces
+or deletes the sidecar.
+
+Each described shot is a row of its own, timed from the video's shot list, so
+a `scene` hit names the shot with its `time`. A shot the list no longer names
+is still found, without a `time`. A `caption` hit has no `time`.
+
+```bash
+sd-cli search content lighthouse ~/Footage --kind scene
+day1/harbour.mp4 @ 0:04  (1.32)
+    A red [lighthouse] on a rocky point
+```
+
+Sidecars are keyed by the bytes, not the file, so every copy of a file
+answers, and a description lands in every source on this device that holds
+those bytes when the sidecar is written. A source that gains a copy later is
+not filled in until the extension writes the sidecar again. The rows are
+replaced only by sidecar writes, so a rebuild keeps them.
+
 ## Rebuild
 
 `search.content.rebuild` drops a source's index and starts a pass that reads
-every file again. The record store is not touched.
+every file again. The record store is not touched. Transcripts and
+descriptions are kept, since the text pass cannot make them again;
+`media.transcribe` with `force` redoes transcripts.
 
 ```bash
 sd-cli search reindex-content ~/Documents

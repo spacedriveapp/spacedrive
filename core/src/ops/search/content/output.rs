@@ -29,6 +29,27 @@ pub struct ContentSearchHit {
 	/// The file holds more than 1 MiB of text and only the start was
 	/// indexed, so a match later in the file is not found.
 	pub truncated: bool,
+	/// Where in the recording the match is: when the words were said, for a
+	/// `transcript` hit, or the shot's in and out points, for a `scene`
+	/// hit. One recording can answer with several hits, one per moment.
+	pub time: Option<SpokenTime>,
+}
+
+/// A stretch of a recording, in seconds from its start.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Type)]
+pub struct SpokenTime {
+	pub start_seconds: f64,
+	pub end_seconds: f64,
+}
+
+impl SpokenTime {
+	/// From the index's milliseconds, when both ends are known.
+	pub fn from_ms(start_ms: Option<i64>, end_ms: Option<i64>) -> Option<Self> {
+		Some(Self {
+			start_seconds: start_ms? as f64 / 1000.0,
+			end_seconds: end_ms? as f64 / 1000.0,
+		})
+	}
 }
 
 /// One page of hits.

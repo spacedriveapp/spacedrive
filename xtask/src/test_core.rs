@@ -338,6 +338,16 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		features: Some("wasm"),
 		group: Group::Acceptance,
 	},
+	// Scene descriptions in content search: a `scene` sidecar found through
+	// `search.content` with its shot range. Its own build with the
+	// off-by-default `video-shots` feature that gates the indexing.
+	TestSuite {
+		name: "Scene search acceptance test",
+		package: "sd-core",
+		test_args: &["--test", "scene_search_acceptance_test"],
+		features: Some("video-shots"),
+		group: Group::Acceptance,
+	},
 	// The Linux FUSE mount. Its own build with the `fuse` feature; it skips
 	// with a reason where /dev/fuse or fusermount3 is missing unless
 	// SD_REQUIRE_FUSE is set.

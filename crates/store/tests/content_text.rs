@@ -3,8 +3,9 @@
 
 use sd_store::file::{FileKind, FileWrite, Ledger, Observation};
 use sd_store::{
-	filesystem_schema, match_expression, ContentTextIndex, PendingText, SourceDb, SourceManager,
-	TextDoc, TextSearch,
+	filesystem_schema, match_expression, ContentTextIndex, DescriptionDoc, DescriptionSpan,
+	PendingText, SourceDb, SourceManager, TextDoc, TextSearch, TranscriptDoc, TranscriptSpan,
+	CAPTION_KIND, SCENE_KIND,
 };
 use uuid::Uuid;
 
@@ -364,4 +365,305 @@ async fn a_search_with_nothing_to_match_returns_nothing() {
 	let index = f.index().await;
 	assert!(index.search(&search("   ")).await.unwrap().is_empty());
 	assert!(index.search(&search("anything")).await.unwrap().is_empty());
+}
+
+const MEDIA: &[&str] = &["mp4", "m4a"];
+
+fn transcript(pending: &sd_store::PendingTranscript, spans: &[(i64, i64, &str)]) -> TranscriptDoc {
+	TranscriptDoc {
+		record_uuid: pending.record_uuid,
+		size: pending.size,
+		mtime: pending.mtime,
+		extension: pending.extension.clone(),
+		language: Some("en".into()),
+		model: "whisper-tiny".into(),
+		duration_ms: Some(60_000),
+		spans: spans
+			.iter()
+			.map(|(start_ms, end_ms, text)| TranscriptSpan {
+				start_ms: *start_ms,
+				end_ms: *end_ms,
+				text: text.to_string(),
+			})
+			.collect(),
+		skipped: None,
+	}
+}
+
+#[tokio::test]
+async fn a_transcript_hit_carries_the_time_it_was_said() {
+	let mut f = Fixture::new().await;
+	f.observe(&[
+		("clips/talk.mp4", 20),
+		("clips/memo.m4a", 21),
+		("notes/a.md", 22),
+	])
+	.await;
+	let index = f.index().await;
+
+	let pending = index
+		.pending_transcripts(MEDIA, "", 0, 100)
+		.await
+		.expect("pending");
+	let mut names: Vec<&str> = pending.iter().map(|p| p.external_id.as_str()).collect();
+	names.sort();
+	assert_eq!(names, ["clips/memo.m4a", "clips/talk.mp4"]);
+	assert_eq!(
+		index
+			.pending_transcripts(MEDIA, "clips/talk.mp4", 0, 100)
+			.await
+			.unwrap()
+			.len(),
+		1
+	);
+	let by_name = |name: &str| pending.iter().find(|p| p.external_id == name).unwrap();
+
+	index
+		.write_transcript(&transcript(
+			by_name("clips/talk.mp4"),
+			&[
+				(0, 4_000, "Welcome to the harbour tour."),
+				(41_500, 45_000, "The lighthouse was built in 1902."),
+			],
+		))
+		.await
+		.unwrap();
+	let mut silent = transcript(by_name("clips/memo.m4a"), &[]);
+	silent.skipped = Some("no audio track".into());
+	index.write_transcript(&silent).await.unwrap();
+	let notes = index.pending(EXTENSIONS, 0, 100).await.unwrap();
+	index
+		.write(&[doc(&notes[0], "markdown", "the lighthouse keeper's notes")])
+		.await
+		.unwrap();
+
+	assert!(index
+		.pending_transcripts(MEDIA, "", 0, 100)
+		.await
+		.unwrap()
+		.is_empty());
+	assert_eq!(index.transcript_count().await.unwrap(), 2);
+
+	let hits = index
+		.search(&search("\"lighthouse was built\""))
+		.await
+		.unwrap();
+	assert_eq!(hits.len(), 1);
+	assert_eq!(hits[0].external_id, "clips/talk.mp4");
+	assert_eq!(hits[0].kind, "transcript");
+	assert_eq!(
+		(hits[0].start_ms, hits[0].end_ms),
+		(Some(41_500), Some(45_000))
+	);
+
+	// Both a document and a spoken segment answer a word they share, and
+	// a kind filter picks one.
+	let mut kinds: Vec<String> = index
+		.search(&search("lighthouse"))
+		.await
+		.unwrap()
+		.into_iter()
+		.map(|hit| hit.kind)
+		.collect();
+	kinds.sort();
+	assert_eq!(kinds, ["markdown", "transcript"]);
+	let only = |kind: &str| TextSearch {
+		kinds: vec![kind.to_string()],
+		..search("lighthouse")
+	};
+	assert_eq!(
+		hit_paths(&index, &only("transcript")).await,
+		["clips/talk.mp4"]
+	);
+	assert_eq!(hit_paths(&index, &only("markdown")).await, ["notes/a.md"]);
+	let under = TextSearch {
+		under: "notes".into(),
+		..search("lighthouse")
+	};
+	assert_eq!(hit_paths(&index, &under).await, ["notes/a.md"]);
+
+	// Rebuilding the document index keeps what was said.
+	index.clear().await.unwrap();
+	assert_eq!(
+		hit_paths(&index, &only("transcript")).await,
+		["clips/talk.mp4"]
+	);
+
+	// Forgetting a folder's transcripts queues its files again.
+	assert_eq!(index.forget_transcripts("clips").await.unwrap(), 2);
+	assert!(hit_paths(&index, &only("transcript")).await.is_empty());
+	assert_eq!(
+		index
+			.pending_transcripts(MEDIA, "", 0, 100)
+			.await
+			.unwrap()
+			.len(),
+		2
+	);
+}
+
+#[tokio::test]
+async fn an_edited_recording_leaves_results_until_transcribed_again() {
+	let mut f = Fixture::new().await;
+	f.observe(&[("talk.mp4", 30)]).await;
+	let index = f.index().await;
+	let pending = index.pending_transcripts(MEDIA, "", 0, 10).await.unwrap();
+	index
+		.write_transcript(&transcript(&pending[0], &[(1_000, 2_000, "first take")]))
+		.await
+		.unwrap();
+	assert_eq!(hit_paths(&index, &search("take")).await, ["talk.mp4"]);
+
+	f.observe(&[("talk.mp4", 31)]).await;
+	assert!(hit_paths(&index, &search("take")).await.is_empty());
+	assert_eq!(
+		index
+			.pending_transcripts(MEDIA, "", 0, 10)
+			.await
+			.unwrap()
+			.len(),
+		1
+	);
+}
+
+#[tokio::test]
+async fn a_description_hit_answers_for_every_file_with_the_bytes() {
+	let mut f = Fixture::new().await;
+	let uuids = f
+		.observe(&[
+			("clips/harbour.mp4", 30),
+			("backup/harbour.mp4", 30),
+			("photos/pier.jpg", 31),
+			("clips/other.mp4", 32),
+		])
+		.await;
+	let identity = |hash: &str| sd_store::ContentIdentity {
+		sampled_hash: Some(hash.to_string()),
+		integrity_hash: None,
+		size: Some(30),
+		kind: None,
+		kind_name: None,
+	};
+	f.db.set_content_identity(uuids[0], &identity("aaaa"))
+		.await
+		.unwrap();
+	f.db.set_content_identity(uuids[1], &identity("aaaa"))
+		.await
+		.unwrap();
+	f.db.set_content_identity(uuids[2], &identity("bbbb"))
+		.await
+		.unwrap();
+	let video = sd_store::uuid_for("aaaa");
+	let photo = sd_store::uuid_for("bbbb");
+	let index = f.index().await;
+
+	assert!(index.has_content(video).await.unwrap());
+	assert!(!index.has_content(Uuid::new_v4()).await.unwrap());
+
+	let scene = |text: &str| DescriptionDoc {
+		content_uuid: video,
+		kind: SCENE_KIND.into(),
+		spans: vec![
+			DescriptionSpan {
+				start_ms: Some(0),
+				end_ms: Some(4_000),
+				text: "A tugboat leaves the dock at dawn".into(),
+			},
+			DescriptionSpan {
+				start_ms: Some(4_000),
+				end_ms: Some(9_500),
+				text: text.into(),
+			},
+		],
+	};
+	index
+		.write_descriptions(&scene("A red lighthouse on a rocky point"))
+		.await
+		.unwrap();
+	index
+		.write_descriptions(&DescriptionDoc {
+			content_uuid: photo,
+			kind: CAPTION_KIND.into(),
+			spans: vec![DescriptionSpan {
+				start_ms: None,
+				end_ms: None,
+				text: "Fishermen mending nets beside the lighthouse".into(),
+			}],
+		})
+		.await
+		.unwrap();
+
+	let hits = index.search(&search("lighthouse")).await.unwrap();
+	let mut found: Vec<(&str, &str, Option<i64>, Option<i64>)> = hits
+		.iter()
+		.map(|hit| {
+			(
+				hit.external_id.as_str(),
+				hit.kind.as_str(),
+				hit.start_ms,
+				hit.end_ms,
+			)
+		})
+		.collect();
+	found.sort();
+	assert_eq!(
+		found,
+		[
+			("backup/harbour.mp4", "scene", Some(4_000), Some(9_500)),
+			("clips/harbour.mp4", "scene", Some(4_000), Some(9_500)),
+			("photos/pier.jpg", "caption", None, None),
+		]
+	);
+
+	let only = |kind: &str| TextSearch {
+		kinds: vec![kind.to_string()],
+		..search("lighthouse")
+	};
+	assert_eq!(
+		hit_paths(&index, &only("caption")).await,
+		["photos/pier.jpg"]
+	);
+	assert!(hit_paths(&index, &only("markdown")).await.is_empty());
+	let under = TextSearch {
+		under: "clips".into(),
+		..search("lighthouse")
+	};
+	assert_eq!(hit_paths(&index, &under).await, ["clips/harbour.mp4"]);
+
+	// A rewritten sidecar replaces what the last one said.
+	index
+		.write_descriptions(&scene("A ferry crossing the bay"))
+		.await
+		.unwrap();
+	assert!(hit_paths(&index, &only("scene")).await.is_empty());
+	assert_eq!(
+		hit_paths(
+			&index,
+			&TextSearch {
+				kinds: vec!["scene".into()],
+				..search("ferry")
+			}
+		)
+		.await
+		.len(),
+		2
+	);
+
+	// Rebuilding the document index keeps the descriptions.
+	index.clear().await.unwrap();
+	assert_eq!(
+		hit_paths(&index, &only("caption")).await,
+		["photos/pier.jpg"]
+	);
+
+	// A deleted sidecar drops its rows.
+	assert!(index
+		.forget_descriptions(photo, CAPTION_KIND)
+		.await
+		.unwrap());
+	assert!(!index
+		.forget_descriptions(photo, CAPTION_KIND)
+		.await
+		.unwrap());
+	assert!(hit_paths(&index, &only("caption")).await.is_empty());
 }

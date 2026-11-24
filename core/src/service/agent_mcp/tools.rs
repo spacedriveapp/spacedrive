@@ -4,7 +4,8 @@
 //!
 //! A tool is a [`Tool`] variant with its name, the capability it needs, its
 //! entry in [`definitions`] and its arm in [`call`]. The transport reads all of
-//! that from here, so adding a tool touches only this file.
+//! that from here, so adding a tool touches only this file. The footage tools
+//! keep their bodies and schemas in `footage.rs`.
 //!
 //! Every tool takes a path relative to the grant root and works on the
 //! [`GrantScope::path`] the grant check resolved, never on the path it was
@@ -28,6 +29,8 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use tracing::warn;
 
+#[cfg(feature = "footage-clips")]
+use super::footage;
 use super::{limits::*, paths, SKILL};
 use crate::{
 	context::CoreContext,
@@ -69,10 +72,18 @@ pub enum Tool {
 	MakeDir,
 	Move,
 	Delete,
+	#[cfg(feature = "video-shots")]
+	ListShots,
+	#[cfg(feature = "footage-clips")]
+	SearchClips,
+	#[cfg(feature = "footage-clips")]
+	ReadFootage,
+	#[cfg(feature = "footage-clips")]
+	ExportTimeline,
 }
 
 impl Tool {
-	pub const ALL: [Tool; 12] = [
+	pub const ALL: &'static [Tool] = &[
 		Self::GetSkill,
 		Self::ListDir,
 		Self::Stat,
@@ -85,6 +96,14 @@ impl Tool {
 		Self::MakeDir,
 		Self::Move,
 		Self::Delete,
+		#[cfg(feature = "video-shots")]
+		Self::ListShots,
+		#[cfg(feature = "footage-clips")]
+		Self::SearchClips,
+		#[cfg(feature = "footage-clips")]
+		Self::ReadFootage,
+		#[cfg(feature = "footage-clips")]
+		Self::ExportTimeline,
 	];
 
 	pub fn name(self) -> &'static str {
@@ -101,11 +120,19 @@ impl Tool {
 			Self::MakeDir => "make_dir",
 			Self::Move => "move",
 			Self::Delete => "delete",
+			#[cfg(feature = "video-shots")]
+			Self::ListShots => "list_shots",
+			#[cfg(feature = "footage-clips")]
+			Self::SearchClips => "search_clips",
+			#[cfg(feature = "footage-clips")]
+			Self::ReadFootage => "read_footage",
+			#[cfg(feature = "footage-clips")]
+			Self::ExportTimeline => "export_timeline",
 		}
 	}
 
 	pub fn parse(name: &str) -> Option<Self> {
-		Self::ALL.into_iter().find(|tool| tool.name() == name)
+		Self::ALL.iter().copied().find(|tool| tool.name() == name)
 	}
 
 	/// The capability the grant check asks for on this tool's path.
@@ -133,7 +160,7 @@ pub struct Output {
 impl Output {
 	/// The structured value, also as JSON text for clients that only read
 	/// text content.
-	fn json(structured: Value) -> Self {
+	pub(super) fn json(structured: Value) -> Self {
 		let text = serde_json::to_string_pretty(&structured).unwrap_or_default();
 		Self {
 			content: vec![json!({ "type": "text", "text": text })],
@@ -196,7 +223,8 @@ pub fn definitions() -> Value {
 			"openWorldHint": false,
 		})
 	};
-	json!([
+	#[allow(unused_mut)]
+	let mut tools = json!([
 		{
 			"name": "get_skill",
 			"title": "How to use this Spacedrive folder",
@@ -313,7 +341,7 @@ pub fn definitions() -> Value {
 		{
 			"name": "search_content",
 			"title": "Search the text of files",
-			"description": "Searches the text Spacedrive extracted from documents and code under 'path' and returns files ranked by relevance, each with a snippet around the best match. Every word must appear; text in double quotes is a phrase and a word ending in '*' matches as a prefix. It answers from an index, so a file changed since the last pass can be missing or stale, and pending_files counts files waiting to be read. It works only inside a source that reads file contents. Use grep for patterns or a live scan.",
+			"description": "Searches the text Spacedrive extracted from documents and code under 'path' and returns files ranked by relevance, each with a snippet around the best match. Every word must appear; text in double quotes is a phrase and a word ending in '*' matches as a prefix. It answers from an index, so a file changed since the last pass can be missing or stale, and pending_files counts files waiting to be read. Words spoken in transcribed audio and video match too: those hits have kind 'transcript' and carry start_seconds and end_seconds, the moment in the recording they were said, and one recording can return several. It works only inside a source that reads file contents. Use grep for patterns or a live scan.",
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -321,7 +349,7 @@ pub fn definitions() -> Value {
 					"path": path("The directory or file to search"),
 					"kinds": {
 						"type": "array",
-						"items": { "type": "string", "enum": ["text", "markdown", "csv", "json", "code", "pdf", "docx"] },
+						"items": { "type": "string", "enum": ["text", "markdown", "csv", "json", "code", "pdf", "docx", "transcript"] },
 						"description": "Only files of these kinds. Empty or absent means every kind.",
 					},
 					"max_results": { "type": "integer", "minimum": 1, "maximum": CONTENT_PAGE_MAX, "default": CONTENT_PAGE_DEFAULT },
@@ -393,7 +421,27 @@ pub fn definitions() -> Value {
 			},
 			"annotations": writes("Move to the trash", true),
 		},
-	])
+	]);
+	#[cfg(feature = "video-shots")]
+	if let Some(list) = tools.as_array_mut() {
+		list.push(json!({
+			"name": "list_shots",
+			"title": "List a video's shots",
+			"description": "Returns the shots Spacedrive detected in one video: for each shot its id, in and out points (whole frames at the file's frame rate, with seconds and timecode; out is the first frame after the shot), duration, and the frame its keyframe shows. Shot ids stay the same when a rerun finds the same boundaries. Shots exist only after shot detection has run on the file.",
+			"inputSchema": {
+				"type": "object",
+				"properties": { "path": path("The video file") },
+				"required": ["path"],
+				"additionalProperties": false,
+			},
+			"annotations": annotations("List a video's shots"),
+		}));
+	}
+	#[cfg(feature = "footage-clips")]
+	if let Some(list) = tools.as_array_mut() {
+		list.extend(footage::definitions(&path));
+	}
+	tools
 }
 
 /// Run one tool on the resolved scope.
@@ -421,6 +469,14 @@ pub async fn call(
 		Tool::WriteFile | Tool::MakeDir | Tool::Move | Tool::Delete => {
 			write(context.clone(), token, tool, &scope, arguments, cancel).await
 		}
+		#[cfg(feature = "video-shots")]
+		Tool::ListShots => list_shots(&context, &scope).await,
+		#[cfg(feature = "footage-clips")]
+		Tool::SearchClips => footage::search_clips(&context, &scope, args(arguments)?).await,
+		#[cfg(feature = "footage-clips")]
+		Tool::ReadFootage => footage::read_footage(&context, &scope, args(arguments)?).await,
+		#[cfg(feature = "footage-clips")]
+		Tool::ExportTimeline => footage::export_timeline(&context, token, &scope, args(arguments)?).await,
 	};
 	result.map_err(|message| scrub(&message, &root))
 }
@@ -447,7 +503,7 @@ async fn blocking(
 		.map_err(|_| "the call failed".to_string())?
 }
 
-fn io_message(error: &std::io::Error) -> String {
+pub(super) fn io_message(error: &std::io::Error) -> String {
 	use std::io::ErrorKind::*;
 	match error.kind() {
 		NotFound => "no such file or directory".to_string(),
@@ -1194,6 +1250,123 @@ async fn search_content(
 			"the query is longer than {PATTERN_MAX_BYTES} bytes"
 		));
 	}
+	let in_source = text_index_path(context, scope).await?;
+	let session = session(context, scope)?;
+	let found = ContentSearchQuery::from_input(ContentSearchInput {
+		scope: SdPath::local(in_source),
+		query: args.query,
+		kinds: args.kinds,
+		max_results: args.max_results,
+		cursor: args.cursor,
+	})
+	.map_err(content_error)?
+	.execute(context.clone(), session)
+	.await
+	.map_err(content_error)?;
+
+	let names: Vec<String> = found.hits.iter().map(|hit| hit.path.clone()).collect();
+	let placed = place(scope, names).await?;
+
+	let results: Vec<Value> = found
+		.hits
+		.into_iter()
+		.zip(placed)
+		.filter_map(|(hit, relative)| {
+			let relative = relative?;
+			let snippet: String = hit.snippet.iter().map(|part| part.text.as_str()).collect();
+			let mut matched: Vec<&str> = hit
+				.snippet
+				.iter()
+				.filter(|part| part.matched)
+				.map(|part| part.text.as_str())
+				.collect();
+			matched.sort_unstable();
+			matched.dedup();
+			let mut result = json!({
+				"path": paths::shown(&relative),
+				"kind": hit.kind.as_str(),
+				"score": hit.score,
+				"snippet": snippet,
+				"matched": matched,
+				"text_truncated": hit.truncated,
+			});
+			if let Some(time) = hit.time {
+				result["start_seconds"] = json!(time.start_seconds);
+				result["end_seconds"] = json!(time.end_seconds);
+			}
+			Some(result)
+		})
+		.collect();
+	Ok(Output::json(json!({
+		"results": results,
+		"next_cursor": found.next_cursor,
+		"pending_files": found.pending_files,
+		"note": "Content search reads Spacedrive's text index, which can lag the disk and covers only the first part of a large file. Confirm a hit with read.",
+	})))
+}
+
+#[cfg(feature = "video-shots")]
+async fn list_shots(context: &Arc<CoreContext>, scope: &GrantScope) -> Result<Output, String> {
+	let meta = tokio::fs::metadata(&scope.path)
+		.await
+		.map_err(|e| io_message(&e))?;
+	if !meta.is_file() {
+		return Err("list_shots takes a video file, not a directory".to_string());
+	}
+	if crate::ops::indexing::metadata::refuse_dataless(&scope.path)
+		.await
+		.is_err()
+	{
+		return Err(format!(
+			"the file is a cloud placeholder ({DATALESS_REASON}); it is not read so it is not downloaded"
+		));
+	}
+	let library = context
+		.libraries()
+		.await
+		.get_library(scope.library_id)
+		.await
+		.ok_or_else(|| "the grant's library is not open".to_string())?;
+	let list = crate::ops::media::shots::shots_of_file(library.path(), &scope.path)
+		.await
+		.map_err(|error| {
+			warn!(%error, "list_shots could not read a shot list");
+			"could not read the shot list".to_string()
+		})?
+		.ok_or_else(|| {
+			"this video has no shots yet: shot detection has not run on it".to_string()
+		})?;
+	let shots: Vec<Value> = list
+		.shots
+		.iter()
+		.map(|shot| {
+			json!({
+				"id": shot.id,
+				"index": shot.index,
+				"in": shot.in_point,
+				"out": shot.out_point,
+				"duration_seconds": shot.duration_seconds,
+				"keyframe": shot.keyframe,
+			})
+		})
+		.collect();
+	Ok(Output::json(json!({
+		"path": paths::shown(&scope.relative),
+		"content_uuid": list.content_uuid,
+		"rate": list.rate,
+		"start_timecode": list.start_timecode,
+		"duration": list.duration,
+		"out_exclusive": true,
+		"shots": shots,
+	})))
+}
+
+/// The spelling of the request's path that its source's store answers to,
+/// once the source is known to keep a text index.
+pub(super) async fn text_index_path(
+	context: &Arc<CoreContext>,
+	scope: &GrantScope,
+) -> Result<PathBuf, String> {
 	// The grant's canonical path can differ from the source's registered
 	// spelling by a firmlink, and the store answers only to the registered one.
 	let Some((source_id, in_source)) =
@@ -1215,32 +1388,32 @@ async fn search_content(
 				.to_string(),
 		);
 	}
+	Ok(in_source)
+}
 
+/// The session a library op runs in for this grant.
+pub(super) fn session(context: &CoreContext, scope: &GrantScope) -> Result<SessionContext, String> {
 	let device_id = context
 		.device_manager
 		.device_id()
-		.map_err(|_| "content search failed".to_string())?;
-	let session = SessionContext::device_session(device_id, "Agent MCP".to_string())
-		.with_library(scope.library_id);
-	let found = ContentSearchQuery::from_input(ContentSearchInput {
-		scope: SdPath::local(in_source),
-		query: args.query,
-		kinds: args.kinds,
-		max_results: args.max_results,
-		cursor: args.cursor,
-	})
-	.map_err(content_error)?
-	.execute(context.clone(), session)
-	.await
-	.map_err(content_error)?;
+		.map_err(|_| "the device is not ready".to_string())?;
+	Ok(
+		SessionContext::device_session(device_id, "Agent MCP".to_string())
+			.with_library(scope.library_id),
+	)
+}
 
-	// Hit paths are relative to the searched path, and a file scope answers
-	// with its own name. The index can lag the disk, so each hit is placed
-	// by where it is now, like a search hit.
+/// Places index hits named relative to the request's path where they are
+/// now, relative to the grant root. A file scope answers with its own name.
+/// The index can lag the disk, so a hit that moved out of the grant, or whose
+/// link resolves out of it, is None.
+pub(super) async fn place(
+	scope: &GrantScope,
+	names: Vec<String>,
+) -> Result<Vec<Option<PathBuf>>, String> {
 	let root = scope.root.clone();
 	let base = scope.path.clone();
-	let names: Vec<String> = found.hits.iter().map(|hit| hit.path.clone()).collect();
-	let placed: Vec<Option<PathBuf>> = tokio::task::spawn_blocking(move || {
+	tokio::task::spawn_blocking(move || {
 		let file_scope = std::fs::metadata(&base).is_ok_and(|meta| meta.is_file());
 		names
 			.iter()
@@ -1258,45 +1431,13 @@ async fn search_content(
 			.collect()
 	})
 	.await
-	.map_err(|_| "content search failed".to_string())?;
-
-	let results: Vec<Value> = found
-		.hits
-		.into_iter()
-		.zip(placed)
-		.filter_map(|(hit, relative)| {
-			let relative = relative?;
-			let snippet: String = hit.snippet.iter().map(|part| part.text.as_str()).collect();
-			let mut matched: Vec<&str> = hit
-				.snippet
-				.iter()
-				.filter(|part| part.matched)
-				.map(|part| part.text.as_str())
-				.collect();
-			matched.sort_unstable();
-			matched.dedup();
-			Some(json!({
-				"path": paths::shown(&relative),
-				"kind": hit.kind.as_str(),
-				"score": hit.score,
-				"snippet": snippet,
-				"matched": matched,
-				"text_truncated": hit.truncated,
-			}))
-		})
-		.collect();
-	Ok(Output::json(json!({
-		"results": results,
-		"next_cursor": found.next_cursor,
-		"pending_files": found.pending_files,
-		"note": "Content search reads Spacedrive's text index, which can lag the disk and covers only the first part of a large file. Confirm a hit with read.",
-	})))
+	.map_err(|_| "the search failed".to_string())
 }
 
 /// The op's refusals of the request reach the agent; anything else is
 /// logged and answered generically, since it can name host paths outside
 /// the grant.
-fn content_error(error: QueryError) -> String {
+pub(super) fn content_error(error: QueryError) -> String {
 	match error {
 		QueryError::Validation { message, .. } | QueryError::InvalidInput(message) => message,
 		other => {
@@ -1321,7 +1462,7 @@ mod tests {
 			.collect();
 		let all: Vec<&str> = Tool::ALL.iter().map(|tool| tool.name()).collect();
 		assert_eq!(names, all, "one definition per tool, in order");
-		for tool in Tool::ALL {
+		for &tool in Tool::ALL {
 			assert_eq!(Tool::parse(tool.name()), Some(tool));
 		}
 	}

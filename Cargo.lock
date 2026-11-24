@@ -12321,6 +12321,8 @@ dependencies = [
  "sd-store",
  "sd-supervisor",
  "sd-task-system",
+ "sd-timeline",
+ "sd-utils",
  "sea-orm",
  "sea-orm-migration",
  "serde",
@@ -12663,6 +12665,16 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "sd-timeline"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "specta",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -13602,6 +13614,7 @@ dependencies = [
  "sd-pvcache",
  "sd-sidecar-path",
  "sd-tauri-core",
+ "sd-utils",
  "semver",
  "serde",
  "serde_json",
@@ -17072,6 +17085,7 @@ version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71ea5d2401f30f51d08126a2d133fee4c1955136519d7ac6cf6f5ac0a91e6bc8"
 dependencies = [
+ "tracing",
  "whisper-rs-sys",
 ]
 

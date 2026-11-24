@@ -93,6 +93,16 @@ impl VdfsContext {
 		Ok(())
 	}
 
+	/// Delete a sidecar of one of this extension's `write_sidecars` kinds.
+	/// Deleting one that does not exist succeeds.
+	pub async fn delete_sidecar(&self, content_uuid: Uuid, kind: &str) -> Result<()> {
+		let _: serde_json::Value = crate::ffi::op_json(
+			"sidecars.delete",
+			&serde_json::json!({ "content_uuid": content_uuid, "kind": kind }),
+		)?;
+		Ok(())
+	}
+
 	/// Query extension models
 	pub fn query_models<T: ExtensionModel>(&self) -> ModelQuery<T> {
 		ModelQuery {

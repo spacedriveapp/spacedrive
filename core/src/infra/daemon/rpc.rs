@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{broadcast, mpsc, RwLock};
 use uuid::Uuid;
 
 use crate::infra::daemon::event_buffer::EventBuffer;
@@ -142,34 +142,15 @@ impl RpcServer {
 		tracing::info!("Log bus registered for realtime streaming");
 
 		// Start main event broadcaster
-		let mut event_subscriber = core.events.subscribe();
+		let event_subscriber = core.events.subscribe();
 		let connections = self.connections.clone();
 		let event_buffer = self.event_buffer.clone();
 
-		tokio::spawn(async move {
-			while let Ok(event) = event_subscriber.recv().await {
-				// Add to buffer before broadcasting (for subscription race condition handling)
-				event_buffer.add_event(event.clone()).await;
-
-				let connections_read = connections.read().await;
-
-				// Broadcast event to all subscribed connections
-				for connection in connections_read.values() {
-					let should_forward = Self::should_forward_event(
-						&event,
-						&connection.event_types,
-						&connection.filter,
-					);
-
-					if should_forward {
-						// Ignore errors if connection is closed
-						let _ = connection
-							.response_tx
-							.send(DaemonResponse::Event(event.clone()));
-					}
-				}
-			}
-		});
+		tokio::spawn(Self::forward_events(
+			event_subscriber,
+			connections,
+			event_buffer,
+		));
 
 		// Spawn periodic cleanup task for event buffer
 		let buffer_clone = self.event_buffer.clone();
@@ -186,6 +167,60 @@ impl RpcServer {
 		// Clients subscribe to logs separately, not through the event bus
 
 		Ok(())
+	}
+
+	/// Forward core events to every subscribed connection until the bus closes.
+	///
+	/// The core bus holds 1024 events, and a burst such as a reconcile's
+	/// removals can outrun this task. A lag only skips events: ending the loop
+	/// on one stopped every client's live updates, silently, until the daemon
+	/// restarted. A client that missed changes cannot know which, so each
+	/// connection that takes `Refresh` is told to refetch.
+	async fn forward_events(
+		mut subscriber: EventSubscriber,
+		connections: Arc<RwLock<HashMap<Uuid, Connection>>>,
+		event_buffer: Arc<EventBuffer>,
+	) {
+		loop {
+			let event = match subscriber.recv().await {
+				Ok(event) => event,
+				Err(broadcast::error::RecvError::Lagged(skipped)) => {
+					tracing::warn!(
+						skipped,
+						"Event broadcaster lagged, telling clients to refetch"
+					);
+					for connection in connections.read().await.values() {
+						let takes_refresh = connection.event_types.is_empty()
+							|| connection.event_types.iter().any(|kind| kind == "Refresh");
+						if takes_refresh {
+							let _ = connection
+								.response_tx
+								.send(DaemonResponse::Event(Event::Refresh));
+						}
+					}
+					continue;
+				}
+				Err(broadcast::error::RecvError::Closed) => break,
+			};
+
+			// Add to buffer before broadcasting (for subscription race condition handling)
+			event_buffer.add_event(event.clone()).await;
+
+			let connections_read = connections.read().await;
+
+			// Broadcast event to all subscribed connections
+			for connection in connections_read.values() {
+				let should_forward =
+					Self::should_forward_event(&event, &connection.event_types, &connection.filter);
+
+				if should_forward {
+					// Ignore errors if connection is closed
+					let _ = connection
+						.response_tx
+						.send(DaemonResponse::Event(event.clone()));
+				}
+			}
+		}
 	}
 
 	/// Execute a JSON operation using the registry handlers
@@ -214,6 +249,11 @@ impl RpcServer {
 			if !event_types.contains(&event_type.to_string()) {
 				return false;
 			}
+		}
+
+		// Refresh speaks for every resource and path, so no filter narrows it.
+		if matches!(event, Event::Refresh) {
+			return true;
 		}
 
 		// Apply additional filters if specified
@@ -333,7 +373,10 @@ impl RpcServer {
 								}
 								Err(e) => {
 									tracing::error!("Failed to parse daemon request: {}", e);
-									tracing::error!("Raw request: {}", line.trim());
+									tracing::error!(
+										"Raw request: {}",
+										crate::common::redact::redact_url_credentials(line.trim())
+									);
 									// Send error response
 									let error_response = DaemonResponse::Error(DaemonError::SerializationError(e.to_string()));
 									let response_json = serde_json::to_string(&error_response)
@@ -395,7 +438,9 @@ impl RpcServer {
 			} => {
 				match execute_targeted_operation(device, &method, library_id, payload, core).await {
 					Ok(json_result) => DaemonResponse::JsonOk(json_result),
-					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
+					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(
+						crate::common::redact::redact_url_credentials(&e).into_owned(),
+					)),
 				}
 			}
 
@@ -407,7 +452,9 @@ impl RpcServer {
 			} => {
 				match execute_targeted_operation(device, &method, library_id, payload, core).await {
 					Ok(json_result) => DaemonResponse::JsonOk(json_result),
-					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
+					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(
+						crate::common::redact::redact_url_credentials(&e).into_owned(),
+					)),
 				}
 			}
 
@@ -455,7 +502,9 @@ impl RpcServer {
 						Ok(Some(id)) => Some(id),
 						Ok(None) => None, // The target is this device.
 						Err(e) => {
-							return DaemonResponse::Error(DaemonError::OperationFailed(e));
+							return DaemonResponse::Error(DaemonError::OperationFailed(
+								crate::common::redact::redact_url_credentials(&e).into_owned(),
+							));
 						}
 					};
 					if let Some(device_id) = device_id {
@@ -492,7 +541,13 @@ impl RpcServer {
 
 				// Spawn task to forward log messages
 				tokio::spawn(async move {
-					while let Ok(log_msg) = log_subscriber.recv().await {
+					loop {
+						let log_msg = match log_subscriber.recv().await {
+							Ok(log_msg) => log_msg,
+							// A follower that fell behind misses lines, not the rest of the stream.
+							Err(broadcast::error::RecvError::Lagged(_)) => continue,
+							Err(broadcast::error::RecvError::Closed) => break,
+						};
 						if filter_clone.as_ref().is_some_and(|f| !f.matches(&log_msg)) {
 							continue;
 						}
@@ -665,4 +720,97 @@ async fn resolve_paired_device(
 		})
 		.map(|(id, _)| Some(id))
 		.ok_or_else(|| format!("no paired device named '{target}'"))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::infra::event::EventBus;
+
+	fn deleted(n: u128) -> Event {
+		Event::ResourceDeleted {
+			resource_type: "file".to_string(),
+			resource_id: Uuid::from_u128(n),
+		}
+	}
+
+	fn next(rx: &mut mpsc::UnboundedReceiver<DaemonResponse>) -> Option<Event> {
+		match rx.try_recv() {
+			Ok(DaemonResponse::Event(event)) => Some(event),
+			_ => None,
+		}
+	}
+
+	#[test]
+	fn refresh_reaches_a_folder_scoped_subscription() {
+		let filter = Some(EventFilter {
+			library_id: None,
+			job_id: None,
+			device_id: None,
+			resource_type: Some("file".to_string()),
+			path_scope: Some(crate::domain::SdPath::Physical {
+				device_slug: "local".to_string(),
+				path: "/a".into(),
+			}),
+			include_descendants: Some(false),
+		});
+		let event_types = vec!["ResourceDeleted".to_string(), "Refresh".to_string()];
+
+		assert!(RpcServer::should_forward_event(
+			&Event::Refresh,
+			&event_types,
+			&filter
+		));
+		assert!(!RpcServer::should_forward_event(
+			&Event::Refresh,
+			&["ResourceDeleted".to_string()],
+			&filter
+		));
+	}
+
+	#[tokio::test]
+	async fn a_lagged_broadcaster_keeps_forwarding_and_asks_clients_to_refetch() {
+		let bus = EventBus::new(2);
+		let subscriber = bus.subscribe();
+		let (response_tx, mut response_rx) = mpsc::unbounded_channel();
+		let connections = Arc::new(RwLock::new(HashMap::from([(
+			Uuid::nil(),
+			Connection {
+				id: Uuid::nil(),
+				response_tx,
+				event_types: vec!["ResourceDeleted".to_string(), "Refresh".to_string()],
+				filter: None,
+				log_filter: None,
+			},
+		)])));
+
+		// More than the bus holds, before the broadcaster reads any of it.
+		for n in 0..5 {
+			bus.emit(deleted(n));
+		}
+		let broadcaster = tokio::spawn(RpcServer::forward_events(
+			subscriber,
+			connections,
+			Arc::new(EventBuffer::new()),
+		));
+		tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+		assert!(matches!(next(&mut response_rx), Some(Event::Refresh)));
+		for n in 3..5 {
+			assert!(matches!(
+				next(&mut response_rx),
+				Some(Event::ResourceDeleted { resource_id, .. }) if resource_id == Uuid::from_u128(n)
+			));
+		}
+
+		bus.emit(deleted(99));
+		tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+		assert!(matches!(
+			next(&mut response_rx),
+			Some(Event::ResourceDeleted { resource_id, .. }) if resource_id == Uuid::from_u128(99)
+		));
+
+		drop(bus);
+		broadcaster.await.unwrap();
+	}
 }

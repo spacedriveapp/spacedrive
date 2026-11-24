@@ -28,6 +28,8 @@
 //! };
 //! ```
 
+#[cfg(any(feature = "video-shots", feature = "ai-providers"))]
+pub mod descriptions;
 pub mod input;
 pub mod output;
 pub mod query;

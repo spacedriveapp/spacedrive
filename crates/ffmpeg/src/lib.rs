@@ -46,7 +46,7 @@ mod thumbnailer;
 mod utils;
 mod video_frame;
 
-pub use audio_decoder::extract_audio_samples;
+pub use audio_decoder::{extract_audio_samples, AudioStream, SPEECH_SAMPLE_RATE};
 pub use error::Error;
 pub use frame_decoder::{FrameDecoder, ThumbnailSize, VideoFrame};
 pub use model::FFmpegMediaData;
