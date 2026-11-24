@@ -131,7 +131,7 @@ pinned to a revision.
 Local captioning runs Florence-2 base (8-bit ONNX, 275 MB, MIT): vision
 encoder, BART encoder and a greedy decoder with its key-value cache, so a
 video shot's `scene` sidecar and a photo's `caption` sidecar get a
-description with no cloud key (Capy FAN-12532, stacked on the catalog PR).
+description with no cloud key (Capy FAN-12532).
 CoreML is unproven.
 See `docs/core/inference.mdx`.
 
