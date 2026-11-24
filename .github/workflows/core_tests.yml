@@ -150,6 +150,12 @@ jobs:
       - name: Run the path spelling suite on a casefold volume
         run: RUST_LOG=sd_core=info cargo test -p sd-core --test path_spelling_acceptance_test -- --test-threads=1 --nocapture
 
+      # The disk full suite fills a loop-mounted ext4 volume under a running
+      # daemon, which takes down the Blacksmith VM in the acceptance job, so
+      # it runs here (FAN-11240).
+      - name: Run the hosted acceptance suites
+        run: cargo run -p xtask -- test-core --hosted --verbose
+
       # GitHub's image exposes /dev/fuse, so the FUSE mount suite must run
       # here rather than skip.
       - name: Run the FUSE mount suite
