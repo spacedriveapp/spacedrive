@@ -45,6 +45,12 @@ pub enum TextKind {
 	/// Words spoken in an audio or video file, from its transcript. No
 	/// extension maps to it; the transcription job writes these rows.
 	Transcript,
+	/// What a video shot shows, from the Videos extension's `scene`
+	/// sidecar. Written when the sidecar is, behind `video-shots`.
+	Scene,
+	/// What a photo shows, from the Photos extension's `caption` sidecar.
+	/// Written when the sidecar is, behind `ai-providers`.
+	Caption,
 }
 
 /// File extensions the index reads, lowercase, and the extractor for each.
@@ -158,6 +164,8 @@ impl TextKind {
 			Self::Pdf => "pdf",
 			Self::Docx => "docx",
 			Self::Transcript => sd_store::TRANSCRIPT_KIND,
+			Self::Scene => sd_store::SCENE_KIND,
+			Self::Caption => sd_store::CAPTION_KIND,
 		}
 	}
 
@@ -171,6 +179,8 @@ impl TextKind {
 			Self::Pdf,
 			Self::Docx,
 			Self::Transcript,
+			Self::Scene,
+			Self::Caption,
 		]
 		.into_iter()
 		.find(|kind| kind.as_str() == name)

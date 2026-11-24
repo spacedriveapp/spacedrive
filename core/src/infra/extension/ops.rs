@@ -334,6 +334,7 @@ impl JobOps {
 			"sidecars.exists" => self.sidecar_exists(parse(payload)?).await,
 			"sidecars.read" => self.sidecar_read(parse(payload)?).await,
 			"sidecars.write" => self.sidecar_write(parse(payload)?).await,
+			"sidecars.delete" => self.sidecar_delete(parse(payload)?).await,
 			"sidecars.read_media" => self.media_sidecar_read(parse(payload)?).await,
 			"models.put" => self.model_put(parse(payload)?).await,
 			"models.get" => self.model_get(parse(payload)?).await,
@@ -783,7 +784,42 @@ impl JobOps {
 		let tmp = path.with_extension("json.tmp");
 		tokio::fs::write(&tmp, &bytes).await.map_err(io)?;
 		tokio::fs::rename(&tmp, &path).await.map_err(io)?;
+		self.index_sidecar(&sidecar.kind, sidecar.content_uuid)
+			.await;
 		json(&serde_json::Value::Null)
+	}
+
+	/// Removing a sidecar that was never written is not an error, so a
+	/// guest can clear one without checking first.
+	async fn sidecar_delete(&self, sidecar: SidecarRef) -> OpResult {
+		let path = self.sidecar_path(sidecar.content_uuid, &sidecar.kind, true)?;
+		match tokio::fs::remove_file(&path).await {
+			Ok(()) => {}
+			Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+			Err(e) => return Err(OpError::failed(format!("delete {}: {e}", path.display()))),
+		}
+		self.index_sidecar(&sidecar.kind, sidecar.content_uuid)
+			.await;
+		json(&serde_json::Value::Null)
+	}
+
+	/// Bring content search in line with a sidecar this job just wrote or
+	/// deleted. Best-effort: the sidecar is the source of truth, and a
+	/// failure here leaves search behind it, never the sidecar wrong.
+	async fn index_sidecar(&self, kind: &str, content_uuid: Uuid) {
+		#[cfg(any(feature = "video-shots", feature = "ai-providers"))]
+		if let Err(error) = crate::ops::search::content::descriptions::index_sidecar(
+			&self.library,
+			&self.extension_id,
+			kind,
+			content_uuid,
+		)
+		.await
+		{
+			tracing::warn!(extension = %self.extension_id, %kind, %content_uuid, %error, "sidecar text not indexed");
+		}
+		#[cfg(not(any(feature = "video-shots", feature = "ai-providers")))]
+		let _ = (kind, content_uuid);
 	}
 }
 

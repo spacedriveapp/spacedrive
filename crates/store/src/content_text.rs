@@ -95,6 +95,39 @@ const TRANSCRIPT_SCHEMA: [&str; 4] = [
 /// The kind a transcript hit reports, beside the extractor names.
 pub const TRANSCRIPT_KIND: &str = "transcript";
 
+/// What extensions say content shows, one FTS row per described moment, so
+/// a shot hit carries its range. Keyed by content uuid rather than record,
+/// because the sidecars it comes from are: every file with those bytes
+/// answers. Like transcripts, `clear` leaves it; the sidecar writes that
+/// filled it are what refill it.
+const DESCRIPTION_SCHEMA: [&str; 4] = [
+	"CREATE TABLE IF NOT EXISTS description_doc (
+    id INTEGER PRIMARY KEY,
+    content_uuid BLOB NOT NULL,
+    kind TEXT NOT NULL,
+    UNIQUE (content_uuid, kind)
+)",
+	"CREATE TABLE IF NOT EXISTS description_span (
+    id INTEGER PRIMARY KEY,
+    doc_id INTEGER NOT NULL,
+    start_ms INTEGER,
+    end_ms INTEGER
+)",
+	"CREATE INDEX IF NOT EXISTS description_span_doc ON description_span (doc_id)",
+	"CREATE VIRTUAL TABLE IF NOT EXISTS description_fts USING fts5(
+    body,
+    tokenize = 'unicode61 remove_diacritics 2'
+)",
+];
+
+/// The kind a hit on a video shot's scene description reports.
+pub const SCENE_KIND: &str = "scene";
+
+/// The kind a hit on a photo's caption reports.
+pub const CAPTION_KIND: &str = "caption";
+
+const DESCRIPTION_KINDS: [&str; 2] = [SCENE_KIND, CAPTION_KIND];
+
 /// A file whose text is missing from the index or was read from other bytes.
 #[derive(Debug, Clone)]
 pub struct PendingText {
@@ -174,6 +207,25 @@ pub struct TranscriptDoc {
 	/// still records the stamp so the file is not tried again until it
 	/// changes.
 	pub skipped: Option<String>,
+}
+
+/// What one sidecar says some content shows.
+#[derive(Debug, Clone)]
+pub struct DescriptionDoc {
+	/// The uuid the sidecar is keyed by: the content uuid or the candidate
+	/// uuid of the bytes.
+	pub content_uuid: Uuid,
+	/// [`SCENE_KIND`] or [`CAPTION_KIND`].
+	pub kind: String,
+	pub spans: Vec<DescriptionSpan>,
+}
+
+/// One described moment, or the whole file when it has no times.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DescriptionSpan {
+	pub start_ms: Option<i64>,
+	pub end_ms: Option<i64>,
+	pub text: String,
 }
 
 /// A search over the index.
@@ -274,7 +326,11 @@ impl ContentTextIndex {
 			.await?;
 
 		let mut tx = pool.begin().await?;
-		for statement in TEXT_SCHEMA.into_iter().chain(TRANSCRIPT_SCHEMA) {
+		for statement in TEXT_SCHEMA
+			.into_iter()
+			.chain(TRANSCRIPT_SCHEMA)
+			.chain(DESCRIPTION_SCHEMA)
+		{
 			sqlx::query(statement).execute(&mut *tx).await?;
 		}
 		tx.commit().await?;
@@ -518,12 +574,16 @@ impl ContentTextIndex {
 			return Ok(Vec::new());
 		}
 		let under = search.under.trim_matches('/');
-		let want_transcripts =
-			search.kinds.is_empty() || search.kinds.iter().any(|kind| kind == TRANSCRIPT_KIND);
+		let wants = |kind: &str| search.kinds.is_empty() || search.kinds.iter().any(|k| k == kind);
+		let want_transcripts = wants(TRANSCRIPT_KIND);
+		let description_kinds: Vec<&str> = DESCRIPTION_KINDS
+			.into_iter()
+			.filter(|kind| wants(kind))
+			.collect();
 		let text_kinds: Vec<&String> = search
 			.kinds
 			.iter()
-			.filter(|kind| *kind != TRANSCRIPT_KIND)
+			.filter(|kind| *kind != TRANSCRIPT_KIND && !DESCRIPTION_KINDS.contains(&kind.as_str()))
 			.collect();
 		let want_text = search.kinds.is_empty() || !text_kinds.is_empty();
 
@@ -595,6 +655,39 @@ impl ContentTextIndex {
 				 AND lower(f.extension) = d.extension",
 			);
 			sql.push_str(&under_clause(&mut binds));
+			branches.push(sql);
+		}
+		if !description_kinds.is_empty() {
+			binds.extend([
+				Bind::Text(MATCH_START.to_string()),
+				Bind::Text(MATCH_END.to_string()),
+				Bind::Int(snippet_tokens),
+				Bind::Text(search.expression.clone()),
+			]);
+			let mut sql = String::from(
+				"SELECT r.uuid AS hit_uuid, r.parent_uuid AS hit_parent, p.path AS hit_dir, \
+				 r.title AS hit_title, d.kind AS hit_kind, bm25(description_fts) AS hit_rank, \
+				 snippet(description_fts, 0, ?, ?, '…', ?) AS hit_snippet, 0 AS hit_truncated, \
+				 s.start_ms AS hit_start, s.end_ms AS hit_end \
+				 FROM description_fts \
+				 JOIN description_span s ON s.id = description_fts.rowid \
+				 JOIN description_doc d ON d.id = s.doc_id \
+				 JOIN src.content c ON c.uuid = d.content_uuid OR c.candidate_uuid = d.content_uuid \
+				 JOIN src.record r ON r.content_id = c.id \
+				 JOIN src.facet_file f ON f.record_uuid = r.uuid \
+				 LEFT JOIN src.directory_path p ON p.record_uuid = r.parent_uuid \
+				 WHERE description_fts MATCH ? AND r.type = 'file' AND f.link_target IS NULL",
+			);
+			sql.push_str(&under_clause(&mut binds));
+			sql.push_str(&format!(
+				" AND d.kind IN ({})",
+				vec!["?"; description_kinds.len()].join(", ")
+			));
+			binds.extend(
+				description_kinds
+					.iter()
+					.map(|kind| Bind::Text(kind.to_string())),
+			);
 			branches.push(sql);
 		}
 		let sql = format!(
@@ -787,6 +880,69 @@ impl ContentTextIndex {
 		Ok(count.max(0) as u64)
 	}
 
+	/// Whether this source holds a file whose content or candidate uuid is
+	/// `content_uuid`, so a description of it belongs in this index.
+	pub async fn has_content(&self, content_uuid: Uuid) -> Result<bool> {
+		let found: Option<i64> = sqlx::query_scalar(
+			"SELECT 1 FROM src.content WHERE uuid = ? OR candidate_uuid = ? LIMIT 1",
+		)
+		.bind(content_uuid)
+		.bind(content_uuid)
+		.fetch_optional(&self.pool)
+		.await?;
+		Ok(found.is_some())
+	}
+
+	/// Write what one sidecar says some content shows, replacing what the
+	/// last write of that sidecar said. A document with no text left drops
+	/// the row, the same as [`Self::forget_descriptions`].
+	pub async fn write_descriptions(&self, doc: &DescriptionDoc) -> Result<()> {
+		let spans: Vec<&DescriptionSpan> = doc
+			.spans
+			.iter()
+			.filter(|span| !span.text.trim().is_empty())
+			.collect();
+		let _writer = self.writer.lock().await;
+		let mut tx = self.pool.begin().await?;
+		delete_description(&mut tx, doc.content_uuid, &doc.kind).await?;
+		if !spans.is_empty() {
+			let id: i64 = sqlx::query_scalar(
+				"INSERT INTO description_doc (content_uuid, kind) VALUES (?, ?) RETURNING id",
+			)
+			.bind(doc.content_uuid)
+			.bind(&doc.kind)
+			.fetch_one(&mut *tx)
+			.await?;
+			for span in spans {
+				let span_id: i64 = sqlx::query_scalar(
+					"INSERT INTO description_span (doc_id, start_ms, end_ms) VALUES (?, ?, ?) RETURNING id",
+				)
+				.bind(id)
+				.bind(span.start_ms)
+				.bind(span.end_ms)
+				.fetch_one(&mut *tx)
+				.await?;
+				sqlx::query("INSERT INTO description_fts (rowid, body) VALUES (?, ?)")
+					.bind(span_id)
+					.bind(&span.text)
+					.execute(&mut *tx)
+					.await?;
+			}
+		}
+		tx.commit().await?;
+		Ok(())
+	}
+
+	/// Drop what a sidecar said about some content. Returns whether there
+	/// was anything to drop.
+	pub async fn forget_descriptions(&self, content_uuid: Uuid, kind: &str) -> Result<bool> {
+		let _writer = self.writer.lock().await;
+		let mut tx = self.pool.begin().await?;
+		let dropped = delete_description(&mut tx, content_uuid, kind).await?;
+		tx.commit().await?;
+		Ok(dropped)
+	}
+
 	async fn delete_transcripts(&self, select_ids: &str, under: &str) -> Result<u64> {
 		let _writer = self.writer.lock().await;
 		let mut tx = self.pool.begin().await?;
@@ -815,6 +971,38 @@ impl ContentTextIndex {
 enum Bind {
 	Text(String),
 	Int(i64),
+}
+
+async fn delete_description(
+	tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+	content_uuid: Uuid,
+	kind: &str,
+) -> Result<bool> {
+	let Some(id) = sqlx::query_scalar::<_, i64>(
+		"SELECT id FROM description_doc WHERE content_uuid = ? AND kind = ?",
+	)
+	.bind(content_uuid)
+	.bind(kind)
+	.fetch_optional(&mut **tx)
+	.await?
+	else {
+		return Ok(false);
+	};
+	sqlx::query(
+		"DELETE FROM description_fts WHERE rowid IN (SELECT id FROM description_span WHERE doc_id = ?)",
+	)
+	.bind(id)
+	.execute(&mut **tx)
+	.await?;
+	sqlx::query("DELETE FROM description_span WHERE doc_id = ?")
+		.bind(id)
+		.execute(&mut **tx)
+		.await?;
+	sqlx::query("DELETE FROM description_doc WHERE id = ?")
+		.bind(id)
+		.execute(&mut **tx)
+		.await?;
+	Ok(true)
 }
 
 async fn delete_spans(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>, doc_id: i64) -> Result<()> {

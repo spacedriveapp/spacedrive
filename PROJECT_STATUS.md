@@ -36,6 +36,15 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Scene and caption search (Capy FAN-12538, November 22). `search.content`
+finds files by the descriptions extensions write: the Videos extension's
+`scene` sidecar (kind `scene`, one row per shot with its in and out points,
+behind `video-shots`) and the Photos extension's `caption` sidecar (kind
+`caption`, behind `ai-providers`). Rows live in `text.db` keyed by content
+uuid and are replaced when the host writes or deletes the sidecar; the host
+gained `sidecars.delete` and the SDK `delete_sidecar`. No backfill pass yet:
+sidecars written before this build are indexed on their next write.
+
 Daemon event broadcaster survives a lag (Capy FAN-12542, November 22, beta.1
 investigation of "UI doesn't update after moving files"). The RPC server's one
 forwarder from the core event bus ended on the first `Lagged`, which stopped

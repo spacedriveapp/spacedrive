@@ -3,8 +3,9 @@
 
 use sd_store::file::{FileKind, FileWrite, Ledger, Observation};
 use sd_store::{
-	filesystem_schema, match_expression, ContentTextIndex, PendingText, SourceDb, SourceManager,
-	TextDoc, TextSearch, TranscriptDoc, TranscriptSpan,
+	filesystem_schema, match_expression, ContentTextIndex, DescriptionDoc, DescriptionSpan,
+	PendingText, SourceDb, SourceManager, TextDoc, TextSearch, TranscriptDoc, TranscriptSpan,
+	CAPTION_KIND, SCENE_KIND,
 };
 use uuid::Uuid;
 
@@ -523,4 +524,146 @@ async fn an_edited_recording_leaves_results_until_transcribed_again() {
 			.len(),
 		1
 	);
+}
+
+#[tokio::test]
+async fn a_description_hit_answers_for_every_file_with_the_bytes() {
+	let mut f = Fixture::new().await;
+	let uuids = f
+		.observe(&[
+			("clips/harbour.mp4", 30),
+			("backup/harbour.mp4", 30),
+			("photos/pier.jpg", 31),
+			("clips/other.mp4", 32),
+		])
+		.await;
+	let identity = |hash: &str| sd_store::ContentIdentity {
+		sampled_hash: Some(hash.to_string()),
+		integrity_hash: None,
+		size: Some(30),
+		kind: None,
+		kind_name: None,
+	};
+	f.db.set_content_identity(uuids[0], &identity("aaaa"))
+		.await
+		.unwrap();
+	f.db.set_content_identity(uuids[1], &identity("aaaa"))
+		.await
+		.unwrap();
+	f.db.set_content_identity(uuids[2], &identity("bbbb"))
+		.await
+		.unwrap();
+	let video = sd_store::uuid_for("aaaa");
+	let photo = sd_store::uuid_for("bbbb");
+	let index = f.index().await;
+
+	assert!(index.has_content(video).await.unwrap());
+	assert!(!index.has_content(Uuid::new_v4()).await.unwrap());
+
+	let scene = |text: &str| DescriptionDoc {
+		content_uuid: video,
+		kind: SCENE_KIND.into(),
+		spans: vec![
+			DescriptionSpan {
+				start_ms: Some(0),
+				end_ms: Some(4_000),
+				text: "A tugboat leaves the dock at dawn".into(),
+			},
+			DescriptionSpan {
+				start_ms: Some(4_000),
+				end_ms: Some(9_500),
+				text: text.into(),
+			},
+		],
+	};
+	index
+		.write_descriptions(&scene("A red lighthouse on a rocky point"))
+		.await
+		.unwrap();
+	index
+		.write_descriptions(&DescriptionDoc {
+			content_uuid: photo,
+			kind: CAPTION_KIND.into(),
+			spans: vec![DescriptionSpan {
+				start_ms: None,
+				end_ms: None,
+				text: "Fishermen mending nets beside the lighthouse".into(),
+			}],
+		})
+		.await
+		.unwrap();
+
+	let hits = index.search(&search("lighthouse")).await.unwrap();
+	let mut found: Vec<(&str, &str, Option<i64>, Option<i64>)> = hits
+		.iter()
+		.map(|hit| {
+			(
+				hit.external_id.as_str(),
+				hit.kind.as_str(),
+				hit.start_ms,
+				hit.end_ms,
+			)
+		})
+		.collect();
+	found.sort();
+	assert_eq!(
+		found,
+		[
+			("backup/harbour.mp4", "scene", Some(4_000), Some(9_500)),
+			("clips/harbour.mp4", "scene", Some(4_000), Some(9_500)),
+			("photos/pier.jpg", "caption", None, None),
+		]
+	);
+
+	let only = |kind: &str| TextSearch {
+		kinds: vec![kind.to_string()],
+		..search("lighthouse")
+	};
+	assert_eq!(
+		hit_paths(&index, &only("caption")).await,
+		["photos/pier.jpg"]
+	);
+	assert!(hit_paths(&index, &only("markdown")).await.is_empty());
+	let under = TextSearch {
+		under: "clips".into(),
+		..search("lighthouse")
+	};
+	assert_eq!(hit_paths(&index, &under).await, ["clips/harbour.mp4"]);
+
+	// A rewritten sidecar replaces what the last one said.
+	index
+		.write_descriptions(&scene("A ferry crossing the bay"))
+		.await
+		.unwrap();
+	assert!(hit_paths(&index, &only("scene")).await.is_empty());
+	assert_eq!(
+		hit_paths(
+			&index,
+			&TextSearch {
+				kinds: vec!["scene".into()],
+				..search("ferry")
+			}
+		)
+		.await
+		.len(),
+		2
+	);
+
+	// Rebuilding the document index keeps the descriptions.
+	index.clear().await.unwrap();
+	assert_eq!(
+		hit_paths(&index, &only("caption")).await,
+		["photos/pier.jpg"]
+	);
+
+	// A deleted sidecar drops its rows.
+	assert!(index
+		.forget_descriptions(photo, CAPTION_KIND)
+		.await
+		.unwrap());
+	assert!(!index
+		.forget_descriptions(photo, CAPTION_KIND)
+		.await
+		.unwrap());
+	assert!(hit_paths(&index, &only("caption")).await.is_empty());
 }

@@ -201,6 +201,18 @@ impl JobContext {
 			.await
 	}
 
+	/// Delete a sidecar of one of this extension's kinds, such as a
+	/// description that no longer holds.
+	pub async fn delete_sidecar(
+		&self,
+		content_uuid: uuid::Uuid,
+		kind: &str,
+	) -> crate::types::Result<()> {
+		crate::vdfs::VdfsContext
+			.delete_sidecar(content_uuid, kind)
+			.await
+	}
+
 	/// Read back a sidecar this extension may read.
 	pub async fn read_sidecar<T: serde::de::DeserializeOwned>(
 		&self,

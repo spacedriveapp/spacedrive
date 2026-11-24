@@ -29,8 +29,9 @@ pub struct ContentSearchHit {
 	/// The file holds more than 1 MiB of text and only the start was
 	/// indexed, so a match later in the file is not found.
 	pub truncated: bool,
-	/// Where in the recording the words were said, for a `transcript` hit.
-	/// One recording can answer with several hits, one per moment.
+	/// Where in the recording the match is: when the words were said, for a
+	/// `transcript` hit, or the shot's in and out points, for a `scene`
+	/// hit. One recording can answer with several hits, one per moment.
 	pub time: Option<SpokenTime>,
 }
 
