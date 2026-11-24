@@ -33,11 +33,10 @@ impl CoreQuery for ListWhisperModelsQuery {
 
 	async fn execute(
 		self,
-		_context: std::sync::Arc<CoreContext>,
+		context: std::sync::Arc<CoreContext>,
 		_session: crate::infra::api::SessionContext,
 	) -> crate::infra::query::QueryResult<Self::Output> {
-		let data_dir = crate::config::default_data_dir()?;
-		let manager = WhisperModelManager::new(&data_dir);
+		let manager = WhisperModelManager::new(&context.data_dir);
 
 		let models = manager.list_models().await?;
 		let total_size = manager.total_downloaded_size().await;
