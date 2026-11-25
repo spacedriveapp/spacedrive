@@ -1096,10 +1096,34 @@ mod tests {
 	use crate::infra::action::LibraryAction;
 	use crate::ops::sources::track::action::{TrackSourceAction, TrackSourceInput};
 
+	/// Whether the cloud folder's listing may answer. Shut until the test opens
+	/// it, so a pass that returns at all returned without that listing, on any
+	/// runner speed.
+	static CLOUD_ANSWERS: (std::sync::Mutex<bool>, std::sync::Condvar) =
+		(std::sync::Mutex::new(false), std::sync::Condvar::new());
+
+	/// Opens the cloud folder's listing when dropped, so a failing assertion
+	/// does not leave a blocked thread that keeps the runtime from shutting down.
+	struct CloudAnswersOnDrop;
+
+	impl Drop for CloudAnswersOnDrop {
+		fn drop(&mut self) {
+			let (answers, signal) = &CLOUD_ANSWERS;
+			*answers.lock().unwrap_or_else(|e| e.into_inner()) = true;
+			signal.notify_all();
+		}
+	}
+
 	/// Stands in for a cloud provider's folder that never answers a listing.
 	fn stalls_on_cloud(dir: &Path) -> std::io::Result<Vec<OnDisk>> {
 		if dir.ends_with("cloud") {
-			std::thread::sleep(Duration::from_secs(5));
+			let (answers, signal) = &CLOUD_ANSWERS;
+			let answers = answers.lock().unwrap_or_else(|e| e.into_inner());
+			drop(
+				signal
+					.wait_while(answers, |answers| !*answers)
+					.unwrap_or_else(|e| e.into_inner()),
+			);
 		}
 		read_directory(dir)
 	}
@@ -1147,7 +1171,9 @@ mod tests {
 		std::fs::write(root.join("local/debug.log"), "ignored").expect("write");
 		std::fs::remove_file(root.join("cloud/remote.txt")).expect("remove");
 
-		let started = Instant::now();
+		// The cloud listing answers only once this drops, after the pass has
+		// returned, so finishing at all shows the pass moved on without it.
+		let cloud_answers = CloudAnswersOnDrop;
 		let report = tokio::time::timeout(
 			Duration::from_secs(120),
 			reconcile_source_with(
@@ -1166,12 +1192,6 @@ mod tests {
 		.await
 		.expect("the pass finished")
 		.expect("the pass ran");
-		let took = started.elapsed();
-
-		assert!(
-			took < Duration::from_secs(3),
-			"the pass waited {took:?} on a directory that never answered"
-		);
 		// The watcher is live too, so the map is what both left behind.
 		let index = core.context.volume_index().resolve_index(&output.root);
 		let index = index.read().await;
@@ -1192,6 +1212,7 @@ mod tests {
 			report.removed, 0,
 			"nothing under the unread folder is taken for deleted"
 		);
+		drop(cloud_answers);
 		drop(library);
 		tokio::time::timeout(Duration::from_secs(120), core.shutdown())
 			.await
