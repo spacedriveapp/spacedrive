@@ -648,10 +648,15 @@ async fn daemon_request(
 
 /// Subscribe to daemon events and forward them to the frontend
 /// Returns a subscription ID that can be used to unsubscribe
+///
+/// Events go to the calling window under the caller's own `channel` name.
+/// Every subscription carries its own daemon-side filter, so a shared event
+/// name would hand each listener the events of every other subscription.
 #[tauri::command]
 #[allow(non_snake_case)]
 async fn subscribe_to_events(
-	app: tauri::AppHandle,
+	window: tauri::WebviewWindow,
+	channel: String,
 	daemon_state: tauri::State<'_, Arc<RwLock<DaemonState>>>,
 	app_state: tauri::State<'_, AppState>,
 	eventTypes: Option<Vec<String>>,
@@ -758,8 +763,11 @@ async fn subscribe_to_events(
 							match serde_json::from_str::<serde_json::Value>(line) {
 								Ok(response) => {
 									if let Some(event) = response.get("Event") {
-										// Emit to frontend via Tauri events
-										if let Err(e) = app.emit("core-event", event) {
+										if let Err(e) = window.emit_to(
+											tauri::EventTarget::webview_window(window.label()),
+											&channel,
+											event,
+										) {
 											tracing::error!(subscription_id = subscription_id, "Failed to emit event: {}", e);
 										}
 									}

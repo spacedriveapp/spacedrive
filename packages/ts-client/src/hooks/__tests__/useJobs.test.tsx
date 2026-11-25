@@ -7,14 +7,18 @@ import { SpacedriveClient } from "../../client";
 import type { Transport } from "../../transport";
 import type { Event } from "../../generated/types";
 import { SpacedriveClientContext } from "../useClient";
-import { useJobs } from "../useJobs";
+import { JOB_HISTORY_LIMIT, JOB_REFETCH_COALESCE_MS, useJobs } from "../useJobs";
 
 function fakeTransport() {
 	let subscribes = 0;
 	let unsubscribes = 0;
+	const requests: any[] = [];
 	const listeners = new Set<(event: Event) => void>();
 	const transport: Transport = {
-		sendRequest: async () => ({ jobs: [] }),
+		sendRequest: async (request) => {
+			requests.push(request);
+			return { JsonOk: { jobs: [] } };
+		},
 		subscribe: async (callback) => {
 			subscribes++;
 			listeners.add(callback);
@@ -28,6 +32,8 @@ function fakeTransport() {
 		transport,
 		emit: (event: Event) => listeners.forEach((listener) => listener(event)),
 		counts: () => ({ subscribes, unsubscribes }),
+		jobListRequests: () =>
+			requests.filter((request) => JSON.stringify(request).includes("jobs.list")),
 	};
 }
 
@@ -85,5 +91,38 @@ describe("useJobs", () => {
 
 		unmount();
 		expect(counts()).toEqual({ subscribes: 1, unsubscribes: 1 });
+	});
+
+	it("asks for a bounded list and refetches once for a burst of job changes", async () => {
+		const { transport, emit, jobListRequests } = fakeTransport();
+		const client = new SpacedriveClient(transport);
+		client.setCurrentLibrary("library-1", false);
+		const queryClient = new QueryClient();
+		const wrapper = ({ children }: { children: ReactNode }) => (
+			<QueryClientProvider client={queryClient}>
+				<SpacedriveClientContext.Provider value={client}>
+					{children}
+				</SpacedriveClientContext.Provider>
+			</QueryClientProvider>
+		);
+
+		const { unmount } = renderHook(() => useJobs(), { wrapper });
+		await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+		expect(jobListRequests()).toHaveLength(1);
+		expect(JSON.stringify(jobListRequests()[0])).toContain(
+			`"limit":${JOB_HISTORY_LIMIT}`,
+		);
+
+		await act(async () => {
+			for (let n = 0; n < 20; n++) {
+				const job = { job_id: `job-${n}`, job_type: "proxy", device_id: "device-1" };
+				emit({ JobStarted: job });
+				emit({ JobCompleted: { ...job, output: { type: "Success" } } });
+			}
+		});
+		await act(() => new Promise((resolve) => setTimeout(resolve, JOB_REFETCH_COALESCE_MS * 2)));
+
+		expect(jobListRequests()).toHaveLength(2);
+		unmount();
 	});
 });

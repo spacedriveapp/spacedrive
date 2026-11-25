@@ -21,6 +21,7 @@ impl JobListArgs {
 				.status
 				.as_deref()
 				.and_then(|s| s.parse::<JobStatus>().ok()),
+			limit: None,
 		}
 	}
 }

@@ -11,6 +11,10 @@ use std::sync::Arc;
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct JobListInput {
 	pub status: Option<JobStatus>,
+	/// Keep only this many of the newest finished jobs. Unfinished jobs are
+	/// always listed. None lists the whole history.
+	#[serde(default)]
+	pub limit: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -43,7 +47,7 @@ impl LibraryQuery for JobListQuery {
 
 		let jobs = library
 			.jobs()
-			.list_jobs(self.input.status)
+			.list_recent_jobs(self.input.status, self.input.limit)
 			.await
 			.map_err(|e| QueryError::Internal(e.to_string()))?;
 		let journals = library

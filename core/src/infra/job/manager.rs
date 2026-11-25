@@ -1093,7 +1093,21 @@ impl JobManager {
 
 	/// List all jobs with a specific status (unified query)
 	pub async fn list_jobs(&self, status: Option<JobStatus>) -> JobResult<Vec<JobInfo>> {
-		use sea_orm::QueryFilter;
+		self.list_recent_jobs(status, None).await
+	}
+
+	/// List jobs with a specific status, keeping only the `finished_limit`
+	/// newest finished jobs.
+	///
+	/// Background passes leave a finished row each, so a long-lived library
+	/// collects tens of thousands of them. Unfinished jobs are always listed,
+	/// so a cap never hides one that can still be paused or cancelled.
+	pub async fn list_recent_jobs(
+		&self,
+		status: Option<JobStatus>,
+		finished_limit: Option<u64>,
+	) -> JobResult<Vec<JobInfo>> {
+		use sea_orm::{ColumnTrait, QueryFilter, QueryOrder};
 
 		let device_id = self
 			.context
@@ -1201,14 +1215,36 @@ impl JobManager {
 		let mut query = database::jobs::Entity::find();
 
 		if let Some(status) = filter.filter(|_| !self.db.has_unsettled()) {
-			use sea_orm::ColumnTrait;
 			query = query.filter(database::jobs::Column::Status.eq(status.to_string()));
 		}
 
-		let db_jobs = query
-			.into_partial_model::<database::jobs::ListRow>()
-			.all(self.db.conn())
-			.await?;
+		let db_jobs = match finished_limit {
+			None => {
+				query
+					.into_partial_model::<database::jobs::ListRow>()
+					.all(self.db.conn())
+					.await?
+			}
+			Some(limit) => {
+				let finished = ["completed", "failed", "cancelled"];
+				let mut rows = query
+					.clone()
+					.filter(database::jobs::Column::Status.is_not_in(finished))
+					.into_partial_model::<database::jobs::ListRow>()
+					.all(self.db.conn())
+					.await?;
+				rows.extend(
+					query
+						.filter(database::jobs::Column::Status.is_in(finished))
+						.order_by_desc(database::jobs::Column::CreatedAt)
+						.limit(limit)
+						.into_partial_model::<database::jobs::ListRow>()
+						.all(self.db.conn())
+						.await?,
+				);
+				rows
+			}
+		};
 
 		// Add database jobs that aren't in memory
 		for j in db_jobs {

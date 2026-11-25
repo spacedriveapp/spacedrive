@@ -2,18 +2,19 @@ import {
 	Camera,
 	CircleNotch,
 	Clock,
-	Database,
+	Eject,
 	GearSix,
-	HardDrive,
 	HardDrives,
 	House,
 	Images,
 	ListBullets,
 	Lock,
+	Plugs,
 	PuzzlePiece,
 	ShieldCheck,
 	Trash
 } from '@phosphor-icons/react';
+import type {Icon} from '@phosphor-icons/react';
 import FolderIcon from '@sd/assets/icons/Folder.webp';
 import HomeIcon from '@sd/assets/icons/Home.webp';
 import type {
@@ -40,18 +41,21 @@ import {
 	useSpacedriveClient
 } from '../../contexts/SpacedriveContext';
 import {useLibraries} from '../../hooks/useLibraries';
+import {useIsLightTheme} from '../../hooks/useTheme';
 import {
 	getSpaceItemKeyFromRoute,
 	useExplorer
 } from '../../routes/explorer/context';
 import {Thumb} from '../../routes/explorer/File/Thumb';
-import {useJobsContext} from '../JobManager/hooks/JobsContext';
+import {useJobCounts} from '../JobManager/hooks/JobsContext';
 import {PairingModal} from '../modals/PairingModal';
 import {
 	availabilityBadge,
 	availabilityDescription,
-	sourceAvailability
+	sourceAvailability,
+	type SourceAvailability
 } from '../Sources/sourceAvailability';
+import {sourceIcon} from '../Sources/sourceIcon';
 import {useSyncCount} from '../SyncMonitor/hooks/useSyncCount';
 import {TagDot, tagColor} from '../Tags';
 import {resolveItemMetadata} from './hooks/spaceItemUtils';
@@ -65,6 +69,15 @@ interface SpacesSidebarProps {
 	isPreviewActive?: boolean;
 	presentation?: 'floating' | 'flat';
 }
+
+const AVAILABILITY_ICONS: Record<
+	Exclude<SourceAvailability, 'available'>,
+	Icon
+> = {
+	offline: Plugs,
+	unmounted: Eject,
+	locked: Lock
+};
 
 function routeForPath(path: SdPath): string {
 	return `/explorer?path=${encodeURIComponent(JSON.stringify(path))}`;
@@ -184,11 +197,12 @@ export function SpacesSidebar({
 	const location = useLocation();
 	const {loadPreferencesForSpaceItem} = useExplorer();
 	const {data: libraries} = useLibraries();
+	const lightTheme = useIsLightTheme();
 	const [currentLibraryId, setCurrentLibraryId] = useState<string | null>(
 		() => client.getCurrentLibraryId()
 	);
 	const [isPairingOpen, setIsPairingOpen] = useState(false);
-	const {activeJobCount, hasRunningJobs} = useJobsContext();
+	const {activeJobCount, hasRunningJobs} = useJobCounts();
 	const {isSyncing} = useSyncCount();
 	const {currentSpaceId, setCurrentSpace} = useSidebarStore();
 	const {data: spacesData} = useSpaces();
@@ -462,18 +476,27 @@ export function SpacesSidebar({
 									);
 									const availability =
 										sourceAvailability(source);
-									const badge =
+									const stateLabel =
 										availabilityBadge(availability);
 									return (
 										<SidebarItem
 											key={source.id}
 											id={`source-${source.id}`}
 											label={source.name}
-											icon={
-												source.data_type ===
-												'filesystem'
-													? HardDrive
-													: Database
+											iconNode={
+												<img
+													src={sourceIcon(
+														source,
+														lightTheme,
+														devicesData?.find(
+															(device) =>
+																device.id ===
+																source.device_id
+														)
+													)}
+													alt=""
+													className="size-[18px] max-w-none"
+												/>
 											}
 											href={href}
 											tone={
@@ -481,15 +504,16 @@ export function SpacesSidebar({
 													? 'default'
 													: 'muted'
 											}
-											badge={badge}
-											badgeIcon={
-												availability === 'locked'
-													? Lock
-													: undefined
-											}
-											badgeLabel={
-												badge &&
-												`${source.name} is ${badge.toLowerCase()}`
+											status={
+												availability === 'available' ||
+												!stateLabel
+													? undefined
+													: {
+															icon: AVAILABILITY_ICONS[
+																availability
+															],
+															label: stateLabel
+														}
 											}
 											title={
 												availabilityDescription(

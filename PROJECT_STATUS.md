@@ -36,6 +36,28 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+UI lag while jobs run (Capy FAN-14236, November 25, in PR). On a library
+with years of background passes, `jobs.list` returned every job ever run
+(17,858 jobs, 7.9 MB on one Mac), and the always-mounted jobs provider
+refetched it on every job start and finish. A web reproduction with 17.5k
+seeded jobs and 24 shot-detection jobs spent 17 s of 30 in long tasks
+while scrolling a grid. The sidebar now reads job counts from their own
+context (#3278) and each Tauri event subscription gets its own channel
+(#3279). In PR: the job list keeps the newest 200 finished jobs and
+coalesces its refetches, and grid cards stop reading dnd-kit's public
+context. With all four, the same run has no long tasks. Next: confirm on
+the desktop build while footage jobs run.
+
+Sidebar source rows (Capy FAN-14228, November 25, landed in #3275, follow-up
+in PR). A source row draws its drive with the Spacedrive icon for its volume
+kind (generic drive, external HDD, network server, virtual, cloud provider) and
+shows offline, unmounted or locked as a muted trailing icon with a tooltip
+instead of a text pill. `sources.list` returns each source's `volume_type`
+from its volume row, so an unplugged drive keeps its icon; `volumes.list`
+omits this device's offline volumes and cannot supply it. The follow-up draws a
+replica as its owning device's form factor (laptop, desktop, phone, tablet,
+server), with a server when that is unknown. Next: review and merge.
+
 Acceptance runner losses (Capy FAN-11240, November 24, in PR). About four
 in ten runs of the acceptance job lost their Blacksmith runner with no log.
 The VM was not short of memory or disk: a monitor that posted samples as
