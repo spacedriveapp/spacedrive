@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useCoreQuery, useSpacedriveClient } from '../contexts/SpacedriveContext';
 
 const THEME_CLASS_MAP: Record<string, string> = {
@@ -37,6 +37,19 @@ export function applyTheme(theme: string) {
 	if (themeClass) {
 		document.documentElement.classList.add(themeClass);
 	}
+}
+
+function subscribeToThemeClass(onChange: () => void) {
+	const observer = new MutationObserver(onChange);
+	observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+	return () => observer.disconnect();
+}
+
+/** Whether the light theme is applied now, following `applyTheme` as it swaps the class. */
+export function useIsLightTheme(): boolean {
+	return useSyncExternalStore(subscribeToThemeClass, () =>
+		document.documentElement.classList.contains('vanilla-theme')
+	);
 }
 
 export function useTheme() {

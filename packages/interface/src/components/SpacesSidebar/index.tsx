@@ -41,6 +41,7 @@ import {
 	useSpacedriveClient
 } from '../../contexts/SpacedriveContext';
 import {useLibraries} from '../../hooks/useLibraries';
+import {useIsLightTheme} from '../../hooks/useTheme';
 import {
 	getSpaceItemKeyFromRoute,
 	useExplorer
@@ -196,6 +197,7 @@ export function SpacesSidebar({
 	const location = useLocation();
 	const {loadPreferencesForSpaceItem} = useExplorer();
 	const {data: libraries} = useLibraries();
+	const lightTheme = useIsLightTheme();
 	const [currentLibraryId, setCurrentLibraryId] = useState<string | null>(
 		() => client.getCurrentLibraryId()
 	);
@@ -483,7 +485,7 @@ export function SpacesSidebar({
 											label={source.name}
 											iconNode={
 												<img
-													src={sourceIcon(source)}
+													src={sourceIcon(source, lightTheme)}
 													alt=""
 													className="size-[18px] max-w-none"
 												/>
