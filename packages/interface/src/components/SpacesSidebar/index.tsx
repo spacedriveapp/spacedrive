@@ -485,7 +485,15 @@ export function SpacesSidebar({
 											label={source.name}
 											iconNode={
 												<img
-													src={sourceIcon(source, lightTheme)}
+													src={sourceIcon(
+														source,
+														lightTheme,
+														devicesData?.find(
+															(device) =>
+																device.id ===
+																source.device_id
+														)
+													)}
 													alt=""
 													className="size-[18px] max-w-none"
 												/>
