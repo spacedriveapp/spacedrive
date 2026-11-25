@@ -2924,7 +2924,12 @@ export type JobJournalInput = { job_id: string };
 
 export type JobJournalOutput = { effects: Recorded[] };
 
-export type JobListInput = { status: JobStatus | null };
+export type JobListInput = { status: JobStatus | null; 
+/**
+ * Keep only this many of the newest finished jobs. Unfinished jobs are
+ * always listed. None lists the whole history.
+ */
+limit: number | null };
 
 export type JobListItem = { id: string; name: string; device_id: string; status: JobStatus; progress: number; action_type: string | null; action_context: ActionContextInfo | null; created_at: string; started_at: string | null; completed_at: string | null; 
 /**
