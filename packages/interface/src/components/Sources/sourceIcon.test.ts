@@ -4,8 +4,12 @@ import DriveGoogleDriveIcon from '@sd/assets/icons/Drive-GoogleDrive.webp';
 import DriveIcon from '@sd/assets/icons/Drive.webp';
 import HDDLightIcon from '@sd/assets/icons/HDD_Light.webp';
 import HDDIcon from '@sd/assets/icons/HDD.webp';
+import LaptopLightIcon from '@sd/assets/icons/Laptop_Light.webp';
+import MobileAndroidIcon from '@sd/assets/icons/Mobile-Android.webp';
+import PCIcon from '@sd/assets/icons/PC.webp';
 import ServerLightIcon from '@sd/assets/icons/Server_Light.webp';
 import ServerIcon from '@sd/assets/icons/Server.webp';
+import TabletIcon from '@sd/assets/icons/Tablet.webp';
 import {describe, expect, test} from 'bun:test';
 import {sourceIcon} from './sourceIcon';
 
@@ -50,14 +54,36 @@ describe('sourceIcon', () => {
 		).toBe(DriveGoogleDriveIcon);
 	});
 
-	test("draws a paired device's replica as a server", () => {
-		const replica = {
-			...filesystem,
-			volume_type: null,
-			device_id: '0198c7f2-6a1e-7c3b-9d2f-4e5a6b7c8d9e'
-		};
+	const replica = {
+		...filesystem,
+		volume_type: null,
+		device_id: '0198c7f2-6a1e-7c3b-9d2f-4e5a6b7c8d9e'
+	};
+
+	test("draws a replica as its owning device's kind", () => {
+		expect(
+			sourceIcon(replica, false, {form_factor: 'Laptop', os: 'MacOS'})
+		).toBe(LaptopLightIcon);
+		expect(
+			sourceIcon(replica, true, {form_factor: 'Desktop', os: 'Windows'})
+		).toBe(PCIcon);
+		expect(
+			sourceIcon(replica, true, {form_factor: 'Mobile', os: 'Android'})
+		).toBe(MobileAndroidIcon);
+		expect(
+			sourceIcon(replica, true, {form_factor: 'Tablet', os: 'IOs'})
+		).toBe(TabletIcon);
+		expect(
+			sourceIcon(replica, true, {form_factor: 'Server', os: 'Linux'})
+		).toBe(ServerIcon);
+	});
+
+	test('draws a replica as a server when its owner is unknown', () => {
 		expect(sourceIcon(replica, true)).toBe(ServerIcon);
 		expect(sourceIcon(replica, false)).toBe(ServerLightIcon);
+		expect(
+			sourceIcon(replica, true, {form_factor: null, os: 'Linux'})
+		).toBe(ServerIcon);
 	});
 
 	test('falls back to the generic drive and the database icon', () => {

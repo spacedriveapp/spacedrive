@@ -59,7 +59,12 @@ export class TauriTransport implements Transport {
 		callback: (event: any) => void,
 		options?: SubscriptionOptions,
 	): Promise<() => void> {
+		// Each subscription gets its own event name. The daemon filters per
+		// subscription, and a shared name would deliver every subscription's
+		// events to every listener.
+		const channel = `core-event:${crypto.randomUUID()}`;
 		const args = {
+			channel,
 			eventTypes: options?.event_types ?? DEFAULT_EVENT_SUBSCRIPTION,
 			filter: options?.filter ?? null,
 		};
@@ -67,7 +72,7 @@ export class TauriTransport implements Transport {
 		// Listen FIRST so buffered events replayed by the daemon are not lost.
 		// subscribe_to_events creates a TCP connection that may emit events
 		// before the invoke promise resolves.
-		const unlisten = await this.listen("core-event", (tauriEvent: any) => {
+		const unlisten = await this.listen(channel, (tauriEvent: any) => {
 			callback(tauriEvent.payload);
 		});
 
