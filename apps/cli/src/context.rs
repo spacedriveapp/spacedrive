@@ -149,7 +149,10 @@ impl Context {
 		status: Option<sd_core::infra::job::types::JobStatus>,
 	) -> Result<Vec<sd_core::ops::jobs::list::output::JobListItem>> {
 		let library_id = self.require_current_library()?;
-		let input = sd_core::ops::jobs::list::query::JobListInput { status };
+		let input = sd_core::ops::jobs::list::query::JobListInput {
+			status,
+			limit: None,
+		};
 		let output: sd_core::ops::jobs::list::output::JobListOutput = execute_query!(self, input);
 		Ok(output.jobs)
 	}
