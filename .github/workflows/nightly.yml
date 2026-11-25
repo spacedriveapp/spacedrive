@@ -56,11 +56,11 @@ jobs:
           - host: macos-15
             target: aarch64-apple-darwin
             platform: macos-aarch64
-          - host: blacksmith-4vcpu-ubuntu-2204
+          - host: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             platform: linux-x86_64
-          # GitHub-hosted: Blacksmith has no Windows runners. Unsigned like
-          # the others; SmartScreen warns on first run of a browser download.
+          # Unsigned like the others; SmartScreen warns on first run of a
+          # browser download.
           - host: windows-latest
             target: x86_64-pc-windows-msvc
             platform: windows-x86_64
@@ -140,7 +140,7 @@ jobs:
   publish:
     name: Publish nightly prerelease
     needs: build
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: write

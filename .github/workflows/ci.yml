@@ -24,7 +24,7 @@ concurrency:
 jobs:
   rustfmt:
     name: Rust Formatting
-    runs-on: blacksmith-4vcpu-ubuntu-2204
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -82,7 +82,7 @@ jobs:
       fail-fast: false # Don't cancel other platforms if one fails
       matrix:
         settings:
-          - host: blacksmith-4vcpu-ubuntu-2404
+          - host: ubuntu-24.04
             label: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
     name: Clippy (${{ matrix.settings.label }})
@@ -200,7 +200,7 @@ jobs:
 
   typescript:
     name: TypeScript
-    runs-on: blacksmith-4vcpu-ubuntu-2204
+    runs-on: ubuntu-22.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -239,7 +239,7 @@ jobs:
 
   docs:
     name: Docs
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -284,7 +284,7 @@ jobs:
 
   generated-types:
     name: Generated types
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
       contents: read
@@ -322,9 +322,13 @@ jobs:
         with:
           shared-key: generated-types
 
+      # The hosted runner's preinstalled libunwind blocks the gstreamer dev
+      # package setup.sh installs.
       - name: Install system dependencies
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
-        run: ./scripts/setup.sh
+        run: |
+          sudo apt-get remove libunwind-* || true
+          ./scripts/setup.sh
 
       - name: Generate TypeScript types
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
@@ -373,7 +377,7 @@ jobs:
 
   secrets:
     name: Secrets scan
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -405,7 +409,7 @@ jobs:
 
   license:
     name: License and notices
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read

@@ -40,7 +40,7 @@ jobs:
           - name: acceptance
             run: cargo run -p xtask -- test-core --acceptance --verbose
     name: Core Tests (${{ matrix.suite.name }}, ubuntu-24.04)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
       contents: read
@@ -55,21 +55,24 @@ jobs:
         with:
           restore-cache: "false"
 
-      # Blacksmith serves actions/cache transparently, so the upstream action
-      # is the right one here. Each half keeps its own key: the two jobs build
-      # different test targets and would otherwise overwrite each other.
+      # Each half keeps its own key: the jobs build different test targets and
+      # would otherwise overwrite each other.
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: core-tests-${{ matrix.suite.name }}
 
+      # The hosted runner's preinstalled libunwind blocks the gstreamer dev
+      # package setup.sh installs, as nightly.yml works around too.
       - name: Install system dependencies
-        run: ./scripts/setup.sh
+        run: |
+          sudo apt-get remove libunwind-* || true
+          ./scripts/setup.sh
 
       # The ZFS locked volumes acceptance suite builds a file-backed pool.
-      # The Blacksmith kernel ships no zfs module, so the suite skips with a
-      # reason here and runs for real in the zfs job below; the step stays
-      # so a runner image that gains the module runs it here too.
+      # The suite skips with a reason where the kernel ships no zfs module and
+      # runs for real in the zfs job below; the step stays so a runner image
+      # that has the module runs it here too.
       - name: Install ZFS
         if: matrix.suite.name == 'acceptance'
         run: |
@@ -96,9 +99,9 @@ jobs:
         run: ${{ matrix.suite.run }}
 
   # The ZFS half of the locked volumes acceptance (docs/core/acceptance/
-  # volumes.md rows 5 and 6) needs a kernel with the zfs module, which the
-  # Blacksmith image lacks and GitHub's ubuntu-24.04 image carries in
-  # linux-modules-extra. One suite, so the cold build is the whole cost.
+  # volumes.md rows 5 and 6) needs a kernel with the zfs module, which
+  # GitHub's ubuntu-24.04 image carries in linux-modules-extra. One suite,
+  # so the cold build is the whole cost.
   zfs:
     name: Core Tests (zfs acceptance, ubuntu-24.04)
     runs-on: ubuntu-24.04
@@ -145,14 +148,14 @@ jobs:
       - name: Run the ZFS locked volumes suite
         run: RUST_LOG=sd_core=info cargo test -p sd-core --test zfs_locked_volumes_acceptance_test -- --test-threads=1 --nocapture
 
-      # GitHub's kernel folds case on ext4, which the Blacksmith kernel in the
-      # acceptance job does not, so the case-only rename tests run for real here.
+      # GitHub's kernel folds case on ext4, so the case-only rename tests run
+      # for real here.
       - name: Run the path spelling suite on a casefold volume
         run: RUST_LOG=sd_core=info cargo test -p sd-core --test path_spelling_acceptance_test -- --test-threads=1 --nocapture
 
       # The disk full suite fills a loop-mounted ext4 volume under a running
-      # daemon, which takes down the Blacksmith VM in the acceptance job, so
-      # it runs here (FAN-11240).
+      # daemon, which takes down the runner VM, so it runs in this job on its
+      # own (FAN-11240).
       - name: Run the hosted acceptance suites
         run: cargo run -p xtask -- test-core --hosted --verbose
 
@@ -165,8 +168,7 @@ jobs:
 
   # Windows is the one supported desktop platform the rewrite has never been
   # built on, so this job is the evidence for the cross-platform gate in
-  # docs/core/releases.mdx. It runs on GitHub's hosted image because
-  # Blacksmith has no Windows runners. The sd-core lib tests and the sd-cli
+  # docs/core/releases.mdx. The sd-core lib tests and the sd-cli
   # tests are the cheap half; the integration and acceptance suites assume a
   # Linux filesystem and are tracked in docs/plans/2026-10-09-windows-gap.md.
   # Gating since the job was green twice on main (15d7df1, e4b4cb7): 40 min
