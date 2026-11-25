@@ -5354,7 +5354,13 @@ attached: boolean;
  * or locked because its encryption key is not loaded. Absent for an
  * adapter, a replica, or a source on media Spacedrive does not track.
  */
-volume_state?: VolumeState | null; total_bytes: number | null; 
+volume_state?: VolumeState | null; 
+/**
+ * The kind of drive under a filesystem source, as recorded for its
+ * volume, so a client can draw a drive that is away. Absent for an
+ * adapter, a replica, or a source on media Spacedrive does not track.
+ */
+volume_type?: VolumeType | null; total_bytes: number | null; 
 /**
  * Last time the origin answered. Absent for an adapter, whose registry
  * tracks a sync cursor rather than an attachment.

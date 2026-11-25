@@ -37,6 +37,11 @@ pub struct SourceInfo {
 	/// adapter, a replica, or a source on media Spacedrive does not track.
 	#[serde(default)]
 	pub volume_state: Option<crate::volume::VolumeState>,
+	/// The kind of drive under a filesystem source, as recorded for its
+	/// volume, so a client can draw a drive that is away. Absent for an
+	/// adapter, a replica, or a source on media Spacedrive does not track.
+	#[serde(default)]
+	pub volume_type: Option<crate::domain::volume::VolumeType>,
 	pub total_bytes: Option<i64>,
 	/// Last time the origin answered. Absent for an adapter, whose registry
 	/// tracks a sync cursor rather than an attachment.
@@ -119,6 +124,7 @@ impl SourceInfo {
 			volume_uuid: record.volume_uuid,
 			attached,
 			volume_state: None,
+			volume_type: None,
 			total_bytes,
 			last_seen_at,
 			device_id: None,
@@ -161,6 +167,7 @@ impl SourceInfo {
 			volume_uuid: entry.info.volume_uuid,
 			attached: false,
 			volume_state: entry.info.volume_state,
+			volume_type: None,
 			total_bytes: entry.info.total_bytes.map(|bytes| bytes as i64),
 			last_seen_at: synced_at,
 			device_id: Some(device_id),
@@ -197,6 +204,7 @@ impl SourceInfo {
 			volume_uuid: None,
 			attached: false,
 			volume_state: None,
+			volume_type: None,
 			total_bytes: None,
 			last_seen_at: None,
 			device_id: Some(transfer.device_id),
@@ -235,6 +243,7 @@ impl SourceInfo {
 			volume_uuid: share.info.volume_uuid,
 			attached: share.info.attached,
 			volume_state: share.info.volume_state,
+			volume_type: None,
 			total_bytes: share.info.total_bytes.map(|bytes| bytes as i64),
 			last_seen_at: synced_at,
 			device_id: Some(share.device_id),

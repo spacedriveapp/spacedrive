@@ -345,6 +345,7 @@ mod tests {
 			volume_uuid: None,
 			attached,
 			volume_state,
+			volume_type: None,
 			total_bytes: None,
 			last_seen_at: None,
 			device_id: None,
