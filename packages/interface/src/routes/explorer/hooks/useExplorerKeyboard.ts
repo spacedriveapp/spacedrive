@@ -218,7 +218,7 @@ export function useExplorerKeyboard() {
 	useKeybind("explorer.undo", async () => {
 		const output = await client.execute<JobListInput, JobListOutput>(
 			WIRE_METHODS.libraryQueries["jobs.list"],
-			{ status: null, limit: null },
+			{ status: null },
 		);
 		const latest = output.jobs
 			.filter((job) => canUndo(job) && job.name !== "undo")

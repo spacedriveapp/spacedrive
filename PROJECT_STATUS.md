@@ -36,6 +36,18 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+UI lag while jobs run (Capy FAN-14236, November 25, in PR). On a library
+with years of background passes, `jobs.list` returned every job ever run
+(17,858 jobs, 7.9 MB on one Mac), and the always-mounted jobs provider
+refetched it on every job start and finish. A web reproduction with 17.5k
+seeded jobs and 24 shot-detection jobs spent 17 s of 30 in long tasks
+while scrolling a grid. Four fixes are in separate PRs: the job list keeps
+the newest 200 finished jobs and coalesces its refetches, grid cards stop
+reading dnd-kit's public context, the sidebar reads job counts from their
+own context, and each Tauri event subscription gets its own channel. With
+all four, the same run has no long tasks. Next: confirm on the desktop
+build while footage jobs run.
+
 Acceptance runner losses (Capy FAN-11240, November 24, in PR). About four
 in ten runs of the acceptance job lost their Blacksmith runner with no log.
 The VM was not short of memory or disk: a monitor that posted samples as
