@@ -47,7 +47,7 @@ import {
 	useExplorer
 } from '../../routes/explorer/context';
 import {Thumb} from '../../routes/explorer/File/Thumb';
-import {useJobsContext} from '../JobManager/hooks/JobsContext';
+import {useJobCounts} from '../JobManager/hooks/JobsContext';
 import {PairingModal} from '../modals/PairingModal';
 import {
 	availabilityBadge,
@@ -202,7 +202,7 @@ export function SpacesSidebar({
 		() => client.getCurrentLibraryId()
 	);
 	const [isPairingOpen, setIsPairingOpen] = useState(false);
-	const {activeJobCount, hasRunningJobs} = useJobsContext();
+	const {activeJobCount, hasRunningJobs} = useJobCounts();
 	const {isSyncing} = useSyncCount();
 	const {currentSpaceId, setCurrentSpace} = useSidebarStore();
 	const {data: spacesData} = useSpaces();
