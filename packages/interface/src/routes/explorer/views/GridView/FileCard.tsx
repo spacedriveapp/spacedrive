@@ -6,7 +6,7 @@ import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { formatBytes } from "../../utils";
 import { TagDot, tagColor } from "../../../../components/Tags";
-import { useDndContext, useDroppable } from "@dnd-kit/core";
+import { useDroppable } from "@dnd-kit/core";
 import { useLibraryValidate } from "../../../../contexts/SpacedriveContext";
 import { useOverlaidChange } from "../../hooks/usePlanPreview";
 import { PlanBadge, planRowClass } from "../../components/PlanMark";
@@ -105,7 +105,14 @@ export const FileCard = memo(
 
 		// Make folders droppable
 		const isFolder = file.kind === "Directory";
-		const { setNodeRef: setDropNodeRef, isOver: isDropOver } = useDroppable({
+		// The drag in progress comes from useDroppable, not useDndContext.
+		// The public context changes on every dnd-kit remeasure, so reading
+		// it re-renders every visible card on each scroll frame.
+		const {
+			setNodeRef: setDropNodeRef,
+			isOver: isDropOver,
+			active: dragActive,
+		} = useDroppable({
 			id: `folder-drop-${file.id}`,
 			disabled: !isFolder,
 			data: {
@@ -124,7 +131,6 @@ export const FileCard = memo(
 
 		// While a drag hovers this folder, copy validation says whether the
 		// drop could run, so the target badges an error before the drop.
-		const { active: dragActive } = useDndContext();
 		const hovering = isFolder && isDropOver && dragActive?.data.current?.type === "explorer-file";
 		const hoverSources: SdPath[] = hovering
 			? (dragActive?.data.current?.selectedFiles as File[] | undefined)?.map((f) => f.sd_path) ??
