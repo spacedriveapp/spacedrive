@@ -42,6 +42,16 @@ function downsampleSpeedHistory(samples: SpeedSample[]): SpeedSample[] {
 	return downsampled;
 }
 
+/**
+ * Finished jobs the list keeps. Every background pass leaves a finished row,
+ * so the full history of a large library runs to tens of thousands of jobs
+ * and megabytes per refetch.
+ */
+export const JOB_HISTORY_LIMIT = 200;
+
+/** How long job state changes are collected into one list refetch. */
+export const JOB_REFETCH_COALESCE_MS = 250;
+
 export interface UseJobsOptions {
 	/**
 	 * Callback when a job completes successfully
@@ -81,7 +91,7 @@ export function useJobs(options: UseJobsOptions = {}): UseJobsReturn {
 	const speedHistoryRef = useRef<Map<string, SpeedSample[]>>(new Map());
 
 	// Memoize input to prevent object recreation on every render
-	const input = useMemo(() => ({status: null}), []);
+	const input = useMemo(() => ({status: null, limit: JOB_HISTORY_LIMIT}), []);
 
 	const {data, isLoading, error, refetch} = useLibraryQuery({
 		type: 'jobs.list',
@@ -125,9 +135,20 @@ export function useJobs(options: UseJobsOptions = {}): UseJobsReturn {
 		let unsubscribe: (() => void) | undefined;
 		let isCancelled = false;
 
+		// A batch of jobs starts and finishes together, so their state
+		// changes share one refetch instead of restarting it per event.
+		let refetchTimer: ReturnType<typeof setTimeout> | undefined;
+		const scheduleRefetch = () => {
+			if (refetchTimer) return;
+			refetchTimer = setTimeout(() => {
+				refetchTimer = undefined;
+				refetchRef.current();
+			}, JOB_REFETCH_COALESCE_MS);
+		};
+
 		const handleEvent = (event: any) => {
 			if ('JobStarted' in event) {
-				refetchRef.current();
+				scheduleRefetch();
 			} else if (
 				'JobQueued' in event ||
 				'JobCompleted' in event ||
@@ -176,7 +197,7 @@ export function useJobs(options: UseJobsOptions = {}): UseJobsReturn {
 						}
 					}
 				}
-				refetchRef.current();
+				scheduleRefetch();
 			} else if ('JobProgress' in event) {
 				const progressData = event.JobProgress;
 				if (!progressData) return;
@@ -247,6 +268,7 @@ export function useJobs(options: UseJobsOptions = {}): UseJobsReturn {
 
 		return () => {
 			isCancelled = true;
+			clearTimeout(refetchTimer);
 			unsubscribe?.();
 		};
 	}, [client]);
