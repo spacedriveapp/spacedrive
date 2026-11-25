@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, useMemo, ReactNode } from 'react';
 import { useJobs } from './useJobsDesktop';
 import type { SpeedSample, ExtendedJobListItem } from '@sd/ts-client';
 
@@ -14,14 +14,29 @@ interface JobsContextValue {
 	getSpeedHistory: (jobId: string) => SpeedSample[];
 }
 
+interface JobCounts {
+	activeJobCount: number;
+	hasRunningJobs: boolean;
+}
+
 const JobsContext = createContext<JobsContextValue | null>(null);
+const JobCountsContext = createContext<JobCounts | null>(null);
 
 export function JobsProvider({ children }: { children: ReactNode }) {
 	const jobsData = useJobs();
+	const { activeJobCount, hasRunningJobs } = jobsData;
+	// Every progress tick replaces the job list, so consumers that only show
+	// counts read them from their own context and skip those ticks.
+	const counts = useMemo(
+		() => ({ activeJobCount, hasRunningJobs }),
+		[activeJobCount, hasRunningJobs]
+	);
 
 	return (
 		<JobsContext.Provider value={jobsData}>
-			{children}
+			<JobCountsContext.Provider value={counts}>
+				{children}
+			</JobCountsContext.Provider>
 		</JobsContext.Provider>
 	);
 }
@@ -35,6 +50,15 @@ export function useJobsContext() {
 	const context = useContext(JobsContext);
 	if (!context) {
 		throw new Error('useJobsContext must be used within JobsProvider');
+	}
+	return context;
+}
+
+/** Active and running job counts, which change far less often than the list. */
+export function useJobCounts() {
+	const context = useContext(JobCountsContext);
+	if (!context) {
+		throw new Error('useJobCounts must be used within JobsProvider');
 	}
 	return context;
 }
