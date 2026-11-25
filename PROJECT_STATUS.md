@@ -36,6 +36,19 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Job shutdown deadlock (Capy FAN-12312, November 25, in PR). The Windows unit
+job kept failing on `a_directory_that_never_answers_does_not_hold_up_the_pass`.
+The cause was not the reconcile pass but `core.shutdown()` at the end of the
+test. `JobManager::pause_job` held the running-jobs read lock while it waited
+for the job to reach an interrupt check. Content identification dispatches the
+text index pass on its way out, and that dispatch needs the write lock, so
+shutdown and the job waited on each other. Pause, cancel and the shutdown loop
+no longer hold the lock across the wait.
+`shutdown_finishes_when_a_paused_job_dispatches_another` reproduces it every
+time on the old code. The reconcile test's cloud listing now waits on a gate
+instead of a 5 second sleep checked against a 3 second limit. Next: three
+green Windows unit runs on the PR.
+
 Sidebar source rows (Capy FAN-14228, November 25, in PR). A source row draws
 its drive with the Spacedrive icon for its volume kind (generic drive, external
 HDD, network server, virtual, cloud provider) and shows offline, unmounted or

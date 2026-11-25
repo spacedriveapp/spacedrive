@@ -1824,9 +1824,12 @@ impl JobManager {
 			.device_manager
 			.device_id()
 			.unwrap_or_else(|_| uuid::Uuid::nil());
-		let running_jobs = self.running_jobs.read().await;
+		let task = {
+			let running_jobs = self.running_jobs.read().await;
+			let Some(running_job) = running_jobs.get(&job_id) else {
+				return Err(JobError::NotFound(format!("Job {} not found", job_id)));
+			};
 
-		if let Some(running_job) = running_jobs.get(&job_id) {
 			// Check if job is in a pausable state
 			let current_status = running_job.handle.status();
 			if current_status != JobStatus::Running {
@@ -1842,37 +1845,41 @@ impl JobManager {
 				.send(JobStatus::Paused)
 				.map_err(|e| JobError::Other(format!("Failed to update status: {}", e).into()))?;
 
-			// Trigger the actual task interruption through the task system
-			if let Err(e) = running_job.task_handle.pause().await {
-				warn!("Failed to pause task for job {}: {}", job_id, e);
-				// Reset status back to Running if task pause failed
+			running_job.task_handle.remote_controller()
+		};
+
+		// The pause waits for the job to reach an interrupt check, and a job
+		// that dispatches another on its way there needs this map's write
+		// lock, so holding the lock across the wait deadlocks both.
+		if let Err(e) = task.pause().await {
+			warn!("Failed to pause task for job {}: {}", job_id, e);
+			// Reset status back to Running if task pause failed
+			if let Some(running_job) = self.running_jobs.read().await.get(&job_id) {
 				let _ = running_job.status_tx.send(JobStatus::Running);
-				return Err(JobError::Other(
-					format!("Failed to pause task: {}", e).into(),
-				));
 			}
-
-			// Update database
-			use sea_orm::{ActiveModelTrait, ActiveValue::Set};
-			let mut job_model = database::jobs::ActiveModel {
-				id: Set(job_id.to_string()),
-				status: Set(JobStatus::Paused.to_string()),
-				paused_at: Set(Some(Utc::now())),
-				..Default::default()
-			};
-			job_model.update(self.db.conn()).await?;
-
-			// Emit pause event
-			self.context.events.emit(Event::JobPaused {
-				job_id: job_id.to_string(),
-				device_id,
-			});
-
-			info!("Job {} paused successfully", job_id);
-			Ok(())
-		} else {
-			Err(JobError::NotFound(format!("Job {} not found", job_id)))
+			return Err(JobError::Other(
+				format!("Failed to pause task: {}", e).into(),
+			));
 		}
+
+		// Update database
+		use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+		let mut job_model = database::jobs::ActiveModel {
+			id: Set(job_id.to_string()),
+			status: Set(JobStatus::Paused.to_string()),
+			paused_at: Set(Some(Utc::now())),
+			..Default::default()
+		};
+		job_model.update(self.db.conn()).await?;
+
+		// Emit pause event
+		self.context.events.emit(Event::JobPaused {
+			job_id: job_id.to_string(),
+			device_id,
+		});
+
+		info!("Job {} paused successfully", job_id);
+		Ok(())
 	}
 
 	/// Cancel a running job and remove it from the database
@@ -1888,27 +1895,30 @@ impl JobManager {
 
 		// Cancel if in memory
 		if is_in_memory {
-			let mut running_jobs = self.running_jobs.write().await;
-
-			if let Some(running_job) = running_jobs.get_mut(&job_id) {
-				// Check if job is in a cancellable state
-				let current_status = running_job.handle.status();
-				if current_status.is_terminal() {
-					return Err(JobError::invalid_state(&format!(
-						"Cannot cancel job in {:?} state",
-						current_status
-					)));
+			let task = {
+				let running_jobs = self.running_jobs.read().await;
+				match running_jobs.get(&job_id) {
+					// Check if job is in a cancellable state
+					Some(running_job) if running_job.handle.status().is_terminal() => {
+						return Err(JobError::invalid_state(&format!(
+							"Cannot cancel job in {:?} state",
+							running_job.handle.status()
+						)));
+					}
+					Some(running_job) => Some(running_job.task_handle.remote_controller()),
+					None => None,
 				}
+			};
 
-				// Cancel the task
-				if let Err(e) = running_job.task_handle.cancel().await {
+			// Not under the lock, for the same reason as a pause.
+			if let Some(task) = task {
+				if let Err(e) = task.cancel().await {
 					warn!("Failed to send cancel signal to job {}: {}", job_id, e);
 				}
 			}
 
 			// Remove from running jobs map
-			running_jobs.remove(&job_id);
-			drop(running_jobs);
+			self.running_jobs.write().await.remove(&job_id);
 
 			// Wait for cancellation to complete
 			tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
@@ -2297,15 +2307,19 @@ impl JobManager {
 
 		info!("Pausing {} running jobs before shutdown", job_ids.len());
 		for job_id in &job_ids {
-			// Check if job is still running before pausing
-			if let Some(running_job) = self.running_jobs.read().await.get(job_id) {
-				let status = running_job.handle.status();
-				if status == JobStatus::Running {
-					info!("Pausing job {} for shutdown", job_id);
-					if let Err(e) = self.pause_job(*job_id).await {
-						warn!("Failed to pause job {} during shutdown: {}", job_id, e);
-						// Continue with shutdown even if pause fails
-					}
+			// The guard ends with this statement: an `if let` on it would hold
+			// the map's read lock across the pause.
+			let running = self
+				.running_jobs
+				.read()
+				.await
+				.get(job_id)
+				.is_some_and(|running_job| running_job.handle.status() == JobStatus::Running);
+			if running {
+				info!("Pausing job {} for shutdown", job_id);
+				if let Err(e) = self.pause_job(*job_id).await {
+					warn!("Failed to pause job {} during shutdown: {}", job_id, e);
+					// Continue with shutdown even if pause fails
 				}
 			}
 		}
@@ -2496,3 +2510,124 @@ impl CheckpointHandler for DbCheckpointHandler {
 }
 
 use uuid::Uuid;
+
+#[cfg(test)]
+mod tests {
+	use std::time::Duration;
+
+	use serde::{Deserialize, Serialize};
+	use tokio::sync::Notify;
+
+	use super::*;
+	use crate::infra::job::prelude::*;
+
+	static STARTED: Notify = Notify::const_new();
+	static RELEASE: Notify = Notify::const_new();
+
+	/// Runs until the test releases it, then dispatches a follow-up job before
+	/// reaching an interrupt check, as content identification dispatches the
+	/// text index pass on its way out.
+	#[derive(Debug, Serialize, Deserialize, Job)]
+	struct DispatchesOnItsWayOut;
+
+	impl Job for DispatchesOnItsWayOut {
+		const NAME: &'static str = "test_dispatches_on_its_way_out";
+		const RESUMABLE: bool = false;
+	}
+
+	impl DynJob for DispatchesOnItsWayOut {
+		fn job_name(&self) -> &'static str {
+			Self::NAME
+		}
+	}
+
+	#[async_trait]
+	impl JobHandler for DispatchesOnItsWayOut {
+		type Output = JobOutput;
+
+		async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
+			STARTED.notify_one();
+			RELEASE.notified().await;
+			ctx.library()
+				.jobs()
+				.dispatch_with_priority(FollowUp, JobPriority::LOW, None)
+				.await?;
+			Ok(JobOutput::Success)
+		}
+	}
+
+	#[derive(Debug, Serialize, Deserialize, Job)]
+	struct FollowUp;
+
+	impl Job for FollowUp {
+		const NAME: &'static str = "test_follow_up";
+		const RESUMABLE: bool = false;
+	}
+
+	impl DynJob for FollowUp {
+		fn job_name(&self) -> &'static str {
+			Self::NAME
+		}
+	}
+
+	#[async_trait]
+	impl JobHandler for FollowUp {
+		type Output = JobOutput;
+
+		async fn run(&mut self, _ctx: JobContext<'_>) -> JobResult<Self::Output> {
+			Ok(JobOutput::Success)
+		}
+	}
+
+	/// Shutdown pauses a job that dispatches another before it reaches an
+	/// interrupt check, as content identification dispatches the text index
+	/// pass on its way out. The pause used to hold the running-jobs lock while
+	/// it waited for the job, and the dispatch waited on the same lock, so
+	/// neither finished. The job manager is shut down on its own here because
+	/// closing the library first would refuse the dispatch before it reached
+	/// the lock.
+	#[tokio::test(flavor = "multi_thread")]
+	async fn shutdown_finishes_when_a_paused_job_dispatches_another() {
+		let data = tempfile::tempdir().expect("data dir");
+		let core = crate::Core::new(data.path().to_path_buf())
+			.await
+			.expect("core");
+		let library = core
+			.libraries
+			.create_library("Shutdown", None, core.context.clone())
+			.await
+			.expect("library");
+		let job = library
+			.jobs()
+			.dispatch(DispatchesOnItsWayOut)
+			.await
+			.expect("dispatch");
+		STARTED.notified().await;
+
+		let shutdown = tokio::spawn({
+			let library = library.clone();
+			async move { library.jobs().shutdown().await }
+		});
+		// The pause marks the job paused before it waits on the job.
+		let mut status = job.status_rx.clone();
+		tokio::time::timeout(
+			Duration::from_secs(60),
+			status.wait_for(|status| *status == JobStatus::Paused),
+		)
+		.await
+		.expect("shutdown began pausing the job")
+		.expect("status channel");
+		RELEASE.notify_one();
+
+		tokio::time::timeout(Duration::from_secs(60), shutdown)
+			.await
+			.expect("job manager shutdown finished")
+			.expect("shutdown task")
+			.expect("shutdown");
+		drop(library);
+		tokio::time::timeout(Duration::from_secs(60), core.shutdown())
+			.await
+			.expect("core shutdown finished")
+			.expect("core shutdown");
+	}
+}
