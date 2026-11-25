@@ -3,6 +3,7 @@
 use super::output::SourceInfo;
 use crate::{
 	context::CoreContext,
+	domain::volume::VolumeType,
 	infra::query::{LibraryQuery, QueryError, QueryResult},
 	ops::sources::registry,
 };
@@ -70,20 +71,31 @@ impl LibraryQuery for ListSourcesQuery {
 
 		// One table, whatever fills a source. `data_type` is what forks them,
 		// matching `_schema.data_type_id` in the source's own store.
-		let attached_mounts: std::collections::HashMap<uuid::Uuid, std::path::PathBuf> =
-			crate::infra::db::entities::volume::Entity::find()
-				.all(library.db().conn())
-				.await
-				.map_err(|e| QueryError::Internal(format!("Failed to list volumes: {e}")))?
-				.into_iter()
-				.filter(|volume| volume.is_online)
-				.filter_map(|volume| {
-					Some((
-						volume.uuid,
-						std::path::PathBuf::from(volume.mount_point.as_ref()?),
-					))
-				})
-				.collect();
+		let volumes = crate::infra::db::entities::volume::Entity::find()
+			.all(library.db().conn())
+			.await
+			.map_err(|e| QueryError::Internal(format!("Failed to list volumes: {e}")))?;
+		let attached_mounts: std::collections::HashMap<uuid::Uuid, std::path::PathBuf> = volumes
+			.iter()
+			.filter(|volume| volume.is_online)
+			.filter_map(|volume| {
+				Some((
+					volume.uuid,
+					std::path::PathBuf::from(volume.mount_point.as_ref()?),
+				))
+			})
+			.collect();
+		// Recorded with the volume, so a drive that is unplugged still says
+		// what kind of drive it is.
+		let volume_types: std::collections::HashMap<uuid::Uuid, VolumeType> = volumes
+			.iter()
+			.filter_map(|volume| {
+				Some((
+					volume.uuid,
+					VolumeType::from_string(volume.volume_type.as_deref()?),
+				))
+			})
+			.collect();
 
 		let live_sources: std::collections::HashMap<uuid::Uuid, _> = context
 			.volume_index()
@@ -107,6 +119,9 @@ impl LibraryQuery for ListSourcesQuery {
 				.volume_uuid
 				.and_then(|uuid| attached_mounts.get(&uuid).cloned());
 			let mut info = SourceInfo::from_row(row, mount.as_deref());
+			info.volume_type = info
+				.volume_uuid
+				.and_then(|uuid| volume_types.get(&uuid).copied());
 			// The volume index knows whether the drive is mounted, which
 			// the row's flag and the root's existence cannot tell apart
 			// from a mount point left behind as an empty directory.

@@ -1,4 +1,5 @@
 import type {Icon} from '@phosphor-icons/react';
+import {Tooltip} from '@spacedrive/primitives';
 import clsx from 'clsx';
 import type {ReactNode} from 'react';
 import {useLocation, useNavigate} from 'react-router-dom';
@@ -15,10 +16,8 @@ export interface SidebarItemProps {
 	activePathPrefixes?: string[];
 	onSelect?: () => void;
 	onContextMenu?: (event: React.MouseEvent<HTMLButtonElement>) => void;
-	badge?: string | number;
-	badgeLabel?: string;
-	/** Drawn before the badge text, for a state a glyph says faster than a word. */
-	badgeIcon?: Icon;
+	/** A trailing glyph for a state the row is in, named by its tooltip. */
+	status?: {icon: Icon; label: string};
 	disabled?: boolean;
 	tone?: SidebarItemTone;
 	title?: string;
@@ -49,9 +48,7 @@ export function SidebarItem({
 	activePathPrefixes = [],
 	onSelect,
 	onContextMenu,
-	badge,
-	badgeLabel,
-	badgeIcon,
+	status,
 	disabled = false,
 	tone = 'default',
 	title
@@ -69,7 +66,7 @@ export function SidebarItem({
 				location.pathname.startsWith(`${prefix}/`)
 		);
 	const IconComponent = icon;
-	const BadgeIcon = badgeIcon;
+	const StatusIcon = status?.icon;
 
 	return (
 		<button
@@ -108,19 +105,19 @@ export function SidebarItem({
 					) : null)}
 			</span>
 			<span className="min-w-0 flex-1 truncate">{label}</span>
-			{badge !== undefined && (
-				<span
-					aria-label={badgeLabel}
-					className={clsx(
-						'flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none',
-						tone === 'warning'
-							? 'bg-status-warning/15 text-status-warning'
-							: 'bg-sidebar-selected text-sidebar-ink-dull'
-					)}
+			{status && StatusIcon && (
+				<Tooltip
+					label={status.label}
+					position="right"
+					className="text-sidebar-ink-faint flex size-4 shrink-0 items-center justify-center"
 				>
-					{BadgeIcon && <BadgeIcon size={10} weight="bold" />}
-					{badge}
-				</span>
+					<StatusIcon
+						size={14}
+						weight="bold"
+						role="img"
+						aria-label={status.label}
+					/>
+				</Tooltip>
 			)}
 		</button>
 	);
