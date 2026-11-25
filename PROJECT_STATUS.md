@@ -49,13 +49,15 @@ time on the old code. The reconcile test's cloud listing now waits on a gate
 instead of a 5 second sleep checked against a 3 second limit. Next: three
 green Windows unit runs on the PR.
 
-Sidebar source rows (Capy FAN-14228, November 25, in PR). A source row draws
-its drive with the Spacedrive icon for its volume kind (generic drive, external
-HDD, network server, virtual, cloud provider) and shows offline, unmounted or
-locked as a muted trailing icon with a tooltip instead of a text pill.
-`sources.list` now returns each source's `volume_type` from its volume row,
-so an unplugged drive keeps its icon; `volumes.list` omits this device's
-offline volumes and cannot supply it. Next: review and merge.
+Sidebar source rows (Capy FAN-14228, November 25, landed in #3275, follow-up
+in PR). A source row draws its drive with the Spacedrive icon for its volume
+kind (generic drive, external HDD, network server, virtual, cloud provider) and
+shows offline, unmounted or locked as a muted trailing icon with a tooltip
+instead of a text pill. `sources.list` returns each source's `volume_type`
+from its volume row, so an unplugged drive keeps its icon; `volumes.list`
+omits this device's offline volumes and cannot supply it. The follow-up draws a
+replica as its owning device's form factor (laptop, desktop, phone, tablet,
+server), with a server when that is unknown. Next: review and merge.
 
 Acceptance runner losses (Capy FAN-11240, November 24, in PR). About four
 in ten runs of the acceptance job lost their Blacksmith runner with no log.
