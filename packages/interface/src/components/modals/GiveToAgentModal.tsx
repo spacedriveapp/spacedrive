@@ -184,7 +184,7 @@ function GiveToAgentDialog(props: GiveToAgentDialogProps) {
 				)}
 				{setup.data && !setup.data.endpoint_enabled && <EndpointOff />}
 				{failure && (
-					<div className="rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-400">
+					<div className="bg-status-error/10 text-status-error rounded-md px-3 py-2 text-xs">
 						{failure}
 					</div>
 				)}
@@ -229,7 +229,7 @@ function SetupPanel(props: {
 			<div className="bg-app-box text-ink-dull flex items-start gap-2 rounded-md px-3 py-2 text-xs">
 				<Warning
 					size={14}
-					className="mt-0.5 shrink-0 text-yellow-500"
+					className="text-status-warning mt-0.5 shrink-0"
 				/>
 				<span>
 					{props.grant.caps === 'read_write'
@@ -261,6 +261,15 @@ function SetupPanel(props: {
 						{current.hint}
 					</div>
 					<CodeBlock text={current.text} />
+					{current.shell && (
+						<>
+							<div className="text-ink-dull pt-1 text-[11px]">
+								Then, in the shell that starts the agent. Keep
+								this line out of files you commit.
+							</div>
+							<CodeBlock text={current.shell} />
+						</>
+					)}
 				</div>
 			)}
 		</div>
@@ -333,6 +342,16 @@ const EXTENSIONS = [
 	{seconds: HOUR, label: '+1 h'},
 	{seconds: 4 * HOUR, label: '+4 h'}
 ];
+const MAX_LIFETIME = 12 * HOUR;
+
+/** Seconds a grant has left. `grants.extend` sets the end from now, so an
+ * extension asks for what is left plus the added time. */
+function remaining(grant: GrantInfo): number {
+	return Math.max(
+		0,
+		Math.floor((new Date(grant.expires_at).getTime() - Date.now()) / 1000)
+	);
+}
 
 function ActiveGrants(props: {
 	grants: GrantInfo[];
@@ -397,13 +416,20 @@ function ActiveGrants(props: {
 								key={option.seconds}
 								size="sm"
 								variant="gray"
-								title={`End ${option.label.slice(1)} from now`}
-								disabled={extend.isPending}
+								title={`Add ${option.label.slice(1)}, up to 12 h from now`}
+								disabled={
+									extend.isPending ||
+									remaining(grant) >= MAX_LIFETIME
+								}
 								onClick={() =>
 									run(
 										extend.mutateAsync({
 											id: grant.id,
-											ttl_seconds: option.seconds
+											ttl_seconds: Math.min(
+												MAX_LIFETIME,
+												remaining(grant) +
+													option.seconds
+											)
 										}),
 										'Access extended'
 									)

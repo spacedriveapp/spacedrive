@@ -12,6 +12,9 @@ export interface AgentSetupSnippet {
 	/** Where the text goes, in one line. */
 	hint: string;
 	text: string;
+	/** A shell line to run where the agent starts, kept out of `text` so a
+	 * copied config never carries the token. */
+	shell?: string;
 }
 
 export function agentSetupSnippets(
@@ -61,14 +64,16 @@ export function agentSetupSnippets(
 		{
 			id: 'codex',
 			label: 'Codex',
-			hint: 'Add to ~/.codex/config.toml, and export the token where Codex runs.',
-			text: `[mcp_servers.spacedrive]\nurl = "${url}"\nbearer_token_env_var = "${TOKEN_ENV}"\n\n# In the shell that starts Codex:\n# ${exportLine}`
+			hint: 'Add to ~/.codex/config.toml.',
+			text: `[mcp_servers.spacedrive]\nurl = "${url}"\nbearer_token_env_var = "${TOKEN_ENV}"`,
+			shell: exportLine
 		},
 		{
 			id: 'json',
 			label: '.mcp.json',
-			hint: 'A project file. It reads the token from the environment, so it is safe to commit.',
-			text: `${mcpJson}\n\n# In the shell that starts the agent:\n# ${exportLine}`
+			hint: 'A project file. It reads the token from the environment, so the file holds no secret.',
+			text: mcpJson,
+			shell: exportLine
 		},
 		{
 			id: 'stdio',

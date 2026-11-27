@@ -48,7 +48,10 @@ impl CoreQuery for GrantSetupQuery {
 		context: Arc<CoreContext>,
 		_session: crate::infra::api::SessionContext,
 	) -> QueryResult<Self::Output> {
-		let config = AppConfig::load_from(&context.data_dir)
+		let data_dir = context.data_dir.clone();
+		let config = tokio::task::spawn_blocking(move || AppConfig::load_from(&data_dir))
+			.await
+			.map_err(|e| QueryError::Internal(e.to_string()))?
 			.map_err(|e| QueryError::Internal(format!("load config: {e}")))?;
 		Ok(GrantSetupOutput {
 			endpoint_enabled: config.agent_mcp.enabled,
