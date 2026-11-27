@@ -349,7 +349,7 @@ mod tests {
 		let dir = tempfile::tempdir().unwrap();
 		let locked = dir.path().join("locked.md");
 		std::fs::write(&locked, "private words").unwrap();
-		std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0)).unwrap();
+		std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
 		if std::fs::read(&locked).is_ok() {
 			// Root reads through permissions, so there is nothing to refuse.
 			return;
