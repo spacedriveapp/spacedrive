@@ -5,7 +5,7 @@ sidebarTitle: Releases
 ---
 
 <Callout>
-  **Spacedrive 2.0 Beta is planned for November 27, 2026.**
+  **Spacedrive 2.0 Beta is planned for December 5, 2026.**
 
   Release artifacts remain drafts until the cross-platform and destructive
   operation gates on this page pass.
@@ -59,6 +59,15 @@ git push origin v2.0.0-beta.1
 Pushing the tag starts release builds. It does not by itself publish a stable
 release.
 
+## Where beta.1 is cut
+
+beta.1 is tagged from a verified `main` head. There is no release branch:
+`release/beta.1` is retired, and fixes land on `main` instead of being
+cherry-picked onto a branch. Every in-flight feature, the footage work
+included, ships in beta.1 by merging to `main` before the cut. Run the bump
+on a `main` commit whose CI is green and whose build has passed the release
+gates on this page.
+
 ## Dry run
 
 Run the release workflow without a tag to check that it still builds:
@@ -107,8 +116,14 @@ Spacedrive 2.0 beta.1 supports macOS and Linux. Windows is not part of beta.1:
 the release workflow builds no Windows artifacts, and Windows x86-64 builds of
 the CLI and daemon stay in the [nightly channel](#nightly-channel).
 
-Release and nightly builds do not enable the `wasm` cargo feature, so beta.1
-ships without the extension runtime.
+The desktop app's daemon is built with the sd-core `footage` feature on every
+desktop target: transcription, video proxies, shot detection, clips and
+timeline export, inference, and the extension runtime that the bundled Videos
+extension runs in. The Intel Mac daemon gets `footage-without-onnx`, because
+ONNX Runtime has no Intel macOS build, so local models answer
+`not_available` there and cloud captions with your own key still work. The
+standalone CLI and daemon binaries, the server and nightly builds keep their
+own feature sets and do not include the extension runtime.
 
 Each downloadable archive includes a checksum. Executable packages and update
 metadata are signed with the platform or Spacedrive release key.

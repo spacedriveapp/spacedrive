@@ -84,7 +84,8 @@ same files at `/sidecar/<library_id>/<content_uuid>/<kind>/<variant>.<ext>`,
 where `kind` is `proxy` or `audio`.
 
 The `media.proxies.generate` action writes them. It runs only in a daemon built
-with the `video-proxies` cargo feature, which is off by default.
+with the `video-proxies` cargo feature. A default build leaves it off; the
+desktop app's daemon is built with it.
 
 ### Shots
 
@@ -159,7 +160,8 @@ Read a shot list with `ops::media::shots::read_shots(library.path(), uuid)` or
 runs the job, the `media.shots.list` query returns a file's shot list, and the
 agent MCP endpoint answers `list_shots` for a video inside a grant. All of
 them, and the job, exist only in a daemon built with the `video-shots` cargo
-feature, which is off by default.
+feature. A default build leaves it off; the desktop app's daemon is built with
+it.
 
 ## Sidecar classes
 

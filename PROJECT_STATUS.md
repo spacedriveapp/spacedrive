@@ -49,6 +49,21 @@ that did nothing deletes its row and log. Each background kind keeps its 20
 newest finished rows. On a 210k-file tree with 5 to 35 edits every 10 s, rows
 went from 360 to 36 an hour and daemon CPU from 13.4% to 4.9%. Next: green CI.
 
+Beta date and where beta.1 is cut (Capy FAN-14810, November 27, landed in #3284). Jamie
+moved the Spacedrive 2.0 Beta target to December 5, 2026 on 2026-11-27.
+beta.1 is tagged from a verified `main` head. The `release/beta.1` branch is
+retired, so fixes land on `main` and are not cherry-picked. Every in-flight
+feature, footage included, ships in beta.1 by merging to `main` before the
+cut. The README, the releases page, the introduction and the launch plan state
+the new date. No workflow names `release/beta.1`. Docs only; no tag, version
+or workflow changed.
+A follow-up docs PR brings the footage docs in line with #3264: the release
+desktop daemon is built with `footage` (`footage-without-onnx` on Intel
+Macs), so transcription, proxies, shots, clips and timeline export,
+inference and the extension runtime are in beta.1. The release notes, fact
+sheet, releases page, feature pages and register rows that still said those
+were off or not part of beta.1 now say they ship.
+
 Job shutdown deadlock (Capy FAN-12312, November 25, in PR). The Windows unit
 job kept failing on `a_directory_that_never_answers_does_not_hold_up_the_pass`.
 The cause was not the reconcile pass but `core.shutdown()` at the end of the
@@ -137,8 +152,8 @@ with the same filter strings and encoder settings, so `video-proxies` and
 their own media with the libraries and need no executable. Video thumbnails
 and thumbstrips use the same libraries in builds with the `ffmpeg` feature,
 and the host tool only in builds that ship no codecs. The release desktop
-daemon builds without that feature outside dry runs, so it reaches users once
-the footage features are on in release builds.
+daemon gets the `ffmpeg` feature through `footage` (FAN-13822), so beta.1
+users get it.
 
 Content search in the explorer (Capy FAN-13827, November 24, footage beta).
 Explorer search runs `search.content` beside `search.files` over the same
@@ -198,8 +213,8 @@ from the same commit in the release job) and a release build installs or
 updates it in `<data dir>/extensions` before it starts the daemon. Every
 footage job is still an explicit action.
 
-Videos extension skeleton, footage brief 6 (Capy FAN-12393, November 22, off
-the beta.1 path). `extensions/videos` (`com.spacedrive.videos`) reads the
+Videos extension skeleton, footage brief 6 (Capy FAN-12393, November 22; in
+beta.1, bundled with the desktop app since FAN-13822). `extensions/videos` (`com.spacedrive.videos`) reads the
 core's shot lists and keyframes, sends each keyframe to `ai.infer` for a
 caption, place labels and faces, and writes `scene` and `faces` sidecars. Faces
 cluster into a people roster whose names and corrections are an append-only
@@ -214,7 +229,7 @@ lists under Extensions in the sidebar. Live inference and real shot lists wait
 on the provider layer and the shot detection job.
 
 Transcription job, footage piece 2 (Capy FAN-12387, November 22, behind the
-off-by-default `speech-to-text` feature, not on the beta.1 path).
+`speech-to-text` feature; in the beta.1 desktop daemon through `footage`).
 `media.transcribe` runs Whisper over the audio and video under a path
 (`core/src/ops/transcription`): it reads the speech audio sidecar or streams
 the original through `sd_ffmpeg::AudioStream`, transcribes only the voiced
@@ -225,9 +240,9 @@ segment with its start and end seconds (`docs/core/transcription.mdx`).
 Proven on Linux with generated speech; Metal acceleration and the desktop app
 are unverified. `media.transcribe` is the only trigger.
 
-Video proxies and speech audio (Capy FAN-12386, November 22, not beta.1).
-The `media.proxies.generate` action, compiled only with the `video-proxies`
-cargo feature (off by default), runs a resumable job over a video file or
+Video proxies and speech audio (Capy FAN-12386, November 22, in the beta.1
+desktop daemon through `footage`). The `media.proxies.generate` action,
+compiled only with the `video-proxies` cargo feature, runs a resumable job over a video file or
 folder. For each video it writes an H.264 proxy (720p by default, 1080p on
 request, a keyframe every second, frame timing and start timecode passed
 through) and the first audio track as 16 kHz mono 16-bit WAV, using the
@@ -239,8 +254,9 @@ is under "Media sidecars" in `docs/core/virtual-sidecars.mdx` and resolved by
 killed daemon; on Linux FFmpeg dies with the daemon. Transcripts, shots,
 descriptions, faces and clip export read these files.
 
-Inference providers behind `ai.infer` (Capy FAN-12388, November 22, off the
-beta.1 path). The `ai-providers` cargo feature, off by default, adds
+Inference providers behind `ai.infer` (Capy FAN-12388, November 22, in the
+beta.1 desktop daemon through `footage`, `ai-cloud` alone on Intel Macs).
+The `ai-providers` cargo feature adds
 `core/src/ops/ai`. It is the union of `ai-cloud` (the registry, `ai.infer`
 and the cloud caption client, no ONNX Runtime) and `ai-local` (the ONNX
 providers): a registry per category (face detection, face embedding,
@@ -374,8 +390,9 @@ schemas evolve. Keep the 2.0 generation and explain the skipped stable 1.0 and
 the rewrite honestly in the launch post. The README and release policy now
 name the beta target; `docs/plans/2026-09-17-beta-launch.md` records the rationale
 and draft launch wording. The target moved from October 1 to November 1, 2026
-on 2026-10-05 (Jamie), to November 15, 2026 on 2026-10-31 (Jamie), and to
-November 27, 2026 on 2026-11-21 (Jamie).
+on 2026-10-05 (Jamie), to November 15, 2026 on 2026-10-31 (Jamie), to
+November 27, 2026 on 2026-11-21 (Jamie), and to December 5, 2026 on
+2026-11-27 (Jamie).
 This is a release goal, not a claim that the gates have passed. No package
 versions, tags, builds or published releases changed.
 
@@ -491,13 +508,13 @@ Recent landed.
 
 | Work                                              | Status                                 | Owner           | Next proof or action                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | ------------------------------------------------- | -------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Credentials in logged URLs | in review 2026-11-22 (SPAC-112, FAN-12574); cherry-pick onto `release/beta.1` after merge | Opus | A beta.1 daemon log held an SMB URL with its password. `sd_utils::redact::redact_url_credentials` replaces the userinfo of every URL or `//user@host` mount source in a string with `***`. It runs on every log sink (daemon stdout, `daemon.log`, log streams, the log bus that feeds `logs` subscriptions, job logs, sd-server, the Tauri shell, mobile core), on errors the daemon returns to clients, on job error messages, on network volume `hardware_id`, and on the SMB share's startup line. `mounts.status` still returns the credentialed `smb_url` and mount hint, since that query exists to hand them to a local client. |
+| Credentials in logged URLs | in review 2026-11-22 (SPAC-112, FAN-12574); reaches beta.1 through `main` | Opus | A beta.1 daemon log held an SMB URL with its password. `sd_utils::redact::redact_url_credentials` replaces the userinfo of every URL or `//user@host` mount source in a string with `***`. It runs on every log sink (daemon stdout, `daemon.log`, log streams, the log bus that feeds `logs` subscriptions, job logs, sd-server, the Tauri shell, mobile core), on errors the daemon returns to clients, on job error messages, on network volume `hardware_id`, and on the SMB share's startup line. `mounts.status` still returns the credentialed `smb_url` and mount hint, since that query exists to hand them to a local client. |
 | Release candidate validation (cloud) | run 2026-11-05 on nightly `26b57e1` (SPAC-58); steps 1 to 4 and 7 run, record in `docs/core/acceptance/candidate-validation.md` | Opus | Steps 1 (Linux), 2, 3 and 7 pass. A v2.0.0-alpha.2 library opens but loses its locations, files, tags and collections (table in the record). Windows clean install fails until a nightly with #3169 is published; then rerun the smoke workflow from #3166. Step 4 fails. Fixed and merged: truncated file left by a killed copy (#3170), `--instance` data dir nesting (#3171), store migrations missing from the log (#3168), Windows verbatim paths (#3169), unhealed first walk (#3172), thumbnail scope (#3174), library statistics (#3173, #3182, #3183), `logs show` path (#3175). Nightly builds cancelled by every push (#3186, merged). In review: CLI panic on a closed pipe (#3188). The heal now resolves registered sources directly, so sources on hidden volumes (Linux `/`, `/home`, overlay roots) heal too (#3192, `hidden_volume_heal_acceptance_test`). Changes made while the daemon is stopped are reconciled at startup by the warm-start reconcile from `zero-onboarding-startup.md` (SPAC-63, `stopped_daemon_reconcile_acceptance_test`; 16 s cold on the 1M-file tree against a 125 s walk). Open: a full disk hangs the indexer. Remaining: macOS installs and signing, real prior-version Mac state, a cross-network pair, remote operations, update signatures and rollback, release notes and checksums. |
-| Intel Mac app bundles an arm64 daemon | in PR 2026-11-22 (SPAC-113, FAN-12578); one PR against `main`, cherry-pick onto `release/beta.1` | Opus | SPAC-107 found that the Intel desktop build ran `build:daemon:release` for the runner's host arch; the x86_64 app from signed dry run 44904995093 carries an arm64 `sd-daemon`. The sidecar script now builds for `TAURI_ENV_TARGET_TRIPLE` (lipo for universal), `build.rs` stops copying a host daemon under a cross triple, and release.yml fails a macOS build whose app or daemon has the wrong arch. Proof is an unsigned dry run where `lipo` shows x86_64. |
+| Intel Mac app bundles an arm64 daemon | in PR 2026-11-22 (SPAC-113, FAN-12578); one PR against `main`, reaches beta.1 through `main` | Opus | SPAC-107 found that the Intel desktop build ran `build:daemon:release` for the runner's host arch; the x86_64 app from signed dry run 44904995093 carries an arm64 `sd-daemon`. The sidecar script now builds for `TAURI_ENV_TARGET_TRIPLE` (lipo for universal), `build.rs` stops copying a host daemon under a cross triple, and release.yml fails a macOS build whose app or daemon has the wrong arch. Proof is an unsigned dry run where `lipo` shows x86_64. |
 | Startup reconcile on a large macOS home source | in review 2026-11-19 (SPAC-84, FAN-11141) | Opus | On the beta.1 MacBook the startup reconcile of a 1.8M-entry home source ran past 35 minutes with nothing visible. It read every directory the map held, including `~/Library`, which the map kept from walks before the Nov 5 `Users/*/Library` rule, and iCloud listings in it timed out (os error 60). It also checked each new entry with a ruler built from that entry's own path, which skipped `.gitignore` for files, so every pass added gitignored files to the store (10,000 of them on the generated tree); the watcher shared that check and now builds it for the file's directory too. The pass now builds one ruler per directory as the walk does, leaves held directories the rules now exclude unread, never lists a cloud provider placeholder (`SF_DATALESS`; the walk and its summary count skip them too), bounds each listing at 10 s, and runs as a `reconcile` job with progress and an ETA. Every skip logs at info. Next: SPAC-79 relaunch on the MacBook to confirm the time and the `excluded`/`placeholders` counts. |
 | Candidate validation follow-ups | in progress 2026-11-05 (SPAC-64); one PR per finding against `main` | Opus | Four findings from the SPAC-58 run. A full disk hangs the indexer: reproduce on a loop-mounted data dir with a debug build, fail the job with a disk-full error and leave the store consistent, with an acceptance test on the loop-device helper. The receive side of a peer transfer writes in place: stage beside the destination and rename on verified completion as #3170 does for local copies, keeping the #3109 resume rules, with a kill-mid-receive case in the two-core transfer suite. `sd daemon install` without systemd or launchd now says so and prints the command to run instead. The README names Windows as a preview platform, matching the beta.1 fact sheet. |
-| Footage 3: shot detection | in review 2026-11-22 (SPAC-102, FAN-12391); behind the `video-shots` cargo feature, off by default, not on the beta.1 path | Opus | `media.shots.detect` runs a job that scores every frame of the 720p proxy (or the original) with FFmpeg's scene score, cuts at 0.3 or at an isolated spike above half of that, and keeps every shot at least 1 s long. It writes `shots/default.json` and one `keyframes/<shot id>.jpg` per shot, which `media.shots.list`, `ops::media::shots::read_shots` and the agent MCP `list_shots` read. On a 20-minute 480p vlog it found 143 shots in 12 to 26 s, and a rerun kept every shot id. Next: Jamie's OK to merge, then a rerun on a SPAC-99 proxy once that lands. |
-| Footage 5: clips and timeline export | in review 2026-11-22 (FAN-12392); behind the `footage-clips` cargo feature, off by default, not on the beta.1 path | Opus | `media.clips.search`, `media.footage.read` and `media.timeline.export` join the transcript, shots and proxy sidecars of a video into clips with whole-frame in and out points, and write a rough cut as FCPXML 1.10, CMX 3600 EDL or OTIO through the new `sd-timeline` crate. The CLI (`sd media clips search`, `sd media footage read`, `sd media timeline export`) and the agent MCP tools `search_clips`, `read_footage` and `export_timeline` wrap them, scoped to the grant's directory (`docs/core/footage-clips.mdx`). A daemon run on generated 23.976 and 25 fps footage cut a DTD-valid FCPXML whose in frames match the search. Opening the files in an editor is unverified. Next: Jamie's check in the editors. |
+| Footage 3: shot detection | in review 2026-11-22 (SPAC-102, FAN-12391); behind the `video-shots` cargo feature; in the beta.1 desktop daemon through `footage` (#3264) | Opus | `media.shots.detect` runs a job that scores every frame of the 720p proxy (or the original) with FFmpeg's scene score, cuts at 0.3 or at an isolated spike above half of that, and keeps every shot at least 1 s long. It writes `shots/default.json` and one `keyframes/<shot id>.jpg` per shot, which `media.shots.list`, `ops::media::shots::read_shots` and the agent MCP `list_shots` read. On a 20-minute 480p vlog it found 143 shots in 12 to 26 s, and a rerun kept every shot id. Next: Jamie's OK to merge, then a rerun on a SPAC-99 proxy once that lands. |
+| Footage 5: clips and timeline export | in review 2026-11-22 (FAN-12392); behind the `footage-clips` cargo feature; in the beta.1 desktop daemon through `footage` (#3264) | Opus | `media.clips.search`, `media.footage.read` and `media.timeline.export` join the transcript, shots and proxy sidecars of a video into clips with whole-frame in and out points, and write a rough cut as FCPXML 1.10, CMX 3600 EDL or OTIO through the new `sd-timeline` crate. The CLI (`sd media clips search`, `sd media footage read`, `sd media timeline export`) and the agent MCP tools `search_clips`, `read_footage` and `export_timeline` wrap them, scoped to the grant's directory (`docs/core/footage-clips.mdx`). A daemon run on generated 23.976 and 25 fps footage cut a DTD-valid FCPXML whose in frames match the search. Opening the files in an editor is unverified. Next: Jamie's check in the editors. |
 | Agent grants core (G1) | landed 2026-11-20 (#3221, FAN-11130) | Opus | A grant lends one directory of a tracked source to an agent: `grants.create/list/revoke/extend/audit`, `sd grant`, tokens stored as SHA-256 and shown once, 5 min to 12 h lifetimes, revocation on the next request. `ops::grants::authorize` is the one enforcement point; it resolves paths by filesystem identity (`..`, symlinks out, firmlink and case aliases) and keeps writable grants off AGENTS.md, CLAUDE.md, SKILL.md and .git. Bounded audit table. Design in `docs/core/design/agent-grants.md`; `agent_grants_acceptance_test` and the sd-cli `grant_test`. The agent MCP HTTP surface (M1, #3223) builds on `authorize`. |
 | Track on a full data disk | in review 2026-11-06 (SPAC-68, FAN-5078) | Opus | `sources.track` on a nearly full data disk registered the source, failed to queue its walk, returned success, and the heal never walked it because the root stayed flagged as indexing. The store is now marked walk-unfinished before the walk is queued, a failed dispatch clears the indexing flag, a walk whose store cannot open is refused, and the action returns an error saying the walk will retry at the next start. Proof: `track_full_data_disk_acceptance_test`. |
 | macOS Data volume read as unmounted | in review 2026-11-13 (SPAC-73, FAN-6659) | Opus | On macOS 26.1, `/`, `/System/Volumes` and `/System/Volumes/Data` report the same `st_dev`, so the device comparison in `is_mount_point` (from #3151) called the Data volume unmounted and every walk and browse under `/Users` was refused. macOS and iOS now judge a mount point by `statfs` `f_mntonname`; Linux keeps the device comparison. A refused first walk now fails `sources.track` with the reason, and a store kept in the library is marked walk-unfinished so the heal retries. Proof: `statfs_mount_point_tests` (Linux and Mac), `track_refused_walk_acceptance_test` (its macOS case ran on the Mac Studio), and a real daemon on the Studio walking a folder under `/Users`. |
