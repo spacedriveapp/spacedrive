@@ -47,6 +47,7 @@ import {File as FileComponent} from '../../../routes/explorer/File';
 import { formatBytes } from '../../../routes/explorer/utils';
 import {Divider, InfoRow, Section, TabContent, Tabs, Tag} from '../Inspector';
 import {useRefetchTagQueries} from '../../../hooks/useRefetchTagQueries';
+import {SpaceInspectorSection} from '../../Spaces/SpaceInspectorSection';
 
 interface FileInspectorProps {
 	file: File;
@@ -618,6 +619,8 @@ function OverviewTab({file}: {file: File}) {
 				)}
 				<InfoRow label="Kind" value={fileKind} />
 			</Section>
+
+			<SpaceInspectorSection file={file} />
 
 			{/* Dates */}
 			<Section title="Dates" icon={Calendar}>
