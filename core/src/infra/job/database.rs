@@ -148,6 +148,9 @@ pub mod journal {
 		/// The effect, as MessagePack.
 		pub effect: Vec<u8>,
 		pub recorded_at: DateTime<Utc>,
+		/// The grant behind an agent write, so its change can be attributed
+		/// to the agent. `None` for jobs.
+		pub grant_id: Option<String>,
 	}
 
 	#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -199,6 +202,22 @@ async fn create_tables(db: &DatabaseConnection) -> JobResult<()> {
 	journal_statement.if_not_exists();
 	db.execute(db.get_database_backend().build(&journal_statement))
 		.await?;
+
+	// Journals written before agent writes recorded their grant lack the column.
+	let columns = db
+		.query_all(sea_orm::Statement::from_string(
+			DbBackend::Sqlite,
+			"SELECT name FROM pragma_table_info('job_journal')",
+		))
+		.await?;
+	let has_grant = columns.iter().any(|row| {
+		row.try_get::<String>("", "name")
+			.is_ok_and(|name| name == "grant_id")
+	});
+	if !has_grant {
+		db.execute_unprepared("ALTER TABLE job_journal ADD COLUMN grant_id TEXT")
+			.await?;
+	}
 
 	Ok(())
 }
@@ -424,6 +443,17 @@ impl JobDb {
 		job_id: JobId,
 		effects: &[super::journal::Effect],
 	) -> JobResult<()> {
+		self.append_journal_for(job_id, None, effects).await
+	}
+
+	/// [`Self::append_journal`] for an agent write, recording the grant that
+	/// made it.
+	pub async fn append_journal_for(
+		&self,
+		job_id: JobId,
+		grant_id: Option<uuid::Uuid>,
+		effects: &[super::journal::Effect],
+	) -> JobResult<()> {
 		if effects.is_empty() {
 			return Ok(());
 		}
@@ -449,6 +479,7 @@ impl JobDb {
 						rmp_serde::to_vec_named(effect).map_err(|e| JobError::serialization(e))?
 					),
 					recorded_at: Set(now),
+					grant_id: Set(grant_id.map(|id| id.to_string())),
 				})
 			})
 			.collect::<JobResult<_>>()?;
