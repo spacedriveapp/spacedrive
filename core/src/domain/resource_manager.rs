@@ -12,10 +12,10 @@
 //! All resources (simple and virtual) are registered in resource_registry.rs.
 //! ResourceManager uses the registry to dispatch event construction generically.
 //!
-//! For simple resources (Space, Location, etc.):
+//! For simple resources (Layout, Device, etc.):
 //! - Direct lookup in registry and call constructor
 //!
-//! For virtual resources (File, SpaceLayout):
+//! For virtual resources (File, SidebarLayout):
 //! - Map dependency changes to affected virtual resource IDs
 //! - Call constructor to build complete resources
 //!
@@ -164,7 +164,7 @@ impl ResourceManager {
 			}
 
 			// Continue to check for virtual resource dependencies
-			// (e.g., space_item -> space_layout, entry -> file)
+			// (e.g., layout_item -> sidebar_layout, entry -> file)
 		}
 
 		// Check if any virtual resources depend on this type (dependency routing)

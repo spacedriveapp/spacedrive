@@ -9,7 +9,7 @@ import {
 	QuickPreviewController,
 	QuickPreviewSyncer
 } from './components/QuickPreview';
-import {SpacesSidebar} from './components/SpacesSidebar';
+import {Sidebar} from './components/Sidebar';
 import {
 	TabBar,
 	TabDefaultsSync,
@@ -126,7 +126,7 @@ function ShellLayoutContent() {
 								}}
 								className="relative z-[65] shrink-0 overflow-hidden"
 							>
-								<SpacesSidebar
+								<Sidebar
 									presentation={isInset ? 'flat' : 'floating'}
 									isPreviewActive={
 										isPreviewActive || isSizeViewActive
