@@ -37,6 +37,7 @@ pub mod proxies;
 pub mod redundancy;
 pub mod search;
 pub mod sources;
+pub mod spaces;
 pub mod sync;
 pub mod tags;
 pub mod thumbs;
