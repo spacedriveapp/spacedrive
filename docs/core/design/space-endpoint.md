@@ -125,8 +125,10 @@ A mount reads file bytes in fixed blocks and caches them by block.
 }
 ```
 
-`kind` is `file`, `directory` or `symlink`. A symlink is reported, never
-followed. `etag` is present for files. `GET /v1/spaces/<space>/stat/` stats
+`kind` is `file`, `directory`, `symlink` or `other` (a FIFO, socket or
+device). A symlink inside the root is reported, never followed. Stat on a
+symlink whose target leaves the root answers 403; `list` still reports it as
+`symlink`. `etag` is present for files. `GET /v1/spaces/<space>/stat/` stats
 the root.
 
 ### List

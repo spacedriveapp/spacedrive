@@ -168,6 +168,11 @@ impl Output {
 		}
 	}
 
+	/// What MCP returns as `structuredContent` and REST as the whole body.
+	pub fn structured(&self) -> &Value {
+		&self.structured
+	}
+
 	pub fn into_result(self) -> Value {
 		json!({
 			"content": self.content,
@@ -618,7 +623,7 @@ struct ReadArgs {
 /// Open a regular file without following a final symlink, which closes the
 /// gap between the grant check and the open. A FIFO opened non-blocking
 /// cannot stall the call.
-fn open_file(path: &Path) -> Result<(File, Metadata), String> {
+pub(super) fn open_file(path: &Path) -> Result<(File, Metadata), String> {
 	let mut options = std::fs::OpenOptions::new();
 	options.read(true);
 	#[cfg(unix)]

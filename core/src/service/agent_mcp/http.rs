@@ -34,8 +34,9 @@ use tracing::{debug, warn};
 use uuid::Uuid;
 
 use super::{
+	events::Feed,
 	limits::{Bucket, ByteWindow, Failures, Limits},
-	oauth, paths, tools, MCP_PATH,
+	oauth, paths, rest, tools, MCP_PATH,
 };
 use crate::{
 	context::CoreContext,
@@ -54,9 +55,9 @@ struct Session {
 	last_seen: Instant,
 }
 
-struct GrantUsage {
-	bucket: Bucket,
-	bytes: ByteWindow,
+pub(super) struct GrantUsage {
+	pub(super) bucket: Bucket,
+	pub(super) bytes: ByteWindow,
 	calls: usize,
 	grep: bool,
 }
@@ -66,8 +67,9 @@ struct GrantUsage {
 pub struct Endpoint {
 	pub(super) context: Arc<CoreContext>,
 	pub(super) oauth: oauth::OAuth,
+	pub(super) feed: Arc<Feed>,
 	bound: SocketAddr,
-	limits: Limits,
+	pub(super) limits: Limits,
 	sessions: Mutex<HashMap<String, Session>>,
 	usage: Mutex<HashMap<Uuid, GrantUsage>>,
 	failures: Mutex<HashMap<IpAddr, Failures>>,
@@ -79,6 +81,7 @@ impl Endpoint {
 		Self {
 			oauth: oauth::OAuth::new(context.data_dir.clone()),
 			context,
+			feed: Arc::new(Feed::new()),
 			bound,
 			calls: Arc::new(Semaphore::new(limits.calls_total)),
 			limits,
@@ -88,7 +91,7 @@ impl Endpoint {
 		}
 	}
 
-	fn with_usage<T>(&self, grant: Uuid, f: impl FnOnce(&mut GrantUsage) -> T) -> T {
+	pub(super) fn with_usage<T>(&self, grant: Uuid, f: impl FnOnce(&mut GrantUsage) -> T) -> T {
 		let mut usage = self.usage.lock().expect("usage lock");
 		let entry = usage.entry(grant).or_insert_with(|| GrantUsage {
 			bucket: Bucket::full(self.limits.rate_burst),
@@ -166,7 +169,11 @@ impl Endpoint {
 	}
 
 	/// Claim a call slot for `grant`, or say which budget is spent.
-	fn begin_call(self: &Arc<Self>, grant: Uuid, grep: bool) -> Result<CallSlot, String> {
+	pub(super) fn begin_call(
+		self: &Arc<Self>,
+		grant: Uuid,
+		grep: bool,
+	) -> Result<CallSlot, String> {
 		let total = self
 			.calls
 			.clone()
@@ -200,7 +207,7 @@ impl Endpoint {
 
 /// A claimed tool call. Dropping it gives the slot back, whether the call
 /// finished, timed out or its client went away.
-struct CallSlot {
+pub(super) struct CallSlot {
 	endpoint: Arc<Endpoint>,
 	grant: Uuid,
 	grep: bool,
@@ -219,7 +226,7 @@ impl Drop for CallSlot {
 	}
 }
 
-struct CancelOnDrop(Arc<AtomicBool>);
+pub(super) struct CancelOnDrop(pub(super) Arc<AtomicBool>);
 
 impl Drop for CancelOnDrop {
 	fn drop(&mut self) {
@@ -248,6 +255,7 @@ pub fn router(endpoint: Arc<Endpoint>) -> Router {
 		)
 		.route(oauth::TOKEN_PATH, routing::post(oauth::token))
 		.route(oauth::REVOKE_PATH, routing::post(oauth::revoke))
+		.merge(rest::routes())
 		.layer(DefaultBodyLimit::max(body_limit))
 		.with_state(endpoint)
 }
@@ -336,7 +344,7 @@ fn loopback_host(authority: &str, port: u16) -> bool {
 	given.parse::<u16>() == Ok(port) && matches!(host, "127.0.0.1" | "localhost" | "[::1]")
 }
 
-fn bearer(headers: &HeaderMap) -> Option<&str> {
+pub(super) fn bearer(headers: &HeaderMap) -> Option<&str> {
 	let value = headers.get(header::AUTHORIZATION)?.to_str().ok()?;
 	let (scheme, token) = value.split_once(' ')?;
 	scheme.eq_ignore_ascii_case("bearer").then(|| token.trim())
@@ -537,6 +545,8 @@ async fn call(
 	let _cancel_on_drop = CancelOnDrop(cancel.clone());
 	let grant = scope.grant_id;
 	let library = scope.library_id;
+	let root = scope.root.clone();
+	let replaces = arguments.get("expect").is_some();
 	let work = tools::call(
 		endpoint.context.clone(),
 		token,
@@ -553,7 +563,12 @@ async fn call(
 		}
 	};
 	let result = match outcome {
-		Ok(Ok(output)) => output.into_result(),
+		Ok(Ok(output)) => {
+			endpoint
+				.feed
+				.record(tool, &root, replaces, output.structured());
+			output.into_result()
+		}
 		Ok(Err(message)) => tools::error_result(&message),
 		Err(_) => {
 			cancel.store(true, Ordering::Relaxed);
@@ -571,7 +586,7 @@ async fn call(
 
 /// Resolves once the grant is revoked, expires or disappears, polling the
 /// row so a call in flight stops within a poll interval of that.
-async fn ended(endpoint: &Endpoint, library_id: Uuid, grant: Uuid) {
+pub(super) async fn ended(endpoint: &Endpoint, library_id: Uuid, grant: Uuid) {
 	let mut tick = tokio::time::interval(endpoint.limits.revocation_poll);
 	tick.tick().await;
 	loop {
@@ -645,7 +660,7 @@ fn initialize(params: &Value) -> Value {
 }
 
 /// A refusal's message without any host path in it.
-fn refusal_message(refusal: &GrantError) -> &'static str {
+pub(super) fn refusal_message(refusal: &GrantError) -> &'static str {
 	match refusal {
 		GrantError::Escape(_) => "the path is outside the granted folder",
 		GrantError::InvalidPath(_) => "invalid path",
