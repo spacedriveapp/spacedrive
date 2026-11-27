@@ -305,8 +305,21 @@ pub async fn move_path_in(
 ) -> Result<WriteOutcome, WriteError> {
 	let from = writable(context, &input.token, "agent.move", &input.from).await?;
 	let to = writable(context, &input.token, "agent.move", &input.to).await?;
-	if BucketUrl::parse(&from.path).is_some() {
-		return Err(bucket::unconditional("moving"));
+	if let Some(source) = Bucket::of(context, &from).await? {
+		let Some(target) = Bucket::of(context, &to).await? else {
+			return Err(WriteError::Invalid(
+				"agents move within one volume; this move crosses volumes".to_string(),
+			));
+		};
+		return bucket::move_path(
+			context,
+			from.library_id,
+			source,
+			target,
+			input.expect,
+			&turn,
+		)
+		.await;
 	}
 	let (current, metadata) =
 		state::read_until(context, &from.root, &from.path, turn.cancel.clone()).await?;
@@ -378,8 +391,8 @@ pub async fn delete_in(
 	turn: WriteTurn,
 ) -> Result<WriteOutcome, WriteError> {
 	let scope = writable(context, &input.token, "agent.delete", &input.path).await?;
-	if BucketUrl::parse(&scope.path).is_some() {
-		return Err(bucket::unconditional("deleting"));
+	if let Some(target) = Bucket::of(context, &scope).await? {
+		return bucket::delete(context, scope.library_id, target, input.expect, &turn).await;
 	}
 	let (current, metadata) =
 		state::read_until(context, &scope.root, &scope.path, turn.cancel.clone()).await?;
@@ -601,7 +614,7 @@ async fn finish(
 	})
 }
 
-async fn journal(
+pub(super) async fn journal(
 	context: &CoreContext,
 	library_id: Uuid,
 	id: Uuid,

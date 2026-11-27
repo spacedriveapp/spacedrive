@@ -95,6 +95,30 @@ pub trait VolumeBackend: Send + Sync + Debug {
 		)))
 	}
 
+	/// Delete the object at `path` only while its entity tag is still `etag`.
+	///
+	/// Returns [`VolumeError::PreconditionFailed`] when the object changed or
+	/// is gone. A service that cannot make the delete itself conditional
+	/// checks the tag just before an unconditional delete, so a write landing
+	/// between the two is deleted with it; callers keep a copy of what they
+	/// delete for that reason.
+	async fn delete_if_match(&self, path: &Path, _etag: &str) -> Result<(), VolumeError> {
+		Err(VolumeError::Unsupported(format!(
+			"conditional deletes of {}",
+			path.display()
+		)))
+	}
+
+	/// Copy the object at `from` to `to` inside the service, without the
+	/// bytes passing through this device. Nothing guards `to`, so callers
+	/// copy only to a key no one else writes.
+	async fn copy_within(&self, from: &Path, _to: &Path) -> Result<(), VolumeError> {
+		Err(VolumeError::Unsupported(format!(
+			"server-side copies of {}",
+			from.display()
+		)))
+	}
+
 	/// Stream the object only while its entity tag is still `etag`. A change
 	/// that lands during the stream fails it with
 	/// [`VolumeError::PreconditionFailed`], so the chunks are all from the

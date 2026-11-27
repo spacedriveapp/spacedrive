@@ -70,7 +70,7 @@ impl ValidatedAction for FileUndoAction {
 
 		let mut reversible = 0u64;
 		let mut irreversible = 0u64;
-		for reversal in reversals(&journal, input.effects.as_deref()).await {
+		for reversal in reversals(&journal, input.effects.as_deref(), Some(ctx.volumes())).await {
 			match reversal.outcome {
 				Ok(_) => reversible += 1,
 				Err(Left::Irreversible) => irreversible += 1,
@@ -139,7 +139,7 @@ impl PreviewableAction for FileUndoAction {
 		};
 		let mut summary = FsPlanSummary::default();
 		let mut changes = PlanChanges::default();
-		for reversal in reversals(&journal, input.effects.as_deref()).await {
+		for reversal in reversals(&journal, input.effects.as_deref(), Some(ctx.volumes())).await {
 			let Ok(step) = reversal.outcome else {
 				continue;
 			};

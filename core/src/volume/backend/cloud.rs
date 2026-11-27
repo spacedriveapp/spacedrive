@@ -530,6 +530,28 @@ impl VolumeBackend for CloudBackend {
 		Ok(data.to_bytes())
 	}
 
+	async fn delete_if_match(&self, path: &Path, etag: &str) -> Result<(), VolumeError> {
+		// OpenDAL sends no If-Match on an S3 DeleteObject, so the tag is
+		// checked just before the delete instead.
+		if self.entity_tag(path).await?.as_deref() != Some(etag) {
+			return Err(VolumeError::PreconditionFailed(format!(
+				"{} changed before it could be deleted",
+				path.display()
+			)));
+		}
+		self.operator
+			.delete(&self.to_cloud_path(path))
+			.await
+			.map_err(volume_error)
+	}
+
+	async fn copy_within(&self, from: &Path, to: &Path) -> Result<(), VolumeError> {
+		self.operator
+			.copy(&self.to_cloud_path(from), &self.to_cloud_path(to))
+			.await
+			.map_err(changed)
+	}
+
 	async fn stream_if_match(
 		&self,
 		path: &Path,

@@ -14,9 +14,10 @@
 //! `name (agent conflict N).ext`, decided by the service refusing each taken
 //! name in turn, so two creates racing for one name both keep their bytes.
 //!
-//! Buckets keep no trash, so these writes carry no undo; the provider's own
-//! object versioning is what restores an earlier version. Moves and deletes
-//! are refused until the service can make them conditional too.
+//! Writes carry no undo; the provider's own object versioning is what
+//! restores an earlier version. Moves and deletes are copies and deletes
+//! that never lose a version, journaled so `files.undo` reverses them;
+//! [`crate::ops::files::bucket`] has how, and where a service leaves a gap.
 
 use std::{
 	path::Path,
@@ -29,18 +30,21 @@ use std::{
 use bytes::Bytes;
 use futures::StreamExt;
 use tracing::info;
+use uuid::Uuid;
 
 use super::{
 	conflict::conflict_names,
-	ops::WriteTurn,
+	ops::{journal, WriteTurn},
 	state::{check, stale},
 	PathKind, PathState, Precondition, WriteError, WriteOutcome, MAX_WRITE_BYTES,
 };
 use crate::{
 	context::CoreContext,
+	infra::job::journal::{Effect, Subject},
+	ops::files::bucket::{self as files_bucket, Refusal},
 	ops::grants::{
 		bucket::{self, BucketUrl},
-		GrantScope,
+		GrantError, GrantScope,
 	},
 	ops::indexing::state::EntryKind,
 	volume::{VolumeBackend, VolumeError, WriteCondition},
@@ -76,7 +80,7 @@ impl Bucket {
 		let (Some(root), Some(url)) = (BucketUrl::parse(root), BucketUrl::parse(path)) else {
 			return Ok(None);
 		};
-		let backend = bucket::backend(context, &url).await?;
+		let backend = bucket::backend(&context.volume_manager, &url).await?;
 		Ok(Some(Self { root, url, backend }))
 	}
 
@@ -389,12 +393,350 @@ pub(super) async fn make_dir(bucket: Bucket, turn: &WriteTurn) -> Result<WriteOu
 	)))
 }
 
-/// Moves and deletes on a bucket would act on whatever is at the key when
-/// they land, so they are refused rather than risk losing a newer version.
-pub(super) fn unconditional(op: &str) -> WriteError {
-	WriteError::Invalid(format!(
-		"{op} is not available on bucket sources, since the bucket cannot refuse it against a changed object; write a new version instead"
-	))
+/// Objects a prefix move or delete takes before it is refused as too large
+/// for one call.
+const MAX_PREFIX_OBJECTS: usize = 10_000;
+
+/// Move an object, or every object under a prefix, within one bucket.
+///
+/// Each object is copied with `If-None-Match` and its source deleted while
+/// it still carries the tag it was copied at. A taken destination is kept and
+/// the item lands under a conflict name beside it.
+pub(super) async fn move_path(
+	context: &CoreContext,
+	library: Uuid,
+	from: Bucket,
+	to: Bucket,
+	expect: Precondition,
+	turn: &WriteTurn,
+) -> Result<WriteOutcome, WriteError> {
+	if from.url.volume() != to.url.volume() {
+		return Err(WriteError::Invalid(
+			"agents move within one volume; this move crosses volumes".to_string(),
+		));
+	}
+	if from.url.contains(&to.url) {
+		return Err(WriteError::Invalid(format!(
+			"{} cannot move inside itself",
+			from.shown(&from.url)
+		)));
+	}
+	let current = object(&from, &from.url, turn.cancel()).await?;
+	check(&expect, &current.state)?;
+	let is_dir = match current.state.kind {
+		Some(PathKind::File) => false,
+		Some(PathKind::Directory) => true,
+		_ => return Err(stale(current.state)),
+	};
+	let id = Uuid::now_v7();
+	let backend = from.backend.as_ref();
+	let wanted = to.url.path();
+	let candidates = std::iter::once(wanted.clone())
+		.chain(conflict_names(&wanted, is_dir))
+		.take(CONFLICT_ATTEMPTS);
+
+	if !is_dir {
+		let Some(source) = files_bucket::object(backend, &from.url.key)
+			.await
+			.map_err(io)?
+			.filter(|source| Some(&source.etag) == current.etag.as_ref())
+		else {
+			return Err(stale(state(&from, turn.cancel()).await?));
+		};
+		for candidate in candidates {
+			turn.proceed()?;
+			let Some(url) = BucketUrl::parse(&candidate) else {
+				continue;
+			};
+			if files_bucket::occupied(backend, &url).await.map_err(io)? {
+				continue;
+			}
+			match files_bucket::relocate(backend, &source, &url.key).await {
+				Ok(()) => {
+					let subject = landed(backend, &url).await;
+					let effects = vec![Effect::Moved {
+						from: from.url.path(),
+						to: url.path(),
+						subject,
+					}];
+					let undo = journal(context, library, id, &effects).await;
+					return moved(&to, url, undo, turn).await;
+				}
+				Err(Refusal::Taken) => continue,
+				Err(Refusal::Changed) => return Err(stale(state(&from, turn.cancel()).await?)),
+				Err(Refusal::Kept) => {
+					let effects = vec![Effect::Created {
+						path: url.path(),
+						subject: landed(backend, &url).await,
+					}];
+					let undo = journal(context, library, id, &effects).await;
+					return Err(kept(&from, &url, undo));
+				}
+				Err(refusal) => return Err(failed(&from, refusal)),
+			}
+		}
+		return Err(WriteError::Io(format!(
+			"no free name beside {} after {CONFLICT_ATTEMPTS} tries",
+			to.shown(&to.url)
+		)));
+	}
+
+	let keys = prefix_objects(&from, turn).await?;
+	let mut target = None;
+	for candidate in candidates {
+		turn.proceed()?;
+		let Some(url) = BucketUrl::parse(&candidate) else {
+			continue;
+		};
+		if !files_bucket::occupied(backend, &url).await.map_err(io)? {
+			target = Some(url);
+			break;
+		}
+	}
+	let Some(target) = target else {
+		return Err(WriteError::Io(format!(
+			"no free name beside {} after {CONFLICT_ATTEMPTS} tries",
+			to.shown(&to.url)
+		)));
+	};
+	if state(&from, turn.cancel()).await?.content_hash != current.state.content_hash {
+		return Err(stale(state(&from, turn.cancel()).await?));
+	}
+	turn.proceed()?;
+	let mut effects = Vec::new();
+	let mut left = Vec::new();
+	for key in &keys {
+		let relative = key[from.url.key.len()..].trim_start_matches('/');
+		let destination = target.join(relative);
+		let source = match files_bucket::object(backend, key).await {
+			Ok(Some(source)) => source,
+			Ok(None) => {
+				left.push(format!("{} is gone", from.shown(&from.url.join(relative))));
+				continue;
+			}
+			Err(error) => {
+				left.push(format!("{}: {error}", from.shown(&from.url.join(relative))));
+				continue;
+			}
+		};
+		match files_bucket::relocate(backend, &source, &destination.key).await {
+			Ok(()) => effects.push(Effect::Moved {
+				from: files_bucket::path(&from.url, key),
+				to: destination.path(),
+				subject: landed(backend, &destination).await,
+			}),
+			Err(refusal) => {
+				if matches!(refusal, Refusal::Kept) {
+					effects.push(Effect::Created {
+						path: destination.path(),
+						subject: landed(backend, &destination).await,
+					});
+				}
+				left.push(format!(
+					"{}: {refusal}",
+					from.shown(&from.url.join(relative))
+				));
+			}
+		}
+	}
+	drop_marker(backend, &from.url).await;
+	let undo = journal(context, library, id, &effects).await;
+	if !left.is_empty() {
+		return Err(partial("moving", &from, left, undo));
+	}
+	moved(&to, target, undo, turn).await
+}
+
+/// Put an object, or every object under a prefix, in the bucket's trash.
+pub(super) async fn delete(
+	context: &CoreContext,
+	library: Uuid,
+	bucket: Bucket,
+	expect: Precondition,
+	turn: &WriteTurn,
+) -> Result<WriteOutcome, WriteError> {
+	let current = object(&bucket, &bucket.url, turn.cancel()).await?;
+	check(&expect, &current.state)?;
+	let backend = bucket.backend.as_ref();
+	let id = Uuid::now_v7();
+	let keys = match current.state.kind {
+		Some(PathKind::File) => vec![bucket.url.key.clone()],
+		Some(PathKind::Directory) => prefix_objects(&bucket, turn).await?,
+		_ => return Err(stale(current.state)),
+	};
+	if keys.len() == 1 && keys[0] == bucket.url.key {
+		let Some(source) = files_bucket::object(backend, &bucket.url.key)
+			.await
+			.map_err(io)?
+			.filter(|source| Some(&source.etag) == current.etag.as_ref())
+		else {
+			return Err(stale(state(&bucket, turn.cancel()).await?));
+		};
+		turn.proceed()?;
+		return match files_bucket::trash(backend, &source, id).await {
+			Ok(location) => {
+				let effects = vec![trashed(&bucket.url, &source, &location)];
+				let undo = journal(context, library, id, &effects).await;
+				deleted(&bucket, current.state, undo)
+			}
+			Err(Refusal::Changed) => Err(stale(state(&bucket, turn.cancel()).await?)),
+			Err(Refusal::Kept) => Err(WriteError::Partial {
+				message: format!(
+					"stale: {} changed while it was being deleted, so it is left as it is. A copy of the version you read is in the bucket at {}",
+					current.state.path,
+					files_bucket::trash_key(id, &source.key)
+				),
+				undo: None,
+			}),
+			Err(refusal) => Err(failed(&bucket, refusal)),
+		};
+	}
+	if state(&bucket, turn.cancel()).await?.content_hash != current.state.content_hash {
+		return Err(stale(state(&bucket, turn.cancel()).await?));
+	}
+	turn.proceed()?;
+	let mut effects = Vec::new();
+	let mut left = Vec::new();
+	for key in &keys {
+		let shown = bucket.shown(&files_bucket_url(&bucket.url, key));
+		let source = match files_bucket::object(backend, key).await {
+			Ok(Some(source)) => source,
+			Ok(None) => continue,
+			Err(error) => {
+				left.push(format!("{shown}: {error}"));
+				continue;
+			}
+		};
+		match files_bucket::trash(backend, &source, id).await {
+			Ok(location) => effects.push(trashed(&bucket.url, &source, &location)),
+			Err(refusal) => left.push(format!("{shown}: {refusal}")),
+		}
+	}
+	drop_marker(backend, &bucket.url).await;
+	let undo = journal(context, library, id, &effects).await;
+	if !left.is_empty() {
+		return Err(partial("deleting", &bucket, left, undo));
+	}
+	deleted(&bucket, current.state, undo)
+}
+
+fn files_bucket_url(url: &BucketUrl, key: &str) -> BucketUrl {
+	BucketUrl {
+		key: key.to_string(),
+		..url.clone()
+	}
+}
+
+/// Every object under the scope's prefix, refusing a prefix that holds a
+/// path the grant protects or more objects than one call takes.
+async fn prefix_objects(bucket: &Bucket, turn: &WriteTurn) -> Result<Vec<String>, WriteError> {
+	turn.proceed()?;
+	let keys =
+		files_bucket::objects_under(bucket.backend.as_ref(), &bucket.url, MAX_PREFIX_OBJECTS)
+			.await
+			.map_err(io)?
+			.ok_or_else(|| {
+				WriteError::Invalid(format!(
+					"{} holds more than {MAX_PREFIX_OBJECTS} objects; move or delete it in parts",
+					bucket.shown(&bucket.url)
+				))
+			})?;
+	for key in &keys {
+		let relative = key[bucket.url.key.len()..].trim_start_matches('/');
+		if crate::ops::grants::scope::protected_component(Path::new(relative)).is_some() {
+			return Err(
+				GrantError::Protected(bucket.shown(&files_bucket_url(&bucket.url, key))).into(),
+			);
+		}
+	}
+	Ok(keys)
+}
+
+/// Remove the directory marker of a prefix that was emptied. A marker holds
+/// no bytes, so nothing is lost and nothing is journaled.
+async fn drop_marker(backend: &dyn VolumeBackend, url: &BucketUrl) {
+	if files_bucket::occupied(backend, url).await.unwrap_or(true) {
+		return;
+	}
+	let _ = backend.delete(Path::new(&format!("{}/", url.key))).await;
+}
+
+async fn landed(backend: &dyn VolumeBackend, url: &BucketUrl) -> Option<Subject> {
+	files_bucket::object(backend, &url.key)
+		.await
+		.ok()
+		.flatten()
+		.map(|object| object.subject())
+}
+
+fn trashed(url: &BucketUrl, source: &files_bucket::Object, location: &str) -> Effect {
+	Effect::Trashed {
+		from: files_bucket::path(url, &source.key),
+		to: Some(files_bucket::path(url, location)),
+		subject: Some(source.subject()),
+	}
+}
+
+fn kept(from: &Bucket, copy: &BucketUrl, undo: Option<Uuid>) -> WriteError {
+	WriteError::Partial {
+		message: format!(
+			"stale: {} changed while it was being moved, so it is left as it is and the copy at {} is kept",
+			from.shown(&from.url),
+			from.shown(copy)
+		),
+		undo,
+	}
+}
+
+fn partial(verb: &str, bucket: &Bucket, left: Vec<String>, undo: Option<Uuid>) -> WriteError {
+	WriteError::Partial {
+		message: format!(
+			"{verb} {} left {} object(s) as they are: {}",
+			bucket.shown(&bucket.url),
+			left.len(),
+			left.join("; ")
+		),
+		undo,
+	}
+}
+
+fn failed(bucket: &Bucket, refusal: Refusal) -> WriteError {
+	match refusal {
+		Refusal::TooLarge(_) => {
+			WriteError::Invalid(format!("{}: {refusal}", bucket.shown(&bucket.url)))
+		}
+		refusal => WriteError::Io(format!("{}: {refusal}", bucket.shown(&bucket.url))),
+	}
+}
+
+async fn moved(
+	to: &Bucket,
+	landed: BucketUrl,
+	undo: Option<Uuid>,
+	turn: &WriteTurn,
+) -> Result<WriteOutcome, WriteError> {
+	let mut outcome = outcome(to, to.shown(&to.url), landed, turn).await?;
+	outcome.undo = undo;
+	Ok(outcome)
+}
+
+fn deleted(
+	bucket: &Bucket,
+	before: PathState,
+	undo: Option<Uuid>,
+) -> Result<WriteOutcome, WriteError> {
+	info!(bucket = %bucket.url.volume(), path = %before.path, "agent delete in a bucket");
+	Ok(WriteOutcome {
+		requested: bucket.shown(&bucket.url),
+		state: PathState {
+			kind: None,
+			size: None,
+			content_hash: None,
+			..before
+		},
+		conflict: false,
+		undo,
+	})
 }
 
 async fn outcome(

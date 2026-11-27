@@ -95,8 +95,12 @@ The tools and rules above are the same, with these differences:
 
 - The bucket refuses a stale write itself, so a change made by anyone, not
   only through Spacedrive, makes your expect stale.
-- move and delete are refused. Write a new version instead.
-- Writes have no undo id.
+- move copies, then deletes the source while it is unchanged. It takes
+  objects up to 64 MiB. delete puts the object in the bucket's
+  .spacedrive/trash/ prefix. Both have an undo id. If the object changes
+  during the move or delete, it is kept, and the error names any copy that
+  was made.
+- write_file and make_dir have no undo id.
 - search and search_content are refused; use grep and glob.
 - revision is always null. Use content_hash.
 - .gitignore is not applied.

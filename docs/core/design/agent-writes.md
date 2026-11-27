@@ -216,9 +216,36 @@ itself. Code: `core/src/ops/agent_write/bucket.rs`.
 - **Directories.** A prefix with objects under it is a directory. Its hash
   is the listing hash, as for a local directory. `make_dir` writes a
   zero-byte `prefix/` marker.
-- **Refused.** Moves and deletes, because a bucket cannot make them
-  conditional on the version the agent read. Undo, because a bucket has no
-  trash; the provider's object versioning is what restores a version.
+- **Move.** A bucket has no rename, so a move copies each object and then
+  deletes its source. The copy reads the object at the entity tag the
+  precondition was checked against and is sent with `If-None-Match: *`, so
+  it never replaces anything: a taken name sends the item to a conflict
+  name, as on disk. The source is deleted only while it still carries that
+  tag. When it changed after the copy landed, both are kept and the call
+  fails with a message naming the copy. A copy passes the bytes through the
+  daemon, so a move takes objects up to 64 MiB.
+- **Delete.** Each object is copied inside the service to
+  `.spacedrive/trash/<undo id>/<key>` at the bucket's root, then deleted
+  while it still carries the tag it was copied at. Nothing is removed for
+  good, and the trash prefix is emptied by the bucket's lifecycle rules or
+  by hand. An object that changed after the copy is kept, and so is the
+  copy.
+- **Prefixes.** A move or delete of a prefix is checked against its listing
+  hash, then takes each object below it, up to 10,000, on the same rules.
+  An object that changed meanwhile is left and named in the error, which
+  carries the undo id for the objects that did go.
+- **Undo.** Moves and deletes are journaled by bucket URL, so `files.undo`
+  reverses them: a moved object goes back, and a trashed one is copied from
+  the trash to its key under `If-None-Match` and the trash copy deleted.
+  An object that changed since, or a key that is taken again, is left and
+  reported. Writes carry no undo; the provider's object versioning restores
+  an earlier version.
+- **The delete window.** S3 can refuse a stale write but OpenDAL sends no
+  `If-Match` on `DeleteObject`, so the daemon checks the tag just before an
+  unconditional delete. A write that lands in that window, one round trip
+  long, is deleted with the source. The copy that was made holds the
+  version the agent read, not the one that landed. Services where the
+  delete itself is conditional close the window once the backend sends it.
 - **Read-only services.** A service whose backend cannot refuse a stale
   write, such as Google Drive, OneDrive or Dropbox, is read-only for agents.
   `grants.create` refuses a `read_write` grant on it, and `authorize`

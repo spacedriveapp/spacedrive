@@ -18,7 +18,10 @@ use crate::infra::job::{
 	prelude::*,
 	types::JobId,
 };
-use crate::ops::files::trash;
+use crate::ops::{
+	files::{bucket as files_bucket, trash},
+	grants::bucket::{backend, BucketUrl},
+};
 
 #[derive(Debug, Serialize, Deserialize, Job)]
 pub struct UndoJob {
@@ -100,7 +103,8 @@ impl JobHandler for UndoJob {
 			self.job,
 			journal.len()
 		));
-		let steps = reversals(&journal, self.effects.as_deref()).await;
+		let volumes = ctx.volume_manager();
+		let steps = reversals(&journal, self.effects.as_deref(), volumes.as_deref()).await;
 		let total = steps.len() as u64;
 		let mut output = UndoOutput::default();
 		let mut handled = 0u64;
@@ -178,6 +182,9 @@ impl JobHandler for UndoJob {
 
 /// Apply one step, answering with what it did for this job's journal.
 async fn apply(ctx: &JobContext<'_>, step: Step) -> std::io::Result<Vec<Effect>> {
+	if let Some(effects) = apply_in_bucket(ctx, &step).await {
+		return effects;
+	}
 	match step {
 		Step::Trash { path, .. } => {
 			let location = trash::trash(&path, ctx.volume_manager().as_deref(), ctx.id()).await?;
@@ -222,6 +229,67 @@ async fn apply(ctx: &JobContext<'_>, step: Step) -> std::io::Result<Vec<Effect>>
 			}])
 		}
 	}
+}
+
+/// Apply a step on a bucket object, or `None` for a step on the filesystem.
+///
+/// A trashed object goes back with a copy that replaces nothing and a delete
+/// of the trash copy, and a created one goes to the bucket's trash, so undo
+/// loses no version either.
+async fn apply_in_bucket(
+	ctx: &JobContext<'_>,
+	step: &Step,
+) -> Option<std::io::Result<Vec<Effect>>> {
+	let (source, destination) = match step {
+		Step::Trash { path, .. } => (BucketUrl::parse(path)?, None),
+		Step::MoveBack { from, to, .. } => (BucketUrl::parse(from)?, Some(BucketUrl::parse(to)?)),
+		_ => return None,
+	};
+	Some(
+		async {
+			let volumes = ctx
+				.volume_manager()
+				.ok_or_else(|| std::io::Error::other("no volume manager"))?;
+			let backend = backend(&volumes, &source)
+				.await
+				.map_err(|error| std::io::Error::other(error.to_string()))?;
+			let backend = backend.as_ref();
+			let object = files_bucket::object(backend, &source.key)
+				.await
+				.map_err(|error| std::io::Error::other(error.to_string()))?
+				.ok_or_else(|| std::io::Error::other(format!("{} is gone", source.key)))?;
+			let refused =
+				|refusal: files_bucket::Refusal| std::io::Error::other(refusal.to_string());
+			match destination {
+				None => {
+					let location = files_bucket::trash(backend, &object, ctx.id().0)
+						.await
+						.map_err(refused)?;
+					Ok(vec![Effect::Trashed {
+						from: source.path(),
+						to: Some(files_bucket::path(&source, &location)),
+						subject: Some(object.subject()),
+					}])
+				}
+				Some(destination) => {
+					files_bucket::relocate(backend, &object, &destination.key)
+						.await
+						.map_err(refused)?;
+					let subject = files_bucket::object(backend, &destination.key)
+						.await
+						.ok()
+						.flatten()
+						.map(|object| object.subject());
+					Ok(vec![Effect::Moved {
+						from: source.path(),
+						to: destination.path(),
+						subject,
+					}])
+				}
+			}
+		}
+		.await,
+	)
 }
 
 /// The trash's restore, which is a rename where the item sits at its
