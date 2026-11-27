@@ -1,9 +1,0 @@
-{
-	"views": [
-		{
-			"id": "library",
-			"title": "Videos",
-			"bundle": "ui/videos.js"
-		}
-	]
-}

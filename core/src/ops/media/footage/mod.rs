@@ -7,7 +7,8 @@
 //! generated types could not otherwise know which of them a daemon has. These
 //! ops are registered in every build: `media.footage.capabilities` says what
 //! this daemon can run and why not, `media.footage.status` reports what a
-//! file already has, and `media.footage.run` and `media.footage.export`
+//! file already has, `media.footage.summaries` reports the same for every
+//! video a listing shows, and `media.footage.run` and `media.footage.export`
 //! hand off to the feature's own action, or answer that the build lacks it.
 //!
 //! Nothing here runs on its own. Every job starts from a person's request.
@@ -23,6 +24,7 @@ mod capabilities;
 mod export;
 mod run;
 mod status;
+mod summaries;
 
 use std::path::{Component, Path, PathBuf};
 
@@ -34,7 +36,11 @@ pub use capabilities::{
 };
 pub use export::{FootageExportAction, FootageExportInput, FootageExportOutput};
 pub use run::{FootageRunAction, FootageRunInput, FootageRunOutput};
-pub use status::{FootageStatusInput, FootageStatusOutput, FootageStatusQuery};
+pub(crate) use status::shot_descriptions;
+pub use status::{FootageStatusInput, FootageStatusOutput, FootageStatusQuery, ShotDescription};
+pub use summaries::{
+	FootageSummariesInput, FootageSummariesOutput, FootageSummariesQuery, FootageSummary,
+};
 
 use crate::domain::SdPath;
 

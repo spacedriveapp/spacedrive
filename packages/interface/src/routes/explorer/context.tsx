@@ -39,6 +39,10 @@ export interface ViewSettings {
 	gridSize: number;
 	gapSize: number;
 	showFileSize: boolean;
+	/** Video details as list columns and grid badges. */
+	showVideoDuration: boolean;
+	showShotCount: boolean;
+	showTranscriptMarker: boolean;
 	columnWidth: number;
 	foldersFirst: boolean;
 	sizeViewItemLimit: number;
@@ -93,7 +97,20 @@ export type ExplorerMode =
 	| {type: 'tag'; tagId: string}
 	| {type: 'collection'; slug: string}
 	| {type: 'source'; sourceId: string}
-	| {type: 'filtered'; filters: ApiSearchFilters; label: string};
+	| {
+			type: 'filtered';
+			filters: ApiSearchFilters;
+			label: string;
+			footage?: FootageFilter;
+	  };
+
+/** Narrows a filtered listing to videos the footage work has reached. The
+ * search index does not know about sidecars, so the explorer applies it to
+ * the search results. */
+export interface FootageFilter {
+	transcript?: boolean;
+	analyzed?: boolean;
+}
 
 export type NavigationTarget =
 	| {type: 'path'; path: SdPath}
@@ -229,7 +246,12 @@ type UIAction =
 	| {type: 'EXIT_SEARCH_MODE'}
 	| {type: 'ENTER_RECENTS_MODE'}
 	| {type: 'EXIT_RECENTS_MODE'}
-	| {type: 'ENTER_FILTERED_MODE'; filters: ApiSearchFilters; label: string}
+	| {
+			type: 'ENTER_FILTERED_MODE';
+			filters: ApiSearchFilters;
+			label: string;
+			footage?: FootageFilter;
+	  }
 	| {type: 'EXIT_FILTERED_MODE'}
 	| {type: 'ENTER_TAG_MODE'; tagId: string}
 	| {type: 'ENTER_COLLECTION_MODE'; slug: string}
@@ -247,6 +269,9 @@ const defaultViewSettings: ViewSettings = {
 	gridSize: 120,
 	gapSize: 16,
 	showFileSize: true,
+	showVideoDuration: true,
+	showShotCount: false,
+	showTranscriptMarker: false,
 	columnWidth: 256,
 	foldersFirst: false,
 	sizeViewItemLimit: 500
@@ -360,7 +385,8 @@ function uiReducer(state: UIState, action: UIAction): UIState {
 				mode: {
 					type: 'filtered',
 					filters: action.filters,
-					label: action.label
+					label: action.label,
+					footage: action.footage
 				}
 			};
 
@@ -572,7 +598,11 @@ interface ExplorerContextValue {
 	setSearchScope: (scope: SearchScope) => void;
 	enterRecentsMode: () => void;
 	exitRecentsMode: () => void;
-	enterFilteredMode: (filters: ApiSearchFilters, label: string) => void;
+	enterFilteredMode: (
+		filters: ApiSearchFilters,
+		label: string,
+		footage?: FootageFilter
+	) => void;
 	exitFilteredMode: () => void;
 	enterTagMode: (tagId: string) => void;
 	enterCollectionMode: (slug: string) => void;
@@ -802,6 +832,9 @@ export function ExplorerProvider({
 			gapSize: tabState.gapSize,
 			foldersFirst: tabState.foldersFirst,
 			showFileSize: uiState.viewSettings.showFileSize,
+			showVideoDuration: uiState.viewSettings.showVideoDuration,
+			showShotCount: uiState.viewSettings.showShotCount,
+			showTranscriptMarker: uiState.viewSettings.showTranscriptMarker,
 			columnWidth: uiState.viewSettings.columnWidth,
 			sizeViewItemLimit: uiState.viewSettings.sizeViewItemLimit
 		}),
@@ -811,6 +844,9 @@ export function ExplorerProvider({
 			tabState.gapSize,
 			tabState.foldersFirst,
 			uiState.viewSettings.showFileSize,
+			uiState.viewSettings.showVideoDuration,
+			uiState.viewSettings.showShotCount,
+			uiState.viewSettings.showTranscriptMarker,
 			uiState.viewSettings.columnWidth,
 			uiState.viewSettings.sizeViewItemLimit
 		]
@@ -845,9 +881,12 @@ export function ExplorerProvider({
 				foldersFirst: settings.foldersFirst ?? tabState.foldersFirst
 			});
 
-			// Update UI state for global settings (showFileSize, sizeViewItemLimit)
+			// Update UI state for global settings (showFileSize, video details, sizeViewItemLimit)
 			if (
 				settings.showFileSize !== undefined ||
+				settings.showVideoDuration !== undefined ||
+				settings.showShotCount !== undefined ||
+				settings.showTranscriptMarker !== undefined ||
 				settings.sizeViewItemLimit !== undefined
 			) {
 				uiDispatch({
@@ -927,8 +966,8 @@ export function ExplorerProvider({
 	}, []);
 
 	const enterFilteredMode = useCallback(
-		(filters: ApiSearchFilters, label: string) => {
-			uiDispatch({type: 'ENTER_FILTERED_MODE', filters, label});
+		(filters: ApiSearchFilters, label: string, footage?: FootageFilter) => {
+			uiDispatch({type: 'ENTER_FILTERED_MODE', filters, label, footage});
 		},
 		[]
 	);
