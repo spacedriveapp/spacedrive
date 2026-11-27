@@ -55,10 +55,14 @@ pub async fn install_bundled(resource_dir: PathBuf, data_dir: PathBuf) -> bool {
 
 /// Returns whether the extension had to be written.
 fn install(source: &Path, target: &Path, staging: &Path) -> std::io::Result<bool> {
-	let files = read_tree(source, Path::new(""))?;
-	let current = files
-		.iter()
-		.all(|(path, bytes)| std::fs::read(target.join(path)).is_ok_and(|b| &b == bytes));
+	let mut files = read_tree(source, Path::new(""))?;
+	files.sort();
+	// A file the bundle dropped counts as a difference too, or an update
+	// that removes a file would leave the old one installed.
+	let current = read_tree(target, Path::new("")).is_ok_and(|mut installed| {
+		installed.sort();
+		installed == files
+	});
 	if current {
 		return Ok(false);
 	}
@@ -149,6 +153,11 @@ mod tests {
 		assert!(!dir
 			.join("data/.extensions-staging/videos.previous")
 			.exists());
+
+		std::fs::remove_dir_all(source.join("ui")).unwrap();
+		assert!(install(&source, &target, &staging).unwrap());
+		assert!(!target.join("ui").exists());
+		assert!(!install(&source, &target, &staging).unwrap());
 
 		std::fs::remove_dir_all(&dir).unwrap();
 	}

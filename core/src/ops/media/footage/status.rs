@@ -1,6 +1,6 @@
 //! `media.footage.status`: what the footage work has already made for a file.
 
-use std::{path::Path, sync::Arc};
+use std::{collections::HashSet, path::Path, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -107,36 +107,166 @@ async fn shot_count(library_path: &Path, content_uuid: Uuid) -> QueryResult<Opti
 	Ok(list.map(|list| u32::try_from(list.shots.len()).unwrap_or(u32::MAX)))
 }
 
-/// The Videos extension's `scene` sidecar holds one entry per shot it has
-/// analyzed. Its shape belongs to the extension, so only the count is read.
-async fn analyzed_shots(library_path: &Path, content_uuid: Uuid) -> QueryResult<Option<u32>> {
-	#[derive(Deserialize)]
-	struct SceneDoc {
-		#[serde(default)]
-		shots: Vec<serde::de::IgnoredAny>,
+/// How many shots the Videos extension has analyzed, or `None` before it
+/// has. A run with only a face detector writes `faces` and no `scene`, so a
+/// shot counts when either sidecar has it.
+pub(super) async fn analyzed_shots(
+	library_path: &Path,
+	content_uuid: Uuid,
+) -> QueryResult<Option<u32>> {
+	let scene = read_analyzed(library_path, content_uuid, "scene").await?;
+	let faces = read_analyzed(library_path, content_uuid, "faces").await?;
+	if scene.is_none() && faces.is_none() {
+		return Ok(None);
 	}
+	let shots: HashSet<String> = scene
+		.into_iter()
+		.chain(faces)
+		.flatten()
+		.map(|shot| shot.shot_id)
+		.collect();
+	Ok(Some(u32::try_from(shots.len()).unwrap_or(u32::MAX)))
+}
 
-	let kind =
-		SidecarKind::extension(VIDEOS_EXTENSION_ID, "scene").map_err(QueryError::Internal)?;
-	let path = library_path
+/// One shot the Videos extension has written a description for.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct ShotDescription {
+	pub shot_id: String,
+	pub description: String,
+}
+
+/// The descriptions the Videos extension wrote for a video's shots, empty
+/// until it has analyzed the video or when it found no caption model.
+pub(crate) async fn shot_descriptions(
+	library_path: &Path,
+	content_uuid: Uuid,
+) -> QueryResult<Vec<ShotDescription>> {
+	let shots = read_analyzed(library_path, content_uuid, "scene")
+		.await?
+		.unwrap_or_default();
+	Ok(shots
+		.into_iter()
+		.filter_map(|shot| {
+			Some(ShotDescription {
+				shot_id: shot.shot_id,
+				description: shot.description?,
+			})
+		})
+		.collect())
+}
+
+#[derive(Deserialize)]
+struct AnalyzedShot {
+	#[serde(default)]
+	shot_id: String,
+	#[serde(default)]
+	description: Option<String>,
+}
+
+fn analysis_path(
+	library_path: &Path,
+	content_uuid: Uuid,
+	kind: &str,
+) -> QueryResult<std::path::PathBuf> {
+	let kind = SidecarKind::extension(VIDEOS_EXTENSION_ID, kind).map_err(QueryError::Internal)?;
+	Ok(library_path
 		.join("sidecars")
 		.join(sd_sidecar_path::relative_path(
 			&content_uuid,
 			&kind.directory(),
 			"default",
 			SidecarFormat::Json.extension(),
-		));
+		)))
+}
+
+/// The Videos extension's `scene` and `faces` sidecars hold one entry per
+/// shot it has analyzed. Their shape belongs to the extension, so only the
+/// shot id and the description are read, and both are optional.
+async fn read_analyzed(
+	library_path: &Path,
+	content_uuid: Uuid,
+	kind: &str,
+) -> QueryResult<Option<Vec<AnalyzedShot>>> {
+	#[derive(Deserialize)]
+	struct AnalysisDoc {
+		#[serde(default)]
+		shots: Vec<AnalyzedShot>,
+	}
+
+	let path = analysis_path(library_path, content_uuid, kind)?;
 	let bytes = match tokio::fs::read(&path).await {
 		Ok(bytes) => bytes,
 		Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
 		Err(error) => {
 			return Err(QueryError::Internal(format!(
-				"could not read the scene descriptions: {error}"
+				"could not read the {kind} sidecar: {error}"
 			)))
 		}
 	};
-	let scene: SceneDoc = serde_json::from_slice(&bytes).map_err(|error| {
-		QueryError::Internal(format!("could not read the scene descriptions: {error}"))
+	let doc: AnalysisDoc = serde_json::from_slice(&bytes).map_err(|error| {
+		QueryError::Internal(format!("could not read the {kind} sidecar: {error}"))
 	})?;
-	Ok(Some(u32::try_from(scene.shots.len()).unwrap_or(u32::MAX)))
+	Ok(Some(doc.shots))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[tokio::test]
+	async fn scene_and_faces_sidecars_yield_described_shots_and_the_analyzed_count() {
+		let library = tempfile::tempdir().unwrap();
+		let content_uuid = Uuid::new_v4();
+		assert_eq!(
+			analyzed_shots(library.path(), content_uuid).await.unwrap(),
+			None
+		);
+		assert!(shot_descriptions(library.path(), content_uuid)
+			.await
+			.unwrap()
+			.is_empty());
+
+		let faces = analysis_path(library.path(), content_uuid, "faces").unwrap();
+		tokio::fs::create_dir_all(faces.parent().unwrap())
+			.await
+			.unwrap();
+		tokio::fs::write(
+			&faces,
+			r#"{"version":1,"shots":[{"shot_id":"b","faces":[]},{"shot_id":"c","faces":[]}]}"#,
+		)
+		.await
+		.unwrap();
+		assert_eq!(
+			analyzed_shots(library.path(), content_uuid).await.unwrap(),
+			Some(2)
+		);
+
+		let path = analysis_path(library.path(), content_uuid, "scene").unwrap();
+		tokio::fs::create_dir_all(path.parent().unwrap())
+			.await
+			.unwrap();
+		tokio::fs::write(
+			&path,
+			r#"{"version":1,"shots":[
+				{"shot_id":"a","description":"A dog on a beach","places":[]},
+				{"shot_id":"b","description":null,"places":[{"label":"beach","score":0.9}]}
+			]}"#,
+		)
+		.await
+		.unwrap();
+
+		assert_eq!(
+			analyzed_shots(library.path(), content_uuid).await.unwrap(),
+			Some(3)
+		);
+		assert_eq!(
+			shot_descriptions(library.path(), content_uuid)
+				.await
+				.unwrap(),
+			vec![ShotDescription {
+				shot_id: "a".to_string(),
+				description: "A dog on a beach".to_string(),
+			}]
+		);
+	}
 }

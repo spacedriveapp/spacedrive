@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect, memo } from "react";
+import { useCallback, useRef, useEffect, useMemo, memo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { flexRender } from "@tanstack/react-table";
 import { CaretDown } from "@phosphor-icons/react";
@@ -17,10 +17,11 @@ import {
 import type { DirectorySortBy } from "@sd/ts-client";
 import { useExplorerFiles } from "../../hooks/useExplorerFiles";
 import { DragSelect } from "./DragSelect";
+import { footageKey, useFootageSummaries } from "../../../../components/Footage/useFootage";
 import { useEmptySpaceContextMenu } from "../../hooks/useEmptySpaceContextMenu";
 
 export const ListView = memo(function ListView() {
-	const { sortBy, setSortBy, setCurrentFiles } = useExplorer();
+	const { sortBy, setSortBy, setCurrentFiles, viewSettings } = useExplorer();
 	const {
 		focusedIndex,
 		setFocusedIndex,
@@ -40,8 +41,25 @@ export const ListView = memo(function ListView() {
 
 	// Get files from centralized hook (handles search, virtual, and directory)
 	const { files } = useExplorerFiles();
-	const { table } = useTable(files);
+	const videoColumns = useMemo(
+		() => ({
+			duration: viewSettings.showVideoDuration,
+			shots: viewSettings.showShotCount,
+			transcript: viewSettings.showTranscriptMarker,
+		}),
+		[
+			viewSettings.showVideoDuration,
+			viewSettings.showShotCount,
+			viewSettings.showTranscriptMarker,
+		],
+	);
+	const { table, columns } = useTable(files, videoColumns);
 	const { rows } = table.getRowModel();
+	const { summaries: footage } = useFootageSummaries(
+		files,
+		videoColumns.duration || videoColumns.shots || videoColumns.transcript,
+	);
+	const columnIds = columns.map((column) => column.id).join(",");
 
 	// Update current files in explorer context for quick preview navigation
 	useEffect(() => {
@@ -272,6 +290,11 @@ export const ListView = memo(function ListView() {
 									isFocused={isFocused}
 									isPreviousSelected={isPreviousSelected}
 									isNextSelected={isNextSelected}
+									columnIds={columnIds}
+									footage={(() => {
+										const key = footageKey(file);
+										return key ? footage.get(key) : undefined;
+									})()}
 									measureRef={rowVirtualizer.measureElement}
 									selectFile={selectFile}
 								/>

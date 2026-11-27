@@ -20,7 +20,10 @@ use specta::Type;
 use tracing::warn;
 use uuid::Uuid;
 
-use super::shots::{content_uuid_of_video, read_shots, ShotList};
+use super::{
+	footage::{shot_descriptions, ShotDescription},
+	shots::{content_uuid_of_video, read_shots, ShotList},
+};
 use crate::{
 	context::CoreContext,
 	domain::{ContentSidecar, ProxyResolution, SdPath},
@@ -43,6 +46,8 @@ pub struct MediaSidecarsOutput {
 	pub proxy: Option<ProxySidecar>,
 	/// `None` until shot detection has run.
 	pub shots: Option<ShotList>,
+	/// The Videos extension's description of each shot it has analyzed.
+	pub descriptions: Vec<ShotDescription>,
 }
 
 /// A proxy file, named the way the sidecar server addresses it.
@@ -110,12 +115,19 @@ impl LibraryQuery for MediaSidecarsQuery {
 				None
 			});
 		let proxy = largest_proxy(library_path, content_uuid).await;
+		let descriptions = shot_descriptions(library_path, content_uuid)
+			.await
+			.unwrap_or_else(|error| {
+				warn!(%content_uuid, %error, "Could not read the scene descriptions");
+				Vec::new()
+			});
 
 		Ok(Some(MediaSidecarsOutput {
 			content_uuid,
 			transcript,
 			proxy,
 			shots,
+			descriptions,
 		}))
 	}
 }
