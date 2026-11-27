@@ -28,7 +28,7 @@
 
 #[cfg(all(target_os = "linux", feature = "fuse"))]
 pub mod fs;
-pub mod tree;
+pub use super::tree;
 
 use crate::config::AppConfig;
 use crate::context::CoreContext;
@@ -82,7 +82,7 @@ pub enum FuseError {
 }
 
 #[cfg(all(target_os = "linux", feature = "fuse"))]
-type Session = fuser::BackgroundSession;
+type Session = fs::Mounted;
 #[cfg(not(all(target_os = "linux", feature = "fuse")))]
 type Session = std::convert::Infallible;
 
@@ -157,7 +157,7 @@ async fn mount_tree(
 	grant_token: Option<String>,
 ) -> Result<FuseMountInfo, FuseError> {
 	use crate::ops::grants::{authorize, GrantCap};
-	use tree::{BoundGrant, LibraryTree, MountRoot};
+	use tree::{ArenaFs, BoundGrant, LibraryTree, MountRoot};
 
 	let path = prepare_mountpoint(path).await?;
 	let mut mounts = MOUNTS.lock().await;
@@ -192,7 +192,10 @@ async fn mount_tree(
 		None => (None, None),
 	};
 
-	let tree = Arc::new(LibraryTree::new(context.clone(), grant));
+	let tree = Arc::new(ArenaFs::new(Arc::new(LibraryTree::new(
+		context.clone(),
+		grant,
+	))));
 	let session = fs::mount(tree, &path)
 		.await
 		.map_err(|err| FuseError::Mount(err.to_string()))?;

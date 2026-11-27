@@ -77,11 +77,11 @@ async fn alice_join_scenario() {
 		.unwrap();
 	let db = library.db().conn();
 
-	// Data that only Alice has: a second space next to the default one.
+	// Data that only Alice has: a second layout next to the default one.
 	{
 		use chrono::Utc;
 		use sea_orm::{ActiveModelTrait, Set};
-		entities::space::ActiveModel {
+		entities::layout::ActiveModel {
 			id: sea_orm::ActiveValue::NotSet,
 			uuid: Set(uuid::Uuid::new_v4()),
 			name: Set("Alice Projects".to_string()),
@@ -95,13 +95,13 @@ async fn alice_join_scenario() {
 		.await
 		.unwrap();
 	}
-	let spaces_before = entities::space::Entity::find().all(db).await.unwrap();
-	assert_eq!(spaces_before.len(), 2);
-	let default_space_before = spaces_before
+	let layouts_before = entities::layout::Entity::find().all(db).await.unwrap();
+	assert_eq!(layouts_before.len(), 2);
+	let default_layout_before = layouts_before
 		.iter()
 		.find(|s| s.name == "Default")
 		.cloned()
-		.expect("default space");
+		.expect("default layout");
 
 	write_marker("library_id.txt", &library.id().to_string());
 	write_marker(
@@ -156,24 +156,24 @@ async fn alice_join_scenario() {
 		.backfill_sessions_completed
 		.load(std::sync::atomic::Ordering::Relaxed);
 
-	let spaces_after = entities::space::Entity::find().all(db).await.unwrap();
-	let default_space_after = spaces_after
+	let layouts_after = entities::layout::Entity::find().all(db).await.unwrap();
+	let default_layout_after = layouts_after
 		.iter()
 		.find(|s| s.name == "Default")
 		.cloned()
-		.expect("default space");
+		.expect("default layout");
 
 	let mut problems = Vec::new();
-	if spaces_after.len() != 2 {
+	if layouts_after.len() != 2 {
 		problems.push(format!(
-			"Alice's space count changed from 2 to {}",
-			spaces_after.len()
+			"Alice's layout count changed from 2 to {}",
+			layouts_after.len()
 		));
 	}
-	if default_space_after.updated_at != default_space_before.updated_at {
+	if default_layout_after.updated_at != default_layout_before.updated_at {
 		problems.push(format!(
-			"Alice's Default space was overwritten by sync (updated_at {} -> {})",
-			default_space_before.updated_at, default_space_after.updated_at
+			"Alice's Default layout was overwritten by sync (updated_at {} -> {})",
+			default_layout_before.updated_at, default_layout_after.updated_at
 		));
 	}
 	if sessions_b != sessions_a {
@@ -310,9 +310,9 @@ async fn bob_join_scenario() {
 		);
 	}
 
-	// Backfill brings Alice's spaces across.
-	let space_names = || async {
-		entities::space::Entity::find()
+	// Backfill brings Alice's layouts across.
+	let layout_names = || async {
+		entities::layout::Entity::find()
 			.all(db)
 			.await
 			.unwrap()
@@ -320,18 +320,18 @@ async fn bob_join_scenario() {
 			.map(|s| s.name)
 			.collect::<Vec<String>>()
 	};
-	match wait_until("Alice's spaces", Duration::from_secs(60), || async {
-		let names = space_names().await;
+	match wait_until("Alice's layouts", Duration::from_secs(60), || async {
+		let names = layout_names().await;
 		names.iter().any(|n| n == "Alice Projects").then_some(names)
 	})
 	.await
 	{
-		Ok(names) => println!("Bob: backfilled Alice's spaces: {:?}", names),
+		Ok(names) => println!("Bob: backfilled Alice's layouts: {:?}", names),
 		Err(_) => fail(
 			"bob",
 			format!(
-				"Bob never received Alice's spaces, has {:?}",
-				space_names().await
+				"Bob never received Alice's layouts, has {:?}",
+				layout_names().await
 			),
 		),
 	}

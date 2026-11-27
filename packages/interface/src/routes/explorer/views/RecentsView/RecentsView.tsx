@@ -20,12 +20,12 @@ export function RecentsView() {
 		viewMode,
 		enterRecentsMode,
 		exitRecentsMode,
-		loadPreferencesForSpaceItem
+		loadPreferencesForLayoutItem
 	} = explorer;
 
 	useLayoutEffect(() => {
-		loadPreferencesForSpaceItem('recents');
-	}, [loadPreferencesForSpaceItem]);
+		loadPreferencesForLayoutItem('recents');
+	}, [loadPreferencesForLayoutItem]);
 
 	// Enter recents mode on mount, exit on unmount
 	useEffect(() => {

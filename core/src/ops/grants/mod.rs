@@ -45,6 +45,7 @@ pub mod list;
 pub mod oauth;
 pub mod revoke;
 pub mod scope;
+pub mod setup;
 pub mod store;
 pub mod token;
 

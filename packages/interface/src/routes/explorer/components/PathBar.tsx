@@ -35,7 +35,7 @@ import clsx from 'clsx';
 import {motion} from 'framer-motion';
 import {useEffect, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
-import {isPathItem, useSpaceLayout, useSpaces} from '../../../components/SpacesSidebar/hooks';
+import {isPathItem, useSidebarLayout, useLayouts} from '../../../components/Sidebar/hooks';
 import {useExplorer} from '../context';
 import {sdPathToUri} from '../utils';
 import {useAddToLibraryDialog} from './AddToLibraryModal';
@@ -205,18 +205,18 @@ function PathStatusButton({path}: {path: SdPath}) {
 		onSuccess: refresh
 	});
 
-	// Pinning is navigation: a space-level Path item in the current space,
+	// Pinning is navigation: a layout-level Path item in the current layout,
 	// which the sidebar lists under Pinned. It never indexes anything.
-	const {currentSpaceId} = useSidebarStore();
-	const {data: spacesData} = useSpaces();
-	const currentSpace =
-		spacesData?.spaces.find((space) => space.id === currentSpaceId) ??
-		spacesData?.spaces[0];
-	const {data: layout} = useSpaceLayout(currentSpace?.id ?? null);
-	const addSpaceItem = useLibraryMutation('spaces.add_item');
-	const deleteSpaceItem = useLibraryMutation('spaces.delete_item');
+	const {currentLayoutId} = useSidebarStore();
+	const {data: layoutsData} = useLayouts();
+	const currentLayout =
+		layoutsData?.layouts.find((layout) => layout.id === currentLayoutId) ??
+		layoutsData?.layouts[0];
+	const {data: layout} = useSidebarLayout(currentLayout?.id ?? null);
+	const addLayoutItem = useLibraryMutation('layouts.add_item');
+	const deleteLayoutItem = useLibraryMutation('layouts.delete_item');
 	const pinnedItem = context
-		? layout?.space_items.find(
+		? layout?.layout_items.find(
 				(item) =>
 					isPathItem(item.item_type) &&
 					sdPathToUri(item.item_type.Path.sd_path) ===
@@ -244,7 +244,7 @@ function PathStatusButton({path}: {path: SdPath}) {
 	const pathDetail =
 		'Physical' in path ? path.Physical.path : sdPathToUri(path);
 	const canPin = Boolean(
-		currentSpace &&
+		currentLayout &&
 		context &&
 		!context.system_place &&
 		context.availability === 'available'
@@ -501,12 +501,12 @@ function PathStatusButton({path}: {path: SdPath}) {
 										onClick={() => {
 											if (context.system_place) return;
 											if (pinnedItem) {
-												deleteSpaceItem.mutate({
+												deleteLayoutItem.mutate({
 													item_id: pinnedItem.id
 												});
-											} else if (canPin && currentSpace) {
-												addSpaceItem.mutate({
-													space_id: currentSpace.id,
+											} else if (canPin && currentLayout) {
+												addLayoutItem.mutate({
+													layout_id: currentLayout.id,
 													group_id: null,
 													item_type: {
 														Path: {
