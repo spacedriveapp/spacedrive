@@ -49,7 +49,8 @@ export type ActivityEntry = {
 id: string; at: string; actor: ActivityActor; 
 /**
  * What the last step of the change did, which for an agent write is
- * the write itself rather than the folders made above it.
+ * the write itself rather than the folders made above it. With a
+ * requested path, the last step under it.
  */
 kind: ActivityKind; path: string; 
 /**
@@ -57,7 +58,8 @@ kind: ActivityKind; path: string;
  */
 to_path: string | null; 
 /**
- * How many paths the change touched.
+ * How many paths the change touched, counting only those under the
+ * requested path when one was given.
  */
 changes: number; 
 /**
