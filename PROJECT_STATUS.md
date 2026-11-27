@@ -1,6 +1,6 @@
 # Project Status
 
-> Last updated: 2026-11-24
+> Last updated: 2026-11-27
 > Code baseline: `b1a58be`
 > Branch of record: `main` (fast-forwarded from `sources` on 2026-10-05)
 > Purpose: short-term working context across development sessions while
@@ -45,6 +45,25 @@ back to `~/.local/bin/sd`) on macOS and `~/.local/bin/sd` on Linux through the
 `cli.status`, `cli.install` and `cli.uninstall` core ops. `sd update` refuses
 to replace the copy inside the app. The standalone `sd-<platform>` assets
 stay. Next: a signed release dry run, then live install on a Mac.
+
+Videos in the explorer (Capy FAN-14815, November 27, beta.1, in PR). Jamie
+decided footage belongs in the explorer, not a page of its own. The Videos
+extension's library view (`ui_manifest.json` and `ui/videos.js`) is gone, so
+the sidebar's Extensions section is empty and hidden; the extension still runs
+its jobs and writes its sidecars. Bundled extension installs now also replace a
+copy that has files the bundle dropped. Selecting a video shows a Footage
+section in the inspector: shot keyframes that open Quick Preview at the shot,
+shot descriptions, a transcript excerpt, and per-capability analysis state read
+from `ai.providers.list`, the answer Settings > Models shows. `media.sidecars`
+now carries the extension's shot descriptions. The new `media.footage.summaries`
+query answers shot count, transcript, analysis and duration for every video of
+a listing in one call, keyed through the sampled hash the source store already
+holds, for the Duration (on by default), Shots and Transcript list columns and
+grid badges in View Settings. Filesystem listings carry no video facet, so the
+duration comes from the shot list and is blank until shot detection runs. A
+Videos sidebar item opens a saved search for every video, with Has transcript
+and Analyzed filters that page through the whole search and count faces-only
+analysis. Next: review and merge.
 
 Beta date and where beta.1 is cut (Capy FAN-14810, November 27, landed in #3284). Jamie
 moved the Spacedrive 2.0 Beta target to December 5, 2026 on 2026-11-27.

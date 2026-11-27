@@ -17,6 +17,7 @@ import {SourcesHome} from './routes/sources';
 import {AdaptersScreen} from './routes/sources/Adapters';
 import {SourceDetail} from './routes/sources/SourceDetail';
 import {TagView} from './routes/tag';
+import {VideosView} from './routes/videos';
 import {ShellLayout} from './ShellLayout';
 /**
  * Router routes configuration (without router instance)
@@ -49,6 +50,10 @@ export const explorerRoutes = [
 			{
 				path: 'file-kinds',
 				element: <FileKindsView />
+			},
+			{
+				path: 'videos',
+				element: <VideosView />
 			},
 			{
 				path: 'collection/:slug',
