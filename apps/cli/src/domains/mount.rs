@@ -26,6 +26,9 @@ pub struct MountArgs {
 	/// cannot read from the process list.
 	#[arg(long, env = "SD_GRANT_TOKEN", hide_env_values = true)]
 	pub token: String,
+	/// The space to mount, when the token reaches more than one
+	#[arg(long)]
+	pub space: Option<String>,
 	/// Where to keep fetched blocks; defaults to the user's cache directory
 	#[arg(long)]
 	pub cache_dir: Option<PathBuf>,
@@ -37,7 +40,13 @@ pub async fn run(args: MountArgs) -> Result<()> {
 	use std::sync::Arc;
 
 	let dir = fuse::prepare_mountpoint(std::path::absolute(&args.dir)?).await?;
-	let fs = client::connect(&args.url, &args.token, args.cache_dir).await?;
+	let fs = client::connect(
+		&args.url,
+		&args.token,
+		args.space.as_deref(),
+		args.cache_dir,
+	)
+	.await?;
 	let mounted = fuse::fs::mount(fs.clone() as Arc<_>, &dir).await?;
 	println!(
 		"Mounted {} at {} (read-only). Press Ctrl-C to unmount.",

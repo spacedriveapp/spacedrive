@@ -40,6 +40,10 @@ pub struct ByteTarget {
 pub struct ByteStat {
 	pub size: u64,
 	pub modified: Option<SystemTime>,
+	/// An opaque version from the source, such as a hash of its etag. When
+	/// set it names the bytes for cache purposes instead of size and mtime,
+	/// which a coarse timestamp cannot tell apart.
+	pub version: Option<u64>,
 }
 
 /// Drives read sizes now and cache and read-ahead policy later; a local
@@ -132,6 +136,7 @@ impl LocalProvider {
 				stat: ByteStat {
 					size: meta.len(),
 					modified: meta.modified().ok(),
+					version: None,
 				},
 				file: Arc::new(file),
 			})
@@ -210,6 +215,7 @@ impl ByteProvider for CloudProvider {
 			Ok(meta) => Ok(ByteStat {
 				size: meta.size,
 				modified: meta.modified,
+				version: None,
 			}),
 			Err(err) => Err(ByteError::NotFound(err.to_string())),
 		}
@@ -245,7 +251,11 @@ pub struct PeerProvider {
 impl ByteProvider for PeerProvider {
 	async fn stat(&self, target: &ByteTarget) -> Result<ByteStat, ByteError> {
 		match super::peer::stat(&self.context, self.device_id, target.path.clone()).await {
-			Ok((size, modified)) => Ok(ByteStat { size, modified }),
+			Ok((size, modified)) => Ok(ByteStat {
+				size,
+				modified,
+				version: None,
+			}),
 			Err(err) => Err(ByteError::PeerUnavailable {
 				device: self.device_label.clone(),
 				reason: err.to_string(),

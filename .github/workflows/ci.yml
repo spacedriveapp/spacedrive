@@ -198,6 +198,12 @@ jobs:
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
         run: cargo check --locked -p sd-core --features wasm
 
+      # The macOS containment walk, F_GETPATH check and firmlink and case
+      # alias tests run only here.
+      - name: Test path containment
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
+        run: cargo test --locked -p sd-core --lib common::contain
+
   typescript:
     name: TypeScript
     runs-on: blacksmith-4vcpu-ubuntu-2204
