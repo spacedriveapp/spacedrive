@@ -6,7 +6,6 @@ import { beardedIconUrls } from "@sd/assets/svgs/ext/Extras/urls";
 import type { File } from "@sd/ts-client";
 import { ThumbstripScrubber } from "./ThumbstripScrubber";
 import { getFileKindForIcon, getVirtualMetadata, getContentKind } from "@sd/ts-client";
-import { useServer } from "../../../contexts/ServerContext";
 import { usePlatform } from "../../../contexts/PlatformContext";
 import { useHotThumb } from "../hooks/useHotThumb";
 
@@ -27,8 +26,6 @@ export const Thumb = memo(function Thumb({
   iconScale = 1,
   squareMode = false,
 }: ThumbProps) {
-  const { buildSidecarUrl } = useServer();
-
   const iconSize = size * iconScale;
 
   // Check for virtual file icon override
@@ -38,74 +35,14 @@ export const Thumb = memo(function Thumb({
   // Check if this is a video with thumbstrip sidecar
   const isVideo = getContentKind(file) === "video";
 
-  // Get appropriate thumbnail URL from sidecars based on size
-  const getThumbnailUrl = (targetSize: number) => {
-    // Need content_identity to build sidecar URL
-    if (!file.content_identity?.uuid) {
-      return null;
-    }
-
-    // Find thumbnail sidecar closest to requested size
-    const thumbnails = file.sidecars.filter((s) => s.kind === "thumb");
-
-    if (thumbnails.length === 0) {
-      return null;
-    }
-
-    // Prefer 1x (lower resolution) variants for better performance
-    // Only use higher resolution for very large sizes (>400px)
-    const preferredSize = targetSize <= 400 ? targetSize * 0.6 : targetSize;
-
-    const thumbnail = thumbnails.sort((a, b) => {
-      // Parse variant (e.g., "grid@1x", "detail@1x") to get size and scale
-      const aSize = parseInt(
-        a.variant.split("x")[0]?.replace(/\D/g, "") || "0",
-      );
-      const bSize = parseInt(
-        b.variant.split("x")[0]?.replace(/\D/g, "") || "0",
-      );
-
-      // Extract scale factor (1x, 2x, 3x) from variants like "grid@1x" or "detail@2x"
-      const aScaleMatch = a.variant.match(/@(\d+)x/);
-      const bScaleMatch = b.variant.match(/@(\d+)x/);
-      const aScale = aScaleMatch ? parseInt(aScaleMatch[1]) : 1;
-      const bScale = bScaleMatch ? parseInt(bScaleMatch[1]) : 1;
-
-      // Strongly prefer 1x variants (add penalty for higher scales)
-      const aPenalty = (aScale - 1) * 100;
-      const bPenalty = (bScale - 1) * 100;
-
-      // Find closest match to preferred size, with scale penalty
-      return (
-        Math.abs(aSize - preferredSize) +
-        aPenalty -
-        (Math.abs(bSize - preferredSize) + bPenalty)
-      );
-    })[0];
-
-    return buildSidecarUrl(
-      file.content_identity.uuid,
-      thumbnail.kind,
-      thumbnail.variant,
-      thumbnail.format,
-      thumbnail.version,
-    );
-  };
-
-  const sidecarSrc = getThumbnailUrl(size);
   const platform = usePlatform();
 
-  // The hot tier covers what sidecars cannot: sidecars are keyed by content
-  // hash, and browsing an unindexed folder never hashes anything. Only files
-  // with no sidecar ask, so an indexed library costs nothing here.
   const wantsHotTile =
-    !sidecarSrc &&
     file.kind !== "Directory" &&
     (getContentKind(file) === "image" || getContentKind(file) === "video");
   const hot = useHotThumb(wantsHotTile ? file.sd_path : null, wantsHotTile);
 
   const thumbnailSrc = (() => {
-    if (sidecarSrc) return sidecarSrc;
     if (hot.url) return hot.url;
     // A tile is on its way. Reaching for the original here would load
     // megabytes for one frame, and outside the asset protocol's scope it

@@ -32,6 +32,26 @@ pub fn kind_directory(kind: &str) -> Option<&'static str> {
 	}
 }
 
+/// The kind a directory under a content uuid holds, the inverse of
+/// [`kind_directory`], so a reader listing the tree names what it finds the
+/// way writers addressed it.
+pub fn directory_kind(directory: &str) -> Option<&'static str> {
+	[
+		"thumb",
+		"thumbstrip",
+		"proxy",
+		"embeddings",
+		"ocr",
+		"transcript",
+		"shots",
+		"keyframe",
+		"gaussian_splat",
+		"audio",
+	]
+	.into_iter()
+	.find(|kind| kind_directory(kind) == Some(directory))
+}
+
 /// Directory for a kind an extension declared: under `extensions/<id>/` so
 /// an extension's kinds never collide with the core's or another's.
 pub fn extension_kind_directory(extension_id: &str, kind: &str) -> String {
@@ -45,6 +65,17 @@ pub fn compute_shards(content_uuid: &Uuid) -> (String, String) {
 	(hex[0..2].to_string(), hex[2..4].to_string())
 }
 
+/// Directory of every sidecar of one content uuid, relative to the library's
+/// `sidecars` directory.
+pub fn content_directory(content_uuid: &Uuid) -> PathBuf {
+	let (h0, h1) = compute_shards(content_uuid);
+	let mut path = PathBuf::from("content");
+	path.push(h0);
+	path.push(h1);
+	path.push(content_uuid.to_string());
+	path
+}
+
 /// Path of a sidecar file relative to the library's `sidecars` directory.
 pub fn relative_path(
 	content_uuid: &Uuid,
@@ -52,11 +83,7 @@ pub fn relative_path(
 	variant: &str,
 	extension: &str,
 ) -> PathBuf {
-	let (h0, h1) = compute_shards(content_uuid);
-	let mut path = PathBuf::from("content");
-	path.push(h0);
-	path.push(h1);
-	path.push(content_uuid.to_string());
+	let mut path = content_directory(content_uuid);
 	path.push(kind_dir);
 	path.push(format!("{variant}.{extension}"));
 	path
@@ -106,5 +133,20 @@ mod tests {
 		assert_eq!(kind_directory("shots"), Some("shots"));
 		assert_eq!(kind_directory("keyframe"), Some("keyframes"));
 		assert_eq!(kind_directory("bogus"), None);
+	}
+
+	#[test]
+	fn every_kind_directory_maps_back_to_its_kind() {
+		for directory in [
+			"thumbs",
+			"proxies",
+			"keyframes",
+			"gaussian_splats",
+			"transcript",
+		] {
+			let kind = directory_kind(directory).unwrap();
+			assert_eq!(kind_directory(kind), Some(directory));
+		}
+		assert_eq!(directory_kind("extensions"), None);
 	}
 }

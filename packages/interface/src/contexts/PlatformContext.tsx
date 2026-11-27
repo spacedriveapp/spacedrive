@@ -58,15 +58,6 @@ export type Platform = {
 	/** Open multiple files with specific application */
 	openPathsWithApp?(paths: string[], appId: string): Promise<OpenResult[]>;
 
-	/** Get the physical path to a sidecar file */
-	getSidecarPath?(
-		libraryId: string,
-		contentUuid: string,
-		kind: string,
-		variant: string,
-		format: string
-	): Promise<string>;
-
 	/** Update native menu item states (Tauri only) */
 	updateMenuItems?(items: MenuItemState[]): Promise<void>;
 

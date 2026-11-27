@@ -172,7 +172,7 @@ crate::register_resource!(Thumbstrip);
 
 /// What a path resolves to in the cache: which file holds its tile, under
 /// which key, at which version.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct TileIdentity {
 	pub source_id: Uuid,
 	pub uuid: Uuid,
@@ -192,7 +192,7 @@ pub(crate) struct TilePixels {
 }
 
 /// Address and state for one volume-scoped video scrub sheet.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct ThumbstripIdentity {
 	pub source_id: Uuid,
 	pub uuid: Uuid,
@@ -204,6 +204,22 @@ pub struct ThumbstripIdentity {
 	pub ready: bool,
 	pub pending: bool,
 	pub available: bool,
+}
+
+/// What [`ThumbService::made_for`] found for one file.
+#[derive(Debug, Default)]
+pub struct MadeThumbs {
+	pub tile: Option<MadeArtifact<TileIdentity>>,
+	pub thumbstrip: Option<MadeArtifact<ThumbstripIdentity>>,
+}
+
+/// One artifact the service made: how a client addresses it, its stored size
+/// when it has one of its own, and the file on this device that holds it.
+#[derive(Debug)]
+pub struct MadeArtifact<I> {
+	pub identity: I,
+	pub size: Option<u64>,
+	pub file: PathBuf,
 }
 
 /// The key the pool echoes back on a finished bake.
@@ -958,6 +974,60 @@ impl ThumbService {
 		}
 
 		Some(thumbstrip_identity(identity, false, true, true))
+	}
+
+	/// The tile and scrub sheet this device already holds for a file, found
+	/// without queuing either, so asking what a file has never makes more.
+	/// Neither store is created when it does not exist yet.
+	pub async fn made_for(self: &Arc<Self>, path: &PathBuf) -> MadeThumbs {
+		let mut made = MadeThumbs::default();
+		let Some(dirs) = self.dirs.as_ref() else {
+			return made;
+		};
+		if let Some(identity) = self.thumbnail_identity(path).await {
+			let source = self.volume_index.source_id_for(path);
+			let store = match source {
+				Some(source) => self.existing_sidecars(source).await,
+				None => None,
+			}
+			.filter(|store| store.version_of(identity.uuid) == Some(identity.version));
+			if let (Some(store), Some(source)) = (store, source) {
+				let stored = store.read(identity.uuid).await.ok().flatten();
+				made.tile = Some(MadeArtifact {
+					identity,
+					size: stored.map(|tile| tile.webp.len() as u64),
+					file: dirs.sidecars_file(source),
+				});
+			} else if tokio::fs::try_exists(dirs.thumbs_file(identity.source_id))
+				.await
+				.unwrap_or(false)
+				&& matches!(
+					self.cache_state(identity).await,
+					Some(TileState::Fresh { .. })
+				) {
+				// Only the raw cache holds it, which has no per-tile size worth
+				// reporting.
+				made.tile = Some(MadeArtifact {
+					identity,
+					size: None,
+					file: dirs.thumbs_file(identity.source_id),
+				});
+			}
+		}
+		if is_video(path) {
+			if let Some(identity) = self.resolve_identity(path).await {
+				let file =
+					dirs.thumbstrip_file(identity.source_id, identity.uuid, identity.version);
+				if let Ok(metadata) = tokio::fs::metadata(&file).await {
+					made.thumbstrip = Some(MadeArtifact {
+						identity: thumbstrip_identity(identity, true, false, true),
+						size: Some(metadata.len()),
+						file,
+					});
+				}
+			}
+		}
+		made
 	}
 
 	async fn resolve_identity(&self, path: &PathBuf) -> Option<TileIdentity> {

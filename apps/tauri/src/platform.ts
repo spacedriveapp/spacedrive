@@ -157,22 +157,6 @@ export const platform: Platform = {
 		>('open_paths_with_app', {paths, appId});
 	},
 
-	async getSidecarPath(
-		libraryId: string,
-		contentUuid: string,
-		kind: string,
-		variant: string,
-		format: string
-	) {
-		return await invoke<string>('get_sidecar_path', {
-			libraryId,
-			contentUuid,
-			kind,
-			variant,
-			format
-		});
-	},
-
 	async updateMenuItems(items) {
 		await invoke('update_menu_items', {items});
 	},

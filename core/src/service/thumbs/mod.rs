@@ -32,6 +32,6 @@ mod thumbstrip;
 
 pub(crate) use ffmpeg::is_video;
 pub use service::{
-	GenerationOutcome, ThumbService, Thumbnail, ThumbnailGenerationMode, Thumbstrip,
-	ThumbstripIdentity, TileIdentity, TILE,
+	GenerationOutcome, MadeArtifact, MadeThumbs, ThumbService, Thumbnail, ThumbnailGenerationMode,
+	Thumbstrip, ThumbstripIdentity, TileIdentity, TILE,
 };
