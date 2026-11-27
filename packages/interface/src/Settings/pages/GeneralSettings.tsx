@@ -103,6 +103,8 @@ function CommandLineToolSetting() {
 	const notes = [
 		install.data?.fell_back &&
 			"Administrator access was not granted, so sd was linked in your home folder instead.",
+		install.data?.shadowed_by &&
+			`${install.data.shadowed_by} still runs another copy and comes first on the default PATH. Put ~/.local/bin before /usr/local/bin in your PATH, or reinstall and allow administrator access.`,
 		data?.path_hint &&
 			`Add ${data.path_hint} to your PATH if your shell cannot find sd.`,
 		error?.message,

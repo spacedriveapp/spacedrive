@@ -267,7 +267,12 @@ export type CliInstallOutput = { status: CliInstallStatus;
  * Administrator access was refused, so the link went to `~/.local/bin`
  * instead of `/usr/local/bin`.
  */
-fell_back: boolean };
+fell_back: boolean; 
+/**
+ * A command that a default PATH finds before the new link, such as an
+ * older `/usr/local/bin/sd` that only an administrator can replace.
+ */
+shadowed_by: string | null };
 
 export type CliInstallStatus = { 
 /**

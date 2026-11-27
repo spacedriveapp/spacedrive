@@ -20,6 +20,9 @@ pub struct CliInstallOutput {
 	/// Administrator access was refused, so the link went to `~/.local/bin`
 	/// instead of `/usr/local/bin`.
 	pub fell_back: bool,
+	/// A command that a default PATH finds before the new link, such as an
+	/// older `/usr/local/bin/sd` that only an administrator can replace.
+	pub shadowed_by: Option<String>,
 }
 
 pub struct CliInstallAction;
@@ -37,6 +40,7 @@ impl CoreAction for CliInstallAction {
 		Ok(CliInstallOutput {
 			status: super::status().await,
 			fell_back: installed.fell_back,
+			shadowed_by: installed.shadowed_by,
 		})
 	}
 

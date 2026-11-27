@@ -56,13 +56,15 @@ pub struct CliInstallStatus {
 }
 
 /// The CLI beside the running daemon, resolved through any links.
-fn bundled_cli() -> Option<PathBuf> {
+async fn bundled_cli() -> Option<PathBuf> {
 	let exe = std::env::current_exe().ok()?;
-	let exe = exe.canonicalize().unwrap_or(exe);
+	let exe = tokio::fs::canonicalize(&exe).await.unwrap_or(exe);
 	let cli = exe
 		.parent()?
 		.join(format!("sd-cli{}", std::env::consts::EXE_SUFFIX));
-	cli.canonicalize().ok().filter(|path| path.is_file())
+	let cli = tokio::fs::canonicalize(cli).await.ok()?;
+	let meta = tokio::fs::metadata(&cli).await.ok()?;
+	meta.is_file().then_some(cli)
 }
 
 fn user_link() -> Option<PathBuf> {
@@ -133,7 +135,7 @@ pub async fn status() -> CliInstallStatus {
 	status_for(
 		&link_locations(),
 		user_link().as_deref(),
-		bundled_cli().as_deref(),
+		bundled_cli().await.as_deref(),
 	)
 	.await
 }
@@ -223,15 +225,19 @@ async fn install_system_link(bundled: &Path) -> bool {
 	.await
 }
 
-/// The outcome of an install: where `sd` now points, and whether it fell
-/// back to `~/.local/bin` because administrator access was refused.
+/// The outcome of an install.
 pub struct Installed {
+	/// Administrator access was refused, so the link went to `~/.local/bin`.
 	pub fell_back: bool,
+	/// A command that a default PATH finds before the new link, left in place
+	/// because replacing it needed the refused administrator access.
+	pub shadowed_by: Option<String>,
 }
 
 /// Links `sd` to the CLI beside this daemon.
 pub async fn install() -> Result<Installed, String> {
 	let bundled = bundled_cli()
+		.await
 		.ok_or("This copy of Spacedrive has no command line tool beside its daemon to install.")?;
 	// A quarantined app runs from a random read-only path that changes on
 	// every launch, so a link to it would break.
@@ -245,7 +251,10 @@ pub async fn install() -> Result<Installed, String> {
 	#[cfg(target_os = "macos")]
 	if install_system_link(&bundled).await {
 		info!(target = %bundled.display(), "Linked {SYSTEM_LINK}");
-		return Ok(Installed { fell_back: false });
+		return Ok(Installed {
+			fell_back: false,
+			shadowed_by: None,
+		});
 	}
 
 	let link = user_link().ok_or("Could not find the home folder")?;
@@ -257,15 +266,24 @@ pub async fn install() -> Result<Installed, String> {
 		.await
 		.map_err(|e| format!("Could not link {}: {e}", link.display()))?;
 	info!(target = %bundled.display(), link = %link.display(), "Linked the command line tool");
+	#[cfg(target_os = "macos")]
+	let shadowed_by = match link_at(Path::new(SYSTEM_LINK), Some(&bundled)).await {
+		Some(CliLink::Other { path, .. }) => Some(path),
+		_ => None,
+	};
+	#[cfg(not(target_os = "macos"))]
+	let shadowed_by = None;
+
 	Ok(Installed {
 		fell_back: cfg!(target_os = "macos"),
+		shadowed_by,
 	})
 }
 
 /// Removes every `sd` link that points at the CLI beside this daemon,
 /// leaving links and binaries from anything else alone.
 pub async fn uninstall() -> Result<(), String> {
-	let bundled = bundled_cli();
+	let bundled = bundled_cli().await;
 	for location in link_locations() {
 		if !matches!(
 			link_at(&location, bundled.as_deref()).await,

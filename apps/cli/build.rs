@@ -25,4 +25,13 @@ fn main() {
 		.unwrap_or_else(|| "unknown".to_string());
 
 	println!("cargo:rustc-env=SD_GIT_SHA={}", sha);
+
+	// The desktop app builds this binary with sd-core's ai-local feature,
+	// whose ONNX Runtime archive needs the clang runtime helper that rustc's
+	// -nodefaultlibs link drops. sd-core's build script adds the flag only to
+	// its own binaries, and this script cannot see sd-core's features, so every
+	// macOS build links the runtime; it adds nothing when unused.
+	if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
+		println!("cargo:rustc-link-arg=-fapple-link-rtlib");
+	}
 }
