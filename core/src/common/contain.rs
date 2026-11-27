@@ -36,6 +36,7 @@
 use std::fs::File;
 use std::io;
 use std::path::Path;
+use std::time::SystemTime;
 
 const MAX_COMPONENT_BYTES: usize = 255;
 
@@ -45,7 +46,7 @@ const MAX_COMPONENT_BYTES: usize = 255;
 /// `relative` is validated before the filesystem is touched: absolute paths,
 /// empty, `.` and `..` components, NUL and components over 255 bytes are
 /// `InvalidInput`, as are, on Windows, `:`, a trailing dot or space and
-/// reserved device names. Windows accepts `\\` as a separator like `/`.
+/// reserved device names. Windows accepts `\` as a separator like `/`.
 /// `root` itself is trusted and may be a symlink or spelled differently from
 /// its real path. Directories open too, so the handle can answer `metadata`
 /// for either. On Unix the handle is non-blocking, so a FIFO opens at once
@@ -59,6 +60,119 @@ pub fn open_beneath(root: &Path, relative: &Path) -> io::Result<File> {
 /// [`open_beneath`] opens what lies under it.
 pub fn open_root(root: &Path) -> io::Result<File> {
 	imp::open_root(root)
+}
+
+/// Confirms that `relative` resolves beneath `root` without opening it for
+/// reading.
+///
+/// Links are followed the way [`open_beneath`] follows them, and the answer
+/// is the same: `PermissionDenied` for a resolution that leaves the root,
+/// `NotFound` when nothing is there. Nothing is opened for reading, so a
+/// FIFO cannot block the call and a cloud placeholder is not downloaded. Linux
+/// opens the path with `O_PATH`; elsewhere the last component is only
+/// stat'ed.
+pub fn reach_beneath(root: &Path, relative: &Path) -> io::Result<()> {
+	let components = validate(relative)?;
+	imp::reach_beneath(root, &components)
+}
+
+/// Describes `relative` beneath `root` without following a final symlink.
+///
+/// The parent directory is opened beneath the root and the last component is
+/// described through that handle, so a link at the end is reported as a link
+/// and a file is never opened, which keeps FIFOs and cloud placeholders safe.
+/// An empty `relative` describes the root itself.
+pub fn stat_beneath(root: &Path, relative: &Path) -> io::Result<Stat> {
+	if relative.as_os_str().is_empty() {
+		return Ok(Stat::from(&open_root(root)?.metadata()?));
+	}
+	let mut components = validate(relative)?;
+	let leaf = components
+		.pop()
+		.expect("validate returns at least one component");
+	Directory::open_components(root, &components)?.stat(&leaf)
+}
+
+/// What a path is, as [`stat_beneath`] and [`Directory::stat`] describe it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kind {
+	File,
+	Dir,
+	Symlink,
+	Other,
+}
+
+/// The facts a caller can show about one path, taken from a handle.
+#[derive(Debug, Clone)]
+pub struct Stat {
+	pub kind: Kind,
+	pub len: u64,
+	pub modified: Option<SystemTime>,
+	pub accessed: Option<SystemTime>,
+	pub created: Option<SystemTime>,
+	pub readonly: bool,
+}
+
+impl From<&std::fs::Metadata> for Stat {
+	fn from(meta: &std::fs::Metadata) -> Self {
+		let file_type = meta.file_type();
+		Self {
+			kind: if file_type.is_symlink() {
+				Kind::Symlink
+			} else if file_type.is_dir() {
+				Kind::Dir
+			} else if file_type.is_file() {
+				Kind::File
+			} else {
+				Kind::Other
+			},
+			len: meta.len(),
+			modified: meta.modified().ok(),
+			accessed: meta.accessed().ok(),
+			created: meta.created().ok(),
+			readonly: meta.permissions().readonly(),
+		}
+	}
+}
+
+/// A directory opened beneath a root, listed and described through its
+/// handle.
+///
+/// Listing a directory by path follows a symlink swapped in for it, so a
+/// listing reads the names of whatever the path points at by then. Listing
+/// through the handle reads the directory that was checked, and its entries
+/// are described without following them.
+pub struct Directory(imp::Directory);
+
+impl Directory {
+	/// Opens the directory at `relative` beneath `root`, or the root itself
+	/// when `relative` is empty. Anything other than a directory is
+	/// `NotADirectory`, refused before it is opened.
+	pub fn open(root: &Path, relative: &Path) -> io::Result<Self> {
+		if relative.as_os_str().is_empty() {
+			return Self::open_components(root, &[]);
+		}
+		Self::open_components(root, &validate(relative)?)
+	}
+
+	fn open_components(root: &Path, components: &[std::ffi::OsString]) -> io::Result<Self> {
+		imp::Directory::open(root, components).map(Self)
+	}
+
+	/// The names in the directory, unsorted, without `.` and `..`.
+	pub fn names(&self) -> io::Result<Vec<std::ffi::OsString>> {
+		self.0.names()
+	}
+
+	/// Describes the entry `name` without following it when it is a link.
+	pub fn stat(&self, name: &std::ffi::OsStr) -> io::Result<Stat> {
+		let raw = name.as_encoded_bytes();
+		check_component(raw)?;
+		if raw.contains(&b'/') || (cfg!(windows) && raw.contains(&b'\\')) {
+			return Err(invalid("name holds a separator"));
+		}
+		self.0.stat(name)
+	}
 }
 
 fn invalid(reason: &str) -> io::Error {
@@ -141,35 +255,71 @@ fn check_component(part: &[u8]) -> io::Result<()> {
 
 #[cfg(unix)]
 mod imp {
-	use std::ffi::{CString, OsStr, OsString};
+	use std::ffi::{CStr, CString, OsStr, OsString};
 	use std::fs::File;
 	use std::io;
 	use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 	use std::os::unix::ffi::OsStrExt;
 	use std::path::{Component, Path, PathBuf};
 
-	use super::escaped;
+	use super::{escaped, Stat};
 
 	/// Symlink expansions allowed in one walk, matching Linux's own limit.
 	const MAX_LINKS: usize = 40;
+
+	/// What the last component of a walk is opened as.
+	#[derive(Clone, Copy, PartialEq, Eq)]
+	pub(super) enum Leaf {
+		/// Opened read-only and non-blocking, whatever it is.
+		Any,
+		/// Opened only if it is a directory.
+		Directory,
+		/// Stat'ed, never opened.
+		Probe,
+	}
+
+	/// Where a walk ended.
+	pub(super) enum Reached {
+		Opened(File),
+		/// A probe found the last component in this directory, which macOS
+		/// checks with `F_GETPATH`.
+		Probed(#[cfg_attr(not(target_os = "macos"), allow(dead_code))] OwnedFd),
+	}
 
 	pub fn open_root(root: &Path) -> io::Result<File> {
 		File::open(root)
 	}
 
 	pub fn open_beneath(root: &Path, components: &[OsString]) -> io::Result<File> {
+		match resolve(root, components, Leaf::Any)? {
+			Reached::Opened(file) => Ok(file),
+			Reached::Probed(_) => unreachable!("only a probe stops short of opening"),
+		}
+	}
+
+	pub fn reach_beneath(root: &Path, components: &[OsString]) -> io::Result<()> {
+		resolve(root, components, Leaf::Probe).map(drop)
+	}
+
+	/// The root's real path and a directory handle on it.
+	fn root_dir(root: &Path) -> io::Result<(PathBuf, OwnedFd)> {
 		// The root is trusted, so resolve its spelling once; absolute links
 		// are judged against this real path.
 		let real_root = std::fs::canonicalize(root)?;
-		let root_fd = open_at(
+		let fd = open_at(
 			None,
 			real_root.as_os_str(),
 			libc::O_RDONLY | libc::O_DIRECTORY,
 		)?;
+		Ok((real_root, fd))
+	}
+
+	fn resolve(root: &Path, components: &[OsString], leaf: Leaf) -> io::Result<Reached> {
+		let (real_root, root_fd) = root_dir(root)?;
 
 		#[cfg(target_os = "linux")]
-		match openat2_beneath(&root_fd, components) {
-			Ok(file) => return Ok(file),
+		match openat2_beneath(&root_fd, components, leaf) {
+			Ok(file) => return Ok(Reached::Opened(file)),
 			// ENOSYS is a kernel without openat2. EXDEV is a link leaving
 			// the root or an absolute link, which the walk judges against
 			// the real root so an absolute link back inside still opens.
@@ -177,10 +327,13 @@ mod imp {
 			Err(err) => return Err(err),
 		}
 
-		let file = walk(&root_fd, &real_root, components)?;
+		let reached = walk_to(&root_fd, &real_root, components, leaf)?;
 		#[cfg(target_os = "macos")]
-		check_final_path(&root_fd, &file)?;
-		Ok(file)
+		match &reached {
+			Reached::Opened(file) => check_final_path(&root_fd, file.as_raw_fd())?,
+			Reached::Probed(dir) => check_final_path(&root_fd, dir.as_raw_fd())?,
+		}
+		Ok(reached)
 	}
 
 	fn cstring(name: &OsStr) -> io::Result<CString> {
@@ -197,12 +350,35 @@ mod imp {
 		Ok(unsafe { OwnedFd::from_raw_fd(fd) })
 	}
 
+	/// `name` in `dir` as `fstatat` describes it, links not followed.
+	fn lstat_at(dir: libc::c_int, name: &OsStr) -> io::Result<libc::stat> {
+		let name = cstring(name)?;
+		let mut stat = std::mem::MaybeUninit::<libc::stat>::uninit();
+		let result = unsafe {
+			libc::fstatat(
+				dir,
+				name.as_ptr(),
+				stat.as_mut_ptr(),
+				libc::AT_SYMLINK_NOFOLLOW,
+			)
+		};
+		if result != 0 {
+			return Err(io::Error::last_os_error());
+		}
+		Ok(unsafe { stat.assume_init() })
+	}
+
 	#[cfg(target_os = "linux")]
-	fn openat2_beneath(root: &OwnedFd, components: &[OsString]) -> io::Result<File> {
+	fn openat2_beneath(root: &OwnedFd, components: &[OsString], leaf: Leaf) -> io::Result<File> {
 		let joined: PathBuf = components.iter().collect();
 		let path = cstring(joined.as_os_str())?;
 		let mut how: libc::open_how = unsafe { std::mem::zeroed() };
-		how.flags = (libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NOCTTY | libc::O_NONBLOCK) as u64;
+		let flags = match leaf {
+			Leaf::Any => libc::O_RDONLY | libc::O_NOCTTY | libc::O_NONBLOCK,
+			Leaf::Directory => libc::O_RDONLY | libc::O_DIRECTORY,
+			Leaf::Probe => libc::O_PATH,
+		};
+		how.flags = (flags | libc::O_CLOEXEC) as u64;
 		how.resolve = libc::RESOLVE_BENEATH | libc::RESOLVE_NO_MAGICLINKS;
 		// The kernel answers EAGAIN when a rename races the resolution.
 		for _ in 0..8 {
@@ -230,11 +406,24 @@ mod imp {
 	/// kernel follow a link. Each directory handle stays open on a stack, so
 	/// `..` from a link target pops back to its parent and an attempt to pop
 	/// the root itself is an escape.
+	#[cfg(test)]
 	pub(super) fn walk(
 		root: &OwnedFd,
 		real_root: &Path,
 		components: &[OsString],
 	) -> io::Result<File> {
+		match walk_to(root, real_root, components, Leaf::Any)? {
+			Reached::Opened(file) => Ok(file),
+			Reached::Probed(_) => unreachable!("only a probe stops short of opening"),
+		}
+	}
+
+	pub(super) fn walk_to(
+		root: &OwnedFd,
+		real_root: &Path,
+		components: &[OsString],
+		leaf: Leaf,
+	) -> io::Result<Reached> {
 		let mut stack: Vec<OwnedFd> = vec![root.try_clone()?];
 		let mut pending: Vec<OsString> = components.iter().rev().cloned().collect();
 		let mut links = 0;
@@ -251,15 +440,24 @@ mod imp {
 				continue;
 			}
 			let last = pending.is_empty();
-			let flags = libc::O_NOFOLLOW
-				| libc::O_NOCTTY
-				| if last {
-					libc::O_RDONLY | libc::O_NONBLOCK
-				} else {
-					libc::O_RDONLY | libc::O_DIRECTORY
-				};
 			let dir = stack.last().expect("stack holds the root");
-			let opened = match open_at(Some(dir), &name, flags) {
+			let attempt = if last && leaf == Leaf::Probe {
+				let stat = lstat_at(dir.as_raw_fd(), &name)?;
+				if stat.st_mode & libc::S_IFMT != libc::S_IFLNK {
+					return Ok(Reached::Probed(dir.try_clone()?));
+				}
+				Err(io::Error::from_raw_os_error(libc::ELOOP))
+			} else {
+				let flags = libc::O_NOFOLLOW
+					| libc::O_NOCTTY
+					| if last && leaf == Leaf::Any {
+						libc::O_RDONLY | libc::O_NONBLOCK
+					} else {
+						libc::O_RDONLY | libc::O_DIRECTORY
+					};
+				open_at(Some(dir), &name, flags)
+			};
+			let opened = match attempt {
 				Ok(fd) => fd,
 				Err(err)
 					if matches!(err.raw_os_error(), Some(libc::ELOOP) | Some(libc::ENOTDIR)) =>
@@ -290,12 +488,16 @@ mod imp {
 				Err(err) => return Err(err),
 			};
 			if last {
-				return Ok(File::from(opened));
+				return Ok(Reached::Opened(File::from(opened)));
 			}
 			stack.push(opened);
 		}
 		// Every component was consumed by links ending at a directory.
-		Ok(File::from(stack.pop().expect("stack holds the root")))
+		let dir = stack.pop().expect("stack holds the root");
+		Ok(match leaf {
+			Leaf::Probe => Reached::Probed(dir),
+			Leaf::Any | Leaf::Directory => Reached::Opened(File::from(dir)),
+		})
 	}
 
 	/// The link's target when `name` is a symlink, or `None` when the open
@@ -323,24 +525,128 @@ mod imp {
 		Ok(Some(PathBuf::from(OsStr::from_bytes(&buf))))
 	}
 
-	/// The walk already refuses every link that leaves the root; asking the
-	/// kernel for the handle's path is a second check against firmlink and
-	/// mount surprises the walk cannot see.
+	/// The kernel's own path for an open descriptor.
 	#[cfg(target_os = "macos")]
-	fn check_final_path(root: &OwnedFd, file: &File) -> io::Result<()> {
-		fn real_path(fd: libc::c_int) -> io::Result<PathBuf> {
-			let mut buf = vec![0u8; libc::MAXPATHLEN as usize];
-			if unsafe { libc::fcntl(fd, libc::F_GETPATH, buf.as_mut_ptr()) } < 0 {
-				return Err(io::Error::last_os_error());
-			}
-			let len = buf.iter().position(|b| *b == 0).unwrap_or(buf.len());
-			buf.truncate(len);
-			Ok(PathBuf::from(OsStr::from_bytes(&buf)))
+	pub(super) fn kernel_path(fd: libc::c_int) -> io::Result<PathBuf> {
+		let mut buf = vec![0u8; libc::MAXPATHLEN as usize];
+		if unsafe { libc::fcntl(fd, libc::F_GETPATH, buf.as_mut_ptr()) } < 0 {
+			return Err(io::Error::last_os_error());
 		}
-		if real_path(file.as_raw_fd())?.starts_with(real_path(root.as_raw_fd())?) {
+		let len = buf.iter().position(|b| *b == 0).unwrap_or(buf.len());
+		buf.truncate(len);
+		Ok(PathBuf::from(OsStr::from_bytes(&buf)))
+	}
+
+	/// The walk already refuses every link that leaves the root; asking the
+	/// kernel for both handles' paths is a second check against firmlink and
+	/// mount surprises the walk cannot see. Both paths come from `F_GETPATH`,
+	/// so `/Users` and `/System/Volumes/Data/Users`, or two cases of one name
+	/// on a case-insensitive volume, are spelled the same way on both sides
+	/// whatever spelling the caller used for the root.
+	#[cfg(target_os = "macos")]
+	fn check_final_path(root: &OwnedFd, fd: libc::c_int) -> io::Result<()> {
+		if kernel_path(fd)?.starts_with(kernel_path(root.as_raw_fd())?) {
 			Ok(())
 		} else {
 			Err(escaped())
+		}
+	}
+
+	#[cfg(target_os = "android")]
+	use libc::__errno as errno;
+	#[cfg(target_os = "linux")]
+	use libc::__errno_location as errno;
+	#[cfg(any(target_os = "macos", target_os = "ios", target_os = "freebsd"))]
+	use libc::__error as errno;
+
+	pub struct Directory(OwnedFd);
+
+	impl Directory {
+		pub fn open(root: &Path, components: &[OsString]) -> io::Result<Self> {
+			if components.is_empty() {
+				return Ok(Self(root_dir(root)?.1));
+			}
+			match resolve(root, components, Leaf::Directory)? {
+				Reached::Opened(file) => Ok(Self(file.into())),
+				Reached::Probed(_) => unreachable!("only a probe stops short of opening"),
+			}
+		}
+
+		pub fn names(&self) -> io::Result<Vec<OsString>> {
+			// fdopendir owns the descriptor it is given and closedir closes
+			// it, so it gets a duplicate.
+			let fd = unsafe { libc::fcntl(self.0.as_raw_fd(), libc::F_DUPFD_CLOEXEC, 0) };
+			if fd < 0 {
+				return Err(io::Error::last_os_error());
+			}
+			let stream = unsafe { libc::fdopendir(fd) };
+			if stream.is_null() {
+				let err = io::Error::last_os_error();
+				unsafe { libc::close(fd) };
+				return Err(err);
+			}
+			// The duplicate shares the original's offset.
+			unsafe { libc::rewinddir(stream) };
+			let mut names = Vec::new();
+			let result = loop {
+				// readdir answers NULL both at the end and on error; only errno
+				// tells them apart.
+				unsafe { *errno() = 0 };
+				let entry = unsafe { libc::readdir(stream) };
+				if entry.is_null() {
+					let errno = unsafe { *errno() };
+					break if errno == 0 {
+						Ok(())
+					} else {
+						Err(io::Error::from_raw_os_error(errno))
+					};
+				}
+				let name = unsafe { CStr::from_ptr((*entry).d_name.as_ptr()) }.to_bytes();
+				if name != b"." && name != b".." {
+					names.push(OsStr::from_bytes(name).to_os_string());
+				}
+			};
+			unsafe { libc::closedir(stream) };
+			result.map(|()| names)
+		}
+
+		/// Linux opens the entry with `O_PATH`, which reads nothing, so the
+		/// description comes from the standard library and carries the birth
+		/// time `statx` reports.
+		#[cfg(target_os = "linux")]
+		pub fn stat(&self, name: &OsStr) -> io::Result<Stat> {
+			let fd = open_at(Some(&self.0), name, libc::O_PATH | libc::O_NOFOLLOW)?;
+			Ok(Stat::from(&File::from(fd).metadata()?))
+		}
+
+		#[cfg(not(target_os = "linux"))]
+		pub fn stat(&self, name: &OsStr) -> io::Result<Stat> {
+			use std::time::{Duration, SystemTime};
+
+			use super::Kind;
+
+			let raw = lstat_at(self.0.as_raw_fd(), name)?;
+			let time = |secs: libc::time_t, nanos: libc::c_long| {
+				let secs = u64::try_from(secs).ok()?;
+				SystemTime::UNIX_EPOCH.checked_add(Duration::new(secs, nanos as u32))
+			};
+			#[cfg(any(target_os = "macos", target_os = "ios"))]
+			let created = time(raw.st_birthtime, raw.st_birthtime_nsec);
+			#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+			let created = None;
+			Ok(Stat {
+				kind: match raw.st_mode & libc::S_IFMT {
+					libc::S_IFLNK => Kind::Symlink,
+					libc::S_IFDIR => Kind::Dir,
+					libc::S_IFREG => Kind::File,
+					_ => Kind::Other,
+				},
+				len: raw.st_size as u64,
+				modified: time(raw.st_mtime, raw.st_mtime_nsec),
+				accessed: time(raw.st_atime, raw.st_atime_nsec),
+				created,
+				readonly: raw.st_mode & 0o222 == 0,
+			})
 		}
 	}
 }
@@ -369,6 +675,10 @@ mod imp {
 			.open(path)
 	}
 
+	pub fn reach_beneath(root: &Path, components: &[OsString]) -> io::Result<()> {
+		open_beneath(root, components).map(drop)
+	}
+
 	pub fn open_beneath(root: &Path, components: &[OsString]) -> io::Result<File> {
 		let root_handle = open_root(root)?;
 		let file = open_root(&components.iter().fold(root.to_path_buf(), |p, c| p.join(c)))?;
@@ -378,6 +688,43 @@ mod imp {
 			Ok(file)
 		} else {
 			Err(escaped())
+		}
+	}
+
+	/// Windows cannot list or describe relative to a directory handle, so the
+	/// handle is held open, which keeps the directory from being renamed or
+	/// replaced, and its final path is used.
+	pub struct Directory {
+		path: PathBuf,
+		_handle: File,
+	}
+
+	impl Directory {
+		pub fn open(root: &Path, components: &[OsString]) -> io::Result<Self> {
+			let handle = if components.is_empty() {
+				open_root(root)?
+			} else {
+				open_beneath(root, components)?
+			};
+			if !handle.metadata()?.is_dir() {
+				return Err(io::Error::from(io::ErrorKind::NotADirectory));
+			}
+			Ok(Self {
+				path: final_path(&handle)?,
+				_handle: handle,
+			})
+		}
+
+		pub fn names(&self) -> io::Result<Vec<OsString>> {
+			std::fs::read_dir(&self.path)?
+				.map(|entry| entry.map(|entry| entry.file_name()))
+				.collect()
+		}
+
+		pub fn stat(&self, name: &std::ffi::OsStr) -> io::Result<super::Stat> {
+			Ok(super::Stat::from(&std::fs::symlink_metadata(
+				self.path.join(name),
+			)?))
 		}
 	}
 
@@ -535,6 +882,278 @@ mod tests {
 		assert_eq!(
 			walk("a/out/sub/deep.txt").unwrap_err().kind(),
 			io::ErrorKind::PermissionDenied
+		);
+	}
+
+	#[test]
+	fn reach_follows_inner_links_and_refuses_outer_ones() {
+		let (temp, root) = tree();
+		symlink("b/inner.txt", root.join("a/file_link")).unwrap();
+		symlink(temp.path().join("outside"), root.join("a/out")).unwrap();
+		assert!(reach_beneath(&root, Path::new("a/b/inner.txt")).is_ok());
+		assert!(reach_beneath(&root, Path::new("a/file_link")).is_ok());
+		for escape in ["a/out", "a/out/secret.txt"] {
+			let err = reach_beneath(&root, Path::new(escape)).unwrap_err();
+			assert_eq!(err.kind(), io::ErrorKind::PermissionDenied, "{escape}");
+		}
+		let err = reach_beneath(&root, Path::new("a/missing.txt")).unwrap_err();
+		assert_eq!(err.kind(), io::ErrorKind::NotFound);
+		let err = reach_beneath(&root, Path::new("../outside")).unwrap_err();
+		assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+	}
+
+	#[test]
+	fn reach_does_not_wait_on_a_fifo() {
+		let (_temp, root) = tree();
+		let fifo = std::ffi::CString::new(root.join("pipe").into_os_string().into_encoded_bytes())
+			.unwrap();
+		assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) }, 0);
+		assert!(reach_beneath(&root, Path::new("pipe")).is_ok());
+		assert_eq!(
+			stat_beneath(&root, Path::new("pipe")).unwrap().kind,
+			Kind::Other
+		);
+	}
+
+	#[test]
+	fn stat_describes_a_final_link_without_following_it() {
+		let (temp, root) = tree();
+		symlink(
+			temp.path().join("outside/secret.txt"),
+			root.join("a/escape"),
+		)
+		.unwrap();
+		let link = stat_beneath(&root, Path::new("a/escape")).unwrap();
+		assert_eq!(link.kind, Kind::Symlink);
+		let file = stat_beneath(&root, Path::new("a/b/inner.txt")).unwrap();
+		assert_eq!((file.kind, file.len), (Kind::File, 5));
+		assert!(file.modified.is_some());
+		assert_eq!(stat_beneath(&root, Path::new("")).unwrap().kind, Kind::Dir);
+		symlink(temp.path().join("outside"), root.join("out")).unwrap();
+		let err = stat_beneath(&root, Path::new("out/secret.txt")).unwrap_err();
+		assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+	}
+
+	#[test]
+	fn a_directory_lists_through_its_handle() {
+		let (temp, root) = tree();
+		symlink(temp.path().join("outside"), root.join("a/out")).unwrap();
+		let dir = Directory::open(&root, Path::new("a")).unwrap();
+		let mut names = dir.names().unwrap();
+		names.sort();
+		assert_eq!(names, vec![std::ffi::OsString::from("b"), "out".into()]);
+		assert_eq!(dir.stat("b".as_ref()).unwrap().kind, Kind::Dir);
+		assert_eq!(dir.stat("out".as_ref()).unwrap().kind, Kind::Symlink);
+		assert_eq!(
+			dir.stat("b/inner.txt".as_ref()).unwrap_err().kind(),
+			io::ErrorKind::InvalidInput
+		);
+		let err = Directory::open(&root, Path::new("a/out")).err().unwrap();
+		assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+		let err = Directory::open(&root, Path::new("a/b/inner.txt"))
+			.err()
+			.unwrap();
+		assert_eq!(err.kind(), io::ErrorKind::NotADirectory);
+		assert!(Directory::open(&root, Path::new(""))
+			.unwrap()
+			.names()
+			.unwrap()
+			.contains(&"a".into()));
+	}
+
+	/// Swaps `swap` between a real directory and a symlink to `outside`
+	/// until `stop` is set. Each half is two renames, so the name is
+	/// briefly missing too.
+	fn swapper(
+		root: std::path::PathBuf,
+		stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+	) -> std::thread::JoinHandle<u64> {
+		std::thread::spawn(move || {
+			use std::sync::atomic::Ordering;
+			let (name, aside, link) = (
+				root.join("swap"),
+				root.join("swap.real"),
+				root.join("swap.link"),
+			);
+			let mut swaps = 0;
+			while !stop.load(Ordering::Relaxed) {
+				std::fs::rename(&name, &aside).unwrap();
+				std::fs::rename(&link, &name).unwrap();
+				std::fs::rename(&name, &link).unwrap();
+				std::fs::rename(&aside, &name).unwrap();
+				swaps += 1;
+			}
+			swaps
+		})
+	}
+
+	#[test]
+	fn the_walk_alone_probes_and_opens_directories() {
+		let (temp, root) = tree();
+		symlink(temp.path().join("outside"), root.join("a/out")).unwrap();
+		symlink("b/inner.txt", root.join("a/file_link")).unwrap();
+		let real = std::fs::canonicalize(&root).unwrap();
+		let walk = |rel: &str, leaf: imp::Leaf| -> io::Result<imp::Reached> {
+			let fd: std::os::fd::OwnedFd = File::open(&real)?.into();
+			imp::walk_to(&fd, &real, &validate(Path::new(rel))?, leaf)
+		};
+		assert!(matches!(
+			walk("a/file_link", imp::Leaf::Probe).unwrap(),
+			imp::Reached::Probed(_)
+		));
+		assert_eq!(
+			walk("a/out", imp::Leaf::Probe).err().unwrap().kind(),
+			io::ErrorKind::PermissionDenied
+		);
+		assert_eq!(
+			walk("a/missing", imp::Leaf::Probe).err().unwrap().kind(),
+			io::ErrorKind::NotFound
+		);
+		assert!(matches!(
+			walk("a/b", imp::Leaf::Directory).unwrap(),
+			imp::Reached::Opened(_)
+		));
+		assert_eq!(
+			walk("a/file_link", imp::Leaf::Directory)
+				.err()
+				.unwrap()
+				.kind(),
+			io::ErrorKind::NotADirectory
+		);
+	}
+
+	#[test]
+	fn a_directory_swapped_for_an_outside_link_never_reads_outside() {
+		use std::sync::atomic::{AtomicBool, Ordering};
+		use std::sync::Arc;
+
+		let (temp, root) = tree();
+		std::fs::create_dir(root.join("swap")).unwrap();
+		std::fs::write(root.join("swap/secret.txt"), b"inner").unwrap();
+		symlink(temp.path().join("outside"), root.join("swap.link")).unwrap();
+		let stop = Arc::new(AtomicBool::new(false));
+		let swapper = swapper(root.clone(), stop.clone());
+
+		let (mut inside, mut refused) = (0, 0);
+		for _ in 0..5000 {
+			match read(&root, "swap/secret.txt") {
+				Ok(text) => {
+					assert_eq!(text, "inner", "read outside the root");
+					inside += 1;
+				}
+				Err(_) => refused += 1,
+			}
+			let real = std::fs::canonicalize(&root).unwrap();
+			let fd: std::os::fd::OwnedFd = File::open(&real).unwrap().into();
+			if let Ok(Ok(mut file)) =
+				validate(Path::new("swap/secret.txt")).map(|parts| imp::walk(&fd, &real, &parts))
+			{
+				let mut text = String::new();
+				if file.read_to_string(&mut text).is_ok() {
+					assert_eq!(text, "inner", "the walk read outside the root");
+				}
+			}
+			if let Ok(dir) = Directory::open(&root, Path::new("swap")) {
+				let names = dir.names().unwrap();
+				assert!(
+					!names.iter().any(|name| name == "sub"),
+					"listed outside the root: {names:?}"
+				);
+			}
+		}
+		stop.store(true, Ordering::Relaxed);
+		let swaps = swapper.join().unwrap();
+		assert!(
+			swaps > 0 && inside > 0,
+			"swaps {swaps}, inside {inside}, refused {refused}"
+		);
+	}
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod macos_tests {
+	use std::io::Read;
+	use std::os::fd::AsRawFd;
+	use std::os::unix::fs::symlink;
+	use std::path::{Path, PathBuf};
+
+	use super::*;
+
+	fn tree() -> (tempfile::TempDir, PathBuf) {
+		let temp = tempfile::tempdir().expect("tempdir");
+		let root = std::fs::canonicalize(temp.path()).unwrap().join("Root");
+		std::fs::create_dir_all(root.join("a")).unwrap();
+		std::fs::write(root.join("a/inner.txt"), b"inner").unwrap();
+		std::fs::create_dir_all(temp.path().join("outside")).unwrap();
+		std::fs::write(temp.path().join("outside/secret.txt"), b"secret").unwrap();
+		symlink(temp.path().join("outside/secret.txt"), root.join("escape")).unwrap();
+		(temp, root)
+	}
+
+	fn read(root: &Path, relative: &str) -> io::Result<String> {
+		let mut out = String::new();
+		open_beneath(root, Path::new(relative))?.read_to_string(&mut out)?;
+		Ok(out)
+	}
+
+	/// The same directory spelled through the data volume, as a firmlink
+	/// reaches it.
+	fn data_volume_spelling(path: &Path) -> Option<PathBuf> {
+		let spelled = Path::new("/System/Volumes/Data").join(path.strip_prefix("/").ok()?);
+		spelled.is_dir().then_some(spelled)
+	}
+
+	#[test]
+	fn a_firmlink_spelling_of_the_root_contains() {
+		let (_temp, root) = tree();
+		let Some(spelled) = data_volume_spelling(&root) else {
+			return;
+		};
+		assert_eq!(read(&spelled, "a/inner.txt").unwrap(), "inner");
+		assert_eq!(
+			read(&spelled, "escape").unwrap_err().kind(),
+			io::ErrorKind::PermissionDenied
+		);
+		let plain = imp::kernel_path(open_root(&root).unwrap().as_raw_fd()).unwrap();
+		let firm = imp::kernel_path(open_root(&spelled).unwrap().as_raw_fd()).unwrap();
+		assert_eq!(plain, firm, "F_GETPATH spells both the same way");
+	}
+
+	#[test]
+	fn a_case_alias_of_the_root_contains() {
+		let (_temp, root) = tree();
+		let alias = root.with_file_name("ROOT");
+		if !alias.is_dir() {
+			// A case-sensitive volume has no alias to test.
+			return;
+		}
+		assert_eq!(read(&alias, "a/inner.txt").unwrap(), "inner");
+		assert_eq!(read(&alias, "A/INNER.TXT").unwrap(), "inner");
+		assert_eq!(
+			read(&alias, "escape").unwrap_err().kind(),
+			io::ErrorKind::PermissionDenied
+		);
+		assert!(reach_beneath(&alias, Path::new("A")).is_ok());
+		assert_eq!(
+			stat_beneath(&alias, Path::new("a/inner.txt")).unwrap().kind,
+			Kind::File
+		);
+	}
+
+	#[test]
+	fn the_walk_lists_and_describes_on_macos() {
+		let (_temp, root) = tree();
+		let dir = Directory::open(&root, Path::new("a")).unwrap();
+		assert_eq!(
+			dir.names().unwrap(),
+			vec![std::ffi::OsString::from("inner.txt")]
+		);
+		let stat = dir.stat("inner.txt".as_ref()).unwrap();
+		assert_eq!((stat.kind, stat.len), (Kind::File, 5));
+		assert!(stat.created.is_some());
+		assert_eq!(
+			stat_beneath(&root, Path::new("escape")).unwrap().kind,
+			Kind::Symlink
 		);
 	}
 }

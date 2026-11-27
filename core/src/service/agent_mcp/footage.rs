@@ -202,7 +202,7 @@ pub async fn read_footage(
 	scope: &GrantScope,
 	args: ReadFootageArgs,
 ) -> Result<Output, String> {
-	video_file(&scope.path).await?;
+	video_file(&scope.root, &scope.relative).await?;
 	let read = FootageReadQuery::from_input(FootageReadInput {
 		path: SdPath::local(scope.path.clone()),
 		from: args.from,
@@ -263,7 +263,7 @@ pub async fn export_timeline(
 		.await
 		.map_err(|_| "export failed".to_string())?
 		.map_err(|error| format!("clip {}: {error}", position + 1))?;
-		video_file(&resolved.path)
+		video_file(&resolved.root, &resolved.relative)
 			.await
 			.map_err(|reason| format!("clip {} ({}): {reason}", position + 1, clip.path))?;
 		clips.push(ExportClip {
@@ -321,16 +321,21 @@ pub async fn export_timeline(
 	})))
 }
 
-/// Refuses a directory or a cloud placeholder, which would be downloaded to
-/// be read.
-async fn video_file(path: &Path) -> Result<(), String> {
-	let meta = tokio::fs::metadata(path)
-		.await
-		.map_err(|e| io_message(&e))?;
-	if !meta.is_file() {
+/// Refuses anything but a regular file beneath the grant root, described
+/// through a handle there, and a cloud placeholder, which would be downloaded
+/// to be read.
+async fn video_file(root: &Path, relative: &Path) -> Result<(), String> {
+	let (owned_root, owned_relative) = (root.to_path_buf(), relative.to_path_buf());
+	let meta = tokio::task::spawn_blocking(move || {
+		crate::common::contain::stat_beneath(&owned_root, &owned_relative)
+	})
+	.await
+	.map_err(|_| "the call failed".to_string())?
+	.map_err(|e| io_message(&e))?;
+	if meta.kind != crate::common::contain::Kind::File {
 		return Err("this takes a video file, not a directory".to_string());
 	}
-	if refuse_dataless(path).await.is_err() {
+	if refuse_dataless(&root.join(relative)).await.is_err() {
 		return Err(format!(
 			"the file is a cloud placeholder ({DATALESS_REASON}); it is not read so it is not downloaded"
 		));

@@ -8,9 +8,13 @@
 //! keep their bodies and schemas in `footage.rs`.
 //!
 //! Every tool takes a path relative to the grant root and works on the
-//! [`GrantScope::path`] the grant check resolved, never on the path it was
-//! sent. Walkers do not follow links. Every path in a result is relative to
-//! the grant root, and error messages carry no host path.
+//! [`GrantScope::relative`] the grant check resolved, never on the path it was
+//! sent. File bytes and metadata are read only through handles that
+//! `common::contain` opened beneath the grant root, so a symlink swapped in
+//! after the grant check cannot point a read outside it. Walkers do not
+//! follow links, and every path they yield is confirmed beneath the root
+//! before it is shown. Every path in a result is relative to the grant root,
+//! and error messages carry no host path.
 
 use std::{
 	fs::{File, Metadata},
@@ -33,6 +37,7 @@ use tracing::warn;
 use super::footage;
 use super::{limits::*, paths, SKILL};
 use crate::{
+	common::contain::{self, Directory, Kind, Stat},
 	context::CoreContext,
 	domain::addressing::SdPath,
 	infra::{
@@ -514,21 +519,17 @@ pub(super) fn io_message(error: &std::io::Error) -> String {
 	}
 }
 
-fn kind(meta: &Metadata) -> &'static str {
-	let file_type = meta.file_type();
-	if file_type.is_symlink() {
-		"symlink"
-	} else if file_type.is_dir() {
-		"dir"
-	} else if file_type.is_file() {
-		"file"
-	} else {
-		"other"
+fn kind(stat: &Stat) -> &'static str {
+	match stat.kind {
+		Kind::Symlink => "symlink",
+		Kind::Dir => "dir",
+		Kind::File => "file",
+		Kind::Other => "other",
 	}
 }
 
-fn time(at: std::io::Result<SystemTime>) -> Option<String> {
-	at.ok().map(|at| DateTime::<Utc>::from(at).to_rfc3339())
+fn time(at: Option<SystemTime>) -> Option<String> {
+	at.map(|at| DateTime::<Utc>::from(at).to_rfc3339())
 }
 
 fn page_limit(limit: Option<u32>, default: u32, max: u32) -> usize {
@@ -551,14 +552,8 @@ struct ListArgs {
 }
 
 fn list_dir(scope: &GrantScope, args: ListArgs) -> Result<Output, String> {
-	let meta = std::fs::metadata(&scope.path).map_err(|e| io_message(&e))?;
-	if !meta.is_dir() {
-		return Err("not a directory".to_string());
-	}
-	let mut names: Vec<_> = std::fs::read_dir(&scope.path)
-		.map_err(|e| io_message(&e))?
-		.filter_map(|entry| entry.ok().map(|entry| entry.file_name()))
-		.collect();
+	let dir = Directory::open(&scope.root, &scope.relative).map_err(|e| io_message(&e))?;
+	let mut names = dir.names().map_err(|e| io_message(&e))?;
 	names.sort_by(|a, b| a.as_encoded_bytes().cmp(b.as_encoded_bytes()));
 
 	let offset = page_offset(args.cursor.as_deref())?;
@@ -568,14 +563,14 @@ fn list_dir(scope: &GrantScope, args: ListArgs) -> Result<Output, String> {
 		.skip(offset)
 		.take(limit)
 		.map(|name| {
-			let meta = std::fs::symlink_metadata(scope.path.join(name)).ok();
+			let meta = dir.stat(name).ok();
 			let shown = name.to_string_lossy();
 			json!({
 				"name": shown,
 				"path": paths::joined(&scope.relative, &shown),
 				"type": meta.as_ref().map(kind).unwrap_or("other"),
-				"size": meta.as_ref().map(Metadata::len),
-				"modified": meta.as_ref().and_then(|m| time(m.modified())),
+				"size": meta.as_ref().map(|m| m.len),
+				"modified": meta.as_ref().and_then(|m| time(m.modified)),
 			})
 		})
 		.collect();
@@ -588,16 +583,18 @@ fn list_dir(scope: &GrantScope, args: ListArgs) -> Result<Output, String> {
 	})))
 }
 
+/// The grant check resolved every link in the path, so a link found here was
+/// swapped in since; it is described as a link and not followed.
 fn stat(scope: &GrantScope) -> Result<Output, String> {
-	let meta = std::fs::metadata(&scope.path).map_err(|e| io_message(&e))?;
+	let meta = contain::stat_beneath(&scope.root, &scope.relative).map_err(|e| io_message(&e))?;
 	Ok(Output::json(json!({
 		"path": paths::shown(&scope.relative),
 		"type": kind(&meta),
-		"size": meta.len(),
-		"modified": time(meta.modified()),
-		"created": time(meta.created()),
-		"accessed": time(meta.accessed()),
-		"readonly": meta.permissions().readonly(),
+		"size": meta.len,
+		"modified": time(meta.modified),
+		"created": time(meta.created),
+		"accessed": time(meta.accessed),
+		"readonly": meta.readonly,
 	})))
 }
 
@@ -615,18 +612,15 @@ struct ReadArgs {
 	max_bytes: Option<u64>,
 }
 
-/// Open a regular file without following a final symlink, which closes the
-/// gap between the grant check and the open. A FIFO opened non-blocking
-/// cannot stall the call.
-fn open_file(path: &Path) -> Result<(File, Metadata), String> {
-	let mut options = std::fs::OpenOptions::new();
-	options.read(true);
-	#[cfg(unix)]
-	{
-		use std::os::unix::fs::OpenOptionsExt;
-		options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+/// Open the scope's regular file beneath the grant root, which closes the
+/// gap between the grant check and the open. The handle is non-blocking, so a
+/// FIFO cannot stall the call, and it is checked for a regular file only once
+/// it is open.
+fn open_file(scope: &GrantScope) -> Result<(File, Metadata), String> {
+	if scope.relative.as_os_str().is_empty() {
+		return Err("not a regular file".to_string());
 	}
-	let file = options.open(path).map_err(|e| io_message(&e))?;
+	let file = contain::open_beneath(&scope.root, &scope.relative).map_err(|e| io_message(&e))?;
 	let meta = file.metadata().map_err(|e| io_message(&e))?;
 	if !meta.is_file() {
 		return Err("not a regular file".to_string());
@@ -670,7 +664,7 @@ fn read(scope: &GrantScope, args: ReadArgs, cancel: &AtomicBool) -> Result<Outpu
 			"the file is a cloud placeholder ({DATALESS_REASON}); it is not read so it is not downloaded"
 		));
 	}
-	let (mut file, meta) = open_file(&scope.path)?;
+	let (mut file, meta) = open_file(scope)?;
 	let size = meta.len();
 	let path = paths::shown(&scope.relative);
 
@@ -861,12 +855,7 @@ fn glob(scope: &GrantScope, args: GlobArgs, cancel: &AtomicBool) -> Result<Outpu
 		.build()
 		.map_err(|e| format!("invalid glob: {}", e.kind()))?
 		.compile_matcher();
-	if !std::fs::metadata(&scope.path)
-		.map_err(|e| io_message(&e))?
-		.is_dir()
-	{
-		return Err("not a directory".to_string());
-	}
+	Directory::open(&scope.root, &scope.relative).map_err(|e| io_message(&e))?;
 	let offset = page_offset(args.cursor.as_deref())?;
 	let limit = page_limit(args.limit, PAGE_DEFAULT, PAGE_MAX);
 
@@ -901,20 +890,20 @@ fn glob(scope: &GrantScope, args: GlobArgs, cancel: &AtomicBool) -> Result<Outpu
 		if !matcher.is_match(relative) {
 			continue;
 		}
+		// The walk lists by path, so a directory swapped for a link out of the
+		// root mid-walk yields names from outside it. Each match is described
+		// again through a handle beneath the root and dropped when that fails.
+		let Ok(meta) = contain::stat_beneath(&scope.root, &scope.relative.join(relative)) else {
+			continue;
+		};
 		if seen >= offset {
 			if matches.len() == limit {
 				more = true;
 				break;
 			}
-			let file_type = entry.file_type();
 			matches.push(json!({
 				"path": paths::joined(&scope.relative, &paths::shown(relative)),
-				"type": match file_type {
-					Some(t) if t.is_symlink() => "symlink",
-					Some(t) if t.is_dir() => "dir",
-					Some(t) if t.is_file() => "file",
-					_ => "other",
-				},
+				"type": kind(&meta),
 			}));
 		}
 		seen += 1;
@@ -989,7 +978,9 @@ fn grep(scope: &GrantScope, args: GrepArgs, cancel: &AtomicBool) -> Result<Outpu
 		other => other.to_string(),
 	})?;
 	// A file scope names its matches by file name, so they join to its parent.
-	let base = if scope.path.is_file() {
+	let file_scope = contain::stat_beneath(&scope.root, &scope.relative)
+		.is_ok_and(|meta| meta.kind == Kind::File);
+	let base = if file_scope {
 		scope.relative.parent().unwrap_or(Path::new(""))
 	} else {
 		scope.relative.as_path()
@@ -1307,10 +1298,12 @@ async fn search_content(
 
 #[cfg(feature = "video-shots")]
 async fn list_shots(context: &Arc<CoreContext>, scope: &GrantScope) -> Result<Output, String> {
-	let meta = tokio::fs::metadata(&scope.path)
+	let (root, relative) = (scope.root.clone(), scope.relative.clone());
+	let meta = tokio::task::spawn_blocking(move || contain::stat_beneath(&root, &relative))
 		.await
+		.map_err(|_| "the call failed".to_string())?
 		.map_err(|e| io_message(&e))?;
-	if !meta.is_file() {
+	if meta.kind != Kind::File {
 		return Err("list_shots takes a video file, not a directory".to_string());
 	}
 	if crate::ops::indexing::metadata::refuse_dataless(&scope.path)
