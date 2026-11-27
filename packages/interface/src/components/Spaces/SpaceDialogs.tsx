@@ -272,7 +272,7 @@ function SpaceSettingsDialog(props: SpaceSettingsProps) {
 							<Button
 								type="button"
 								variant="colored"
-								className="bg-red-500 text-white"
+								className="bg-status-error text-white"
 								size="sm"
 								disabled={remove.isPending}
 								onClick={() => void deleteSpace()}

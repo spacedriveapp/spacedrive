@@ -8,7 +8,7 @@ import {useSpaceAt} from './useSpaces';
 /** A folder's space, when it is the root of one, with its settings. */
 export function SpaceInspectorSection({file}: {file: File}) {
 	const path =
-		file.kind === 'Directory' && 'Physical' in file.sd_path
+		file.kind === 'Directory' && file.is_local && 'Physical' in file.sd_path
 			? file.sd_path.Physical.path
 			: null;
 	const space = useSpaceAt(path);
