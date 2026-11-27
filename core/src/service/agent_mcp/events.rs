@@ -10,13 +10,20 @@
 //!
 //! The ring stores absolute paths and each stream maps them to its own grant
 //! root, so one feed serves every grant on the endpoint.
+//!
+//! A stream has no idle timer, because a mount that is up but not reading
+//! still needs its invalidations. It closes when a write fails or stalls,
+//! when the grant ends, or when the grant opens more streams than its limit,
+//! which closes its oldest one. A client that went away without closing its
+//! connection therefore never holds a slot for long or locks its grant out.
 
 use std::{
 	collections::{HashMap, VecDeque},
 	convert::Infallible,
+	future::Future,
 	path::{Path, PathBuf},
 	sync::{
-		atomic::{AtomicBool, Ordering},
+		atomic::{AtomicBool, AtomicU64, Ordering},
 		Arc, Mutex,
 	},
 	time::Duration,
@@ -30,7 +37,7 @@ use axum::{
 use rand::RngCore;
 use sd_fs_watcher::{FsEvent, FsEventKind};
 use serde_json::{json, Value};
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::debug;
 use uuid::Uuid;
@@ -44,10 +51,6 @@ use crate::{context::CoreContext, ops::grants::GrantScope};
 
 /// Changes held for replay.
 const RING_SIZE: usize = 10_000;
-/// A comment goes out this often so intermediaries keep the stream open.
-const KEEP_ALIVE: Duration = Duration::from_secs(15);
-/// A stream that carried no event this long is closed; the client resumes.
-const IDLE_CLOSE: Duration = Duration::from_secs(60);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Op {
@@ -96,7 +99,14 @@ pub(super) struct Feed {
 	ring: Mutex<Ring>,
 	live: broadcast::Sender<Signal>,
 	watching: AtomicBool,
-	streams: Mutex<HashMap<Uuid, usize>>,
+	/// Each grant's open streams, oldest first.
+	streams: Mutex<HashMap<Uuid, VecDeque<OpenStream>>>,
+	next_stream: AtomicU64,
+}
+
+struct OpenStream {
+	id: u64,
+	evict: oneshot::Sender<()>,
 }
 
 impl Feed {
@@ -113,6 +123,7 @@ impl Feed {
 			live: broadcast::channel(1024).0,
 			watching: AtomicBool::new(false),
 			streams: Mutex::default(),
+			next_stream: AtomicU64::new(0),
 		}
 	}
 
@@ -205,18 +216,26 @@ impl Feed {
 		});
 	}
 
-	/// Claim one of a grant's stream slots.
-	fn open_stream(self: &Arc<Self>, grant: Uuid, max: usize) -> Option<StreamSlot> {
+	/// Claim one of a grant's stream slots, evicting its oldest streams
+	/// while it holds `max` or more.
+	fn open_stream(self: &Arc<Self>, grant: Uuid, max: usize) -> StreamSlot {
+		let (evict, evicted) = oneshot::channel();
+		let id = self.next_stream.fetch_add(1, Ordering::Relaxed);
 		let mut streams = self.streams.lock().expect("streams lock");
 		let open = streams.entry(grant).or_default();
-		if *open >= max {
-			return None;
+		while open.len() >= max {
+			let Some(oldest) = open.pop_front() else {
+				break;
+			};
+			let _ = oldest.evict.send(());
 		}
-		*open += 1;
-		Some(StreamSlot {
+		open.push_back(OpenStream { id, evict });
+		StreamSlot {
 			feed: self.clone(),
 			grant,
-		})
+			id,
+			evicted,
+		}
 	}
 
 	/// The changes after `last_event_id`, or `None` when they are not all
@@ -268,14 +287,17 @@ impl Feed {
 struct StreamSlot {
 	feed: Arc<Feed>,
 	grant: Uuid,
+	id: u64,
+	/// Resolves when a newer stream of the grant took this slot.
+	evicted: oneshot::Receiver<()>,
 }
 
 impl Drop for StreamSlot {
 	fn drop(&mut self) {
 		let mut streams = self.feed.streams.lock().expect("streams lock");
 		if let Some(open) = streams.get_mut(&self.grant) {
-			*open = open.saturating_sub(1);
-			if *open == 0 {
+			open.retain(|stream| stream.id != self.id);
+			if open.is_empty() {
 				streams.remove(&self.grant);
 			}
 		}
@@ -286,37 +308,86 @@ const RESET: &str = "event: reset\ndata: {}\n\n";
 const END: &str = "event: end\ndata: {}\n\n";
 const KEEP: &str = ": keep\n\n";
 
-/// Open an event stream for `scope`, or `None` when the grant already
-/// holds its limit of streams.
+/// Open an event stream for `scope`. At the grant's stream limit the
+/// grant's oldest stream gets `reset` and closes to make room.
 pub(super) async fn open(
 	endpoint: Arc<Endpoint>,
 	scope: GrantScope,
 	last_event_id: Option<String>,
-) -> Option<Response> {
+) -> Response {
 	let feed = endpoint.feed.clone();
 	feed.watch(&endpoint.context).await;
-	let slot = feed.open_stream(scope.grant_id, endpoint.limits.sessions_per_grant)?;
+	let slot = feed.open_stream(scope.grant_id, endpoint.limits.sessions_per_grant);
 
 	// Subscribe before reading the ring so no change falls between them.
-	let mut live = feed.live.subscribe();
+	let live = feed.live.subscribe();
 	let (reset, replay) = match last_event_id.as_deref().map(|id| feed.since(id)) {
 		None => (false, Vec::new()),
 		Some(Some(replay)) => (false, replay),
 		Some(None) => (true, Vec::new()),
 	};
-	let mut sent = replay.last().map_or(0, |change| change.seq);
 
 	let (tx, rx) = mpsc::channel::<Result<Bytes, Infallible>>(64);
+	let (library, grant) = (scope.library_id, scope.grant_id);
+	let stream = Stream {
+		feed,
+		slot,
+		root: scope.root,
+		live,
+		reset,
+		replay,
+		tx,
+		heartbeat: endpoint.limits.stream_heartbeat,
+		write_timeout: endpoint.limits.stream_write_timeout,
+	};
 	tokio::spawn(async move {
-		let _slot = slot;
-		let root = scope.root;
-		let ended = http::ended(&endpoint, scope.library_id, scope.grant_id);
-		tokio::pin!(ended);
-		let idle = tokio::time::sleep(IDLE_CLOSE);
-		tokio::pin!(idle);
+		stream.run(http::ended(&endpoint, library, grant)).await;
+	});
 
-		// Every send races the grant's end and the idle deadline, so a client
-		// that stops reading cannot hold the stream open past either.
+	let mut response = (StatusCode::OK, Body::from_stream(ReceiverStream::new(rx))).into_response();
+	let headers = response.headers_mut();
+	headers.insert(
+		header::CONTENT_TYPE,
+		HeaderValue::from_static("text/event-stream"),
+	);
+	headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+	response
+}
+
+/// One open stream's writer.
+struct Stream {
+	feed: Arc<Feed>,
+	slot: StreamSlot,
+	root: PathBuf,
+	live: broadcast::Receiver<Signal>,
+	reset: bool,
+	replay: Vec<Arc<Change>>,
+	tx: mpsc::Sender<Result<Bytes, Infallible>>,
+	heartbeat: Duration,
+	write_timeout: Duration,
+}
+
+impl Stream {
+	/// Write events and heartbeats until a write fails or stalls past the
+	/// write timeout, a newer stream evicts this one, or `ended` resolves.
+	async fn run(self, ended: impl Future<Output = ()>) {
+		let Self {
+			feed,
+			mut slot,
+			root,
+			mut live,
+			reset,
+			replay,
+			tx,
+			heartbeat,
+			write_timeout,
+		} = self;
+		tokio::pin!(ended);
+		let mut sent = replay.last().map_or(0, |change| change.seq);
+
+		// Every write races the grant's end and eviction, and gives up after
+		// the write timeout, so a client that stops reading cannot hold the
+		// stream or its slot.
 		macro_rules! deliver {
 			($text:expr) => {
 				tokio::select! {
@@ -325,9 +396,13 @@ pub(super) async fn open(
 						let _ = tx.try_send(Ok(Bytes::from_static(END.as_bytes())));
 						return;
 					}
-					_ = &mut idle => return,
-					sent = tx.send(Ok(Bytes::from($text))) => {
-						if sent.is_err() {
+					_ = &mut slot.evicted => {
+						let _ = tx.try_send(Ok(Bytes::from_static(RESET.as_bytes())));
+						return;
+					}
+					written = tokio::time::timeout(write_timeout, tx.send(Ok(Bytes::from($text)))) => {
+						if !matches!(written, Ok(Ok(()))) {
+							debug!(grant = %slot.grant, "closing an event stream whose client stopped reading");
 							return;
 						}
 					}
@@ -344,15 +419,18 @@ pub(super) async fn open(
 			}
 		}
 
-		let mut keep =
-			tokio::time::interval_at(tokio::time::Instant::now() + KEEP_ALIVE, KEEP_ALIVE);
+		// A comment every heartbeat keeps intermediaries from closing a quiet stream.
+		let mut keep = tokio::time::interval_at(tokio::time::Instant::now() + heartbeat, heartbeat);
 		loop {
 			let frame = tokio::select! {
 				_ = &mut ended => {
 					let _ = tx.try_send(Ok(Bytes::from_static(END.as_bytes())));
 					return;
 				}
-				_ = &mut idle => return,
+				_ = &mut slot.evicted => {
+					let _ = tx.try_send(Ok(Bytes::from_static(RESET.as_bytes())));
+					return;
+				}
 				_ = tx.closed() => return,
 				_ = keep.tick() => {
 					deliver!(KEEP);
@@ -372,19 +450,8 @@ pub(super) async fn open(
 				},
 			};
 			deliver!(frame);
-			idle.as_mut()
-				.reset(tokio::time::Instant::now() + IDLE_CLOSE);
 		}
-	});
-
-	let mut response = (StatusCode::OK, Body::from_stream(ReceiverStream::new(rx))).into_response();
-	let headers = response.headers_mut();
-	headers.insert(
-		header::CONTENT_TYPE,
-		HeaderValue::from_static("text/event-stream"),
-	);
-	headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
-	Some(response)
+	}
 }
 
 #[cfg(test)]
@@ -410,6 +477,63 @@ mod tests {
 			feed.since(&format!("{log}-2")).is_none(),
 			"lost changes force a reset"
 		);
+	}
+
+	fn stream(
+		feed: &Arc<Feed>,
+		slot: StreamSlot,
+		tx: mpsc::Sender<Result<Bytes, Infallible>>,
+	) -> Stream {
+		Stream {
+			feed: feed.clone(),
+			slot,
+			root: PathBuf::from("/r"),
+			live: feed.live.subscribe(),
+			reset: false,
+			replay: Vec::new(),
+			tx,
+			heartbeat: Duration::from_secs(15),
+			write_timeout: Duration::from_millis(100),
+		}
+	}
+
+	#[tokio::test]
+	async fn a_stream_whose_client_stops_reading_closes_after_the_write_timeout() {
+		let feed = Arc::new(Feed::new());
+		let slot = feed.open_stream(Uuid::new_v4(), 4);
+		let (tx, _unread) = mpsc::channel(1);
+		let task = tokio::spawn(stream(&feed, slot, tx).run(std::future::pending()));
+		feed.push(Op::Create, PathBuf::from("/r/a"), None);
+		feed.push(Op::Create, PathBuf::from("/r/b"), None);
+		tokio::time::timeout(Duration::from_secs(5), task)
+			.await
+			.expect("the stream closes once a write stalls")
+			.unwrap();
+		assert!(
+			feed.streams.lock().unwrap().is_empty(),
+			"the closed stream gives its slot back"
+		);
+	}
+
+	#[tokio::test]
+	async fn a_grant_over_its_stream_limit_evicts_its_oldest_stream() {
+		let feed = Arc::new(Feed::new());
+		let grant = Uuid::new_v4();
+		let (tx, mut rx) = mpsc::channel(8);
+		let oldest =
+			tokio::spawn(stream(&feed, feed.open_stream(grant, 2), tx).run(std::future::pending()));
+		let _second = feed.open_stream(grant, 2);
+		let _third = feed.open_stream(grant, 2);
+		tokio::time::timeout(Duration::from_secs(5), oldest)
+			.await
+			.expect("the oldest stream closes")
+			.unwrap();
+		assert_eq!(
+			rx.recv().await.unwrap().unwrap(),
+			Bytes::from_static(RESET.as_bytes())
+		);
+		assert!(rx.recv().await.is_none());
+		assert_eq!(feed.streams.lock().unwrap()[&grant].len(), 2);
 	}
 
 	#[test]
