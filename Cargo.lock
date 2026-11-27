@@ -12295,6 +12295,7 @@ dependencies = [
  "owo-colors",
  "parking_lot",
  "pdf-extract",
+ "percent-encoding",
  "postcard",
  "pretty_assertions",
  "quick-xml 0.38.3",

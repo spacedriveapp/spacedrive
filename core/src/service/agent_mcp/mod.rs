@@ -35,12 +35,14 @@
 //! # }
 //! ```
 
+mod events;
 #[cfg(feature = "footage-clips")]
 mod footage;
 mod http;
 mod limits;
 mod oauth;
 mod paths;
+mod rest;
 mod tools;
 
 use std::{

@@ -200,6 +200,7 @@ code change.
 | Tool call wall clock | 30 s, then cancelled |
 | `read` per call | 64 KiB or 2,000 lines by default, 1 MiB maximum |
 | Bytes returned per grant | 256 MiB per hour |
+| Block-read bytes per grant | 8 GiB per hour |
 | `list_dir` and `glob` page | 1,000 entries |
 | `glob` entries visited per call | 100,000 |
 | `grep` pattern length | 1 KiB |
@@ -213,6 +214,11 @@ code change.
 | `search_content` results per page | 200 |
 | Failed authentications per client address | 20 per minute, then 429 for 5 minutes |
 | Idle SSE stream | closed after 60 s |
+
+The block-read budget applies only to the space endpoint's block reads
+(`docs/core/design/space-endpoint.md`). Block reads count against it and
+nothing else; tools, `stat`, `list` and the event stream count against the
+256 MiB budget.
 
 Exceeding a rate or byte budget answers 429 with `Retry-After`. Exceeding a
 size or page limit answers a truncated result that says it was truncated and how

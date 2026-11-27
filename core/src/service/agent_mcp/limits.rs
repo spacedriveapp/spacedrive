@@ -23,6 +23,10 @@ pub struct Limits {
 	pub max_header_bytes: usize,
 	pub call_timeout: Duration,
 	pub bytes_per_hour: u64,
+	/// Bytes the space endpoint's block reads may return per grant per hour,
+	/// kept apart from `bytes_per_hour` so a mount can page files in without
+	/// spending the tools' budget.
+	pub block_bytes_per_hour: u64,
 	pub auth_failures_per_minute: u32,
 	pub auth_lockout: Duration,
 	pub session_idle: Duration,
@@ -41,6 +45,7 @@ impl Default for Limits {
 			max_header_bytes: 16 * 1024,
 			call_timeout: Duration::from_secs(30),
 			bytes_per_hour: 256 * 1024 * 1024,
+			block_bytes_per_hour: 8 * 1024 * 1024 * 1024,
 			auth_failures_per_minute: 20,
 			auth_lockout: Duration::from_secs(5 * 60),
 			session_idle: Duration::from_secs(30 * 60),

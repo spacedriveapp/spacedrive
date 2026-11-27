@@ -125,8 +125,10 @@ A mount reads file bytes in fixed blocks and caches them by block.
 }
 ```
 
-`kind` is `file`, `directory` or `symlink`. A symlink is reported, never
-followed. `etag` is present for files. `GET /v1/spaces/<space>/stat/` stats
+`kind` is `file`, `directory`, `symlink` or `other` (a FIFO, socket or
+device). A symlink inside the root is reported, never followed. Stat on a
+symlink whose target leaves the root answers 403; `list` still reports it as
+`symlink`. `etag` is present for files. `GET /v1/spaces/<space>/stat/` stats
 the root.
 
 ### List
@@ -262,5 +264,10 @@ still needs a token.
 ## Limits
 
 The limits of `agent-access-threat-model.md` apply to every route here,
-counted per grant across MCP, REST, block reads and streams. Block reads count
-against the grant's bytes-per-hour budget like any other read.
+counted per grant across MCP, REST, block reads and streams.
+
+A grant has two byte budgets. Block reads spend the block-read budget, 8 GiB
+per hour, and nothing else, so a mount can page files in without starving the
+grant's tools. Everything else, the tools over MCP or REST, `stat`, `list`
+and the event stream, spends the 256 MiB per hour budget. A spent budget
+answers 429 with `Retry-After` set to the seconds until its hour resets.
