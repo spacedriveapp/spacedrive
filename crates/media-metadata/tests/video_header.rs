@@ -60,6 +60,22 @@ fn a_file_that_is_not_a_video_has_no_header() {
 }
 
 #[test]
+fn a_box_larger_than_the_file_ends_the_read() {
+	let path = std::env::temp_dir().join(format!("sd-video-overflow-{}.mp4", std::process::id()));
+	let mut bytes = Vec::new();
+	bytes.extend_from_slice(&24u32.to_be_bytes());
+	bytes.extend_from_slice(b"ftypisom");
+	bytes.extend_from_slice(&[0; 12]);
+	bytes.extend_from_slice(&1u32.to_be_bytes());
+	bytes.extend_from_slice(b"free");
+	bytes.extend_from_slice(&(u64::MAX - 23).to_be_bytes());
+	bytes.extend_from_slice(&[0; 32]);
+	std::fs::write(&path, &bytes).unwrap();
+	assert_eq!(read_header(&path).unwrap(), None);
+	std::fs::remove_file(&path).unwrap();
+}
+
+#[test]
 fn a_truncated_video_answers_without_panicking() {
 	let bytes = std::fs::read(fixture("faststart.mov")).unwrap();
 	let path = std::env::temp_dir().join(format!("sd-video-truncated-{}.mov", std::process::id()));

@@ -131,17 +131,16 @@ async fn tracking_clips_fills_the_video_facet_from_their_headers() {
 		(Some(256), Some(144), Some("vp9"))
 	);
 
-	// A listing reads the facet off the record, with no footage sidecar.
+	// A listing reads the facet by record, with no footage sidecar.
 	let pool = store.db().pool();
 	let uuid = sd_store::read::resolve_path(pool, "walk.mp4")
 		.await
 		.unwrap()
 		.expect("walk.mp4 is recorded");
-	let entry = sd_store::read::entry_by_uuid(pool, uuid)
+	let facets = sd_store::video_facets_for_records(pool, &[uuid])
 		.await
-		.unwrap()
-		.expect("an entry");
-	let video = entry.video.expect("the listing carries the video facet");
+		.unwrap();
+	let (_, video) = facets.first().expect("the listing reads the video facet");
 	assert!((video.duration_seconds.unwrap() - 2.0).abs() < 0.05);
 	assert_eq!(video.codec.as_deref(), Some("h264"));
 }

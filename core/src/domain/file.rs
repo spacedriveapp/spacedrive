@@ -341,10 +341,7 @@ impl File {
 				.image
 				.as_ref()
 				.and_then(|facet| ImageMediaData::from_facet(entry.uuid, facet)),
-			video_media_data: entry
-				.video
-				.as_ref()
-				.and_then(|facet| VideoMediaData::from_facet(entry.uuid, facet)),
+			video_media_data: None,
 			audio_media_data: None,
 			created_at: from_ms(entry.created_ms).unwrap_or_else(Utc::now),
 			modified_at: from_ms(entry.mtime_ms).unwrap_or_else(Utc::now),
@@ -558,7 +555,6 @@ mod tests {
 			content_kind_name: None,
 			content_error: None,
 			image: None,
-			video: None,
 		}
 	}
 

@@ -63,9 +63,6 @@ pub struct FsEntry {
 	/// keyed by other bytes than the record's current content is not
 	/// here: it describes an image the file no longer is.
 	pub image: Option<ImageFacet>,
-	/// The video facet, when the header pass has read these bytes, under
-	/// the same rule as the image facet.
-	pub video: Option<VideoFacet>,
 }
 
 impl FsEntry {
@@ -118,9 +115,7 @@ macro_rules! entry_columns {
 			 f.content_error AS content_error, c.uuid AS content_uuid, \
 			 c.sampled_hash AS sampled_hash, c.integrity_hash AS integrity_hash, c.kind AS content_kind, \
 			 c.kind_name AS content_kind_name, ",
-			image_columns!(),
-			", ",
-			video_columns!()
+			image_columns!()
 		)
 	};
 }
@@ -137,7 +132,8 @@ macro_rules! image_join {
 	};
 }
 
-/// The video facet joined the same way as [`image_join!`].
+/// The video facet joined the same way as [`image_join!`], for
+/// [`video_facets_for_records`] only.
 macro_rules! video_join {
 	() => {
 		" LEFT JOIN facet_video v ON v.record_uuid = r.uuid \
@@ -154,8 +150,7 @@ const ENTRY_SELECT: &str = concat!(
 	 LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid \
 	 LEFT JOIN facet_file f ON f.record_uuid = r.uuid \
 	 LEFT JOIN content c ON c.id = r.content_id ",
-	image_join!(),
-	video_join!()
+	image_join!()
 );
 
 /// The same columns, driven from the directories: `CROSS JOIN` holds
@@ -169,8 +164,7 @@ const BENEATH_SELECT: &str = concat!(
 	 LEFT JOIN directory_path own ON own.record_uuid = r.uuid \
 	 LEFT JOIN facet_file f ON f.record_uuid = r.uuid \
 	 LEFT JOIN content c ON c.id = r.content_id ",
-	image_join!(),
-	video_join!()
+	image_join!()
 );
 
 #[derive(FromRow)]
@@ -199,8 +193,6 @@ struct EntryRow {
 	content_kind_name: Option<String>,
 	#[sqlx(flatten)]
 	image: ImageRow,
-	#[sqlx(flatten)]
-	video: VideoRow,
 }
 
 /// [`video_columns!`] as sqlx reads them.
@@ -306,7 +298,6 @@ fn entry_from_row(row: EntryRow) -> Option<FsEntry> {
 		content_kind_name: row.content_kind_name,
 		content_error: row.content_error,
 		image: row.image.into_facet(),
-		video: row.video.into_facet(),
 	})
 }
 
@@ -346,6 +337,11 @@ pub async fn image_facets_for_records(
 
 /// The video facet of each of `record_uuids` whose row describes its
 /// current bytes, the counterpart of [`image_facets_for_records`].
+///
+/// Kept out of the entry queries: a replica or retained copy written before
+/// the facet had `content_hash` opens read-only and is never given the
+/// column, so joining it there would fail every listing of that copy. Here
+/// the failure is the caller's to skip.
 pub async fn video_facets_for_records(
 	pool: &SqlitePool,
 	record_uuids: &[Uuid],

@@ -139,11 +139,15 @@ pub async fn decorate_from_db(
 			.await?
 			.into_iter()
 			.collect();
+	// A store that cannot answer for videos still gives its images.
 	let videos: HashMap<Uuid, sd_store::VideoFacet> =
-		sd_store::video_facets_for_records(db.pool(), &ids)
-			.await?
-			.into_iter()
-			.collect();
+		match sd_store::video_facets_for_records(db.pool(), &ids).await {
+			Ok(facets) => facets.into_iter().collect(),
+			Err(error) => {
+				tracing::debug!(%error, "video facets unavailable");
+				HashMap::new()
+			}
+		};
 	for &position in positions {
 		let file = &mut files[position];
 		if let Some(facet) = by_record.get(&file.id) {

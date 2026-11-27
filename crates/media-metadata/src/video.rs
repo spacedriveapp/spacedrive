@@ -109,7 +109,9 @@ mod iso {
 			} else if size == 0 {
 				size = len - at;
 			}
-			if size < header {
+			// A box that claims more than the file holds is corrupt, and
+			// following it could wrap the cursor back over the same boxes.
+			if size < header || size > len - at {
 				return Ok(None);
 			}
 			if &head[4..8] == b"moov" {
@@ -334,10 +336,10 @@ mod matroska {
 			if id == SEGMENT {
 				break at + head;
 			}
-			let Some(size) = size else {
+			let Some(next) = size.and_then(|size| at.checked_add(head)?.checked_add(size)) else {
 				return Ok(None);
 			};
-			at += head + size;
+			at = next;
 		};
 
 		let mut header = VideoHeader::default();
@@ -383,7 +385,10 @@ mod matroska {
 				}
 				_ => {}
 			}
-			at += head + size;
+			let Some(next) = at.checked_add(head).and_then(|at| at.checked_add(size)) else {
+				break;
+			};
+			at = next;
 		}
 		Ok(Some(header))
 	}

@@ -130,89 +130,90 @@ impl JobHandler for ExifEnrichJob {
 			videos: 0,
 			unreadable: 0,
 		};
-		for media in [Media::Image, Media::Video] {
-			let outstanding = store
-				.files_needing_facets_count(media.kind())
-				.await
-				.map_err(|e| e.to_string())?;
-			ctx.log(format!(
-				"{outstanding} {} to read metadata for",
-				media.noun()
-			));
-			if outstanding == 0 {
-				continue;
-			}
-			let progress = |done: u64| {
-				Progress::generic(GenericProgress::new(
-					(done as f32 / outstanding as f32).min(1.0),
-					media.title(),
-					format!("{label} — {done} of {outstanding} {}", media.noun()),
-				))
-			};
-			ctx.progress(progress(0));
-
-			let mut done = 0u64;
-			let mut cursor = 0i64;
-			// A record re-identified behind the cursor while this pass runs is
-			// pending again at a row id already passed. One more sweep from the
-			// start picks it up, since a second dispatch deduplicates onto this
-			// job rather than queueing behind it. Rows the first sweep already
-			// attempted under the same hash are skipped, so a file that could
-			// not be opened is neither opened nor counted twice, while one whose
-			// bytes changed presents a new hash and is read again.
-			let mut swept_again = false;
-			let mut attempted: HashSet<(i64, String)> = HashSet::new();
-
-			loop {
-				ctx.check_interrupt().await?;
-
-				let claimed = store
-					.files_needing_facets(media.kind(), cursor, BATCH_SIZE)
+		// Rows already attempted under the same hash, per kind, for the whole
+		// job: a file that could not be opened is neither opened nor counted
+		// twice, while one whose bytes changed presents a new hash and is read
+		// again.
+		let mut attempted: [HashSet<(i64, String)>; 2] = Default::default();
+		// A record identified while this pass runs is pending at a row id
+		// already passed, or in a kind already swept, and a second dispatch
+		// deduplicates onto this job rather than queueing behind it. So the
+		// pass sweeps every kind again until a round reads nothing new.
+		loop {
+			let mut read_any = false;
+			for (media, attempted) in [Media::Image, Media::Video].into_iter().zip(&mut attempted) {
+				let outstanding = store
+					.files_needing_facets_count(media.kind())
 					.await
 					.map_err(|e| e.to_string())?;
-				let Some(last) = claimed.last() else {
-					if swept_again || cursor == 0 {
-						break;
-					}
-					swept_again = true;
-					cursor = 0;
+				if outstanding == 0 {
 					continue;
+				}
+				ctx.log(format!(
+					"{outstanding} {} to read metadata for",
+					media.noun()
+				));
+				let progress = |done: u64| {
+					Progress::generic(GenericProgress::new(
+						(done as f32 / outstanding as f32).min(1.0),
+						media.title(),
+						format!("{label} — {done} of {outstanding} {}", media.noun()),
+					))
 				};
-				cursor = last.0.rowid;
-				let batch: Vec<_> = claimed
-					.into_iter()
-					.filter(|(pending, _)| {
-						attempted.insert((pending.rowid, pending.content_hash.clone()))
-					})
-					.collect();
-				if batch.is_empty() {
-					continue;
-				}
-				done += batch.len() as u64;
+				ctx.progress(progress(0));
 
-				match media {
-					Media::Image => {
-						let (facets, failed) = read_batch(batch, read_image).await;
-						output.unreadable += failed;
-						output.enriched += facets.len() as u64;
-						output.with_exif += facets
-							.iter()
-							.filter(|(_, facet)| *facet != ImageFacet::default())
-							.count() as u64;
-						store.image_facets(facets).await;
-					}
-					Media::Video => {
-						let (facets, failed) = read_batch(batch, read_video).await;
-						output.unreadable += failed;
-						output.videos += facets.len() as u64;
-						store.video_facets(facets).await;
-					}
-				}
-				ctx.progress(progress(done));
+				let mut done = 0u64;
+				let mut cursor = 0i64;
+				loop {
+					ctx.check_interrupt().await?;
 
-				// The next claim reads the database; a claim that outraces the
-				// writer would hand back rows this pass already wrote.
-				store.flush().await.map_err(|e| e.to_string())?;
+					let claimed = store
+						.files_needing_facets(media.kind(), cursor, BATCH_SIZE)
+						.await
+						.map_err(|e| e.to_string())?;
+					let Some(last) = claimed.last() else {
+						break;
+					};
+					cursor = last.0.rowid;
+					let batch: Vec<_> = claimed
+						.into_iter()
+						.filter(|(pending, _)| {
+							attempted.insert((pending.rowid, pending.content_hash.clone()))
+						})
+						.collect();
+					if batch.is_empty() {
+						continue;
+					}
+					read_any = true;
+					done += batch.len() as u64;
+
+					match media {
+						Media::Image => {
+							let (facets, failed) = read_batch(batch, read_image).await;
+							output.unreadable += failed;
+							output.enriched += facets.len() as u64;
+							output.with_exif += facets
+								.iter()
+								.filter(|(_, facet)| *facet != ImageFacet::default())
+								.count() as u64;
+							store.image_facets(facets).await;
+						}
+						Media::Video => {
+							let (facets, failed) = read_batch(batch, read_video).await;
+							output.unreadable += failed;
+							output.videos += facets.len() as u64;
+							store.video_facets(facets).await;
+						}
+					}
+					ctx.progress(progress(done));
+
+					// The next claim reads the database; a claim that outraces
+					// the writer would hand back rows this pass already wrote.
+					store.flush().await.map_err(|e| e.to_string())?;
+				}
+			}
+			if !read_any {
+				break;
 			}
 		}
 
