@@ -4,20 +4,20 @@
 use sd_core::{
 	infra::{
 		action::{CoreAction, LibraryAction},
-		db::entities::{device, space_item},
+		db::entities::{device, layout_item},
 		query::CoreQuery,
 	},
 	ops::{
+		layouts::{
+			add_item::{action::AddItemAction, input::AddItemInput},
+			create::{action::LayoutCreateAction, input::LayoutCreateInput},
+		},
 		libraries::backup::{
 			manifest::BackupManifest, LibraryBackupAction, LibraryBackupInput,
 			LibraryBackupVerifyInput, LibraryBackupVerifyQuery, LibraryRestoreAction,
 			LibraryRestoreInput, RestoreMode,
 		},
 		sources::track::{TrackSourceAction, TrackSourceInput},
-		spaces::{
-			add_item::{action::AddItemAction, input::AddItemInput},
-			create::{action::SpaceCreateAction, input::SpaceCreateInput},
-		},
 		tags::{
 			apply::{action::ApplyTagsAction, input::ApplyTagsInput, input::TagTargets},
 			create::{action::CreateTagAction, input::CreateTagInput},
@@ -140,8 +140,8 @@ fn session(core: &Core) -> sd_core::infra::api::SessionContext {
 	sd_core::infra::api::SessionContext::device_session(device_id, "test".to_string())
 }
 
-async fn space_item_count(library: &sd_core::library::Library) -> Result<usize, Error> {
-	Ok(space_item::Entity::find()
+async fn layout_item_count(library: &sd_core::library::Library) -> Result<usize, Error> {
+	Ok(layout_item::Entity::find()
 		.all(library.db().conn())
 		.await?
 		.len())
@@ -164,7 +164,7 @@ async fn backup_restores_identically_and_detects_tampering() -> Result<(), Error
 	let (source_a, store_a) = track(&core, &library, root_a.clone(), files_a).await?;
 	let (source_b, store_b) = track(&core, &library, root_b.clone(), files_b).await?;
 
-	// Tags live in the source store as assertions; a space item lives in
+	// Tags live in the source store as assertions; a layout item lives in
 	// library.db. Both must survive the round trip.
 	let tag = CreateTagAction::from_input(CreateTagInput {
 		path: "Backups/Keep".to_string(),
@@ -190,22 +190,22 @@ async fn backup_restores_identically_and_detects_tampering() -> Result<(), Error
 	.await?;
 	assert_eq!(applied.targets_tagged, 3);
 
-	let space = SpaceCreateAction::from_input(SpaceCreateInput {
+	let layout = LayoutCreateAction::from_input(LayoutCreateInput {
 		name: "Pinned".to_string(),
 		icon: "folder".to_string(),
 		color: "#336699".to_string(),
 	})?
 	.execute(library.clone(), core.context.clone())
 	.await?
-	.space;
+	.layout;
 	AddItemAction::from_input(AddItemInput {
-		space_id: space.id,
+		layout_id: layout.id,
 		group_id: None,
 		item_type: sd_core::domain::ItemType::Tag { tag_id: tag.id },
 	})?
 	.execute(library.clone(), core.context.clone())
 	.await?;
-	let items_before = space_item_count(&library).await?;
+	let items_before = layout_item_count(&library).await?;
 	assert!(items_before >= 1);
 
 	store_a.flush().await?;
@@ -308,7 +308,7 @@ async fn backup_restores_identically_and_detects_tampering() -> Result<(), Error
 	assert_eq!(fresh_library.name().await, "Backup fixture");
 	assert_eq!(restored_facts(&fresh, source_a).await?, copy_a);
 	assert_eq!(restored_facts(&fresh, source_b).await?, copy_b);
-	assert_eq!(space_item_count(&fresh_library).await?, items_before);
+	assert_eq!(layout_item_count(&fresh_library).await?, items_before);
 
 	// Hashes of the restored store files equal the manifest's: nothing
 	// rewrote them on open.
@@ -341,22 +341,22 @@ async fn backup_restores_identically_and_detects_tampering() -> Result<(), Error
 	assert!(archive_manifest.verify(&unpacked).await.is_empty());
 	let archive_facts_a = copy_facts(&unpacked, source_a).await?;
 
-	let extra = SpaceCreateAction::from_input(SpaceCreateInput {
+	let extra = LayoutCreateAction::from_input(LayoutCreateInput {
 		name: "Mutation".to_string(),
 		icon: "folder".to_string(),
 		color: "#996633".to_string(),
 	})?
 	.execute(library.clone(), core.context.clone())
 	.await?
-	.space;
+	.layout;
 	AddItemAction::from_input(AddItemInput {
-		space_id: extra.id,
+		layout_id: extra.id,
 		group_id: None,
 		item_type: sd_core::domain::ItemType::Overview,
 	})?
 	.execute(library.clone(), core.context.clone())
 	.await?;
-	let items_mutated = space_item_count(&library).await?;
+	let items_mutated = layout_item_count(&library).await?;
 	assert!(items_mutated > items_before);
 	let mutation = ApplyTagsAction::from_input(ApplyTagsInput {
 		targets: TagTargets::File(
@@ -423,7 +423,7 @@ async fn backup_restores_identically_and_detects_tampering() -> Result<(), Error
 		.get_library(library.id())
 		.await
 		.ok_or("replaced library is not open")?;
-	assert_eq!(space_item_count(&reopened).await?, items_before);
+	assert_eq!(layout_item_count(&reopened).await?, items_before);
 	match tokio::fs::metadata(&stale_snapshot).await {
 		Ok(meta) => assert!(
 			meta.modified()? > stale_snapshot_written,

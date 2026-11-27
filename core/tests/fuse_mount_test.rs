@@ -43,7 +43,7 @@ use sd_core::{
 		cache::{BlockCache, CachedProvider},
 		fuse::{
 			self,
-			tree::{Layout, MountError, MountRoot, MountTree},
+			tree::{ArenaFs, Layout, MountError, MountRoot, MountTree},
 		},
 		provider::{ByteError, ByteProvider, ByteStat, ByteTarget, ProviderClass},
 	},
@@ -448,7 +448,7 @@ async fn a_peer_source_reads_through_the_block_cache() -> anyhow::Result<()> {
 		cache: cache.clone(),
 		reads: reads.clone(),
 	});
-	let session = fuse::fs::mount(tree, &mountpoint).await?;
+	let session = fuse::fs::mount(Arc::new(ArenaFs::new(tree)), &mountpoint).await?;
 
 	let share = mountpoint.join("footage@studio-a1b2c3");
 	{

@@ -27,7 +27,7 @@ import {AwaitingPermissionBanner} from './components/AwaitingPermissionBanner';
 import {PlanPreviewBanner} from './components/PlanPreviewBanner';
 import {VirtualPathBar} from './components/VirtualPathBar';
 import {
-	getSpaceItemKeyFromRoute,
+	getLayoutItemKeyFromRoute,
 	MIN_SEARCH_QUERY_LENGTH,
 	searchFiltersNarrow,
 	useExplorer,
@@ -86,17 +86,17 @@ export function ExplorerView({
 		exitSearchMode,
 		currentFiles,
 		columnStack,
-		loadPreferencesForSpaceItem
+		loadPreferencesForLayoutItem
 	} = useExplorer();
 
 	useLayoutEffect(() => {
-		loadPreferencesForSpaceItem(
-			getSpaceItemKeyFromRoute(location.pathname, location.search),
+		loadPreferencesForLayoutItem(
+			getLayoutItemKeyFromRoute(location.pathname, location.search),
 			defaultViewMode
 		);
 	}, [
 		defaultViewMode,
-		loadPreferencesForSpaceItem,
+		loadPreferencesForLayoutItem,
 		location.pathname,
 		location.search
 	]);

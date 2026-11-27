@@ -21,6 +21,8 @@ pub mod provider;
 pub mod replication;
 pub mod smb;
 pub mod trace;
+pub mod tree;
+pub mod vfs;
 mod webdav;
 
 pub use provider::{remote_share_name, resolve_target, share_name, share_path};

@@ -16,6 +16,7 @@ import {
 	LinkSimple,
 	MagnifyingGlass,
 	Pencil,
+	Robot,
 	Scissors,
 	ShareNetwork,
 	SlidersHorizontal,
@@ -34,6 +35,7 @@ import {useBatchRenameDialog} from '../../../components/modals/RenameModal';
 import {useFlattenDialog, useOrganizeDialog} from '../../../components/modals/RearrangeModal';
 import {isArchiveName, useArchiveDialog, useExtractDialog} from '../../../components/modals/ArchiveModal';
 import {useAttributesDialog} from '../../../components/modals/AttributesModal';
+import {useGiveToAgentDialog} from '../../../components/modals/GiveToAgentModal';
 import {useAddToLibraryDialog} from '../components/AddToLibraryModal';
 import {usePlatform} from '../../../contexts/PlatformContext';
 import {useLibraryMutation} from '../../../contexts/SpacedriveContext';
@@ -88,6 +90,7 @@ export function useFileContextMenu({
 	const openArchive = useArchiveDialog();
 	const openExtract = useExtractDialog();
 	const openAttributes = useAttributesDialog();
+	const openGiveToAgent = useGiveToAgentDialog();
 	const {startRename} = useSelection();
 	const footageCapabilities = useFootageCapabilities().data;
 	const footage = useFootageActions();
@@ -272,6 +275,23 @@ export function useFileContextMenu({
 					localPaths.length > 0 &&
 					localPaths.length === openTargets.length &&
 					!!platform.shareFiles
+			},
+			{
+				icon: Robot,
+				label: 'Give to an Agent…',
+				// A grant names a directory on the daemon's own device, so only
+				// a local folder can be lent.
+				onClick: () => {
+					if (!file || !('Physical' in file.sd_path)) return;
+					openGiveToAgent({path: file.sd_path.Physical.path, name: file.name});
+				},
+				condition: () =>
+					!!file &&
+					file.kind === 'Directory' &&
+					file.is_local &&
+					'Physical' in file.sd_path &&
+					getTargetFiles().length === 1 &&
+					!hasVirtualFiles
 			},
 			{
 				icon: Books,
