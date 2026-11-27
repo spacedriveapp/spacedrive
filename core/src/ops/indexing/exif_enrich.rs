@@ -102,6 +102,17 @@ impl crate::infra::job::traits::DynJob for ExifEnrichJob {
 impl JobHandler for ExifEnrichJob {
 	type Output = ExifEnrichOutput;
 
+	/// Unreadable images stay pending, so a pass that only met those did
+	/// nothing.
+	fn keep_record(&self, output: &Self::Output) -> bool {
+		!self.background || output.enriched > 0
+	}
+
+	fn finished_rows_kept(&self) -> Option<u64> {
+		self.background
+			.then_some(super::content_identity::BACKGROUND_HISTORY)
+	}
+
 	async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
 		let volume_index = ctx.library().core_context().volume_index();
 		if let Some(reason) = volume_index.dispatch_refusal(&self.root) {

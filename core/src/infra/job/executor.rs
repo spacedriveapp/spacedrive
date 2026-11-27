@@ -225,6 +225,33 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
 }
 
 impl<J: JobHandler> JobExecutor<J> {
+	/// Trim the finished rows of this job's name to what the job keeps.
+	async fn prune_history(&self) {
+		let Some(keep) = self.job.finished_rows_kept() else {
+			return;
+		};
+		match self
+			.state
+			.job_db
+			.prune_finished(&self.state.job_name, keep)
+			.await
+		{
+			Ok(removed) => {
+				for id in removed {
+					self.remove_log(&id).await;
+				}
+			}
+			Err(e) => warn!("Failed to prune {} job history: {}", self.state.job_name, e),
+		}
+	}
+
+	/// Best-effort: a log left behind costs disk, not correctness.
+	async fn remove_log(&self, job_id: &str) {
+		if let Some(dir) = &self.state.job_logs_dir {
+			let _ = tokio::fs::remove_file(dir.join(format!("{job_id}.log"))).await;
+		}
+	}
+
 	async fn run_inner(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, JobError> {
 		info!(
 			"Starting job {}: {}",
@@ -290,7 +317,14 @@ impl<J: JobHandler> JobExecutor<J> {
 		let metrics_ref = ctx.metrics.clone();
 
 		// Run the job
-		let result = self.job.run(ctx).await.map(|o| o.into());
+		let mut keep_record = true;
+		let result = match self.job.run(ctx).await {
+			Ok(output) => {
+				keep_record = self.job.keep_record(&output);
+				Ok(output.into())
+			}
+			Err(e) => Err(e),
+		};
 
 		// Store the final result in the handle for the manager to retrieve
 		*self.state.output.lock().await = Some(result.clone());
@@ -309,8 +343,27 @@ impl<J: JobHandler> JobExecutor<J> {
 					);
 				}
 
-				// Persist final status and progress to database atomically
-				if self.state.should_persist {
+				// A row that cannot be removed is recorded as completed
+				// instead, so it never reads as running with no task behind it.
+				let forgotten =
+					self.state.should_persist
+						&& !keep_record && match self.state.job_db.forget(self.state.job_id).await {
+						Ok(()) => true,
+						Err(e) => {
+							warn!(
+								"Failed to remove the row of job {}: {}",
+								self.state.job_id, e
+							);
+							false
+						}
+					};
+				if forgotten {
+					// Dropping the logger first stops the completion line from
+					// writing the removed log file back.
+					self.state.file_logger = None;
+					self.remove_log(&self.state.job_id.to_string()).await;
+					self.prune_history().await;
+				} else if self.state.should_persist {
 					let final_progress =
 						if let Some(Ok(ref output)) = *self.state.output.lock().await {
 							output.as_progress()
@@ -331,6 +384,7 @@ impl<J: JobHandler> JobExecutor<J> {
 					{
 						error!("Failed to update job completion status in database: {}", e);
 					}
+					self.prune_history().await;
 				}
 
 				info!(
@@ -446,6 +500,7 @@ impl<J: JobHandler> JobExecutor<J> {
 						{
 							error!("Failed to update job failure status in database: {}", e_db);
 						}
+						self.prune_history().await;
 					}
 
 					Err(e)

@@ -5,20 +5,74 @@
 //! under a summarised directory marks that directory for a debounced recount
 //! instead.
 
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+use anyhow::Result;
+use sd_fs_watcher::{FsEvent, FsEventKind};
+use tokio::sync::{broadcast, RwLock};
+
 use crate::context::CoreContext;
+use crate::infra::job::types::JobPriority;
+use crate::ops::indexing::content_identity::ContentIdentityJob;
+use crate::ops::indexing::content_text::{self, ContentTextJob};
 use crate::ops::indexing::responder;
 use crate::ops::indexing::rules::RuleToggles;
 use crate::service::watcher::FsWatcherService;
-use anyhow::Result;
-use sd_fs_watcher::{FsEvent, FsEventKind};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, error, trace, warn};
 
 /// How long changes under summarised directories collect before those
 /// directories are recounted.
-const RECOUNT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
+const RECOUNT_INTERVAL: Duration = Duration::from_secs(30);
+
+/// How long changes collect before the hashing nudge looks at their sources.
+const HASH_NUDGE_INTERVAL: Duration = Duration::from_secs(30);
+
+/// Least time between two hashing nudges for one source. Under a steady
+/// stream of changes, such as a build or a browser cache under home, a nudge
+/// every interval started a hashing pass, and the text and photo metadata
+/// passes behind it, twice a minute. A source changed after a quiet spell is
+/// still nudged within one interval.
+const PASS_GAP: Duration = Duration::from_secs(5 * 60);
+
+/// Which sources the hashing nudge owes a pass, and when each last got one.
+#[derive(Default)]
+struct NudgeSchedule {
+	dirty: HashSet<PathBuf>,
+	last_nudge: HashMap<PathBuf, Instant>,
+}
+
+impl NudgeSchedule {
+	fn mark(&mut self, root: PathBuf) {
+		self.dirty.insert(root);
+	}
+
+	/// Take the dirty sources whose last nudge is at least `PASS_GAP` old.
+	/// The others stay dirty, so their changes join the next pass.
+	fn take_due(&mut self, now: Instant) -> Vec<PathBuf> {
+		let due: Vec<PathBuf> = self
+			.dirty
+			.iter()
+			.filter(|root| {
+				self.last_nudge
+					.get(*root)
+					.is_none_or(|last| now.duration_since(*last) >= PASS_GAP)
+			})
+			.cloned()
+			.collect();
+		for root in &due {
+			self.dirty.remove(root);
+		}
+		due
+	}
+
+	fn nudged(&mut self, root: PathBuf, now: Instant) {
+		self.last_nudge.insert(root, now);
+	}
+}
 
 /// Handler for filesystem events under watched roots
 ///
@@ -105,22 +159,19 @@ impl FsEventHandler {
 			});
 		}
 
-		// Roots the watcher has changed files under since the last hashing
-		// nudge. Drained on a timer: the content job claims its work from the
-		// store and dispatch dedupes on the root, so nudging is idempotent
-		// and the cost of a nudge with nothing to do is one empty query.
-		let dirty_roots: Arc<std::sync::Mutex<std::collections::HashSet<std::path::PathBuf>>> =
-			Arc::new(std::sync::Mutex::new(std::collections::HashSet::new()));
+		// Sources the watcher has changed files under, drained on a timer.
+		// The content job claims its work from the store and dispatch dedupes
+		// on the root, so nudging is idempotent; the schedule bounds how often
+		// a busy source pays for a pass and the passes chained behind it.
+		let schedule = Arc::new(std::sync::Mutex::new(NudgeSchedule::default()));
 		{
-			let dirty_roots = dirty_roots.clone();
+			let schedule = schedule.clone();
 			let context = context.clone();
 			let is_running = is_running.clone();
 			tokio::spawn(async move {
-				const HASH_NUDGE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
 				while is_running.load(Ordering::SeqCst) {
 					tokio::time::sleep(HASH_NUDGE_INTERVAL).await;
-					let roots: Vec<std::path::PathBuf> =
-						dirty_roots.lock().unwrap().drain().collect();
+					let roots = schedule.lock().unwrap().take_due(Instant::now());
 					if roots.is_empty() {
 						continue;
 					}
@@ -129,6 +180,23 @@ impl FsEventHandler {
 						continue;
 					};
 					for root in roots {
+						let job = ContentIdentityJob::background(root.clone());
+						// A pass still running claims what changed as it goes.
+						// The root stays dirty so anything it missed is picked
+						// up once it finishes, and no second row is started.
+						if library.jobs().has_live(&job).await
+							|| library
+								.jobs()
+								.has_live(&ContentTextJob::new(root.clone(), true))
+								.await
+						{
+							schedule.lock().unwrap().mark(root);
+							continue;
+						}
+						schedule
+							.lock()
+							.unwrap()
+							.nudged(root.clone(), Instant::now());
 						// A dirty root with nothing pending gets no job: the
 						// count is one indexed query, while a job is a row, a
 						// dispatch, and a progress card that says "0%" and
@@ -143,23 +211,12 @@ impl FsEventHandler {
 							// A rename or a change hashing already knows can
 							// still leave text to read, such as a file renamed
 							// to an extension the text index reads.
-							crate::ops::indexing::content_text::index_text_soon(
-								library, &root, true,
-							)
-							.await;
+							content_text::index_text_soon(library, &root, true).await;
 							continue;
 						}
-						let job =
-							crate::ops::indexing::content_identity::ContentIdentityJob::background(
-								root.clone(),
-							);
 						if let Err(e) = library
 							.jobs()
-							.dispatch_with_priority(
-								job,
-								crate::infra::job::types::JobPriority::LOW,
-								None,
-							)
+							.dispatch_with_priority(job, JobPriority::LOW, None)
 							.await
 						{
 							warn!(root = %root.display(), "could not nudge hashing: {e}");
@@ -169,7 +226,7 @@ impl FsEventHandler {
 			});
 		}
 
-		let dirty_for_events = dirty_roots.clone();
+		let schedule_for_events = schedule.clone();
 		tokio::spawn(async move {
 			debug!("FsEventHandler task started");
 
@@ -188,7 +245,7 @@ impl FsEventHandler {
 						} else if let Some(root) =
 							context.volume_index().source_root_for(&event.path)
 						{
-							dirty_for_events.lock().unwrap().insert(root);
+							schedule_for_events.lock().unwrap().mark(root);
 						}
 					}
 					Err(broadcast::error::RecvError::Lagged(n)) => {
@@ -282,6 +339,68 @@ impl FsEventHandler {
 mod tests {
 	use super::*;
 
-	// Integration tests would require full context setup
-	// The handler logic is straightforward - subscribe, filter, route
+	/// Replays the schedule against a clock instead of waiting on one.
+	fn run(changes_at: impl Fn(Duration) -> bool, for_how_long: Duration) -> Vec<Duration> {
+		let start = Instant::now();
+		let root = PathBuf::from("/home/someone");
+		let mut schedule = NudgeSchedule::default();
+		let mut nudges = Vec::new();
+		let mut elapsed = Duration::ZERO;
+		while elapsed < for_how_long {
+			if changes_at(elapsed) {
+				schedule.mark(root.clone());
+			}
+			elapsed += HASH_NUDGE_INTERVAL;
+			let now = start + elapsed;
+			for root in schedule.take_due(now) {
+				schedule.nudged(root, now);
+				nudges.push(elapsed);
+			}
+		}
+		nudges
+	}
+
+	#[test]
+	fn a_steady_stream_of_changes_gets_one_pass_per_gap() {
+		let hour = Duration::from_secs(3600);
+		let nudges = run(|_| true, hour);
+		assert_eq!(nudges.len() as u64, hour.as_secs() / PASS_GAP.as_secs());
+		for pair in nudges.windows(2) {
+			assert!(pair[1] - pair[0] >= PASS_GAP);
+		}
+	}
+
+	#[test]
+	fn a_change_after_a_quiet_spell_is_nudged_within_one_interval() {
+		let nudges = run(
+			|at| at == Duration::from_secs(600),
+			Duration::from_secs(900),
+		);
+		assert_eq!(nudges, vec![Duration::from_secs(600) + HASH_NUDGE_INTERVAL]);
+	}
+
+	#[test]
+	fn changes_inside_the_gap_wait_for_it_instead_of_being_dropped() {
+		let nudges = run(
+			|at| at == Duration::ZERO || at == Duration::from_secs(60),
+			Duration::from_secs(900),
+		);
+		assert_eq!(
+			nudges,
+			vec![HASH_NUDGE_INTERVAL, HASH_NUDGE_INTERVAL + PASS_GAP]
+		);
+	}
+
+	#[test]
+	fn a_deferred_source_stays_dirty() {
+		let root = PathBuf::from("/home/someone");
+		let mut schedule = NudgeSchedule::default();
+		let now = Instant::now();
+		schedule.mark(root.clone());
+		let due = schedule.take_due(now);
+		assert_eq!(due, vec![root.clone()]);
+		// A live pass held the root, so the tick put it back without a nudge.
+		schedule.mark(root.clone());
+		assert_eq!(schedule.take_due(now + HASH_NUDGE_INTERVAL), vec![root]);
+	}
 }
