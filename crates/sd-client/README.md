@@ -18,11 +18,11 @@ Rust client for the Spacedrive daemon, used by `apps/cli` and native Rust apps.
 use sd_client::{daemon_socket_addr, CoreClient, LibraryContext, SubscriptionBroker};
 
 let addr = daemon_socket_addr(None).to_string();
-let client = CoreClient::new(addr.clone());
+let client = CoreClient::new(addr.clone(), &data_dir);
 let status: CoreStatus = client.query(&StatusInput {}, None).await?;
 
 // Many views, one daemon connection per distinct filter.
-let broker = SubscriptionBroker::new(addr);
+let broker = SubscriptionBroker::new(addr, &data_dir);
 let mut events = broker.subscribe(vec!["ResourceChanged".into()], None);
 while let Some(event) = events.recv().await { /* invalidate caches */ }
 

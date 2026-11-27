@@ -53,6 +53,8 @@ struct MockState {
 
 pub struct MockDaemon {
 	addr: SocketAddr,
+	/// Holds the mock's RPC secret, as a daemon's data directory does.
+	data_dir: tempfile::TempDir,
 	state: Arc<Mutex<MockState>>,
 	accept_handle: tokio::task::JoinHandle<()>,
 }
@@ -70,6 +72,10 @@ impl MockDaemon {
 			.expect("bind mock daemon");
 		let addr = listener.local_addr().expect("mock daemon addr");
 		let state = Arc::new(Mutex::new(MockState::default()));
+		let data_dir = tempfile::tempdir().expect("mock daemon data dir");
+		let secret = Arc::new(
+			sd_core::infra::daemon::auth::issue(data_dir.path()).expect("issue mock secret"),
+		);
 
 		let accept_state = state.clone();
 		let accept_handle = tokio::spawn(async move {
@@ -88,12 +94,13 @@ impl MockDaemon {
 					drop(stream);
 					continue;
 				}
-				tokio::spawn(handle_conn(stream, accept_state.clone()));
+				tokio::spawn(handle_conn(stream, accept_state.clone(), secret.clone()));
 			}
 		});
 
 		Self {
 			addr,
+			data_dir,
 			state,
 			accept_handle,
 		}
@@ -101,6 +108,11 @@ impl MockDaemon {
 
 	pub fn addr(&self) -> String {
 		self.addr.to_string()
+	}
+
+	/// The data directory a client reads the mock's RPC secret from.
+	pub fn data_dir(&self) -> std::path::PathBuf {
+		self.data_dir.path().to_path_buf()
 	}
 
 	fn state(&self) -> MutexGuard<'_, MockState> {
@@ -191,7 +203,11 @@ async fn write_response(
 	writer.flush().await
 }
 
-async fn handle_conn(stream: TcpStream, state: Arc<Mutex<MockState>>) {
+async fn handle_conn(
+	stream: TcpStream,
+	state: Arc<Mutex<MockState>>,
+	secret: Arc<sd_core::infra::daemon::auth::RpcSecret>,
+) {
 	let conn_id = {
 		let mut s = state.lock().unwrap();
 		s.next_conn += 1;
@@ -200,6 +216,12 @@ async fn handle_conn(stream: TcpStream, state: Arc<Mutex<MockState>>) {
 	let (reader, mut writer) = stream.into_split();
 	let mut lines = BufReader::new(reader).lines();
 	let (frame_tx, mut frame_rx) = mpsc::unbounded_channel::<Frame>();
+
+	// Like the daemon, serve nothing until the secret is presented.
+	match lines.next_line().await {
+		Ok(Some(line)) if secret.verify(&line) => {}
+		_ => return,
+	}
 
 	loop {
 		tokio::select! {

@@ -17,8 +17,19 @@ The mount is read-only.
   Ubuntu).
 - An `sd` built with the `fuse` feature: `cargo build -p sd-cli --features fuse`.
 - A node that serves its agent endpoint (`sd config set agent_mcp.enabled true`
-  on the node, see the agent access guide). The endpoint binds loopback, so
-  today the client and the node run on the same machine.
+  on the node, see the agent access guide). The endpoint binds loopback by
+  default. A non-loopback address needs TLS and the outside security review
+  described in `docs/core/design/space-endpoint.md`.
+
+## Transports
+
+`sd mount` speaks the node's space endpoint (`docs/core/design/space-endpoint.md`):
+`stat` and `list` for metadata, ranged block reads pinned to each file's
+etag, and the event stream for changes. A node that predates the space
+endpoint is reached over its MCP tools (`list_dir`, `stat`, ranged `read`)
+instead. A URL that ends in `/mcp` always uses MCP.
+
+When a token reaches more than one space, name one with `--space <id>`.
 
 ## Mount and unmount
 
@@ -66,15 +77,24 @@ and the cache never serves its old bytes. The cache can be deleted at any time.
 
 ## Changes on the node
 
-Attributes and listings are trusted for one second. A file changed, added or
-removed on the node shows through the mount within about a second, and a file
-opened after a change reads the new bytes.
+Over the space endpoint, the client follows the space's event stream. Each
+change drops the cached attributes of the path, its parent's listing and, for
+moves and deletes, everything beneath, and tells the kernel to drop the same.
+Attributes are otherwise trusted for 10 seconds, which bounds how stale a
+missed event can leave them. A dropped stream reconnects with the last event
+id, and a `reset` drops every cached answer. Each read sends the etag the file
+had when it was opened, so a file that changes mid-read fails that read with
+`EIO` instead of mixing bytes from two versions. The next open reads the new
+version.
+
+Over MCP there is no change feed, so attributes and listings are trusted for
+one second.
+
+A file opened after a change always reads the new bytes.
 
 ## Limits
 
-The client speaks to the node's agent MCP endpoint (`list_dir`, `stat` and
-ranged `read`), so the endpoint's per-grant limits apply: 10 requests a second
-with bursts of 30, four calls at a time, and 256 MiB of responses an hour. A
-request the endpoint refuses for rate is retried after the wait it names.
-Large or many files therefore read slowly. A dedicated block-read protocol
-with event-driven invalidation replaces this transport for remote mounts.
+The node's per-grant limits apply to every request, block reads included: 10
+requests a second with bursts of 30, four calls at a time, and 256 MiB of
+reads an hour. A request the node refuses for rate is retried after the wait
+it names, so large or many files read slowly once a budget is spent.

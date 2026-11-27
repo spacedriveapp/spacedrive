@@ -65,6 +65,7 @@ import {useSidebarLayout, useLayouts} from './hooks/useLayouts';
 import {LibrarySwitcher} from './LibrarySwitcher';
 import {SidebarItem} from './SidebarItem';
 import {SidebarSection} from './SidebarSection';
+import {SpacesSection} from '../Spaces/SpacesSection';
 
 interface SidebarProps {
 	isPreviewActive?: boolean;
@@ -441,6 +442,8 @@ export function Sidebar({
 								activePathPrefixes={['/trash']}
 							/>
 						</SidebarSection>
+
+						<SpacesSection deviceSlug={deviceSlug} />
 
 						{hasPlaces && (
 							<SidebarSection title="Places">

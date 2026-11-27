@@ -165,6 +165,14 @@ pub struct IndexingHarness {
 }
 
 impl IndexingHarness {
+	/// The RPC secret a client of the daemon started with this harness presents.
+	pub fn daemon_rpc_secret(&self) -> String {
+		std::fs::read_to_string(sd_core::infra::daemon::auth::secret_path(
+			&self.core.context.data_dir,
+		))
+		.expect("the daemon wrote its RPC secret")
+	}
+
 	/// Get the temp directory path (for creating test files)
 	pub fn temp_path(&self) -> &Path {
 		self.test_data.path()
