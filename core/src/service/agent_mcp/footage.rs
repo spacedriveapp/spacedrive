@@ -133,6 +133,7 @@ pub fn definitions(path: &dyn Fn(&str) -> Value) -> Vec<Value> {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SearchClipsArgs {
 	query: String,
 	#[serde(default)]
@@ -190,6 +191,7 @@ pub async fn search_clips(
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ReadFootageArgs {
 	#[serde(default)]
 	from: Option<TimeInput>,
@@ -217,6 +219,8 @@ pub async fn read_footage(
 	Ok(Output::json(value))
 }
 
+/// One clip of a timeline. Unknown fields are ignored so a clip from
+/// `search_clips` can be passed back as it is, metadata included.
 #[derive(Deserialize)]
 pub struct ExportClipArgs {
 	path: String,
@@ -229,6 +233,7 @@ pub struct ExportClipArgs {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ExportTimelineArgs {
 	name: String,
 	clips: Vec<ExportClipArgs>,

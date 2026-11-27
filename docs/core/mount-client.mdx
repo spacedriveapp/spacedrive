@@ -1,0 +1,80 @@
+---
+title: Mount a Granted Folder (sd mount)
+description: Mount one folder lent by a grant from a Spacedrive node, with no library and no pairing
+sidebarTitle: Mount Client
+---
+
+`sd mount` mounts one folder that a Spacedrive node lends through an agent
+grant. The machine that mounts needs no library, no pairing and no running
+daemon. It needs the node's URL and the grant token. Programs then use plain
+file calls on the folder, and bytes are fetched only where they are read.
+
+The mount is read-only.
+
+## Requirements
+
+- Linux with `/dev/fuse` and `fusermount3` (`apt install fuse3` on Debian and
+  Ubuntu).
+- An `sd` built with the `fuse` feature: `cargo build -p sd-cli --features fuse`.
+- A node that serves its agent endpoint (`sd config set agent_mcp.enabled true`
+  on the node, see the agent access guide). The endpoint binds loopback, so
+  today the client and the node run on the same machine.
+
+## Mount and unmount
+
+On the node, lend a folder:
+
+```bash
+sd grant create ~/projects/site --read --ttl 2h --label vm-agent
+```
+
+On the machine that mounts:
+
+```bash
+mkdir -p ~/site
+SD_GRANT_TOKEN=sdg_... sd mount http://127.0.0.1:7765 ~/site
+```
+
+`--token sdg_...` works too, but a token in the command line is visible to
+other users in the process list, so prefer the environment variable.
+
+The command runs in the foreground. Press Ctrl-C, or send SIGTERM, to unmount.
+If something still has a file open, the mount is detached and ends when that
+program closes it. The mount point must be an existing, empty directory.
+
+## What the mount shows
+
+The granted folder's contents, at the root of the mount. Files and
+directories appear with their sizes and times. Symlinks, devices and sockets
+do not appear. Writes, renames and deletes fail with `EROFS`.
+
+The node checks the token on every request and records each one in the
+grant's audit log. The client also asks the node every 5 seconds whether the
+token still holds. Once the grant is revoked or expires, every listing, open
+and read fails with `EACCES`, files opened before included, the kernel drops
+what it cached, and `sd mount` unmounts and exits with an error.
+
+## Reads and caching
+
+Bytes are fetched in 1 MiB blocks and kept in a block cache under
+`~/.cache/spacedrive/mounts` (use `--cache-dir` to move it), with up to 2 GiB on
+disk. The cache directory is made readable by your user only (mode 0700),
+since its blocks are copies of granted files. A file read in order is read
+ahead. Blocks are keyed by the file's path,
+size and modified time, so a file that changes on the node is fetched again,
+and the cache never serves its old bytes. The cache can be deleted at any time.
+
+## Changes on the node
+
+Attributes and listings are trusted for one second. A file changed, added or
+removed on the node shows through the mount within about a second, and a file
+opened after a change reads the new bytes.
+
+## Limits
+
+The client speaks to the node's agent MCP endpoint (`list_dir`, `stat` and
+ranged `read`), so the endpoint's per-grant limits apply: 10 requests a second
+with bursts of 30, four calls at a time, and 256 MiB of responses an hour. A
+request the endpoint refuses for rate is retried after the wait it names.
+Large or many files therefore read slowly. A dedicated block-read protocol
+with event-driven invalidation replaces this transport for remote mounts.

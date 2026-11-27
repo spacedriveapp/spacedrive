@@ -165,6 +165,18 @@ CREATE TABLE IF NOT EXISTS deep_scope (
     origin_device BLOB NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS space (
+    uuid BLOB PRIMARY KEY,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    root TEXT NOT NULL,
+    content_indexing INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    updated_hlc TEXT NOT NULL,
+    origin_device BLOB NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS _schema (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     data_type_id TEXT NOT NULL,
