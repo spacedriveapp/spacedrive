@@ -22,11 +22,17 @@
 //! handler instead of spread across a framework's layers.
 //!
 //! It is off by default and binds loopback. It can serve TLS from a configured
-//! certificate and key. The config also takes a non-loopback IP with TLS or an
-//! explicit `plaintext` flag, but [`transport`] refuses every non-loopback
-//! address until reads go through handle-based path containment; wildcard
-//! addresses are always refused. Host must name the listener: a loopback name
-//! with the bound port, the bound IP, or a configured host name for a proxy.
+//! certificate and key. A non-loopback IP is served only with TLS, from
+//! `agent_mcp.tls_cert` and `agent_mcp.tls_key`; wildcard addresses are always
+//! refused.
+//! Reads beyond loopback are safe because every open goes through
+//! handle-based containment (`crate::common::contain`). Writes are not
+//! offered over the network: a request that needs
+//! [`crate::ops::grants::GrantCap::ReadWrite`] is refused with 403 unless it
+//! comes straight from this machine (a loopback bind, a loopback Host with the
+//! bound port, and no proxy header), until the outside security review signs
+//! off on writable grants over the network. Host must name the listener: a loopback name with the bound port,
+//! the bound IP, or a configured host name for a proxy.
 //! OAuth is offered only to a request that comes straight from this machine,
 //! since its consent page mints a grant for whoever presses Allow without
 //! authenticating the owner. Everywhere else every OAuth route answers 404 and
@@ -90,9 +96,11 @@ pub const SKILL: &str = include_str!("SKILL.md");
 /// request's headers, before its connection is dropped.
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 
-const NO_CONTAINMENT: &str = "the agent MCP endpoint does not listen beyond loopback yet. That needs handle-based path containment (docs/core/design/agent-access-threat-model.md, item 9), which this build does not have. Keep it on loopback behind a proxy that forwards only /mcp";
+/// The default value of `agent_mcp.block_bytes_per_hour`: 8 GiB.
+pub const DEFAULT_BLOCK_BYTES_PER_HOUR: u64 = 8 * 1024 * 1024 * 1024;
 
-const NON_LOOPBACK_PLAIN: &str = "a non-loopback listener needs agent_mcp.tls_cert and agent_mcp.tls_key, or agent_mcp.plaintext set to true for a network that is already encrypted";
+const NON_LOOPBACK_PLAIN: &str =
+	"a non-loopback listener needs TLS: set agent_mcp.tls_cert and agent_mcp.tls_key";
 
 /// The socket address `listen` names, or why the endpoint will not bind it.
 ///
@@ -156,8 +164,6 @@ pub enum Transport {
 	Loopback,
 	/// TLS from the configured certificate chain and key.
 	Tls { cert: PathBuf, key: PathBuf },
-	/// Plain HTTP beyond loopback, which the user asked for with `plaintext`.
-	Plaintext,
 }
 
 /// Decide how to serve `addr` under `config`, or why it must not be served.
@@ -176,16 +182,14 @@ pub fn transport(addr: SocketAddr, config: &AgentMcpConfig) -> Result<Transport,
 		(None, None) => None,
 		_ => return Err("set both agent_mcp.tls_cert and agent_mcp.tls_key, or neither".into()),
 	};
-	if !addr.ip().is_loopback() {
-		return Err(format!("refusing to listen on {addr}: {NO_CONTAINMENT}"));
+	if config.block_bytes_per_hour == 0 {
+		return Err("agent_mcp.block_bytes_per_hour must be greater than 0".into());
 	}
 	if let Some(tls) = tls {
 		return Ok(tls);
 	}
 	if addr.ip().is_loopback() {
 		Ok(Transport::Loopback)
-	} else if config.plaintext {
-		Ok(Transport::Plaintext)
 	} else {
 		Err(format!(
 			"refusing to listen on {addr}: {NON_LOOPBACK_PLAIN}"
@@ -262,14 +266,16 @@ pub async fn start(
 	};
 	let listener = TcpListener::bind(addr).await?;
 	let host_names = config.host_names.clone();
-	let bound = match tls {
-		Some(tls) => serve_tls(context, listener, Limits::default(), tls, host_names)?,
-		None => spawn_plain(context, listener, Limits::default(), host_names)?,
+	let limits = Limits {
+		block_bytes_per_hour: config.block_bytes_per_hour,
+		..Limits::default()
 	};
-	if transport == Transport::Plaintext {
-		warn!(
-			"Agent MCP endpoint serves plain HTTP on {bound}. Grant tokens cross the network unencrypted unless the network itself is encrypted"
-		);
+	let bound = match tls {
+		Some(tls) => serve_tls(context, listener, limits, tls, host_names)?,
+		None => spawn_plain(context, listener, limits, host_names)?,
+	};
+	if !bound.ip().is_loopback() {
+		info!("Agent MCP endpoint on {bound} is read-only: writes need a direct local request until the security review");
 	}
 	info!(
 		"Agent MCP endpoint at {}",
@@ -435,20 +441,30 @@ mod tests {
 	}
 
 	#[test]
-	fn non_loopback_addresses_are_refused_until_containment_lands() {
+	fn non_loopback_addresses_need_tls() {
+		let refused = plan(&config("192.168.1.5:7765")).unwrap_err();
+		assert!(refused.contains("tls_cert"), "{refused}");
 		let tls = AgentMcpConfig {
 			tls_cert: Some("cert.pem".into()),
 			tls_key: Some("key.pem".into()),
 			..config("100.64.0.1:7765")
 		};
-		let plaintext = AgentMcpConfig {
-			plaintext: true,
-			..config("100.64.0.1:7765")
+		assert_eq!(
+			plan(&tls),
+			Ok(Transport::Tls {
+				cert: "cert.pem".into(),
+				key: "key.pem".into()
+			})
+		);
+	}
+
+	#[test]
+	fn a_zero_block_budget_is_refused() {
+		let config = AgentMcpConfig {
+			block_bytes_per_hour: 0,
+			..config(DEFAULT_LISTEN)
 		};
-		for config in [config("192.168.1.5:7765"), tls, plaintext] {
-			let refused = plan(&config).unwrap_err();
-			assert!(refused.contains("containment"), "{refused}");
-		}
+		assert!(plan(&config).is_err());
 	}
 
 	#[test]
@@ -493,7 +509,6 @@ mod tests {
 			assert!(host_name(name).is_err(), "{name:?} should be refused");
 		}
 		let config = AgentMcpConfig {
-			plaintext: true,
 			host_names: vec!["bad name".into()],
 			..config(DEFAULT_LISTEN)
 		};

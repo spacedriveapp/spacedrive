@@ -10,8 +10,9 @@ use std::time::{Duration, Instant};
 
 /// Request limits the endpoint enforces.
 ///
-/// The daemon always runs with [`Limits::default`]. Tests lower single
-/// fields to reach a limit quickly.
+/// The daemon runs with [`Limits::default`] except for
+/// `block_bytes_per_hour`, which comes from `agent_mcp.block_bytes_per_hour`.
+/// Tests lower single fields to reach a limit quickly.
 #[derive(Debug, Clone)]
 pub struct Limits {
 	pub sessions_per_grant: usize,
@@ -45,7 +46,7 @@ impl Default for Limits {
 			max_header_bytes: 16 * 1024,
 			call_timeout: Duration::from_secs(30),
 			bytes_per_hour: 256 * 1024 * 1024,
-			block_bytes_per_hour: 8 * 1024 * 1024 * 1024,
+			block_bytes_per_hour: super::DEFAULT_BLOCK_BYTES_PER_HOUR,
 			auth_failures_per_minute: 20,
 			auth_lockout: Duration::from_secs(5 * 60),
 			session_idle: Duration::from_secs(30 * 60),
