@@ -145,7 +145,11 @@ async fn object(
 		}
 	}
 	let listing = list(bucket, url).await?;
-	if listing.is_empty() && !url.key.is_empty() {
+	if listing.is_empty()
+		&& !files_bucket::is_directory(bucket.backend.as_ref(), url)
+			.await
+			.map_err(io)?
+	{
 		return Ok(Object {
 			state: absent(None, None, None),
 			etag: None,

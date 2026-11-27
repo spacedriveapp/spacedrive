@@ -1048,9 +1048,12 @@ async fn bucket_stat(
 	requested: &str,
 ) -> Result<Value, Response> {
 	let backend = bucket_backend(context, url).await?;
-	let object = files_bucket::object(backend.as_ref(), &url.key)
-		.await
-		.map_err(bucket_failure)?;
+	let object = match requested.is_empty() {
+		true => None,
+		false => files_bucket::object(backend.as_ref(), &url.key)
+			.await
+			.map_err(bucket_failure)?,
+	};
 	let mut value = match object {
 		Some(object) => bucket_file(
 			requested.to_string(),
@@ -1059,7 +1062,7 @@ async fn bucket_stat(
 			&object.etag,
 		),
 		None if requested.is_empty()
-			|| files_bucket::occupied(backend.as_ref(), url)
+			|| files_bucket::is_directory(backend.as_ref(), url)
 				.await
 				.map_err(bucket_failure)? =>
 		{
@@ -1087,10 +1090,15 @@ async fn bucket_list(
 			.entity_tag(Path::new(&url.key))
 			.await
 			.map_err(bucket_failure)?;
-		return Err(match object {
-			Some(_) => error(StatusCode::BAD_REQUEST, "not a directory"),
-			None => error(StatusCode::NOT_FOUND, "not found"),
-		});
+		if object.is_some() {
+			return Err(error(StatusCode::BAD_REQUEST, "not a directory"));
+		}
+		if !files_bucket::is_directory(backend.as_ref(), url)
+			.await
+			.map_err(bucket_failure)?
+		{
+			return Err(error(StatusCode::NOT_FOUND, "not found"));
+		}
 	}
 	children.retain(|child| {
 		child.name != MANAGED_DIR

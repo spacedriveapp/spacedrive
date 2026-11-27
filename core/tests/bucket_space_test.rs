@@ -244,6 +244,19 @@ async fn a_bucket_prefix_is_a_space_an_agent_works_in() -> anyhow::Result<()> {
 	assert!(create(&harness, SpaceKind::Workspace, &project, None)
 		.await
 		.is_err());
+	seed.write(Path::new(&format!("{run}/lone")), Bytes::from("a file"))
+		.await?;
+	assert!(
+		create(
+			&harness,
+			SpaceKind::Workspace,
+			&format!("{base}/lone"),
+			None
+		)
+		.await
+		.is_err(),
+		"a workspace never sits on an object's key"
+	);
 	let listed: Vec<Uuid> = SpacesListQuery::from_input(SpacesListQueryInput { source_id: None })
 		.unwrap()
 		.execute(harness.core.context.clone(), session(&harness))
@@ -310,6 +323,20 @@ async fn a_bucket_prefix_is_a_space_an_agent_works_in() -> anyhow::Result<()> {
 	assert_eq!(
 		rest.get("list/notes.md").await.status,
 		StatusCode::BAD_REQUEST
+	);
+
+	// A directory made empty is still one, held open by its marker.
+	rest.ok("make_dir", json!({ "path": "empty" })).await;
+	assert_eq!(
+		rest.get("stat/empty").await.json()["kind"],
+		json!("directory")
+	);
+	let empty = rest.get("list/empty").await;
+	assert_eq!(empty.status, StatusCode::OK, "{}", empty.json());
+	assert_eq!(empty.json()["entries"], json!([]));
+	assert_eq!(
+		rest.ok("stat", json!({ "path": "empty" })).await["type"],
+		json!("dir")
 	);
 	assert_eq!(
 		rest.get("stat/missing.md").await.status,

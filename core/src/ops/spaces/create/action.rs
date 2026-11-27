@@ -109,7 +109,15 @@ impl LibraryAction for SpaceCreateAction {
 				url.path()
 			}
 			(SpaceKind::Workspace, Some(url)) => {
-				if !bucket_children(&context, url).await?.is_empty() {
+				let file = match url.key.is_empty() {
+					true => None,
+					false => backend(&context, url)
+						.await?
+						.entity_tag(Path::new(&url.key))
+						.await
+						.map_err(|e| ActionError::Internal(e.to_string()))?,
+				};
+				if file.is_some() || !bucket_children(&context, url).await?.is_empty() {
 					return Err(ActionError::InvalidInput(format!(
 						"{} is not empty",
 						url.path().display()

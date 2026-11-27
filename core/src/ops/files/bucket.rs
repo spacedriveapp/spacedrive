@@ -125,6 +125,23 @@ pub async fn object(backend: &dyn VolumeBackend, key: &str) -> Result<Option<Obj
 	}))
 }
 
+/// Whether `url` names a directory: the bucket itself, a prefix with objects
+/// under it, or an empty prefix held open by its `key/` marker, which is
+/// what making a directory writes.
+pub async fn is_directory(
+	backend: &dyn VolumeBackend,
+	url: &BucketUrl,
+) -> Result<bool, VolumeError> {
+	if url.key.is_empty()
+		|| !crate::ops::grants::bucket::list(backend, url)
+			.await?
+			.is_empty()
+	{
+		return Ok(true);
+	}
+	backend.exists(Path::new(&format!("{}/", url.key))).await
+}
+
 /// Whether anything sits at `key`: an object, or objects below it.
 pub async fn occupied(backend: &dyn VolumeBackend, url: &BucketUrl) -> Result<bool, VolumeError> {
 	if backend.entity_tag(Path::new(&url.key)).await?.is_some() {
