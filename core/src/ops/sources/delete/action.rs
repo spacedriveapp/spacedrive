@@ -63,22 +63,27 @@ impl LibraryAction for DeleteSourceAction {
 		let source_id = uuid::Uuid::parse_str(&self.input.source_id)
 			.map_err(|e| ActionError::Internal(format!("Invalid source ID: {e}")))?;
 
-		// Derived media goes with the catalog. Content another source still
-		// holds moves to that source first, since the sidecars are one copy
-		// for every file with those bytes.
+		// Content another source still holds moves to that source first,
+		// since the sidecars are one copy for every file with those bytes and
+		// readers stop looking under a source once it is removed. Derived
+		// media goes with the catalog, so a failed move stops a catalog
+		// delete; without one the tree stays on disk with the catalog.
 		let derived = context
 			.volume_index()
 			.source_dirs()
 			.map(|dirs| sd_sidecar_path::derived_root(dirs.root(), &source_id));
-		if self.input.delete_catalog {
-			match SidecarRegistry::of(&library).evacuate(source_id).await {
-				Ok(0) => {}
-				Ok(moved) => {
-					tracing::info!(source = %source_id, moved, "moved shared sidecars to another source")
-				}
-				Err(error) => {
-					tracing::warn!(source = %source_id, %error, "could not move shared sidecars")
-				}
+		match SidecarRegistry::of(&library).evacuate(source_id).await {
+			Ok(0) => {}
+			Ok(moved) => {
+				tracing::info!(source = %source_id, moved, "moved shared sidecars to another source")
+			}
+			Err(error) if self.input.delete_catalog => {
+				return Err(ActionError::Internal(format!(
+					"kept the source because its shared sidecars could not be moved: {error}"
+				)))
+			}
+			Err(error) => {
+				tracing::warn!(source = %source_id, %error, "could not move shared sidecars")
 			}
 		}
 

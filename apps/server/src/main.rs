@@ -183,12 +183,19 @@ async fn serve_sidecar(
 		return plain_status(StatusCode::NOT_FOUND, "unknown library");
 	};
 
-	// A content's sidecars sit under whichever of the daemon's sources holds
-	// it, so every source is probed.
+	let Ok(library_uuid) = uuid::Uuid::parse_str(&library_id) else {
+		return plain_status(StatusCode::BAD_REQUEST, "invalid library id");
+	};
+
+	// A content's sidecars sit under whichever of the library's sources holds
+	// it, so each of them is probed.
 	let relative = sd_sidecar_path::relative_path(&content_uuid, kind_dir, variant, ext);
-	let Some(path) =
-		sd_sidecar_path::locate(&state.data_dir.join("sources"), &library_folder, &relative)
-	else {
+	let Some(path) = sd_sidecar_path::locate(
+		&state.data_dir.join("sources"),
+		&library_uuid,
+		&library_folder,
+		&relative,
+	) else {
 		return plain_status(StatusCode::NOT_FOUND, "sidecar not found");
 	};
 

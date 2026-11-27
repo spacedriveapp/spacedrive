@@ -320,6 +320,7 @@ fn digest_sidecar(library: &sd_core::library::Library, content_uuid: Uuid) -> Pa
 fn sidecar_file(library: &sd_core::library::Library, relative: PathBuf) -> PathBuf {
 	sd_sidecar_path::locate(
 		&library.core_context().data_dir.join("sources"),
+		&library.id(),
 		library.path(),
 		&relative,
 	)

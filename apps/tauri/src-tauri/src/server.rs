@@ -149,12 +149,19 @@ async fn serve_sidecar(
 	let (variant, ext) = variant_and_ext
 		.rsplit_once('.')
 		.ok_or(StatusCode::BAD_REQUEST)?;
-	// A content's sidecars sit under whichever of the daemon's sources holds
-	// it, so every source is probed.
+	let library_uuid = library_id
+		.parse::<uuid::Uuid>()
+		.map_err(|_| StatusCode::BAD_REQUEST)?;
+	// A content's sidecars sit under whichever of the library's sources holds
+	// it, so each of them is probed.
 	let relative = sd_sidecar_path::relative_path(&content_uuid, kind_dir, variant, ext);
-	let sidecar_path =
-		sd_sidecar_path::locate(&data_dir.join("sources"), &library_folder, &relative)
-			.unwrap_or_else(|| sd_sidecar_path::legacy_root(&library_folder).join(&relative));
+	let sidecar_path = sd_sidecar_path::locate(
+		&data_dir.join("sources"),
+		&library_uuid,
+		&library_folder,
+		&relative,
+	)
+	.unwrap_or_else(|| sd_sidecar_path::legacy_root(&library_folder).join(&relative));
 
 	let Ok(mut response) = ServeFile::new(&sidecar_path).oneshot(request).await;
 	if response.status() == StatusCode::NOT_FOUND {

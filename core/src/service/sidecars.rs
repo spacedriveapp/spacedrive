@@ -284,8 +284,7 @@ impl SidecarRegistry {
 	/// source's rows, or from its directory when it lists none, then from
 	/// the legacy tree. The first copy of a key wins.
 	pub async fn list(&self, content_uuid: Uuid) -> Vec<Listed> {
-		let mut found: Vec<Listed> = Vec::new();
-		let directory = sd_sidecar_path::content_directory(&content_uuid);
+		let mut roots: Vec<(PathBuf, Vec<ContentSidecar>)> = Vec::new();
 		for source in self.sources() {
 			let rows = match self.volume_index.read_store(source.id).await {
 				Some(db) => db
@@ -297,26 +296,37 @@ impl SidecarRegistry {
 					}),
 				None => Vec::new(),
 			};
-			let mut listed: Vec<Listed> = rows
+			let named = rows
 				.iter()
 				.filter_map(|row| ContentSidecar::from_key(&row.key()))
-				.filter_map(|sidecar| listed_at(&source.derived, sidecar))
 				.collect();
-			if listed.is_empty() {
-				listed = scan_tree(&source.derived, &directory)
-					.into_iter()
-					.filter_map(|sidecar| listed_at(&source.derived, sidecar))
-					.collect();
-			}
-			merge(&mut found, listed);
+			roots.push((source.derived, named));
 		}
-		let legacy = sd_sidecar_path::legacy_root(&self.library_dir);
-		let listed = scan_tree(&legacy, &directory)
-			.into_iter()
-			.filter_map(|sidecar| listed_at(&legacy, sidecar))
-			.collect();
-		merge(&mut found, listed);
-		found
+		roots.push((sd_sidecar_path::legacy_root(&self.library_dir), Vec::new()));
+		let directory = sd_sidecar_path::content_directory(&content_uuid);
+		// Stat and directory walks block, so they run off the executor.
+		tokio::task::spawn_blocking(move || {
+			let mut found: Vec<Listed> = Vec::new();
+			for (root, named) in roots {
+				let mut listed: Vec<Listed> = named
+					.into_iter()
+					.filter_map(|sidecar| listed_at(&root, sidecar))
+					.collect();
+				if listed.is_empty() {
+					listed = scan_tree(&root, &directory)
+						.into_iter()
+						.filter_map(|sidecar| listed_at(&root, sidecar))
+						.collect();
+				}
+				merge(&mut found, listed);
+			}
+			found
+		})
+		.await
+		.unwrap_or_else(|error| {
+			warn!(%error, "content sidecar listing failed");
+			Vec::new()
+		})
 	}
 
 	/// Bring every source's rows in line with its directory.
@@ -446,13 +456,23 @@ impl SidecarRegistry {
 		let mut moved = 0;
 		let mut touched = Vec::new();
 		for (content_uuid, directory) in contents {
+			// A holder that cannot be asked is not taken as absent, since the
+			// leaving tree may be deleted once this returns.
 			let mut target = None;
 			for source in sources.iter().filter(|source| source.id != leaving) {
-				if let Some(db) = self.volume_index.read_store(source.id).await {
-					if db.holds_content(content_uuid).await.unwrap_or(false) {
-						target = Some(source.clone());
-						break;
-					}
+				let Some(db) = self.volume_index.read_store(source.id).await else {
+					return Err(io::Error::other(format!(
+						"source {} did not answer, so its shared sidecars cannot be placed",
+						source.id
+					)));
+				};
+				if db
+					.holds_content(content_uuid)
+					.await
+					.map_err(io::Error::other)?
+				{
+					target = Some(source.clone());
+					break;
 				}
 			}
 			let Some(target) = target else {

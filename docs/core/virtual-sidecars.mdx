@@ -188,8 +188,8 @@ and `sidecars.delete` all go through it.
 - A content has one copy. Its home is the source that already holds its
   directory; otherwise the source whose file it is being made from; otherwise,
   for a writer with no file such as an extension, any source whose store holds
-  the content. Readers probe every source of the library, and the HTTP
-  sidecar route probes every source of the daemon.
+  the content. Readers, the HTTP sidecar
+  route included, probe every source of the library.
 - The file is the authority and the row its index. When a library opens, the
   registry lists each source's `derived/` directory, adds rows for files that
   have none and drops rows whose file is gone, so a row lost to a crash or to a

@@ -35,14 +35,26 @@ pub fn legacy_root(library_dir: &Path) -> PathBuf {
 	library_dir.join("sidecars").join("content")
 }
 
-/// The file holding a sidecar, found by probing every source's derived
-/// directory under `sources_dir` and then the library's legacy tree.
-pub fn locate(sources_dir: &Path, library_dir: &Path, relative: &Path) -> Option<PathBuf> {
+/// The file holding a sidecar, found by probing the derived directory of
+/// every source of `library_id` under `sources_dir` and then the library's
+/// legacy tree.
+///
+/// Sources of other libraries are skipped: two libraries holding the same
+/// bytes keep separate copies, which can differ, for example transcripts made
+/// in different languages.
+pub fn locate(
+	sources_dir: &Path,
+	library_id: &Uuid,
+	library_dir: &Path,
+	relative: &Path,
+) -> Option<PathBuf> {
 	let mut roots: Vec<PathBuf> = std::fs::read_dir(sources_dir)
 		.into_iter()
 		.flatten()
 		.flatten()
-		.map(|entry| entry.path().join(DERIVED_DIR))
+		.map(|entry| entry.path())
+		.filter(|source| belongs_to(source, library_id))
+		.map(|source| source.join(DERIVED_DIR))
 		.collect();
 	roots.sort();
 	roots.push(legacy_root(library_dir));
@@ -50,6 +62,18 @@ pub fn locate(sources_dir: &Path, library_dir: &Path, relative: &Path) -> Option
 		.into_iter()
 		.map(|root| root.join(relative))
 		.find(|path| path.is_file())
+}
+
+/// Whether the source directory's `source.json` names `library_id`.
+fn belongs_to(source: &Path, library_id: &Uuid) -> bool {
+	std::fs::read(source.join("source.json"))
+		.ok()
+		.and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+		.and_then(|json| {
+			json.get("library_id")?
+				.as_str()
+				.and_then(|id| Uuid::parse_str(id).ok())
+		}) == Some(*library_id)
 }
 
 /// Directory name for a sidecar kind string, or `None` for an unknown kind.
@@ -166,25 +190,44 @@ mod tests {
 	}
 
 	#[test]
-	fn locate_probes_every_source_then_the_legacy_tree() {
+	fn locate_probes_the_library_s_sources_then_its_legacy_tree() {
 		let data = std::env::temp_dir().join(format!("sd-sidecar-path-{}", std::process::id()));
 		let sources = data.join("sources");
 		let library = data.join("libraries").join("a.sdlibrary");
 		let uuid = Uuid::parse_str("abcd1234-5678-90ab-cdef-123456789012").unwrap();
 		let relative = relative_path(&uuid, "proxies", "720p", "mp4");
-		let (a, b) = (Uuid::from_u128(1), Uuid::from_u128(2));
-		std::fs::create_dir_all(derived_root(&sources, &a)).unwrap();
-		assert_eq!(locate(&sources, &library, &relative), None);
+		let (a, b, other) = (Uuid::from_u128(1), Uuid::from_u128(2), Uuid::from_u128(3));
+		let (mine, theirs) = (Uuid::from_u128(10), Uuid::from_u128(11));
+		let register = |source: &Uuid, library_id: &Uuid| {
+			let dir = derived_root(&sources, source);
+			std::fs::create_dir_all(&dir).unwrap();
+			std::fs::write(
+				dir.parent().unwrap().join("source.json"),
+				format!("{{\"library_id\":\"{library_id}\"}}"),
+			)
+			.unwrap();
+		};
+		register(&a, &mine);
+		register(&b, &mine);
+		register(&other, &theirs);
+		let foreign = derived_root(&sources, &other).join(&relative);
+		std::fs::create_dir_all(foreign.parent().unwrap()).unwrap();
+		std::fs::write(&foreign, b"theirs").unwrap();
+		assert_eq!(locate(&sources, &mine, &library, &relative), None);
 
 		let legacy = legacy_root(&library).join(&relative);
 		std::fs::create_dir_all(legacy.parent().unwrap()).unwrap();
 		std::fs::write(&legacy, b"old").unwrap();
-		assert_eq!(locate(&sources, &library, &relative), Some(legacy));
+		assert_eq!(locate(&sources, &mine, &library, &relative), Some(legacy));
 
 		let adopted = derived_root(&sources, &b).join(&relative);
 		std::fs::create_dir_all(adopted.parent().unwrap()).unwrap();
 		std::fs::write(&adopted, b"new").unwrap();
-		assert_eq!(locate(&sources, &library, &relative), Some(adopted));
+		assert_eq!(locate(&sources, &mine, &library, &relative), Some(adopted));
+		assert_eq!(
+			locate(&sources, &theirs, &library, &relative),
+			Some(foreign)
+		);
 		std::fs::remove_dir_all(&data).unwrap();
 	}
 
