@@ -418,14 +418,15 @@ async fn grep(
 	let mut page = Page::new(&options, cancel).map_err(|e| e.to_string())?;
 
 	// A file scope searches that one object and names matches by its name.
-	let (files, base): (Vec<(PathBuf, String, u64)>, &Path) =
+	let (files, base, stopped): (Vec<(PathBuf, String, u64)>, &Path, bool) =
 		match object_size(backend, url).await? {
 			Some(size) => (
 				vec![(PathBuf::new(), url.key.clone(), size)],
 				scope.relative.parent().unwrap_or(Path::new("")),
+				false,
 			),
 			None => {
-				let (entries, _) = walk(backend, url, args.include_hidden, cancel).await?;
+				let (entries, stopped) = walk(backend, url, args.include_hidden, cancel).await?;
 				let files = entries
 					.into_iter()
 					.filter(|(_, entry)| entry.kind != EntryKind::Directory)
@@ -438,7 +439,7 @@ async fn grep(
 						(relative, key, entry.size)
 					})
 					.collect();
-				(files, scope.relative.as_path())
+				(files, scope.relative.as_path(), stopped)
 			}
 		};
 	for (relative, key, size) in files {
@@ -490,7 +491,8 @@ async fn grep(
 			"path": paths::joined(base, &skipped.path),
 			"reason": skipped.reason,
 		})).collect::<Vec<_>>(),
-		"truncated": out.truncated,
+		"truncated": out.truncated || stopped,
 		"next_cursor": out.next_cursor,
+		"visit_limit_reached": stopped,
 	})))
 }

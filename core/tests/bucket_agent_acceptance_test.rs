@@ -291,11 +291,36 @@ async fn agents_read_grep_and_write_a_bucket_prefix_with_preconditions() -> anyh
 	assert_eq!(matches.len(), 1, "{found}");
 	assert_eq!(matches[0]["path"], json!("src/main.rs"));
 	assert_eq!(matches[0]["line_number"], json!(2));
+	assert_eq!(found["visit_limit_reached"], json!(false), "{found}");
+	assert_eq!(found["truncated"], json!(false), "{found}");
 
 	// The grant ends at its prefix.
 	agent
 		.fails("read", json!({ "path": "../outside/secret.txt" }))
 		.await;
+
+	// Stat hashes an object as it streams, so its size costs no memory, and
+	// a byte-range write sends the whole object back under If-Match.
+	let large: Vec<u8> = (0..12 * 1024 * 1024u32).map(|i| (i % 251) as u8).collect();
+	seed.write(
+		Path::new(&format!("{run}/project/blobs/large.bin")),
+		Bytes::from(large.clone()),
+	)
+	.await?;
+	let large_hash = agent.hash("blobs/large.bin").await;
+	assert_eq!(large_hash, blake3::hash(&large).to_hex().as_str());
+	let mut spliced = large.clone();
+	spliced[..5].copy_from_slice(b"HELLO");
+	let patched = agent
+		.ok(
+			"write_file",
+			json!({ "path": "blobs/large.bin", "content": "HELLO", "offset": 0, "expect": { "content_hash": large_hash } }),
+		)
+		.await;
+	assert_eq!(
+		patched["state"]["content_hash"],
+		json!(blake3::hash(&spliced).to_hex().to_string())
+	);
 
 	// A write against the hash stat returned lands.
 	let first = agent.hash("notes.md").await;

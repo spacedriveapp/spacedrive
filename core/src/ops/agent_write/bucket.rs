@@ -27,13 +27,14 @@ use std::{
 };
 
 use bytes::Bytes;
+use futures::StreamExt;
 use tracing::info;
 
 use super::{
 	conflict::conflict_names,
 	ops::WriteTurn,
 	state::{check, stale},
-	PathKind, PathState, Precondition, WriteError, WriteOutcome,
+	PathKind, PathState, Precondition, WriteError, WriteOutcome, MAX_WRITE_BYTES,
 };
 use crate::{
 	context::CoreContext,
@@ -88,12 +89,11 @@ impl Bucket {
 	}
 }
 
-/// A key as it is now: its state, and for a file the tag and bytes the hash
-/// was taken from.
+/// A key as it is now: its state, and for a file the tag the hash was taken
+/// from.
 struct Object {
 	state: PathState,
 	etag: Option<String>,
-	bytes: Option<Bytes>,
 }
 
 fn io(error: VolumeError) -> WriteError {
@@ -127,19 +127,14 @@ async fn object(
 			else {
 				break;
 			};
-			match bucket
-				.backend
-				.read_if_match(Path::new(&url.key), &etag)
-				.await
-			{
-				Ok(bytes) => {
-					let hash = blake3::hash(&bytes).to_hex().to_string();
+			match hash_at(bucket, url, &etag, cancel).await {
+				Ok((hash, size)) => {
 					return Ok(Object {
-						state: absent(Some(PathKind::File), Some(bytes.len() as u64), Some(hash)),
+						state: absent(Some(PathKind::File), Some(size), Some(hash)),
 						etag: Some(etag),
-						bytes: Some(bytes),
 					});
 				}
+				Err(_) if cancel.load(Ordering::Relaxed) => return Err(WriteError::Cancelled),
 				Err(VolumeError::PreconditionFailed(_)) => continue,
 				Err(error) => return Err(io(error)),
 			}
@@ -150,7 +145,6 @@ async fn object(
 		return Ok(Object {
 			state: absent(None, None, None),
 			etag: None,
-			bytes: None,
 		});
 	}
 	Ok(Object {
@@ -160,8 +154,35 @@ async fn object(
 			Some(listing_hash(&listing)),
 		),
 		etag: None,
-		bytes: None,
 	})
+}
+
+/// Hash the version `etag` names as it streams in, so an object of any size
+/// costs one chunk of memory. A cancelled call stops between chunks.
+async fn hash_at(
+	bucket: &Bucket,
+	url: &BucketUrl,
+	etag: &str,
+	cancel: &AtomicBool,
+) -> Result<(String, u64), VolumeError> {
+	let mut stream = bucket
+		.backend
+		.stream_if_match(Path::new(&url.key), etag)
+		.await?;
+	let mut hasher = blake3::Hasher::new();
+	let mut size = 0u64;
+	while let Some(chunk) = stream.next().await {
+		if cancel.load(Ordering::Relaxed) {
+			return Err(VolumeError::Io(std::io::Error::new(
+				std::io::ErrorKind::Interrupted,
+				"cancelled",
+			)));
+		}
+		let chunk = chunk?;
+		size += chunk.len() as u64;
+		hasher.update(&chunk);
+	}
+	Ok((hasher.finalize().to_hex().to_string(), size))
 }
 
 async fn list(
@@ -220,8 +241,7 @@ pub(super) async fn write_file(
 ) -> Result<WriteOutcome, WriteError> {
 	let requested = bucket.shown(&bucket.url);
 	let Some(expect) = expect else {
-		turn.proceed()?;
-		let landed = create(&bucket, Bytes::from(bytes)).await?;
+		let landed = create(&bucket, Bytes::from(bytes), turn).await?;
 		return outcome(&bucket, requested, landed, turn).await;
 	};
 
@@ -233,12 +253,34 @@ pub(super) async fn write_file(
 			current.state.path
 		)));
 	}
-	let (Some(etag), Some(existing)) = (current.etag, current.bytes) else {
+	let Some(etag) = current.etag else {
 		return Err(stale(current.state));
 	};
 	let body = match offset {
 		None => Bytes::from(bytes),
 		Some(offset) => {
+			// A bucket has no partial write, so a range write sends the whole
+			// object back and is held to the size of one write.
+			let size = current.state.size.unwrap_or(0);
+			if size > MAX_WRITE_BYTES as u64 {
+				return Err(WriteError::Invalid(format!(
+					"{} is {size} bytes; a byte-range write to a bucket object rewrites it whole and takes objects up to {} MiB, so write the whole object instead",
+					current.state.path,
+					MAX_WRITE_BYTES / (1024 * 1024)
+				)));
+			}
+			let existing = match bucket
+				.backend
+				.read_if_match(Path::new(&bucket.url.key), &etag)
+				.await
+			{
+				Ok(existing) => existing,
+				Err(VolumeError::PreconditionFailed(_)) => {
+					let now = object(&bucket, &bucket.url, turn.cancel()).await?;
+					return Err(stale(now.state));
+				}
+				Err(error) => return Err(io(error)),
+			};
 			let offset = usize::try_from(offset)
 				.ok()
 				.filter(|offset| *offset <= existing.len())
@@ -280,7 +322,7 @@ pub(super) async fn write_file(
 
 /// Create the scope's key, or the first free conflict name beside it. The
 /// service decides what is free by refusing each taken name.
-async fn create(bucket: &Bucket, bytes: Bytes) -> Result<BucketUrl, WriteError> {
+async fn create(bucket: &Bucket, bytes: Bytes, turn: &WriteTurn) -> Result<BucketUrl, WriteError> {
 	let wanted = bucket.url.path();
 	let candidates = std::iter::once(wanted.clone())
 		.chain(conflict_names(&wanted, false))
@@ -294,6 +336,7 @@ async fn create(bucket: &Bucket, bytes: Bytes) -> Result<BucketUrl, WriteError> 
 		if !list(bucket, &url).await?.is_empty() {
 			continue;
 		}
+		turn.proceed()?;
 		match bucket
 			.backend
 			.write_if(Path::new(&url.key), bytes.clone(), WriteCondition::Absent)

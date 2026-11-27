@@ -100,6 +100,9 @@ The tools and rules above are the same, with these differences:
 - search and search_content are refused; use grep and glob.
 - revision is always null. Use content_hash.
 - .gitignore is not applied.
+- grep walks at most 100,000 keys, like glob. When visit_limit_reached is
+  true, keys past the limit were not searched and later pages will not reach
+  them; grep a narrower path.
 
 ## Results can be incomplete
 
