@@ -74,6 +74,9 @@ async-trait   = "0.1"
 futures       = "0.3"
 tokio         = { version = "1.40", features = ["full"] }
 
+# Localhost NFSv3 server behind the nfs mount frontend, on every platform.
+nfsserve = { version = "0.11", optional = true }
+
 # Database
 sea-orm = { version = "1.1", features = [
 	"macros",
@@ -303,7 +306,6 @@ libc = "0.2"
 # system openssl headers.
 openssl-sys = { version = "0.9", features = ["vendored"] }
 fuser = { version = "0.19", default-features = false, optional = true }
-nfsserve = { version = "0.11", optional = true }
 
 [target.'cfg(target_env = "musl")'.dependencies]
 # The daemon's global allocator on static musl builds; see src/bin/daemon.rs.
