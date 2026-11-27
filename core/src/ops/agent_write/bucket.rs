@@ -469,10 +469,10 @@ pub(super) async fn move_path(
 				}
 				Err(Refusal::Taken) => continue,
 				Err(Refusal::Changed) => return Err(stale(state(&from, turn.cancel()).await?)),
-				Err(Refusal::Kept) => {
+				Err(Refusal::Kept(copy)) => {
 					let effects = vec![Effect::Created {
 						path: url.path(),
-						subject: landed(backend, &url).await,
+						subject: copy.map(|copy| copy.subject()),
 					}];
 					let undo = journal(context, library, grant, id, &effects).await;
 					return Err(kept(&from, &url, undo));
@@ -520,10 +520,10 @@ pub(super) async fn move_path(
 				subject: Some(copy.subject()),
 			}),
 			Err(refusal) => {
-				if matches!(refusal, Refusal::Kept) {
+				if let Refusal::Kept(copy) = &refusal {
 					effects.push(Effect::Created {
 						path: destination.path(),
-						subject: landed(backend, &destination).await,
+						subject: copy.as_ref().map(|copy| copy.subject()),
 					});
 				}
 				left.push(format!(
@@ -595,7 +595,7 @@ pub(super) async fn delete(
 				deleted(&bucket, current.state, undo)
 			}
 			Err(Refusal::Changed) => Err(stale(state(&bucket, turn.cancel()).await?)),
-			Err(Refusal::Kept) => Err(WriteError::Partial {
+			Err(Refusal::Kept(_)) => Err(WriteError::Partial {
 				message: format!(
 					"stale: {} changed while it was being deleted, so it is left as it is, and a copy is kept in the bucket at {}",
 					current.state.path,
@@ -720,14 +720,6 @@ async fn prefix_objects(
 		}
 	}
 	Ok((objects, markers))
-}
-
-async fn landed(backend: &dyn VolumeBackend, url: &BucketUrl) -> Option<Subject> {
-	files_bucket::object(backend, &url.key)
-		.await
-		.ok()
-		.flatten()
-		.map(|object| object.subject())
 }
 
 fn trashed(url: &BucketUrl, source: &files_bucket::Object, copy: &files_bucket::Object) -> Effect {
