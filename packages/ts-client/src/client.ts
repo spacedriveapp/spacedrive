@@ -106,9 +106,10 @@ export class SpacedriveClient extends SimpleEventEmitter {
 	/**
 	 * Create client for Bun/Node.js using TCP socket
 	 * @param socketAddr - TCP address (e.g., "127.0.0.1:6969")
+	 * @param secret - Contents of rpc.secret in the daemon's data directory
 	 */
-	static fromTcpSocket(socketAddr: string): SpacedriveClient {
-		return new SpacedriveClient(new TcpSocketTransport(socketAddr));
+	static fromTcpSocket(socketAddr: string, secret: string): SpacedriveClient {
+		return new SpacedriveClient(new TcpSocketTransport(socketAddr, secret));
 	}
 
 	/**

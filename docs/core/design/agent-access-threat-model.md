@@ -35,7 +35,7 @@ agents.
 
 | Surface | Bind | Authentication | Reach |
 | --- | --- | --- | --- |
-| RPC (`core/src/infra/daemon/rpc.rs`) | TCP `127.0.0.1:6969`; named instances on 6970 to 7969 | None | Every op in the registry, `Shutdown`, and remote ops on every paired device through the `device` field |
+| RPC (`core/src/infra/daemon/rpc.rs`) | TCP `127.0.0.1:6969`; named instances on 6970 to 7969 | Per-daemon secret from `rpc.secret` in the data directory, first line of every connection | Every op in the registry, `Shutdown`, and remote ops on every paired device through the `device` field |
 | `sd mcp` (`apps/cli/src/domains/mcp.rs`) | stdio, forwards to RPC | None of its own | The whole registry as tools, destructive actions included |
 | WebDAV share (`core/src/service/mounts/webdav.rs`) | `127.0.0.1:7764` or ephemeral | None; Host must be a loopback authority, CORS only for Tauri and loopback origins | Read access to every attached source, local and replicated |
 | SMB share (`core/src/service/mounts/smb.rs`) | `127.0.0.1`, ephemeral port | One user, random password per start, or `SD_MOUNT_SMB_PASSWORD` | Same as WebDAV |
@@ -50,6 +50,14 @@ agents.
   `AGENTS.md` describes the transport as Unix domain sockets. Because the
   request envelope carries `device`, a local process on one node can also run
   ops on every paired node.
+  Fixed: at start the daemon writes 32 random bytes, hex encoded, to
+  `rpc.secret` in its data directory with mode `0600` (on Windows the file
+  inherits the data directory's ACL), and serves a connection only after its
+  first line is `{"auth":"<secret>"}`. Anything else gets one `SecurityError`
+  line and the connection closes. The secret changes on every start, and
+  clients read the file for each connection. `core/src/infra/daemon/auth.rs`
+  holds it; `core/tests/rpc_security_test.rs` checks that a request without
+  it, with a wrong one, or an unauthenticated `Shutdown` is refused.
 - F2. When a request line fails to parse, `rpc.rs` logs the raw line at error
   level. Anything secret sent on a malformed line ends up in `daemon.log`.
   Fixed: the daemon logs the error's kind, position and the line's length,
@@ -70,7 +78,9 @@ agents.
   exposes more than any grant would.
 - F6. The RPC line protocol happens to refuse browsers: an HTTP request's first
   line is not JSON, so the connection closes before dispatch. Nothing tests
-  this, and nothing keeps a future change from adding an HTTP mode.
+  this, and nothing keeps a future change from adding an HTTP mode. Now
+  tested: an HTTP request is refused by the secret check before any dispatch
+  (`rpc_security_test`).
 
 The WebDAV `loopback_only` middleware is the pattern to reuse: it refuses a
 non-loopback Host, which stops DNS rebinding, and answers CORS only for local
@@ -321,12 +331,12 @@ Follow-up work, in order:
 
 1. Fix F2 now, since it is small and grants make it matter. Done.
 2. Add a test that an HTTP request to 6969 closes the connection without
-   dispatch, so F6 stays true.
+   dispatch, so F6 stays true. Done.
 3. Require a per-daemon secret on RPC: a random cookie written to a `0600` file
    in the data directory at start and sent as the first line of every
    connection. It keeps TCP, works on every platform and limits RPC to the
    daemon's own OS account. This should land before Spacedrive documents
-   running a daemon on a multi-user host.
+   running a daemon on a multi-user host. Done (F1).
 
 ## What blocks network exposure
 

@@ -358,7 +358,7 @@ async fn main() -> Result<()> {
 			crate::ui::print_compact_logo();
 			println!("Starting daemon...");
 
-			let client = CoreClient::new(socket_addr.clone());
+			let client = CoreClient::new(socket_addr.clone(), &data_dir);
 			let current_exe = std::env::current_exe()?;
 			// A link such as /usr/local/bin/sd keeps the daemon beside the real binary.
 			let current_exe = current_exe.canonicalize().unwrap_or(current_exe);
@@ -416,7 +416,7 @@ async fn main() -> Result<()> {
 			}
 
 			println!("Stopping daemon...");
-			let core = CoreClient::new(socket_addr.clone());
+			let core = CoreClient::new(socket_addr.clone(), &data_dir);
 			let stop_result = core
 				.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Shutdown)
 				.await;
@@ -456,7 +456,7 @@ async fn main() -> Result<()> {
 
 			// First, try to stop the daemon if it's running
 			println!("Stopping daemon...");
-			let core = CoreClient::new(socket_addr.clone());
+			let core = CoreClient::new(socket_addr.clone(), &data_dir);
 			let stop_result = core
 				.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Shutdown)
 				.await;
@@ -581,7 +581,7 @@ async fn run_client_command(
 		}
 	}
 
-	let core = CoreClient::new(socket_addr.clone()).with_device(device);
+	let core = CoreClient::new(socket_addr.clone(), &data_dir).with_device(device);
 	let mut ctx = Context::new(core, format, data_dir, socket_addr)?;
 
 	ctx.validate_and_fix_library().await?;

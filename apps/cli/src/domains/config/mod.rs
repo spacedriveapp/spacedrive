@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Subcommand;
 use comfy_table::{presets::UTF8_BORDERS_ONLY, Table};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::config::CliConfig;
 use sd_client::CoreClient;
@@ -45,8 +45,8 @@ const MOUNTS_FUSE_ENABLED: &str = "mounts.fuse_enabled";
 const AGENT_MCP_ENABLED: &str = "agent_mcp.enabled";
 const AGENT_MCP_LISTEN: &str = "agent_mcp.listen";
 
-async fn daemon_config(socket_addr: &str) -> Result<AppConfigOutput> {
-	let core = CoreClient::new(socket_addr.to_string());
+async fn daemon_config(socket_addr: &str, data_dir: &Path) -> Result<AppConfigOutput> {
+	let core = CoreClient::new(socket_addr.to_string(), data_dir);
 	core.query(&GetAppConfigQueryInput, None)
 		.await
 		.map_err(|e| anyhow::anyhow!("daemon config unavailable: {e}"))
@@ -93,7 +93,7 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 			table.add_row(vec!["update.channel", &config.update.channel]);
 
 			// Daemon settings, when the daemon answers.
-			if let Ok(daemon) = daemon_config(&socket_addr).await {
+			if let Ok(daemon) = daemon_config(&socket_addr, &data_dir).await {
 				table.add_row(vec![
 					REPLICATION_MAX_BYTES_PER_SEC,
 					&format_rate(daemon.replication.max_bytes_per_sec),
@@ -132,32 +132,37 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 					.unwrap_or_else(|| "(not set)".to_string()),
 				"update.repo" => config.update.repo.clone(),
 				"update.channel" => config.update.channel.clone(),
-				REPLICATION_MAX_BYTES_PER_SEC => daemon_config(&socket_addr)
+				REPLICATION_MAX_BYTES_PER_SEC => daemon_config(&socket_addr, &data_dir)
 					.await?
 					.replication
 					.max_bytes_per_sec
 					.to_string(),
-				REPLICATION_PAUSED => daemon_config(&socket_addr)
+				REPLICATION_PAUSED => daemon_config(&socket_addr, &data_dir)
 					.await?
 					.replication
 					.paused
 					.to_string(),
-				BACKUP_RESTORE_TRASH_KEEP => daemon_config(&socket_addr)
+				BACKUP_RESTORE_TRASH_KEEP => daemon_config(&socket_addr, &data_dir)
 					.await?
 					.backup
 					.restore_trash_keep
 					.to_string(),
-				MOUNTS_FUSE_ENABLED => daemon_config(&socket_addr)
+				MOUNTS_FUSE_ENABLED => daemon_config(&socket_addr, &data_dir)
 					.await?
 					.mounts
 					.fuse_enabled
 					.to_string(),
-				AGENT_MCP_ENABLED => daemon_config(&socket_addr)
+				AGENT_MCP_ENABLED => daemon_config(&socket_addr, &data_dir)
 					.await?
 					.agent_mcp
 					.enabled
 					.to_string(),
-				AGENT_MCP_LISTEN => daemon_config(&socket_addr).await?.agent_mcp.listen,
+				AGENT_MCP_LISTEN => {
+					daemon_config(&socket_addr, &data_dir)
+						.await?
+						.agent_mcp
+						.listen
+				}
 				_ => return Err(anyhow::anyhow!("Unknown config key: {}", key)),
 			};
 			println!("{}", value);
@@ -165,7 +170,7 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 		ConfigCmd::Set { key, value } => match key.as_str() {
 			REPLICATION_MAX_BYTES_PER_SEC => {
 				let rate = parse_byte_rate(&value)?;
-				let core = CoreClient::new(socket_addr.clone());
+				let core = CoreClient::new(socket_addr.clone(), &data_dir);
 				let input = UpdateAppConfigInput {
 					replication_max_bytes_per_sec: Some(rate),
 					..UpdateAppConfigInput::default()
@@ -186,7 +191,7 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 			}
 			REPLICATION_PAUSED => {
 				let paused = parse_bool(&value)?;
-				let core = CoreClient::new(socket_addr.clone());
+				let core = CoreClient::new(socket_addr.clone(), &data_dir);
 				let input = MountsReplicationSetPausedInput { paused };
 				let out: MountsReplicationSetPausedOutput = serde_json::from_value(
 					core.action(&input, None)
@@ -199,7 +204,7 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 				let keep: u32 = value.trim().parse().map_err(|_| {
 					anyhow::anyhow!("'{value}' is not a count of entries to keep (e.g. 0, 2, 5)")
 				})?;
-				let core = CoreClient::new(socket_addr.clone());
+				let core = CoreClient::new(socket_addr.clone(), &data_dir);
 				let input = UpdateAppConfigInput {
 					backup_restore_trash_keep: Some(keep),
 					..UpdateAppConfigInput::default()
@@ -216,7 +221,7 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 			}
 			MOUNTS_FUSE_ENABLED => {
 				let enabled = parse_bool(&value)?;
-				let core = CoreClient::new(socket_addr.clone());
+				let core = CoreClient::new(socket_addr.clone(), &data_dir);
 				let input = UpdateAppConfigInput {
 					mounts_fuse_enabled: Some(enabled),
 					..UpdateAppConfigInput::default()
@@ -238,7 +243,7 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 				} else {
 					input.agent_mcp_listen = Some(value.trim().to_string());
 				}
-				let core = CoreClient::new(socket_addr.clone());
+				let core = CoreClient::new(socket_addr.clone(), &data_dir);
 				let out: UpdateAppConfigOutput = serde_json::from_value(
 					core.action(&input, None)
 						.await
