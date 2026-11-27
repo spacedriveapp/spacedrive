@@ -40,6 +40,12 @@ pub struct Model {
 	pub space_id: Option<Uuid>,
 	/// The actor the grant was lent to. Unset on grants made before actors.
 	pub actor_id: Option<Uuid>,
+	/// `task` or `standing`.
+	pub kind: String,
+	/// `opaque` or `signed`.
+	pub token_format: String,
+	/// The space's authority epoch the grant was minted under.
+	pub epoch: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

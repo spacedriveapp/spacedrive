@@ -900,9 +900,20 @@ path: string;
  */
 caps?: GrantCap | null; 
 /**
- * Lifetime in seconds, from 5 minutes to 12 hours. Defaults to 1 hour.
+ * Lifetime in seconds. A task grant lives from 5 minutes to 12 hours,
+ * 1 hour by default; a standing grant up to 30 days, 30 days by default.
  */
 ttl_seconds?: number | null; 
+/**
+ * Defaults to a task grant. A standing grant must be on a workspace
+ * space.
+ */
+kind?: GrantKind | null; 
+/**
+ * Defaults to signed for a standing grant and opaque for a task grant.
+ * A signed token needs the folder to be inside a space.
+ */
+token_format?: TokenFormat | null; 
 /**
  * A name for the owner's list, such as the agent it was made for.
  */
@@ -910,8 +921,8 @@ label?: string | null };
 
 export type CreateGrantOutput = { grant: GrantInfo; 
 /**
- * The bearer token. This is the only time it is shown; Spacedrive keeps
- * only its hash.
+ * The bearer token, `sdg_` for an opaque token or `sdg_s.` for a signed
+ * one. This is the only time it is shown; Spacedrive keeps only its hash.
  */
 token: string };
 
@@ -1656,8 +1667,9 @@ export type ExportMedia = "original" |
 
 export type ExtendGrantInput = { id: string; 
 /**
- * The new lifetime in seconds from now, from 5 minutes to 12 hours.
- * Defaults to 1 hour.
+ * The new lifetime in seconds from now: 5 minutes to 12 hours for a task
+ * grant, 1 hour by default; up to 30 days for a standing grant, 30 days
+ * by default.
  */
 ttl_seconds?: number | null };
 
@@ -2575,7 +2587,11 @@ export type GrantInfo = { id: string; source_id: string;
 /**
  * The granted directory, canonical at creation.
  */
-subtree: string; caps: GrantCap; label: string | null; 
+subtree: string; caps: GrantCap; 
+/**
+ * The space the grant lends a part of, for grants made since spaces.
+ */
+space_id: string | null; kind: GrantKind; token_format: TokenFormat; label: string | null; 
 /**
  * The device that minted the grant.
  */
@@ -2584,6 +2600,19 @@ created_by: string; created_at: string; expires_at: string; revoked_at: string |
  * When the grant last authorized a request, from the audit log.
  */
 last_used_at: string | null };
+
+/**
+ * How long a grant is meant to last.
+ */
+export type GrantKind = 
+/**
+ * One piece of work: 5 minutes to 12 hours.
+ */
+"task" | 
+/**
+ * An agent's own workspace: up to 30 days, only on a workspace space.
+ */
+"standing";
 
 export type GrantSetupInput = Record<string, never>;
 
@@ -6307,6 +6336,20 @@ export type TimelineFormat =
  * OpenTimelineIO JSON.
  */
 "otio";
+
+/**
+ * How a grant's token is checked.
+ */
+export type TokenFormat = 
+/**
+ * `sdg_` and 64 hex characters, checked by hash on the minting device.
+ */
+"opaque" | 
+/**
+ * `sdg_s.` and signed claims, checked by any node holding the space's
+ * store. See [`signed`].
+ */
+"signed";
 
 /**
  * A feature made runnable by an external tool.

@@ -132,6 +132,8 @@ async fn a_thin_client_mounts_a_granted_folder_over_the_endpoint() -> anyhow::Re
 		caps: Some(GrantCap::Read),
 		ttl_seconds: None,
 		label: Some("thin mount".to_string()),
+		kind: None,
+		token_format: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), context.clone())

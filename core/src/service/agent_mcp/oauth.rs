@@ -53,7 +53,7 @@ use crate::{
 	ops::grants::{
 		create::{self, Mint},
 		oauth::{self as grant_oauth, RefreshError},
-		store, ttl, GrantCap,
+		store, ttl, GrantCap, GrantKind, TokenFormat,
 	},
 };
 
@@ -666,6 +666,8 @@ async fn mint(endpoint: &Endpoint, pending: &Pending, choice: &Choice) -> Result
 				target,
 				caps,
 				lifetime,
+				kind: GrantKind::Task,
+				token_format: TokenFormat::Opaque,
 				label: Some(format!("{} (OAuth)", pending.client_name)),
 				oauth_client: Some(pending.client_id.clone()),
 			},

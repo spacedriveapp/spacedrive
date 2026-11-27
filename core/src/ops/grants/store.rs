@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
-use super::{audit, GrantCap, GrantInfo, GrantStatus};
+use super::{audit, GrantCap, GrantInfo, GrantKind, GrantStatus, TokenFormat};
 use crate::{
 	context::CoreContext,
 	infra::{
@@ -38,6 +38,9 @@ pub fn info(row: agent_grant::Model, last_used_at: Option<DateTime<Utc>>) -> Gra
 		// An unknown value can only come from a newer build; read it as the
 		// narrower capability.
 		caps: GrantCap::parse(&row.caps).unwrap_or(GrantCap::Read),
+		space_id: row.space_id,
+		kind: GrantKind::parse(&row.kind),
+		token_format: TokenFormat::parse(&row.token_format),
 		label: row.label,
 		created_by: row.created_by,
 		created_at: row.created_at,
@@ -79,6 +82,38 @@ pub async fn revoke(db: &DatabaseConnection, id: Uuid) -> Result<u64, sea_orm::D
 		.exec(db)
 		.await?
 		.rows_affected)
+}
+
+/// Record a revoked grant's revocation in its space's store, so every node
+/// that holds the store refuses the grant. A grant made before spaces has no
+/// space and nothing to record.
+pub async fn publish_revocation(
+	context: &CoreContext,
+	row: &agent_grant::Model,
+) -> Result<(), String> {
+	if row.space_id.is_none() {
+		return Ok(());
+	}
+	let index = context.volume_index();
+	let root = index
+		.source_root(row.source_id)
+		.ok_or("the source holding this grant's space is not on this device")?;
+	let store = index
+		.store_for(&root)
+		.await
+		.ok_or("the source holding this grant's space has no store on this device")?;
+	let stamp = crate::ops::spaces::store::stamp(context)?;
+	store
+		.db()
+		.revoke_grant(&sd_store::GrantRevocation {
+			grant_uuid: row.uuid,
+			revoked_at: row.revoked_at.unwrap_or_else(Utc::now).to_rfc3339(),
+			hlc: stamp.hlc,
+			origin_device: stamp.device_uuid,
+		})
+		.await
+		.map_err(|e| e.to_string())?;
+	Ok(())
 }
 
 /// End every live grant on a source. Returns how many were ended.

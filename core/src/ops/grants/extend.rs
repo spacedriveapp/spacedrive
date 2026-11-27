@@ -2,19 +2,21 @@
 //!
 //! The new expiry is measured from now, not from the old one, so no sequence
 //! of extensions takes a grant more than 12 hours past the moment it was last
-//! extended. Revoked and expired grants cannot be extended: an expired grant
-//! has already told its holder to stop, and reviving it would undo that.
+//! extended, 30 days for a standing grant. Revoked and expired grants cannot
+//! be extended: an expired grant has already told its holder to stop, and
+//! reviving it would undo that. A signed token states its own expiry, so a
+//! signed grant cannot be extended either; the owner creates a new one.
 
 use std::sync::Arc;
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use sea_orm::{sea_query::Expr, ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tracing::info;
 use uuid::Uuid;
 
-use super::{store, ttl, GrantInfo, GrantStatus};
+use super::{store, ttl_for, GrantInfo, GrantKind, GrantStatus, TokenFormat};
 use crate::{
 	context::CoreContext,
 	infra::{
@@ -27,8 +29,9 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ExtendGrantInput {
 	pub id: Uuid,
-	/// The new lifetime in seconds from now, from 5 minutes to 12 hours.
-	/// Defaults to 1 hour.
+	/// The new lifetime in seconds from now: 5 minutes to 12 hours for a task
+	/// grant, 1 hour by default; up to 30 days for a standing grant, 30 days
+	/// by default.
 	#[serde(default)]
 	pub ttl_seconds: Option<u32>,
 }
@@ -48,16 +51,15 @@ impl LibraryAction for ExtendGrantAction {
 	type Output = ExtendGrantOutput;
 
 	fn from_input(input: ExtendGrantInput) -> Result<Self, String> {
-		ttl(input.ttl_seconds)?;
+		ttl_for(GrantKind::Standing, input.ttl_seconds)?;
 		Ok(Self { input })
 	}
 
 	async fn execute(
 		self,
 		library: Arc<Library>,
-		_context: Arc<CoreContext>,
+		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		let lifetime = ttl(self.input.ttl_seconds).map_err(ActionError::InvalidInput)?;
 		let db = library.db().conn();
 		let id = self.input.id;
 		let now = Utc::now();
@@ -65,6 +67,13 @@ impl LibraryAction for ExtendGrantAction {
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?
 			.ok_or_else(|| ActionError::InvalidInput(format!("no grant {id}")))?;
+		if TokenFormat::parse(&row.token_format) == TokenFormat::Signed {
+			return Err(ActionError::InvalidInput(format!(
+				"grant {id} has a signed token, which carries its own expiry; create a new grant"
+			)));
+		}
+		let lifetime = ttl_for(GrantKind::parse(&row.kind), self.input.ttl_seconds)
+			.map_err(ActionError::InvalidInput)?;
 		match store::status(&row, now) {
 			GrantStatus::Active => {}
 			GrantStatus::Revoked => {
@@ -94,6 +103,15 @@ impl LibraryAction for ExtendGrantAction {
 				"grant {id} was revoked; create a new one"
 			)));
 		}
+		if let Some(space) = row.space_id {
+			extend_assertion(&context, row.source_id, space, id, expires_at)
+				.await
+				.map_err(|e| {
+					ActionError::Internal(format!(
+						"grant {id} is extended on this device, but not in its space: {e}"
+					))
+				})?;
+		}
 		info!(grant = %id, %expires_at, "grant extended");
 		let grant = store::info_by_id(db, id)
 			.await
@@ -104,6 +122,31 @@ impl LibraryAction for ExtendGrantAction {
 	fn action_kind(&self) -> &'static str {
 		"grants.extend"
 	}
+}
+
+/// Carry a new expiry to the grant's assertion, so other nodes holding the
+/// space's store see the extension.
+async fn extend_assertion(
+	context: &CoreContext,
+	source_id: Uuid,
+	space: Uuid,
+	id: Uuid,
+	expires_at: DateTime<Utc>,
+) -> Result<(), String> {
+	let store = super::create::space_store(context, source_id)
+		.await
+		.map_err(|e| e.to_string())?;
+	let Some(mut row) = store.db().grant(id).await.map_err(|e| e.to_string())? else {
+		return Err(format!("the space {space} holds no record of the grant"));
+	};
+	row.expires_at = expires_at.to_rfc3339();
+	row.set_stamp(&crate::ops::spaces::store::stamp(context)?);
+	store
+		.db()
+		.put_grant(&row)
+		.await
+		.map_err(|e| e.to_string())?;
+	Ok(())
 }
 
 crate::register_library_action!(ExtendGrantAction, "grants.extend");

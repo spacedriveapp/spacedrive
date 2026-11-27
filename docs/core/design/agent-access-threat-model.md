@@ -102,6 +102,29 @@ Format and storage:
   (list, extend, revoke, audit) names the grant by id. No op accepts a token as
   input except the endpoint's own verifier.
 
+Signed tokens (`sdg_s.`, see `agent-grants.md`) differ in what a stolen copy
+of a store yields and in who can check them:
+
+- The claims are readable by anyone who holds the token: the space, the
+  granted subtree, the caps and the expiry. They hold no secret. A leaked
+  signed token is as dangerous as a leaked opaque one, and no more.
+- The signature is Ed25519 over a domain label and the exact claims bytes,
+  with a key derived from the device master key and never stored. Changing
+  any byte, signing with another key, or naming a space whose store never
+  published the issuer's key reads as an unknown token. Claims with unknown
+  fields or another version are refused, and tokens over 4,096 bytes are
+  refused before decoding.
+- The space's store holds the grant, its revocation and the issuer's public
+  key, never a token or a hash of one. A copy of the store lets you list the
+  grants on a space but use none of them.
+- Any node holding the store can verify, so the set of nodes that honour a
+  token is the set holding the space's store. A replica trusts the issuer keys
+  its store publishes; writing that store is already enough to change grants,
+  so merges must only come from devices of the library.
+- A signed token cannot be extended, since its expiry is signed. A standing
+  grant lives up to 30 days and only on a workspace space, which bounds what a
+  long-lived token reaches to a folder made for the agent.
+
 Where it must never appear:
 
 - URLs. The endpoint reads `Authorization: Bearer` only and refuses a token in
@@ -129,7 +152,11 @@ A grant may also carry an optional allowlist of client address ranges; the
 endpoint checks the TCP peer address against it. Sender-constrained tokens are
 out of scope for v1; the verifier interface leaves room for them.
 
-Revocation and expiry take effect on the next request. A tool call already
+Revocation and expiry take effect on the next request. The verifier reads the
+grant row's revocation and, for a grant in a space, the revocation assertion in
+the space's store on every request, so a revocation merged from another device
+is honoured as soon as the store holds it. Revocations are monotonic: no merge
+order brings a revoked grant back. A tool call already
 running when its grant is revoked or expires is cancelled within one second,
 and an open SSE stream for that grant is closed.
 
