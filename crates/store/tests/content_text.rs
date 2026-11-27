@@ -885,3 +885,77 @@ async fn hashing_claims_only_files_in_the_deep_scope() {
 	assert_eq!(claimed(&[""]).await.1, 4);
 	assert_eq!(claimed(&[]).await, (vec![], 0));
 }
+
+#[tokio::test]
+async fn a_cleared_index_left_unvacuumed_gives_its_space_back_on_open() {
+	let mut f = Fixture::new().await;
+	let files: Vec<(String, i64)> = (0..60).map(|i| (format!("notes/{i}.md"), 10 + i)).collect();
+	let refs: Vec<(&str, i64)> = files.iter().map(|(p, s)| (p.as_str(), *s)).collect();
+	f.observe(&refs).await;
+	f.observe(&[("clips/talk.mp4", 5)]).await;
+	let index = f.index().await;
+	let pending = index.pending(&everywhere(), 0, 100).await.unwrap();
+	let body = (0..120_000).map(|i| format!("w{i} ")).collect::<String>();
+	let docs: Vec<TextDoc> = pending.iter().map(|p| doc(p, "markdown", &body)).collect();
+	index.write(&docs).await.unwrap();
+	let recording = index
+		.pending_transcripts(&["mp4"], "", 0, 10)
+		.await
+		.unwrap();
+	index
+		.write_transcript(&transcript(&recording[0], &[(0, 900, "spoken words")]))
+		.await
+		.unwrap();
+	// A daemon that stopped after the drop committed and before the rewrite.
+	for statement in [
+		"DROP TABLE text_fts",
+		"DROP TABLE text_doc",
+		"UPDATE text_meta SET value = 2 WHERE key = 'layout'",
+	] {
+		sqlx::query(statement).execute(index.pool()).await.unwrap();
+	}
+	let full = std::fs::metadata(index.path()).unwrap().len();
+	index.close().await;
+
+	let reopened = f.index().await;
+	let size = std::fs::metadata(reopened.path()).unwrap().len();
+	assert!(size < full / 10, "{size} of {full} bytes left");
+	assert_eq!(
+		hit_paths(&reopened, &search("spoken")).await,
+		["clips/talk.mp4"]
+	);
+	assert_eq!(reopened.pending_count(&everywhere()).await.unwrap(), 60);
+}
+
+/// Upgrades the old-policy index in `SD_TEXT_UPGRADE_DIR` in place. The
+/// disk-budget check runs it against a multi-gigabyte `text.db` on a small
+/// filesystem; see `docs/core/content-search.mdx`.
+#[tokio::test]
+#[ignore]
+async fn an_old_index_upgrades_in_place() {
+	let dir = std::path::PathBuf::from(
+		std::env::var("SD_TEXT_UPGRADE_DIR").expect("SD_TEXT_UPGRADE_DIR"),
+	);
+	let index = ContentTextIndex::open(&dir).await.expect("open");
+	assert_eq!(index.counts().await.unwrap().files, 0);
+	let pool = index.pool().clone();
+	let count = |sql: &'static str| {
+		let pool = pool.clone();
+		async move {
+			sqlx::query_scalar::<_, i64>(sql)
+				.fetch_one(&pool)
+				.await
+				.unwrap()
+		}
+	};
+	assert_eq!(
+		count("SELECT COUNT(*) FROM transcript_fts WHERE transcript_fts MATCH 'spoken'").await,
+		2000
+	);
+	assert_eq!(
+		count("SELECT COUNT(*) FROM description_fts WHERE description_fts MATCH 'described'").await,
+		100
+	);
+	assert_eq!(count("SELECT COUNT(*) FROM transcript_doc").await, 200);
+	index.close().await;
+}

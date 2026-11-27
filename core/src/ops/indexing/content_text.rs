@@ -137,7 +137,7 @@ impl JobHandler for ContentTextJob {
 		// The pass reads the record store; claim what has landed.
 		store.flush().await.map_err(|e| e.to_string())?;
 		let index = store.text_index().await.map_err(|e| e.to_string())?;
-		let filter = text_filter(&store).await.map_err(|e| e.to_string())?;
+		let mut filter = text_filter(&store).await.map_err(|e| e.to_string())?;
 		if self.rebuild {
 			index.clear().await.map_err(|e| e.to_string())?;
 			self.rebuild = false;
@@ -179,13 +179,24 @@ impl JobHandler for ContentTextJob {
 				attempted.clear();
 				ctx.log("The index was cleared; reading every file again");
 			}
+			// A scope changed while this pass runs deduplicates onto it, so
+			// the pass takes the new scope rather than finishing on the old.
+			let current = text_filter(&store).await.map_err(|e| e.to_string())?;
+			if current != filter {
+				filter = current;
+				output.pruned += index.prune(&filter).await.map_err(|e| e.to_string())?;
+				cursor = 0;
+				swept_again = false;
+				ctx.log("The deep scope changed; reading under the new one");
+			}
 			let claimed = index
 				.pending(&filter, cursor, BATCH_SIZE)
 				.await
 				.map_err(|e| e.to_string())?;
 			let Some(last) = claimed.last() else {
 				let cleared = index.epoch().await.map_err(|e| e.to_string())? != epoch;
-				if !cleared && (swept_again || cursor == 0) {
+				let rescoped = text_filter(&store).await.map_err(|e| e.to_string())? != filter;
+				if !cleared && !rescoped && (swept_again || cursor == 0) {
 					break;
 				}
 				swept_again = true;

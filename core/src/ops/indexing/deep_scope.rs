@@ -24,23 +24,28 @@ pub async fn deep_subtrees(db: &sd_store::SourceDb, root: &Path) -> sd_store::Re
 	}
 	let root = root.to_path_buf();
 	tokio::task::spawn_blocking(move || {
-		let home = dirs::home_dir().and_then(|home| std::fs::canonicalize(home).ok());
-		let root = std::fs::canonicalize(&root).unwrap_or(root);
-		default_subtrees(&root, home.as_deref(), &standard_folders())
+		// Compared by identity, not spelling: on macOS a home source is
+		// rooted at its volume's spelling, /System/Volumes/Data/Users/me,
+		// while the platform names it /Users/me.
+		let home = dirs::home_dir()
+			.and_then(|home| std::fs::canonicalize(home).ok())
+			.filter(|home| same_file::is_same_file(home, &root).unwrap_or(false));
+		default_subtrees(home.as_deref(), &standard_folders())
 	})
 	.await
 	.map_err(|e| sd_store::Error::Other(e.to_string()))
 }
 
-/// What a source keeps before anyone chose: the standard user folders for
-/// the home folder, the whole root for anything else.
-fn default_subtrees(root: &Path, home: Option<&Path>, folders: &[PathBuf]) -> Vec<String> {
-	if home != Some(root) {
+/// What a source keeps before anyone chose: the standard user folders when
+/// the source is the home folder, at `home` as the platform spells it, and
+/// the whole root for anything else.
+fn default_subtrees(home: Option<&Path>, folders: &[PathBuf]) -> Vec<String> {
+	let Some(home) = home else {
 		return vec![String::new()];
-	}
+	};
 	let mut subtrees: Vec<String> = folders
 		.iter()
-		.filter_map(|folder| folder.strip_prefix(root).ok())
+		.filter_map(|folder| folder.strip_prefix(home).ok())
 		.map(slash_path)
 		.filter(|relative| !relative.is_empty())
 		.collect();
@@ -143,18 +148,10 @@ mod tests {
 			PathBuf::from("/srv/media"),
 		];
 		assert_eq!(
-			default_subtrees(home, Some(home), &folders),
+			default_subtrees(Some(home), &folders),
 			["Desktop", "Documents"]
 		);
-		assert_eq!(
-			default_subtrees(Path::new("/home/ada/Documents"), Some(home), &folders),
-			[""]
-		);
-		assert_eq!(
-			default_subtrees(Path::new("/Volumes/Archive"), Some(home), &folders),
-			[""]
-		);
-		assert_eq!(default_subtrees(home, None, &folders), [""]);
+		assert_eq!(default_subtrees(None, &folders), [""]);
 	}
 
 	#[test]

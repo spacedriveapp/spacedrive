@@ -426,7 +426,20 @@ impl ContentTextIndex {
 				files,
 				"clearing a content text index written under an older read policy"
 			);
-			index.clear().await?;
+			index.drop_text_tables().await?;
+		}
+		// Gives back what a cleared index left, including after a daemon
+		// stopped between the drop and the rewrite. Best effort: on a disk
+		// too full to rewrite even what survives, the index still opens and
+		// the next pass tries again.
+		match index.reclaim().await {
+			Ok(0) => {}
+			Ok(bytes) => {
+				tracing::info!(path = %index.path.display(), bytes, "gave back free space in the content text index")
+			}
+			Err(error) => {
+				tracing::warn!(path = %index.path.display(), %error, "could not give back free space in the content text index")
+			}
 		}
 		Ok(index)
 	}
@@ -601,9 +614,22 @@ impl ContentTextIndex {
 	/// Drop every row and give the space back. The record store is not
 	/// touched; the next pass reads every file again.
 	pub async fn clear(&self) -> Result<()> {
+		self.drop_text_tables().await?;
 		let _writer = self.writer.lock().await;
 		let mut conn = self.pool.acquire().await?;
-		let mut tx = conn.begin().await?;
+		vacuum(&mut conn).await
+	}
+
+	/// Drop and recreate the file text tables, raising the epoch, in one
+	/// transaction.
+	///
+	/// Dropping a table frees its pages without rewriting them, so the
+	/// write-ahead log grows by the freelist's own pages, a few megabytes for
+	/// a file of tens of gigabytes, where deleting the rows would log every
+	/// page they touch. Transcript and description tables are not touched.
+	async fn drop_text_tables(&self) -> Result<()> {
+		let _writer = self.writer.lock().await;
+		let mut tx = self.pool.begin().await?;
 		for statement in [
 			"DROP TABLE IF EXISTS text_fts",
 			"DROP TABLE IF EXISTS text_doc",
@@ -627,13 +653,17 @@ impl ContentTextIndex {
 		.execute(&mut *tx)
 		.await?;
 		tx.commit().await?;
-		vacuum(&mut conn).await
+		Ok(())
 	}
 
 	/// Give free pages, and the index postings of deleted rows, back to
-	/// the disk once free pages are a quarter of the file. Rows replaced as files change and rows pruned as the scope
-	/// narrows leave pages SQLite reuses but never returns. Returns the bytes
-	/// given back.
+	/// the disk once free pages are a quarter of the file. Rows replaced as
+	/// files change and rows pruned as the scope narrows leave pages SQLite
+	/// reuses but never returns. Returns the bytes given back.
+	///
+	/// The rewrite needs free disk in proportion to what survives, not to
+	/// the file: VACUUM builds the survivors in a temporary file and writes
+	/// them back through the write-ahead log, which is then truncated.
 	pub async fn reclaim(&self) -> Result<u64> {
 		let _writer = self.writer.lock().await;
 		let mut conn = self.pool.acquire().await?;

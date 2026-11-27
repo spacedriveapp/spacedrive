@@ -9,6 +9,7 @@ use uuid::Uuid;
 use crate::{
 	context::CoreContext,
 	infra::query::{LibraryQuery, QueryError, QueryResult},
+	ops::sources::registry,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -43,13 +44,27 @@ impl LibraryQuery for GetDeepScopeQuery {
 	async fn execute(
 		self,
 		context: Arc<CoreContext>,
-		_session: crate::infra::api::SessionContext,
+		session: crate::infra::api::SessionContext,
 	) -> QueryResult<Self::Output> {
-		let index = context.volume_index();
+		let library_id = session
+			.current_library_id
+			.ok_or_else(|| QueryError::Internal("No library in session".to_string()))?;
+		let library = context
+			.libraries()
+			.await
+			.get_library(library_id)
+			.await
+			.ok_or(QueryError::LibraryNotFound(library_id))?;
 		let source_id = self.input.source_id;
-		let root = index.source_root(source_id).ok_or_else(|| {
+		let not_tracked = || {
 			QueryError::InvalidInput(format!("source {source_id} is not tracked on this device"))
-		})?;
+		};
+		// Only this library's sources answer; the index holds every library's.
+		registry::get(library.db().conn(), source_id)
+			.await
+			.map_err(|_| not_tracked())?;
+		let index = context.volume_index();
+		let root = index.source_root(source_id).ok_or_else(not_tracked)?;
 		let store = index
 			.store_for(&root)
 			.await

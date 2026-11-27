@@ -21,8 +21,11 @@ use crate::{
 		job::types::JobPriority,
 	},
 	library::Library,
-	ops::indexing::{
-		content_identity::ContentIdentityJob, content_text::ContentTextJob, deep_scope,
+	ops::{
+		indexing::{
+			content_identity::ContentIdentityJob, content_text::ContentTextJob, deep_scope,
+		},
+		sources::registry,
 	},
 };
 
@@ -72,12 +75,31 @@ impl LibraryAction for UpdateDeepScopeAction {
 				path.display()
 			))
 		};
-		let source_id = index.source_id_for(path).ok_or_else(not_tracked)?;
-		let root = index.source_root(source_id).ok_or_else(not_tracked)?;
-		let relative = path
-			.strip_prefix(&root)
-			.map(deep_scope::slash_path)
+		// A source is rooted at its volume's spelling of the path, which on
+		// macOS is not the one a person types: /Users/me lives at
+		// /System/Volumes/Data/Users/me. A folder that no longer exists can
+		// still be released by the spelling the source uses.
+		let spelled = context
+			.volume_manager
+			.locate_path(path)
+			.await
+			.map(|(_, spelled)| spelled);
+		let candidates: Vec<&PathBuf> = spelled.iter().chain(std::iter::once(path)).collect();
+		let source_id = candidates
+			.iter()
+			.find_map(|candidate| index.source_id_for(candidate))
+			.ok_or_else(not_tracked)?;
+		// The index resolves a path whatever library asks; only this
+		// library's sources are its to change.
+		registry::get(library.db().conn(), source_id)
+			.await
 			.map_err(|_| not_tracked())?;
+		let root = index.source_root(source_id).ok_or_else(not_tracked)?;
+		let relative = candidates
+			.iter()
+			.find_map(|candidate| candidate.strip_prefix(&root).ok())
+			.map(deep_scope::slash_path)
+			.ok_or_else(not_tracked)?;
 		let store = index.store_for(&root).await.ok_or_else(|| {
 			ActionError::Internal("the source has no store on this device".into())
 		})?;
