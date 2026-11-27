@@ -35,9 +35,52 @@ sd restart
 
 It listens on `127.0.0.1:7765`. To use another port, set
 `agent_mcp.listen` to another loopback address, such as `127.0.0.1:7800`.
-The daemon refuses wildcard and non-loopback addresses and logs why.
-Listening beyond loopback needs TLS and the other items in the agent access
-threat model, which this build does not have yet.
+The daemon refuses wildcard addresses such as `0.0.0.0` and `::`, and host
+names other than `localhost`, and logs why.
+
+## Reach the endpoint from another machine
+
+Keep the endpoint on loopback and put a TLS proxy you already run in front of
+it. With Tailscale, `tailscale serve --bg 7765` serves the endpoint at your
+machine's tailnet name over HTTPS. A reverse proxy such as Caddy or nginx
+works the same way. Your proxy then handles certificates, and the endpoint
+stays unreachable from anywhere the proxy does not forward.
+
+If you cannot run a proxy, the endpoint can listen on another address itself.
+Set `agent_mcp.listen` to one IP of this machine, with a port, and choose how
+it is protected:
+
+| Key | Value |
+| --- | --- |
+| `agent_mcp.tls_cert` | Path to a PEM certificate chain. The endpoint serves TLS 1.2 and 1.3. |
+| `agent_mcp.tls_key` | Path to the PEM private key for that certificate. |
+| `agent_mcp.plaintext` | `true` serves plain HTTP. Use it only on an address whose network is already encrypted, such as a WireGuard or Tailscale address. The daemon logs a warning at every start. |
+| `agent_mcp.host_names` | Comma-separated names clients may use in the URL, such as the name in your certificate. The bound IP is always accepted. |
+
+Set both `tls_cert` and `tls_key`, or set `plaintext`. If you set neither, the
+daemon does not start the endpoint on a non-loopback address and logs why. A
+certificate and key also turn on TLS on a loopback address.
+
+```bash
+sd config set agent_mcp.listen 100.101.102.103:7765
+sd config set agent_mcp.tls_cert /etc/spacedrive/endpoint.crt
+sd config set agent_mcp.tls_key /etc/spacedrive/endpoint.key
+sd config set agent_mcp.host_names nas.example.ts.net
+sd restart
+```
+
+On a non-loopback address the endpoint answers 403 unless the request's Host
+is the bound IP or one of `agent_mcp.host_names`, with the bound port.
+[OAuth](/docs/cli/mcp-oauth) is not offered on a non-loopback address, with
+TLS or without: every OAuth route answers 404 there. The consent page does
+not ask who you are, so whoever opens it and presses Allow gets a grant for
+the folder they pick. On loopback that person is you. On a network address it
+could be anyone who reaches the port. Remote clients connect with a token from
+`sd grant create` instead. `sd grant create --print-mcp-config` prints an
+`https://` URL with the first host name when TLS is configured.
+
+Anyone who can reach the address can still try tokens against it. Choose an
+address that only your own devices can reach.
 
 ## Create a grant
 
@@ -186,7 +229,7 @@ with `files.undo` and that id as `job`. The full model is in
 | Status | Meaning |
 | --- | --- |
 | 401 | The token is unknown, expired or revoked, or its source is gone. Create or extend a grant. |
-| 403 | The path is outside the grant, a write tool was called with a read-only grant or on a protected file, the Host header is not loopback, or the request carries an Origin header. |
+| 403 | The path is outside the grant, a write tool was called with a read-only grant or on a protected file, the Host header does not name the endpoint, or the request carries an Origin header. |
 | 404 | The session id belongs to another grant or has expired. The client starts a new session. |
 | 429 | A limit was reached. Wait for the `Retry-After` seconds. |
 

@@ -10,14 +10,16 @@ use uuid::Uuid;
 use crate::context::Context;
 use crate::util::prelude::*;
 
-use sd_core::ops::config::app::{get::AppConfigOutput, GetAppConfigQueryInput};
+use sd_core::ops::config::app::{
+	get::{AgentMcpConfigOutput, AppConfigOutput},
+	GetAppConfigQueryInput,
+};
 use sd_core::ops::grants::{
 	audit::{GrantAuditInput, GrantAuditOutput},
 	create::{CreateGrantInput, CreateGrantOutput},
 	extend::{ExtendGrantInput, ExtendGrantOutput},
 	list::{ListGrantsInput, ListGrantsOutput},
 	revoke::{RevokeGrantInput, RevokeGrantOutput},
-	setup::mcp_url,
 	GrantCap, GrantInfo,
 };
 
@@ -135,7 +137,7 @@ pub async fn run(ctx: &Context, cmd: GrantCmd) -> Result<()> {
 							"The agent MCP endpoint is off. Run `sd config set agent_mcp.enabled true` and restart the daemon."
 						);
 					}
-					let url = mcp_url(&endpoint.listen);
+					let url = mcp_url(endpoint);
 					println!();
 					print!("{}", mcp_config(&url, &o.token, args.inline_token));
 				}
@@ -237,6 +239,13 @@ fn row(grant: &GrantInfo) -> Vec<String> {
 /// The environment variable printed MCP configs read the token from.
 const TOKEN_ENV: &str = "SPACEDRIVE_GRANT_TOKEN";
 
+/// The URL MCP clients connect to for the endpoint `endpoint` describes:
+/// https with the certificate's host name when TLS is configured.
+fn mcp_url(endpoint: &AgentMcpConfigOutput) -> String {
+	let tls = endpoint.tls_cert.is_some() && endpoint.tls_key.is_some();
+	sd_core::service::agent_mcp::url(&endpoint.listen, tls, &endpoint.host_names)
+}
+
 /// Ready-to-paste config for Claude Code and Codex.
 ///
 /// The token stays in an environment variable by default, since a config
@@ -320,11 +329,38 @@ fn parse_ttl(text: &str) -> Result<u32> {
 
 #[cfg(test)]
 mod tests {
-	use super::{mcp_config, mcp_url, parse_ttl};
+	use super::{mcp_config, mcp_url, parse_ttl, AgentMcpConfigOutput};
+
+	fn endpoint(listen: &str) -> AgentMcpConfigOutput {
+		AgentMcpConfigOutput {
+			enabled: true,
+			listen: listen.to_string(),
+			tls_cert: None,
+			tls_key: None,
+			plaintext: false,
+			host_names: Vec::new(),
+		}
+	}
+
+	#[test]
+	fn mcp_urls_use_https_and_the_host_name_with_tls() {
+		let tls = AgentMcpConfigOutput {
+			tls_cert: Some("cert.pem".into()),
+			tls_key: Some("key.pem".into()),
+			host_names: vec!["nas.example.ts.net".into()],
+			..endpoint("100.64.0.1:8443")
+		};
+		assert_eq!(mcp_url(&tls), "https://nas.example.ts.net:8443/mcp");
+		let plaintext = AgentMcpConfigOutput {
+			plaintext: true,
+			..endpoint("100.64.0.1:8443")
+		};
+		assert_eq!(mcp_url(&plaintext), "http://100.64.0.1:8443/mcp");
+	}
 
 	#[test]
 	fn mcp_config_keeps_the_token_in_the_environment_by_default() {
-		let url = mcp_url("127.0.0.1:7765");
+		let url = mcp_url(&endpoint("127.0.0.1:7765"));
 		assert_eq!(url, "http://127.0.0.1:7765/mcp");
 		let token = format!("sdg_{}", "a".repeat(64));
 		let config = mcp_config(&url, &token, false);

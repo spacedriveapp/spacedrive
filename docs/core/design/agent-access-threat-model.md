@@ -301,9 +301,11 @@ server. What it adds to the attack surface, and how each part is held:
   processes can already reach RPC (F1), so this adds nothing they lack.
 - Logs carry client ids and grant ids, never tokens, codes or verifiers.
 - Issuer and resource URLs are built from the Host header, which is already
-  limited to loopback with the bound port. A non-loopback listener must serve
-  the metadata over HTTPS with the configured host name before OAuth is offered
-  there.
+  limited to loopback with the bound port.
+- OAuth is offered on loopback listeners only. The consent page does not
+  authenticate the owner, so on any other address whoever reaches it could
+  mint a grant. A non-loopback listener answers 404 on every OAuth route, TLS
+  or not, and remote clients use a token from `sd grant create`.
 
 ## Should RPC on 6969 stay loopback-trusted?
 

@@ -176,15 +176,16 @@ impl OAuth {
 	}
 }
 
-/// The origin clients reach this daemon at, from a Host already checked to be
-/// loopback with the bound port. Metadata is built from it so the issuer and
-/// resource match whichever loopback spelling the client used.
-pub fn base_url(headers: &HeaderMap) -> String {
+/// The origin clients reach this daemon at, from a Host already checked to
+/// name the listener. Metadata is built from it so the issuer and resource
+/// match whichever allowed spelling the client used.
+pub fn base_url(headers: &HeaderMap, tls: bool) -> String {
 	let host = headers
 		.get(header::HOST)
 		.and_then(|h| h.to_str().ok())
 		.unwrap_or("127.0.0.1");
-	format!("http://{host}")
+	let scheme = if tls { "https" } else { "http" };
+	format!("{scheme}://{host}")
 }
 
 /// The `WWW-Authenticate` value a 401 from `/mcp` carries.
@@ -203,8 +204,11 @@ enum Origin {
 }
 
 fn guard(endpoint: &Endpoint, headers: &HeaderMap, origin: Origin) -> Result<String, Response> {
+	if !endpoint.oauth_offered() {
+		return Err(StatusCode::NOT_FOUND.into_response());
+	}
 	endpoint.screen_host(headers)?;
-	let base = base_url(headers);
+	let base = base_url(headers, endpoint.tls());
 	let sent = headers
 		.get(header::ORIGIN)
 		.map(|o| o.to_str().unwrap_or(""));
