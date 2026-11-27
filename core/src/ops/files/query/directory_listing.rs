@@ -519,14 +519,7 @@ impl DirectoryListingQuery {
 			.collect();
 		let mut listing = self.finalize_listing(files);
 		crate::ops::tags::decorate::decorate_from_store(&db, &mut listing.files).await;
-		let positions: Vec<usize> = (0..listing.files.len()).collect();
-		// The entry rows already carry the image facet; this adds the video
-		// one, and a listing without either still lists.
-		if let Err(error) =
-			crate::ops::search::capture::decorate_from_db(&db, &mut listing.files, &positions).await
-		{
-			tracing::debug!(%error, "media facets unavailable for a store listing");
-		}
+		crate::ops::search::capture::decorate_store_files(&db, &mut listing.files).await;
 		Some(listing)
 	}
 

@@ -127,6 +127,16 @@ pub async fn decorate_files(cache: &VolumeIndex, files: &mut [File]) {
 	}
 }
 
+/// Give files built from one store's entry rows the video facet those rows
+/// leave out. The entry rows already carry the image facet; a store that
+/// cannot answer for videos still lists.
+pub async fn decorate_store_files(db: &sd_store::SourceDb, files: &mut [File]) {
+	let positions: Vec<usize> = (0..files.len()).collect();
+	if let Err(error) = decorate_from_db(db, files, &positions).await {
+		tracing::debug!(%error, "media facets unavailable for store-built files");
+	}
+}
+
 /// Decorate the files at `positions` from one store, by record uuid.
 pub async fn decorate_from_db(
 	db: &sd_store::SourceDb,
