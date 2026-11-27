@@ -5,7 +5,9 @@ description: Models the core runs for extensions through ai.infer
 
 Extensions are WASM, so they cannot load a model. They call `ai.infer` and the
 core runs the model on this device. The provider layer lives in
-`core/src/ops/ai/`. Two cargo features turn it on, and both are off by default:
+`core/src/ops/ai/`. Two cargo features turn it on. Both are off in a default
+build, and the desktop app's daemon is built with them through the `footage`
+feature, `ai-cloud` alone on Intel Macs:
 
 - `ai-cloud` builds the provider registry, `ai.infer` and the cloud caption
   client. It needs no ONNX Runtime, so it builds on every target.
