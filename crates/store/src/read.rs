@@ -17,6 +17,7 @@ use std::collections::HashMap;
 use crate::error::Result;
 use crate::file::FileKind;
 use crate::image::ImageFacet;
+use crate::video::VideoFacet;
 use sqlx::{FromRow, SqlitePool};
 use uuid::Uuid;
 
@@ -90,6 +91,14 @@ macro_rules! image_columns {
 	};
 }
 
+/// The video facet's columns, over the alias `v`.
+macro_rules! video_columns {
+	() => {
+		"v.record_uuid IS NOT NULL AS has_video, v.duration_seconds AS video_duration, \
+		 v.width AS video_width, v.height AS video_height, v.codec AS video_codec"
+	};
+}
+
 /// Every column [`FsEntry`] is built from, over the aliases `r` (the record),
 /// `own` and `parent` (its own and its parent's `directory_path` rows), `f`,
 /// `c` and `i`. A directory's path comes from its own row; a file's from its
@@ -120,6 +129,16 @@ macro_rules! image_join {
 		"LEFT JOIN facet_image i ON i.record_uuid = r.uuid \
 		 AND i.content_hash IS NOT NULL \
 		 AND i.content_hash = COALESCE(c.sampled_hash, c.integrity_hash)"
+	};
+}
+
+/// The video facet joined the same way as [`image_join!`], for
+/// [`video_facets_for_records`] only.
+macro_rules! video_join {
+	() => {
+		" LEFT JOIN facet_video v ON v.record_uuid = r.uuid \
+		 AND v.content_hash IS NOT NULL \
+		 AND v.content_hash = COALESCE(c.sampled_hash, c.integrity_hash)"
 	};
 }
 
@@ -174,6 +193,27 @@ struct EntryRow {
 	content_kind_name: Option<String>,
 	#[sqlx(flatten)]
 	image: ImageRow,
+}
+
+/// [`video_columns!`] as sqlx reads them.
+#[derive(FromRow)]
+struct VideoRow {
+	has_video: bool,
+	video_duration: Option<f64>,
+	video_width: Option<i64>,
+	video_height: Option<i64>,
+	video_codec: Option<String>,
+}
+
+impl VideoRow {
+	fn into_facet(self) -> Option<VideoFacet> {
+		self.has_video.then_some(VideoFacet {
+			duration_seconds: self.video_duration,
+			width: self.video_width,
+			height: self.video_height,
+			codec: self.video_codec,
+		})
+	}
 }
 
 /// [`image_columns!`] as sqlx reads them; `has_image` tells a row with no
@@ -293,6 +333,49 @@ pub async fn image_facets_for_records(
 		);
 	}
 	Ok(facets)
+}
+
+/// The video facet of each of `record_uuids` whose row describes its
+/// current bytes, the counterpart of [`image_facets_for_records`].
+///
+/// Kept out of the entry queries: a replica or retained copy written before
+/// the facet had `content_hash` opens read-only and is never given the
+/// column, so joining it there would fail every listing of that copy. Here
+/// the failure is the caller's to skip.
+pub async fn video_facets_for_records(
+	pool: &SqlitePool,
+	record_uuids: &[Uuid],
+) -> Result<Vec<(Uuid, VideoFacet)>> {
+	let mut facets = Vec::new();
+	for chunk in record_uuids.chunks(2_000) {
+		let sql = format!(
+			"SELECT r.uuid AS uuid, {} FROM record r \
+			 LEFT JOIN content c ON c.id = r.content_id {} \
+			 WHERE v.record_uuid IS NOT NULL AND r.uuid IN ({})",
+			video_columns!(),
+			video_join!(),
+			vec!["?"; chunk.len()].join(", ")
+		);
+		let mut query = sqlx::query_as::<_, VideoFacetRow>(&sql);
+		for id in chunk {
+			query = query.bind(*id);
+		}
+		facets.extend(
+			query
+				.fetch_all(pool)
+				.await?
+				.into_iter()
+				.filter_map(|row| Some((row.uuid, row.video.into_facet()?))),
+		);
+	}
+	Ok(facets)
+}
+
+#[derive(FromRow)]
+struct VideoFacetRow {
+	uuid: Uuid,
+	#[sqlx(flatten)]
+	video: VideoRow,
 }
 
 #[derive(FromRow)]

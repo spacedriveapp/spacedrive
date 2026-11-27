@@ -1,7 +1,7 @@
 //! Sync setup test using subprocess framework
 //!
 //! Tests that sync setup works without UNIQUE constraint errors when both devices
-//! have the same deterministic default spaces.
+//! have the same deterministic default layouts.
 
 use sd_core::testing::CargoTestRunner;
 use sd_core::Core;
@@ -417,7 +417,7 @@ async fn carol_three_device_scenario() {
 /// Main test orchestrator
 #[tokio::test]
 async fn test_sync_setup_no_constraint_error() {
-	println!("Testing sync setup with deterministic spaces...");
+	println!("Testing sync setup with deterministic layouts...");
 
 	// Clean up
 	let _ = std::fs::remove_dir_all("/tmp/spacedrive-sync-setup-test");

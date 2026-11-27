@@ -36,7 +36,16 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
-RPC lines stay out of logs (Capy FAN-14847, November 27, in PR). Threat model F2: a malformed RPC line logs its parse error's kind, position and length, never the text, and the desktop app's daemon proxy logs a request's kind and method instead of the payload and answer; `rpc_security_test` guards it.
+Video duration at indexing (Capy SPAC-129 follow-up, November 27, beta.1, in
+PR). Jamie decided a video's duration belongs in the record, so the Duration
+column fills in without analysis. The media metadata pass that reads EXIF now
+also reads each identified video's container header into `facet_video`:
+duration, frame size and codec. `sd_media_metadata::video` is a pure-Rust
+header reader with no FFmpeg and no decoding. It covers MP4/MOV with `moov`
+anywhere in the file, and MKV/WebM ahead of the first cluster. Rows are keyed
+by content hash like the image facet and reach listings, search hits and the
+inspector as `video_media_data`. The pass claims only identified records; once
+#3286 lands, identification and this pass run only in the deep scope. Next: review and merge.
 
 Content sidecars have a registry and live in their source (Capy FAN-14816,
 November 27, in PR, stacked on the Sidecars tab PR). Every derived file other

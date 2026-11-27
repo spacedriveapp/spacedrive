@@ -6,7 +6,7 @@ import {
 	setDragData,
 	clearDragData,
 	type SidebarDragData,
-} from "../../../../components/SpacesSidebar/dnd";
+} from "../../../../components/Sidebar/dnd";
 import { usePlatform } from "../../../../contexts/PlatformContext";
 
 interface SizeCircleProps {
