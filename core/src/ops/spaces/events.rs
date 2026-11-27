@@ -105,7 +105,14 @@ static LOGS: LazyLock<tokio::sync::Mutex<Logs>> = LazyLock::new(|| {
 		open: HashMap::new(),
 	})
 });
-static OWN_WRITES: LazyLock<Mutex<HashMap<PathBuf, Instant>>> = LazyLock::new(Default::default);
+/// A path Spacedrive is changing: how many operations hold it now, and when
+/// the last one claimed or let go of it.
+struct Claim {
+	held: usize,
+	at: Instant,
+}
+
+static OWN_WRITES: LazyLock<Mutex<HashMap<PathBuf, Claim>>> = LazyLock::new(Default::default);
 static WATCHED: LazyLock<Mutex<HashMap<PathBuf, (&'static str, Instant)>>> =
 	LazyLock::new(Default::default);
 
@@ -121,14 +128,65 @@ pub fn invalidate(source_id: Uuid) {
 }
 
 /// Mark paths Spacedrive is about to change, so the watcher does not record
-/// the change a second time as made outside Spacedrive. Called before the
-/// change, because the watcher can see it before the writer records it.
+/// the change a second time as made outside Spacedrive. Called right before
+/// the change, because the watcher can see it before the writer records it.
+/// A claim covers the path and everything inside it, for a few seconds.
 pub fn claim(paths: &[&Path]) {
 	let now = Instant::now();
 	let mut own = OWN_WRITES.lock();
-	for path in paths {
-		own.insert(path.to_path_buf(), now);
+	if own.len() > 4096 {
+		own.retain(|_, claim| claim.held > 0 || now.duration_since(claim.at) < OWN_WRITE_WINDOW);
 	}
+	for path in paths {
+		own.entry(path.to_path_buf())
+			.and_modify(|claim| claim.at = now)
+			.or_insert(Claim { held: 0, at: now });
+	}
+}
+
+/// Claim paths for as long as the answer lives, and a few seconds after: for
+/// an operation that takes longer than the claim window, such as copying a
+/// folder.
+pub fn hold(paths: &[&Path]) -> Held {
+	let now = Instant::now();
+	let mut own = OWN_WRITES.lock();
+	for path in paths {
+		let claim = own
+			.entry(path.to_path_buf())
+			.or_insert(Claim { held: 0, at: now });
+		claim.held += 1;
+		claim.at = now;
+	}
+	Held {
+		paths: paths.iter().map(|path| path.to_path_buf()).collect(),
+	}
+}
+
+/// Paths held by [`hold`] until this is dropped.
+#[must_use = "the paths are released when this is dropped"]
+pub struct Held {
+	paths: Vec<PathBuf>,
+}
+
+impl Drop for Held {
+	fn drop(&mut self) {
+		let now = Instant::now();
+		let mut own = OWN_WRITES.lock();
+		for path in &self.paths {
+			if let Some(claim) = own.get_mut(path) {
+				claim.held = claim.held.saturating_sub(1);
+				claim.at = now;
+			}
+		}
+	}
+}
+
+/// Whether Spacedrive claimed `path` or a folder holding it.
+fn is_own(own: &HashMap<PathBuf, Claim>, path: &Path, now: Instant) -> bool {
+	path.ancestors().any(|path| {
+		own.get(path)
+			.is_some_and(|claim| claim.held > 0 || now.duration_since(claim.at) < OWN_WRITE_WINDOW)
+	})
 }
 
 async fn spaces_of(context: &CoreContext, source_id: Uuid) -> Arc<Vec<(Uuid, String)>> {
@@ -274,15 +332,9 @@ pub async fn log_of(
 /// left and a create where it landed. Answers how many events were written.
 pub async fn record(context: &CoreContext, who: Attribution, change: Change) -> usize {
 	if who.origin != Origin::Watcher {
-		let now = Instant::now();
-		let mut own = OWN_WRITES.lock();
-		if own.len() > 4096 {
-			own.retain(|_, at| now.duration_since(*at) < OWN_WRITE_WINDOW);
-		}
-		own.insert(change.path.clone(), now);
-		if let Some(to) = &change.to {
-			own.insert(to.clone(), now);
-		}
+		let mut paths = vec![change.path.as_path()];
+		paths.extend(change.to.as_deref());
+		claim(&paths);
 	}
 
 	let from = space_of(context, &change.path, who.library).await;
@@ -405,11 +457,7 @@ pub async fn record_watched(context: &CoreContext, event: &FsEvent) {
 	let now = Instant::now();
 	{
 		let own = OWN_WRITES.lock();
-		let recent = |p: &PathBuf| {
-			own.get(p)
-				.is_some_and(|at| now.duration_since(*at) < OWN_WRITE_WINDOW)
-		};
-		if recent(path) || to.is_some_and(recent) {
+		if is_own(&own, path, now) || to.is_some_and(|to| is_own(&own, to, now)) {
 			return;
 		}
 	}

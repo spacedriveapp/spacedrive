@@ -468,6 +468,7 @@ impl<'a, 'c> Merge<'a, 'c> {
 				};
 				let from = directory.join(&name);
 				let to = destination.join(&relative);
+				let _held = crate::ops::spaces::events::hold(&[&from, &to]);
 				let Ok(meta) = tokio::fs::symlink_metadata(&from).await else {
 					continue;
 				};

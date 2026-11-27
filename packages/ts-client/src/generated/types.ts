@@ -90,6 +90,15 @@ export type ActorsListInput = Record<string, never>;
 
 export type ActorsListOutput = { actors: Actor[] };
 
+export type ActorsMeInput = Record<string, never>;
+
+export type ActorsMeOutput = { 
+/**
+ * The person using this device. Changes made through the app here are
+ * attributed to this actor.
+ */
+actor: Actor };
+
 export type AdapterConfigField = { key: string; name: string; description: string; field_type: string; required: boolean; secret: boolean; default: string | null };
 
 export type AdapterInfo = { id: string; name: string; description: string; version: string; author: string; data_type: string; icon_svg: string | null; update_available: boolean };
@@ -7444,6 +7453,7 @@ export type CoreQuery =
 export type LibraryQuery =
      { type: 'activity.list'; input: ActivityListInput; output: ActivityListOutput }
   |  { type: 'actors.list'; input: ActorsListInput; output: ActorsListOutput }
+  |  { type: 'actors.me'; input: ActorsMeInput; output: ActorsMeOutput }
   |  { type: 'adapters.config'; input: GetAdapterConfigInput; output: [AdapterConfigField] }
   |  { type: 'adapters.list'; input: ListAdaptersInput; output: [AdapterInfo] }
   |  { type: 'agent.stat'; input: StatInput; output: PathState }
@@ -7688,6 +7698,7 @@ export const WIRE_METHODS = {
   libraryQueries: {
     'activity.list': 'query:activity.list',
     'actors.list': 'query:actors.list',
+    'actors.me': 'query:actors.me',
     'adapters.config': 'query:adapters.config',
     'adapters.list': 'query:adapters.list',
     'agent.stat': 'query:agent.stat',

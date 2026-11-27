@@ -521,6 +521,15 @@ impl JobHandler for FileCopyJob {
 			}
 			let source_path = resolved_source.as_local_path().map(Path::to_path_buf);
 			let dest_path = final_destination.as_local_path().map(Path::to_path_buf);
+			// Held until this source is done, so the watcher sees this copy as
+			// the person's own even when it outlasts a claim's few seconds.
+			let _held = crate::ops::spaces::events::hold(
+				&source_path
+					.iter()
+					.chain(dest_path.iter())
+					.map(PathBuf::as_path)
+					.collect::<Vec<_>>(),
+			);
 			let existing = match &dest_path {
 				Some(dest_path) => tokio::fs::symlink_metadata(dest_path).await.ok(),
 				None => None,
@@ -650,6 +659,12 @@ impl JobHandler for FileCopyJob {
 				}
 				_ => final_destination,
 			};
+
+			// A numbered name beside the existing file is not under the held
+			// destination.
+			let _held_landing = final_destination
+				.as_local_path()
+				.map(|landing| crate::ops::spaces::events::hold(&[landing]));
 
 			// 2. Execute the strategy with progress callback
 			match strategy

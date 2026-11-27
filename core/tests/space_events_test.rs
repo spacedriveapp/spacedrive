@@ -251,3 +251,168 @@ async fn watcher_changes_inside_a_space_are_logged_as_outside_spacedrive() -> an
 	harness.shutdown().await?;
 	Ok(())
 }
+
+#[tokio::test]
+async fn a_folder_copied_through_the_app_is_the_persons_change_not_an_outside_one(
+) -> anyhow::Result<()> {
+	use sd_core::{
+		domain::addressing::{SdPath, SdPathBatch},
+		ops::files::copy::{
+			action::FileConflictResolution,
+			job::{CopyOptions, FileCopyJob},
+		},
+	};
+
+	let harness = IndexingHarnessBuilder::new("space_events_app_copy")
+		.build()
+		.await?;
+	let home = harness.create_test_dir("home").await?;
+	home.write_file("project/drafts/kept.md", "kept").await?;
+	home.write_file("project/drafts/plan.md", "old plan")
+		.await?;
+	home.write_file("incoming/drafts/plan.md", "new plan")
+		.await?;
+	home.write_file("incoming/drafts/idea.md", "idea").await?;
+	home.write_file("incoming/drafts/deep/note.md", "note")
+		.await?;
+	let tracked = home.track().await?;
+	tokio::time::sleep(Duration::from_secs(2)).await;
+	let project = space(&harness, &tracked.root.join("project")).await?;
+	tokio::time::sleep(Duration::from_secs(1)).await;
+	let before = changes(&harness, &project)
+		.await
+		.last()
+		.map_or(0, |c| c.seq);
+
+	// A folder onto a folder already there merges leaf by leaf, and the merge
+	// journals its effects in a batch after it has made them.
+	let copy = FileCopyJob::new(
+		SdPathBatch::new(vec![SdPath::local(tracked.root.join("incoming/drafts"))]),
+		SdPath::local(tracked.root.join("project")),
+	)
+	.with_options(CopyOptions {
+		conflict_resolution: Some(FileConflictResolution::Overwrite),
+		..CopyOptions::default()
+	});
+	harness.library.jobs().dispatch(copy).await?.wait().await?;
+	assert_eq!(
+		tokio::fs::read_to_string(tracked.root.join("project/drafts/plan.md")).await?,
+		"new plan"
+	);
+	// Long enough for the watcher to have seen and handled every change.
+	tokio::time::sleep(Duration::from_secs(4)).await;
+
+	let logged: Vec<SpaceChange> = changes(&harness, &project)
+		.await
+		.into_iter()
+		.filter(|change| change.seq > before)
+		.collect();
+	assert!(
+		logged.iter().any(|change| change.path == "drafts/idea.md"),
+		"the copy is logged: {logged:?}"
+	);
+	assert!(
+		logged
+			.iter()
+			.any(|change| change.path == "drafts/deep/note.md"),
+		"{logged:?}"
+	);
+	let outside: Vec<_> = logged
+		.iter()
+		.filter(|change| change.origin != "app_op")
+		.collect();
+	assert!(
+		outside.is_empty(),
+		"every change is the person's, none outside Spacedrive: {outside:?}"
+	);
+	assert!(logged
+		.iter()
+		.all(|change| change.actor.kind == ActorKind::Person));
+
+	harness.shutdown().await?;
+	Ok(())
+}
+
+#[tokio::test]
+async fn undoing_an_agent_move_is_one_event_by_the_person() -> anyhow::Result<()> {
+	use sd_core::ops::{
+		agent_write::{move_path, stat, MoveInput, StatInput},
+		files::undo::UndoJob,
+	};
+
+	let harness = IndexingHarnessBuilder::new("space_events_undo")
+		.build()
+		.await?;
+	let home = harness.create_test_dir("home").await?;
+	home.write_file("project/draft.md", "draft").await?;
+	home.write_file("project/done/.keep", "").await?;
+	let tracked = home.track().await?;
+	tokio::time::sleep(Duration::from_secs(2)).await;
+	let project = space(&harness, &tracked.root.join("project")).await?;
+	let agent = grant(&harness, &tracked.root.join("project"), "mover").await?;
+	tokio::time::sleep(Duration::from_secs(1)).await;
+
+	let current = stat(
+		&harness.core.context,
+		StatInput {
+			token: agent.token.clone(),
+			path: "draft.md".into(),
+		},
+	)
+	.await
+	.map_err(|e| anyhow::anyhow!("{e:?}"))?;
+	let moved = move_path(
+		&harness.core.context,
+		MoveInput {
+			token: agent.token.clone(),
+			from: "draft.md".into(),
+			to: "done/draft.md".into(),
+			expect: Precondition {
+				revision: None,
+				content_hash: current.content_hash.clone(),
+			},
+		},
+	)
+	.await
+	.map_err(|e| anyhow::anyhow!("{e:?}"))?;
+	tokio::time::sleep(Duration::from_secs(3)).await;
+	let after_move = changes(&harness, &project).await;
+	let last = after_move.last().expect("the move is logged");
+	assert_eq!(last.origin, "agent_write");
+
+	harness
+		.library
+		.jobs()
+		.dispatch(UndoJob::new(moved.undo.expect("undoable"), None))
+		.await?
+		.wait()
+		.await?;
+	assert!(tracked.root.join("project/draft.md").exists());
+	tokio::time::sleep(Duration::from_secs(4)).await;
+
+	let undone: Vec<SpaceChange> = changes(&harness, &project)
+		.await
+		.into_iter()
+		.filter(|change| change.seq > last.seq)
+		.collect();
+	assert_eq!(undone.len(), 1, "one event for the undo: {undone:?}");
+	assert_eq!(undone[0].op, "move");
+	assert_eq!(undone[0].path, "done/draft.md");
+	assert_eq!(undone[0].to_path.as_deref(), Some("draft.md"));
+	assert_eq!(undone[0].origin, "app_op");
+	assert_eq!(undone[0].actor.kind, ActorKind::Person);
+	let me =
+		sd_core::ops::actors::ActorsMeQuery::from_input(sd_core::ops::actors::ActorsMeInput {})
+			.expect("input")
+			.execute(harness.core.context.clone(), session(&harness))
+			.await?
+			.actor;
+	assert_eq!(
+		undone[0].actor.id, me.id,
+		"actors.me names the person the app attributes to"
+	);
+	assert_ne!(me.label, "", "the person has a name");
+
+	harness.shutdown().await?;
+	Ok(())
+}
