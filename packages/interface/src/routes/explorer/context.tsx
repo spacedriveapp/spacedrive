@@ -510,7 +510,7 @@ function urlToTarget(search: string): NavigationTarget | null {
 	return null;
 }
 
-function getSpaceItemKey(pathname: string, search: string): string {
+function getLayoutItemKey(pathname: string, search: string): string {
 	if (pathname === '/') return 'overview';
 	if (pathname === '/recents') return 'recents';
 	if (pathname === '/favorites') return 'favorites';
@@ -615,7 +615,7 @@ interface ExplorerContextValue {
 
 	devices: Map<string, Device>;
 
-	loadPreferencesForSpaceItem: (
+	loadPreferencesForLayoutItem: (
 		id: string,
 		defaultViewMode?: ViewMode
 	) => void;
@@ -822,7 +822,7 @@ export function ExplorerProvider({
 		}
 	}, [navState.index, navState.history, routerNavigate]);
 
-	const spaceKey = getSpaceItemKey(location.pathname, location.search);
+	const layoutKey = getLayoutItemKey(location.pathname, location.search);
 
 	// View settings from TabManager (per-tab)
 	const sortByValue = tabState.sortBy as SortBy;
@@ -857,9 +857,9 @@ export function ExplorerProvider({
 			updateExplorerState(activeTabId, {
 				viewMode: mode as TabViewMode
 			});
-			viewPrefs.setPreferences(spaceKey, {viewMode: mode});
+			viewPrefs.setPreferences(layoutKey, {viewMode: mode});
 		},
-		[activeTabId, updateExplorerState, spaceKey, viewPrefs]
+		[activeTabId, updateExplorerState, layoutKey, viewPrefs]
 	);
 
 	const setSortBy = useCallback(
@@ -896,7 +896,7 @@ export function ExplorerProvider({
 			}
 
 			// Save to preferences
-			viewPrefs.setPreferences(spaceKey, {
+			viewPrefs.setPreferences(layoutKey, {
 				viewSettings: {...viewSettings, ...settings}
 			});
 		},
@@ -904,7 +904,7 @@ export function ExplorerProvider({
 			activeTabId,
 			updateExplorerState,
 			tabState,
-			spaceKey,
+			layoutKey,
 			viewSettings,
 			viewPrefs
 		]
@@ -1004,7 +1004,7 @@ export function ExplorerProvider({
 		uiDispatch({type: 'SET_SEARCH_FILTERS', filters});
 	}, []);
 
-	const loadPreferencesForSpaceItem = useCallback(
+	const loadPreferencesForLayoutItem = useCallback(
 		(id: string, defaultViewMode: ViewMode = 'grid') => {
 			const prefs = viewPrefs.getPreferences(id);
 			updateExplorerState(activeTabId, {
@@ -1083,7 +1083,7 @@ export function ExplorerProvider({
 			searchFilters: uiState.searchFilters,
 			setSearchFilters,
 			devices,
-			loadPreferencesForSpaceItem,
+			loadPreferencesForLayoutItem,
 			activeTabId
 		}),
 		[
@@ -1140,7 +1140,7 @@ export function ExplorerProvider({
 			uiState.searchFilters,
 			setSearchFilters,
 			devices,
-			loadPreferencesForSpaceItem,
+			loadPreferencesForLayoutItem,
 			activeTabId
 		]
 	);
@@ -1170,8 +1170,8 @@ export function useOptionalExplorer(): ExplorerContextValue | null {
 }
 
 export {
-	getSpaceItemKey,
-	getSpaceItemKey as getSpaceItemKeyFromRoute,
+	getLayoutItemKey,
+	getLayoutItemKey as getLayoutItemKeyFromRoute,
 	targetToKey,
 	targetsEqual
 };

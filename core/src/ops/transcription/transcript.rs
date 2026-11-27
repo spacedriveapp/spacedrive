@@ -8,7 +8,10 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
 
-use crate::domain::sidecar::{ContentSidecar, SidecarFormat};
+use crate::{
+	domain::sidecar::{ContentSidecar, SidecarFormat},
+	service::sidecars::SidecarFinder,
+};
 
 /// Raised when a change to the format would mislead an older reader.
 pub const TRANSCRIPT_VERSION: u32 = 1;
@@ -95,14 +98,19 @@ impl Transcript {
 	}
 }
 
-/// The transcript sidecar of `content_uuid` in a library, the candidate
+/// The transcript sidecar of `content_uuid` wherever `finder` finds it, the candidate
 /// content uuid media sidecars are keyed by. None when the recording has not
 /// been transcribed, or its transcript is from a newer, unreadable version.
 pub async fn read_transcript(
-	library_path: &Path,
+	finder: &SidecarFinder,
 	content_uuid: Uuid,
 ) -> std::io::Result<Option<Transcript>> {
-	let path = ContentSidecar::transcript(content_uuid, SidecarFormat::Json).path_in(library_path);
+	let Some(path) = finder.find(&ContentSidecar::transcript(
+		content_uuid,
+		SidecarFormat::Json,
+	)) else {
+		return Ok(None);
+	};
 	let bytes = match tokio::fs::read(&path).await {
 		Ok(bytes) => bytes,
 		Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -181,17 +189,17 @@ mod tests {
 
 	#[tokio::test]
 	async fn a_written_transcript_reads_back_and_a_missing_one_is_none() {
-		let library = tempfile::tempdir().unwrap();
+		let root = tempfile::tempdir().unwrap();
+		let finder = SidecarFinder::new(vec![root.path().to_path_buf()]);
 		let uuid = Uuid::now_v7();
-		assert!(read_transcript(library.path(), uuid)
-			.await
-			.unwrap()
-			.is_none());
-		let path = ContentSidecar::transcript(uuid, SidecarFormat::Json).path_in(library.path());
+		assert!(read_transcript(&finder, uuid).await.unwrap().is_none());
+		let path = root
+			.path()
+			.join(ContentSidecar::transcript(uuid, SidecarFormat::Json).relative_path());
 		std::fs::create_dir_all(path.parent().unwrap()).unwrap();
 		std::fs::write(&path, serde_json::to_vec(&sample()).unwrap()).unwrap();
 		assert_eq!(
-			read_transcript(library.path(), uuid).await.unwrap(),
+			read_transcript(&finder, uuid).await.unwrap(),
 			Some(sample())
 		);
 	}

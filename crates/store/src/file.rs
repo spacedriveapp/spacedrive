@@ -1277,6 +1277,7 @@ fn image_model() -> ModelDef {
 /// 24000/1001 is not 23.976 and the difference accumulates over a timeline.
 fn video_model() -> ModelDef {
 	model(&[
+		("content_hash", FieldType::String),
 		("width", FieldType::Integer),
 		("height", FieldType::Integer),
 		("blurhash", FieldType::String),

@@ -16,7 +16,7 @@ use sd_store::{FsEntry, SourceDb};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::domain::sidecar::{SidecarFormat, SidecarKind, SidecarVariant};
+use crate::domain::sidecar::{ContentSidecar, SidecarFormat, SidecarKind, SidecarVariant};
 use crate::domain::Tag;
 use crate::infra::action::{error::ActionError, LibraryAction};
 use crate::infra::job::prelude::JobContext;
@@ -26,6 +26,7 @@ use crate::ops::tags::{
 	definitions, ApplyTagsAction, ApplyTagsInput, CreateTagAction, CreateTagInput, TagTargets,
 	UnapplyTagsAction, UnapplyTagsInput,
 };
+use crate::service::sidecars::SidecarRegistry;
 
 use super::model_registry::{open_extension_store, ExtensionModelRegistry, CUSTOM_FIELD_MODEL};
 use super::types::ExtensionManifest;
@@ -670,15 +671,15 @@ impl JobOps {
 }
 
 impl JobOps {
-	/// Where a sidecar of one of this extension's kinds lives: the library's
-	/// content-addressed sidecar tree, under the extension's namespace. The
-	/// SDK's sidecars are JSON documents with one variant.
-	fn sidecar_path(
+	/// A sidecar of one of this extension's kinds: under the extension's
+	/// namespace, beside the core's sidecars of the same content. The SDK's
+	/// sidecars are JSON documents with one variant.
+	fn extension_sidecar(
 		&self,
 		content_uuid: Uuid,
 		kind: &str,
 		write: bool,
-	) -> Result<std::path::PathBuf, OpError> {
+	) -> Result<ContentSidecar, OpError> {
 		let permissions = &self.manifest.permissions;
 		let granted = if write {
 			permissions.can_write_sidecar(kind)
@@ -692,31 +693,28 @@ impl JobOps {
 				if write { "write" } else { "read" }
 			)));
 		}
-		let kind =
-			SidecarKind::extension(&self.extension_id, kind).map_err(OpError::invalid_input)?;
-		Ok(self
-			.library
-			.path()
-			.join("sidecars")
-			.join(sd_sidecar_path::relative_path(
-				&content_uuid,
-				&kind.directory(),
-				SidecarVariant::new("default").as_str(),
-				SidecarFormat::Json.extension(),
-			)))
+		Ok(ContentSidecar {
+			content_uuid,
+			kind: SidecarKind::extension(&self.extension_id, kind)
+				.map_err(OpError::invalid_input)?,
+			variant: SidecarVariant::new("default"),
+			format: SidecarFormat::Json,
+		})
 	}
 
 	async fn sidecar_exists(&self, sidecar: SidecarRef) -> OpResult {
-		let path = self.sidecar_path(sidecar.content_uuid, &sidecar.kind, false)?;
-		json(&tokio::fs::try_exists(&path).await.unwrap_or(false))
+		let sidecar = self.extension_sidecar(sidecar.content_uuid, &sidecar.kind, false)?;
+		json(
+			&SidecarRegistry::of(&self.library)
+				.finder()
+				.find(&sidecar)
+				.is_some(),
+		)
 	}
 
 	async fn sidecar_read(&self, sidecar: SidecarRef) -> OpResult {
-		let path = self.sidecar_path(sidecar.content_uuid, &sidecar.kind, false)?;
-		tokio::fs::read(&path).await.map_err(|e| match e.kind() {
-			std::io::ErrorKind::NotFound => OpError::not_found(),
-			_ => OpError::failed(format!("read {}: {e}", path.display())),
-		})
+		let sidecar = self.extension_sidecar(sidecar.content_uuid, &sidecar.kind, false)?;
+		read_found(SidecarRegistry::of(&self.library).finder().find(&sidecar)).await
 	}
 
 	/// The bytes of a core sidecar (a proxy, a transcript, a shot list or a
@@ -739,7 +737,7 @@ impl JobOps {
 				self.extension_id, sidecar.kind
 			)));
 		}
-		let Some(kind_dir) = sd_sidecar_path::kind_directory(&sidecar.kind) else {
+		let Ok(kind) = SidecarKind::try_from(sidecar.kind.as_str()) else {
 			return Err(OpError::not_available(format!(
 				"this core writes no {} sidecars",
 				sidecar.kind
@@ -755,35 +753,40 @@ impl JobOps {
 				"variant and format must be single [A-Za-z0-9_-] segments",
 			));
 		}
-		let path = self
-			.library
-			.path()
-			.join("sidecars")
-			.join(sd_sidecar_path::relative_path(
-				&sidecar.content_uuid,
-				kind_dir,
-				&sidecar.variant,
-				&sidecar.format,
-			));
-		tokio::fs::read(&path).await.map_err(|e| match e.kind() {
-			std::io::ErrorKind::NotFound => OpError::not_found(),
-			_ => OpError::failed(format!("read {}: {e}", path.display())),
-		})
+		let Ok(format) = SidecarFormat::try_from(sidecar.format.as_str()) else {
+			return Err(OpError::not_found());
+		};
+		let sidecar = ContentSidecar {
+			content_uuid: sidecar.content_uuid,
+			kind,
+			variant: SidecarVariant::new(sidecar.variant),
+			format,
+		};
+		read_found(SidecarRegistry::of(&self.library).finder().find(&sidecar)).await
 	}
 
-	/// Written whole and renamed into place, so a reader never sees a
-	/// partial document and a crash leaves either the old one or the new.
+	/// Written whole and published, so a reader never sees a partial
+	/// document and a crash leaves either the old one or the new. It goes
+	/// to whichever source of the library holds the content.
 	async fn sidecar_write(&self, sidecar: SidecarWrite) -> OpResult {
-		let path = self.sidecar_path(sidecar.content_uuid, &sidecar.kind, true)?;
+		let target = self.extension_sidecar(sidecar.content_uuid, &sidecar.kind, true)?;
 		let bytes =
 			serde_json::to_vec(&sidecar.data).map_err(|e| OpError::failed(e.to_string()))?;
-		let io = |e: std::io::Error| OpError::failed(format!("write {}: {e}", path.display()));
-		if let Some(parent) = path.parent() {
+		let registry = SidecarRegistry::of(&self.library);
+		let home = registry
+			.home(sidecar.content_uuid, None)
+			.await
+			.map_err(|e| OpError::failed(e.to_string()))?;
+		let partial = home.partial(&target);
+		let io = |e: std::io::Error| OpError::failed(format!("write {}: {e}", partial.display()));
+		if let Some(parent) = partial.parent() {
 			tokio::fs::create_dir_all(parent).await.map_err(io)?;
 		}
-		let tmp = path.with_extension("json.tmp");
-		tokio::fs::write(&tmp, &bytes).await.map_err(io)?;
-		tokio::fs::rename(&tmp, &path).await.map_err(io)?;
+		tokio::fs::write(&partial, &bytes).await.map_err(io)?;
+		registry
+			.publish(&home, &target, &partial, Some(&self.manifest.version))
+			.await
+			.map_err(io)?;
 		self.index_sidecar(&sidecar.kind, sidecar.content_uuid)
 			.await;
 		json(&serde_json::Value::Null)
@@ -792,12 +795,13 @@ impl JobOps {
 	/// Removing a sidecar that was never written is not an error, so a
 	/// guest can clear one without checking first.
 	async fn sidecar_delete(&self, sidecar: SidecarRef) -> OpResult {
-		let path = self.sidecar_path(sidecar.content_uuid, &sidecar.kind, true)?;
-		match tokio::fs::remove_file(&path).await {
-			Ok(()) => {}
-			Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-			Err(e) => return Err(OpError::failed(format!("delete {}: {e}", path.display()))),
-		}
+		let target = self.extension_sidecar(sidecar.content_uuid, &sidecar.kind, true)?;
+		SidecarRegistry::of(&self.library)
+			.remove(&target)
+			.await
+			.map_err(|e| {
+				OpError::failed(format!("delete {}: {e}", target.relative_path().display()))
+			})?;
 		self.index_sidecar(&sidecar.kind, sidecar.content_uuid)
 			.await;
 		json(&serde_json::Value::Null)
@@ -1322,4 +1326,15 @@ fn parse<T: for<'de> Deserialize<'de>>(payload: &[u8]) -> Result<T, OpError> {
 
 fn json<T: Serialize>(value: &T) -> OpResult {
 	serde_json::to_vec(value).map_err(|e| OpError::failed(e.to_string()))
+}
+
+/// The bytes of a sidecar a finder found, or `not_found`.
+async fn read_found(path: Option<std::path::PathBuf>) -> OpResult {
+	let Some(path) = path else {
+		return Err(OpError::not_found());
+	};
+	tokio::fs::read(&path).await.map_err(|e| match e.kind() {
+		std::io::ErrorKind::NotFound => OpError::not_found(),
+		_ => OpError::failed(format!("read {}: {e}", path.display())),
+	})
 }

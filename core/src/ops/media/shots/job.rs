@@ -16,13 +16,13 @@ use uuid::Uuid;
 use super::{
 	detect::{pick_cuts, DetectParams, FrameScore},
 	sidecar::{
-		content_uuid_of_video, partial_path, write_shots, AnalyzedMedia, FrameRate, Shot, ShotList,
-		SHOTS_VERSION,
+		content_uuid_of_video, write_shots, AnalyzedMedia, FrameRate, Shot, ShotList, SHOTS_VERSION,
 	},
 };
 use crate::{
 	domain::sidecar::{ContentSidecar, ProxyResolution},
 	infra::job::{generic_progress::GenericProgress, prelude::*},
+	service::sidecars::{Home, SidecarRegistry},
 };
 
 /// Height the scan decodes to. Scene scores barely change below 720p and
@@ -88,7 +88,8 @@ impl JobHandler for ShotDetectionJob {
 	type Output = ShotDetectionOutput;
 
 	async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
-		let library_path = ctx.library().path().to_path_buf();
+		let registry = SidecarRegistry::of(ctx.library());
+		let finder = registry.finder();
 
 		let content_uuid = content_uuid_of_video(&self.path)
 			.await
@@ -97,13 +98,15 @@ impl JobHandler for ShotDetectionJob {
 		// prune each other's keyframes, so they take turns.
 		let lock = content_lock(ctx.library().id(), content_uuid);
 		let _turn = lock.lock().await;
-		let proxy =
-			ContentSidecar::proxy(content_uuid, ProxyResolution::P720).path_in(&library_path);
-		let (analyzed, scanned) = if tokio::fs::try_exists(&proxy).await.unwrap_or(false) {
-			(AnalyzedMedia::Proxy, proxy)
-		} else {
-			(AnalyzedMedia::Original, self.path.clone())
-		};
+		let home = registry
+			.home(content_uuid, Some(&self.path))
+			.await
+			.map_err(|error| JobError::execution(format!("nowhere to keep the shots: {error}")))?;
+		let (analyzed, scanned) =
+			match finder.find(&ContentSidecar::proxy(content_uuid, ProxyResolution::P720)) {
+				Some(proxy) => (AnalyzedMedia::Proxy, proxy),
+				None => (AnalyzedMedia::Original, self.path.clone()),
+			};
 
 		progress(&ctx, 0.0, "Probing", "reading the frame rate", None);
 		let probe = {
@@ -138,13 +141,19 @@ impl JobHandler for ShotDetectionJob {
 		let mut written = 0u32;
 		for (done, shot) in list.shots.iter().enumerate() {
 			ctx.check_interrupt().await?;
-			let path = list.keyframe_path(&library_path, shot);
-			if !tokio::fs::try_exists(&path).await.unwrap_or(false) {
+			let keyframe = list.keyframe(shot);
+			if finder.find(&keyframe).is_none() {
 				let time = frames
 					.get(shot.keyframe.frame as usize)
 					.map_or(shot.keyframe.seconds, |frame| frame.time);
-				let scanned = scanned.clone();
-				blocking(move || extract_keyframe(&scanned, time, &path)).await?;
+				let (scanned, partial) = (scanned.clone(), home.partial(&keyframe));
+				blocking(move || extract_keyframe(&scanned, time, &partial)).await?;
+				registry
+					.publish(&home, &keyframe, &home.partial(&keyframe), None)
+					.await
+					.map_err(|error| {
+						JobError::execution(format!("could not publish a keyframe: {error}"))
+					})?;
 				written += 1;
 			}
 			progress(
@@ -156,10 +165,12 @@ impl JobHandler for ShotDetectionJob {
 			);
 		}
 
-		write_shots(&library_path, &list).await.map_err(|error| {
-			JobError::execution(format!("could not write the shot list: {error}"))
-		})?;
-		remove_stale_keyframes(&library_path, &list).await;
+		write_shots(&registry, &home, &list)
+			.await
+			.map_err(|error| {
+				JobError::execution(format!("could not write the shot list: {error}"))
+			})?;
+		remove_stale_keyframes(&registry, &home, &list).await;
 
 		progress(
 			&ctx,
@@ -337,9 +348,9 @@ fn build_list(
 }
 
 /// One JPEG at `time` in the scanned file, short side at most 720.
-fn extract_keyframe(scanned: &Path, time: f64, path: &Path) -> Result<(), String> {
-	let partial = partial_path(path);
-	if let Some(parent) = path.parent() {
+/// Write the frame at `time` to `partial`, which the caller publishes.
+fn extract_keyframe(scanned: &Path, time: f64, partial: &Path) -> Result<(), String> {
+	if let Some(parent) = partial.parent() {
 		std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
 	}
 	if let Err(error) = sd_ffmpeg::footage::write_jpeg(
@@ -347,20 +358,20 @@ fn extract_keyframe(scanned: &Path, time: f64, path: &Path) -> Result<(), String
 		time,
 		KEYFRAME_FILTER,
 		KEYFRAME_QUALITY,
-		&partial,
+		partial,
 		KEYFRAME_TIMEOUT,
 	) {
-		let _ = std::fs::remove_file(&partial);
+		let _ = std::fs::remove_file(partial);
 		return Err(format!("could not extract a keyframe: {error}"));
 	}
-	std::fs::rename(&partial, path).map_err(|error| error.to_string())
+	Ok(())
 }
 
 /// Drop keyframes of shots this run no longer has, so a changed boundary
 /// does not leave its old image behind.
-async fn remove_stale_keyframes(library_path: &Path, list: &ShotList) {
+async fn remove_stale_keyframes(registry: &SidecarRegistry, home: &Home, list: &ShotList) {
 	let Some(directory) = list.shots.first().and_then(|shot| {
-		list.keyframe_path(library_path, shot)
+		home.path(&list.keyframe(shot))
 			.parent()
 			.map(Path::to_path_buf)
 	}) else {
@@ -376,9 +387,22 @@ async fn remove_stale_keyframes(library_path: &Path, list: &ShotList) {
 	};
 	while let Ok(Some(entry)) = entries.next_entry().await {
 		let name = entry.file_name().to_string_lossy().into_owned();
-		if !keep.contains(&name) {
-			// Best effort: a leftover image is unreferenced and harmless.
-			let _ = tokio::fs::remove_file(entry.path()).await;
+		if keep.contains(&name) {
+			continue;
+		}
+		// Best effort: a leftover image is unreferenced and harmless.
+		let stale = entry
+			.path()
+			.strip_prefix(&home.root)
+			.ok()
+			.and_then(ContentSidecar::from_relative_path);
+		match stale {
+			Some(stale) => {
+				let _ = registry.remove(&stale).await;
+			}
+			None => {
+				let _ = tokio::fs::remove_file(entry.path()).await;
+			}
 		}
 	}
 }

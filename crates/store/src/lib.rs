@@ -10,6 +10,7 @@
 //! facet_<model>   the type's own columns, keyed by record_uuid
 //! facet_file      the filesystem facet, one model like any other
 //! content         the identity of the bytes a record points at
+//! content_sidecar what has been derived from that content, and by whom
 //! edge            relationships between records in this source
 //! record_overlay  what no ingest produced: a person's assertions
 //! tag_definition  the tags this source uses, named, colored, hierarchical
@@ -51,6 +52,7 @@
 //! router, no job system. Those belong to whoever owns more than one source.
 
 pub mod content;
+pub mod content_sidecar;
 pub mod content_text;
 pub mod db;
 pub mod deep_scope;
@@ -66,10 +68,12 @@ pub mod schema;
 pub mod source;
 pub mod tags;
 pub mod vectors;
+pub mod video;
 
 use serde::{Deserialize, Serialize};
 
 pub use content::{uuid_for, ContentId, CONTENT_NAMESPACE};
+pub use content_sidecar::{ContentSidecarKey, ContentSidecarRow};
 pub use content_text::{
 	any_word_expression, match_expression, ContentTextIndex, DescriptionDoc, DescriptionSpan,
 	PendingText, PendingTranscript, SnippetPart, TextDoc, TextFilter, TextHit, TextIndexCounts,
@@ -87,10 +91,10 @@ pub use file::{
 };
 pub use image::{
 	count_files_needing_image_facets, files_needing_image_facets, set_image_facets, ImageFacet,
-	PendingImage,
+	PendingFacet,
 };
 pub use migrate::SCHEMA_VERSION;
-pub use read::{image_facets_for_records, FsEntry, TitleMatches};
+pub use read::{image_facets_for_records, video_facets_for_records, FsEntry, TitleMatches};
 pub use record::{ContentIdentity, Record, RECORD_SCHEMA};
 pub use revision::Revision;
 pub use schema::{DataTypeSchema, FieldType, ModelDef};
@@ -102,6 +106,9 @@ pub use vectors::{
 	chunk_spans, chunk_text, fuse, hybrid_search, Chunk, HybridHit, HybridSearch, Origin,
 	PendingVectors, Span, VectorHit, VectorIndex, VectorIndexCounts, VectorSearch,
 	VECTOR_INDEX_FILE,
+};
+pub use video::{
+	count_files_needing_video_facets, files_needing_video_facets, set_video_facets, VideoFacet,
 };
 
 /// How much a source's content is trusted. Adapter manifests declare it and it

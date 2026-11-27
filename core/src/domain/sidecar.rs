@@ -379,7 +379,7 @@ impl ContentSidecar {
 		}
 	}
 
-	/// Path relative to a library's `sidecars` directory.
+	/// Path relative to a derived root, `sources/<id>/derived`.
 	pub fn relative_path(&self) -> PathBuf {
 		sd_sidecar_path::relative_path(
 			&self.content_uuid,
@@ -389,11 +389,87 @@ impl ContentSidecar {
 		)
 	}
 
-	/// Absolute path under a library directory (`Library::path()`).
-	pub fn path_in(&self, library_path: &Path) -> PathBuf {
-		library_path.join("sidecars").join(self.relative_path())
+	/// `.<variant>.partial.<ext>` beside the sidecar under `root`, the name
+	/// a writer fills before publishing. Readers skip dot files, so a
+	/// half-written one is never taken for the sidecar.
+	pub fn partial_path(&self, root: &Path) -> PathBuf {
+		root.join(self.relative_path()).with_file_name(format!(
+			".{}.partial.{}",
+			self.variant.as_str(),
+			self.format.extension()
+		))
+	}
+
+	/// `core` for the core's kinds, the extension's id for one it declared.
+	pub fn producer(&self) -> &str {
+		match &self.kind {
+			SidecarKind::Extension { extension_id, .. } => extension_id,
+			_ => CORE_PRODUCER,
+		}
+	}
+
+	/// The key its row is stored under.
+	pub fn key(&self) -> sd_store::ContentSidecarKey {
+		sd_store::ContentSidecarKey {
+			content_uuid: self.content_uuid,
+			producer: self.producer().to_string(),
+			kind: self.kind.as_str().to_string(),
+			variant: self.variant.as_str().to_string(),
+			format: self.format.extension().to_string(),
+		}
+	}
+
+	/// The sidecar a row lists, or `None` for one this build cannot name.
+	pub fn from_key(key: &sd_store::ContentSidecarKey) -> Option<Self> {
+		let kind = if key.producer == CORE_PRODUCER {
+			SidecarKind::try_from(key.kind.as_str()).ok()?
+		} else {
+			SidecarKind::extension(&key.producer, &key.kind).ok()?
+		};
+		Some(Self {
+			content_uuid: key.content_uuid,
+			kind,
+			variant: SidecarVariant::new(key.variant.clone()),
+			format: SidecarFormat::try_from(key.format.as_str()).ok()?,
+		})
+	}
+
+	/// The sidecar a path relative to a derived root names, the inverse of
+	/// [`Self::relative_path`]. `None` for anything else in the tree,
+	/// including a writer's partial file.
+	pub fn from_relative_path(path: &Path) -> Option<Self> {
+		let parts: Vec<&str> = path
+			.components()
+			.map(|part| part.as_os_str().to_str())
+			.collect::<Option<_>>()?;
+		let (content_uuid, kind, file) = match parts.as_slice() {
+			[_, _, uuid, "extensions", extension_id, kind, file] => {
+				(uuid, SidecarKind::extension(extension_id, kind).ok()?, file)
+			}
+			[_, _, uuid, directory, file] => (
+				uuid,
+				SidecarKind::try_from(sd_sidecar_path::directory_kind(directory)?).ok()?,
+				file,
+			),
+			_ => return None,
+		};
+		if file.starts_with('.') {
+			return None;
+		}
+		let (variant, extension) = file.rsplit_once('.')?;
+		let sidecar = Self {
+			content_uuid: Uuid::parse_str(content_uuid).ok()?,
+			kind,
+			variant: SidecarVariant::new(variant),
+			format: SidecarFormat::try_from(extension).ok()?,
+		};
+		// One name per sidecar: `clip.jpeg` is not where a keyframe lives.
+		(sidecar.relative_path() == path).then_some(sidecar)
 	}
 }
+
+/// The producer named for artifacts the core makes.
+pub const CORE_PRODUCER: &str = "core";
 
 /// The candidate content uuid of a local file, the key media sidecars use.
 ///
@@ -414,33 +490,40 @@ mod tests {
 	#[test]
 	fn media_sidecars_resolve_to_the_documented_layout() {
 		let uuid = Uuid::parse_str("abcd1234-5678-90ab-cdef-123456789012").unwrap();
-		let library = Path::new("/data/libraries/abc.sdlibrary");
 		assert_eq!(
-			ContentSidecar::proxy(uuid, ProxyResolution::P720).path_in(library),
-			PathBuf::from("/data/libraries/abc.sdlibrary/sidecars/content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/proxies/720p.mp4")
+			ContentSidecar::proxy(uuid, ProxyResolution::P720).relative_path(),
+			PathBuf::from("ab/cd/abcd1234-5678-90ab-cdef-123456789012/proxies/720p.mp4")
 		);
+	}
+
+	#[test]
+	fn a_relative_path_names_its_sidecar_and_nothing_else() {
+		let uuid = Uuid::parse_str("abcd1234-5678-90ab-cdef-123456789012").unwrap();
+		let shot = Uuid::new_v4();
+		for sidecar in [
+			ContentSidecar::proxy(uuid, ProxyResolution::P720),
+			ContentSidecar::transcript(uuid, SidecarFormat::Vtt),
+			ContentSidecar::keyframe(uuid, shot),
+			ContentSidecar {
+				content_uuid: uuid,
+				kind: SidecarKind::extension("com.spacedrive.photos", "faces").unwrap(),
+				variant: SidecarVariant::new("default"),
+				format: SidecarFormat::Json,
+			},
+		] {
+			assert_eq!(
+				ContentSidecar::from_relative_path(&sidecar.relative_path()),
+				Some(sidecar.clone())
+			);
+			assert_eq!(ContentSidecar::from_key(&sidecar.key()), Some(sidecar));
+		}
+		let partial = ContentSidecar::shots(uuid).partial_path(Path::new(""));
+		assert_eq!(ContentSidecar::from_relative_path(&partial), None);
 		assert_eq!(
-			ContentSidecar::proxy(uuid, ProxyResolution::P1080).relative_path(),
-			PathBuf::from("content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/proxies/1080p.mp4")
-		);
-		assert_eq!(
-			ContentSidecar::speech_audio(uuid).relative_path(),
-			PathBuf::from("content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/audio/16k_mono.wav")
-		);
-		assert_eq!(
-			ContentSidecar::transcript(uuid, SidecarFormat::Vtt).relative_path(),
-			PathBuf::from(
-				"content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/transcript/default.vtt"
-			)
-		);
-		assert_eq!(
-			ContentSidecar::shots(uuid).relative_path(),
-			PathBuf::from("content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/shots/default.json")
-		);
-		let shot = Uuid::parse_str("00000000-0000-5000-8000-000000000001").unwrap();
-		assert_eq!(
-			ContentSidecar::keyframe(uuid, shot).relative_path(),
-			PathBuf::from("content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/keyframes/00000000-0000-5000-8000-000000000001.jpg")
+			ContentSidecar::from_relative_path(Path::new(
+				"ab/cd/abcd1234-5678-90ab-cdef-123456789012/keyframes/x.jpeg"
+			)),
+			None
 		);
 	}
 

@@ -141,21 +141,27 @@ async fn serve_sidecar(
 	}
 
 	// Find the actual library folder (might be named differently than the ID)
-	let library_folder = find_library_folder(&state.data_dir().await, &library_id).await?;
+	let data_dir = state.data_dir().await;
+	let library_folder = find_library_folder(&data_dir, &library_id).await?;
 
 	// The layout crate joins variant and extension itself, so split the
 	// combined segment at the final dot.
 	let (variant, ext) = variant_and_ext
 		.rsplit_once('.')
 		.ok_or(StatusCode::BAD_REQUEST)?;
-	let sidecar_path = library_folder
-		.join("sidecars")
-		.join(sd_sidecar_path::relative_path(
-			&content_uuid,
-			kind_dir,
-			variant,
-			ext,
-		));
+	let library_uuid = library_id
+		.parse::<uuid::Uuid>()
+		.map_err(|_| StatusCode::BAD_REQUEST)?;
+	// A content's sidecars sit under whichever of the library's sources holds
+	// it, so each of them is probed.
+	let relative = sd_sidecar_path::relative_path(&content_uuid, kind_dir, variant, ext);
+	let sources_dir = data_dir.join("sources");
+	let sidecar_path = tokio::task::spawn_blocking(move || {
+		sd_sidecar_path::locate(&sources_dir, &library_uuid, &library_folder, &relative)
+			.unwrap_or_else(|| sd_sidecar_path::legacy_root(&library_folder).join(&relative))
+	})
+	.await
+	.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
 	let Ok(mut response) = ServeFile::new(&sidecar_path).oneshot(request).await;
 	if response.status() == StatusCode::NOT_FOUND {

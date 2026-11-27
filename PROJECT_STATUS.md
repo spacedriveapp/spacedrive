@@ -36,22 +36,30 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
-Deep scope and the text index size (Capy FAN-14801, November 27, in PR). A
-home source on a Mac grew `text.db` to 19 GB in a day. Every text file the
-walk recorded was read, up to 1 MB each, and FTS5 kept a full copy of the
-text beside its index (74% of the file in a reproduction). Hidden folders
-(package caches, agent transcripts) were most of the text. Each source now
-has a deep scope: one list of subtrees, stored as an assertion in
-`data.db`, where content identity and the text index run. The home source
-defaults to the OS user folders and any other source to its whole root.
-`sources.deep_scope.update` keeps or releases a folder, and
-`sources.deep_scope.get` reads the list. The text pass also skips hidden
-folders, lockfiles and minified files, and cuts code at 256 KB and data and
-logs at 64 KB. An index written under the old policy has its text tables
-dropped and the file vacuumed when it opens, keeping transcripts and
-descriptions. A 4.1 GB index upgraded in 26 s on a cold cloud disk using 8 MB
-of extra space. A pass gives freed pages back once they are a quarter of the
-file. Next: merge, then the Settings and "Keep indexed" UI.
+Video duration at indexing (Capy SPAC-129 follow-up, November 27, beta.1, in
+PR). Jamie decided a video's duration belongs in the record, so the Duration
+column fills in without analysis. The media metadata pass that reads EXIF now
+also reads each identified video's container header into `facet_video`:
+duration, frame size and codec. `sd_media_metadata::video` is a pure-Rust
+header reader with no FFmpeg and no decoding. It covers MP4/MOV with `moov`
+anywhere in the file, and MKV/WebM ahead of the first cluster. Rows are keyed
+by content hash like the image facet and reach listings, search hits and the
+inspector as `video_media_data`. The pass claims only identified records; once
+#3286 lands, identification and this pass run only in the deep scope. Next: review and merge.
+
+Content sidecars have a registry and live in their source (Capy FAN-14816,
+November 27, in PR, stacked on the Sidecars tab PR). Every derived file other
+than thumbnail tiles and scrub sheets is published through
+`SidecarRegistry::publish`, which renames it into
+`sources/<id>/derived/<h0>/<h1>/<content_uuid>/` and writes a `content_sidecar`
+row in the source's `data.db` (producer, version, size, BLAKE3). Proxies, speech
+audio, transcripts, shots, keyframes and the extension host's
+`sidecars.write`/`sidecars.delete` use it. Opening a library adopts the old
+`<library>/sidecars/content` tree by rename, rebuilds rows from disk and
+prunes content no source holds; deleting a source with its catalog removes its
+tree after moving shared content to another holder. Library statistics sum the
+rows. Thumbnail tiles, `thumbs.pvcache` and thumbstrips are unchanged. Convergence
+item 4 is done; availability and peer replication (step D) are next.
 
 Bundled command line tool (Capy FAN-14800, November 27, in PR). The desktop
 app ships `sd-cli` beside `sd-daemon` as a Tauri external binary on macOS

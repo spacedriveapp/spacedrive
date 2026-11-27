@@ -115,6 +115,7 @@ impl LibraryQuery for GetFilesByTagQuery {
 				}
 			}
 			decorate::decorate_from_store(store.db(), &mut batch).await;
+			crate::ops::search::capture::decorate_store_files(store.db(), &mut batch).await;
 			files.append(&mut batch);
 		}
 
