@@ -1,11 +1,23 @@
 import type {Icon} from '@phosphor-icons/react';
 import {FilmSlate, FilmStrip, MagicWand, Subtitles} from '@phosphor-icons/react';
-import type {File, FootageJob, FootageSummary, SdPath} from '@sd/ts-client';
-import {getContentKind, isVirtualFile, useFootageJobStore} from '@sd/ts-client';
+import type {
+	File,
+	FootageJob,
+	FootageSummariesInput,
+	FootageSummariesOutput,
+	FootageSummary,
+	SdPath
+} from '@sd/ts-client';
+import {getContentKind, isVirtualFile, useFootageJobStore, WIRE_METHODS} from '@sd/ts-client';
+import {useQuery} from '@tanstack/react-query';
 import {toast} from '@spacedrive/primitives';
 import {useMemo} from 'react';
 import {usePlatform} from '../../contexts/PlatformContext';
-import {useLibraryMutation, useLibraryQuery} from '../../contexts/SpacedriveContext';
+import {
+	useLibraryMutation,
+	useLibraryQuery,
+	useSpacedriveClient
+} from '../../contexts/SpacedriveContext';
 
 export const FOOTAGE_JOBS: {job: FootageJob; label: string; icon: Icon}[] = [
 	{job: 'transcribe', label: 'Transcribe', icon: Subtitles},
@@ -132,8 +144,44 @@ export function footageKey(file: File): string | null {
 	return footagePathKey(file.sd_path) || null;
 }
 
-const MAX_SUMMARIES = 5000;
+// The daemon answers at most this many paths per query.
+const SUMMARIES_PER_QUERY = 5000;
 const NO_SUMMARIES = new Map<string, FootageSummary>();
+
+/** The query key every footage summary read starts with, so one invalidation
+ * refreshes them all after a footage job writes sidecars. */
+export const FOOTAGE_SUMMARIES_KEY = 'media.footage.summaries';
+
+/** Footage summaries for any number of videos, in batches the daemon accepts. */
+export async function fetchFootageSummaries(
+	client: ReturnType<typeof useSpacedriveClient>,
+	paths: SdPath[]
+): Promise<Map<string, FootageSummary>> {
+	const summaries = new Map<string, FootageSummary>();
+	for (let start = 0; start < paths.length; start += SUMMARIES_PER_QUERY) {
+		const output = await client.execute<FootageSummariesInput, FootageSummariesOutput>(
+			WIRE_METHODS.libraryQueries[FOOTAGE_SUMMARIES_KEY],
+			{paths: paths.slice(start, start + SUMMARIES_PER_QUERY)}
+		);
+		for (const summary of output.summaries) {
+			summaries.set(footagePathKey(summary.path), summary);
+		}
+	}
+	return summaries;
+}
+
+/** The distinct paths of the local videos among files. */
+export function footagePaths(files: File[]): SdPath[] {
+	const seen = new Set<string>();
+	const paths: SdPath[] = [];
+	for (const file of files) {
+		const key = footageKey(file);
+		if (!key || seen.has(key)) continue;
+		seen.add(key);
+		paths.push(file.sd_path);
+	}
+	return paths;
+}
 
 /**
  * The footage state of every local video in a listing, keyed by
@@ -142,32 +190,15 @@ const NO_SUMMARIES = new Map<string, FootageSummary>();
  * map has had nothing made for it.
  */
 export function useFootageSummaries(files: File[], enabled: boolean) {
-	const paths = useMemo(() => {
-		if (!enabled) return [];
-		const seen = new Set<string>();
-		const paths: SdPath[] = [];
-		for (const file of files) {
-			const key = footageKey(file);
-			if (!key || seen.has(key)) continue;
-			seen.add(key);
-			paths.push(file.sd_path);
-			// The daemon answers at most this many per query.
-			if (paths.length === MAX_SUMMARIES) break;
-		}
-		return paths;
-	}, [files, enabled]);
+	const client = useSpacedriveClient();
+	const libraryId = client.getCurrentLibraryId();
+	const paths = useMemo(() => (enabled ? footagePaths(files) : []), [files, enabled]);
 
-	const {data, isLoading} = useLibraryQuery(
-		{type: 'media.footage.summaries', input: {paths}},
-		{enabled: paths.length > 0, staleTime: 30_000}
-	);
-
-	const summaries = useMemo(
-		() =>
-			data
-				? new Map(data.summaries.map((summary) => [footagePathKey(summary.path), summary]))
-				: NO_SUMMARIES,
-		[data]
-	);
-	return {summaries, isLoading: paths.length > 0 && isLoading};
+	const {data, isLoading} = useQuery({
+		queryKey: [FOOTAGE_SUMMARIES_KEY, libraryId, paths],
+		queryFn: () => fetchFootageSummaries(client, paths),
+		enabled: !!libraryId && paths.length > 0,
+		staleTime: 30_000
+	});
+	return {summaries: data ?? NO_SUMMARIES, isLoading: paths.length > 0 && isLoading};
 }

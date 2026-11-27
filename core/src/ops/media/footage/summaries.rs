@@ -1,12 +1,26 @@
-//! `media.footage.summaries`: what footage work made for many videos at once.
+//! # Footage summaries
 //!
-//! Explorer columns and grid badges show a duration, a shot count and a
-//! transcript marker per row, so a listing asks once for every video it
-//! shows rather than once per row. Media sidecars are keyed by the sampled
+//! `media.footage.summaries` answers what footage work made for many videos
+//! at once. Explorer columns and grid badges show a duration, a shot count
+//! and a transcript marker per row, so a listing asks once for every video
+//! it shows rather than once per row. Media sidecars are keyed by the sampled
 //! content hash, which the source store already holds for every identified
 //! file, so this reads the store and the sidecar directory and never opens
 //! the videos themselves. A video the store has not identified yet, or one
 //! on another device, is left out.
+//!
+//! ## Example
+//! ```rust,ignore
+//! use sd_core::ops::media::footage::{FootageSummariesInput, FootageSummariesQuery};
+//!
+//! let query = FootageSummariesQuery::from_input(FootageSummariesInput {
+//! 	paths: vec![video.sd_path.clone()],
+//! })?;
+//! let output = query.execute(context, session).await?;
+//! for summary in output.summaries {
+//! 	tracing::info!(shots = ?summary.shots, transcript = summary.transcript, "footage");
+//! }
+//! ```
 
 use std::sync::Arc;
 

@@ -252,9 +252,9 @@ const ANALYSIS_CATEGORIES: {category: Category; label: string}[] = [
 ];
 
 /**
- * What the Videos extension's analysis can do here, per capability. A
- * provider is whatever Settings > Models lists as active for the category,
- * from the same `ai.providers.list` answer, so the two never disagree.
+ * What the Videos extension's analysis can do here, per capability, from
+ * the same `ai.providers.list` answer Settings > Models shows. The extension
+ * asks for local models only, so a cloud captioner does not count for it.
  */
 function AnalysisRows({
 	providers,
@@ -270,9 +270,10 @@ function AnalysisRows({
 	if (!providers) return null;
 	const missing: string[] = [];
 	const rows = ANALYSIS_CATEGORIES.map(({category, label}) => {
-		const active = providers.active.find((entry) => entry.category === category);
+		const found = providers.active.find((entry) => entry.category === category);
+		const active = found?.locality === 'local' ? found : undefined;
 		if (!active) missing.push(label.toLowerCase());
-		const provider = !active ? 'No model' : active.locality === 'cloud' ? 'Cloud' : 'Local model';
+		const provider = active ? 'Local model' : found ? 'Cloud only' : 'No model';
 		const progress =
 			category === 'image_caption' && analyzed != null
 				? shots != null
@@ -288,7 +289,7 @@ function AnalysisRows({
 			))}
 			{missing.length > 0 && (
 				<p className="text-sidebar-inkDull text-[11px] leading-snug">
-					Analyze skips {missing.join(', ')} until a model is installed in Settings › Models.
+					Analyze skips {missing.join(', ')} until a local model is installed in Settings › Models.
 				</p>
 			)}
 		</>
