@@ -145,7 +145,7 @@ fork      child space_id, parent space_id, base manifest_id
 
 Each committed change stores its new bytes as blobs before the commit rename, then appends a manifest delta. The write path already stages bytes, and it hashes as it stages. Changes seen by the watcher are captured by hashing on ingest. A change that was overwritten before ingest is lost, and the interface says so. Chunking keeps versioning of large media affordable when only part of a file changes.
 
-A snapshot is a named manifest. It costs O(entries) and copies no bytes. A fork is a new space whose root is materialized from a manifest, using hard links or reflinks where the volume supports them and copies otherwise. A fork can also be an on-demand space served from blobs. Restoring a file or a whole space goes through the normal write path, so a restore is attributed and undoable.
+A snapshot is a named manifest. It costs O(entries) and copies no bytes. A fork is a new space whose root is materialized from a manifest, using reflinks where the volume supports them and independent copies otherwise. Hard links are never used, because an editor that writes a file in place would change the parent's bytes too. A fork can also be an on-demand space served from blobs. Restoring a file or a whole space goes through the normal write path, so a restore is attributed and undoable.
 
 ### Portable space file
 
@@ -166,8 +166,8 @@ The agent write path (`core/src/ops/agent_write/`) becomes the single write path
 A space can keep a replica on an always-on node the person runs, such as a NAS or a VPS. The replica serves reads and, when allowed, writes while the home device is off.
 
 1. Enabling a replica creates a `full` replica. The home device sends blobs and streams `space_event` rows by seq. While the home device is online it stays the authority. The replica forwards writes to it and serves reads from its copy.
-2. The replica takes authority when the home device has been unreachable for a grace period and the space allows it. It acquires a lease by bumping `authority_epoch` in a record both sides can see. The always-on node is the lease arbiter for its spaces. The grace period is set by the implementer.
-3. When the home device returns, it sees the higher epoch, stops acting as authority, and pulls events from its `applied_seq`. It applies each through the write path with the event's `before_hash` as precondition.
+2. The replica takes authority when the home device has been unreachable for a grace period and the space allows it. It acquires a lease by bumping `authority_epoch` in a record both sides can see. The always-on node is the lease arbiter for its spaces. The lease is short and the authority must renew it. A home device that cannot renew before the lease expires stops committing writes (fail closed), so the replica takes over only after the old lease has run out. The grace period and lease length are set by the implementer.
+3. When the home device reconnects, it sees the higher epoch, stays out of the authority role, and pulls events from its `applied_seq`. It applies each through the write path with the event's `before_hash` as precondition.
 4. Changes made on the home device while it was offline are found by the startup reconcile and compared with the pulled events. For different files, both sets apply. For the same file with versioning off, the home device's version is kept under a conflict name and both appear in the activity feed. For the same file with versioning on, a three-way text merge runs against the last common version, and a failed merge falls back to conflict copies.
 5. Authority returns to the home device, with a new epoch bump, once it has caught up.
 
@@ -180,7 +180,7 @@ A mirror is a `space_replica` with role `mirror` on another device, such as a VM
 1. **Write-forwarding mirror.** The VM mounts the space in `full` or `on_demand` mode. Reads are local. Writes go through the write path to the current authority with preconditions. A stale write lands as a conflict copy on the mirror and is reported. This needs reachability but no new consistency model.
 2. **Lease-holding mirror (later).** The VM takes the lease for the length of a task, works offline, and hands authority back with the same reconcile as a hosted replica.
 
-To give a VM an editable copy of a folder, you create a grant on the space, copy one command, and run `sd mount <url> --token ... <dir>` on the VM.
+To give a VM an editable copy of a folder, you create a grant on the space, copy one command, and run `sd mount <url> --token-file <path> <dir>` on the VM, with the token in a file only that user can read.
 
 ## Mount and MCP surfaces
 
@@ -198,7 +198,7 @@ Reachability options:
 
 ### Thin mount client
 
-`sd mount <url> --token sdg_... <dir>` is a small client in `sd-cli` with no library and no pairing. It mounts one granted space.
+`sd mount <url> --token-file <path> <dir>` is a small client in `sd-cli` with no library and no pairing. It mounts one granted space. The token comes from a file readable only by its owner, or from standard input with `--token-file -`. No command takes a token as an argument, since arguments are visible to other users through `ps` and persist in shell history.
 
 - On Linux it uses FUSE, reusing `core/src/service/mounts/fuse/` and the block cache.
 - On macOS it runs a localhost NFSv3 server and mounts it with `mount_nfs`. This needs no kernel extension. FSKit stays the long-term destination.
