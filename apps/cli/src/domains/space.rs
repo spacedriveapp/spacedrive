@@ -198,13 +198,16 @@ pub async fn run(ctx: &Context, cmd: SpaceCmd) -> Result<()> {
 			};
 			let out: SpaceHistoryOutput = execute_query!(ctx, input);
 			print_output!(ctx, &out, |o: &SpaceHistoryOutput| {
-				if !o.versioning {
-					println!("This space does not keep versions; turn it on with sd space update <id> --versioning true");
+				if o.versions.is_empty() {
+					if o.versioning {
+						println!("No versions");
+					} else {
+						println!("This space does not keep versions; turn it on with sd space update <id> --versioning true");
+					}
 					return;
 				}
-				if o.versions.is_empty() {
-					println!("No versions");
-					return;
+				if !o.versioning {
+					println!("Versioning is off; these versions were kept from before and age out after {} days", o.retention_days);
 				}
 				let mut table = Table::new();
 				table.load_preset(UTF8_BORDERS_ONLY);

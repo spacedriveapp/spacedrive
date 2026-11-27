@@ -6066,8 +6066,9 @@ snapshots: SpaceSnapshot[] };
 export type SpaceUpdateInput = { id: string; name: string | null; content_indexing: boolean | null; 
 /**
  * Keep every change's bytes as a version. Turning it on captures the
- * files already in the space in the background; turning it off deletes
- * the space's versions and snapshots.
+ * files already in the space in the background; turning it off stops
+ * capture and keeps the versions and snapshots until they age out or
+ * `spaces.history.purge` deletes them.
  */
 versioning?: boolean | null };
 
