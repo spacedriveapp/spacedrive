@@ -47,15 +47,20 @@ async fn bucket() -> Option<Bucket> {
 	})
 }
 
+/// One runtime for every case: OpenDAL shares one HTTP client across the
+/// process, and a pooled connection from a runtime a finished test dropped
+/// fails the next test's first request.
 #[tokio::test]
-async fn s3_reports_conditional_writes() {
+async fn s3_refuses_stale_writes() {
 	let Some(bucket) = bucket().await else { return };
 	assert!(bucket.backend.conditional_writes());
+	a_create_never_replaces_an_object(&bucket).await;
+	a_write_against_a_stale_tag_is_refused(&bucket).await;
+	a_write_against_a_deleted_object_is_refused(&bucket).await;
+	a_missing_object_reads_as_not_found(&bucket).await;
 }
 
-#[tokio::test]
-async fn a_create_never_replaces_an_object() {
-	let Some(bucket) = bucket().await else { return };
+async fn a_create_never_replaces_an_object(bucket: &Bucket) {
 	let path = bucket.path("notes.md");
 	assert_eq!(bucket.backend.entity_tag(&path).await.unwrap(), None);
 
@@ -75,9 +80,7 @@ async fn a_create_never_replaces_an_object() {
 	assert_eq!(bucket.backend.read(&path).await.unwrap(), "first");
 }
 
-#[tokio::test]
-async fn a_write_against_a_stale_tag_is_refused() {
-	let Some(bucket) = bucket().await else { return };
+async fn a_write_against_a_stale_tag_is_refused(bucket: &Bucket) {
 	let path = bucket.path("plan.txt");
 	bucket
 		.backend
@@ -132,9 +135,42 @@ async fn a_write_against_a_stale_tag_is_refused() {
 	assert_eq!(bucket.backend.read(&path).await.unwrap(), "v2");
 }
 
-#[tokio::test]
-async fn a_missing_object_reads_as_not_found() {
-	let Some(bucket) = bucket().await else { return };
+async fn a_write_against_a_deleted_object_is_refused(bucket: &Bucket) {
+	let path = bucket.path("gone.txt");
+	bucket
+		.backend
+		.write_if(&path, Bytes::from("v1"), WriteCondition::Absent)
+		.await
+		.expect("create");
+	let read = bucket
+		.backend
+		.entity_tag(&path)
+		.await
+		.unwrap()
+		.expect("tag");
+	bucket.backend.delete(&path).await.expect("delete");
+
+	let refused = bucket
+		.backend
+		.write_if(
+			&path,
+			Bytes::from("v2"),
+			WriteCondition::Matches(read.clone()),
+		)
+		.await;
+	assert!(
+		matches!(refused, Err(VolumeError::PreconditionFailed(_))),
+		"a write naming a deleted object's tag must be refused, got {refused:?}"
+	);
+	let refused_read = bucket.backend.read_if_match(&path, &read).await;
+	assert!(matches!(
+		refused_read,
+		Err(VolumeError::PreconditionFailed(_))
+	));
+	assert_eq!(bucket.backend.entity_tag(&path).await.unwrap(), None);
+}
+
+async fn a_missing_object_reads_as_not_found(bucket: &Bucket) {
 	let missing = bucket.backend.metadata(&bucket.path("absent.bin")).await;
 	assert!(
 		matches!(missing, Err(VolumeError::Io(ref e)) if e.kind() == std::io::ErrorKind::NotFound),

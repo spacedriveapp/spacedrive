@@ -254,6 +254,15 @@ fn volume_error(error: opendal::Error) -> VolumeError {
 	}
 }
 
+/// [`volume_error`] for a request that named a version: an object deleted
+/// since its tag was read is as changed as one rewritten.
+fn changed(error: opendal::Error) -> VolumeError {
+	match error.kind() {
+		opendal::ErrorKind::NotFound => VolumeError::PreconditionFailed(error.to_string()),
+		_ => volume_error(error),
+	}
+}
+
 impl CloudBackend {
 	/// Convert path to cloud storage path (removes leading /)
 	fn to_cloud_path(&self, path: &Path) -> String {
@@ -489,7 +498,7 @@ impl VolumeBackend for CloudBackend {
 			WriteCondition::Matches(etag) => write.if_match(etag).await,
 			WriteCondition::Absent => write.if_not_exists(true).await,
 		}
-		.map_err(volume_error)?;
+		.map_err(changed)?;
 		Ok(metadata.etag().map(str::to_string))
 	}
 
@@ -517,7 +526,7 @@ impl VolumeBackend for CloudBackend {
 			.read_with(&cloud_path)
 			.if_match(etag)
 			.await
-			.map_err(volume_error)?;
+			.map_err(changed)?;
 		Ok(data.to_bytes())
 	}
 
