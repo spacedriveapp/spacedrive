@@ -5,7 +5,7 @@
 
 use async_trait::async_trait;
 use bytes::Bytes;
-use futures::TryStreamExt;
+use futures::{stream::BoxStream, StreamExt, TryStreamExt};
 use opendal::Lister;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -528,6 +528,41 @@ impl VolumeBackend for CloudBackend {
 			.await
 			.map_err(changed)?;
 		Ok(data.to_bytes())
+	}
+
+	async fn stream_if_match(
+		&self,
+		path: &Path,
+		etag: &str,
+	) -> Result<BoxStream<'static, Result<Bytes, VolumeError>>, VolumeError> {
+		let cloud_path = self.to_cloud_path(path);
+		let reader = self
+			.operator
+			.reader_with(&cloud_path)
+			.if_match(etag)
+			.await
+			.map_err(changed)?;
+		let stream = reader.into_bytes_stream(..).await.map_err(changed)?;
+		// Each ranged request carries If-Match, so a change mid-stream comes
+		// back as an opendal error inside the io error.
+		Ok(stream
+			.map_err(|error| {
+				let refused = error
+					.get_ref()
+					.and_then(|inner| inner.downcast_ref::<opendal::Error>())
+					.is_some_and(|inner| {
+						matches!(
+							inner.kind(),
+							opendal::ErrorKind::ConditionNotMatch | opendal::ErrorKind::NotFound
+						)
+					});
+				if refused {
+					VolumeError::PreconditionFailed(error.to_string())
+				} else {
+					VolumeError::Io(error)
+				}
+			})
+			.boxed())
 	}
 
 	fn is_local(&self) -> bool {
