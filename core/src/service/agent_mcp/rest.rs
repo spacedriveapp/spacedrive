@@ -23,7 +23,7 @@ use std::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
 	},
-	time::Duration,
+	time::{Duration, SystemTime},
 };
 
 use axum::{
@@ -48,9 +48,15 @@ use super::{
 	tools::{self, Tool},
 	SKILL,
 };
-use crate::ops::{
-	grants::{authorize, store, GrantCap, GrantError, GrantScope},
-	indexing::metadata::refuse_dataless_blocking,
+use crate::{
+	config::MANAGED_DIR,
+	context::CoreContext,
+	ops::{
+		files::bucket as files_bucket,
+		grants::{self, authorize, bucket::BucketUrl, store, GrantCap, GrantError, GrantScope},
+		indexing::{metadata::refuse_dataless_blocking, state::EntryKind},
+	},
+	volume::{VolumeBackend, VolumeError},
 };
 
 /// Where the REST surface is mounted.
@@ -218,8 +224,14 @@ async fn serve(
 				.space_scope(&space, "rest.stat", &path, GrantCap::Read)
 				.await?;
 			let (grant, library) = (scope.grant_id, scope.library_id);
+			let context = endpoint.context.clone();
 			let value = request
-				.blocking((grant, library), false, move || stat(&scope, &path))
+				.blocking((grant, library), false, move || {
+					match BucketUrl::parse(&scope.path) {
+						Some(url) => block_on(bucket_stat(&context, &url, &path)),
+						None => stat(&scope, &path),
+					}
+				})
 				.await?;
 			Ok(request.json(grant, value))
 		}
@@ -229,9 +241,13 @@ async fn serve(
 				.space_scope(&space, "rest.list", &path, GrantCap::Read)
 				.await?;
 			let (grant, library) = (scope.grant_id, scope.library_id);
+			let context = endpoint.context.clone();
 			let value = request
 				.blocking((grant, library), false, move || {
-					list(&scope, &path, cursor, limit)
+					match BucketUrl::parse(&scope.path) {
+						Some(url) => block_on(bucket_list(&context, &url, &path, cursor, limit)),
+						None => list(&scope, &path, cursor, limit),
+					}
 				})
 				.await?;
 			Ok(request.json(grant, value))
@@ -245,9 +261,15 @@ async fn serve(
 				.get(header::IF_MATCH)
 				.map(|value| value.to_str().unwrap_or_default().to_string());
 			let (grant, library) = (scope.grant_id, scope.library_id);
+			let context = endpoint.context.clone();
 			let block = request
 				.blocking((grant, library), true, move || {
-					read_block(&scope, range, if_match.as_deref())
+					match BucketUrl::parse(&scope.path) {
+						Some(url) => {
+							block_on(bucket_block(&context, &url, range, if_match.as_deref()))
+						}
+						None => read_block(&scope, range, if_match.as_deref()),
+					}
 				})
 				.await?;
 			let returned = block.bytes.len() as u64;
@@ -964,6 +986,197 @@ fn unsatisfiable(size: u64) -> Response {
 		response.headers_mut().insert(header::CONTENT_RANGE, value);
 	}
 	response
+}
+
+/// Run a bucket request on the blocking worker `blocking` gave it, so it
+/// spends the same budgets and slots as a read of a local file.
+fn block_on<T>(work: impl std::future::Future<Output = T>) -> T {
+	tokio::runtime::Handle::current().block_on(work)
+}
+
+async fn bucket_backend(
+	context: &CoreContext,
+	url: &BucketUrl,
+) -> Result<Arc<dyn VolumeBackend>, Response> {
+	grants::bucket::backend(&context.volume_manager, url)
+		.await
+		.map_err(|e| error(StatusCode::SERVICE_UNAVAILABLE, &e.to_string()))
+}
+
+fn bucket_failure(e: VolumeError) -> Response {
+	match e {
+		VolumeError::PreconditionFailed(_) => error(
+			StatusCode::PRECONDITION_FAILED,
+			"the file changed since you read it",
+		),
+		e => error(
+			StatusCode::SERVICE_UNAVAILABLE,
+			&format!("unavailable: {e}"),
+		),
+	}
+}
+
+/// A bucket's entity tag as an HTTP one. S3 sends them quoted; a service
+/// that does not gets quotes added, so the header stays valid.
+fn quoted(etag: &str) -> String {
+	if etag.starts_with('"') || etag.starts_with("W/") {
+		etag.to_string()
+	} else {
+		format!("\"{etag}\"")
+	}
+}
+
+fn bucket_file(path: String, size: u64, modified: Option<SystemTime>, etag: &str) -> Value {
+	json!({
+		"path": path,
+		"kind": "file",
+		"size": size,
+		"modified_at": modified.map(|at| timestamp(at.into())),
+		"etag": quoted(etag),
+	})
+}
+
+fn bucket_directory(path: String) -> Value {
+	json!({ "path": path, "kind": "directory", "size": 0, "modified_at": null })
+}
+
+/// Stat an object, or a prefix with objects under it. The grant's own
+/// prefix is always a directory, even before anything is written to it.
+async fn bucket_stat(
+	context: &CoreContext,
+	url: &BucketUrl,
+	requested: &str,
+) -> Result<Value, Response> {
+	let backend = bucket_backend(context, url).await?;
+	let object = files_bucket::object(backend.as_ref(), &url.key)
+		.await
+		.map_err(bucket_failure)?;
+	let mut value = match object {
+		Some(object) => bucket_file(
+			requested.to_string(),
+			object.size,
+			object.modified,
+			&object.etag,
+		),
+		None if requested.is_empty()
+			|| files_bucket::occupied(backend.as_ref(), url)
+				.await
+				.map_err(bucket_failure)? =>
+		{
+			bucket_directory(requested.to_string())
+		}
+		None => return Err(error(StatusCode::NOT_FOUND, "not found")),
+	};
+	value["block_size"] = json!(BLOCK_SIZE);
+	Ok(value)
+}
+
+async fn bucket_list(
+	context: &CoreContext,
+	url: &BucketUrl,
+	requested: &str,
+	cursor: Option<String>,
+	limit: usize,
+) -> Result<Value, Response> {
+	let backend = bucket_backend(context, url).await?;
+	let mut children = grants::bucket::list(backend.as_ref(), url)
+		.await
+		.map_err(bucket_failure)?;
+	if children.is_empty() && !requested.is_empty() {
+		let object = backend
+			.entity_tag(Path::new(&url.key))
+			.await
+			.map_err(bucket_failure)?;
+		return Err(match object {
+			Some(_) => error(StatusCode::BAD_REQUEST, "not a directory"),
+			None => error(StatusCode::NOT_FOUND, "not found"),
+		});
+	}
+	children.retain(|child| {
+		child.name != MANAGED_DIR
+			&& cursor
+				.as_deref()
+				.map_or(true, |after| child.name.as_str() > after)
+	});
+	let more = children.len() > limit;
+	children.truncate(limit);
+	let entries: Vec<Value> = children
+		.iter()
+		.map(|child| {
+			let path = if requested.is_empty() {
+				child.name.clone()
+			} else {
+				format!("{requested}/{}", child.name)
+			};
+			match (&child.kind, &child.etag) {
+				(EntryKind::Directory, _) | (_, None) => bucket_directory(path),
+				(_, Some(etag)) => bucket_file(path, child.size, child.modified, etag),
+			}
+		})
+		.collect();
+	let mut value = json!({ "entries": entries });
+	if more {
+		if let Some(last) = children.last() {
+			value["next_cursor"] = json!(last.name);
+		}
+	}
+	Ok(value)
+}
+
+/// Read a range of an object only while it carries the tag its stat gave,
+/// so the etag and the bytes describe the same version.
+async fn bucket_block(
+	context: &CoreContext,
+	url: &BucketUrl,
+	(start, end): (u64, Option<u64>),
+	if_match: Option<&str>,
+) -> Result<Block, Response> {
+	let backend = bucket_backend(context, url).await?;
+	let object = files_bucket::object(backend.as_ref(), &url.key)
+		.await
+		.map_err(bucket_failure)?
+		.ok_or_else(|| error(StatusCode::NOT_FOUND, "not found"))?;
+	let etag = quoted(&object.etag);
+	if let Some(wanted) = if_match {
+		if !wanted
+			.split(',')
+			.map(str::trim)
+			.any(|tag| tag == "*" || tag == etag)
+		{
+			return Err(stale(&etag));
+		}
+	}
+	let size = object.size;
+	if start >= size {
+		return Err(unsatisfiable(size));
+	}
+	let last = end
+		.unwrap_or(u64::MAX)
+		.min(size - 1)
+		.min(start + MAX_READ_BYTES - 1);
+	let bytes = match backend
+		.read_range_if_match(Path::new(&url.key), start..last + 1, &object.etag)
+		.await
+	{
+		Ok(bytes) => bytes,
+		Err(VolumeError::PreconditionFailed(_)) => {
+			let current = backend
+				.entity_tag(Path::new(&url.key))
+				.await
+				.ok()
+				.flatten()
+				.map(|tag| quoted(&tag))
+				.unwrap_or_default();
+			return Err(stale(&current));
+		}
+		Err(e) => return Err(bucket_failure(e)),
+	};
+	Ok(Block {
+		bytes: bytes.to_vec(),
+		start,
+		size,
+		etag,
+	})
 }
 
 #[cfg(test)]

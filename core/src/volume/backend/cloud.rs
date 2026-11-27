@@ -393,6 +393,7 @@ impl VolumeBackend for CloudBackend {
 				uid: None,
 				gid: None,
 				link_target: None,
+				etag: metadata.etag().map(str::to_string),
 			});
 		}
 
@@ -550,6 +551,22 @@ impl VolumeBackend for CloudBackend {
 		let data = self
 			.operator
 			.read_with(&cloud_path)
+			.if_match(etag)
+			.await
+			.map_err(changed)?;
+		Ok(data.to_bytes())
+	}
+
+	async fn read_range_if_match(
+		&self,
+		path: &Path,
+		range: std::ops::Range<u64>,
+		etag: &str,
+	) -> Result<Bytes, VolumeError> {
+		let data = self
+			.operator
+			.read_with(&self.to_cloud_path(path))
+			.range(range)
 			.if_match(etag)
 			.await
 			.map_err(changed)?;

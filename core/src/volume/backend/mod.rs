@@ -95,6 +95,20 @@ pub trait VolumeBackend: Send + Sync + Debug {
 		)))
 	}
 
+	/// Read `range` of the object only while its entity tag is still `etag`,
+	/// so a block read never mixes two versions.
+	async fn read_range_if_match(
+		&self,
+		path: &Path,
+		_range: Range<u64>,
+		_etag: &str,
+	) -> Result<Bytes, VolumeError> {
+		Err(VolumeError::Unsupported(format!(
+			"conditional reads of {}",
+			path.display()
+		)))
+	}
+
 	/// Delete the object at `path` only while its entity tag is still `etag`.
 	///
 	/// Returns [`VolumeError::PreconditionFailed`] when the object changed or
@@ -250,6 +264,10 @@ pub struct RawDirEntry {
 	pub gid: Option<u32>,
 	/// Where a symlink points, verbatim from `readlink`
 	pub link_target: Option<String>,
+	/// The object's entity tag where the listing reports one, as a bucket's
+	/// does, so a listing can be checked against later reads without a stat
+	/// per object.
+	pub etag: Option<String>,
 }
 
 /// Raw metadata returned by volume backends
