@@ -11,6 +11,25 @@
 //! a space's `events.db` and `versions.db`, plus `chunk`, which holds the
 //! chunk bytes the version store keeps as files. Every chunk is checked
 //! against its hash when it is read back.
+//!
+//! ## Example
+//! ```rust,no_run
+//! use std::path::Path;
+//!
+//! use sd_store::{space_file::SpaceFile, SpaceVersions};
+//!
+//! async fn round_trip(versions: &SpaceVersions, target: &SpaceVersions) -> sd_store::Result<()> {
+//! 	let out = Path::new("/tmp/project.sdspace");
+//! 	let file = SpaceFile::create(out).await?;
+//! 	file.put_versions(versions, false).await?;
+//! 	file.close().await;
+//!
+//! 	let file = SpaceFile::open(out).await?;
+//! 	file.check().await?;
+//! 	file.restore_versions(target, &Default::default()).await?;
+//! 	Ok(())
+//! }
+//! ```
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -225,15 +244,18 @@ impl SpaceFile {
 		current_only: bool,
 	) -> Result<SpaceFileCounts> {
 		let mut counts = SpaceFileCounts::default();
-		let rows = if current_only {
-			versions.manifest(None, None).await?
-		} else {
-			versions.history(None, None, u32::MAX).await?
-		};
+		// No prune runs until the copy is done, and the snapshots are read
+		// before the history, so every row a snapshot names is in it.
+		let _no_prune = versions.hold_prunes().await;
 		let snapshots = if current_only {
 			Vec::new()
 		} else {
 			versions.snapshots().await?
+		};
+		let rows = if current_only {
+			versions.manifest(None, None).await?
+		} else {
+			versions.history(None, None, u32::MAX).await?
 		};
 		let mut conn = self.pool.acquire().await?;
 		let mut tx = conn.begin().await?;
@@ -264,13 +286,15 @@ impl SpaceFile {
 				.execute(&mut *tx)
 				.await?;
 			counts.blobs += 1;
+			let mut whole = blake3::Hasher::new();
 			for chunk in chunks {
-				if !written.insert(chunk) {
-					continue;
-				}
 				let data = tokio::fs::read(versions.chunk_path(&chunk)).await?;
 				if blake3::hash(&data).as_bytes() != &chunk {
 					return Err(Error::Other(format!("a stored chunk of {hash} is damaged")));
+				}
+				whole.update(&data);
+				if !written.insert(chunk) {
+					continue;
 				}
 				counts.chunk_bytes += data.len() as u64;
 				sqlx::query("INSERT INTO chunk (hash, data) VALUES (?, ?)")
@@ -279,6 +303,11 @@ impl SpaceFile {
 					.execute(&mut *tx)
 					.await?;
 				counts.chunks += 1;
+			}
+			if whole.finalize().to_hex().as_str() != hash {
+				return Err(Error::Other(format!(
+					"stored content {hash} does not match its hash"
+				)));
 			}
 		}
 		tx.commit().await?;
@@ -296,6 +325,61 @@ impl SpaceFile {
 		.await?)
 	}
 
+	/// One chunk's bytes, checked against its hash.
+	async fn chunk(&self, hash: &[u8]) -> Result<Vec<u8>> {
+		let data: Vec<u8> = sqlx::query_scalar("SELECT data FROM chunk WHERE hash = ?")
+			.bind(hash)
+			.fetch_optional(&self.pool)
+			.await?
+			.ok_or_else(|| Error::Other("the file is missing a chunk".to_string()))?;
+		if blake3::hash(&data).as_bytes().as_slice() != hash {
+			return Err(Error::Other("a chunk in the file is damaged".to_string()));
+		}
+		Ok(data)
+	}
+
+	/// Check the whole file before anything is imported from it: every path
+	/// it names stays inside a space, every version's content is present,
+	/// and every blob rebuilds from its chunks to its hash. Reads one chunk
+	/// at a time.
+	pub async fn check(&self) -> Result<()> {
+		let paths: Vec<String> = sqlx::query_scalar(
+			"SELECT path FROM version UNION SELECT path FROM space_event
+			 UNION SELECT to_path FROM space_event WHERE to_path IS NOT NULL",
+		)
+		.fetch_all(&self.pool)
+		.await?;
+		if let Some(bad) = paths.iter().find(|path| !is_plain_relative(path)) {
+			return Err(Error::Other(format!(
+				"the file names a path outside its space: {bad}"
+			)));
+		}
+		let missing: Option<String> = sqlx::query_scalar(
+			"SELECT blob_hash FROM version WHERE blob_hash IS NOT NULL
+			 AND blob_hash NOT IN (SELECT hash FROM blob) LIMIT 1",
+		)
+		.fetch_optional(&self.pool)
+		.await?;
+		if let Some(hash) = missing {
+			return Err(Error::Other(format!("the file is missing content {hash}")));
+		}
+		let blobs: Vec<(String, Vec<u8>)> = sqlx::query_as("SELECT hash, chunks FROM blob")
+			.fetch_all(&self.pool)
+			.await?;
+		for (hash, list) in blobs {
+			let mut whole = blake3::Hasher::new();
+			for chunk in list.chunks_exact(blake3::OUT_LEN) {
+				whole.update(&self.chunk(chunk).await?);
+			}
+			if list.len() % blake3::OUT_LEN != 0 || whole.finalize().to_hex().as_str() != hash {
+				return Err(Error::Other(format!(
+					"content {hash} in the file does not match its hash"
+				)));
+			}
+		}
+		Ok(())
+	}
+
 	/// Write the content `hash` to `dest`, checking each chunk and the whole.
 	pub async fn read_blob_to(&self, hash: &str, dest: &Path) -> Result<u64> {
 		use tokio::io::AsyncWriteExt;
@@ -308,14 +392,7 @@ impl SpaceFile {
 		let mut whole = blake3::Hasher::new();
 		let mut size = 0u64;
 		for chunk in list.chunks_exact(blake3::OUT_LEN) {
-			let data: Vec<u8> = sqlx::query_scalar("SELECT data FROM chunk WHERE hash = ?")
-				.bind(chunk)
-				.fetch_optional(&self.pool)
-				.await?
-				.ok_or_else(|| Error::Other(format!("the file is missing a chunk of {hash}")))?;
-			if blake3::hash(&data).as_bytes().as_slice() != chunk {
-				return Err(Error::Other(format!("a chunk of {hash} is damaged")));
-			}
+			let data = self.chunk(chunk).await?;
 			whole.update(&data);
 			out.write_all(&data).await?;
 			size += data.len() as u64;
@@ -342,17 +419,16 @@ impl SpaceFile {
 			return Err(Error::Other("the space already has versions".to_string()));
 		}
 		let mut counts = SpaceFileCounts::default();
-		let chunks: Vec<(Vec<u8>, Vec<u8>)> = sqlx::query_as("SELECT hash, data FROM chunk")
+		// One chunk in memory at a time, whatever the size of the file.
+		let hashes: Vec<Vec<u8>> = sqlx::query_scalar("SELECT hash FROM chunk")
 			.fetch_all(&self.pool)
 			.await?;
-		for (hash, data) in chunks {
+		for hash in hashes {
+			let data = self.chunk(&hash).await?;
 			let hash: [u8; blake3::OUT_LEN] = hash
 				.as_slice()
 				.try_into()
 				.map_err(|_| Error::Other("a chunk has a malformed hash".to_string()))?;
-			if blake3::hash(&data).as_bytes() != &hash {
-				return Err(Error::Other("a chunk in the file is damaged".to_string()));
-			}
 			counts.chunk_bytes += data.len() as u64;
 			versions.put_chunk(&hash, &data).await?;
 			counts.chunks += 1;
@@ -402,9 +478,11 @@ impl SpaceFile {
 /// A path from a space file is used to write inside a folder, so it must be
 /// relative and plain: no root, no `..`, no empty or `.` parts.
 pub fn is_plain_relative(path: &str) -> bool {
+	// A colon or a backslash could name a drive or a parent on Windows, so
+	// neither is accepted anywhere, on any platform.
 	!path.is_empty()
 		&& !path.starts_with('/')
-		&& !path.contains('\\')
+		&& !path.contains(['\\', ':', '\0'])
 		&& path
 			.split('/')
 			.all(|part| !part.is_empty() && part != "." && part != "..")
@@ -519,6 +597,42 @@ mod tests {
 		}
 	}
 
+	#[tokio::test]
+	async fn a_damaged_or_escaping_file_fails_its_check() {
+		let dir = tempfile::tempdir().unwrap();
+		let source = SpaceVersions::open(&dir.path().join("a")).await.unwrap();
+		let file = dir.path().join("f");
+		std::fs::write(&file, "one").unwrap();
+		source
+			.capture(
+				&file,
+				VersionRow {
+					path: "notes.md".into(),
+					..VersionRow::attributed(
+						"2026-11-27T00:00:00Z",
+						Uuid::from_u128(3),
+						"agent_write",
+						None,
+					)
+				},
+			)
+			.await
+			.unwrap();
+		for (name, tamper) in [
+			("damaged", "UPDATE chunk SET data = x'00'"),
+			("escaping", "UPDATE version SET path = 'C:/Users/x.txt'"),
+			("missing", "DELETE FROM blob"),
+		] {
+			let out = dir.path().join(format!("{name}.sdspace"));
+			let export = SpaceFile::create(&out).await.unwrap();
+			export.put_versions(&source, false).await.unwrap();
+			sqlx::query(tamper).execute(&export.pool).await.unwrap();
+			export.close().await;
+			let import = SpaceFile::open(&out).await.unwrap();
+			assert!(import.check().await.is_err(), "{name}");
+		}
+	}
+
 	#[test]
 	fn only_plain_relative_paths_are_accepted() {
 		assert!(is_plain_relative("a/b.md"));
@@ -530,6 +644,8 @@ mod tests {
 			"a//b",
 			"./a",
 			"a\\..\\b",
+			"C:/Users/x.txt",
+			"C:x.txt",
 		] {
 			assert!(!is_plain_relative(bad), "{bad}");
 		}

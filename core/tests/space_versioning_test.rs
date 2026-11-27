@@ -29,7 +29,7 @@ use sd_core::{
 			SpaceImportAction, SpaceImportInput, SpaceRestoreAction, SpaceRestoreInput,
 			SpaceSnapshotCreateAction, SpaceSnapshotCreateInput, SpaceSnapshotDeleteAction,
 			SpaceSnapshotDeleteInput, SpaceSnapshotListInput, SpaceSnapshotListQuery,
-			SpaceUpdateAction, SpaceUpdateInput,
+			SpaceUpdateAction, SpaceUpdateInput, SpacesListQuery, SpacesListQueryInput,
 		},
 	},
 };
@@ -720,8 +720,38 @@ async fn a_space_round_trips_through_an_sdspace_file() -> anyhow::Result<()> {
 	let history_of_slim = history(&harness, &slim.space, None).await;
 	assert_eq!(history_of_slim.versions.len(), 2);
 
-	// A space with versioning off exports its files as they are.
+	// A damaged file fails before anything is created.
+	let damaged = out.path().join("damaged.sdspace");
+	tokio::fs::copy(&full, &damaged).await?;
+	{
+		let pool = sqlx::SqlitePool::connect(&format!("sqlite://{}", damaged.display())).await?;
+		sqlx::query("UPDATE chunk SET data = x'00'")
+			.execute(&pool)
+			.await?;
+		pool.close().await;
+	}
+	let spaces_before = SpacesListQuery::from_input(SpacesListQueryInput { source_id: None })
+		.expect("input")
+		.execute(harness.core.context.clone(), session(&harness))
+		.await?
+		.spaces
+		.len();
+	assert!(import(damaged, out.path().join("damaged")).await.is_err());
+	assert!(!out.path().join("damaged").exists());
+	let spaces_after = SpacesListQuery::from_input(SpacesListQueryInput { source_id: None })
+		.expect("input")
+		.execute(harness.core.context.clone(), session(&harness))
+		.await?
+		.spaces
+		.len();
+	assert_eq!(spaces_after, spaces_before, "no space is left behind");
+
+	// A space with versioning off exports its files as they are, and an
+	// export written inside the space leaves itself out.
 	let plain = space(&harness, &tracked.root.join("plain")).await?;
+	let inside = export(plain.id, tracked.root.join("plain/backup.sdspace"), false).await?;
+	assert_eq!(inside.summary.files, 1);
+	tokio::fs::remove_file(tracked.root.join("plain/backup.sdspace")).await?;
 	let plain_file = out.path().join("plain.sdspace");
 	let exported = export(plain.id, plain_file.clone(), false).await?;
 	assert_eq!(exported.summary.files, 1);
