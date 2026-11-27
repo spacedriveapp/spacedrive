@@ -219,8 +219,9 @@ pub async fn read_footage(
 	Ok(Output::json(value))
 }
 
+/// One clip of a timeline. Unknown fields are ignored so a clip from
+/// `search_clips` can be passed back as it is, metadata included.
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct ExportClipArgs {
 	path: String,
 	#[serde(rename = "in")]
