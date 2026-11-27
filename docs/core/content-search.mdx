@@ -45,8 +45,10 @@ word that only appears after the cap is not found. Lockfiles
 
 Only files in the source's deep scope are read, and never a file in a hidden
 folder or a hidden file. The deep scope is the set of folders where a source
-reads file contents: the spaces with content indexing on, plus the source's
-default. The home source's default is its OS user folders (Desktop, Documents,
+reads file contents: the source's default, plus the spaces with content
+indexing on, less the spaces with it off. The innermost space decides, so a
+space with content indexing off inside a read folder is not read, and a
+space with it on inside that one is. The home source's default is its OS user folders (Desktop, Documents,
 Downloads, Pictures, Movies or Videos, Music, Public), which become spaces
 when the source is tracked or its library opens, so a person turns them on and off like
 any other space. Any other source reads its whole root. `spaces.create` with

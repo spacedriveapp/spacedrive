@@ -3,6 +3,7 @@
 //! ranking fuses words and meaning.
 
 use sd_store::file::{FileKind, FileWrite, Ledger, Observation};
+use sd_store::DeepScope;
 use sd_store::{
 	hybrid_search, ContentTextIndex, DescriptionDoc, DescriptionSpan, HybridSearch, Origin,
 	PendingText, SourceDb, SourceManager, TextDoc, TextFilter, TranscriptDoc, TranscriptSpan,
@@ -156,12 +157,12 @@ async fn read_texts(text: &ContentTextIndex, texts: &[(&str, &str)]) {
 
 /// What an embedding pass does: claim, chunk, embed, write. Returns the
 /// documents it embedded.
-async fn embed_pass(vectors: &VectorIndex, subtrees: &[String]) -> usize {
-	vectors.prune(subtrees).await.expect("prune");
+async fn embed_pass(vectors: &VectorIndex, scope: &DeepScope) -> usize {
+	vectors.prune(scope).await.expect("prune");
 	let mut done = 0;
 	let mut cursor = (Origin::Text, 0);
 	loop {
-		let batch = vectors.pending(subtrees, cursor, 8).await.expect("pending");
+		let batch = vectors.pending(scope, cursor, 8).await.expect("pending");
 		let Some(last) = batch.last() else {
 			return done;
 		};
@@ -175,15 +176,15 @@ async fn embed_pass(vectors: &VectorIndex, subtrees: &[String]) -> usize {
 	}
 }
 
-fn whole() -> Vec<String> {
-	vec![String::new()]
+fn whole() -> DeepScope {
+	DeepScope::whole()
 }
 
-async fn semantic_paths(vectors: &VectorIndex, query: &str, subtrees: &[String]) -> Vec<String> {
+async fn semantic_paths(vectors: &VectorIndex, query: &str, scope: &DeepScope) -> Vec<String> {
 	vectors
 		.search(&VectorSearch {
 			vector: embed(query),
-			subtrees: subtrees.to_vec(),
+			scope: scope.clone(),
 			limit: 10,
 			..Default::default()
 		})
@@ -241,7 +242,7 @@ async fn documents_are_embedded_once_and_found_by_meaning() {
 	let hit = &vectors
 		.search(&VectorSearch {
 			vector: embed("sedan"),
-			subtrees: whole(),
+			scope: whole(),
 			limit: 1,
 			..Default::default()
 		})
@@ -293,7 +294,7 @@ async fn only_the_deep_scope_is_embedded_or_returned() {
 	)
 	.await;
 
-	let documents = vec!["Documents".to_string()];
+	let documents = DeepScope::only(&["Documents"]);
 	assert_eq!(vectors.pending_count(&documents).await.unwrap(), 1);
 	assert_eq!(embed_pass(&vectors, &documents).await, 1);
 	assert_eq!(
@@ -304,7 +305,7 @@ async fn only_the_deep_scope_is_embedded_or_returned() {
 	// Widen, then release: vectors follow the scope.
 	assert_eq!(embed_pass(&vectors, &whole()).await, 1);
 	assert_eq!(semantic_paths(&vectors, "car", &whole()).await.len(), 2);
-	let library = vec!["Library".to_string()];
+	let library = DeepScope::only(&["Library"]);
 	assert_eq!(
 		semantic_paths(&vectors, "car", &library).await,
 		["Library/cache/cars.md"],
@@ -312,7 +313,9 @@ async fn only_the_deep_scope_is_embedded_or_returned() {
 	);
 	assert_eq!(vectors.prune(&library).await.unwrap(), 1);
 	assert_eq!(vectors.counts().await.unwrap().documents, 1);
-	assert!(semantic_paths(&vectors, "car", &[]).await.is_empty());
+	assert!(semantic_paths(&vectors, "car", &DeepScope::default())
+		.await
+		.is_empty());
 }
 
 #[tokio::test]
@@ -386,7 +389,7 @@ async fn transcripts_and_scenes_are_found_at_their_moment() {
 	let hits = vectors
 		.search(&VectorSearch {
 			vector: embed("lighthouse"),
-			subtrees: whole(),
+			scope: whole(),
 			limit: 5,
 			..Default::default()
 		})
@@ -403,7 +406,7 @@ async fn transcripts_and_scenes_are_found_at_their_moment() {
 	let hits = vectors
 		.search(&VectorSearch {
 			vector: embed("sea"),
-			subtrees: whole(),
+			scope: whole(),
 			kinds: vec![SCENE_KIND.into()],
 			limit: 5,
 			..Default::default()
@@ -452,7 +455,7 @@ async fn hybrid_ranking_fuses_words_and_meaning() {
 		&HybridSearch {
 			query: "Q3 budget".into(),
 			vector: embed("Q3 budget"),
-			subtrees: whole(),
+			scope: whole(),
 			limit: 10,
 			snippet_tokens: 8,
 			..Default::default()
@@ -484,7 +487,7 @@ async fn hybrid_ranking_fuses_words_and_meaning() {
 		&HybridSearch {
 			query: "Q3 budget".into(),
 			vector: embed("Q3 budget"),
-			subtrees: whole(),
+			scope: whole(),
 			limit: 2,
 			offset: 1,
 			snippet_tokens: 8,
@@ -537,7 +540,7 @@ async fn files_outside_the_folder_never_crowd_out_the_ones_inside() {
 		.search(&VectorSearch {
 			vector: embed("car"),
 			under: "Notes".into(),
-			subtrees: whole(),
+			scope: whole(),
 			limit: 1,
 			..Default::default()
 		})
@@ -548,7 +551,7 @@ async fn files_outside_the_folder_never_crowd_out_the_ones_inside() {
 	let kinds = vectors
 		.search(&VectorSearch {
 			vector: embed("car"),
-			subtrees: whole(),
+			scope: whole(),
 			kinds: vec!["transcript".into()],
 			limit: 5,
 			..Default::default()
@@ -572,23 +575,25 @@ async fn hybrid_search_keeps_to_the_scope_for_words_too() {
 		],
 	)
 	.await;
-	let search = |subtrees: Vec<String>| HybridSearch {
+	let search = |scope: DeepScope| HybridSearch {
 		query: "budget".into(),
 		vector: embed("budget"),
-		subtrees,
+		scope,
 		limit: 10,
 		snippet_tokens: 8,
 		..Default::default()
 	};
-	let hits = hybrid_search(&text, &vectors, &search(vec!["Documents".into()]))
+	let hits = hybrid_search(&text, &vectors, &search(DeepScope::only(&["Documents"])))
 		.await
 		.unwrap();
 	let paths: Vec<&str> = hits.iter().map(|h| h.external_id.as_str()).collect();
 	assert_eq!(paths, ["Documents/a.md"]);
-	assert!(hybrid_search(&text, &vectors, &search(vec![]))
-		.await
-		.unwrap()
-		.is_empty());
+	assert!(
+		hybrid_search(&text, &vectors, &search(DeepScope::default()))
+			.await
+			.unwrap()
+			.is_empty()
+	);
 }
 
 #[tokio::test]
@@ -656,7 +661,7 @@ async fn tied_scores_page_in_one_order() {
 			&HybridSearch {
 				query: "vehicle".into(),
 				vector: embed("vehicle"),
-				subtrees: whole(),
+				scope: whole(),
 				limit: 10,
 				offset: page * 10,
 				..Default::default()
