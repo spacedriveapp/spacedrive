@@ -199,14 +199,14 @@ operations with the same answers, and the bucket enforces the precondition
 itself. Code: `core/src/ops/agent_write/bucket.rs`.
 
 - **Change.** The write reads the object's entity tag, streams the bytes at
-  that tag into a BLAKE3 hash, and checks the precondition against it.
-  Hashing holds one chunk in memory, whatever the object's size. A byte-range
-  write sends the whole object back, so it takes objects up to 64 MiB and
-  refuses larger ones. It then
-  sends the new bytes with `If-Match` and that tag. An object that changed
-  or was deleted after the check, by an agent or by anything outside
+  that tag into a BLAKE3 hash, and checks the precondition against it. It
+  then sends the new bytes with `If-Match` and that tag. An object that
+  changed or was deleted after the check, by an agent or by anything outside
   Spacedrive, makes the service refuse the write, and the agent gets the
   usual stale refusal with the current hash. No lock is involved.
+- **Size.** Hashing holds one chunk in memory, whatever the object's size.
+  A byte-range write sends the whole object back, so it takes objects up to
+  64 MiB and refuses larger ones.
 - **Create.** The write is sent with `If-None-Match: *`. A taken key is
   refused by the service, and the write tries the next conflict name, so
   two creates racing for one name both keep their bytes.
