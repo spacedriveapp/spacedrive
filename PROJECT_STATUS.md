@@ -46,6 +46,20 @@ back to `~/.local/bin/sd`) on macOS and `~/.local/bin/sd` on Linux through the
 to replace the copy inside the app. The standalone `sd-<platform>` assets
 stay. Next: a signed release dry run, then live install on a Mac.
 
+Sidecars tab lists what a file has again (Capy FAN-14816, November 27, in PR).
+`File.sidecars` was always empty after the entries drop, so the inspector's
+Sidecars tab never showed anything. The new library query `files.sidecars`
+takes one file and lists every artifact derived from it: the media sidecars in
+the content tree (proxy, speech audio, transcript, shots, keyframes, extension
+documents), the thumbnail tile in the source's `sidecars.db` and the
+thumbstrip under the volume, each with kind, variant, format, size, producer,
+how to fetch it and the file that holds it. It generates nothing.
+`media.sidecars` and `media.footage.status` read through it. `File.sidecars`,
+the file `Sidecar` type and the client branches that read them are gone. There
+is still no sidecar registry: a `content_sidecar` table in the source store,
+one writer for every producer, and moving the tree into the source wait on
+Jamie (`docs/plans/2026-08-22-source-convergence.md` item 4).
+
 Watcher job flood (Capy FAN-12353, November 27, in PR). With the home folder
 watched, a Mac made 1,556 job rows in 26 hours (831 `content_identity`, 676
 `content_text`). Live dispatches were already deduplicated, so every row was a

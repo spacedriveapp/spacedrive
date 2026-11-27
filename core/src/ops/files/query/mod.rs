@@ -9,6 +9,7 @@ pub mod file_by_id;
 pub mod file_by_path;
 pub mod local_path;
 pub mod media_listing;
+pub mod sidecars;
 pub mod size_tree;
 pub mod stream_url;
 
@@ -20,4 +21,5 @@ pub use file_by_id::*;
 pub use file_by_path::*;
 pub use local_path::*;
 pub use media_listing::*;
+pub use sidecars::*;
 pub use stream_url::*;

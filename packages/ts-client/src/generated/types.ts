@@ -1652,7 +1652,7 @@ export type ExternalToolStatus = { id: ExternalToolId; name: string; available: 
  * Represents a file within the Spacedrive VDFS.
  * 
  * This is a computed domain model that aggregates data from Entry, ContentIdentity,
- * Tags, and Sidecars. It provides a rich, developer-friendly interface without
+ * and Tags. It provides a rich, developer-friendly interface without
  * duplicating data in the database.
  */
 export type File = { 
@@ -1692,10 +1692,6 @@ alternate_paths: SdPath[];
  * The semantic tags associated with this file
  */
 tags: Tag[]; 
-/**
- * A list of sidecars associated with this file
- */
-sidecars: Sidecar[]; 
 /**
  * Media-specific metadata (extracted from EXIF/FFmpeg)
  */
@@ -1940,6 +1936,43 @@ export type FileSearchResult = { file: File; score: number; score_breakdown: Sco
  * Set attributes on files; each absent attribute stays as it is.
  */
 export type FileSetAttributesInput = { paths: SdPath[]; attributes: Attributes };
+
+/**
+ * One artifact derived from a file.
+ */
+export type FileSidecar = { 
+/**
+ * A core kind (`thumb`, `thumbstrip`, `proxy`, `audio`, `transcript`,
+ * `shots`, `keyframe`) or the kind an extension declared.
+ */
+kind: string; variant: string; 
+/**
+ * The artifact's file extension.
+ */
+format: string; 
+/**
+ * Bytes stored. `None` for a tile only the raw hot cache holds.
+ */
+size: number | null; 
+/**
+ * [`CORE_PRODUCER`], or the id of the extension that wrote it.
+ */
+producer: string; address: SidecarAddress; 
+/**
+ * The file on this device that holds the artifact. A thumbnail tile
+ * shares its file with the rest of its source's tiles.
+ */
+path: string };
+
+export type FileSidecarsInput = { path: SdPath };
+
+export type FileSidecarsOutput = { 
+/**
+ * The key of the file's content sidecars. `None` when the file could
+ * not be sampled, such as a cloud placeholder that reading would
+ * download.
+ */
+content_uuid: string | null; sidecars: FileSidecar[] };
 
 /**
  * Filesystem type
@@ -5241,14 +5274,27 @@ start_timecode: string | null;
 out_exclusive: boolean; duration: FramePoint; threshold: number; min_shot_seconds: number; shots: Shot[] };
 
 /**
- * Domain representation of a sidecar
+ * How a client fetches an artifact.
  */
-export type Sidecar = { id: number; content_uuid: string; kind: string; variant: string; format: string; status: string; size: number; 
+export type SidecarAddress = 
 /**
- * Bumped on every regeneration; sidecar URLs carry it as the cache
- * buster, since the served files are otherwise immutable to browsers.
+ * Served at `/sidecar/<library>/<content_uuid>/<kind>/<variant>.<format>`.
+ * The server marks sidecars immutable, so a URL carries `version`, the
+ * file's modification time in milliseconds, to see a regenerated one.
  */
-version: number; created_at: string; updated_at: string };
+{ type: "content"; version: number } | 
+/**
+ * An extension's document, which only extensions read.
+ */
+{ type: "extension" } | 
+/**
+ * Served at `/hot-thumb/<source_id>/<uuid>/<version>`.
+ */
+{ type: "thumbnail"; tile: TileIdentity } | 
+/**
+ * Served at `/hot-thumbstrip/<source_id>/<uuid>/<version>`.
+ */
+{ type: "thumbstrip"; thumbstrip: ThumbstripIdentity };
 
 /**
  * Format for storing sidecar files
@@ -7178,6 +7224,7 @@ export type LibraryQuery =
   |  { type: 'files.content_kind_stats'; input: ContentKindStatsInput; output: ContentKindStatsOutput }
   |  { type: 'files.directory_listing'; input: DirectoryListingInput; output: DirectoryListingOutput }
   |  { type: 'files.media_listing'; input: MediaListingInput; output: MediaListingOutput }
+  |  { type: 'files.sidecars'; input: FileSidecarsInput; output: FileSidecarsOutput }
   |  { type: 'files.trash_list'; input: TrashListInput; output: TrashListOutput }
   |  { type: 'grants.audit'; input: GrantAuditInput; output: GrantAuditOutput }
   |  { type: 'grants.list'; input: ListGrantsInput; output: ListGrantsOutput }
@@ -7412,6 +7459,7 @@ export const WIRE_METHODS = {
     'files.content_kind_stats': 'query:files.content_kind_stats',
     'files.directory_listing': 'query:files.directory_listing',
     'files.media_listing': 'query:files.media_listing',
+    'files.sidecars': 'query:files.sidecars',
     'files.trash_list': 'query:files.trash_list',
     'grants.audit': 'query:grants.audit',
     'grants.list': 'query:grants.list',
