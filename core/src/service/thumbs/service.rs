@@ -978,6 +978,7 @@ impl ThumbService {
 
 	/// The tile and scrub sheet this device already holds for a file, found
 	/// without queuing either, so asking what a file has never makes more.
+	/// Neither store is created when it does not exist yet.
 	pub async fn made_for(self: &Arc<Self>, path: &PathBuf) -> MadeThumbs {
 		let mut made = MadeThumbs::default();
 		let Some(dirs) = self.dirs.as_ref() else {
@@ -985,19 +986,25 @@ impl ThumbService {
 		};
 		if let Some(identity) = self.thumbnail_identity(path).await {
 			let source = self.volume_index.source_id_for(path);
-			if let (Some(store), Some(source)) =
-				(self.sidecar_holding(path, identity).await, source)
-			{
+			let store = match source {
+				Some(source) => self.existing_sidecars(source).await,
+				None => None,
+			}
+			.filter(|store| store.version_of(identity.uuid) == Some(identity.version));
+			if let (Some(store), Some(source)) = (store, source) {
 				let stored = store.read(identity.uuid).await.ok().flatten();
 				made.tile = Some(MadeArtifact {
 					identity,
 					size: stored.map(|tile| tile.webp.len() as u64),
 					file: dirs.sidecars_file(source),
 				});
-			} else if matches!(
-				self.cache_state(identity).await,
-				Some(TileState::Fresh { .. })
-			) {
+			} else if tokio::fs::try_exists(dirs.thumbs_file(identity.source_id))
+				.await
+				.unwrap_or(false)
+				&& matches!(
+					self.cache_state(identity).await,
+					Some(TileState::Fresh { .. })
+				) {
 				// Only the raw cache holds it, which has no per-tile size worth
 				// reporting.
 				made.tile = Some(MadeArtifact {

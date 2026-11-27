@@ -25,7 +25,7 @@ import type {File, FileSidecar, SdPath} from '@sd/ts-client';
 import {toast} from '@spacedrive/primitives';
 import clsx from 'clsx';
 import {LocationMap} from '../LocationMap';
-import {useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import {TagSelectorButton, tagColor} from '../../../components/Tags';
 import {usePlatform} from '../../../contexts/PlatformContext';
 import {useServer} from '../../../contexts/ServerContext';
@@ -39,6 +39,8 @@ import {
 } from '../../../contexts/SpacedriveContext';
 import {useContextMenu} from '../../../hooks/useContextMenu';
 import {useExtensionKinds} from '../../../hooks/useExtensionKinds';
+import {useOptionalJobsContext} from '../../JobManager/hooks/JobsContext';
+import {useHotThumb} from '../../../routes/explorer/hooks/useHotThumb';
 import {FootageSection} from '../../Footage/FootageSection';
 import {kindLabel} from '../../QuickPreview/renderers';
 import {File as FileComponent} from '../../../routes/explorer/File';
@@ -908,6 +910,21 @@ function SidecarsTab({file}: {file: File}) {
 	const list = sidecars.data?.sidecars ?? [];
 	const contentUuid = sidecars.data?.content_uuid ?? null;
 
+	// A job that finished may have written sidecars this list does not have.
+	const jobs = useOptionalJobsContext()?.jobs;
+	const finishedJobs = useMemo(
+		() =>
+			(jobs ?? [])
+				.filter((job) => !ACTIVE_JOB_STATES.has(job.status))
+				.map((job) => job.id)
+				.join(),
+		[jobs]
+	);
+	const refetch = sidecars.refetch;
+	useEffect(() => {
+		if (file.is_local && finishedJobs) void refetch();
+	}, [finishedJobs, file.is_local, refetch]);
+
 	const empty = !file.is_local
 		? 'Sidecars are kept on the device that holds this file'
 		: sidecars.isLoading
@@ -930,7 +947,8 @@ function SidecarsTab({file}: {file: File}) {
 				<div className="space-y-2">
 					{list.map((sidecar) => (
 						<SidecarItem
-							key={sidecar.path}
+							key={`${sidecar.kind}:${sidecar.path}`}
+							file={file}
 							sidecar={sidecar}
 							contentUuid={contentUuid}
 						/>
@@ -942,28 +960,32 @@ function SidecarsTab({file}: {file: File}) {
 }
 
 const PREVIEW_FORMATS = ['webp', 'jpg', 'jpeg', 'png'];
+const ACTIVE_JOB_STATES = new Set(['queued', 'running', 'paused']);
 
 function SidecarItem({
+	file,
 	sidecar,
 	contentUuid
 }: {
+	file: File;
 	sidecar: FileSidecar;
 	contentUuid: string | null;
 }) {
 	const platform = usePlatform();
-	const {buildSidecarUrl, buildHotThumbUrl, buildHotThumbstripUrl} =
-		useServer();
+	const {buildSidecarUrl, buildHotThumbstripUrl} = useServer();
+	// The tile may sit only in the source's sidecars, which the hot-thumb
+	// route cannot serve; asking for it restores the cache from there.
+	const hotThumb = useHotThumb(
+		file.sd_path,
+		sidecar.address.type === 'thumbnail'
+	);
 
 	const previewUrl = (() => {
 		if (!PREVIEW_FORMATS.includes(sidecar.format)) return null;
 		const address = sidecar.address;
 		switch (address.type) {
 			case 'thumbnail':
-				return buildHotThumbUrl(
-					address.tile.source_id,
-					address.tile.uuid,
-					address.tile.version
-				);
+				return hotThumb.url;
 			case 'thumbstrip':
 				return buildHotThumbstripUrl(
 					address.thumbstrip.source_id,
