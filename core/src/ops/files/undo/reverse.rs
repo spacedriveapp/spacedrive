@@ -8,10 +8,21 @@
 //! replacement whose previous bytes were not kept. Before an effect is
 //! reversed its subject is checked against what the journal recorded, so
 //! undo never touches a file that changed since.
+//!
+//! An effect on a bucket object names it by its bucket URL and is checked
+//! and reversed through the bucket's backend; a bucket whose volume is not
+//! connected here leaves the effect as changed.
 
 use std::path::{Path, PathBuf};
 
-use crate::infra::job::journal::{Effect, Recorded};
+use crate::{
+	infra::job::journal::{Effect, Recorded},
+	ops::{
+		files::bucket as files_bucket,
+		grants::bucket::{backend, BucketUrl},
+	},
+	volume::{VolumeBackend, VolumeManager},
+};
 
 /// One step of an undo, as the plan and the job see it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -21,12 +32,17 @@ pub enum Step {
 		path: PathBuf,
 		is_dir: bool,
 		size: u64,
+		/// For a bucket object, the entity tag the check found, which the
+		/// step acts on and nothing newer.
+		etag: Option<String>,
 	},
 	/// Put a moved or trashed item back.
 	MoveBack {
 		from: PathBuf,
 		to: PathBuf,
 		size: u64,
+		/// For a bucket object, as for `Trash`.
+		etag: Option<String>,
 	},
 	/// Trash the replacement and put the previous bytes back.
 	Restore {
@@ -59,7 +75,11 @@ pub struct Reversal {
 }
 
 /// Each effect's reversal, newest first, checked against the filesystem.
-pub async fn reversals(journal: &[Recorded], only: Option<&[i64]>) -> Vec<Reversal> {
+pub async fn reversals(
+	journal: &[Recorded],
+	only: Option<&[i64]>,
+	volumes: Option<&VolumeManager>,
+) -> Vec<Reversal> {
 	let mut out = Vec::new();
 	for recorded in journal.iter().rev() {
 		if only.is_some_and(|only| !only.contains(&recorded.sequence)) {
@@ -67,7 +87,10 @@ pub async fn reversals(journal: &[Recorded], only: Option<&[i64]>) -> Vec<Revers
 		}
 		out.push(Reversal {
 			sequence: recorded.sequence,
-			outcome: reverse(&recorded.effect).await,
+			outcome: match bucket_reverse(&recorded.effect, volumes).await {
+				Some(outcome) => outcome,
+				None => reverse(&recorded.effect).await,
+			},
 		});
 	}
 	out
@@ -76,7 +99,7 @@ pub async fn reversals(journal: &[Recorded], only: Option<&[i64]>) -> Vec<Revers
 async fn reverse(effect: &Effect) -> Result<Step, Left> {
 	match effect {
 		Effect::Created { path, subject } => {
-			let subject = subject.ok_or(Left::Irreversible)?;
+			let subject = subject.as_ref().ok_or(Left::Irreversible)?;
 			if !subject.still_holds(path).await {
 				return Err(Left::Changed);
 			}
@@ -84,6 +107,7 @@ async fn reverse(effect: &Effect) -> Result<Step, Left> {
 				path: path.clone(),
 				is_dir: subject.is_dir,
 				size: subject.size,
+				etag: None,
 			})
 		}
 		Effect::Moved { from, to, subject } => {
@@ -100,7 +124,8 @@ async fn reverse(effect: &Effect) -> Result<Step, Left> {
 			Ok(Step::MoveBack {
 				from: to.clone(),
 				to: from.clone(),
-				size: subject.map(|subject| subject.size).unwrap_or(0),
+				size: subject.as_ref().map(|subject| subject.size).unwrap_or(0),
+				etag: None,
 			})
 		}
 		Effect::Trashed { from, to, subject } => {
@@ -116,7 +141,8 @@ async fn reverse(effect: &Effect) -> Result<Step, Left> {
 			Ok(Step::MoveBack {
 				from: to.clone(),
 				to: from.clone(),
-				size: subject.map(|subject| subject.size).unwrap_or(0),
+				size: subject.as_ref().map(|subject| subject.size).unwrap_or(0),
+				etag: None,
 			})
 		}
 		Effect::Replaced {
@@ -136,7 +162,7 @@ async fn reverse(effect: &Effect) -> Result<Step, Left> {
 			Ok(Step::Restore {
 				path: path.clone(),
 				previous: previous.clone(),
-				size: subject.map(|subject| subject.size).unwrap_or(0),
+				size: subject.as_ref().map(|subject| subject.size).unwrap_or(0),
 			})
 		}
 		Effect::Removed { .. } => Err(Left::Irreversible),
@@ -150,6 +176,65 @@ async fn reverse(effect: &Effect) -> Result<Step, Left> {
 			})
 		}
 	}
+}
+
+/// The reversal of an effect on a bucket object, or `None` for an effect
+/// on the filesystem.
+async fn bucket_reverse(
+	effect: &Effect,
+	volumes: Option<&VolumeManager>,
+) -> Option<Result<Step, Left>> {
+	let url = BucketUrl::parse(effect.result()?)?;
+	let Some(volumes) = volumes else {
+		return Some(Err(Left::Changed));
+	};
+	let Ok(backend) = backend(volumes, &url).await else {
+		return Some(Err(Left::Changed));
+	};
+	let backend = backend.as_ref();
+	Some(match effect {
+		Effect::Created {
+			path,
+			subject: Some(subject),
+		} => {
+			let Some(now) = files_bucket::still_holds(backend, &url.key, subject).await else {
+				return Some(Err(Left::Changed));
+			};
+			Ok(Step::Trash {
+				path: path.clone(),
+				is_dir: false,
+				size: now.size,
+				etag: Some(now.etag),
+			})
+		}
+		Effect::Moved {
+			from,
+			to,
+			subject: Some(subject),
+		}
+		| Effect::Trashed {
+			from,
+			to: Some(to),
+			subject: Some(subject),
+		} => {
+			let Some(now) = files_bucket::still_holds(backend, &url.key, subject).await else {
+				return Some(Err(Left::Changed));
+			};
+			let Some(back) = BucketUrl::parse(from) else {
+				return Some(Err(Left::Irreversible));
+			};
+			if files_bucket::occupied(backend, &back).await.unwrap_or(true) {
+				return Some(Err(Left::Occupied));
+			}
+			Ok(Step::MoveBack {
+				from: to.clone(),
+				to: from.clone(),
+				size: now.size,
+				etag: Some(now.etag),
+			})
+		}
+		_ => Err(Left::Irreversible),
+	})
 }
 
 async fn occupied(path: &Path) -> bool {

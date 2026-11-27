@@ -166,7 +166,7 @@ async fn decide(
 		Some(url) => {
 			let resolved = bucket::resolve(&url, path)?;
 			if cap == GrantCap::ReadWrite {
-				let backend = bucket::backend(context, &url).await?;
+				let backend = bucket::backend(&context.volume_manager, &url).await?;
 				bucket::writable(&url, backend.as_ref())?;
 			}
 			resolved
