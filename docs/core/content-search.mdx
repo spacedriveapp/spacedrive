@@ -129,8 +129,8 @@ with content identification, otherwise the tool refuses and points to `grep`.
 
 The `media.transcribe` action transcribes audio and video files and adds what
 was said to this index. It runs only in a daemon built with the
-`speech-to-text` cargo feature, which is off by default. See
-[Transcription](./transcription).
+`speech-to-text` cargo feature. A default build leaves it off; the desktop
+app's daemon is built with it. See [Transcription](./transcription).
 
 Each transcript segment is a row of its own, so a hit names the moment, not
 only the file. A recording that says the words in three places answers with
@@ -163,8 +163,9 @@ their text so a word query finds a file by what is in it:
 | `scene` | `scene`, one description per shot keyframe | Videos extension | `video-shots` |
 | `caption` | `caption`, one description per photo | Photos extension | `ai-cloud` |
 
-Both cargo features are off by default, and the host runs extensions only in
-a build with `wasm`. The index is updated when the extension writes, replaces
+Both cargo features are off in a default build, and the host runs extensions
+only in a build with `wasm`. The desktop app's daemon is built with all three
+through the `footage` feature. The index is updated when the extension writes, replaces
 or deletes the sidecar.
 
 Each described shot is a row of its own, timed from the video's shot list, so
