@@ -19,7 +19,7 @@ import {
 	useLibraryMutation,
 	useLibraryQuery
 } from '../../contexts/SpacedriveContext';
-import {agentSetupSnippets} from './agentSetup';
+import {agentSetupSnippets, type AgentSetupSnippet} from './agentSetup';
 
 const MINUTE = 60;
 const HOUR = 60 * MINUTE;
@@ -208,7 +208,7 @@ function SetupPanel(props: {
 		() => (props.url ? agentSetupSnippets(props.url, props.token) : []),
 		[props.url, props.token]
 	);
-	const tabs = [
+	const tabs: AgentSetupSnippet[] = [
 		...snippets,
 		...(props.skill
 			? [
