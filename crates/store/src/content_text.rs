@@ -1171,7 +1171,7 @@ async fn delete_spans(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>, doc_id: i64)
 
 /// A record's path relative to the source root, over `r` and its parent's
 /// `p`.
-const RECORD_PATH: &str =
+pub(crate) const RECORD_PATH: &str =
 	"(CASE WHEN r.parent_uuid IS NULL THEN r.title ELSE p.path || '/' || r.title END)";
 
 /// The rows a pass has to read, after `FROM`, pushing the filter's binds.
@@ -1238,6 +1238,19 @@ pub fn match_expression(query: &str) -> String {
 		}
 	}
 	terms.join(" AND ")
+}
+
+/// An FTS5 expression that matches any of the words typed, for ranking
+/// rather than filtering: BM25 still puts files with more of them first.
+/// Quotes and `*` are taken as literal characters of words.
+pub fn any_word_expression(query: &str) -> String {
+	query
+		.split(|c: char| c.is_whitespace() || c == '"')
+		.map(|word| word.trim_matches('*'))
+		.filter(|word| !word.is_empty())
+		.map(quote)
+		.collect::<Vec<_>>()
+		.join(" OR ")
 }
 
 fn quote(text: &str) -> String {

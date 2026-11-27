@@ -75,6 +75,10 @@ pub const SEARCH_PAGE_DEFAULT: u32 = 20;
 pub const CONTENT_PAGE_MAX: u32 = 200;
 /// Results per `search_content` page when the agent does not say.
 pub const CONTENT_PAGE_DEFAULT: u32 = 20;
+/// Results per `search_semantic` page, the most `search.semantic` returns.
+pub const SEMANTIC_PAGE_MAX: u32 = crate::ops::search::semantic::MAX_RESULTS_LIMIT;
+/// The longest `search_semantic` query, the most `search.semantic` embeds.
+pub const SEMANTIC_QUERY_MAX_BYTES: usize = crate::ops::search::semantic::MAX_QUERY_BYTES;
 
 /// A token bucket: `rate` tokens a second, holding at most `burst`.
 #[derive(Debug)]

@@ -199,6 +199,8 @@ code change.
 | `search` results per page | 100 |
 | `search_content` query length | 1 KiB |
 | `search_content` results per page | 200 |
+| `search_semantic` query length | 1 KiB |
+| `search_semantic` results per page | 100 |
 | Failed authentications per client address | 20 per minute, then 429 for 5 minutes |
 | Idle SSE stream | closed after 60 s |
 

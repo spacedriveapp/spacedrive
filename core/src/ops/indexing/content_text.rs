@@ -250,6 +250,8 @@ impl JobHandler for ContentTextJob {
 			"Indexed {} files, {} with nothing to index, {} unreadable, {reclaimed} bytes given back",
 			output.indexed, output.skipped, output.unreadable
 		));
+		super::semantic_index::index_vectors_soon(&ctx.library_arc(), &self.root, self.background)
+			.await;
 		Ok(output)
 	}
 }

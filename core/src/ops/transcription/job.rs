@@ -255,6 +255,12 @@ impl JobHandler for TranscribeJob {
 			"Transcribed {}, reused {}, {} without audio, {} failed",
 			output.transcribed, output.reused, output.no_audio, output.failed
 		));
+		crate::ops::indexing::semantic_index::index_vectors_soon(
+			&ctx.library_arc(),
+			&self.root,
+			true,
+		)
+		.await;
 		Ok(output)
 	}
 }

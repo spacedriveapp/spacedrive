@@ -528,11 +528,21 @@ impl E5 {
 
 impl TextEmbedder for E5 {
 	fn embed(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, AiError> {
+		// E5 is trained with a role prefix; "query: " suits symmetric search.
+		self.embed_with("query: ", texts)
+	}
+
+	fn embed_passages(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, AiError> {
+		self.embed_with("passage: ", texts)
+	}
+}
+
+impl E5 {
+	fn embed_with(&self, role: &str, texts: &[&str]) -> Result<Vec<Vec<f32>>, AiError> {
 		if texts.is_empty() {
 			return Ok(Vec::new());
 		}
-		// E5 is trained with a role prefix; "query: " suits symmetric search.
-		let prefixed: Vec<String> = texts.iter().map(|t| format!("query: {t}")).collect();
+		let prefixed: Vec<String> = texts.iter().map(|t| format!("{role}{t}")).collect();
 		let encodings = self
 			.tokenizer
 			.encode_batch(prefixed, true)

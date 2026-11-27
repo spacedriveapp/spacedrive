@@ -21,7 +21,8 @@
 //! Beside `data.db` sits `text.db`, the content text index
 //! ([`content_text`]): FTS5 over text extracted from the files. It is part of
 //! the generation, kept in its own file so its writes never hold the record
-//! store's lock.
+//! store's lock. Beside that sits `vectors.db` ([`vectors`]): embeddings of
+//! the text index's chunks for semantic search, also generation.
 //!
 //! One shape is the point. Every question across sources reads each store and
 //! joins on it; two shapes would mean two of everything downstream.
@@ -64,14 +65,16 @@ pub mod revision;
 pub mod schema;
 pub mod source;
 pub mod tags;
+pub mod vectors;
 
 use serde::{Deserialize, Serialize};
 
 pub use content::{uuid_for, ContentId, CONTENT_NAMESPACE};
 pub use content_text::{
-	match_expression, ContentTextIndex, DescriptionDoc, DescriptionSpan, PendingText,
-	PendingTranscript, SnippetPart, TextDoc, TextFilter, TextHit, TextIndexCounts, TextSearch,
-	TranscriptDoc, TranscriptSpan, CAPTION_KIND, SCENE_KIND, TEXT_INDEX_FILE, TRANSCRIPT_KIND,
+	any_word_expression, match_expression, ContentTextIndex, DescriptionDoc, DescriptionSpan,
+	PendingText, PendingTranscript, SnippetPart, TextDoc, TextFilter, TextHit, TextIndexCounts,
+	TextSearch, TranscriptDoc, TranscriptSpan, CAPTION_KIND, SCENE_KIND, TEXT_INDEX_FILE,
+	TRANSCRIPT_KIND,
 };
 pub use db::{ItemRow, OverlayEvidence, SourceDb, Stamp};
 pub use error::{Error, Result};
@@ -94,6 +97,11 @@ pub use schema::{DataTypeSchema, FieldType, ModelDef};
 pub use source::SourceManager;
 pub use tags::{
 	normalize_tag_path, slug_for_path, AppliedTag, TagAssertion, TagDefinition, TAG_NAMESPACE,
+};
+pub use vectors::{
+	chunk_spans, chunk_text, fuse, hybrid_search, Chunk, HybridHit, HybridSearch, Origin,
+	PendingVectors, Span, VectorHit, VectorIndex, VectorIndexCounts, VectorSearch,
+	VECTOR_INDEX_FILE,
 };
 
 /// How much a source's content is trusted. Adapter manifests declare it and it

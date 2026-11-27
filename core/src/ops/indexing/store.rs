@@ -152,6 +152,8 @@ pub struct SourceStore {
 	disk_full: DiskFull,
 	/// The content text index beside the store, opened on first use.
 	text: std::sync::OnceLock<Arc<sd_store::ContentTextIndex>>,
+	/// The semantic vector index beside the text index, opened on first use.
+	vectors: std::sync::OnceLock<Arc<sd_store::VectorIndex>>,
 }
 
 impl std::fmt::Debug for SourceStore {
@@ -217,6 +219,7 @@ impl SourceStore {
 			path,
 			disk_full,
 			text: std::sync::OnceLock::new(),
+			vectors: std::sync::OnceLock::new(),
 		}))
 	}
 
@@ -321,6 +324,26 @@ impl SourceStore {
 			.with_context(|| format!("open the content text index for source {id}"))?;
 		// Two first callers may both open it; the second pool is dropped.
 		Ok(self.text.get_or_init(|| Arc::new(opened)).clone())
+	}
+
+	/// The semantic vector index kept beside the text index.
+	///
+	/// It reads the text index's rows, so that index is opened first.
+	pub async fn vector_index(&self) -> Result<Arc<sd_store::VectorIndex>> {
+		if let Some(index) = self.vectors.get() {
+			return Ok(index.clone());
+		}
+		let text = self.text_index().await?;
+		let dir = text
+			.path()
+			.parent()
+			.with_context(|| format!("text index {} has no directory", text.path().display()))?
+			.to_path_buf();
+		let id = self.id;
+		let opened = sd_store::VectorIndex::open(&dir)
+			.await
+			.with_context(|| format!("open the vector index for source {id}"))?;
+		Ok(self.vectors.get_or_init(|| Arc::new(opened)).clone())
 	}
 
 	/// The store, for readers. Writers go through the queue.
@@ -2730,6 +2753,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 			path: PathBuf::new(),
 			disk_full: DiskFull::default(),
 			text: std::sync::OnceLock::new(),
+			vectors: std::sync::OnceLock::new(),
 		};
 
 		let metadata = EntryMetadata::from(dir_entry(&root.join("late.txt")));

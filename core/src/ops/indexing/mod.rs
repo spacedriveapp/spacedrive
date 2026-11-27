@@ -32,6 +32,7 @@ pub mod reconcile;
 pub mod registry;
 pub mod responder;
 pub mod rules;
+pub mod semantic_index;
 pub mod snapshot;
 pub mod sources;
 pub mod startup;
