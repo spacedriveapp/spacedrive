@@ -1,3 +1,5 @@
+//! # Semantic search query
+//!
 //! The `search.semantic` query: resolve the scope on this device, embed the
 //! query, and rank the source's files by words and meaning.
 

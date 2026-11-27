@@ -1,3 +1,5 @@
+//! # Semantic search input
+//!
 //! Input for `search.semantic` and `search.semantic.status`.
 
 use serde::{Deserialize, Serialize};

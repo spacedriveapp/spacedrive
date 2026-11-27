@@ -27,9 +27,34 @@
 //! [`hybrid_search`] fuses this ranking with the BM25 ranking of the text
 //! index, so a query that names an exact word still finds it, and a query
 //! that describes something finds files that never use its words.
+//!
+//! ## Example
+//! ```rust,no_run
+//! # async fn example(dir: &std::path::Path, embed: impl Fn(&str) -> Vec<f32>) -> sd_store::Result<()> {
+//! use sd_store::{ContentTextIndex, HybridSearch, Origin, VectorIndex};
+//!
+//! let text = ContentTextIndex::open(dir).await?;
+//! let vectors = VectorIndex::open(dir).await?;
+//! vectors.use_model("multilingual-e5-small", 384).await?;
+//! let scope = vec![String::new()];
+//! for doc in vectors.pending(&scope, (Origin::Text, 0), 16).await? {
+//! 	let chunks = vectors.chunks(&doc).await?;
+//! 	let embedded: Vec<Vec<f32>> = chunks.iter().map(|c| embed(&c.text)).collect();
+//! 	vectors.write(&doc, &chunks, &embedded).await?;
+//! }
+//! let hits = sd_store::hybrid_search(&text, &vectors, &HybridSearch {
+//! 	query: "kitchen renovation budget".into(),
+//! 	vector: embed("kitchen renovation budget"),
+//! 	subtrees: scope,
+//! 	limit: 20,
+//! 	..Default::default()
+//! })
+//! .await?;
+//! # Ok(())
+//! # }
+//! ```
 
-use std::cmp::Ordering;
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
@@ -665,113 +690,74 @@ impl VectorIndex {
 				matrix.dim
 			)));
 		}
-		// Several chunks of one file can lead, and some leaders resolve to
-		// nothing (stale or out of scope), so take a wide pool of chunks.
-		let pool = (search.limit * 8).clamp(64, 2000);
-		let mut heap: BinaryHeap<Scored> = BinaryHeap::with_capacity(pool + 1);
-		for (row, id) in matrix.ids.iter().enumerate() {
-			let bytes = &matrix.data[row * matrix.dim..(row + 1) * matrix.dim];
-			let score = dot_quantized(&search.vector, matrix.scales[row], bytes);
-			heap.push(Scored(score, *id));
-			if heap.len() > pool {
-				heap.pop();
-			}
-		}
-		let mut best = heap.into_vec();
-		best.sort_by(|a, b| b.0.total_cmp(&a.0));
-		let similarity: HashMap<i64, f32> = best.iter().map(|s| (s.1, s.0)).collect();
-		let ids: Vec<String> = best.iter().map(|s| s.1.to_string()).collect();
-
-		let mut ranked = self.resolve(&ids.join(","), search).await?;
-		for (id, hit) in &mut ranked {
-			hit.similarity = similarity.get(id).copied().unwrap_or(f32::MIN);
-		}
-		ranked.sort_by(|a, b| b.1.similarity.total_cmp(&a.1.similarity));
-		let mut seen = std::collections::HashSet::new();
-		let out: Vec<VectorHit> = ranked
-			.into_iter()
-			.map(|(_, hit)| hit)
-			.filter(|hit| seen.insert(hit.record_uuid))
-			.take(search.limit)
-			.collect();
-		Ok(out)
-	}
-
-	/// The files the chunks `ids` (comma-separated) belong to, with each
-	/// chunk's text, keyed by chunk id.
-	async fn resolve(&self, ids: &str, search: &VectorSearch) -> Result<Vec<(i64, VectorHit)>> {
-		let scope = crate::deep_scope::subtree_condition(&search.subtrees, "r.parent_uuid");
-		let under = search.under.trim_matches('/');
-		let mut binds: Vec<String> = Vec::new();
-		let mut under_clause = String::new();
-		if !under.is_empty() {
-			under_clause =
-				format!(" AND ({RECORD_PATH} = ? OR substr({RECORD_PATH}, 1, length(?)) = ?)");
-		}
-		let file = "JOIN src.record r ON r.uuid = d.record_uuid AND r.type = 'file' \
-			JOIN src.facet_file f ON f.record_uuid = r.uuid \
-			LEFT JOIN src.directory_path p ON p.record_uuid = r.parent_uuid";
-		// A file changed since its text was read answers with nothing until
-		// its new text is embedded, as a word search does.
-		let current =
-			"f.size IS d.size AND f.mtime IS d.mtime AND lower(f.extension) = d.extension";
-		let sql = format!(
-			"SELECT c.id, r.uuid, r.parent_uuid, p.path, r.title, d.kind, \
-			 (SELECT substr(body, c.a + 1, c.b) FROM txt.text_fts WHERE rowid = d.id), NULL, NULL \
-			 FROM vec_chunk c JOIN vec_doc e ON e.origin = c.origin AND e.doc_id = c.doc_id \
-			 JOIN txt.text_doc d ON d.id = c.doc_id {file} \
-			 WHERE c.origin = 0 AND c.id IN ({ids}) AND e.stamp = {TEXT_STAMP} AND {current} AND {scope}{under_clause} \
-			 UNION ALL \
-			 SELECT c.id, r.uuid, r.parent_uuid, p.path, r.title, '{TRANSCRIPT_KIND}', \
-			 (SELECT group_concat(t.body, ' ') FROM txt.transcript_span s \
-			 JOIN txt.transcript_fts t ON t.rowid = s.id WHERE s.doc_id = d.id AND s.id BETWEEN c.a AND c.b), \
-			 c.start_ms, c.end_ms \
-			 FROM vec_chunk c JOIN vec_doc e ON e.origin = c.origin AND e.doc_id = c.doc_id \
-			 JOIN txt.transcript_doc d ON d.id = c.doc_id {file} \
-			 WHERE c.origin = 1 AND c.id IN ({ids}) AND e.stamp = {TRANSCRIPT_STAMP} AND {current} AND {scope}{under_clause} \
-			 UNION ALL \
-			 SELECT c.id, r.uuid, r.parent_uuid, p.path, r.title, d.kind, \
-			 (SELECT t.body FROM txt.description_fts t WHERE t.rowid = c.a), c.start_ms, c.end_ms \
-			 FROM vec_chunk c JOIN vec_doc e ON e.origin = c.origin AND e.doc_id = c.doc_id \
-			 JOIN txt.description_doc d ON d.id = c.doc_id \
-			 JOIN src.content k ON k.uuid = d.content_uuid OR k.candidate_uuid = d.content_uuid \
-			 JOIN src.record r ON r.content_id = k.id AND r.type = 'file' \
-			 JOIN src.facet_file f ON f.record_uuid = r.uuid AND f.link_target IS NULL \
-			 LEFT JOIN src.directory_path p ON p.record_uuid = r.parent_uuid \
-			 WHERE c.origin = 2 AND c.id IN ({ids}) AND e.stamp = {DESCRIPTION_STAMP} AND {scope}{under_clause}"
-		);
-		if !under.is_empty() {
-			for _ in 0..3 {
-				binds.extend([under.to_string(), format!("{under}/"), format!("{under}/")]);
-			}
-		}
+		// Eligibility comes before ranking, so chunks outside the folder, the
+		// scope or the kinds never crowd out the ones that can answer.
+		let mut eligible: HashMap<i64, (i64, i64)> = HashMap::new();
+		let (sql, binds) = selection(search, None, false);
 		let mut query = sqlx::query(&sql);
 		for bind in binds {
 			query = query.bind(bind);
 		}
-		let rows = query.fetch_all(&self.pool).await?;
-		Ok(rows
-			.into_iter()
-			.filter_map(|row| {
-				let kind: String = row.get(5);
-				if !search.kinds.is_empty() && !search.kinds.contains(&kind) {
-					return None;
-				}
-				let text: Option<String> = row.get(6);
-				Some((
-					row.get(0),
-					VectorHit {
+		for row in query.fetch_all(&self.pool).await? {
+			eligible.insert(row.get(0), (row.get(1), row.get(2)));
+		}
+		// One entry per document, its best chunk, so a long document counts
+		// once however many of its chunks lead.
+		let mut best: HashMap<(i64, i64), Scored> = HashMap::new();
+		for (row, id) in matrix.ids.iter().enumerate() {
+			let Some(doc) = eligible.get(id) else {
+				continue;
+			};
+			let bytes = &matrix.data[row * matrix.dim..(row + 1) * matrix.dim];
+			let score = dot_quantized(&search.vector, matrix.scales[row], bytes);
+			let entry = best.entry(*doc).or_insert(Scored(f32::MIN, *id));
+			if score > entry.0 {
+				*entry = Scored(score, *id);
+			}
+		}
+		let mut ranked: Vec<Scored> = best.into_values().collect();
+		ranked.sort_by(|a, b| b.0.total_cmp(&a.0));
+
+		// A document answers for its file, or for every file with its bytes,
+		// so resolve the leaders a page at a time until enough files are found.
+		let mut out: Vec<VectorHit> = Vec::new();
+		let mut seen = std::collections::HashSet::new();
+		for page in ranked.chunks(search.limit.max(16)) {
+			let similarity: HashMap<i64, f32> = page.iter().map(|s| (s.1, s.0)).collect();
+			let ids: Vec<String> = page.iter().map(|s| s.1.to_string()).collect();
+			let (sql, binds) = selection(search, Some(&ids.join(",")), true);
+			let mut query = sqlx::query(&sql);
+			for bind in binds {
+				query = query.bind(bind);
+			}
+			let mut hits: Vec<VectorHit> = query
+				.fetch_all(&self.pool)
+				.await?
+				.into_iter()
+				.filter_map(|row| {
+					let text: Option<String> = row.get(6);
+					Some(VectorHit {
 						record_uuid: row.get(1),
 						external_id: address(row.get(2), row.get(3), row.get(4))?,
-						kind,
-						similarity: 0.0,
+						kind: row.get(5),
+						similarity: similarity.get(&row.get::<i64, _>(0)).copied()?,
 						text: text.unwrap_or_default().trim().to_string(),
 						start_ms: row.get(7),
 						end_ms: row.get(8),
-					},
-				))
-			})
-			.collect())
+					})
+				})
+				.collect();
+			hits.sort_by(|a, b| b.similarity.total_cmp(&a.similarity));
+			for hit in hits {
+				if seen.insert(hit.record_uuid) {
+					out.push(hit);
+					if out.len() == search.limit {
+						return Ok(out);
+					}
+				}
+			}
+		}
+		Ok(out)
 	}
 
 	async fn matrix(&self) -> Result<Arc<Matrix>> {
@@ -806,38 +792,15 @@ impl VectorIndex {
 	}
 }
 
-/// A chunk's score, ordered so a max-heap pops the worst first.
+/// A document's best chunk: its similarity and its id.
 struct Scored(f32, i64);
 
-impl PartialEq for Scored {
-	fn eq(&self, other: &Self) -> bool {
-		self.cmp(other) == Ordering::Equal
-	}
-}
-impl Eq for Scored {}
-impl PartialOrd for Scored {
-	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		Some(self.cmp(other))
-	}
-}
-impl Ord for Scored {
-	fn cmp(&self, other: &Self) -> Ordering {
-		other.0.total_cmp(&self.0)
-	}
-}
-
-/// What a text row says now. Its id is part of it because a rebuild of the
-/// text index gives the same file a new row, and chunk offsets point into
-/// the row they were cut from.
-const TEXT_STAMP: &str =
-	"(d.id || ':' || ifnull(d.size, '') || ':' || ifnull(d.mtime, '') || ':' || d.extension)";
-/// Rewriting a transcript replaces its spans, so the newest span id moves.
-const TRANSCRIPT_STAMP: &str =
-	"(d.id || ':' || ifnull(d.size, '') || ':' || ifnull(d.mtime, '') || ':' || \
-	(SELECT ifnull(max(s.id), 0) FROM txt.transcript_span s WHERE s.doc_id = d.id))";
-/// Rewriting a description drops the document and inserts a new one.
-const DESCRIPTION_STAMP: &str =
-	"(d.id || ':' || (SELECT ifnull(max(s.id), 0) FROM txt.description_span s WHERE s.doc_id = d.id))";
+/// Which write of `text.db` a document row came from: its id and the
+/// revision every write raises. Row ids are reused after a delete, so the id
+/// alone would mistake a rewritten caption for the one it replaced.
+const TEXT_STAMP: &str = "(d.id || ':' || d.rev)";
+const TRANSCRIPT_STAMP: &str = TEXT_STAMP;
+const DESCRIPTION_STAMP: &str = TEXT_STAMP;
 
 /// Holds for a document `v` whose vectors are missing or stale.
 const STALE: &str = "NOT EXISTS (SELECT 1 FROM vec_doc e \
@@ -865,6 +828,90 @@ fn documents(subtrees: &[String]) -> String {
 		 JOIN src.facet_file f ON f.record_uuid = r.uuid AND f.link_target IS NULL \
 		 WHERE (k.uuid = d.content_uuid OR k.candidate_uuid = d.content_uuid) AND {scope})"
 	)
+}
+
+/// The chunks a search may return, with their binds: fresh (the document
+/// row is the one the vectors came from and the file has not changed since
+/// its text was read), inside the deep scope, under the searched path and of
+/// a wanted kind. With `ids`, only those chunks. Without `with_text` each
+/// row is `(chunk, origin, doc)`; with it, the hit's record, path, kind, the
+/// chunk's text and its times.
+fn selection(search: &VectorSearch, ids: Option<&str>, with_text: bool) -> (String, Vec<String>) {
+	let scope = crate::deep_scope::subtree_condition(&search.subtrees, "r.parent_uuid");
+	let under = search.under.trim_matches('/');
+	let mut filter = String::new();
+	let mut binds = Vec::new();
+	if let Some(ids) = ids {
+		filter.push_str(&format!(" AND c.id IN ({ids})"));
+	}
+	if !under.is_empty() {
+		filter.push_str(&format!(
+			" AND ({RECORD_PATH} = ? OR substr({RECORD_PATH}, 1, length(?)) = ?)"
+		));
+	}
+	let kinds = |kind: &str| {
+		if search.kinds.is_empty() {
+			return String::new();
+		}
+		let quoted: Vec<String> = search
+			.kinds
+			.iter()
+			.map(|k| format!("'{}'", k.replace('\'', "''")))
+			.collect();
+		format!(" AND {kind} IN ({})", quoted.join(", "))
+	};
+	let columns = |kind: &str, text: &str, times: &str| {
+		if with_text {
+			format!("c.id, r.uuid, r.parent_uuid, p.path, r.title, {kind}, {text}, {times}")
+		} else {
+			"c.id, c.origin, c.doc_id".to_string()
+		}
+	};
+	let chunk = "FROM vec_chunk c JOIN vec_doc e ON e.origin = c.origin AND e.doc_id = c.doc_id";
+	let file = "JOIN src.record r ON r.uuid = d.record_uuid AND r.type = 'file' \
+		JOIN src.facet_file f ON f.record_uuid = r.uuid \
+		LEFT JOIN src.directory_path p ON p.record_uuid = r.parent_uuid";
+	let current = "f.size IS d.size AND f.mtime IS d.mtime AND lower(f.extension) = d.extension";
+	let transcript_kind = format!("'{TRANSCRIPT_KIND}'");
+	let sql = format!(
+		"SELECT {} {chunk} JOIN txt.text_doc d ON d.id = c.doc_id {file} \
+		 WHERE c.origin = 0 AND e.stamp = {TEXT_STAMP} AND {current} AND {scope}{filter}{} \
+		 UNION ALL \
+		 SELECT {} {chunk} JOIN txt.transcript_doc d ON d.id = c.doc_id {file} \
+		 WHERE c.origin = 1 AND e.stamp = {TRANSCRIPT_STAMP} AND {current} AND {scope}{filter}{} \
+		 UNION ALL \
+		 SELECT {} {chunk} JOIN txt.description_doc d ON d.id = c.doc_id \
+		 JOIN src.content k ON k.uuid = d.content_uuid OR k.candidate_uuid = d.content_uuid \
+		 JOIN src.record r ON r.content_id = k.id AND r.type = 'file' \
+		 JOIN src.facet_file f ON f.record_uuid = r.uuid AND f.link_target IS NULL \
+		 LEFT JOIN src.directory_path p ON p.record_uuid = r.parent_uuid \
+		 WHERE c.origin = 2 AND e.stamp = {DESCRIPTION_STAMP} AND {scope}{filter}{}",
+		columns(
+			"d.kind",
+			"(SELECT substr(body, c.a + 1, c.b) FROM txt.text_fts WHERE rowid = d.id)",
+			"NULL, NULL"
+		),
+		kinds("d.kind"),
+		columns(
+			&transcript_kind,
+			"(SELECT group_concat(t.body, ' ') FROM txt.transcript_span s \
+			 JOIN txt.transcript_fts t ON t.rowid = s.id WHERE s.doc_id = d.id AND s.id BETWEEN c.a AND c.b)",
+			"c.start_ms, c.end_ms"
+		),
+		kinds(&transcript_kind),
+		columns(
+			"d.kind",
+			"(SELECT t.body FROM txt.description_fts t WHERE t.rowid = c.a)",
+			"c.start_ms, c.end_ms"
+		),
+		kinds("d.kind"),
+	);
+	if !under.is_empty() {
+		for _ in 0..3 {
+			binds.extend([under.to_string(), format!("{under}/"), format!("{under}/")]);
+		}
+	}
+	(sql, binds)
 }
 
 /// One file a hybrid search found.
@@ -923,6 +970,7 @@ pub async fn hybrid_search(
 			expression,
 			under: search.under.clone(),
 			kinds: search.kinds.clone(),
+			subtrees: Some(search.subtrees.clone()),
 			limit: depth * 2,
 			offset: 0,
 			snippet_tokens: search.snippet_tokens,

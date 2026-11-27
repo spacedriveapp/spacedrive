@@ -1,3 +1,5 @@
+//! # Semantic search output
+//!
 //! Output of `search.semantic` and `search.semantic.status`.
 
 use serde::{Deserialize, Serialize};

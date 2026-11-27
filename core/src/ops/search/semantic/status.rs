@@ -1,3 +1,5 @@
+//! # Semantic search status
+//!
 //! `search.semantic.status`: whether semantic search runs for a source and
 //! how far its vectors are. The explorer asks before offering the mode.
 

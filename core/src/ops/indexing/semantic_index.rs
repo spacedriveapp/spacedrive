@@ -1,3 +1,5 @@
+//! # Semantic index pass
+//!
 //! Filling the semantic vector index.
 //!
 //! This pass runs behind the text pass, the transcription job and sidecar
@@ -10,8 +12,9 @@
 //! and a background pass that embedded nothing leaves no row. Sidecar writes
 //! arrive one file at a time, so they mark the source and one pass follows
 //! after a quiet window rather than one per sidecar. Only the deep scope is
-//! embedded, and the job runs at low priority with the model on the
-//! background runtime the hashing reads use.
+//! embedded. The job runs at low priority, the model on one thread (see
+//! [`embedder::threads`]) of the background runtime the hashing reads use,
+//! and the pass waits while the device runs on battery.
 //!
 //! A source with no embedder (no model downloaded, or a build without local
 //! inference) gets no pass at all.
@@ -33,8 +36,15 @@ use crate::{
 
 /// Documents claimed per round.
 const BATCH_DOCS: usize = 16;
-/// Chunks embedded per model call, so a pause is seen between calls.
-const BATCH_CHUNKS: usize = 16;
+/// Chunks embedded per model call. Small, so a pause is seen soon and an
+/// interactive query waits at most one call for the model.
+const BATCH_CHUNKS: usize = 4;
+/// How often a pass paused on battery looks at the power source again.
+const POWER_POLL: Duration = if cfg!(test) {
+	Duration::from_millis(20)
+} else {
+	Duration::from_secs(30)
+};
 /// How long sidecar writes to one source are gathered into one pass.
 const SIDECAR_WINDOW: Duration = Duration::from_secs(300);
 
@@ -130,6 +140,17 @@ impl JobHandler for SemanticIndexJob {
 			&subtrees,
 			embedder,
 			|| async { ctx.check_interrupt().await.is_err() },
+			|| {
+				let waiting = super::power::on_battery();
+				if waiting {
+					ctx.progress(Progress::generic(GenericProgress::new(
+						0.0,
+						"Indexing file meaning",
+						format!("{label} — waiting for mains power"),
+					)));
+				}
+				waiting
+			},
 			|done, outstanding| {
 				ctx.progress(Progress::generic(GenericProgress::new(
 					if outstanding > 0 {
@@ -158,7 +179,8 @@ impl JobHandler for SemanticIndexJob {
 /// Embed every pending document in `subtrees`, pruning stale vectors first.
 ///
 /// Stops early, with what it wrote kept, once `interrupted` says so, and
-/// then returns `true` beside the counts. A
+/// then returns `true` beside the counts. While `on_battery` says so it
+/// waits before each document, still answering an interrupt. A
 /// document the model fails on is counted and left pending. The claim walks
 /// forward by `(origin, doc_id)` and sweeps once more from the start, so a
 /// document written behind the cursor during the pass is still embedded.
@@ -167,6 +189,7 @@ pub async fn embed_pending<F: std::future::Future<Output = bool>>(
 	subtrees: &[String],
 	embedder: Arc<dyn Embedder>,
 	interrupted: impl Fn() -> F,
+	on_battery: impl Fn() -> bool,
 	progress: impl Fn(u64, u64),
 ) -> anyhow::Result<(SemanticIndexOutput, bool)> {
 	let probe = {
@@ -200,6 +223,12 @@ pub async fn embed_pending<F: std::future::Future<Output = bool>>(
 			}
 			if interrupted().await {
 				return Ok((output, true));
+			}
+			while on_battery() {
+				tokio::time::sleep(POWER_POLL).await;
+				if interrupted().await {
+					return Ok((output, true));
+				}
 			}
 			match embed_document(vectors, &doc, &embedder).await {
 				Ok(chunks) => {
@@ -299,6 +328,22 @@ pub async fn index_vectors_soon(
 		.await
 	{
 		tracing::warn!(root = %root.display(), %error, "could not start the semantic index pass");
+	}
+}
+
+/// Queue a semantic pass for every source of a library that has documents
+/// to embed. Called when a model download finishes, since text read before
+/// the model arrived is otherwise embedded only after its next change.
+pub async fn index_library_vectors_soon(library: &Arc<crate::library::Library>) {
+	if !embedder::installed(library.core_context()).await {
+		return;
+	}
+	for source in library
+		.core_context()
+		.volume_index()
+		.sources_of(library.id())
+	{
+		index_vectors_soon(library, &source.root, true).await;
 	}
 }
 
@@ -459,6 +504,7 @@ mod tests {
 			&scope,
 			Arc::new(Stub),
 			|| async { false },
+			|| false,
 			|done, of| seen.lock().unwrap().push((done, of)),
 		)
 		.await
@@ -480,6 +526,7 @@ mod tests {
 			&scope,
 			Arc::new(Stub),
 			|| async { false },
+			|| false,
 			|_, _| {},
 		)
 		.await
@@ -491,6 +538,7 @@ mod tests {
 			&[String::new()],
 			Arc::new(Stub),
 			|| async { true },
+			|| false,
 			|_, _| {},
 		)
 		.await
@@ -502,6 +550,28 @@ mod tests {
 		);
 	}
 
+	#[tokio::test(start_paused = true)]
+	async fn a_pass_waits_on_battery_and_resumes_on_mains() {
+		let files = vec![("Documents/a.md".to_string(), "plain words".to_string())];
+		let (_dir, source) = source_with(&files).await;
+		let vectors = VectorIndex::open(&source).await.unwrap();
+		let checks = std::sync::atomic::AtomicUsize::new(0);
+		let started = tokio::time::Instant::now();
+		let (output, interrupted) = embed_pending(
+			&vectors,
+			&[String::new()],
+			Arc::new(Stub),
+			|| async { false },
+			|| checks.fetch_add(1, std::sync::atomic::Ordering::SeqCst) < 3,
+			|_, _| {},
+		)
+		.await
+		.unwrap();
+		assert!(!interrupted);
+		assert_eq!(output.embedded, 1);
+		assert!(started.elapsed() >= POWER_POLL * 3, "it waited three polls");
+	}
+
 	/// Embedding cost and index size for 1,000 documents with the shipped
 	/// model. Needs the model files under SD_AI_MODELS_DIR and a folder of
 	/// text files in SD_BENCH_CORPUS. Run with
@@ -510,33 +580,30 @@ mod tests {
 	#[tokio::test(flavor = "multi_thread")]
 	#[ignore]
 	async fn semantic_benchmark() {
-		use crate::ops::ai::{catalog, local, registry::TextEmbedder, Provider};
-
-		struct Real(Arc<dyn TextEmbedder>);
-		impl Embedder for Real {
-			fn model(&self) -> &str {
-				"multilingual-e5-small"
-			}
-			fn embed_passages(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
-				self.0.embed_passages(texts).map_err(|e| e.to_string())
-			}
-			fn embed_query(&self, text: &str) -> Result<Vec<f32>, String> {
-				Ok(self.0.embed(&[text]).map_err(|e| e.to_string())?.remove(0))
-			}
-		}
-
 		let (Some(models), Some(corpus)) = (
 			std::env::var_os("SD_AI_MODELS_DIR"),
 			std::env::var_os("SD_BENCH_CORPUS"),
 		) else {
 			return;
 		};
-		let spec = catalog::find("multilingual-e5-small").unwrap();
-		let Provider::TextEmbedding(inner) =
-			local::load(spec, &Path::new(&models).join(spec.id)).unwrap()
-		else {
-			panic!("not a text embedder");
-		};
+		let threads = crate::ops::search::semantic::embedder::threads();
+		let embedder = crate::ops::search::semantic::embedder::load(
+			"multilingual-e5-small",
+			Path::new(&models).join("multilingual-e5-small"),
+			threads,
+		)
+		.await
+		.unwrap();
+		fn cpu_seconds() -> f64 {
+			// SAFETY: getrusage fills the struct it is given.
+			let usage = unsafe {
+				let mut usage: libc::rusage = std::mem::zeroed();
+				libc::getrusage(libc::RUSAGE_SELF, &mut usage);
+				usage
+			};
+			let time = |t: libc::timeval| t.tv_sec as f64 + t.tv_usec as f64 / 1e6;
+			time(usage.ru_utime) + time(usage.ru_stime)
+		}
 		let mut paths: Vec<PathBuf> = std::fs::read_dir(&corpus)
 			.unwrap()
 			.filter_map(|e| e.ok().map(|e| e.path()))
@@ -556,23 +623,27 @@ mod tests {
 		let vectors = VectorIndex::open(&source).await.unwrap();
 		let everything = [String::new()];
 
+		let cpu_before = cpu_seconds();
 		let started = std::time::Instant::now();
 		let (output, _) = embed_pending(
 			&vectors,
 			&everything,
-			Arc::new(Real(inner.clone())),
+			embedder.clone(),
 			|| async { false },
+			|| false,
 			|_, _| {},
 		)
 		.await
 		.unwrap();
 		let embed_time = started.elapsed();
+		let cores_busy = (cpu_seconds() - cpu_before) / embed_time.as_secs_f64();
 		let again_started = std::time::Instant::now();
 		let (again, _) = embed_pending(
 			&vectors,
 			&everything,
-			Arc::new(Real(inner.clone())),
+			embedder.clone(),
 			|| async { false },
+			|| false,
 			|_, _| {},
 		)
 		.await
@@ -584,10 +655,9 @@ mod tests {
 			.unwrap()
 			.len();
 		let search = sd_store::VectorSearch {
-			vector: inner
-				.embed(&["how are files kept in sync between devices"])
-				.unwrap()
-				.remove(0),
+			vector: embedder
+				.embed_query("how are files kept in sync between devices")
+				.unwrap(),
 			subtrees: everything.to_vec(),
 			limit: 20,
 			..Default::default()
@@ -601,7 +671,7 @@ mod tests {
 
 		eprintln!(
 			"documents {} text {:.1} MB chunks {} embedded in {:.1} s ({:.1} ms a chunk) \
-			 vectors.db {:.2} MB ({} B a chunk) no-op pass {} ms search cold {} ms warm {} ms cores {}",
+			 vectors.db {:.2} MB ({} B a chunk) no-op pass {} ms search cold {} ms warm {} ms threads {threads} cores busy {cores_busy:.2} of {}",
 			output.embedded,
 			bytes as f64 / 1e6,
 			output.chunks,

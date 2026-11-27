@@ -508,3 +508,126 @@ async fn another_model_drops_every_vector() {
 	assert_eq!(vectors.counts().await.unwrap().documents, 0);
 	assert_eq!(vectors.pending_count(&whole()).await.unwrap(), 1);
 }
+
+#[tokio::test]
+async fn files_outside_the_folder_never_crowd_out_the_ones_inside() {
+	let mut f = Fixture::new().await;
+	let mut files: Vec<(String, i64)> = (0..80)
+		.map(|i| (format!("Other/car{i}.md"), 100 + i))
+		.collect();
+	files.push(("Notes/ride.md".to_string(), 10));
+	let refs: Vec<(&str, i64)> = files.iter().map(|(p, s)| (p.as_str(), *s)).collect();
+	f.observe(&refs).await;
+	let (text, vectors) = f.indexes().await;
+	let mut texts: Vec<(String, String)> = (0..80)
+		.map(|i| (format!("Other/car{i}.md"), "car car automobile".to_string()))
+		.collect();
+	texts.push((
+		"Notes/ride.md".into(),
+		"a sedan ride to the coast by the sea".into(),
+	));
+	let refs: Vec<(&str, &str)> = texts
+		.iter()
+		.map(|(p, b)| (p.as_str(), b.as_str()))
+		.collect();
+	read_texts(&text, &refs).await;
+	embed_pass(&vectors, &whole()).await;
+
+	let hits = vectors
+		.search(&VectorSearch {
+			vector: embed("car"),
+			under: "Notes".into(),
+			subtrees: whole(),
+			limit: 1,
+			..Default::default()
+		})
+		.await
+		.unwrap();
+	assert_eq!(hits.len(), 1);
+	assert_eq!(hits[0].external_id, "Notes/ride.md");
+	let kinds = vectors
+		.search(&VectorSearch {
+			vector: embed("car"),
+			subtrees: whole(),
+			kinds: vec!["transcript".into()],
+			limit: 5,
+			..Default::default()
+		})
+		.await
+		.unwrap();
+	assert!(kinds.is_empty(), "a kind filter applies before ranking");
+}
+
+#[tokio::test]
+async fn hybrid_search_keeps_to_the_scope_for_words_too() {
+	let mut f = Fixture::new().await;
+	f.observe(&[("Documents/a.md", 10), ("Library/b.md", 11)])
+		.await;
+	let (text, vectors) = f.indexes().await;
+	read_texts(
+		&text,
+		&[
+			("Documents/a.md", "budget notes"),
+			("Library/b.md", "budget cache"),
+		],
+	)
+	.await;
+	let search = |subtrees: Vec<String>| HybridSearch {
+		query: "budget".into(),
+		vector: embed("budget"),
+		subtrees,
+		limit: 10,
+		snippet_tokens: 8,
+		..Default::default()
+	};
+	let hits = hybrid_search(&text, &vectors, &search(vec!["Documents".into()]))
+		.await
+		.unwrap();
+	let paths: Vec<&str> = hits.iter().map(|h| h.external_id.as_str()).collect();
+	assert_eq!(paths, ["Documents/a.md"]);
+	assert!(hybrid_search(&text, &vectors, &search(vec![]))
+		.await
+		.unwrap()
+		.is_empty());
+}
+
+#[tokio::test]
+async fn a_rewritten_description_is_embedded_again_though_its_row_ids_are_reused() {
+	let mut f = Fixture::new().await;
+	let uuids = f.observe(&[("photos/pier.jpg", 30)]).await;
+	f.db.set_content_identity(
+		uuids[0],
+		&sd_store::ContentIdentity {
+			sampled_hash: Some("pier".into()),
+			integrity_hash: None,
+			size: Some(30),
+			kind: None,
+			kind_name: None,
+		},
+	)
+	.await
+	.unwrap();
+	let (text, vectors) = f.indexes().await;
+	let caption = |body: &str| DescriptionDoc {
+		content_uuid: sd_store::uuid_for("pier"),
+		kind: sd_store::CAPTION_KIND.into(),
+		spans: vec![DescriptionSpan {
+			start_ms: None,
+			end_ms: None,
+			text: body.into(),
+		}],
+	};
+	text.write_descriptions(&caption("a dog on the pier"))
+		.await
+		.unwrap();
+	assert_eq!(embed_pass(&vectors, &whole()).await, 1);
+	text.write_descriptions(&caption("a car on the pier"))
+		.await
+		.unwrap();
+	assert_eq!(vectors.pending_count(&whole()).await.unwrap(), 1);
+	embed_pass(&vectors, &whole()).await;
+	assert_eq!(
+		semantic_paths(&vectors, "vehicle", &whole()).await,
+		["photos/pier.jpg"]
+	);
+}

@@ -27,6 +27,7 @@ pub mod metrics;
 pub mod name;
 pub mod nodes;
 pub mod phases;
+pub mod power;
 pub mod progress;
 pub mod reconcile;
 pub mod registry;
