@@ -1,16 +1,15 @@
 use axum::{
 	body::Body,
-	extract::{FromRequestParts, Request, State},
+	extract::{Request, State},
 	http::{header, HeaderMap, HeaderValue, StatusCode, Uri},
-	middleware::{self, Next},
+	middleware,
 	response::{
 		sse::{Event as SseEvent, KeepAlive, Sse},
-		IntoResponse, Response,
+		Response,
 	},
 	routing::{get, post},
 	Json, Router,
 };
-use axum_extra::{headers::authorization::Basic, headers::Authorization, TypedHeader};
 use clap::Parser;
 use futures::stream::{Stream, StreamExt};
 use rust_embed::Embed;
@@ -30,6 +29,9 @@ use tower::ServiceExt;
 use tower_http::services::ServeFile;
 use tracing::{info, warn};
 
+mod auth;
+mod login_limit;
+
 /// Embedded web UI assets, built from `apps/web` via `bun run build`.
 /// In debug builds, files are read from disk at request time, so editing
 /// `apps/web/dist/` after a rebuild of the frontend is picked up live.
@@ -43,46 +45,8 @@ struct WebAssets;
 
 #[derive(Clone)]
 struct AppState {
-	auth: HashMap<String, SecStr>,
 	socket_addr: String,
 	data_dir: PathBuf,
-}
-
-/// Basic auth middleware
-async fn basic_auth(State(state): State<AppState>, request: Request, next: Next) -> Response {
-	let request = if !state.auth.is_empty() {
-		let (mut parts, body) = request.into_parts();
-
-		let Ok(TypedHeader(Authorization(hdr))) =
-			TypedHeader::<Authorization<Basic>>::from_request_parts(&mut parts, &()).await
-		else {
-			return Response::builder()
-				.status(401)
-				.header("WWW-Authenticate", "Basic realm=\"Spacedrive\"")
-				.body("Unauthorized".into_response().into_body())
-				.expect("hardcoded response will be valid");
-		};
-		let request = Request::from_parts(parts, body);
-
-		if state
-			.auth
-			.get(hdr.username())
-			.map(|pass| *pass == SecStr::from(hdr.password()))
-			!= Some(true)
-		{
-			return Response::builder()
-				.status(401)
-				.header("WWW-Authenticate", "Basic realm=\"Spacedrive\"")
-				.body("Unauthorized".into_response().into_body())
-				.expect("hardcoded response will be valid");
-		}
-
-		request
-	} else {
-		request
-	};
-
-	next.run(request).await
 }
 
 /// Health check endpoint
@@ -602,10 +566,11 @@ struct Args {
 	#[arg(long, env = "DATA_DIR")]
 	data_dir: Option<PathBuf>,
 
-	/// Address to bind HTTP server. The wildcard default suits containers;
-	/// bind a specific address (e.g. 127.0.0.1) when a reverse proxy such as
-	/// `tailscale serve` owns the same port on other interfaces.
-	#[arg(long, env = "SD_HOST", default_value = "::")]
+	/// Address to bind HTTP server. Loopback by default, because Basic
+	/// credentials travel in plaintext; containers and hosts that serve other
+	/// machines set a reachable address such as 0.0.0.0 or :: explicitly,
+	/// ideally behind a TLS proxy or an encrypted network.
+	#[arg(long, env = "SD_HOST", default_value = "127.0.0.1")]
 	host: std::net::IpAddr,
 
 	/// Port to bind HTTP server (default: 8080)
@@ -721,8 +686,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	};
 
 	// Build HTTP router
+	let auth_state = auth::AuthState::new(auth);
 	let state = AppState {
-		auth,
 		socket_addr: socket_addr.clone(),
 		data_dir: data_dir.clone(),
 	};
@@ -749,7 +714,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		)
 		.route("/dav/*path", get(proxy_share))
 		.fallback(serve_web)
-		.layer(middleware::from_fn_with_state(state.clone(), basic_auth))
+		.layer(middleware::from_fn_with_state(auth_state, auth::basic_auth))
 		.with_state(state);
 
 	// Bind server
@@ -761,11 +726,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Start server
 	let listener = tokio::net::TcpListener::bind(addr).await?;
 	info!("Spacedrive Server listening on http://{}", addr);
+	if !addr.ip().is_loopback() {
+		warn!(
+			"Listening beyond loopback on {}: HTTP Basic credentials travel in plaintext unless a TLS proxy or an encrypted network fronts this server",
+			addr
+		);
+	}
 	info!("Web UI available at /");
 	info!("RPC endpoint available at /rpc");
-	axum::serve(listener, app)
-		.with_graceful_shutdown(shutdown_signal)
-		.await?;
+	axum::serve(
+		listener,
+		app.into_make_service_with_connect_info::<SocketAddr>(),
+	)
+	.with_graceful_shutdown(shutdown_signal)
+	.await?;
 
 	Ok(())
 }
@@ -942,4 +916,15 @@ async fn shutdown_signal(daemon_handle: Option<Arc<RwLock<tokio::task::JoinHandl
 		}
 		std::process::exit(0);
 	});
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn default_host_is_loopback() {
+		let args = Args::try_parse_from(["sd-server"]).unwrap();
+		assert_eq!(args.host, std::net::IpAddr::from([127, 0, 0, 1]));
+	}
 }

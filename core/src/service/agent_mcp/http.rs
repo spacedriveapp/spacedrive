@@ -40,8 +40,9 @@ use tracing::{debug, warn};
 use uuid::Uuid;
 
 use super::{
+	events::Feed,
 	limits::{Bucket, ByteWindow, Failures, Limits},
-	oauth, paths, tools, MCP_PATH,
+	oauth, paths, rest, tools, MCP_PATH,
 };
 use crate::{
 	context::CoreContext,
@@ -64,9 +65,10 @@ struct Session {
 	last_seen: Instant,
 }
 
-struct GrantUsage {
-	bucket: Bucket,
-	bytes: ByteWindow,
+pub(super) struct GrantUsage {
+	pub(super) bucket: Bucket,
+	pub(super) bytes: ByteWindow,
+	pub(super) block_bytes: ByteWindow,
 	calls: usize,
 	grep: bool,
 }
@@ -76,8 +78,9 @@ struct GrantUsage {
 pub struct Endpoint {
 	pub(super) context: Arc<CoreContext>,
 	pub(super) oauth: oauth::OAuth,
+	pub(super) feed: Arc<Feed>,
 	bound: SocketAddr,
-	limits: Limits,
+	pub(super) limits: Limits,
 	sessions: Mutex<HashMap<String, Session>>,
 	usage: Mutex<HashMap<Uuid, GrantUsage>>,
 	failures: Mutex<HashMap<IpAddr, Failures>>,
@@ -89,6 +92,7 @@ impl Endpoint {
 		Self {
 			oauth: oauth::OAuth::new(context.data_dir.clone()),
 			context,
+			feed: Arc::new(Feed::new()),
 			bound,
 			calls: Arc::new(Semaphore::new(limits.calls_total)),
 			limits,
@@ -98,11 +102,12 @@ impl Endpoint {
 		}
 	}
 
-	fn with_usage<T>(&self, grant: Uuid, f: impl FnOnce(&mut GrantUsage) -> T) -> T {
+	pub(super) fn with_usage<T>(&self, grant: Uuid, f: impl FnOnce(&mut GrantUsage) -> T) -> T {
 		let mut usage = self.usage.lock().expect("usage lock");
 		let entry = usage.entry(grant).or_insert_with(|| GrantUsage {
 			bucket: Bucket::full(self.limits.rate_burst),
 			bytes: ByteWindow::new(),
+			block_bytes: ByteWindow::new(),
 			calls: 0,
 			grep: false,
 		});
@@ -176,14 +181,27 @@ impl Endpoint {
 	}
 
 	/// Claim a call slot for `grant`, or say which budget is spent.
-	fn begin_call(self: &Arc<Self>, grant: Uuid, grep: bool) -> Result<CallSlot, String> {
+	///
+	/// `blocks` names a block read, which spends the block byte budget
+	/// instead of the one tools share.
+	pub(super) fn begin_call(
+		self: &Arc<Self>,
+		grant: Uuid,
+		grep: bool,
+		blocks: bool,
+	) -> Result<CallSlot, String> {
 		let total = self
 			.calls
 			.clone()
 			.try_acquire_owned()
 			.map_err(|_| "the endpoint is at its limit of tool calls in flight".to_string())?;
 		self.with_usage(grant, |usage| {
-			if let Some(wait) = usage.bytes.spent(self.limits.bytes_per_hour) {
+			let (window, budget) = if blocks {
+				(&mut usage.block_bytes, self.limits.block_bytes_per_hour)
+			} else {
+				(&mut usage.bytes, self.limits.bytes_per_hour)
+			};
+			if let Some(wait) = window.spent(budget) {
 				return Err(format!(
 					"the grant has returned its hourly byte budget; retry in {} s",
 					wait.as_secs().max(1)
@@ -210,7 +228,7 @@ impl Endpoint {
 
 /// A claimed tool call. Dropping it gives the slot back, whether the call
 /// finished, timed out or its client went away.
-struct CallSlot {
+pub(super) struct CallSlot {
 	endpoint: Arc<Endpoint>,
 	grant: Uuid,
 	grep: bool,
@@ -229,7 +247,7 @@ impl Drop for CallSlot {
 	}
 }
 
-struct CancelOnDrop(Arc<AtomicBool>);
+pub(super) struct CancelOnDrop(pub(super) Arc<AtomicBool>);
 
 impl Drop for CancelOnDrop {
 	fn drop(&mut self) {
@@ -258,6 +276,7 @@ pub fn router(endpoint: Arc<Endpoint>) -> Router {
 		)
 		.route(oauth::TOKEN_PATH, routing::post(oauth::token))
 		.route(oauth::REVOKE_PATH, routing::post(oauth::revoke))
+		.merge(rest::routes())
 		.layer(DefaultBodyLimit::max(body_limit))
 		.with_state(endpoint)
 }
@@ -346,7 +365,7 @@ fn loopback_host(authority: &str, port: u16) -> bool {
 	given.parse::<u16>() == Ok(port) && matches!(host, "127.0.0.1" | "localhost" | "[::1]")
 }
 
-fn bearer(headers: &HeaderMap) -> Option<&str> {
+pub(super) fn bearer(headers: &HeaderMap) -> Option<&str> {
 	let value = headers.get(header::AUTHORIZATION)?.to_str().ok()?;
 	let (scheme, token) = value.split_once(' ')?;
 	scheme.eq_ignore_ascii_case("bearer").then(|| token.trim())
@@ -395,18 +414,23 @@ impl Request {
 	}
 
 	/// The audit name, the grant-relative path and the capability this
-	/// message needs.
-	fn target(&self) -> (String, String, GrantCap) {
-		match self.method.as_deref() {
+	/// message needs, or why a tool call's arguments do not fit its schema.
+	fn target(&self) -> Result<(String, String, GrantCap), String> {
+		Ok(match self.method.as_deref() {
 			Some("tools/call") => {
 				let name = self.params["name"].as_str().unwrap_or("unknown");
-				let path = self.params["arguments"]["path"].as_str().unwrap_or("");
-				let cap = tools::Tool::parse(name).map_or(GrantCap::Read, tools::Tool::cap);
-				(format!("mcp.{name}"), path.to_string(), cap)
+				let (path, cap) = match tools::Tool::parse(name) {
+					Some(tool) => (
+						tools::target_path(tool, &self.params["arguments"])?,
+						tool.cap(),
+					),
+					None => (String::new(), GrantCap::Read),
+				};
+				(format!("mcp.{name}"), path, cap)
 			}
 			Some(method) => (format!("mcp.{method}"), String::new(), GrantCap::Read),
 			None => ("mcp.response".to_string(), String::new(), GrantCap::Read),
-		}
+		})
 	}
 }
 
@@ -471,7 +495,10 @@ async fn post(
 		}
 	}
 
-	let (op, path, cap) = request.target();
+	let (op, path, cap) = match request.target() {
+		Ok(target) => target,
+		Err(message) => return rpc_result(id, tools::error_result(&message)),
+	};
 	let meta = RequestMeta {
 		client: Some(ip),
 		session: session_id(headers).map(str::to_string),
@@ -577,7 +604,7 @@ async fn call(
 		.get("arguments")
 		.cloned()
 		.unwrap_or_else(|| json!({}));
-	let slot = match endpoint.begin_call(scope.grant_id, tool.exclusive()) {
+	let slot = match endpoint.begin_call(scope.grant_id, tool.exclusive(), false) {
 		Ok(slot) => slot,
 		Err(reason) => {
 			let response = too_many(id, Duration::from_secs(1), &reason);
@@ -589,6 +616,8 @@ async fn call(
 	let _cancel_on_drop = CancelOnDrop(cancel.clone());
 	let grant = scope.grant_id;
 	let library = scope.library_id;
+	let root = scope.root.clone();
+	let replaces = arguments.get("expect").is_some();
 	let work = tools::call(
 		endpoint.context.clone(),
 		token,
@@ -605,7 +634,12 @@ async fn call(
 		}
 	};
 	let (result, audited) = match outcome {
-		Ok(Ok(output)) => (output.into_result(), AuditResult::Ok),
+		Ok(Ok(output)) => {
+			endpoint
+				.feed
+				.record(tool, &root, replaces, output.structured());
+			(output.into_result(), AuditResult::Ok)
+		}
 		Ok(Err(message)) => (tools::error_result(&message), AuditResult::Error),
 		Err(_) => {
 			cancel.store(true, Ordering::Relaxed);
@@ -624,7 +658,7 @@ async fn call(
 
 /// Resolves once the grant is revoked, expires or disappears, polling the
 /// row so a call in flight stops within a poll interval of that.
-async fn ended(endpoint: &Endpoint, library_id: Uuid, grant: Uuid) {
+pub(super) async fn ended(endpoint: &Endpoint, library_id: Uuid, grant: Uuid) {
 	let mut tick = tokio::time::interval(endpoint.limits.revocation_poll);
 	tick.tick().await;
 	loop {
@@ -695,17 +729,66 @@ async fn delete(endpoint: &Arc<Endpoint>, ip: IpAddr, base: &str, headers: &Head
 }
 
 impl Endpoint {
-	async fn library_db(&self, library_id: Uuid) -> Option<sea_orm::DatabaseConnection> {
+	async fn library_db(&self, library_id: Uuid) -> Result<sea_orm::DatabaseConnection, String> {
 		let library = self
 			.context
 			.libraries()
 			.await
 			.get_library(library_id)
-			.await?;
-		Some(library.db().conn().clone())
+			.await
+			.ok_or_else(|| "the library is closed".to_string())?;
+		Ok(library.db().conn().clone())
 	}
 
-	/// Complete an authorized request's audit row, then hand back its
+	/// Complete the audit row of an authorized request. Shared by the MCP
+	/// and REST surfaces, which answer a failure with their own 503.
+	pub(super) async fn audit_finish(
+		&self,
+		library: Uuid,
+		row: AuditId,
+		bytes: Option<u64>,
+		result: AuditResult,
+		started: Instant,
+	) -> Result<(), String> {
+		let db = self.library_db(library).await?;
+		audit::finish(&db, row, bytes, result, started.elapsed())
+			.await
+			.map_err(|e| e.to_string())
+	}
+
+	/// Count a request over its grant's rate in the grant's tally instead of
+	/// keeping its own row.
+	pub(super) async fn audit_fold_rate_limited(
+		&self,
+		library: Uuid,
+		row: AuditId,
+		grant: Uuid,
+		ip: IpAddr,
+	) -> Result<(), String> {
+		let db = self.library_db(library).await?;
+		audit::fold_rate_limited(&db, row, grant, Some(ip))
+			.await
+			.map_err(|e| e.to_string())
+	}
+
+	/// Count a request from a locked-out address in every open library, since
+	/// its token is never looked up.
+	pub(super) async fn tally_locked_out(&self, ip: IpAddr) -> Result<(), String> {
+		for library in self.context.libraries().await.list().await {
+			audit::tally(
+				library.db().conn(),
+				TallyKind::LockedOut,
+				&ip.to_string(),
+				None,
+				Some(ip),
+			)
+			.await
+			.map_err(|e| e.to_string())?;
+		}
+		Ok(())
+	}
+
+	/// Complete an authorized MCP request's audit row, then hand back its
 	/// response, or 503 when the row cannot be completed.
 	async fn finish(
 		&self,
@@ -716,13 +799,10 @@ impl Endpoint {
 		id: &Value,
 	) -> Response {
 		let bytes = response.body().size_hint().exact();
-		let written = match self.library_db(scope.library_id).await {
-			Some(db) => audit::finish(&db, row, bytes, result, started.elapsed())
-				.await
-				.map_err(|e| e.to_string()),
-			None => Err("the library is closed".to_string()),
-		};
-		match written {
+		match self
+			.audit_finish(scope.library_id, row, bytes, result, started)
+			.await
+		{
 			Ok(()) => response,
 			Err(reason) => {
 				warn!(grant = %scope.grant_id, %reason, "refused a request whose audit could not be completed");
@@ -731,8 +811,8 @@ impl Endpoint {
 		}
 	}
 
-	/// Count a request over its grant's rate in the grant's tally instead of
-	/// keeping its own row, then hand back the 429.
+	/// Fold a rate-limited MCP request into its grant's tally, then hand back
+	/// the 429.
 	async fn fold_rate_limited(
 		&self,
 		scope: &GrantScope,
@@ -741,13 +821,10 @@ impl Endpoint {
 		response: Response,
 		id: &Value,
 	) -> Response {
-		let written = match self.library_db(scope.library_id).await {
-			Some(db) => audit::fold_rate_limited(&db, row, scope.grant_id, Some(ip))
-				.await
-				.map_err(|e| e.to_string()),
-			None => Err("the library is closed".to_string()),
-		};
-		match written {
+		match self
+			.audit_fold_rate_limited(scope.library_id, row, scope.grant_id, ip)
+			.await
+		{
 			Ok(()) => response,
 			Err(reason) => {
 				warn!(grant = %scope.grant_id, %reason, "could not tally a rate-limited request");
@@ -756,22 +833,11 @@ impl Endpoint {
 		}
 	}
 
-	/// Count a request from a locked-out address in every open library, since
-	/// its token is never looked up, then answer 429.
+	/// Tally a request from a locked-out address, then answer 429.
 	async fn refuse_locked_out(&self, ip: IpAddr, wait: Duration) -> Response {
-		for library in self.context.libraries().await.list().await {
-			let counted = audit::tally(
-				library.db().conn(),
-				TallyKind::LockedOut,
-				&ip.to_string(),
-				None,
-				Some(ip),
-			)
-			.await;
-			if let Err(e) = counted {
-				warn!(client = %ip, error = %e, "could not tally a locked-out request");
-				return unavailable(Value::Null);
-			}
+		if let Err(reason) = self.tally_locked_out(ip).await {
+			warn!(client = %ip, %reason, "could not tally a locked-out request");
+			return unavailable(Value::Null);
 		}
 		too_many(Value::Null, wait, "too many failed authentications")
 	}
@@ -800,7 +866,7 @@ fn initialize(params: &Value) -> Value {
 }
 
 /// A refusal's message without any host path in it.
-fn refusal_message(refusal: &GrantError) -> &'static str {
+pub(super) fn refusal_message(refusal: &GrantError) -> &'static str {
 	match refusal {
 		GrantError::Escape(_) => "the path is outside the granted folder",
 		GrantError::InvalidPath(_) => "invalid path",

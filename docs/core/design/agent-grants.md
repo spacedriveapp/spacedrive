@@ -107,7 +107,7 @@ Each decision against a known grant is recorded in the `grant_audit` table, whet
 
 A record never holds the token, file contents or match text.
 
-`authorize` writes the decision. A surface that knows more about the request calls `authorize_with` with a `RequestMeta` (client address, session, pattern). It gets back the scope and the id of the row, and calls `audit::finish` with the bytes, result and duration once it has the response body and before it sends it. If either write fails, the request is not served. The MCP endpoint answers 503.
+`authorize` writes the decision. A surface that knows more about the request calls `authorize_with` with a `RequestMeta` (client address, session, pattern). It gets back the scope and the id of the row, and calls `audit::finish` with the bytes, result and duration once it has the response body and before it sends it. If either write fails, the request is not served. The agent endpoint answers 503, on its MCP and REST routes alike.
 
 Some requests are counted instead of recorded one by one, so a flood cannot fill the table. They go to `grant_audit_tally`, one row per kind, subject and minute with a count:
 

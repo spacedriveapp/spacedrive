@@ -194,6 +194,45 @@ async fn agent_audit_records_requests_tallies_floods_and_fails_closed() -> anyho
 	assert!(!row.allowed);
 	assert!(row.duration_ms.is_some());
 
+	// The REST routes audit the same way, without an MCP session.
+	let http = reqwest::Client::new();
+	let space = format!("http://{bound}/v1/spaces/{grant_id}");
+	let response = http
+		.get(format!("{space}/stat/notes.md"))
+		.bearer_auth(&created.token)
+		.send()
+		.await?;
+	assert_eq!(response.status(), StatusCode::OK);
+	let returned = response.bytes().await?.len() as i64;
+	let row = newest(conn, "rest.stat").await;
+	assert_eq!(row.client.as_deref(), Some("127.0.0.1"));
+	assert_eq!(row.session, None);
+	assert_eq!(row.path, "notes.md");
+	assert_eq!(row.result.as_deref(), Some("ok"));
+	assert_eq!(row.bytes, Some(returned));
+	assert!(row.duration_ms.is_some());
+	let response = http
+		.post(format!("{space}/tools/grep"))
+		.bearer_auth(&created.token)
+		.header(header::CONTENT_TYPE, "application/json")
+		.body(json!({ "pattern": "needle" }).to_string())
+		.send()
+		.await?;
+	assert_eq!(response.status(), StatusCode::OK);
+	let row = newest(conn, "rest.tool.grep").await;
+	assert_eq!(row.pattern.as_deref(), Some("needle"));
+	assert_eq!(row.result.as_deref(), Some("ok"));
+	let response = http
+		.get(format!("{space}/stat/missing.md"))
+		.bearer_auth(&created.token)
+		.send()
+		.await?;
+	assert_eq!(response.status(), StatusCode::NOT_FOUND);
+	assert_eq!(
+		newest(conn, "rest.stat").await.result.as_deref(),
+		Some("error")
+	);
+
 	// 25 unknown tokens from one address in one minute are one row with a
 	// count, not 25 rows. Start clear of a minute boundary.
 	if Utc::now().second() >= 50 {
