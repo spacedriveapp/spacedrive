@@ -1,9 +1,10 @@
 //! Mint a grant over a directory inside a tracked source.
 //!
-//! The directory has to sit inside a filesystem source in this library: a
-//! grant is a view of a source, and removing the source ends every grant on
-//! it. The path is canonicalized here, so the stored subtree is the real
-//! directory and not whichever link or alias the caller typed.
+//! The directory has to sit inside a source in this library: a grant is a
+//! view of a source, and removing the source ends every grant on it. A
+//! filesystem path is canonicalized here, so the stored subtree is the real
+//! directory and not whichever link or alias the caller typed. A bucket
+//! prefix, `s3://bucket/prefix`, is stored in its canonical URL spelling.
 
 use std::{
 	path::{Path, PathBuf},
@@ -17,7 +18,10 @@ use specta::Type;
 use tracing::info;
 use uuid::Uuid;
 
-use super::{scope, store, token, ttl, GrantCap, GrantInfo};
+use super::{
+	bucket::{self, BucketUrl},
+	scope, store, token, ttl, GrantCap, GrantInfo,
+};
 use crate::{
 	context::CoreContext,
 	infra::{
@@ -29,7 +33,8 @@ use crate::{
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CreateGrantInput {
-	/// The directory to grant, on this device.
+	/// The directory to grant, on this device, or a bucket prefix such as
+	/// `s3://bucket/prefix` inside a tracked bucket source.
 	pub path: PathBuf,
 	/// Defaults to read-only.
 	#[serde(default)]
@@ -127,6 +132,9 @@ pub(crate) async fn target(
 	library: Uuid,
 	path: &Path,
 ) -> Result<Target, ActionError> {
+	if let Some(url) = BucketUrl::parse(path) {
+		return bucket_target(context, library, url);
+	}
 	let requested = path.to_path_buf();
 	let subtree = tokio::task::spawn_blocking(move || directory(&requested))
 		.await
@@ -144,6 +152,38 @@ pub(crate) async fn target(
 	Ok(Target { subtree, source_id })
 }
 
+/// A prefix of a bucket source of `library`, the innermost one holding it.
+///
+/// A prefix needs no object under it: an agent with a writable grant may
+/// start an empty one.
+fn bucket_target(
+	context: &CoreContext,
+	library: Uuid,
+	url: BucketUrl,
+) -> Result<Target, ActionError> {
+	let source_id = context
+		.volume_index()
+		.sources_of(library)
+		.into_iter()
+		.filter_map(|source| {
+			let root = BucketUrl::parse(&source.root)?;
+			root.contains(&url).then(|| (root.key.len(), source.id))
+		})
+		.max_by_key(|(depth, _)| *depth)
+		.map(|(_, id)| id)
+		.ok_or_else(|| {
+			ActionError::InvalidInput(format!(
+				"{} is not inside a bucket source of this library; track it first with `sd sources track {}`",
+				url.path().display(),
+				url.volume()
+			))
+		})?;
+	Ok(Target {
+		subtree: url.path(),
+		source_id,
+	})
+}
+
 /// Write a grant row. The owner's action and the OAuth consent page both
 /// mint through here, so a grant is the same thing whichever way it came.
 pub(crate) async fn insert(
@@ -151,6 +191,15 @@ pub(crate) async fn insert(
 	library: &Library,
 	mint: Mint,
 ) -> Result<Minted, ActionError> {
+	if let Some(url) = BucketUrl::parse(&mint.target.subtree) {
+		if mint.caps == GrantCap::ReadWrite {
+			let backend = bucket::backend(&context.volume_manager, &url)
+				.await
+				.map_err(|e| ActionError::InvalidInput(e.to_string()))?;
+			bucket::writable(&url, backend.as_ref())
+				.map_err(|e| ActionError::InvalidInput(e.to_string()))?;
+		}
+	}
 	let db = library.db().conn();
 	let created_by = context
 		.device_manager

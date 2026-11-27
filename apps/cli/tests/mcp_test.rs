@@ -54,13 +54,16 @@ fn tool<'a>(tools: &'a [Tool], name: &str) -> &'a Tool {
 async fn sd_mcp_exposes_the_registry_over_stdio(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	let temp = TempDir::new()?;
-	let core = Arc::new(Core::new(temp.path().join("core")).await?);
+	// The CLI reads the daemon's RPC secret from its own data directory, so
+	// the core lives where the CLI resolves this instance, as in a real install.
+	let (instance, socket_addr) = free_instance().await;
+	let core =
+		Arc::new(Core::new(temp.path().join("cli").join("instances").join(&instance)).await?);
 	let library = core
 		.libraries
 		.create_library("MCP Library".to_string(), None, core.context.clone())
 		.await?;
 
-	let (instance, socket_addr) = free_instance().await;
 	let server_core = core.clone();
 	let server_addr = socket_addr.clone();
 	tokio::spawn(async move {

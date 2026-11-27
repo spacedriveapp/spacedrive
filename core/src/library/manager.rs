@@ -623,6 +623,7 @@ impl LibraryManager {
 			Ok(adopted) => debug!("Adopted {adopted} sources for library {}", config.id),
 			Err(e) => error!("Failed to adopt sources for library {}: {e}", config.id),
 		}
+		crate::ops::spaces::store::adopt_library(&library, &context).await;
 		crate::service::sidecars::settle_in_background(&library);
 
 		// Register library

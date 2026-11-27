@@ -18,6 +18,29 @@
 //!
 //! A source with no embedder (no model downloaded, or a build without local
 //! inference) gets no pass at all.
+//!
+//! ## Example
+//! ```rust,no_run
+//! # async fn example(
+//! #     vectors: &sd_store::VectorIndex,
+//! #     embedder: std::sync::Arc<dyn sd_core::ops::search::semantic::embedder::Embedder>,
+//! # ) -> anyhow::Result<()> {
+//! use sd_core::ops::indexing::{power, semantic_index::embed_pending};
+//!
+//! let everything = [String::new()];
+//! let (output, _stopped) = embed_pending(
+//!     vectors,
+//!     &everything,
+//!     embedder,
+//!     || async { false },
+//!     power::on_battery,
+//!     |_done, _outstanding| {},
+//! )
+//! .await?;
+//! tracing::info!(embedded = output.embedded, "embedding pass finished");
+//! # Ok(())
+//! # }
+//! ```
 
 use std::{
 	collections::HashSet,
@@ -140,8 +163,8 @@ impl JobHandler for SemanticIndexJob {
 			&subtrees,
 			embedder,
 			|| async { ctx.check_interrupt().await.is_err() },
-			|| {
-				let waiting = super::power::on_battery();
+			|| async {
+				let waiting = super::power::on_battery().await;
 				if waiting {
 					ctx.progress(Progress::generic(GenericProgress::new(
 						0.0,
@@ -184,14 +207,18 @@ impl JobHandler for SemanticIndexJob {
 /// document the model fails on is counted and left pending. The claim walks
 /// forward by `(origin, doc_id)` and sweeps once more from the start, so a
 /// document written behind the cursor during the pass is still embedded.
-pub async fn embed_pending<F: std::future::Future<Output = bool>>(
+pub async fn embed_pending<F, B>(
 	vectors: &VectorIndex,
 	subtrees: &[String],
 	embedder: Arc<dyn Embedder>,
 	interrupted: impl Fn() -> F,
-	on_battery: impl Fn() -> bool,
+	on_battery: impl Fn() -> B,
 	progress: impl Fn(u64, u64),
-) -> anyhow::Result<(SemanticIndexOutput, bool)> {
+) -> anyhow::Result<(SemanticIndexOutput, bool)>
+where
+	F: std::future::Future<Output = bool>,
+	B: std::future::Future<Output = bool>,
+{
 	let probe = {
 		let embedder = embedder.clone();
 		background(move || embedder.embed_query("dimension")).await?
@@ -224,7 +251,7 @@ pub async fn embed_pending<F: std::future::Future<Output = bool>>(
 			if interrupted().await {
 				return Ok((output, true));
 			}
-			while on_battery() {
+			while on_battery().await {
 				tokio::time::sleep(POWER_POLL).await;
 				if interrupted().await {
 					return Ok((output, true));
@@ -504,7 +531,7 @@ mod tests {
 			&scope,
 			Arc::new(Stub),
 			|| async { false },
-			|| false,
+			|| async { false },
 			|done, of| seen.lock().unwrap().push((done, of)),
 		)
 		.await
@@ -526,7 +553,7 @@ mod tests {
 			&scope,
 			Arc::new(Stub),
 			|| async { false },
-			|| false,
+			|| async { false },
 			|_, _| {},
 		)
 		.await
@@ -538,7 +565,7 @@ mod tests {
 			&[String::new()],
 			Arc::new(Stub),
 			|| async { true },
-			|| false,
+			|| async { false },
 			|_, _| {},
 		)
 		.await
@@ -562,7 +589,10 @@ mod tests {
 			&[String::new()],
 			Arc::new(Stub),
 			|| async { false },
-			|| checks.fetch_add(1, std::sync::atomic::Ordering::SeqCst) < 3,
+			|| {
+				let waiting = checks.fetch_add(1, std::sync::atomic::Ordering::SeqCst) < 3;
+				async move { waiting }
+			},
 			|_, _| {},
 		)
 		.await
@@ -576,7 +606,7 @@ mod tests {
 	/// model. Needs the model files under SD_AI_MODELS_DIR and a folder of
 	/// text files in SD_BENCH_CORPUS. Run with
 	/// cargo test -p sd-core --features ai-local --release --lib semantic_benchmark -- --ignored --nocapture
-	#[cfg(feature = "ai-local")]
+	#[cfg(all(feature = "ai-local", unix))]
 	#[tokio::test(flavor = "multi_thread")]
 	#[ignore]
 	async fn semantic_benchmark() {
@@ -630,7 +660,7 @@ mod tests {
 			&everything,
 			embedder.clone(),
 			|| async { false },
-			|| false,
+			|| async { false },
 			|_, _| {},
 		)
 		.await
@@ -643,7 +673,7 @@ mod tests {
 			&everything,
 			embedder.clone(),
 			|| async { false },
-			|| false,
+			|| async { false },
 			|_, _| {},
 		)
 		.await

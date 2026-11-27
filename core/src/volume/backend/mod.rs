@@ -4,6 +4,7 @@
 
 use async_trait::async_trait;
 use bytes::Bytes;
+use futures::stream::BoxStream;
 use std::fmt::Debug;
 use std::ops::Range;
 use std::path::Path;
@@ -88,6 +89,53 @@ pub trait VolumeBackend: Send + Sync + Debug {
 	/// Read the whole object only while its entity tag is still `etag`, so
 	/// the bytes returned are the version the tag names.
 	async fn read_if_match(&self, path: &Path, _etag: &str) -> Result<Bytes, VolumeError> {
+		Err(VolumeError::Unsupported(format!(
+			"conditional reads of {}",
+			path.display()
+		)))
+	}
+
+	/// Delete the object at `path` only while its entity tag is still `etag`.
+	///
+	/// Returns [`VolumeError::PreconditionFailed`] when the object changed or
+	/// is gone. A service that cannot make the delete itself conditional
+	/// checks the tag just before an unconditional delete, so a write landing
+	/// between the two is deleted with it; callers keep a copy of what they
+	/// delete for that reason.
+	async fn delete_if_match(&self, path: &Path, _etag: &str) -> Result<(), VolumeError> {
+		Err(VolumeError::Unsupported(format!(
+			"conditional deletes of {}",
+			path.display()
+		)))
+	}
+
+	/// Whether a delete here loses nothing even when a write lands between
+	/// the check of an object's tag and the delete: the bucket keeps object
+	/// versions, so the write survives as an earlier version. Moves and
+	/// deletes of bucket objects run only where this holds.
+	async fn deletes_are_recoverable(&self) -> Result<bool, VolumeError> {
+		Ok(false)
+	}
+
+	/// Copy the object at `from` to `to` inside the service, without the
+	/// bytes passing through this device. Nothing guards `to`, so callers
+	/// copy only to a key no one else writes.
+	async fn copy_within(&self, from: &Path, _to: &Path) -> Result<(), VolumeError> {
+		Err(VolumeError::Unsupported(format!(
+			"server-side copies of {}",
+			from.display()
+		)))
+	}
+
+	/// Stream the object only while its entity tag is still `etag`. A change
+	/// that lands during the stream fails it with
+	/// [`VolumeError::PreconditionFailed`], so the chunks are all from the
+	/// version the tag names.
+	async fn stream_if_match(
+		&self,
+		path: &Path,
+		_etag: &str,
+	) -> Result<BoxStream<'static, Result<Bytes, VolumeError>>, VolumeError> {
 		Err(VolumeError::Unsupported(format!(
 			"conditional reads of {}",
 			path.display()

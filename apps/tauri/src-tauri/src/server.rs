@@ -22,7 +22,7 @@ use std::{net::Ipv4Addr, path::PathBuf, sync::Arc};
 use tokio::{
 	fs::File,
 	io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader},
-	net::{TcpListener, TcpStream},
+	net::TcpListener,
 	sync::OnceCell,
 };
 use tower::ServiceExt;
@@ -49,7 +49,7 @@ impl ServerState {
 		if let Some(dir) = self.daemon_dir.get() {
 			return dir.clone();
 		}
-		match daemon_data_dir(&self.socket_addr).await {
+		match daemon_data_dir(&self.socket_addr, &self.fallback_dir).await {
 			Some(reported) => {
 				// Daemons before core.status reported it answer "default".
 				let dir = if reported.is_absolute() {
@@ -65,8 +65,8 @@ impl ServerState {
 }
 
 /// The data directory of the daemon listening at `socket_addr`, from `core.status`.
-async fn daemon_data_dir(socket_addr: &str) -> Option<PathBuf> {
-	let mut stream = TcpStream::connect(socket_addr).await.ok()?;
+async fn daemon_data_dir(socket_addr: &str, data_dir: &std::path::Path) -> Option<PathBuf> {
+	let mut stream = crate::rpc_auth::connect(socket_addr, data_dir).await.ok()?;
 	let request = serde_json::json!({
 		"Query": { "method": "query:core.status", "library_id": null, "payload": null }
 	});

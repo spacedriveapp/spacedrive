@@ -338,6 +338,11 @@ impl DataHandle {
 /// to follow.
 pub fn spawn(instance: Option<String>, group: String) -> DataHandle {
 	let socket_addr = daemon_socket_addr(instance.as_deref()).to_string();
+	// The daemon's RPC secret lives in its data directory, resolved the same way the daemon and CLI do.
+	let data_dir = sd_core::infra::daemon::addr::instance_data_dir(
+		sd_core::config::default_data_dir().unwrap_or_default(),
+		instance.as_deref(),
+	);
 	let (commands_tx, commands_rx) = mpsc::unbounded_channel();
 	let (focus_tx, focus_rx) = watch::channel(Arc::new(FocusSnapshot::new(group.clone())));
 	let (tags_tx, tags_rx) = watch::channel(Arc::new(TagSnapshot::default()));
@@ -353,7 +358,15 @@ pub fn spawn(instance: Option<String>, group: String) -> DataHandle {
 				.enable_all()
 				.build()
 				.expect("failed to build data-plane runtime");
-			runtime.block_on(run(addr, group, commands_rx, focus_tx, tags_tx, folders_tx));
+			runtime.block_on(run(
+				addr,
+				data_dir,
+				group,
+				commands_rx,
+				focus_tx,
+				tags_tx,
+				folders_tx,
+			));
 		})
 		.expect("failed to spawn data-plane thread");
 
@@ -419,14 +432,15 @@ enum TaskResult {
 
 async fn run(
 	socket_addr: String,
+	data_dir: std::path::PathBuf,
 	group: String,
 	mut commands: mpsc::UnboundedReceiver<Command>,
 	focus_tx: watch::Sender<Arc<FocusSnapshot>>,
 	tags_tx: watch::Sender<Arc<TagSnapshot>>,
 	folders_tx: mpsc::UnboundedSender<FolderOpen>,
 ) {
-	let client = CoreClient::new(socket_addr.clone());
-	let broker = SubscriptionBroker::new(socket_addr);
+	let client = CoreClient::new(socket_addr.clone(), &data_dir);
+	let broker = SubscriptionBroker::new(socket_addr, data_dir);
 	let (results_tx, mut results) = mpsc::unbounded_channel();
 
 	// Focus is a global resource, not a path-scoped one: the whole point is
@@ -1548,7 +1562,7 @@ mod tests {
 		let (tags_tx, _tags_rx) = watch::channel(Arc::new(TagSnapshot::default()));
 		let (folders_tx, _folders_rx) = mpsc::unbounded_channel();
 		Plane {
-			client: CoreClient::new("127.0.0.1:0".to_string()),
+			client: CoreClient::new("127.0.0.1:0".to_string(), std::env::temp_dir()),
 			results_tx,
 			focus_tx,
 			tags_tx,

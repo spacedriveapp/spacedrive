@@ -23,10 +23,20 @@ pub struct Limits {
 	pub max_header_bytes: usize,
 	pub call_timeout: Duration,
 	pub bytes_per_hour: u64,
+	/// Bytes the space endpoint's block reads may return per grant per hour,
+	/// kept apart from `bytes_per_hour` so a mount can page files in without
+	/// spending the tools' budget.
+	pub block_bytes_per_hour: u64,
 	pub auth_failures_per_minute: u32,
 	pub auth_lockout: Duration,
+	/// How long an idle MCP session lives. Event streams have no idle limit.
 	pub session_idle: Duration,
 	pub revocation_poll: Duration,
+	/// How often an event stream sends a heartbeat comment.
+	pub stream_heartbeat: Duration,
+	/// How long one event stream write may wait on the client before the
+	/// stream is closed as stalled.
+	pub stream_write_timeout: Duration,
 }
 
 impl Default for Limits {
@@ -41,10 +51,13 @@ impl Default for Limits {
 			max_header_bytes: 16 * 1024,
 			call_timeout: Duration::from_secs(30),
 			bytes_per_hour: 256 * 1024 * 1024,
+			block_bytes_per_hour: 8 * 1024 * 1024 * 1024,
 			auth_failures_per_minute: 20,
 			auth_lockout: Duration::from_secs(5 * 60),
 			session_idle: Duration::from_secs(30 * 60),
 			revocation_poll: Duration::from_millis(500),
+			stream_heartbeat: Duration::from_secs(15),
+			stream_write_timeout: Duration::from_secs(30),
 		}
 	}
 }

@@ -1,7 +1,9 @@
+use std::path::PathBuf;
+
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
-use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 
+use crate::infra::daemon::auth;
 use crate::infra::daemon::types::{DaemonRequest, DaemonResponse};
 use crate::infra::event::log_emitter::LogMessage;
 use crate::infra::event::Event;
@@ -9,18 +11,23 @@ use crate::infra::event::Event;
 #[derive(Clone)]
 pub struct DaemonClient {
 	socket_addr: String,
+	/// The daemon's data directory, where its RPC secret lives.
+	data_dir: PathBuf,
 }
 
 impl DaemonClient {
-	pub fn new(socket_addr: String) -> Self {
-		Self { socket_addr }
+	pub fn new(socket_addr: String, data_dir: PathBuf) -> Self {
+		Self {
+			socket_addr,
+			data_dir,
+		}
 	}
 
 	pub async fn send(
 		&self,
 		req: &DaemonRequest,
 	) -> Result<DaemonResponse, Box<dyn std::error::Error + Send + Sync>> {
-		let mut stream = TcpStream::connect(&self.socket_addr)
+		let mut stream = auth::connect(&self.socket_addr, &self.data_dir)
 			.await
 			.map_err(|e| format!("Failed to connect to daemon at {}: {}", self.socket_addr, e))?;
 
@@ -55,7 +62,7 @@ impl DaemonClient {
 		request: &DaemonRequest,
 		event_tx: mpsc::UnboundedSender<Event>,
 	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-		let mut stream = TcpStream::connect(&self.socket_addr)
+		let mut stream = auth::connect(&self.socket_addr, &self.data_dir)
 			.await
 			.map_err(|e| format!("Failed to connect to daemon at {}: {}", self.socket_addr, e))?;
 
@@ -113,7 +120,7 @@ impl DaemonClient {
 		request: &DaemonRequest,
 		log_tx: mpsc::UnboundedSender<LogMessage>,
 	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-		let mut stream = TcpStream::connect(&self.socket_addr)
+		let mut stream = auth::connect(&self.socket_addr, &self.data_dir)
 			.await
 			.map_err(|e| format!("Failed to connect to daemon at {}: {}", self.socket_addr, e))?;
 

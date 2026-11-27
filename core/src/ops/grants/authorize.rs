@@ -7,8 +7,9 @@ use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use tracing::{debug, warn};
 use uuid::Uuid;
 
-use super::{audit, scope, store, token, GrantCap, GrantError, GrantScope, GrantStatus};
+use super::{audit, bucket, scope, store, token, GrantCap, GrantError, GrantScope, GrantStatus};
 use crate::{
+	common::contain,
 	context::CoreContext,
 	infra::db::entities::{agent_grant, source},
 };
@@ -34,7 +35,17 @@ pub async fn authorize(
 	cap: GrantCap,
 ) -> Result<GrantScope, GrantError> {
 	for library in context.libraries().await.list().await {
-		match authorize_in(library.db().conn(), library.id(), token, op, path, cap).await {
+		match authorize_in(
+			context,
+			library.db().conn(),
+			library.id(),
+			token,
+			op,
+			path,
+			cap,
+		)
+		.await
+		{
 			Err(GrantError::UnknownToken) => continue,
 			decided => return decided,
 		}
@@ -48,6 +59,7 @@ pub async fn authorize(
 /// Answers [`GrantError::UnknownToken`] without recording anything when the
 /// token is not one of this library's.
 pub async fn authorize_in(
+	context: &CoreContext,
 	db: &DatabaseConnection,
 	library_id: Uuid,
 	token: &str,
@@ -63,7 +75,7 @@ pub async fn authorize_in(
 		.map_err(|e| GrantError::Internal(format!("read grant: {e}")))?
 		.ok_or(GrantError::UnknownToken)?;
 
-	let decision = decide(db, library_id, &grant, path, cap, Utc::now()).await;
+	let decision = decide(context, db, library_id, &grant, path, cap, Utc::now()).await;
 	let shown = path.display().to_string();
 	let recorded = audit::record(db, grant.uuid, op, &shown, decision.as_ref().map(drop)).await;
 	match (&decision, recorded) {
@@ -83,7 +95,44 @@ pub async fn authorize_in(
 	decision
 }
 
+/// Confirms by handle what [`scope::resolve`] decided by path.
+///
+/// `resolve` follows links with `canonicalize`, which a link swapped in
+/// afterwards defeats, so the deepest existing part of the resolved path is
+/// opened again beneath the root, without reading it. An existing target is
+/// that part; a create's is the parent it will be made in. Anything that
+/// resolves outside the root, or that cannot be confirmed, is refused.
+fn reachable(resolved: &scope::Resolved, requested: &Path) -> Result<(), GrantError> {
+	for candidate in resolved.relative.ancestors() {
+		if candidate.as_os_str().is_empty() {
+			return Ok(());
+		}
+		match contain::reach_beneath(&resolved.root, candidate) {
+			Ok(()) => return Ok(()),
+			// A create names a parent that is missing or a file; the write
+			// itself refuses the second.
+			Err(error)
+				if matches!(
+					error.kind(),
+					std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+				) =>
+			{
+				continue
+			}
+			Err(error) if error.kind() == std::io::ErrorKind::InvalidInput => {
+				return Err(GrantError::InvalidPath(requested.display().to_string()));
+			}
+			Err(error) => {
+				debug!(%error, "a resolved path did not open beneath its root");
+				return Err(GrantError::Escape(requested.display().to_string()));
+			}
+		}
+	}
+	Ok(())
+}
+
 async fn decide(
+	context: &CoreContext,
 	db: &DatabaseConnection,
 	library_id: Uuid,
 	grant: &agent_grant::Model,
@@ -113,10 +162,26 @@ async fn decide(
 	}
 
 	let root = std::path::PathBuf::from(&grant.subtree);
-	let requested = path.to_path_buf();
-	let resolved = tokio::task::spawn_blocking(move || scope::resolve(&root, &requested))
-		.await
-		.map_err(|e| GrantError::Internal(format!("resolve: {e}")))??;
+	let resolved = match bucket::BucketUrl::parse(&root) {
+		Some(url) => {
+			let resolved = bucket::resolve(&url, path)?;
+			if cap == GrantCap::ReadWrite {
+				let backend = bucket::backend(&context.volume_manager, &url).await?;
+				bucket::writable(&url, backend.as_ref())?;
+			}
+			resolved
+		}
+		None => {
+			let requested = path.to_path_buf();
+			tokio::task::spawn_blocking(move || {
+				let resolved = scope::resolve(&root, &requested)?;
+				reachable(&resolved, &requested)?;
+				Ok::<_, GrantError>(resolved)
+			})
+			.await
+			.map_err(|e| GrantError::Internal(format!("resolve: {e}")))??
+		}
+	};
 
 	if cap == GrantCap::ReadWrite {
 		// The spelling sent and the spelling it resolved to are both checked,

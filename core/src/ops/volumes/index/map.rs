@@ -180,6 +180,10 @@ async fn heal_uncovered_sources(library: &Arc<Library>, context: &Arc<CoreContex
 		if !source.attached || cache.is_indexing(&source.root) {
 			continue;
 		}
+		// A bucket source is read live through its backend and never walked.
+		if crate::ops::grants::bucket::BucketUrl::parse(&source.root).is_some() {
+			continue;
+		}
 		let unfinished = match cache.store_for(&source.root).await {
 			Some(store) => store.walk_unfinished().await,
 			None => false,

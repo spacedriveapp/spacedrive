@@ -14,6 +14,20 @@
 //! ONNX Runtime computes on the calling thread, so the background pass's
 //! low-priority thread sets the model's priority and an interactive query's
 //! normal thread sets the query's.
+//!
+//! ## Example
+//! ```rust,no_run
+//! # async fn example(context: &sd_core::context::CoreContext) -> Result<(), String> {
+//! use sd_core::ops::search::semantic::embedder;
+//!
+//! let model = embedder::resolve(context).await?;
+//! let vector = tokio::task::spawn_blocking(move || model.embed_query("kitchen budget"))
+//!     .await
+//!     .map_err(|e| e.to_string())??;
+//! tracing::debug!(dimensions = vector.len(), "embedded a query");
+//! # Ok(())
+//! # }
+//! ```
 
 use std::sync::Arc;
 

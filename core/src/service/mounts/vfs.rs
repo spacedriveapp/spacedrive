@@ -174,10 +174,17 @@ pub trait MountFs: Send + Sync + 'static {
 
 	/// Paths whose cached attributes, listings or bytes are stale, pushed by
 	/// backends that learn of changes. Backends without a change feed rely on
-	/// each answer's `valid_for`.
+	/// each answer's `valid_for`. A path stands for everything beneath it, and
+	/// the root path for every path.
 	fn changes(&self) -> Option<broadcast::Receiver<PathBuf>> {
 		None
 	}
+
+	/// Called by a frontend once the kernel has dropped what it cached for a
+	/// path from the change feed, so a backend can wait for that to finish.
+	/// A frontend that subscribes to [`MountFs::changes`] must call it for
+	/// every path it receives, the root included.
+	fn invalidated(&self, _path: &Path) {}
 }
 
 /// A name a frontend may pass on: exactly one plain component.

@@ -101,7 +101,9 @@ pub async fn mount(fs: Arc<dyn MountFs>, mountpoint: &Path) -> std::io::Result<M
 }
 
 /// Tell the kernel to drop what it cached for each changed path: the file's
-/// attributes and pages, and the name in its parent so a lookup asks again.
+/// attributes and pages, everything the kernel holds beneath it, and the name
+/// in its parent so a lookup asks again. The root path stands for every path
+/// the kernel holds.
 async fn invalidate(
 	inner: Arc<Inner>,
 	notifier: fuser::Notifier,
@@ -115,7 +117,22 @@ async fn invalidate(
 			Err(RecvError::Lagged(_)) => continue,
 			Err(RecvError::Closed) => break,
 		};
-		let (ino, parent) = {
+		if path.as_os_str().is_empty() {
+			let all: Vec<u64> = match inner.inodes.lock() {
+				Ok(inodes) => inodes.nodes.keys().copied().collect(),
+				Err(_) => continue,
+			};
+			let notifier = notifier.clone();
+			let _ = tokio::task::spawn_blocking(move || {
+				for ino in all {
+					let _ = notifier.inval_inode(INodeNo(ino), 0, 0);
+				}
+			})
+			.await;
+			inner.fs.invalidated(&path);
+			continue;
+		}
+		let (beneath, parent) = {
 			let Ok(inodes) = inner.inodes.lock() else {
 				continue;
 			};
@@ -123,11 +140,17 @@ async fn invalidate(
 				.parent()
 				.and_then(|parent| inodes.known(parent))
 				.zip(path.file_name().map(OsStr::to_os_string));
-			(inodes.known(&path), parent)
+			let beneath: Vec<u64> = inodes
+				.nodes
+				.iter()
+				.filter(|(_, node)| node.path.starts_with(&path))
+				.map(|(ino, _)| *ino)
+				.collect();
+			(beneath, parent)
 		};
 		let notifier = notifier.clone();
 		let _ = tokio::task::spawn_blocking(move || {
-			if let Some(ino) = ino {
+			for ino in beneath {
 				let _ = notifier.inval_inode(INodeNo(ino), 0, 0);
 			}
 			if let Some((parent, name)) = parent {
@@ -136,6 +159,7 @@ async fn invalidate(
 			}
 		})
 		.await;
+		inner.fs.invalidated(&path);
 	}
 }
 

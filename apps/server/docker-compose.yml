@@ -22,6 +22,10 @@ services:
       # Data directory (inside container)
       - DATA_DIR=/data
 
+      # HTTP bind address. sd-server binds loopback by default, which the
+      # published port cannot reach from outside the container.
+      - SD_HOST=0.0.0.0
+
       # HTTP server port
       - PORT=8080
 

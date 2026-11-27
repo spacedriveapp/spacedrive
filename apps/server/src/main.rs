@@ -1,22 +1,26 @@
 use axum::{
 	body::Body,
-	extract::{FromRequestParts, Request, State},
+	extract::{Request, State},
 	http::{header, HeaderMap, HeaderValue, StatusCode, Uri},
-	middleware::{self, Next},
+	middleware,
 	response::{
 		sse::{Event as SseEvent, KeepAlive, Sse},
-		IntoResponse, Response,
+		Response,
 	},
 	routing::{get, post},
 	Json, Router,
 };
-use axum_extra::{headers::authorization::Basic, headers::Authorization, TypedHeader};
 use clap::Parser;
 use futures::stream::{Stream, StreamExt};
 use rust_embed::Embed;
+use sd_core::infra::daemon::auth as rpc_auth;
 use secstr::SecStr;
 use std::{
-	collections::HashMap, convert::Infallible, net::SocketAddr, path::PathBuf, sync::Arc,
+	collections::HashMap,
+	convert::Infallible,
+	net::SocketAddr,
+	path::{Path, PathBuf},
+	sync::Arc,
 	time::Duration,
 };
 use tokio::{
@@ -29,6 +33,9 @@ use tokio_stream::wrappers::ReceiverStream;
 use tower::ServiceExt;
 use tower_http::services::ServeFile;
 use tracing::{info, warn};
+
+mod auth;
+mod login_limit;
 
 /// Embedded web UI assets, built from `apps/web` via `bun run build`.
 /// In debug builds, files are read from disk at request time, so editing
@@ -43,46 +50,8 @@ struct WebAssets;
 
 #[derive(Clone)]
 struct AppState {
-	auth: HashMap<String, SecStr>,
 	socket_addr: String,
 	data_dir: PathBuf,
-}
-
-/// Basic auth middleware
-async fn basic_auth(State(state): State<AppState>, request: Request, next: Next) -> Response {
-	let request = if !state.auth.is_empty() {
-		let (mut parts, body) = request.into_parts();
-
-		let Ok(TypedHeader(Authorization(hdr))) =
-			TypedHeader::<Authorization<Basic>>::from_request_parts(&mut parts, &()).await
-		else {
-			return Response::builder()
-				.status(401)
-				.header("WWW-Authenticate", "Basic realm=\"Spacedrive\"")
-				.body("Unauthorized".into_response().into_body())
-				.expect("hardcoded response will be valid");
-		};
-		let request = Request::from_parts(parts, body);
-
-		if state
-			.auth
-			.get(hdr.username())
-			.map(|pass| *pass == SecStr::from(hdr.password()))
-			!= Some(true)
-		{
-			return Response::builder()
-				.status(401)
-				.header("WWW-Authenticate", "Basic realm=\"Spacedrive\"")
-				.body("Unauthorized".into_response().into_body())
-				.expect("hardcoded response will be valid");
-		}
-
-		request
-	} else {
-		request
-	};
-
-	next.run(request).await
 }
 
 /// Health check endpoint
@@ -239,7 +208,7 @@ async fn proxy_share(State(state): State<AppState>, uri: Uri, headers: HeaderMap
 	static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
 	let origin = match sd_core::service::mounts::bound_addr() {
 		Some(addr) => format!("http://{addr}"),
-		None => match share_origin(&state.socket_addr).await {
+		None => match share_origin(&state.socket_addr, &state.data_dir).await {
 			Some(origin) => origin,
 			None => {
 				return plain_status(
@@ -292,8 +261,8 @@ async fn proxy_share(State(state): State<AppState>, uri: Uri, headers: HeaderMap
 }
 
 /// The scheme and authority of a daemon's mounts share, from `mounts.status`.
-async fn share_origin(socket_addr: &str) -> Option<String> {
-	let mut stream = TcpStream::connect(socket_addr).await.ok()?;
+async fn share_origin(socket_addr: &str, data_dir: &Path) -> Option<String> {
+	let mut stream = rpc_auth::connect(socket_addr, data_dir).await.ok()?;
 	let request = serde_json::json!({
 		"Query": { "method": "query:mounts.status", "library_id": null, "payload": {} }
 	});
@@ -309,9 +278,11 @@ async fn share_origin(socket_addr: &str) -> Option<String> {
 	Some(base.strip_suffix("/dav")?.to_string())
 }
 
-/// The data directory of the daemon listening at `socket_addr`, from `core.status`.
-async fn daemon_data_dir(socket_addr: &str) -> Option<PathBuf> {
-	let mut stream = TcpStream::connect(socket_addr).await.ok()?;
+/// The data directory of the daemon listening at `socket_addr`, from
+/// `core.status`. Asking needs the daemon's RPC secret, so `data_dir` must
+/// already name the same directory; the answer gives its canonical spelling.
+async fn daemon_data_dir(socket_addr: &str, data_dir: &Path) -> Option<PathBuf> {
+	let mut stream = rpc_auth::connect(socket_addr, data_dir).await.ok()?;
 	let request = serde_json::json!({
 		"Query": { "method": "query:core.status", "library_id": null, "payload": null }
 	});
@@ -472,9 +443,10 @@ async fn events_sse(
 ) -> Sse<impl Stream<Item = Result<SseEvent, Infallible>>> {
 	let (tx, rx) = mpsc::channel::<String>(64);
 	let socket_addr = state.socket_addr.clone();
+	let data_dir = state.data_dir.clone();
 
 	tokio::spawn(async move {
-		if let Err(e) = bridge_daemon_events(socket_addr, tx).await {
+		if let Err(e) = bridge_daemon_events(socket_addr, data_dir, tx).await {
 			tracing::warn!("event bridge ended: {}", e);
 		}
 	});
@@ -494,9 +466,10 @@ async fn events_sse(
 /// failure or when the receiver is dropped.
 async fn bridge_daemon_events(
 	socket_addr: String,
+	data_dir: PathBuf,
 	tx: mpsc::Sender<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-	let stream = TcpStream::connect(&socket_addr).await?;
+	let stream = rpc_auth::connect(&socket_addr, &data_dir).await?;
 	let (reader, mut writer) = stream.into_split();
 
 	// Subscribe with empty event_types meaning "all", and no filter.
@@ -552,12 +525,14 @@ async fn daemon_rpc(
 	Json(payload): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
 	// Connect to daemon
-	let mut stream = TcpStream::connect(&state.socket_addr).await.map_err(|e| {
-		(
-			StatusCode::SERVICE_UNAVAILABLE,
-			format!("Daemon not available: {}", e),
-		)
-	})?;
+	let mut stream = rpc_auth::connect(&state.socket_addr, &state.data_dir)
+		.await
+		.map_err(|e| {
+			(
+				StatusCode::SERVICE_UNAVAILABLE,
+				format!("Daemon not available: {}", e),
+			)
+		})?;
 
 	// Send request
 	let request_line = serde_json::to_string(&payload)
@@ -602,10 +577,11 @@ struct Args {
 	#[arg(long, env = "DATA_DIR")]
 	data_dir: Option<PathBuf>,
 
-	/// Address to bind HTTP server. The wildcard default suits containers;
-	/// bind a specific address (e.g. 127.0.0.1) when a reverse proxy such as
-	/// `tailscale serve` owns the same port on other interfaces.
-	#[arg(long, env = "SD_HOST", default_value = "::")]
+	/// Address to bind HTTP server. Loopback by default, because Basic
+	/// credentials travel in plaintext; containers and hosts that serve other
+	/// machines set a reachable address such as 0.0.0.0 or :: explicitly,
+	/// ideally behind a TLS proxy or an encrypted network.
+	#[arg(long, env = "SD_HOST", default_value = "127.0.0.1")]
 	host: std::net::IpAddr,
 
 	/// Port to bind HTTP server (default: 8080)
@@ -700,7 +676,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// started, such as the desktop app's.
 	let data_dir = match daemon_handle {
 		Some(_) => data_dir,
-		None => match daemon_data_dir(&socket_addr).await {
+		None => match daemon_data_dir(&socket_addr, &data_dir).await {
 			Some(daemon_dir) => {
 				if daemon_dir != data_dir {
 					info!(
@@ -721,8 +697,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	};
 
 	// Build HTTP router
+	let auth_state = auth::AuthState::new(auth);
 	let state = AppState {
-		auth,
 		socket_addr: socket_addr.clone(),
 		data_dir: data_dir.clone(),
 	};
@@ -749,7 +725,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		)
 		.route("/dav/*path", get(proxy_share))
 		.fallback(serve_web)
-		.layer(middleware::from_fn_with_state(state.clone(), basic_auth))
+		.layer(middleware::from_fn_with_state(auth_state, auth::basic_auth))
 		.with_state(state);
 
 	// Bind server
@@ -761,11 +737,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Start server
 	let listener = tokio::net::TcpListener::bind(addr).await?;
 	info!("Spacedrive Server listening on http://{}", addr);
+	if !addr.ip().is_loopback() {
+		warn!(
+			"Listening beyond loopback on {}: HTTP Basic credentials travel in plaintext unless a TLS proxy or an encrypted network fronts this server",
+			addr
+		);
+	}
 	info!("Web UI available at /");
 	info!("RPC endpoint available at /rpc");
-	axum::serve(listener, app)
-		.with_graceful_shutdown(shutdown_signal)
-		.await?;
+	axum::serve(
+		listener,
+		app.into_make_service_with_connect_info::<SocketAddr>(),
+	)
+	.with_graceful_shutdown(shutdown_signal)
+	.await?;
 
 	Ok(())
 }
@@ -811,9 +796,18 @@ async fn start_daemon_if_needed(
 	data_dir: PathBuf,
 	enable_p2p: bool,
 ) -> Result<Option<Arc<RwLock<tokio::task::JoinHandle<()>>>>, Box<dyn std::error::Error>> {
-	// Check if daemon is already running by sending a ping
-	if is_daemon_running(&socket_addr).await {
-		info!("✓ Daemon already running");
+	// Something already listening is a daemon this process cannot replace,
+	// whether or not it answers us.
+	if TcpStream::connect(&socket_addr).await.is_ok() {
+		if is_daemon_running(&socket_addr, &data_dir).await {
+			info!("✓ Daemon already running");
+		} else {
+			warn!(
+				"A daemon is listening at {} but did not accept the RPC secret in {:?}; set DATA_DIR to that daemon's data directory",
+				socket_addr,
+				data_dir
+			);
+		}
 		return Ok(None);
 	}
 
@@ -854,10 +848,10 @@ async fn start_daemon_if_needed(
 }
 
 /// Check if daemon is running by sending a ping
-async fn is_daemon_running(socket_addr: &str) -> bool {
+async fn is_daemon_running(socket_addr: &str, data_dir: &Path) -> bool {
 	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
-	let mut stream = match TcpStream::connect(socket_addr).await {
+	let mut stream = match rpc_auth::connect(socket_addr, data_dir).await {
 		Ok(s) => s,
 		Err(_) => return false,
 	};
@@ -886,7 +880,8 @@ async fn is_daemon_running(socket_addr: &str) -> bool {
 			buf_reader.read_line(&mut response_line),
 		)
 		.await,
-		Ok(Ok(_)) if !response_line.is_empty()
+		Ok(Ok(_)) if serde_json::from_str::<serde_json::Value>(response_line.trim()).ok()
+			== Some(serde_json::Value::String("Pong".into()))
 	)
 }
 
@@ -942,4 +937,15 @@ async fn shutdown_signal(daemon_handle: Option<Arc<RwLock<tokio::task::JoinHandl
 		}
 		std::process::exit(0);
 	});
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn default_host_is_loopback() {
+		let args = Args::try_parse_from(["sd-server"]).unwrap();
+		assert_eq!(args.host, std::net::IpAddr::from([127, 0, 0, 1]));
+	}
 }

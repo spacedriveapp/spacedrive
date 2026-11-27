@@ -5,11 +5,12 @@
 
 use async_trait::async_trait;
 use bytes::Bytes;
-use futures::TryStreamExt;
+use futures::{stream::BoxStream, StreamExt, TryStreamExt};
 use opendal::Lister;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant, SystemTime};
 use tracing::debug;
 
 use super::{
@@ -17,6 +18,13 @@ use super::{
 };
 use crate::ops::indexing::state::EntryKind;
 use crate::volume::error::VolumeError;
+
+/// How long a bucket's versioning state is trusted before it is checked
+/// again.
+const VERSIONING_TTL: Duration = Duration::from_secs(60);
+
+/// The object written to learn whether a bucket keeps versions.
+const VERSIONING_PROBE: &str = ".spacedrive/versioning-probe";
 
 /// Cloud storage backend powered by OpenDAL
 ///
@@ -32,6 +40,9 @@ pub struct CloudBackend {
 
 	/// Root path within the cloud storage (e.g., bucket prefix)
 	root: PathBuf,
+
+	/// When the bucket's versioning was last seen, and whether it was on.
+	versioning: Arc<Mutex<Option<(Instant, bool)>>>,
 }
 
 impl CloudBackend {
@@ -72,6 +83,7 @@ impl CloudBackend {
 			operator,
 			service_type: CloudServiceType::S3,
 			root: PathBuf::from("/"),
+			versioning: Arc::default(),
 		})
 	}
 
@@ -103,6 +115,7 @@ impl CloudBackend {
 			operator,
 			service_type: CloudServiceType::GoogleDrive,
 			root: PathBuf::from(root.unwrap_or_else(|| "/".to_string())),
+			versioning: Arc::default(),
 		})
 	}
 
@@ -134,6 +147,7 @@ impl CloudBackend {
 			operator,
 			service_type: CloudServiceType::OneDrive,
 			root: PathBuf::from(root.unwrap_or_else(|| "/".to_string())),
+			versioning: Arc::default(),
 		})
 	}
 
@@ -167,6 +181,7 @@ impl CloudBackend {
 			operator,
 			service_type: CloudServiceType::Dropbox,
 			root: PathBuf::from(root.unwrap_or_else(|| "/".to_string())),
+			versioning: Arc::default(),
 		})
 	}
 
@@ -196,6 +211,7 @@ impl CloudBackend {
 			operator,
 			service_type: CloudServiceType::AzureBlob,
 			root: PathBuf::from("/"),
+			versioning: Arc::default(),
 		})
 	}
 
@@ -226,6 +242,7 @@ impl CloudBackend {
 			operator,
 			service_type: CloudServiceType::GoogleCloudStorage,
 			root: PathBuf::from(root.unwrap_or_else(|| "/".to_string())),
+			versioning: Arc::default(),
 		})
 	}
 
@@ -235,6 +252,7 @@ impl CloudBackend {
 			operator,
 			service_type,
 			root: PathBuf::from("/"),
+			versioning: Arc::default(),
 		}
 	}
 }
@@ -528,6 +546,86 @@ impl VolumeBackend for CloudBackend {
 			.await
 			.map_err(changed)?;
 		Ok(data.to_bytes())
+	}
+
+	async fn delete_if_match(&self, path: &Path, etag: &str) -> Result<(), VolumeError> {
+		// OpenDAL sends no If-Match on an S3 DeleteObject, so the tag is
+		// checked just before the delete instead.
+		if self.entity_tag(path).await?.as_deref() != Some(etag) {
+			return Err(VolumeError::PreconditionFailed(format!(
+				"{} changed before it could be deleted",
+				path.display()
+			)));
+		}
+		self.operator
+			.delete(&self.to_cloud_path(path))
+			.await
+			.map_err(volume_error)
+	}
+
+	async fn deletes_are_recoverable(&self) -> Result<bool, VolumeError> {
+		if self.service_type != CloudServiceType::S3 {
+			return Ok(false);
+		}
+		if let Some((seen, on)) = *self.versioning.lock().expect("versioning cache") {
+			if seen.elapsed() < VERSIONING_TTL {
+				return Ok(on);
+			}
+		}
+		// OpenDAL has no GetBucketVersioning, but a write answers with the
+		// version it made: an id while versioning is on, none or "null"
+		// while it is off or suspended. The probe is empty and sits beside
+		// the bucket's Spacedrive trash.
+		let written = self
+			.operator
+			.write(VERSIONING_PROBE, Vec::<u8>::new())
+			.await
+			.map_err(volume_error)?;
+		let on = written.version().is_some_and(|version| version != "null");
+		*self.versioning.lock().expect("versioning cache") = Some((Instant::now(), on));
+		Ok(on)
+	}
+
+	async fn copy_within(&self, from: &Path, to: &Path) -> Result<(), VolumeError> {
+		self.operator
+			.copy(&self.to_cloud_path(from), &self.to_cloud_path(to))
+			.await
+			.map_err(changed)
+	}
+
+	async fn stream_if_match(
+		&self,
+		path: &Path,
+		etag: &str,
+	) -> Result<BoxStream<'static, Result<Bytes, VolumeError>>, VolumeError> {
+		let cloud_path = self.to_cloud_path(path);
+		let reader = self
+			.operator
+			.reader_with(&cloud_path)
+			.if_match(etag)
+			.await
+			.map_err(changed)?;
+		let stream = reader.into_bytes_stream(..).await.map_err(changed)?;
+		// Each ranged request carries If-Match, so a change mid-stream comes
+		// back as an opendal error inside the io error.
+		Ok(stream
+			.map_err(|error| {
+				let refused = error
+					.get_ref()
+					.and_then(|inner| inner.downcast_ref::<opendal::Error>())
+					.is_some_and(|inner| {
+						matches!(
+							inner.kind(),
+							opendal::ErrorKind::ConditionNotMatch | opendal::ErrorKind::NotFound
+						)
+					});
+				if refused {
+					VolumeError::PreconditionFailed(error.to_string())
+				} else {
+					VolumeError::Io(error)
+				}
+			})
+			.boxed())
 	}
 
 	fn is_local(&self) -> bool {

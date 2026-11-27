@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Subcommand;
 use comfy_table::{presets::UTF8_BORDERS_ONLY, Table};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::config::CliConfig;
 use sd_client::CoreClient;
@@ -19,7 +19,8 @@ pub enum ConfigCmd {
 		/// Configuration key: current_library_id, update.repo,
 		/// update.channel, replication.max_bytes_per_sec, replication.paused,
 		/// backup.restore_trash_keep, mounts.fuse_enabled, agent_mcp.enabled,
-		/// agent_mcp.listen
+		/// agent_mcp.listen, agent_mcp.tls_cert, agent_mcp.tls_key,
+		/// agent_mcp.plaintext, agent_mcp.host_names
 		key: String,
 	},
 	/// Set a configuration value
@@ -28,7 +29,10 @@ pub enum ConfigCmd {
 		/// replication.max_bytes_per_sec (bytes, or K/M/G suffix),
 		/// replication.paused (true/false), backup.restore_trash_keep (count),
 		/// mounts.fuse_enabled (true/false), agent_mcp.enabled (true/false),
-		/// agent_mcp.listen (loopback address)
+		/// agent_mcp.listen (IP address and port), agent_mcp.tls_cert and
+		/// agent_mcp.tls_key (PEM file paths, empty to clear),
+		/// agent_mcp.plaintext (true/false), agent_mcp.host_names
+		/// (comma-separated, empty to clear)
 		key: String,
 		/// Configuration value
 		value: String,
@@ -44,9 +48,29 @@ const BACKUP_RESTORE_TRASH_KEEP: &str = "backup.restore_trash_keep";
 const MOUNTS_FUSE_ENABLED: &str = "mounts.fuse_enabled";
 const AGENT_MCP_ENABLED: &str = "agent_mcp.enabled";
 const AGENT_MCP_LISTEN: &str = "agent_mcp.listen";
+const AGENT_MCP_TLS_CERT: &str = "agent_mcp.tls_cert";
+const AGENT_MCP_TLS_KEY: &str = "agent_mcp.tls_key";
+const AGENT_MCP_PLAINTEXT: &str = "agent_mcp.plaintext";
+const AGENT_MCP_HOST_NAMES: &str = "agent_mcp.host_names";
 
-async fn daemon_config(socket_addr: &str) -> Result<AppConfigOutput> {
-	let core = CoreClient::new(socket_addr.to_string());
+fn show_path(path: &Option<PathBuf>) -> String {
+	path.as_ref()
+		.map(|p| p.display().to_string())
+		.unwrap_or_else(|| "(not set)".to_string())
+}
+
+/// Host names from a comma-separated list; an empty value clears them.
+fn parse_host_names(value: &str) -> Vec<String> {
+	value
+		.split(',')
+		.map(str::trim)
+		.filter(|name| !name.is_empty())
+		.map(str::to_string)
+		.collect()
+}
+
+async fn daemon_config(socket_addr: &str, data_dir: &Path) -> Result<AppConfigOutput> {
+	let core = CoreClient::new(socket_addr.to_string(), data_dir);
 	core.query(&GetAppConfigQueryInput, None)
 		.await
 		.map_err(|e| anyhow::anyhow!("daemon config unavailable: {e}"))
@@ -93,7 +117,7 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 			table.add_row(vec!["update.channel", &config.update.channel]);
 
 			// Daemon settings, when the daemon answers.
-			if let Ok(daemon) = daemon_config(&socket_addr).await {
+			if let Ok(daemon) = daemon_config(&socket_addr, &data_dir).await {
 				table.add_row(vec![
 					REPLICATION_MAX_BYTES_PER_SEC,
 					&format_rate(daemon.replication.max_bytes_per_sec),
@@ -115,6 +139,22 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 					&daemon.agent_mcp.enabled.to_string(),
 				]);
 				table.add_row(vec![AGENT_MCP_LISTEN, &daemon.agent_mcp.listen]);
+				table.add_row(vec![
+					AGENT_MCP_TLS_CERT,
+					&show_path(&daemon.agent_mcp.tls_cert),
+				]);
+				table.add_row(vec![
+					AGENT_MCP_TLS_KEY,
+					&show_path(&daemon.agent_mcp.tls_key),
+				]);
+				table.add_row(vec![
+					AGENT_MCP_PLAINTEXT,
+					&daemon.agent_mcp.plaintext.to_string(),
+				]);
+				table.add_row(vec![
+					AGENT_MCP_HOST_NAMES,
+					&daemon.agent_mcp.host_names.join(","),
+				]);
 			}
 
 			println!("{}", table);
@@ -132,32 +172,59 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 					.unwrap_or_else(|| "(not set)".to_string()),
 				"update.repo" => config.update.repo.clone(),
 				"update.channel" => config.update.channel.clone(),
-				REPLICATION_MAX_BYTES_PER_SEC => daemon_config(&socket_addr)
+				REPLICATION_MAX_BYTES_PER_SEC => daemon_config(&socket_addr, &data_dir)
 					.await?
 					.replication
 					.max_bytes_per_sec
 					.to_string(),
-				REPLICATION_PAUSED => daemon_config(&socket_addr)
+				REPLICATION_PAUSED => daemon_config(&socket_addr, &data_dir)
 					.await?
 					.replication
 					.paused
 					.to_string(),
-				BACKUP_RESTORE_TRASH_KEEP => daemon_config(&socket_addr)
+				BACKUP_RESTORE_TRASH_KEEP => daemon_config(&socket_addr, &data_dir)
 					.await?
 					.backup
 					.restore_trash_keep
 					.to_string(),
-				MOUNTS_FUSE_ENABLED => daemon_config(&socket_addr)
+				MOUNTS_FUSE_ENABLED => daemon_config(&socket_addr, &data_dir)
 					.await?
 					.mounts
 					.fuse_enabled
 					.to_string(),
-				AGENT_MCP_ENABLED => daemon_config(&socket_addr)
+				AGENT_MCP_ENABLED => daemon_config(&socket_addr, &data_dir)
 					.await?
 					.agent_mcp
 					.enabled
 					.to_string(),
-				AGENT_MCP_LISTEN => daemon_config(&socket_addr).await?.agent_mcp.listen,
+				AGENT_MCP_LISTEN => {
+					daemon_config(&socket_addr, &data_dir)
+						.await?
+						.agent_mcp
+						.listen
+				}
+				AGENT_MCP_TLS_CERT => show_path(
+					&daemon_config(&socket_addr, &data_dir)
+						.await?
+						.agent_mcp
+						.tls_cert,
+				),
+				AGENT_MCP_TLS_KEY => show_path(
+					&daemon_config(&socket_addr, &data_dir)
+						.await?
+						.agent_mcp
+						.tls_key,
+				),
+				AGENT_MCP_PLAINTEXT => daemon_config(&socket_addr, &data_dir)
+					.await?
+					.agent_mcp
+					.plaintext
+					.to_string(),
+				AGENT_MCP_HOST_NAMES => daemon_config(&socket_addr, &data_dir)
+					.await?
+					.agent_mcp
+					.host_names
+					.join(","),
 				_ => return Err(anyhow::anyhow!("Unknown config key: {}", key)),
 			};
 			println!("{}", value);
@@ -165,7 +232,7 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 		ConfigCmd::Set { key, value } => match key.as_str() {
 			REPLICATION_MAX_BYTES_PER_SEC => {
 				let rate = parse_byte_rate(&value)?;
-				let core = CoreClient::new(socket_addr.clone());
+				let core = CoreClient::new(socket_addr.clone(), &data_dir);
 				let input = UpdateAppConfigInput {
 					replication_max_bytes_per_sec: Some(rate),
 					..UpdateAppConfigInput::default()
@@ -186,7 +253,7 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 			}
 			REPLICATION_PAUSED => {
 				let paused = parse_bool(&value)?;
-				let core = CoreClient::new(socket_addr.clone());
+				let core = CoreClient::new(socket_addr.clone(), &data_dir);
 				let input = MountsReplicationSetPausedInput { paused };
 				let out: MountsReplicationSetPausedOutput = serde_json::from_value(
 					core.action(&input, None)
@@ -199,7 +266,7 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 				let keep: u32 = value.trim().parse().map_err(|_| {
 					anyhow::anyhow!("'{value}' is not a count of entries to keep (e.g. 0, 2, 5)")
 				})?;
-				let core = CoreClient::new(socket_addr.clone());
+				let core = CoreClient::new(socket_addr.clone(), &data_dir);
 				let input = UpdateAppConfigInput {
 					backup_restore_trash_keep: Some(keep),
 					..UpdateAppConfigInput::default()
@@ -216,7 +283,7 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 			}
 			MOUNTS_FUSE_ENABLED => {
 				let enabled = parse_bool(&value)?;
-				let core = CoreClient::new(socket_addr.clone());
+				let core = CoreClient::new(socket_addr.clone(), &data_dir);
 				let input = UpdateAppConfigInput {
 					mounts_fuse_enabled: Some(enabled),
 					..UpdateAppConfigInput::default()
@@ -231,14 +298,18 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 				}
 				println!("Set {} = {}", MOUNTS_FUSE_ENABLED, enabled);
 			}
-			AGENT_MCP_ENABLED | AGENT_MCP_LISTEN => {
+			AGENT_MCP_ENABLED | AGENT_MCP_LISTEN | AGENT_MCP_TLS_CERT | AGENT_MCP_TLS_KEY
+			| AGENT_MCP_PLAINTEXT | AGENT_MCP_HOST_NAMES => {
 				let mut input = UpdateAppConfigInput::default();
-				if key == AGENT_MCP_ENABLED {
-					input.agent_mcp_enabled = Some(parse_bool(&value)?);
-				} else {
-					input.agent_mcp_listen = Some(value.trim().to_string());
+				match key.as_str() {
+					AGENT_MCP_ENABLED => input.agent_mcp_enabled = Some(parse_bool(&value)?),
+					AGENT_MCP_LISTEN => input.agent_mcp_listen = Some(value.trim().to_string()),
+					AGENT_MCP_TLS_CERT => input.agent_mcp_tls_cert = Some(value.trim().to_string()),
+					AGENT_MCP_TLS_KEY => input.agent_mcp_tls_key = Some(value.trim().to_string()),
+					AGENT_MCP_PLAINTEXT => input.agent_mcp_plaintext = Some(parse_bool(&value)?),
+					_ => input.agent_mcp_host_names = Some(parse_host_names(&value)),
 				}
-				let core = CoreClient::new(socket_addr.clone());
+				let core = CoreClient::new(socket_addr.clone(), &data_dir);
 				let out: UpdateAppConfigOutput = serde_json::from_value(
 					core.action(&input, None)
 						.await

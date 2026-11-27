@@ -7,11 +7,16 @@ use tokio::net::TcpListener;
 use tokio::sync::{broadcast, mpsc, RwLock};
 use uuid::Uuid;
 
+use crate::infra::daemon::auth;
 use crate::infra::daemon::event_buffer::EventBuffer;
 use crate::infra::daemon::types::{DaemonError, DaemonRequest, DaemonResponse, EventFilter};
 use crate::infra::event::log_emitter::{set_global_log_bus, LogMessage};
 use crate::infra::event::{Event, EventSubscriber};
 use crate::Core;
+
+/// How long a new connection has to present the RPC secret. Every client
+/// sends it before anything else, so only a stalled or hostile peer waits.
+const AUTH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 /// Connection information for event and log streaming
 #[derive(Debug)]
@@ -59,6 +64,15 @@ impl RpcServer {
 		let listener = TcpListener::bind(&self.socket_addr).await?;
 		tracing::info!("RPC server bound to: {}", self.socket_addr);
 
+		// Issued only once the port is ours, so a second daemon started on the
+		// same data directory cannot replace the secret of the one serving it.
+		let data_dir = self.core.context.data_dir.clone();
+		let secret = Arc::new(tokio::task::spawn_blocking(move || auth::issue(&data_dir)).await??);
+		tracing::info!(
+			path = %auth::secret_path(&self.core.context.data_dir).display(),
+			"RPC secret issued"
+		);
+
 		// Start event broadcaster
 		tracing::info!("Starting event broadcaster...");
 		self.start_event_broadcaster().await?;
@@ -87,6 +101,7 @@ impl RpcServer {
 							let connections = self.connections.clone();
 							let connection_count = self.connection_count.clone();
 							let event_buffer = self.event_buffer.clone();
+							let secret = secret.clone();
 
 							// Increment connection counter
 							connection_count.fetch_add(1, Ordering::Relaxed);
@@ -94,7 +109,7 @@ impl RpcServer {
 							// Spawn task for concurrent request handling
 							tokio::spawn(async move {
 								// Convert errors to strings to ensure Send
-								if let Err(e) = Self::handle_connection(stream, core, shutdown_tx, connections, connection_count, event_buffer).await {
+								if let Err(e) = Self::handle_connection(stream, core, shutdown_tx, connections, connection_count, event_buffer, secret).await {
 									eprintln!("Connection error: {}", e);
 								}
 							});
@@ -309,11 +324,33 @@ impl RpcServer {
 		connections: Arc<RwLock<HashMap<Uuid, Connection>>>,
 		connection_count: Arc<AtomicUsize>,
 		event_buffer: Arc<EventBuffer>,
+		secret: Arc<auth::RpcSecret>,
 	) -> Result<(), String> {
 		let connection_id = Uuid::new_v4();
-		let (mut reader, mut writer) = stream.into_split();
+		let (reader, mut writer) = stream.into_split();
 		let mut buf_reader = BufReader::new(reader);
 		let mut line = String::new();
+
+		let authenticated = tokio::time::timeout(AUTH_TIMEOUT, async {
+			(&mut buf_reader)
+				.take(auth::MAX_AUTH_LINE)
+				.read_line(&mut line)
+				.await
+		})
+		.await;
+		if !matches!(authenticated, Ok(Ok(_))) || !secret.verify(&line) {
+			connection_count.fetch_sub(1, Ordering::Relaxed);
+			tracing::warn!("Refused an RPC connection that did not present the daemon's secret");
+			let refusal = DaemonResponse::Error(DaemonError::SecurityError(
+				"missing or wrong RPC secret: send the contents of rpc.secret from the daemon's data directory as the first line".into(),
+			));
+			if let Ok(json) = serde_json::to_string(&refusal) {
+				let _ = writer.write_all((json + "\n").as_bytes()).await;
+				let _ = writer.flush().await;
+			}
+			return Ok(());
+		}
+		line.clear();
 
 		// Channel for sending events/logs to this connection
 		let (response_tx, mut response_rx) = mpsc::unbounded_channel::<DaemonResponse>();
@@ -372,10 +409,15 @@ impl RpcServer {
 									}
 								}
 								Err(e) => {
-									tracing::error!("Failed to parse daemon request: {}", e);
+									// A malformed line can carry a token, a password or a file's
+									// contents, and serde's message quotes values it rejects, so
+									// only the shape of the failure reaches the log.
 									tracing::error!(
-										"Raw request: {}",
-										crate::common::redact::redact_url_credentials(line.trim())
+										kind = ?e.classify(),
+										line = e.line(),
+										column = e.column(),
+										bytes = line.len(),
+										"Failed to parse daemon request"
 									);
 									// Send error response
 									let error_response = DaemonResponse::Error(DaemonError::SerializationError(e.to_string()));

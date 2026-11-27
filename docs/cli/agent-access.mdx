@@ -35,9 +35,77 @@ sd restart
 
 It listens on `127.0.0.1:7765`. To use another port, set
 `agent_mcp.listen` to another loopback address, such as `127.0.0.1:7800`.
-The daemon refuses wildcard and non-loopback addresses and logs why.
-Listening beyond loopback needs TLS and the other items in the agent access
-threat model, which this build does not have yet.
+The daemon refuses wildcard addresses such as `0.0.0.0` and `::`, and host
+names other than `localhost`, and logs why.
+
+## Reach the endpoint from another machine
+
+Keep the endpoint on loopback and put a TLS reverse proxy you already run in
+front of it. Forward only `/mcp`, and `/v1/` if clients use the REST
+surface, so the OAuth routes stay unreachable from other machines. Add the name clients use to `agent_mcp.host_names`, since the
+endpoint refuses a Host it does not know:
+
+```bash
+sd config set agent_mcp.host_names nas.example.net
+sd restart
+```
+
+With Caddy:
+
+```
+nas.example.net {
+	@agent path /mcp /v1/*
+	handle @agent {
+		reverse_proxy 127.0.0.1:7765
+	}
+	respond 404
+}
+```
+
+With nginx:
+
+```
+server {
+	listen 443 ssl;
+	server_name nas.example.net;
+	ssl_certificate     /etc/ssl/nas.example.net.crt;
+	ssl_certificate_key /etc/ssl/nas.example.net.key;
+
+	location = /mcp {
+		proxy_pass http://127.0.0.1:7765;
+		proxy_set_header X-Forwarded-For $remote_addr;
+	}
+	location /v1/ {
+		proxy_pass http://127.0.0.1:7765;
+		proxy_set_header X-Forwarded-For $remote_addr;
+		proxy_buffering off;
+	}
+	location / {
+		return 404;
+	}
+}
+```
+
+On a loopback bind, a name in `agent_mcp.host_names` is accepted in Host with
+any port, because the port belongs to the proxy. Remote clients then connect to
+`https://nas.example.net/mcp` with a token from `sd grant create`.
+
+OAuth is offered only to a request that comes straight from this machine: a
+loopback bind, a Host of `127.0.0.1`, `localhost` or `[::1]` with the bound
+port, and no `Forwarded`, `X-Forwarded-For`, `X-Forwarded-Host` or
+`X-Real-IP` header. Any other request gets 404 from every OAuth route. The
+consent page does not ask who you are, so whoever opens it and presses Allow
+gets a grant for the folder they pick. On this machine that person is you;
+through a proxy it could be anyone who reaches the proxy. Forwarding only
+`/mcp` and `/v1/` is the main protection, and the header check catches a proxy that
+forwards everything.
+
+The endpoint also has keys for listening on another address itself:
+`agent_mcp.tls_cert` and `agent_mcp.tls_key` (PEM files; TLS 1.2 and 1.3),
+and `agent_mcp.plaintext` (`true` for a network that is already encrypted).
+A certificate and key turn on TLS on loopback too. The daemon accepts a
+non-loopback `agent_mcp.listen` in the config but refuses to start the
+endpoint there until reads use handle-based path containment.
 
 ## Create a grant
 
@@ -57,6 +125,28 @@ the token itself into the config.
 
 Keep the token out of files you commit. A project-level MCP config that holds a
 literal token is one commit away from a public repository.
+
+### Grant a bucket prefix
+
+An S3 or R2 bucket works the same way once it is connected and tracked:
+
+```bash
+sd cloud                                      # connect the bucket and store its keys
+sd sources track s3://my-bucket/projects      # track a prefix, or the whole bucket
+sd grant create s3://my-bucket/projects/site --read-write --ttl 2h
+```
+
+The agent lists, reads, globs and greps the objects live, and writes with
+the same preconditions as on a local folder. The bucket itself refuses a
+stale write, so a change made outside Spacedrive is caught too. Moves and
+deletes need object versioning on the bucket, so a write that lands during
+one is never lost; without it they are refused. A move
+copies and then deletes, keeping both objects on a taken name. A delete
+moves the object to `.spacedrive/trash/` in the same bucket, and both carry
+an `undo` id. Writes have no `undo` id, and `search`
+and `search_content` are not available yet because a bucket source has no
+index. Services that cannot refuse a stale write, such as Google Drive,
+OneDrive and Dropbox, take read grants only.
 
 Manage grants with these commands:
 
@@ -187,7 +277,7 @@ with `files.undo` and that id as `job`. The full model is in
 | Status | Meaning |
 | --- | --- |
 | 401 | The token is unknown, expired or revoked, or its source is gone. Create or extend a grant. |
-| 403 | The path is outside the grant, a write tool was called with a read-only grant or on a protected file, the Host header is not loopback, or the request carries an Origin header. |
+| 403 | The path is outside the grant, a write tool was called with a read-only grant or on a protected file, the Host header does not name the endpoint, or the request carries an Origin header. |
 | 404 | The session id belongs to another grant or has expired. The client starts a new session. |
 | 429 | A limit was reached. Wait for the `Retry-After` seconds. |
 

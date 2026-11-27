@@ -11,8 +11,8 @@ pub mod app_config;
 pub mod migration;
 
 pub use app_config::{
-	AppConfig, BackupConfig, JobLoggingConfig, LogStreamConfig, LoggingConfig, ProxyPairingConfig,
-	ReplicationConfig, ServiceConfig,
+	AgentMcpConfig, AppConfig, BackupConfig, JobLoggingConfig, LogStreamConfig, LoggingConfig,
+	ProxyPairingConfig, ReplicationConfig, ServiceConfig,
 };
 pub use migration::Migrate;
 
@@ -81,11 +81,19 @@ pub(crate) fn path_spellings(dir: &Path) -> Vec<PathBuf> {
 
 /// Whether a path is inside this process's own data directory, under any of
 /// its spellings.
+///
+/// The workspaces directory is the exception: an empty space created for an
+/// agent lives there and is walked and watched like any other source.
 pub fn is_own_data(path: &Path) -> bool {
-	OWN_DATA_DIRS
-		.get()
-		.is_some_and(|own| own.iter().any(|dir| path.starts_with(dir)))
+	OWN_DATA_DIRS.get().is_some_and(|own| {
+		own.iter()
+			.any(|dir| path.starts_with(dir) && !path.starts_with(dir.join(WORKSPACES_DIR)))
+	})
 }
+
+/// The directory under the data directory that holds workspace spaces, one
+/// folder per space id.
+pub const WORKSPACES_DIR: &str = "spaces";
 
 /// The directory a source root keeps Spacedrive's managed state in: stores
 /// placed on the source, and anything else that must travel with it.

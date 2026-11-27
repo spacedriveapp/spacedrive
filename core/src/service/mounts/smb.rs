@@ -673,6 +673,7 @@ mod tests {
 			Ok(ByteStat {
 				size: self.data.len() as u64,
 				modified: None,
+				version: None,
 			})
 		}
 

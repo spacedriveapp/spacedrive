@@ -95,6 +95,30 @@ Rules:
 - Every write result has an undo id. The folder's owner can reverse the
   write with it.
 
+## Bucket folders
+
+A grant can lend a prefix of an S3 or R2 bucket instead of a folder on disk.
+The tools and rules above are the same, with these differences:
+
+- The bucket refuses a stale write itself, so a change made by anyone, not
+  only through Spacedrive, makes your expect stale.
+- move and delete work only in a bucket with object versioning enabled.
+  Elsewhere they are refused and the error says so; write a new version
+  instead, or ask the user to enable versioning.
+- move copies, then deletes the source while it is unchanged. move and
+  delete take objects up to 64 MiB. delete puts the object in the bucket's
+  .spacedrive/trash/ prefix. Both have an undo id. If the object changes
+  during the move or delete, it is kept, and the error names any copy that
+  was made. If part of a folder move or delete landed, the error carries
+  the undo id for that part.
+- write_file and make_dir have no undo id.
+- search and search_content are refused; use grep and glob.
+- revision is always null. Use content_hash.
+- .gitignore is not applied.
+- grep walks at most 100,000 keys, like glob. When visit_limit_reached is
+  true, keys past the limit were not searched and later pages will not reach
+  them; grep a narrower path.
+
 ## Results can be incomplete
 
 Treat an empty or short result as a lead, not as proof.

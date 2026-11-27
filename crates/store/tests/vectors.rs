@@ -631,3 +631,42 @@ async fn a_rewritten_description_is_embedded_again_though_its_row_ids_are_reused
 		["photos/pier.jpg"]
 	);
 }
+
+#[tokio::test]
+async fn tied_scores_page_in_one_order() {
+	let mut f = Fixture::new().await;
+	let files: Vec<(String, i64)> = (0..40).map(|i| (format!("car{i}.md"), 100 + i)).collect();
+	let refs: Vec<(&str, i64)> = files.iter().map(|(p, s)| (p.as_str(), *s)).collect();
+	f.observe(&refs).await;
+	let (text, vectors) = f.indexes().await;
+	let texts: Vec<(&str, &str)> = files
+		.iter()
+		.map(|(p, _)| (p.as_str(), "automobile"))
+		.collect();
+	// Later files are read first, so chunk order runs against record order.
+	read_texts(&text, &texts[20..]).await;
+	read_texts(&text, &texts[..20]).await;
+	embed_pass(&vectors, &whole()).await;
+
+	let mut paged = Vec::new();
+	for page in 0..4 {
+		let hits = hybrid_search(
+			&text,
+			&vectors,
+			&HybridSearch {
+				query: "vehicle".into(),
+				vector: embed("vehicle"),
+				subtrees: whole(),
+				limit: 10,
+				offset: page * 10,
+				..Default::default()
+			},
+		)
+		.await
+		.unwrap();
+		paged.extend(hits.into_iter().map(|hit| hit.external_id));
+	}
+	let distinct: std::collections::HashSet<&String> = paged.iter().collect();
+	assert_eq!(paged.len(), 40);
+	assert_eq!(distinct.len(), 40, "no file repeats across pages");
+}

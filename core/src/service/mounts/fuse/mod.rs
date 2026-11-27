@@ -231,7 +231,7 @@ async fn mount_tree(
 /// directory. A mount left behind by a daemon that died answers every call
 /// with ENOTCONN; it is detached first so the path can be reused.
 #[cfg(all(target_os = "linux", feature = "fuse"))]
-async fn prepare_mountpoint(path: PathBuf) -> Result<PathBuf, FuseError> {
+pub async fn prepare_mountpoint(path: PathBuf) -> Result<PathBuf, FuseError> {
 	tokio::task::spawn_blocking(move || {
 		if !path.is_absolute() {
 			return Err(FuseError::Mountpoint(format!(

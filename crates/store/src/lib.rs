@@ -16,6 +16,8 @@
 //! tag_definition  the tags this source uses, named, colored, hierarchical
 //! tag_assertion   which tags apply to which records and content
 //! deep_scope      which subtrees content-reading passes cover
+//! space           folders people and agents work in, with their policy
+//! space_grant     grants on those spaces, their revocations and signers
 //! search_index    FTS5 over the fields the search contract names
 //! ```
 //!
@@ -39,7 +41,8 @@
 //! rebuilt for as long as its origin still answers. `record_overlay` and the
 //! tag tables hold what no ingest produced, so nothing rebuilds them on any
 //! day, for any source. Nor does anything rebuild `deep_scope`, the part of
-//! the source a person chose to have its contents read.
+//! the source a person chose to have its contents read, or the spaces and
+//! the grants lent on them.
 //!
 //! Whether the origin still answers varies per source, varies over time, and
 //! changes without an event: a detached drive, a revoked token, a closed
@@ -59,6 +62,7 @@ pub mod deep_scope;
 pub mod error;
 pub mod file;
 pub mod fts;
+pub mod grants;
 pub mod image;
 pub mod migrate;
 pub mod read;
@@ -66,6 +70,7 @@ pub mod record;
 pub mod revision;
 pub mod schema;
 pub mod source;
+pub mod space;
 pub mod tags;
 pub mod vectors;
 pub mod video;
@@ -89,6 +94,7 @@ pub use file::{
 	name_content_kind_by_extension, ContentCopy, FileKind, FileWrite, Ledger, Observation,
 	PendingContent, PendingVerification, Resolution, SubtreeRename, Watermark,
 };
+pub use grants::{GrantAssertions, GrantIssuer, GrantRevocation, GrantRow};
 pub use image::{
 	count_files_needing_image_facets, files_needing_image_facets, set_image_facets, ImageFacet,
 	PendingFacet,
@@ -99,6 +105,7 @@ pub use record::{ContentIdentity, Record, RECORD_SCHEMA};
 pub use revision::Revision;
 pub use schema::{DataTypeSchema, FieldType, ModelDef};
 pub use source::SourceManager;
+pub use space::SpaceRow;
 pub use tags::{
 	normalize_tag_path, slug_for_path, AppliedTag, TagAssertion, TagDefinition, TAG_NAMESPACE,
 };
