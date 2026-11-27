@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::TcpStream;
 use uuid::Uuid;
 
 use sd_client::{
@@ -52,7 +51,7 @@ async fn recv(sub: &mut BrokerSubscription) -> Event {
 #[tokio::test]
 async fn fan_out_shares_one_connection() {
 	let mock = MockDaemon::start().await;
-	let broker = SubscriptionBroker::with_options(mock.addr(), test_options());
+	let broker = SubscriptionBroker::with_options(mock.addr(), mock.data_dir(), test_options());
 
 	let mut subs: Vec<_> = (0..3)
 		.map(|_| broker.subscribe(vec!["LibraryOpened".into()], None))
@@ -83,7 +82,7 @@ async fn fan_out_shares_one_connection() {
 #[tokio::test]
 async fn equivalent_requests_reuse_one_connection() {
 	let mock = MockDaemon::start().await;
-	let broker = SubscriptionBroker::with_options(mock.addr(), test_options());
+	let broker = SubscriptionBroker::with_options(mock.addr(), mock.data_dir(), test_options());
 
 	let _a = broker.subscribe(vec!["Refresh".into(), "LibraryOpened".into()], None);
 	let _b = broker.subscribe(
@@ -102,7 +101,7 @@ async fn equivalent_requests_reuse_one_connection() {
 #[tokio::test]
 async fn distinct_filters_use_distinct_connections() {
 	let mock = MockDaemon::start().await;
-	let broker = SubscriptionBroker::with_options(mock.addr(), test_options());
+	let broker = SubscriptionBroker::with_options(mock.addr(), mock.data_dir(), test_options());
 
 	let mut by_type = broker.subscribe(vec!["LibraryOpened".into()], None);
 	let mut refresh_only = broker.subscribe(vec!["Refresh".into()], None);
@@ -142,7 +141,7 @@ async fn distinct_filters_use_distinct_connections() {
 #[tokio::test]
 async fn last_drop_lingers_then_closes_the_connection() {
 	let mock = MockDaemon::start().await;
-	let broker = SubscriptionBroker::with_options(mock.addr(), test_options());
+	let broker = SubscriptionBroker::with_options(mock.addr(), mock.data_dir(), test_options());
 
 	let sub = broker.subscribe(vec!["Refresh".into()], None);
 	wait_until(Duration::from_secs(2), || {
@@ -174,7 +173,7 @@ async fn last_drop_lingers_then_closes_the_connection() {
 #[tokio::test]
 async fn reconnect_resubscribes_and_tolerates_replay_duplicates() {
 	let mock = MockDaemon::start().await;
-	let broker = SubscriptionBroker::with_options(mock.addr(), test_options());
+	let broker = SubscriptionBroker::with_options(mock.addr(), mock.data_dir(), test_options());
 
 	let mut sub = broker.subscribe(vec!["LibraryOpened".into()], None);
 	wait_until(Duration::from_secs(2), || {
@@ -210,7 +209,7 @@ async fn reconnect_resubscribes_and_tolerates_replay_duplicates() {
 #[tokio::test]
 async fn reconnect_backs_off_exponentially_and_recovers() {
 	let mock = MockDaemon::start().await;
-	let broker = SubscriptionBroker::with_options(mock.addr(), test_options());
+	let broker = SubscriptionBroker::with_options(mock.addr(), mock.data_dir(), test_options());
 
 	let mut sub = broker.subscribe(vec!["LibraryOpened".into()], None);
 	wait_until(Duration::from_secs(2), || {
@@ -257,7 +256,7 @@ async fn reconnect_backs_off_exponentially_and_recovers() {
 #[tokio::test]
 async fn slow_subscriber_drops_oldest_without_blocking_peers() {
 	let mock = MockDaemon::start().await;
-	let broker = SubscriptionBroker::with_options(mock.addr(), test_options());
+	let broker = SubscriptionBroker::with_options(mock.addr(), mock.data_dir(), test_options());
 
 	let mut fast = broker.subscribe(vec!["LibraryOpened".into()], None);
 	let mut slow = broker.subscribe(vec!["LibraryOpened".into()], None);
@@ -296,7 +295,9 @@ async fn slow_subscriber_drops_oldest_without_blocking_peers() {
 async fn second_subscribe_on_a_connection_replaces_the_first() {
 	let mock = MockDaemon::start().await;
 
-	let mut stream = TcpStream::connect(mock.addr()).await.unwrap();
+	let mut stream = sd_core::infra::daemon::auth::connect(&mock.addr(), &mock.data_dir())
+		.await
+		.unwrap();
 	let encode = |request: DaemonRequest| serde_json::to_string(&request).unwrap() + "\n";
 
 	let first = encode(DaemonRequest::Subscribe {

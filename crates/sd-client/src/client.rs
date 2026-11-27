@@ -24,9 +24,12 @@ pub struct CoreClient {
 }
 
 impl CoreClient {
-	pub fn new(socket_addr: String) -> Self {
+	/// A client for the daemon listening at `socket_addr` whose data
+	/// directory is `data_dir`, where it keeps the RPC secret every
+	/// connection presents.
+	pub fn new(socket_addr: String, data_dir: impl Into<std::path::PathBuf>) -> Self {
 		Self {
-			daemon: DaemonClient::new(socket_addr),
+			daemon: DaemonClient::new(socket_addr, data_dir.into()),
 			device: None,
 		}
 	}

@@ -65,6 +65,7 @@ pub mod record;
 pub mod revision;
 pub mod schema;
 pub mod source;
+pub mod space;
 pub mod tags;
 pub mod video;
 
@@ -96,6 +97,7 @@ pub use record::{ContentIdentity, Record, RECORD_SCHEMA};
 pub use revision::Revision;
 pub use schema::{DataTypeSchema, FieldType, ModelDef};
 pub use source::SourceManager;
+pub use space::SpaceRow;
 pub use tags::{
 	normalize_tag_path, slug_for_path, AppliedTag, TagAssertion, TagDefinition, TAG_NAMESPACE,
 };

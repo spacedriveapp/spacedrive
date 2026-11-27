@@ -14,10 +14,12 @@ pub mod logs;
 pub mod mcp;
 #[cfg(feature = "footage-clips")]
 pub mod media;
+pub mod mount;
 pub mod network;
 pub mod redundancy;
 pub mod search;
 pub mod source;
+pub mod space;
 pub mod sync;
 pub mod tag;
 pub mod thumbs;

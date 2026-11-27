@@ -13,9 +13,14 @@ use axum::{
 use clap::Parser;
 use futures::stream::{Stream, StreamExt};
 use rust_embed::Embed;
+use sd_core::infra::daemon::auth as rpc_auth;
 use secstr::SecStr;
 use std::{
-	collections::HashMap, convert::Infallible, net::SocketAddr, path::PathBuf, sync::Arc,
+	collections::HashMap,
+	convert::Infallible,
+	net::SocketAddr,
+	path::{Path, PathBuf},
+	sync::Arc,
 	time::Duration,
 };
 use tokio::{
@@ -203,7 +208,7 @@ async fn proxy_share(State(state): State<AppState>, uri: Uri, headers: HeaderMap
 	static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
 	let origin = match sd_core::service::mounts::bound_addr() {
 		Some(addr) => format!("http://{addr}"),
-		None => match share_origin(&state.socket_addr).await {
+		None => match share_origin(&state.socket_addr, &state.data_dir).await {
 			Some(origin) => origin,
 			None => {
 				return plain_status(
@@ -256,8 +261,8 @@ async fn proxy_share(State(state): State<AppState>, uri: Uri, headers: HeaderMap
 }
 
 /// The scheme and authority of a daemon's mounts share, from `mounts.status`.
-async fn share_origin(socket_addr: &str) -> Option<String> {
-	let mut stream = TcpStream::connect(socket_addr).await.ok()?;
+async fn share_origin(socket_addr: &str, data_dir: &Path) -> Option<String> {
+	let mut stream = rpc_auth::connect(socket_addr, data_dir).await.ok()?;
 	let request = serde_json::json!({
 		"Query": { "method": "query:mounts.status", "library_id": null, "payload": {} }
 	});
@@ -273,9 +278,11 @@ async fn share_origin(socket_addr: &str) -> Option<String> {
 	Some(base.strip_suffix("/dav")?.to_string())
 }
 
-/// The data directory of the daemon listening at `socket_addr`, from `core.status`.
-async fn daemon_data_dir(socket_addr: &str) -> Option<PathBuf> {
-	let mut stream = TcpStream::connect(socket_addr).await.ok()?;
+/// The data directory of the daemon listening at `socket_addr`, from
+/// `core.status`. Asking needs the daemon's RPC secret, so `data_dir` must
+/// already name the same directory; the answer gives its canonical spelling.
+async fn daemon_data_dir(socket_addr: &str, data_dir: &Path) -> Option<PathBuf> {
+	let mut stream = rpc_auth::connect(socket_addr, data_dir).await.ok()?;
 	let request = serde_json::json!({
 		"Query": { "method": "query:core.status", "library_id": null, "payload": null }
 	});
@@ -436,9 +443,10 @@ async fn events_sse(
 ) -> Sse<impl Stream<Item = Result<SseEvent, Infallible>>> {
 	let (tx, rx) = mpsc::channel::<String>(64);
 	let socket_addr = state.socket_addr.clone();
+	let data_dir = state.data_dir.clone();
 
 	tokio::spawn(async move {
-		if let Err(e) = bridge_daemon_events(socket_addr, tx).await {
+		if let Err(e) = bridge_daemon_events(socket_addr, data_dir, tx).await {
 			tracing::warn!("event bridge ended: {}", e);
 		}
 	});
@@ -458,9 +466,10 @@ async fn events_sse(
 /// failure or when the receiver is dropped.
 async fn bridge_daemon_events(
 	socket_addr: String,
+	data_dir: PathBuf,
 	tx: mpsc::Sender<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-	let stream = TcpStream::connect(&socket_addr).await?;
+	let stream = rpc_auth::connect(&socket_addr, &data_dir).await?;
 	let (reader, mut writer) = stream.into_split();
 
 	// Subscribe with empty event_types meaning "all", and no filter.
@@ -516,12 +525,14 @@ async fn daemon_rpc(
 	Json(payload): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
 	// Connect to daemon
-	let mut stream = TcpStream::connect(&state.socket_addr).await.map_err(|e| {
-		(
-			StatusCode::SERVICE_UNAVAILABLE,
-			format!("Daemon not available: {}", e),
-		)
-	})?;
+	let mut stream = rpc_auth::connect(&state.socket_addr, &state.data_dir)
+		.await
+		.map_err(|e| {
+			(
+				StatusCode::SERVICE_UNAVAILABLE,
+				format!("Daemon not available: {}", e),
+			)
+		})?;
 
 	// Send request
 	let request_line = serde_json::to_string(&payload)
@@ -665,7 +676,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// started, such as the desktop app's.
 	let data_dir = match daemon_handle {
 		Some(_) => data_dir,
-		None => match daemon_data_dir(&socket_addr).await {
+		None => match daemon_data_dir(&socket_addr, &data_dir).await {
 			Some(daemon_dir) => {
 				if daemon_dir != data_dir {
 					info!(
@@ -785,9 +796,18 @@ async fn start_daemon_if_needed(
 	data_dir: PathBuf,
 	enable_p2p: bool,
 ) -> Result<Option<Arc<RwLock<tokio::task::JoinHandle<()>>>>, Box<dyn std::error::Error>> {
-	// Check if daemon is already running by sending a ping
-	if is_daemon_running(&socket_addr).await {
-		info!("✓ Daemon already running");
+	// Something already listening is a daemon this process cannot replace,
+	// whether or not it answers us.
+	if TcpStream::connect(&socket_addr).await.is_ok() {
+		if is_daemon_running(&socket_addr, &data_dir).await {
+			info!("✓ Daemon already running");
+		} else {
+			warn!(
+				"A daemon is listening at {} but did not accept the RPC secret in {:?}; set DATA_DIR to that daemon's data directory",
+				socket_addr,
+				data_dir
+			);
+		}
 		return Ok(None);
 	}
 
@@ -828,10 +848,10 @@ async fn start_daemon_if_needed(
 }
 
 /// Check if daemon is running by sending a ping
-async fn is_daemon_running(socket_addr: &str) -> bool {
+async fn is_daemon_running(socket_addr: &str, data_dir: &Path) -> bool {
 	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
-	let mut stream = match TcpStream::connect(socket_addr).await {
+	let mut stream = match rpc_auth::connect(socket_addr, data_dir).await {
 		Ok(s) => s,
 		Err(_) => return false,
 	};
@@ -860,7 +880,8 @@ async fn is_daemon_running(socket_addr: &str) -> bool {
 			buf_reader.read_line(&mut response_line),
 		)
 		.await,
-		Ok(Ok(_)) if !response_line.is_empty()
+		Ok(Ok(_)) if serde_json::from_str::<serde_json::Value>(response_line.trim()).ok()
+			== Some(serde_json::Value::String("Pong".into()))
 	)
 }
 
