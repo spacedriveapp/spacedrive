@@ -639,7 +639,10 @@ async fn tied_scores_page_in_one_order() {
 	let refs: Vec<(&str, i64)> = files.iter().map(|(p, s)| (p.as_str(), *s)).collect();
 	f.observe(&refs).await;
 	let (text, vectors) = f.indexes().await;
-	let texts: Vec<(&str, &str)> = files.iter().map(|(p, _)| (p.as_str(), "automobile")).collect();
+	let texts: Vec<(&str, &str)> = files
+		.iter()
+		.map(|(p, _)| (p.as_str(), "automobile"))
+		.collect();
 	read_texts(&text, &texts).await;
 	embed_pass(&vectors, &whole()).await;
 
@@ -665,4 +668,3 @@ async fn tied_scores_page_in_one_order() {
 	assert_eq!(paged.len(), 40);
 	assert_eq!(distinct.len(), 40, "no file repeats across pages");
 }
-
