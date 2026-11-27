@@ -21,7 +21,7 @@
 //!
 //! for entry in fs.list(Path::new("")).await.unwrap() {
 //! 	let attr = fs.stat(&Path::new("").join(&entry.name)).await.unwrap();
-//! 	println!("{:?} {}", entry.name, attr.size);
+//! 	tracing::info!(name = ?entry.name, size = attr.size, "listed");
 //! }
 //! # }
 //! ```
