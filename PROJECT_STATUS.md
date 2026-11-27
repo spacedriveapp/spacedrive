@@ -36,6 +36,8 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Space endpoint (Capy FAN-14843, November 27, in PR): the spec for MCP, REST at `/v1/spaces/<space>/...`, 1 MiB block reads and the invalidation event stream is `docs/core/design/space-endpoint.md`; the listener, TLS and handle containment follow, switched off by default.
+
 Bundled command line tool (Capy FAN-14800, November 27, in PR). The desktop
 app ships `sd-cli` beside `sd-daemon` as a Tauri external binary on macOS
 arm64 and Intel and Linux, built in the same cargo run with the same features
