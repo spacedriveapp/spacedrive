@@ -325,6 +325,19 @@ export type ChangeKind = { type: "create"; size: number } | { type: "create_dire
  */
 { type: "set_attributes"; attributes: Attributes };
 
+/**
+ * Which end of a space's history a page starts from.
+ */
+export type ChangeOrder = 
+/**
+ * Oldest first, for catching up from a cursor.
+ */
+"oldest" | 
+/**
+ * Newest first, for a feed or the last change to one file.
+ */
+"newest";
+
 export type CliInstallInput = Record<string, never>;
 
 export type CliInstallOutput = { status: CliInstallStatus; 
@@ -5850,10 +5863,24 @@ summary: string };
 
 export type SpaceChangesInput = { id: string; 
 /**
- * The `next` of the previous page. Omit to start at the oldest
- * change still kept.
+ * Defaults to oldest first.
+ */
+order?: ChangeOrder | null; 
+/**
+ * Oldest first: the `next` of the previous page. Omit to start at the
+ * oldest change still kept.
  */
 since?: number | null; 
+/**
+ * Newest first: the `next` of the previous page. Omit to start at the
+ * newest change.
+ */
+before?: number | null; 
+/**
+ * Only changes to this path or inside it, relative to the space root
+ * and `/`-separated. A move counts for both its source and its target.
+ */
+path?: string | null; 
 /**
  * Defaults to 100, at most 500.
  */
@@ -5861,7 +5888,9 @@ limit?: number | null };
 
 export type SpaceChangesOutput = { changes: SpaceChange[]; 
 /**
- * Pass as `since` to read the changes after this page.
+ * Pass as `since` (oldest first) or `before` (newest first) to read
+ * the next page in the same order. It stays the same at the end of the
+ * history.
  */
 next: number };
 

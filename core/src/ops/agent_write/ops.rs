@@ -186,6 +186,7 @@ pub async fn write_file_in(
 			}
 			still_inside(&scope).await?;
 			turn.proceed()?;
+			space_events::claim(&[&scope.path]);
 			let previous = trash::trash(&scope.path, Some(&context.volume_manager), JobId(id))
 				.await
 				.map_err(|e| WriteError::Io(format!("set the previous bytes aside: {e}")))?;
@@ -259,6 +260,7 @@ pub async fn make_dir_in(
 	let mut effects = make_parents(&scope.root, &wanted).await?;
 	still_inside(&scope).await?;
 	loop {
+		space_events::claim(&[&wanted]);
 		match tokio::fs::create_dir(&wanted).await {
 			Ok(()) => break,
 			Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
@@ -319,6 +321,7 @@ pub async fn move_path_in(
 	still_inside(&to).await?;
 	loop {
 		let (source, target) = (from.path.clone(), wanted.clone());
+		space_events::claim(&[&source, &target]);
 		let renamed = tokio::task::spawn_blocking(move || rename_noreplace(&source, &target))
 			.await
 			.map_err(|e| WriteError::Io(format!("move: {e}")))?;
@@ -374,6 +377,7 @@ pub async fn delete_in(
 	still_inside(&scope).await?;
 	let id = Uuid::now_v7();
 	turn.proceed()?;
+	space_events::claim(&[&scope.path]);
 	let location = trash::trash(&scope.path, Some(&context.volume_manager), JobId(id))
 		.await
 		.map_err(|e| WriteError::Io(format!("trash: {e}")))?;
@@ -398,7 +402,6 @@ async fn writable(
 			"name a path inside the granted directory".to_string(),
 		));
 	}
-	space_events::claim(&[&scope.path]);
 	Ok(scope)
 }
 

@@ -534,8 +534,19 @@ async fn list_changes(
 		.await
 		.ok_or_else(|| "the library is not open".to_string())?;
 	let limit = args.limit.unwrap_or(PAGE_DEFAULT).clamp(1, PAGE_MAX);
-	let page =
-		crate::ops::spaces::page(&library, context, at.source_id, space_id, since, limit).await?;
+	let page = crate::ops::spaces::page(
+		&library,
+		context,
+		at.source_id,
+		space_id,
+		sd_store::EventQuery {
+			cursor: Some(since),
+			newest: false,
+			path: Some(at.path.clone()),
+			limit,
+		},
+	)
+	.await?;
 	let under = |path: &str| -> Option<String> {
 		if at.path.is_empty() {
 			return Some(path.to_string());

@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS space_event (
 );
 CREATE INDEX IF NOT EXISTS idx_space_event_at ON space_event(at);
 CREATE INDEX IF NOT EXISTS idx_space_event_path ON space_event(path, seq);
+CREATE INDEX IF NOT EXISTS idx_space_event_to_path ON space_event(to_path, seq);
 "#;
 
 /// One change inside a space.
@@ -66,6 +67,18 @@ pub struct SpaceEvent {
 	/// The `files.undo` job id that reverses the change.
 	pub undo_id: Option<Uuid>,
 	pub authority_epoch: i64,
+}
+
+/// Which events [`SpaceEventLog::read`] returns.
+#[derive(Debug, Clone, Default)]
+pub struct EventQuery {
+	/// Oldest first, the events after this seq; with `newest`, newest first,
+	/// the events before it. None starts at the oldest or the newest.
+	pub cursor: Option<i64>,
+	pub newest: bool,
+	/// Only events whose path or move target is this path or inside it.
+	pub path: Option<String>,
+	pub limit: u32,
 }
 
 /// A space's event log, open for reads and appends.
@@ -117,17 +130,43 @@ impl SpaceEventLog {
 		Ok(result.last_insert_rowid())
 	}
 
-	/// Events after `seq`, oldest first, at most `limit` of them.
-	pub async fn since(&self, seq: i64, limit: u32) -> Result<Vec<SpaceEvent>> {
-		Ok(sqlx::query_as(
+	/// Events in sequence order, a page at a time.
+	pub async fn read(&self, query: &EventQuery) -> Result<Vec<SpaceEvent>> {
+		let mut sql = String::from(
 			"SELECT seq, space_id, at, actor_id, grant_id, origin, op, path, to_path,
 				before_hash, after_hash, size, undo_id, authority_epoch
-			 FROM space_event WHERE seq > ? ORDER BY seq LIMIT ?",
-		)
-		.bind(seq)
-		.bind(limit)
-		.fetch_all(&self.pool)
-		.await?)
+			 FROM space_event WHERE ",
+		);
+		sql.push_str(if query.newest { "seq < ?1" } else { "seq > ?1" });
+		let prefix = query
+			.path
+			.as_deref()
+			.map(|path| path.trim_matches('/'))
+			.filter(|path| !path.is_empty());
+		if prefix.is_some() {
+			// Every path below a folder sorts between "folder/" and "folder0",
+			// since '0' is the byte after '/', so both path indexes serve it.
+			sql.push_str(
+				" AND (path = ?3 OR (path > ?4 AND path < ?5)
+				  OR to_path = ?3 OR (to_path > ?4 AND to_path < ?5))",
+			);
+		}
+		sql.push_str(if query.newest {
+			" ORDER BY seq DESC LIMIT ?2"
+		} else {
+			" ORDER BY seq LIMIT ?2"
+		});
+		let cursor = query
+			.cursor
+			.unwrap_or(if query.newest { i64::MAX } else { 0 });
+		let mut statement = sqlx::query_as(&sql).bind(cursor).bind(query.limit);
+		if let Some(prefix) = prefix {
+			statement = statement
+				.bind(prefix.to_string())
+				.bind(format!("{prefix}/"))
+				.bind(format!("{prefix}0"));
+		}
+		Ok(statement.fetch_all(&self.pool).await?)
 	}
 
 	/// The newest event that touched `path`, as its source or its target.
@@ -156,6 +195,15 @@ impl SpaceEventLog {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	fn page(cursor: Option<i64>, newest: bool, path: Option<&str>) -> EventQuery {
+		EventQuery {
+			cursor,
+			newest,
+			path: path.map(str::to_string),
+			limit: 10,
+		}
+	}
 
 	fn event(at: &str, path: &str) -> SpaceEvent {
 		SpaceEvent {
@@ -191,15 +239,50 @@ mod tests {
 			.await
 			.unwrap();
 		assert!(second > first);
-		let all = log.since(0, 10).await.unwrap();
+		let all = log.read(&page(None, false, None)).await.unwrap();
 		assert_eq!(
 			all.iter().map(|e| e.path.as_str()).collect::<Vec<_>>(),
 			["a.md", "b.md"]
 		);
-		assert_eq!(log.since(first, 10).await.unwrap().len(), 1);
+		assert_eq!(
+			log.read(&page(Some(first), false, None))
+				.await
+				.unwrap()
+				.len(),
+			1
+		);
 		assert_eq!(log.last_for_path("a.md").await.unwrap().unwrap().seq, first);
 
+		let third = log
+			.append(&SpaceEvent {
+				op: "move".into(),
+				to_path: Some("docs/a.md".into()),
+				..event("2026-11-27T00:00:01Z", "a.md")
+			})
+			.await
+			.unwrap();
+		log.append(&event("2026-11-27T00:00:02Z", "docsx/c.md"))
+			.await
+			.unwrap();
+		let newest = log.read(&page(None, true, None)).await.unwrap();
+		assert_eq!(newest.first().unwrap().path, "docsx/c.md");
+		assert_eq!(newest.last().unwrap().seq, first);
+		let before = log.read(&page(Some(third), true, None)).await.unwrap();
+		assert_eq!(
+			before.iter().map(|e| e.seq).collect::<Vec<_>>(),
+			[second, first]
+		);
+		let in_docs = log.read(&page(None, true, Some("docs"))).await.unwrap();
+		assert_eq!(
+			in_docs.iter().map(|e| e.seq).collect::<Vec<_>>(),
+			[third],
+			"a move into the folder counts, a sibling with the same prefix does not"
+		);
+		let one_file = log.read(&page(None, true, Some("a.md"))).await.unwrap();
+		assert_eq!(one_file.first().unwrap().seq, third);
+		assert_eq!(one_file.len(), 2);
+
 		assert_eq!(log.prune_before("2026-10-28T00:00:00Z").await.unwrap(), 1);
-		assert_eq!(log.since(0, 10).await.unwrap().len(), 1);
+		assert_eq!(log.read(&page(None, false, None)).await.unwrap().len(), 3);
 	}
 }

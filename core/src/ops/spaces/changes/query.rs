@@ -2,6 +2,7 @@
 
 use std::{collections::HashMap, sync::Arc};
 
+use sd_store::EventQuery;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
@@ -19,13 +20,35 @@ use crate::{
 /// The most changes one page answers.
 pub const CHANGES_PAGE_MAX: u32 = 500;
 
+/// Which end of a space's history a page starts from.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum ChangeOrder {
+	/// Oldest first, for catching up from a cursor.
+	#[default]
+	Oldest,
+	/// Newest first, for a feed or the last change to one file.
+	Newest,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SpaceChangesInput {
 	pub id: Uuid,
-	/// The `next` of the previous page. Omit to start at the oldest
-	/// change still kept.
+	/// Defaults to oldest first.
+	#[serde(default)]
+	pub order: Option<ChangeOrder>,
+	/// Oldest first: the `next` of the previous page. Omit to start at the
+	/// oldest change still kept.
 	#[serde(default)]
 	pub since: Option<i64>,
+	/// Newest first: the `next` of the previous page. Omit to start at the
+	/// newest change.
+	#[serde(default)]
+	pub before: Option<i64>,
+	/// Only changes to this path or inside it, relative to the space root
+	/// and `/`-separated. A move counts for both its source and its target.
+	#[serde(default)]
+	pub path: Option<String>,
 	/// Defaults to 100, at most 500.
 	#[serde(default)]
 	pub limit: Option<u32>,
@@ -58,27 +81,34 @@ pub struct SpaceChange {
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SpaceChangesOutput {
 	pub changes: Vec<SpaceChange>,
-	/// Pass as `since` to read the changes after this page.
+	/// Pass as `since` (oldest first) or `before` (newest first) to read
+	/// the next page in the same order. It stays the same at the end of the
+	/// history.
 	pub next: i64,
 }
 
-/// One page of a space's changes, oldest first, with each actor resolved.
+/// One page of a space's changes, with each actor resolved.
 pub async fn page(
 	library: &Library,
 	context: &CoreContext,
 	source_id: Uuid,
 	space_id: Uuid,
-	since: i64,
-	limit: u32,
+	query: EventQuery,
 ) -> Result<SpaceChangesOutput, String> {
+	let start = query
+		.cursor
+		.unwrap_or(if query.newest { i64::MAX } else { 0 });
 	let Some(log) = events::log_of(context, source_id, space_id).await else {
 		return Ok(SpaceChangesOutput {
 			changes: Vec::new(),
-			next: since,
+			next: start,
 		});
 	};
 	let rows = log
-		.since(since, limit.clamp(1, CHANGES_PAGE_MAX))
+		.read(&EventQuery {
+			limit: query.limit.clamp(1, CHANGES_PAGE_MAX),
+			..query
+		})
 		.await
 		.map_err(|e| e.to_string())?;
 	// The watcher attributes to this device, so make sure it has a name.
@@ -89,7 +119,7 @@ pub async fn page(
 		.into_iter()
 		.map(|actor| (actor.id, actor))
 		.collect();
-	let next = rows.last().map_or(since, |row| row.seq);
+	let next = rows.last().map_or(start, |row| row.seq);
 	let changes = rows
 		.into_iter()
 		.map(|row| {
@@ -159,13 +189,22 @@ impl LibraryQuery for SpaceChangesQuery {
 		let space = store::find(&library, &context, self.input.id)
 			.await
 			.map_err(QueryError::InvalidInput)?;
+		let newest = self.input.order == Some(ChangeOrder::Newest);
 		page(
 			&library,
 			&context,
 			space.source_id,
 			space.id,
-			self.input.since.unwrap_or(0),
-			self.input.limit.unwrap_or(100),
+			EventQuery {
+				cursor: if newest {
+					self.input.before
+				} else {
+					self.input.since
+				},
+				newest,
+				path: self.input.path,
+				limit: self.input.limit.unwrap_or(100),
+			},
 		)
 		.await
 		.map_err(QueryError::Internal)

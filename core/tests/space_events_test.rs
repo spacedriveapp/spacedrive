@@ -23,7 +23,8 @@ use sd_core::{
 			GrantCap,
 		},
 		spaces::{
-			SpaceChange, SpaceChangesInput, SpaceChangesQuery, SpaceCreateAction, SpaceCreateInput,
+			ChangeOrder, SpaceChange, SpaceChangesInput, SpaceChangesQuery, SpaceCreateAction,
+			SpaceCreateInput,
 		},
 	},
 };
@@ -52,7 +53,10 @@ async fn space(harness: &IndexingHarness, path: &Path) -> anyhow::Result<Space> 
 async fn changes(harness: &IndexingHarness, space: &Space) -> Vec<SpaceChange> {
 	SpaceChangesQuery::from_input(SpaceChangesInput {
 		id: space.id,
+		order: None,
 		since: None,
+		before: None,
+		path: None,
 		limit: None,
 	})
 	.expect("input")
@@ -162,7 +166,10 @@ async fn agent_writes_inside_a_space_are_logged_and_outside_are_not() -> anyhow:
 
 	let next = SpaceChangesQuery::from_input(SpaceChangesInput {
 		id: project.id,
+		order: None,
 		since: Some(created.seq),
+		before: None,
+		path: None,
 		limit: None,
 	})
 	.expect("input")
@@ -170,6 +177,28 @@ async fn agent_writes_inside_a_space_are_logged_and_outside_are_not() -> anyhow:
 	.await?;
 	assert_eq!(next.changes.len(), 1);
 	assert_eq!(next.next, modified.seq);
+
+	write(&harness, &inside.token, "drafts/idea.md", "idea", None).await?;
+	let newest = |path: Option<&str>, before: Option<i64>| {
+		SpaceChangesQuery::from_input(SpaceChangesInput {
+			id: project.id,
+			order: Some(ChangeOrder::Newest),
+			since: None,
+			before,
+			path: path.map(str::to_string),
+			limit: Some(1),
+		})
+		.expect("input")
+		.execute(harness.core.context.clone(), session(&harness))
+	};
+	let feed = newest(None, None).await?;
+	assert_eq!(feed.changes[0].path, "drafts/idea.md");
+	let older = newest(None, Some(feed.next)).await?;
+	assert!(older.changes[0].seq < feed.next, "before pages backwards");
+	let last_for_notes = newest(Some("notes.md"), None).await?;
+	assert_eq!(last_for_notes.changes[0].seq, modified.seq);
+	let in_drafts = newest(Some("drafts"), None).await?;
+	assert_eq!(in_drafts.changes[0].path, "drafts/idea.md");
 
 	harness.shutdown().await?;
 	Ok(())
