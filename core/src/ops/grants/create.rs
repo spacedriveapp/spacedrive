@@ -225,7 +225,7 @@ pub(crate) async fn insert(
 ) -> Result<Minted, ActionError> {
 	if let Some(url) = BucketUrl::parse(&mint.target.subtree) {
 		if mint.caps == GrantCap::ReadWrite {
-			let backend = bucket::backend(context, &url)
+			let backend = bucket::backend(&context.volume_manager, &url)
 				.await
 				.map_err(|e| ActionError::InvalidInput(e.to_string()))?;
 			bucket::writable(&url, backend.as_ref())

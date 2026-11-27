@@ -3,8 +3,12 @@
 //! then list, read, grep and stat through the agent MCP endpoint, write
 //! against the content hash `stat` returned, have a stale write refused with
 //! the current hash, and keep both objects when a create finds the name
-//! taken. Protected files, escapes, moves, deletes and read-only grants are
-//! refused as they are on a local folder.
+//! taken. In a bucket that keeps versions a move keeps both objects on a
+//! taken name, a delete goes to the bucket's trash, and `files.undo` reverses each, prefixes included.
+//! Protected files, escapes, stale deletes and read-only grants are refused
+//! as they are on a local folder, and a bucket without versions takes no
+//! moves or deletes. The main bucket must keep versions;
+//! `SD_TEST_S3_PLAIN_BUCKET` names one that does not.
 //!
 //! The service is named by `SD_TEST_S3_ENDPOINT` (and optionally
 //! `SD_TEST_S3_BUCKET`, `SD_TEST_S3_ACCESS_KEY`, `SD_TEST_S3_SECRET_KEY`).
@@ -21,9 +25,10 @@ use bytes::Bytes;
 use helpers::*;
 use reqwest::{header, StatusCode};
 use sd_core::{
-	infra::action::LibraryAction,
+	infra::{action::LibraryAction, job::output::JobOutput},
 	library::AddOverrides,
 	ops::{
+		files::undo::UndoJob,
 		grants::{
 			create::{CreateGrantAction, CreateGrantInput},
 			GrantCap,
@@ -36,6 +41,29 @@ use sd_core::{
 };
 use serde_json::{json, Value};
 use uuid::Uuid;
+
+/// The text of the object at `key` under the run's prefix, or `None`.
+async fn object(seed: &CloudBackend, run: &str, key: &str) -> Option<String> {
+	let bytes = seed.read(Path::new(&format!("{run}/{key}"))).await.ok()?;
+	Some(String::from_utf8(bytes.to_vec()).expect("text"))
+}
+
+async fn undo(harness: &IndexingHarness, id: &str) -> Value {
+	let handle = harness
+		.library
+		.jobs()
+		.dispatch(UndoJob::new(id.parse().expect("a uuid"), None))
+		.await
+		.expect("dispatched");
+	let output = tokio::time::timeout(std::time::Duration::from_secs(30), handle.wait())
+		.await
+		.expect("in time")
+		.expect("completed");
+	let JobOutput::Custom(value) = output else {
+		panic!("not an undo output: {output:?}");
+	};
+	value
+}
 
 struct S3 {
 	endpoint: String,
@@ -421,10 +449,126 @@ async fn agents_read_grep_and_write_a_bucket_prefix_with_preconditions() -> anyh
 		protected.contains("AGENTS.md") || protected.contains("403"),
 		"{protected}"
 	);
-	let deleted = agent
-		.fails("delete", json!({ "path": "drafts/new.md", "expect": { "content_hash": blake3::hash(b"new\n").to_hex().to_string() } }))
+
+	// A move copies under If-None-Match, so a taken name keeps both, and the
+	// source goes only once the copy landed.
+	for (key, body) in [
+		("project/moves/a.txt", "alpha\n"),
+		("project/moves/b.txt", "beta\n"),
+		("project/tree/x.txt", "x\n"),
+		("project/tree/sub/y.txt", "y\n"),
+	] {
+		seed.write(Path::new(&format!("{run}/{key}")), Bytes::from(body))
+			.await?;
+	}
+	let alpha = agent.hash("moves/a.txt").await;
+	let moved = agent
+		.ok(
+			"move",
+			json!({ "path": "moves/a.txt", "to": "moves/b.txt", "expect": { "content_hash": alpha } }),
+		)
 		.await;
-	assert!(deleted.contains("bucket"), "{deleted}");
+	assert_eq!(moved["conflict"], json!(true), "{moved}");
+	assert_eq!(
+		moved["state"]["path"],
+		json!("moves/b (agent conflict 1).txt")
+	);
+	assert_eq!(
+		object(&seed, &run, "project/moves/b.txt").await,
+		Some("beta\n".into())
+	);
+	assert_eq!(
+		object(&seed, &run, "project/moves/b (agent conflict 1).txt").await,
+		Some("alpha\n".into())
+	);
+	assert_eq!(object(&seed, &run, "project/moves/a.txt").await, None);
+
+	// Undo moves it back.
+	let undone = undo(&harness, moved["undo"].as_str().expect("an undo id")).await;
+	assert_eq!(undone["reversed"], json!(1), "{undone}");
+	assert_eq!(
+		object(&seed, &run, "project/moves/a.txt").await,
+		Some("alpha\n".into())
+	);
+	assert_eq!(
+		object(&seed, &run, "project/moves/b (agent conflict 1).txt").await,
+		None
+	);
+
+	// A delete against a stale hash is refused and leaves the object.
+	let beta = agent.hash("moves/b.txt").await;
+	let stale_delete = agent
+		.fails(
+			"delete",
+			json!({ "path": "moves/b.txt", "expect": { "content_hash": alpha } }),
+		)
+		.await;
+	assert!(stale_delete.contains("stale"), "{stale_delete}");
+	assert_eq!(
+		object(&seed, &run, "project/moves/b.txt").await,
+		Some("beta\n".into())
+	);
+
+	// A delete puts the object in the bucket's trash, and undo restores it.
+	// The delete runs a second after the upload, so the trash copy's time
+	// differs from the source's and undo has to know the copy by its own.
+	tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+	let deleted = agent
+		.ok(
+			"delete",
+			json!({ "path": "moves/b.txt", "expect": { "content_hash": beta } }),
+		)
+		.await;
+	let deleted_undo = deleted["undo"].as_str().expect("an undo id").to_string();
+	assert_eq!(object(&seed, &run, "project/moves/b.txt").await, None);
+	let trashed = format!(".spacedrive/trash/{deleted_undo}/{run}/project/moves/b.txt");
+	assert_eq!(
+		String::from_utf8(seed.read(Path::new(&trashed)).await?.to_vec())?,
+		"beta\n"
+	);
+	let undone = undo(&harness, &deleted_undo).await;
+	assert_eq!(undone["reversed"], json!(1), "{undone}");
+	assert_eq!(
+		object(&seed, &run, "project/moves/b.txt").await,
+		Some("beta\n".into())
+	);
+	assert!(seed.read(Path::new(&trashed)).await.is_err());
+
+	// A prefix moves and goes to the trash object by object, and undo
+	// reverses every object.
+	let tree = agent.hash("tree").await;
+	let moved_tree = agent
+		.ok(
+			"move",
+			json!({ "path": "tree", "to": "forest", "expect": { "content_hash": tree } }),
+		)
+		.await;
+	assert_eq!(moved_tree["state"]["path"], json!("forest"), "{moved_tree}");
+	assert_eq!(
+		object(&seed, &run, "project/forest/sub/y.txt").await,
+		Some("y\n".into())
+	);
+	assert_eq!(object(&seed, &run, "project/tree/x.txt").await, None);
+	let forest = agent.hash("forest").await;
+	let deleted_tree = agent
+		.ok(
+			"delete",
+			json!({ "path": "forest", "expect": { "content_hash": forest } }),
+		)
+		.await;
+	assert_eq!(object(&seed, &run, "project/forest/x.txt").await, None);
+	let undone = undo(&harness, deleted_tree["undo"].as_str().expect("an undo id")).await;
+	assert_eq!(undone["reversed"], json!(2), "{undone}");
+	let undone = undo(&harness, moved_tree["undo"].as_str().expect("an undo id")).await;
+	assert_eq!(undone["reversed"], json!(2), "{undone}");
+	assert_eq!(
+		object(&seed, &run, "project/tree/x.txt").await,
+		Some("x\n".into())
+	);
+	assert_eq!(
+		object(&seed, &run, "project/tree/sub/y.txt").await,
+		Some("y\n".into())
+	);
 
 	// A read grant on the same prefix reads and does not write.
 	let mut reader = Client::connect(&url, &grant(&harness, &project, GrantCap::Read).await?).await;
@@ -437,17 +581,78 @@ async fn agents_read_grep_and_write_a_bucket_prefix_with_preconditions() -> anyh
 		"{read_only}"
 	);
 
-	for key in [
-		"project/notes.md",
-		"project/notes (agent conflict 1).md",
-		"project/AGENTS.md",
-		"project/src/main.rs",
-		"project/src/lib.rs",
-		"project/drafts/new.md",
-		"outside/secret.txt",
+	// A bucket that keeps no versions takes no moves or deletes: a write
+	// landing between the tag check and the delete would be lost for good.
+	let plain_bucket =
+		std::env::var("SD_TEST_S3_PLAIN_BUCKET").unwrap_or_else(|_| "spacedrive-test-plain".into());
+	let plain = CloudBackend::new_s3(
+		&plain_bucket,
+		"us-east-1",
+		&s3.access,
+		&s3.secret,
+		Some(s3.endpoint.clone()),
+	)
+	.await?;
+	plain
+		.write(Path::new(&format!("{run}/kept.txt")), Bytes::from("kept\n"))
+		.await?;
+	VolumeAddCloudAction::from_input(VolumeAddCloudInput {
+		service: CloudServiceType::S3,
+		display_name: "Unversioned bucket".to_string(),
+		config: CloudStorageConfig::S3 {
+			bucket: plain_bucket.clone(),
+			region: "us-east-1".to_string(),
+			access_key_id: s3.access.clone(),
+			secret_access_key: s3.secret.clone(),
+			endpoint: Some(s3.endpoint.clone()),
+		},
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?;
+	let plain_root = format!("s3://{plain_bucket}/{run}");
+	TrackSourceAction::from_input(TrackSourceInput {
+		path: PathBuf::from(&plain_root),
+		name: Some("Unversioned".to_string()),
+		overrides: AddOverrides::default(),
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?;
+	let mut unversioned = Client::connect(
+		&url,
+		&grant(&harness, &plain_root, GrantCap::ReadWrite).await?,
+	)
+	.await;
+	let kept = unversioned.hash("kept.txt").await;
+	for (tool, arguments) in [
+		(
+			"delete",
+			json!({ "path": "kept.txt", "expect": { "content_hash": kept } }),
+		),
+		(
+			"move",
+			json!({ "path": "kept.txt", "to": "moved.txt", "expect": { "content_hash": kept } }),
+		),
 	] {
-		let _ = seed.delete(Path::new(&format!("{run}/{key}"))).await;
+		let refused = unversioned.fails(tool, arguments).await;
+		assert!(refused.contains("versioning"), "{tool}: {refused}");
 	}
+	assert_eq!(
+		String::from_utf8(
+			plain
+				.read(Path::new(&format!("{run}/kept.txt")))
+				.await?
+				.to_vec()
+		)?,
+		"kept\n"
+	);
+	let _ = plain.delete(Path::new(&format!("{run}/"))).await;
+
+	let _ = seed.delete(Path::new(&format!("{run}/"))).await;
+	let _ = seed
+		.delete(Path::new(&format!(".spacedrive/trash/{deleted_undo}/")))
+		.await;
 	harness.shutdown().await?;
 	Ok(())
 }

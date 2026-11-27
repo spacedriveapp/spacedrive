@@ -97,8 +97,8 @@ impl LibraryQuery for TrashListQuery {
 				from,
 				location,
 				trashed_at: recorded.recorded_at,
-				size: subject.map(|subject| subject.size).unwrap_or(0),
-				is_dir: subject.is_some_and(|subject| subject.is_dir),
+				size: subject.as_ref().map(|subject| subject.size).unwrap_or(0),
+				is_dir: subject.as_ref().is_some_and(|subject| subject.is_dir),
 				present,
 			});
 			if self

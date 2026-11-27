@@ -189,6 +189,10 @@ pub enum WriteError {
 	Io(String),
 	#[error("the call was cancelled before anything changed")]
 	Cancelled,
+	/// A bucket move or delete that landed in part, or kept a copy beside an
+	/// object that changed under it. `undo` reverses the part that landed.
+	#[error("{message}{}", undo.map(|id| format!(". Pass undo {id} to files.undo to reverse what landed")).unwrap_or_default())]
+	Partial { message: String, undo: Option<Uuid> },
 }
 
 impl WriteError {

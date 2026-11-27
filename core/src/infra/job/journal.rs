@@ -50,7 +50,7 @@ pub enum Effect {
 
 /// The state of an effect's result when it was recorded: what undo checks
 /// against before touching it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct Subject {
 	pub size: u64,
 	pub mtime_ms: i64,
@@ -60,6 +60,10 @@ pub struct Subject {
 	/// job's folder from one that later took its place.
 	#[serde(default)]
 	pub created_ms: Option<i64>,
+	/// The entity tag of a bucket object, which names its version where a
+	/// second-resolution modification time and a size cannot.
+	#[serde(default)]
+	pub etag: Option<String>,
 }
 
 impl Subject {
@@ -69,6 +73,7 @@ impl Subject {
 			mtime_ms: meta.modified().ok().map(millis).unwrap_or(0),
 			is_dir: meta.is_dir(),
 			created_ms: meta.created().ok().map(millis),
+			etag: None,
 		}
 	}
 
@@ -226,7 +231,7 @@ mod tests {
 		// A row from before creation times were recorded still matches.
 		let older = Subject {
 			created_ms: None,
-			..subject
+			..subject.clone()
 		};
 		assert!(older.still_holds(&file).await);
 		std::fs::write(&file, b"abcd").expect("rewrite");
