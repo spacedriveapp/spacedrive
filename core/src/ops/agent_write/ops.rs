@@ -20,6 +20,7 @@ use tracing::{info, warn};
 use uuid::Uuid;
 
 use super::{
+	bucket::{self, Bucket},
 	conflict::conflict_name,
 	state::{self, check, stale},
 	ContentEncoding, DeleteInput, MakeDirInput, MoveInput, PathKind, PathState, StatInput,
@@ -33,7 +34,7 @@ use crate::{
 	},
 	ops::{
 		files::trash,
-		grants::{authorize, scope, GrantCap, GrantError, GrantScope},
+		grants::{authorize, bucket::BucketUrl, scope, GrantCap, GrantError, GrantScope},
 		spaces::events::{self as space_events, Attribution, Origin},
 	},
 	service::network::protocol::staged_receive::{rename_noreplace, StagedReceive, JOURNAL_DIR},
@@ -68,8 +69,13 @@ impl WriteTurn {
 		Self::take(Arc::new(AtomicBool::new(false))).await
 	}
 
+	/// The flag a surface sets when it gives up on the call.
+	pub(super) fn cancel(&self) -> &AtomicBool {
+		&self.cancel
+	}
+
 	/// Refuse if the caller gave up. Called just before a write's first change.
-	fn proceed(&self) -> Result<(), WriteError> {
+	pub(super) fn proceed(&self) -> Result<(), WriteError> {
 		if self.cancel.load(Ordering::Relaxed) {
 			return Err(WriteError::Cancelled);
 		}
@@ -87,6 +93,9 @@ pub async fn stat(context: &CoreContext, input: StatInput) -> Result<PathState, 
 		GrantCap::Read,
 	)
 	.await?;
+	if let Some(bucket) = Bucket::of(context, &scope).await? {
+		return bucket::state(&bucket, &AtomicBool::new(false)).await;
+	}
 	Ok(state::read(context, &scope.root, &scope.path).await?.0)
 }
 
@@ -127,6 +136,9 @@ pub async fn write_file_in(
 	}
 
 	let scope = writable(context, &input.token, "agent.write_file", &input.path).await?;
+	if let Some(bucket) = Bucket::of(context, &scope).await? {
+		return bucket::write_file(bucket, bytes, input.offset, input.expect, &turn).await;
+	}
 	let (current, metadata) =
 		state::read_until(context, &scope.root, &scope.path, turn.cancel.clone()).await?;
 	let id = Uuid::now_v7();
@@ -245,6 +257,9 @@ pub async fn make_dir_in(
 	turn: WriteTurn,
 ) -> Result<WriteOutcome, WriteError> {
 	let scope = writable(context, &input.token, "agent.make_dir", &input.path).await?;
+	if let Some(bucket) = Bucket::of(context, &scope).await? {
+		return bucket::make_dir(bucket, &turn).await;
+	}
 	let (current, _) =
 		state::read_until(context, &scope.root, &scope.path, turn.cancel.clone()).await?;
 	let id = Uuid::now_v7();
@@ -294,6 +309,9 @@ pub async fn move_path_in(
 ) -> Result<WriteOutcome, WriteError> {
 	let from = writable(context, &input.token, "agent.move", &input.from).await?;
 	let to = writable(context, &input.token, "agent.move", &input.to).await?;
+	if BucketUrl::parse(&from.path).is_some() {
+		return Err(bucket::unconditional("moving"));
+	}
 	let (current, metadata) =
 		state::read_until(context, &from.root, &from.path, turn.cancel.clone()).await?;
 	check(&input.expect, &current)?;
@@ -366,6 +384,9 @@ pub async fn delete_in(
 	turn: WriteTurn,
 ) -> Result<WriteOutcome, WriteError> {
 	let scope = writable(context, &input.token, "agent.delete", &input.path).await?;
+	if BucketUrl::parse(&scope.path).is_some() {
+		return Err(bucket::unconditional("deleting"));
+	}
 	let (current, metadata) =
 		state::read_until(context, &scope.root, &scope.path, turn.cancel.clone()).await?;
 	check(&input.expect, &current)?;

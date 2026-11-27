@@ -259,6 +259,10 @@ impl FsWatcherService {
 						continue;
 					}
 				};
+				// A bucket has no filesystem to watch; it is read live.
+				if crate::ops::grants::bucket::BucketUrl::parse(&root).is_some() {
+					continue;
+				}
 				match self.watch_root(root.clone()).await {
 					Ok(()) => info!("Watching restored source: {}", root.display()),
 					Err(e) => {

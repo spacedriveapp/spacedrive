@@ -468,12 +468,23 @@ impl<'a, 'c> Merge<'a, 'c> {
 				};
 				let from = directory.join(&name);
 				let to = destination.join(&relative);
-				let _held = crate::ops::spaces::events::hold(&[&from, &to]);
 				let Ok(meta) = tokio::fs::symlink_metadata(&from).await else {
 					continue;
 				};
 
+				// A folder is claimed only where the merge creates it, since one
+				// already there holds files the merge may not touch; each leaf
+				// below is held on its own. A merge that copies only reads its
+				// source.
+				let _held = (!meta.is_dir()).then(|| {
+					if self.consume {
+						crate::ops::spaces::events::hold(&[&from, &to])
+					} else {
+						crate::ops::spaces::events::hold(&[&to])
+					}
+				});
 				if meta.is_dir() {
+					crate::ops::spaces::events::claim_missing(&to).await;
 					let result = if self.done(source, &relative) {
 						None
 					} else {
@@ -491,6 +502,9 @@ impl<'a, 'c> Merge<'a, 'c> {
 					if descend {
 						self.directory(source, root, &from, destination, &relative)
 							.await?;
+						if self.consume {
+							crate::ops::spaces::events::claim(&[&from]);
+						}
 						if self.consume && tokio::fs::remove_dir(&from).await.is_ok() {
 							self.pruned += 1;
 							self.effects.push(Effect::removed(from.clone()));
@@ -668,6 +682,8 @@ impl<'a, 'c> Merge<'a, 'c> {
 
 	/// A link at `at`: renamed from the source when moving, else made anew.
 	async fn place_link(&self, from: &Path, target: &Path, at: &Path) -> Settled {
+		// `at` may be a numbered name beside the planned one.
+		let _held = crate::ops::spaces::events::hold(&[at]);
 		if self.moving {
 			return match tokio::fs::rename(from, at).await {
 				Ok(()) => Settled {
@@ -754,6 +770,8 @@ impl<'a, 'c> Merge<'a, 'c> {
 	/// A file at `to`: renamed from the source when moving, else copied
 	/// with the strategy the router picks.
 	async fn place(&self, from: &Path, to: &Path) -> Settled {
+		// `to` may be a numbered name beside the planned one.
+		let _held = crate::ops::spaces::events::hold(&[to]);
 		if self.moving {
 			let size = tokio::fs::symlink_metadata(from)
 				.await

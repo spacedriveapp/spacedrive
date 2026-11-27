@@ -191,7 +191,7 @@ async fn apply(ctx: &JobContext<'_>, step: Step) -> std::io::Result<Vec<Effect>>
 		Step::MoveBack { from, to, .. } => {
 			crate::ops::spaces::events::claim(&[&from, &to]);
 			if let Some(parent) = to.parent() {
-				crate::ops::spaces::events::claim(&[parent]);
+				crate::ops::spaces::events::claim_missing(parent).await;
 				tokio::fs::create_dir_all(parent).await?;
 			}
 			move_back(&from, &to).await?;

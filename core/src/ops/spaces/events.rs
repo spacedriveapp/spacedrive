@@ -144,6 +144,22 @@ pub fn claim(paths: &[&Path]) {
 	}
 }
 
+/// Claim the folders that creating `dir` and its missing parents will add,
+/// and nothing that already exists: a claim covers what is inside it, and
+/// an existing folder holds files nobody here is touching.
+pub async fn claim_missing(dir: &Path) {
+	let mut topmost = None;
+	for ancestor in dir.ancestors() {
+		if tokio::fs::symlink_metadata(ancestor).await.is_ok() {
+			break;
+		}
+		topmost = Some(ancestor);
+	}
+	if let Some(topmost) = topmost {
+		claim(&[topmost]);
+	}
+}
+
 /// Claim paths for as long as the answer lives, and a few seconds after: for
 /// an operation that takes longer than the claim window, such as copying a
 /// folder.
@@ -513,6 +529,21 @@ pub async fn record_watched(context: &CoreContext, event: &FsEvent) {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[tokio::test]
+	async fn creating_folders_claims_only_the_new_ones() {
+		let dir = tempfile::tempdir().unwrap();
+		let existing = dir.path().join("project");
+		std::fs::create_dir(&existing).unwrap();
+		claim_missing(&existing.join("new/deeper")).await;
+		let own = OWN_WRITES.lock();
+		let now = Instant::now();
+		assert!(is_own(&own, &existing.join("new/deeper/file.md"), now));
+		assert!(
+			!is_own(&own, &existing.join("unrelated.md"), now),
+			"a folder that was already there stays watched"
+		);
+	}
 
 	#[test]
 	fn the_innermost_space_holds_a_path() {

@@ -133,7 +133,7 @@ impl JobHandler for RearrangeJob {
 		}
 
 		for directory in &rearrangement.directories {
-			crate::ops::spaces::events::claim(&[directory]);
+			crate::ops::spaces::events::claim_missing(directory).await;
 			match tokio::fs::create_dir_all(directory).await {
 				Ok(()) => {
 					let subject = tokio::fs::symlink_metadata(directory).await.ok();

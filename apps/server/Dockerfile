@@ -76,7 +76,9 @@ RUN useradd -m -u 1000 spacedrive
 COPY --from=builder /usr/local/bin/sd-server /usr/bin/sd-server
 
 # Environment
+# sd-server binds loopback by default; the published port needs every interface.
 ENV DATA_DIR=/data \
+	SD_HOST=0.0.0.0 \
 	PORT=8080 \
 	RUST_LOG=info,sd_core=debug
 

@@ -521,15 +521,6 @@ impl JobHandler for FileCopyJob {
 			}
 			let source_path = resolved_source.as_local_path().map(Path::to_path_buf);
 			let dest_path = final_destination.as_local_path().map(Path::to_path_buf);
-			// Held until this source is done, so the watcher sees this copy as
-			// the person's own even when it outlasts a claim's few seconds.
-			let _held = crate::ops::spaces::events::hold(
-				&source_path
-					.iter()
-					.chain(dest_path.iter())
-					.map(PathBuf::as_path)
-					.collect::<Vec<_>>(),
-			);
 			let existing = match &dest_path {
 				Some(dest_path) => tokio::fs::symlink_metadata(dest_path).await.ok(),
 				None => None,
@@ -540,6 +531,21 @@ impl JobHandler for FileCopyJob {
 					.is_ok_and(|meta| meta.is_dir()),
 				None => false,
 			};
+
+			// Held until this source is done, so the watcher sees this copy as
+			// the person's own even when it outlasts a claim's few seconds. A
+			// copy only reads its source, so only a move holds it, and a folder
+			// already at the destination holds files this copy may not touch,
+			// so a merge into it holds each entry instead.
+			let dest_is_new_or_file = existing.as_ref().is_none_or(|there| !there.is_dir());
+			let _held = crate::ops::spaces::events::hold(
+				&source_path
+					.iter()
+					.filter(|_| is_move)
+					.chain(dest_path.iter().filter(|_| dest_is_new_or_file))
+					.map(PathBuf::as_path)
+					.collect::<Vec<_>>(),
+			);
 
 			if let (Some(there), Some(source_path), Some(dest_path)) =
 				(existing.as_ref(), &source_path, &dest_path)

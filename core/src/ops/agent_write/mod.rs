@@ -45,6 +45,7 @@
 //! ```
 
 mod action;
+mod bucket;
 mod conflict;
 mod ops;
 mod state;
@@ -76,6 +77,9 @@ pub async fn state_of(
 	path: &std::path::Path,
 	cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
 ) -> Result<PathState, WriteError> {
+	if let Some(bucket) = bucket::Bucket::at(context, root, path).await? {
+		return bucket::state(&bucket, &cancel).await;
+	}
 	Ok(state::read_until(context, root, path, cancel).await?.0)
 }
 

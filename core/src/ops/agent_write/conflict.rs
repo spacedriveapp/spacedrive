@@ -9,21 +9,26 @@ use std::path::{Path, PathBuf};
 /// such as `.env`, takes the marker at the end. The name is chosen from what
 /// is on disk now, so two calls without a write between them agree.
 pub fn conflict_name(path: &Path, is_dir: bool) -> PathBuf {
+	conflict_names(path, is_dir)
+		.find(|candidate| std::fs::symlink_metadata(candidate).is_err())
+		.expect("an unbounded range always finds a free name")
+}
+
+/// Every `name (agent conflict N).ext` beside `path`, N from 1, for a
+/// caller that decides which is free by trying it, as a bucket does.
+pub(super) fn conflict_names(path: &Path, is_dir: bool) -> impl Iterator<Item = PathBuf> + '_ {
 	let name = path
 		.file_name()
 		.map(|name| name.to_string_lossy().into_owned())
 		.unwrap_or_default();
-	let (stem, extension) = split(&name, is_dir);
-	(1u32..)
-		.map(|n| {
-			let candidate = match extension {
-				Some(extension) => format!("{stem} (agent conflict {n}).{extension}"),
-				None => format!("{stem} (agent conflict {n})"),
-			};
-			path.with_file_name(candidate)
-		})
-		.find(|candidate| std::fs::symlink_metadata(candidate).is_err())
-		.expect("an unbounded range always finds a free name")
+	(1u32..).map(move |n| {
+		let (stem, extension) = split(&name, is_dir);
+		let candidate = match extension {
+			Some(extension) => format!("{stem} (agent conflict {n}).{extension}"),
+			None => format!("{stem} (agent conflict {n})"),
+		};
+		path.with_file_name(candidate)
+	})
 }
 
 fn split(name: &str, is_dir: bool) -> (&str, Option<&str>) {
