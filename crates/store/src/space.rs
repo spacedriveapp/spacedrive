@@ -52,21 +52,21 @@ const COLUMNS: &str =
 impl SourceDb {
 	/// Every space this store holds that has not been deleted, by root.
 	pub async fn spaces(&self) -> Result<Vec<SpaceRow>> {
-		Ok(sqlx::query_as(&format!(
+		let rows = sqlx::query_as(&format!(
 			"SELECT {COLUMNS} FROM space WHERE deleted = 0 ORDER BY root, name"
 		))
 		.fetch_all(self.pool())
-		.await?)
+		.await;
+		Ok(older_store_has_none(rows)?.unwrap_or_default())
 	}
 
 	/// One space by id, deleted or not.
 	pub async fn space(&self, uuid: Uuid) -> Result<Option<SpaceRow>> {
-		Ok(
-			sqlx::query_as(&format!("SELECT {COLUMNS} FROM space WHERE uuid = ?"))
-				.bind(uuid)
-				.fetch_optional(self.pool())
-				.await?,
-		)
+		let row = sqlx::query_as(&format!("SELECT {COLUMNS} FROM space WHERE uuid = ?"))
+			.bind(uuid)
+			.fetch_optional(self.pool())
+			.await;
+		Ok(older_store_has_none(row)?.flatten())
 	}
 
 	/// Write a space, unless the store already holds that space with a later
@@ -99,6 +99,16 @@ impl SourceDb {
 		.execute(self.pool())
 		.await?;
 		Ok(result.rows_affected() > 0)
+	}
+}
+
+/// A store opened read-only runs no DDL, so one written before spaces, or a
+/// replica copied from one, has no table: it holds no spaces.
+fn older_store_has_none<T>(result: std::result::Result<T, sqlx::Error>) -> Result<Option<T>> {
+	match result {
+		Ok(value) => Ok(Some(value)),
+		Err(sqlx::Error::Database(db)) if db.message().contains("no such table") => Ok(None),
+		Err(error) => Err(error.into()),
 	}
 }
 
@@ -142,5 +152,16 @@ mod tests {
 		assert!(!db.put_space(&row("0002", "Docs")).await.unwrap());
 		assert!(db.spaces().await.unwrap().is_empty());
 		assert!(db.space(gone.uuid).await.unwrap().unwrap().deleted);
+	}
+
+	#[tokio::test]
+	async fn a_store_from_before_spaces_reads_as_having_none() {
+		let (_dir, db) = store().await;
+		sqlx::query("DROP TABLE space")
+			.execute(db.pool())
+			.await
+			.unwrap();
+		assert!(db.spaces().await.unwrap().is_empty());
+		assert!(db.space(Uuid::from_u128(1)).await.unwrap().is_none());
 	}
 }

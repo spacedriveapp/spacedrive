@@ -142,6 +142,9 @@ impl LibraryAction for SpaceCreateAction {
 			}
 		};
 
+		// One create at a time, so two requests for one folder cannot both
+		// pass the check below before either writes.
+		let _one_create = CREATES.lock().await;
 		let existing = store
 			.db()
 			.spaces()
@@ -184,6 +187,8 @@ impl LibraryAction for SpaceCreateAction {
 }
 
 crate::register_library_action!(SpaceCreateAction, "spaces.create");
+
+static CREATES: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 /// Create `path` as an empty folder, or accept one that already is.
 async fn create_empty(path: &std::path::Path) -> Result<(), ActionError> {
