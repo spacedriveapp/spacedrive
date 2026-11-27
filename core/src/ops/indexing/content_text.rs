@@ -116,6 +116,17 @@ impl crate::infra::job::traits::DynJob for ContentTextJob {
 impl JobHandler for ContentTextJob {
 	type Output = ContentTextOutput;
 
+	/// A file that cannot be read stays pending and is counted again by
+	/// every pass, so a pass that only met those did nothing.
+	fn keep_record(&self, output: &Self::Output) -> bool {
+		!self.background || output.indexed + output.skipped + output.pruned > 0
+	}
+
+	fn finished_rows_kept(&self) -> Option<u64> {
+		self.background
+			.then_some(super::content_identity::BACKGROUND_HISTORY)
+	}
+
 	async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
 		let volume_index = ctx.library().core_context().volume_index();
 		if let Some(reason) = volume_index.dispatch_refusal(&self.root) {
