@@ -36,6 +36,17 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Video duration at indexing (Capy SPAC-129 follow-up, November 27, beta.1, in
+PR). Jamie decided a video's duration belongs in the record, so the Duration
+column fills in without analysis. The media metadata pass that reads EXIF now
+also reads each identified video's container header into `facet_video`:
+duration, frame size and codec. `sd_media_metadata::video` is a pure-Rust
+header reader with no FFmpeg and no decoding. It covers MP4/MOV with `moov`
+anywhere in the file, and MKV/WebM ahead of the first cluster. Rows are keyed
+by content hash like the image facet and reach listings, search hits and the
+inspector as `video_media_data`. Identification runs only in the deep scope
+(#3286), so the pass does too. Next: review and merge.
+
 Videos in the explorer (Capy FAN-14815, November 27, beta.1, in PR). Jamie
 decided footage belongs in the explorer, not a page of its own. The Videos
 extension's library view (`ui_manifest.json` and `ui/videos.js`) is gone, so
