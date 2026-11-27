@@ -180,6 +180,14 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Agent MCP writes test",
 		&["--test", "agent_mcp_writes_test"],
 	),
+	// Conditional writes against an S3-compatible service. CI starts
+	// SeaweedFS for it; it skips with a reason where SD_TEST_S3_ENDPOINT is
+	// unset unless SD_REQUIRE_S3 is set.
+	acceptance(
+		"sd-core",
+		"Bucket conditional writes test",
+		&["--test", "bucket_conditional_writes_test"],
+	),
 	// OAuth on the agent MCP endpoint (docs/cli/mcp-oauth.mdx): discovery,
 	// registration, the PKCE code flow, refresh rotation and revocation.
 	acceptance(
