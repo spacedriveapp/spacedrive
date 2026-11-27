@@ -9,15 +9,15 @@ use uuid::Uuid;
 use super::{local_footage_path, VIDEOS_EXTENSION_ID};
 use crate::{
 	context::CoreContext,
-	domain::{
-		sidecar::content_uuid_of_file, ContentSidecar, ProxyResolution, SdPath, SidecarFormat,
-		SidecarKind,
-	},
+	domain::{sidecar::content_uuid_of_file, SdPath, SidecarFormat, SidecarKind},
 	infra::{
 		api::SessionContext,
 		query::{LibraryQuery, QueryError, QueryResult},
 	},
-	ops::indexing::metadata::refuse_dataless,
+	ops::{
+		files::query::sidecars::{content_sidecars, CORE_PRODUCER},
+		indexing::metadata::refuse_dataless,
+	},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -76,22 +76,22 @@ impl LibraryQuery for FootageStatusQuery {
 			QueryError::InvalidInput(format!("could not read {}: {error}", path.display()))
 		})?;
 		let library_path = library.path();
-		let exists = |path: std::path::PathBuf| async move {
-			tokio::fs::try_exists(path).await.unwrap_or(false)
+		let sidecars = content_sidecars(library_path, content_uuid)
+			.await
+			.map_err(|error| {
+				QueryError::Internal(format!("could not list the content sidecars: {error}"))
+			})?;
+		let core = |kind: &str, format: &str| {
+			sidecars.iter().any(|sidecar| {
+				sidecar.producer == CORE_PRODUCER
+					&& sidecar.kind == kind
+					&& sidecar.format == format
+			})
 		};
-		let transcript = exists(
-			ContentSidecar::transcript(content_uuid, SidecarFormat::Json).path_in(library_path),
-		)
-		.await;
-		let mut proxy = false;
-		for resolution in [ProxyResolution::P720, ProxyResolution::P1080] {
-			proxy |=
-				exists(ContentSidecar::proxy(content_uuid, resolution).path_in(library_path)).await;
-		}
 		Ok(FootageStatusOutput {
 			content_uuid,
-			transcript,
-			proxy,
+			transcript: core("transcript", SidecarFormat::Json.extension()),
+			proxy: core("proxy", SidecarFormat::Mp4.extension()),
 			shots: shot_count(library_path, content_uuid).await?,
 			analyzed_shots: analyzed_shots(library_path, content_uuid).await?,
 		})

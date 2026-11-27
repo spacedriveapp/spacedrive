@@ -1,6 +1,5 @@
 import { memo } from "react";
 import type { File } from "@sd/ts-client";
-import { useServer } from "../../contexts/ServerContext";
 import { useHotThumbstrip } from "../../routes/explorer/hooks/useHotThumbstrip";
 
 interface TimelineScrubberProps {
@@ -20,38 +19,11 @@ export const TimelineScrubber = memo(function TimelineScrubber({
 	hoverPercent,
 	duration,
 }: TimelineScrubberProps) {
-	const { buildSidecarUrl } = useServer();
-
-	// Find thumbstrip sidecar
-	const thumbstripSidecar = file.sidecars?.find(
-		(s) => s.kind === "thumbstrip",
-	);
-	const hot = useHotThumbstrip(file.sd_path, !thumbstripSidecar);
-
-	// Parse grid dimensions
-	const getGridDimensions = (variant: string) => {
-		if (variant.includes("detailed")) return { columns: 10, rows: 10 };
-		if (variant.includes("mobile")) return { columns: 3, rows: 3 };
-		return { columns: 5, rows: 5 };
-	};
-
-	const grid = thumbstripSidecar
-		? getGridDimensions(thumbstripSidecar.variant)
-		: { columns: hot.columns, rows: hot.rows };
+	const hot = useHotThumbstrip(file.sd_path, true);
+	const grid = { columns: hot.columns, rows: hot.rows };
 	const totalFrames = grid.columns * grid.rows;
 
-	// Build thumbstrip URL
-	const sidecarUrl =
-		thumbstripSidecar && file.content_identity?.uuid
-			? buildSidecarUrl(
-					file.content_identity.uuid,
-					thumbstripSidecar.kind,
-					thumbstripSidecar.variant,
-					thumbstripSidecar.format,
-					thumbstripSidecar.version,
-				)
-			: null;
-	const thumbstripUrl = sidecarUrl ?? hot.url;
+	const thumbstripUrl = hot.url;
 
 	if (!thumbstripUrl) {
 		return null;

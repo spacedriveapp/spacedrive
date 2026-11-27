@@ -1,11 +1,10 @@
 //! File domain model - the forward-facing file representation
 //!
 //! This module provides the File domain type that aggregates data from Entry,
-//! ContentIdentity, Tags, and Sidecars into a developer-friendly interface.
+//! ContentIdentity, and Tags into a developer-friendly interface.
 //! The File struct is computed from pre-fetched data rather than fetching
 //! individual pieces on demand.
 
-use crate::domain::sidecar::{SidecarFormat, SidecarKind, SidecarStatus, SidecarVariant};
 use crate::domain::{
 	addressing::SdPath,
 	content_identity::{ContentIdentity, ContentKind},
@@ -33,7 +32,7 @@ pub enum EntryKind {
 /// Represents a file within the Spacedrive VDFS.
 ///
 /// This is a computed domain model that aggregates data from Entry, ContentIdentity,
-/// Tags, and Sidecars. It provides a rich, developer-friendly interface without
+/// and Tags. It provides a rich, developer-friendly interface without
 /// duplicating data in the database.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct File {
@@ -64,9 +63,6 @@ pub struct File {
 	/// The semantic tags associated with this file
 	pub tags: Vec<Tag>,
 
-	/// A list of sidecars associated with this file
-	pub sidecars: Vec<Sidecar>,
-
 	/// Media-specific metadata (extracted from EXIF/FFmpeg)
 	pub image_media_data: Option<ImageMediaData>,
 	pub video_media_data: Option<VideoMediaData>,
@@ -94,23 +90,6 @@ pub struct File {
 	/// itself when it is a small local image. UI-facing only.
 	#[serde(default)]
 	pub thumbnail_path: Option<std::path::PathBuf>,
-}
-
-/// Domain representation of a sidecar
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct Sidecar {
-	pub id: i32,
-	pub content_uuid: Uuid,
-	pub kind: String,
-	pub variant: String,
-	pub format: String,
-	pub status: String,
-	pub size: i64,
-	/// Bumped on every regeneration; sidecar URLs carry it as the cache
-	/// buster, since the served files are otherwise immutable to browsers.
-	pub version: i32,
-	pub created_at: DateTime<Utc>,
-	pub updated_at: DateTime<Utc>,
 }
 
 impl crate::domain::resource::Identifiable for File {
@@ -271,7 +250,6 @@ impl File {
 			content_identity: None,
 			alternate_paths: Vec::new(),
 			tags: Vec::new(),
-			sidecars: Vec::new(),
 			image_media_data: None,
 			video_media_data: None,
 			audio_media_data: None,
@@ -336,7 +314,6 @@ impl File {
 			content_identity: None,
 			alternate_paths: Vec::new(),
 			tags: Vec::new(),
-			sidecars: Vec::new(),
 			image_media_data: entry
 				.image
 				.as_ref()
@@ -432,7 +409,6 @@ impl File {
 			content_identity: None,
 			alternate_paths: Vec::new(),
 			tags: Vec::new(),
-			sidecars: Vec::new(),
 			image_media_data: None,
 			video_media_data: None,
 			audio_media_data: None,
@@ -454,30 +430,9 @@ impl File {
 		self.content_identity.is_some()
 	}
 
-	/// Check if this file has any sidecars
-	pub fn has_sidecars(&self) -> bool {
-		!self.sidecars.is_empty()
-	}
-
 	/// Check if this file has any tags
 	pub fn has_tags(&self) -> bool {
 		!self.tags.is_empty()
-	}
-
-	/// Get sidecars of a specific kind
-	pub fn sidecars_by_kind(&self, kind: &str) -> Vec<&Sidecar> {
-		self.sidecars
-			.iter()
-			.filter(|sidecar| sidecar.kind == kind)
-			.collect()
-	}
-
-	/// Get sidecars that are ready (not pending or failed)
-	pub fn ready_sidecars(&self) -> Vec<&Sidecar> {
-		self.sidecars
-			.iter()
-			.filter(|sidecar| sidecar.status == "Ready")
-			.collect()
 	}
 
 	/// Check if this file has alternate paths (duplicates)

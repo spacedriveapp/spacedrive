@@ -13,7 +13,7 @@
 //! answers `null` for a file on another device, and otherwise the content
 //! uuid with whichever of the three sidecars exist.
 
-use std::{path::Path, sync::Arc, time::UNIX_EPOCH};
+use std::{path::Path, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -26,9 +26,12 @@ use super::{
 };
 use crate::{
 	context::CoreContext,
-	domain::{ContentSidecar, ProxyResolution, SdPath},
+	domain::{ProxyResolution, SdPath},
 	infra::query::{LibraryQuery, QueryError, QueryResult},
-	ops::transcription::transcript::{read_transcript, Transcript},
+	ops::{
+		files::query::sidecars::{content_sidecars, SidecarAddress, CORE_PRODUCER},
+		transcription::transcript::{read_transcript, Transcript},
+	},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -133,23 +136,29 @@ impl LibraryQuery for MediaSidecarsQuery {
 }
 
 async fn largest_proxy(library_path: &Path, content_uuid: Uuid) -> Option<ProxySidecar> {
-	for resolution in [ProxyResolution::P1080, ProxyResolution::P720] {
-		let sidecar = ContentSidecar::proxy(content_uuid, resolution);
-		let Ok(metadata) = tokio::fs::metadata(sidecar.path_in(library_path)).await else {
-			continue;
-		};
-		let version = metadata
-			.modified()
-			.ok()
-			.and_then(|time| time.duration_since(UNIX_EPOCH).ok())
-			.map_or(0, |since| since.as_millis() as i64);
-		return Some(ProxySidecar {
-			variant: sidecar.variant.to_string(),
-			format: sidecar.format.extension().to_string(),
-			version,
+	let sidecars = content_sidecars(library_path, content_uuid)
+		.await
+		.unwrap_or_else(|error| {
+			warn!(%content_uuid, %error, "Could not list the content sidecars");
+			Vec::new()
 		});
-	}
-	None
+	[ProxyResolution::P1080, ProxyResolution::P720]
+		.into_iter()
+		.find_map(|resolution| {
+			sidecars.iter().find(|sidecar| {
+				sidecar.kind == "proxy"
+					&& sidecar.producer == CORE_PRODUCER
+					&& sidecar.variant == resolution.variant()
+			})
+		})
+		.and_then(|sidecar| match sidecar.address {
+			SidecarAddress::Content { version } => Some(ProxySidecar {
+				variant: sidecar.variant.clone(),
+				format: sidecar.format.clone(),
+				version,
+			}),
+			_ => None,
+		})
 }
 
 crate::register_library_query!(MediaSidecarsQuery, "media.sidecars");
