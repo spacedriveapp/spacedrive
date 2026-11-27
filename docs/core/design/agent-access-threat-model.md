@@ -75,7 +75,14 @@ agents.
   handle. Thumbnail asks are checked the same way, but the bake reopens by path.
 - F4. The SMB mount URL, password included, is logged at info on every start.
   The password is also accepted from an environment variable, which other
-  processes of the same user can read.
+  processes of the same user can read. Fixed: the daemon logs the share
+  address with its login masked, and its log writer masks the login of any
+  URL a record carries. `mounts.status` hands the login only to a client that
+  presents the RPC secret. The environment variable stays: a process of the
+  same user can already read the data directory, `rpc.secret` included.
+  `core/tests/rpc_security_test.rs` checks the log after the share starts.
+  Job records mask credential fields of the action input that started them,
+  and no log record carries the string a cookie key is derived from.
 - F5. `sd-server` listens on all interfaces by default over plain HTTP. Basic
   credentials cross the network on every request, and failed logins are not
   rate limited. It is the one surface already exposed to a network, and it
@@ -223,7 +230,8 @@ code change.
 | `search_content` query length | 1 KiB |
 | `search_content` results per page | 200 |
 | Failed authentications per client address | 20 per minute, then 429 for 5 minutes |
-| Idle SSE stream | closed after 60 s |
+| Event stream | heartbeat every 15 s; closed when a write fails or stalls for 30 s, when the grant ends, or when the grant opens a fifth stream (oldest closes) |
+| Idle MCP session | closed after 30 min |
 
 The block-read budget applies only to the space endpoint's block reads
 (`docs/core/design/space-endpoint.md`). Block reads count against it and
