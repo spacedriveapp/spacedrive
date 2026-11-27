@@ -365,24 +365,31 @@ pub async fn space_of(
 	})
 }
 
-/// The protected patterns of every space of `library` holding `path`, each
-/// with `path` relative to that space's root. Outer spaces count as well as
-/// the innermost, so nesting a space never lifts a protection.
-pub async fn protected_at(
+/// The folder and protected patterns of every space of `library` on this
+/// device that protects anything, across all its sources. Nested sources
+/// each hold their own spaces, so a lookup by the one source holding a path
+/// would miss the spaces of the sources around it.
+pub async fn protected_spaces(
 	context: &CoreContext,
-	path: &Path,
 	library: Uuid,
-) -> Vec<(String, Arc<GlobSet>)> {
-	let Some((_, spaces, relative)) = locate(context, path, Some(library)).await else {
-		return Vec::new();
-	};
-	spaces
-		.iter()
-		.filter_map(|space| {
-			let set = space.protected.clone()?;
-			Some((inside(&space.root, &relative)?.to_string(), set))
-		})
-		.collect()
+) -> Vec<(PathBuf, Arc<GlobSet>)> {
+	let mut found = Vec::new();
+	for source in context.volume_index().sources_of(library) {
+		if !source.attached {
+			continue;
+		}
+		for space in spaces_of(context, source.id).await.iter() {
+			if let Some(set) = &space.protected {
+				let dir = if space.root.is_empty() {
+					source.root.clone()
+				} else {
+					source.root.join(&space.root)
+				};
+				found.push((dir, set.clone()));
+			}
+		}
+	}
+	found
 }
 
 async fn log_for(context: &CoreContext, at: &InSpace) -> Option<Arc<SpaceEventLog>> {

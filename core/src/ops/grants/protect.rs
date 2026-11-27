@@ -75,13 +75,16 @@ pub fn compile<S: AsRef<str>>(patterns: &[S]) -> Result<GlobSet, String> {
 	set.build().map_err(|e| e.to_string())
 }
 
-/// The protection that applies at one path.
+/// The protection that applies at one path and below it.
 #[derive(Clone)]
 pub struct Protection {
 	path: PathBuf,
-	/// For each space holding `path` that protects anything, its patterns and
-	/// `path` relative to its root.
-	spaces: Vec<(String, Arc<GlobSet>)>,
+	/// The path as its volume spells it, when that differs, since a source
+	/// and so its spaces are rooted at the volume's spelling.
+	spelled: Option<PathBuf>,
+	/// Every space of the library that protects anything: its folder and
+	/// its patterns.
+	spaces: Vec<(PathBuf, Arc<GlobSet>)>,
 }
 
 impl Protection {
@@ -90,17 +93,26 @@ impl Protection {
 	pub fn builtin(path: &Path) -> Self {
 		Self {
 			path: path.to_path_buf(),
+			spelled: None,
 			spaces: Vec::new(),
 		}
 	}
 
-	/// Everything that protects `path`, which must be absolute and resolved.
-	/// Only the spaces of `library` count, since its grants are the ones
-	/// asking.
+	/// Everything that protects `path`, which must be absolute and resolved,
+	/// and anything below it. Every space of `library` is considered rather
+	/// than only those holding `path`, so a scan below `path` also meets the
+	/// spaces nested inside it, whichever source holds them.
 	pub async fn of(context: &CoreContext, path: &Path, library: Uuid) -> Self {
+		let spelled = context
+			.volume_manager
+			.locate_path(path)
+			.await
+			.map(|(_, spelled)| spelled)
+			.filter(|spelled| spelled != path);
 		Self {
 			path: path.to_path_buf(),
-			spaces: crate::ops::spaces::events::protected_at(context, path, library).await,
+			spelled,
+			spaces: crate::ops::spaces::events::protected_spaces(context, library).await,
 		}
 	}
 
@@ -116,17 +128,15 @@ impl Protection {
 		if let Some(name) = scope::protected_component(&full) {
 			return Some(name);
 		}
-		let below = names(below);
-		if let Some(name) = first_match(&DEFAULTS, &names(&self.path), &below) {
+		if let Some(name) = first_match(&DEFAULTS, &names(&full)) {
 			return Some(name);
 		}
-		self.spaces.iter().find_map(|(relative, set)| {
-			let base: Vec<_> = relative
-				.split('/')
-				.filter(|name| !name.is_empty())
-				.map(|name| (scope::fold(name), name.to_string()))
-				.collect();
-			first_match(set, &base, &below)
+		let spelled = self.spelled.as_ref().map(|spelled| spelled.join(below));
+		self.spaces.iter().find_map(|(dir, set)| {
+			let inside = std::iter::once(&full)
+				.chain(spelled.as_ref())
+				.find_map(|path| path.strip_prefix(dir).ok())?;
+			first_match(set, &names(inside))
 		})
 	}
 }
@@ -144,15 +154,10 @@ fn names(path: &Path) -> Vec<(String, String)> {
 		.collect()
 }
 
-/// The name ending the shortest prefix of `base` then `below` that `set`
-/// matches.
-fn first_match(
-	set: &GlobSet,
-	base: &[(String, String)],
-	below: &[(String, String)],
-) -> Option<String> {
+/// The name ending the shortest prefix of `names` that `set` matches.
+fn first_match(set: &GlobSet, names: &[(String, String)]) -> Option<String> {
 	let mut prefix = String::new();
-	for (folded, shown) in base.iter().chain(below) {
+	for (folded, shown) in names {
 		if !prefix.is_empty() {
 			prefix.push('/');
 		}
@@ -171,11 +176,10 @@ mod tests {
 	fn at(path: &str, spaces: &[(&str, &[&str])]) -> Protection {
 		Protection {
 			path: PathBuf::from(path),
+			spelled: None,
 			spaces: spaces
 				.iter()
-				.map(|(relative, patterns)| {
-					(relative.to_string(), Arc::new(compile(patterns).unwrap()))
-				})
+				.map(|(dir, patterns)| (PathBuf::from(dir), Arc::new(compile(patterns).unwrap())))
 				.collect(),
 		}
 	}
@@ -214,13 +218,12 @@ mod tests {
 
 	#[test]
 	fn space_patterns_hold_inside_the_space() {
-		let spaces: &[(&str, &[&str])] = &[("plan.md", &["*.pem", "/secrets/**", "/plan.md"])];
+		let patterns: &[&str] = &["*.pem", "/secrets/**", "/plan.md"];
 		assert_eq!(
-			at("/w/notes/plan.md", spaces).find(),
+			at("/w/notes/plan.md", &[("/w/notes", patterns)]).find(),
 			Some("plan.md".into())
 		);
-		let spaces: &[(&str, &[&str])] = &[("", &["*.pem", "/secrets/**", "/plan.md"])];
-		let root = at("/w", spaces);
+		let root = at("/w", &[("/w", patterns)]);
 		assert_eq!(
 			root.find_below(Path::new("keys/ID.PEM")),
 			Some("ID.PEM".into())
@@ -242,11 +245,23 @@ mod tests {
 			"anchored"
 		);
 		assert!(root.find_below(Path::new("docs/readme.md")).is_none());
+		assert!(
+			at("/elsewhere/key.pem", &[("/w", patterns)])
+				.find()
+				.is_none(),
+			"a space protects only inside itself"
+		);
 
-		let nested: &[(&str, &[&str])] = &[("inner/x.txt", &["/inner/**"]), ("x.txt", &[])];
+		let nested: &[(&str, &[&str])] = &[("/w", &["/inner/**"]), ("/w/inner", &[])];
 		assert!(
 			at("/w/inner/x.txt", nested).find().is_some(),
 			"an outer space protects inside an inner one"
+		);
+		let below: &[(&str, &[&str])] = &[("/w/a/project", &["*.pem"])];
+		assert_eq!(
+			at("/w", below).find_below(Path::new("a/project/key.pem")),
+			Some("key.pem".into()),
+			"a scan from above meets the spaces nested below"
 		);
 	}
 

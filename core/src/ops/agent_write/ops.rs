@@ -355,7 +355,7 @@ pub async fn move_path_in(
 	};
 	unchanged(context, &from, &current, &metadata, &turn).await?;
 	if is_dir {
-		no_protected_descendant(context, &from, &turn).await?;
+		no_protected_descendant(context, &from, Some(&wanted), &turn).await?;
 	}
 	turn.proceed()?;
 	let mut effects = make_parents(&to.root, &wanted).await?;
@@ -427,7 +427,7 @@ pub async fn delete_in(
 	let metadata = metadata.ok_or_else(|| stale(current.clone()))?;
 	unchanged(context, &scope, &current, &metadata, &turn).await?;
 	if metadata.is_dir() {
-		no_protected_descendant(context, &scope, &turn).await?;
+		no_protected_descendant(context, &scope, None, &turn).await?;
 	}
 	still_inside(&scope).await?;
 	let id = Uuid::now_v7();
@@ -491,13 +491,19 @@ async fn unchanged(
 
 /// Refuse to move or delete a directory that holds a path the grant
 /// protects, since authorizing the directory does not authorize what is in
-/// it. Links are not followed: a link is moved or trashed as itself.
+/// it. A move also checks where each path would land, under `landing`.
+/// Links are not followed: a link is moved or trashed as itself.
 async fn no_protected_descendant(
 	context: &CoreContext,
 	scope: &GrantScope,
+	landing: Option<&Path>,
 	turn: &WriteTurn,
 ) -> Result<(), WriteError> {
 	let protection = Protection::of(context, &scope.path, scope.library_id).await;
+	let landing = match landing {
+		Some(landing) => Some(Protection::of(context, landing, scope.library_id).await),
+		None => None,
+	};
 	let (root, dir) = (scope.root.clone(), scope.path.clone());
 	let top = dir.clone();
 	let cancel = turn.cancel.clone();
@@ -513,7 +519,11 @@ async fn no_protected_descendant(
 				let entry = entry.map_err(|e| WriteError::Io(format!("list: {e}")))?;
 				let path = entry.path();
 				let below = path.strip_prefix(&top).unwrap_or(&path);
-				if protection.find_below(below).is_some() {
+				let protected = protection.find_below(below).is_some()
+					|| landing
+						.as_ref()
+						.is_some_and(|landing| landing.find_below(below).is_some());
+				if protected {
 					return Ok(Some(state::shown(&root, &path)));
 				}
 				if entry.file_type().is_ok_and(|kind| kind.is_dir()) {
