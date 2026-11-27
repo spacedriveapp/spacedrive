@@ -24,11 +24,11 @@
 //! TCP connections.
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::TcpStream;
 use tokio::sync::{broadcast, mpsc, watch};
 
 use sd_core::infra::daemon::types::{DaemonRequest, DaemonResponse, EventFilter};
@@ -73,6 +73,8 @@ pub struct SubscriptionBroker {
 
 struct BrokerInner {
 	socket_addr: String,
+	/// The daemon's data directory, where its RPC secret lives.
+	data_dir: PathBuf,
 	options: BrokerOptions,
 	state: Mutex<BrokerState>,
 }
@@ -102,16 +104,22 @@ struct LingerCheck {
 }
 
 impl SubscriptionBroker {
-	/// Create a broker for the daemon at `socket_addr` with default options.
-	pub fn new(socket_addr: impl Into<String>) -> Self {
-		Self::with_options(socket_addr, BrokerOptions::default())
+	/// Create a broker for the daemon at `socket_addr` owning `data_dir`,
+	/// with default options.
+	pub fn new(socket_addr: impl Into<String>, data_dir: impl Into<PathBuf>) -> Self {
+		Self::with_options(socket_addr, data_dir, BrokerOptions::default())
 	}
 
 	/// Create a broker with explicit linger, backoff, and capacity settings.
-	pub fn with_options(socket_addr: impl Into<String>, options: BrokerOptions) -> Self {
+	pub fn with_options(
+		socket_addr: impl Into<String>,
+		data_dir: impl Into<PathBuf>,
+		options: BrokerOptions,
+	) -> Self {
 		Self {
 			inner: Arc::new(BrokerInner {
 				socket_addr: socket_addr.into(),
+				data_dir: data_dir.into(),
 				options,
 				state: Mutex::new(BrokerState {
 					entries: HashMap::new(),
@@ -157,6 +165,7 @@ impl SubscriptionBroker {
 				let (shutdown_tx, shutdown_rx) = watch::channel(false);
 				tokio::spawn(run_connection(
 					self.inner.socket_addr.clone(),
+					self.inner.data_dir.clone(),
 					format!("{key}\n"),
 					events_tx.clone(),
 					shutdown_rx,
@@ -304,6 +313,7 @@ fn canonicalize(
 /// Exits when the pool entry (and with it the shutdown sender) is dropped.
 async fn run_connection(
 	socket_addr: String,
+	data_dir: PathBuf,
 	request_line: String,
 	events: broadcast::Sender<Event>,
 	mut shutdown: watch::Receiver<bool>,
@@ -312,7 +322,7 @@ async fn run_connection(
 ) {
 	let mut backoff = initial_backoff;
 	loop {
-		match TcpStream::connect(&socket_addr).await {
+		match sd_core::infra::daemon::auth::connect(&socket_addr, &data_dir).await {
 			Ok(mut stream) => {
 				if stream.write_all(request_line.as_bytes()).await.is_ok() {
 					// Keep the whole stream (write half included): a closed

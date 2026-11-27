@@ -1,16 +1,19 @@
-//! A malformed RPC line never reaches the log (threat model F2).
+//! The RPC server's trust boundary (threat model F1, F2 and F6).
 //!
-//! Starts a core with its RPC server in this process, captures every tracing
-//! record into memory, sends lines that fail to parse while carrying a grant
-//! token and a password, and checks that neither shows up in what was logged.
+//! Each test starts a core with its RPC server in this process and talks to it
+//! over raw TCP, the way any local process could.
 
 use std::{
 	io::Write,
-	sync::{Arc, Mutex},
+	path::PathBuf,
+	sync::{Arc, Mutex, OnceLock},
 	time::Duration,
 };
 
-use sd_core::{infra::daemon::rpc::RpcServer, Core};
+use sd_core::{
+	infra::daemon::{auth, rpc::RpcServer},
+	Core,
+};
 use tempfile::TempDir;
 use tokio::{
 	io::{AsyncReadExt, AsyncWriteExt},
@@ -39,47 +42,140 @@ impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for Captured {
 	}
 }
 
-async fn free_addr() -> String {
-	let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-	listener.local_addr().unwrap().to_string()
+/// Every tracing record of this test binary, captured from its first use.
+fn captured_log() -> &'static Captured {
+	static LOG: OnceLock<Captured> = OnceLock::new();
+	LOG.get_or_init(|| {
+		let captured = Captured::default();
+		tracing::subscriber::set_global_default(
+			tracing_subscriber::fmt()
+				.with_max_level(tracing::Level::TRACE)
+				.with_ansi(false)
+				.with_writer(captured.clone())
+				.finish(),
+		)
+		.unwrap();
+		captured
+	})
 }
 
-async fn send_line(addr: &str, line: &str) -> String {
-	let mut stream = TcpStream::connect(addr).await.unwrap();
-	stream.write_all(line.as_bytes()).await.unwrap();
-	stream.write_all(b"\n").await.unwrap();
-	let mut answer = String::new();
-	let _ = tokio::time::timeout(Duration::from_secs(5), stream.read_to_string(&mut answer)).await;
-	answer
+struct Daemon {
+	_temp: TempDir,
+	_core: Arc<Core>,
+	addr: String,
+	data_dir: PathBuf,
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn malformed_rpc_lines_are_not_logged() {
-	let captured = Captured::default();
-	tracing::subscriber::set_global_default(
-		tracing_subscriber::fmt()
-			.with_max_level(tracing::Level::TRACE)
-			.with_ansi(false)
-			.with_writer(captured.clone())
-			.finish(),
-	)
-	.unwrap();
-
+async fn start_daemon() -> Daemon {
+	captured_log();
 	let temp = TempDir::new().unwrap();
-	let core = Arc::new(Core::new(temp.path().join("core")).await.unwrap());
-	let addr = free_addr().await;
+	let data_dir = temp.path().join("core");
+	let core = Arc::new(Core::new(data_dir.clone()).await.unwrap());
+	let addr = {
+		let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+		listener.local_addr().unwrap().to_string()
+	};
 	let server_addr = addr.clone();
 	let server_core = core.clone();
 	tokio::spawn(async move {
 		let mut server = RpcServer::new(server_addr, server_core);
 		let _ = server.start().await;
 	});
-	for _ in 0..50 {
-		if TcpStream::connect(&addr).await.is_ok() {
+	for _ in 0..100 {
+		if auth::secret_path(&data_dir).exists() && TcpStream::connect(&addr).await.is_ok() {
 			break;
 		}
-		tokio::time::sleep(Duration::from_millis(100)).await;
+		tokio::time::sleep(Duration::from_millis(50)).await;
 	}
+	Daemon {
+		_temp: temp,
+		_core: core,
+		addr,
+		data_dir,
+	}
+}
+
+/// Send raw bytes on a fresh connection and return everything the daemon
+/// answers before it closes.
+async fn exchange(addr: &str, bytes: &str) -> String {
+	let mut stream = TcpStream::connect(addr).await.unwrap();
+	stream.write_all(bytes.as_bytes()).await.unwrap();
+	let mut answer = String::new();
+	let _ = tokio::time::timeout(Duration::from_secs(5), stream.read_to_string(&mut answer)).await;
+	answer
+}
+
+async fn secret(daemon: &Daemon) -> String {
+	auth::read(&daemon.data_dir).await.unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn rpc_without_the_secret_is_refused() {
+	let daemon = start_daemon().await;
+
+	let answer = exchange(&daemon.addr, "\"Ping\"\n").await;
+	assert!(
+		answer.contains("SecurityError") && !answer.contains("Pong"),
+		"a request without the secret is refused, got {answer:?}"
+	);
+
+	let wrong = auth::auth_line(&"0".repeat(64));
+	let answer = exchange(&daemon.addr, &(wrong + "\"Ping\"\n")).await;
+	assert!(
+		answer.contains("SecurityError") && !answer.contains("Pong"),
+		"a wrong secret is refused, got {answer:?}"
+	);
+
+	let right = auth::auth_line(&secret(&daemon).await);
+	let answer = exchange(&daemon.addr, &(right + "\"Ping\"\n")).await;
+	assert_eq!(
+		answer.trim(),
+		"\"Pong\"",
+		"the daemon's own secret is served"
+	);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn shutdown_without_the_secret_does_nothing() {
+	let daemon = start_daemon().await;
+
+	let answer = exchange(&daemon.addr, "\"Shutdown\"\n").await;
+	assert!(answer.contains("SecurityError"), "got {answer:?}");
+	tokio::time::sleep(Duration::from_millis(300)).await;
+
+	let right = auth::auth_line(&secret(&daemon).await);
+	let answer = exchange(&daemon.addr, &(right + "\"Ping\"\n")).await;
+	assert_eq!(answer.trim(), "\"Pong\"", "the daemon is still up");
+}
+
+/// F6: an HTTP request, such as a web page could send to loopback, is never
+/// dispatched.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_http_request_is_not_dispatched() {
+	let daemon = start_daemon().await;
+
+	let request = format!(
+		"POST / HTTP/1.1\r\nHost: {}\r\nContent-Type: text/plain\r\nContent-Length: 9\r\n\r\n\"Shutdown\"\n",
+		daemon.addr
+	);
+	let answer = exchange(&daemon.addr, &request).await;
+	assert!(
+		!answer.starts_with("HTTP/"),
+		"no HTTP answer, got {answer:?}"
+	);
+	assert!(answer.contains("SecurityError"), "got {answer:?}");
+
+	let right = auth::auth_line(&secret(&daemon).await);
+	let answer = exchange(&daemon.addr, &(right + "\"Ping\"\n")).await;
+	assert_eq!(answer.trim(), "\"Pong\"", "the daemon is still up");
+}
+
+/// F2: neither a malformed line after the secret nor a line sent in place
+/// of it reaches the log.
+#[tokio::test(flavor = "multi_thread")]
+async fn malformed_rpc_lines_are_not_logged() {
+	let daemon = start_daemon().await;
+	let right = auth::auth_line(&secret(&daemon).await);
 
 	let token = "sdg_F2LeakCanaryToken0123456789abcdefghijk";
 	let password = "hunter2-F2-canary";
@@ -90,18 +186,27 @@ async fn malformed_rpc_lines_are_not_logged() {
 		format!("not json {token} {password}"),
 	];
 	for line in &lines {
-		let answer = send_line(&addr, line).await;
+		let answer = exchange(&daemon.addr, &format!("{right}{line}\n")).await;
 		assert!(
-			answer.contains("Error"),
-			"a malformed line gets an error answer, got {answer:?}"
+			answer.contains("SerializationError"),
+			"a malformed line gets a parse error, got {answer:?}"
+		);
+		let answer = exchange(&daemon.addr, &format!("{line}\n")).await;
+		assert!(
+			answer.contains("SecurityError"),
+			"a line in place of the secret is refused, got {answer:?}"
 		);
 	}
 	tokio::time::sleep(Duration::from_millis(200)).await;
 
-	let log = String::from_utf8_lossy(&captured.0.lock().unwrap()).into_owned();
+	let log = String::from_utf8_lossy(&captured_log().0.lock().unwrap()).into_owned();
 	assert!(
 		log.contains("Failed to parse daemon request"),
 		"the parse failures were logged"
+	);
+	assert!(
+		log.contains("did not present the daemon's secret"),
+		"the refusals were logged"
 	);
 	assert!(
 		!log.contains("sdg_"),
@@ -110,5 +215,9 @@ async fn malformed_rpc_lines_are_not_logged() {
 	assert!(
 		!log.contains(password),
 		"a password reached the log:\n{log}"
+	);
+	assert!(
+		!log.contains(&secret(&daemon).await),
+		"the RPC secret reached the log"
 	);
 }

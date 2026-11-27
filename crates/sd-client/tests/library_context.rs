@@ -9,7 +9,7 @@ use common::MockDaemon;
 
 /// Client pointed at a closed port; persistence tests never touch the wire.
 fn offline_client() -> CoreClient {
-	CoreClient::new("127.0.0.1:1".to_string())
+	CoreClient::new("127.0.0.1:1".to_string(), std::env::temp_dir())
 }
 
 #[tokio::test]
@@ -83,7 +83,7 @@ async fn query_and_action_inject_the_current_library_id() {
 	let library_id = Uuid::new_v4();
 
 	let ctx = LibraryContext::load(
-		CoreClient::new(mock.addr()),
+		CoreClient::new(mock.addr(), mock.data_dir()),
 		dir.path().join("library.json"),
 	)
 	.await

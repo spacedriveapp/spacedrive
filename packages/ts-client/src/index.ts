@@ -42,7 +42,7 @@
 
 // Core client
 export { SpacedriveClient, RefusedError } from "./client";
-export type { Transport } from "./transport";
+export type { RpcSecret, Transport } from "./transport";
 export {
 	UnixSocketTransport,
 	TauriTransport,
