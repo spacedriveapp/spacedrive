@@ -44,6 +44,7 @@ use crate::{
 	ops::files::bucket::{self as files_bucket, Refusal},
 	ops::grants::{
 		bucket::{self, BucketUrl},
+		protect::Protection,
 		GrantError, GrantScope,
 	},
 	ops::indexing::state::EntryKind,
@@ -666,7 +667,7 @@ async fn prefix_objects(
 			})?;
 	for key in &keys {
 		let relative = key[bucket.url.key.len()..].trim_start_matches('/');
-		if crate::ops::grants::scope::protected_component(Path::new(relative)).is_some() {
+		if Protection::builtin(Path::new(relative)).find().is_some() {
 			return Err(
 				GrantError::Protected(bucket.shown(&files_bucket_url(&bucket.url, key))).into(),
 			);

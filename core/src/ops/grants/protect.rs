@@ -103,16 +103,23 @@ impl Protection {
 	/// than only those holding `path`, so a scan below `path` also meets the
 	/// spaces nested inside it, whichever source holds them.
 	pub async fn of(context: &CoreContext, path: &Path, library: Uuid) -> Self {
-		let spelled = context
-			.volume_manager
-			.locate_path(path)
-			.await
-			.map(|(_, spelled)| spelled)
-			.filter(|spelled| spelled != path);
+		let (roots, spaces) = crate::ops::spaces::events::protected_spaces(context, library).await;
+		// Asking the volume for its spelling reads the disk, so it is only
+		// done when no source of the library already spells the path.
+		let spelled = if spaces.is_empty() || roots.iter().any(|root| path.starts_with(root)) {
+			None
+		} else {
+			context
+				.volume_manager
+				.locate_path(path)
+				.await
+				.map(|(_, spelled)| spelled)
+				.filter(|spelled| spelled != path)
+		};
 		Self {
 			path: path.to_path_buf(),
 			spelled,
-			spaces: crate::ops::spaces::events::protected_spaces(context, library).await,
+			spaces,
 		}
 	}
 

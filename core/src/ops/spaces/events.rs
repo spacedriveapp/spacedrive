@@ -365,14 +365,15 @@ pub async fn space_of(
 	})
 }
 
-/// The folder and protected patterns of every space of `library` on this
-/// device that protects anything, across all its sources. Nested sources
-/// each hold their own spaces, so a lookup by the one source holding a path
-/// would miss the spaces of the sources around it.
+/// The roots of the attached sources of `library`, and the folder and
+/// protected patterns of every space in them that protects anything. Nested
+/// sources each hold their own spaces, so a lookup by the one source holding
+/// a path would miss the spaces of the sources around it.
 pub async fn protected_spaces(
 	context: &CoreContext,
 	library: Uuid,
-) -> Vec<(PathBuf, Arc<GlobSet>)> {
+) -> (Vec<PathBuf>, Vec<(PathBuf, Arc<GlobSet>)>) {
+	let mut roots = Vec::new();
 	let mut found = Vec::new();
 	for source in context.volume_index().sources_of(library) {
 		if !source.attached {
@@ -388,8 +389,9 @@ pub async fn protected_spaces(
 				found.push((dir, set.clone()));
 			}
 		}
+		roots.push(source.root);
 	}
-	found
+	(roots, found)
 }
 
 async fn log_for(context: &CoreContext, at: &InSpace) -> Option<Arc<SpaceEventLog>> {

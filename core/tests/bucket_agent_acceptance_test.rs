@@ -568,6 +568,35 @@ async fn agents_read_grep_and_write_a_bucket_prefix_with_preconditions() -> anyh
 		Some("y\n".into())
 	);
 
+	// A prefix holding a file a default pattern protects neither moves nor
+	// goes to the trash.
+	seed.write(
+		Path::new(&format!("{run}/project/ci/.github/workflows/ci.yml")),
+		Bytes::from("on: push\n"),
+	)
+	.await?;
+	let ci = agent.hash("ci").await;
+	for (tool, arguments) in [
+		(
+			"delete",
+			json!({ "path": "ci", "expect": { "content_hash": ci } }),
+		),
+		(
+			"move",
+			json!({ "path": "ci", "to": "moved-ci", "expect": { "content_hash": ci } }),
+		),
+	] {
+		let refused = agent.fails(tool, arguments).await;
+		assert!(
+			refused.contains("ci.yml") || refused.contains("403"),
+			"{refused}"
+		);
+	}
+	assert_eq!(
+		object(&seed, &run, "project/ci/.github/workflows/ci.yml").await,
+		Some("on: push\n".into())
+	);
+
 	// A read grant on the same prefix reads and does not write.
 	let mut reader = Client::connect(&url, &grant(&harness, &project, GrantCap::Read).await?).await;
 	reader.ok("read", json!({ "path": "notes.md" })).await;
