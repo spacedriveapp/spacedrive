@@ -425,6 +425,10 @@ impl MountFs for RemoteFs {
 				size: attr.size,
 				// A file without a time still needs a stable cache key.
 				modified: Some(attr.modified.unwrap_or(SystemTime::UNIX_EPOCH)),
+				version: node.etag.as_deref().map(|etag| {
+					let hash = blake3::hash(etag.as_bytes());
+					u64::from_le_bytes(hash.as_bytes()[..8].try_into().unwrap_or_default())
+				}),
 			},
 			etag: node.etag,
 		});

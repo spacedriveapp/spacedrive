@@ -396,16 +396,18 @@ async fn read_stream(
 	out: &broadcast::Sender<Change>,
 ) -> bool {
 	let mut body = response.bytes_stream();
-	let mut buffer = String::new();
+	let mut buffer = Vec::<u8>::new();
 	let (mut event, mut data, mut id) = (String::new(), String::new(), None::<String>);
 	while let Some(chunk) = body.next().await {
 		let Ok(chunk) = chunk else {
 			return false;
 		};
-		buffer.push_str(&String::from_utf8_lossy(&chunk));
-		while let Some(end) = buffer.find('\n') {
-			let line = buffer[..end].trim_end_matches('\r').to_string();
-			buffer.drain(..=end);
+		buffer.extend_from_slice(&chunk);
+		// Decode whole lines only: a chunk can end inside a multibyte character.
+		while let Some(end) = buffer.iter().position(|byte| *byte == b'\n') {
+			let line: Vec<u8> = buffer.drain(..=end).collect();
+			let line = String::from_utf8_lossy(&line[..end]);
+			let line = line.trim_end_matches('\r');
 			if !line.is_empty() {
 				match line.split_once(':') {
 					Some(("event", value)) => event = value.trim_start().to_string(),
