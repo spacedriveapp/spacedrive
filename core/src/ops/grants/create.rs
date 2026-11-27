@@ -171,9 +171,10 @@ pub(crate) async fn insert(
 	)
 	.await
 	.map_err(ActionError::Internal)?;
-	let space = crate::ops::spaces::events::space_of(context, &mint.target.subtree)
-		.await
-		.map(|at| at.space_id);
+	let space =
+		crate::ops::spaces::events::space_of(context, &mint.target.subtree, Some(library.id()))
+			.await
+			.map(|at| at.space_id);
 	agent_grant::Entity::insert(agent_grant::ActiveModel {
 		uuid: Set(id),
 		token_hash: Set(token_hash),

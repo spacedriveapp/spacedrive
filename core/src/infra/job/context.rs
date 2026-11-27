@@ -222,6 +222,7 @@ impl<'a> JobContext<'a> {
 						actor: person,
 						grant: None,
 						undo: Some(self.id.0),
+						library: Some(self.library.id()),
 					},
 					&effects,
 					None,

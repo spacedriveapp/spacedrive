@@ -398,6 +398,7 @@ async fn writable(
 			"name a path inside the granted directory".to_string(),
 		));
 	}
+	space_events::claim(&[&scope.path]);
 	Ok(scope)
 }
 
@@ -501,6 +502,7 @@ async fn make_parents(root: &Path, path: &Path) -> Result<Vec<Effect>, WriteErro
 	}
 	let mut effects = Vec::new();
 	for dir in missing.into_iter().rev() {
+		space_events::claim(&[&dir]);
 		match tokio::fs::create_dir(&dir).await {
 			Ok(()) => {
 				let meta = std::fs::symlink_metadata(&dir).ok();
@@ -548,6 +550,7 @@ async fn write_bytes(
 /// something took `wanted` meanwhile. Answers where it landed.
 async fn commit(staged: &mut StagedReceive, mut wanted: PathBuf) -> Result<PathBuf, WriteError> {
 	loop {
+		space_events::claim(&[&wanted]);
 		match staged.commit_new(&wanted).await {
 			Ok(()) => return Ok(wanted),
 			Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
@@ -579,6 +582,7 @@ async fn finish(
 			actor: scope.actor_id,
 			grant: Some(scope.grant_id),
 			undo,
+			library: Some(scope.library_id),
 		},
 		&effects,
 		Some((landed, before, state.content_hash.clone())),

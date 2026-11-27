@@ -14,7 +14,10 @@
 use std::{
 	collections::HashMap,
 	path::{Path, PathBuf},
-	sync::{Arc, LazyLock},
+	sync::{
+		atomic::{AtomicU64, Ordering},
+		Arc, LazyLock,
+	},
 	time::{Duration, Instant},
 };
 
@@ -65,6 +68,10 @@ pub struct Attribution {
 	pub grant: Option<Uuid>,
 	/// The job id `files.undo` takes to reverse the change.
 	pub undo: Option<Uuid>,
+	/// The library the change was made through. A path can sit in sources
+	/// of several libraries; only this one's spaces record it. None for the
+	/// watcher, which sees the disk rather than a library.
+	pub library: Option<Uuid>,
 }
 
 /// One change to record, in absolute paths.
@@ -102,15 +109,36 @@ static OWN_WRITES: LazyLock<Mutex<HashMap<PathBuf, Instant>>> = LazyLock::new(De
 static WATCHED: LazyLock<Mutex<HashMap<PathBuf, (&'static str, Instant)>>> =
 	LazyLock::new(Default::default);
 
+/// Bumped by every invalidation, so a cache fill that read the rows before
+/// a space changed does not publish them after.
+static GENERATION: AtomicU64 = AtomicU64::new(0);
+
 /// Forget what is cached about a source's spaces, after one changed.
 pub fn invalidate(source_id: Uuid) {
-	SPACES.lock().remove(&source_id);
+	let mut spaces = SPACES.lock();
+	GENERATION.fetch_add(1, Ordering::SeqCst);
+	spaces.remove(&source_id);
+}
+
+/// Mark paths Spacedrive is about to change, so the watcher does not record
+/// the change a second time as made outside Spacedrive. Called before the
+/// change, because the watcher can see it before the writer records it.
+pub fn claim(paths: &[&Path]) {
+	let now = Instant::now();
+	let mut own = OWN_WRITES.lock();
+	for path in paths {
+		own.insert(path.to_path_buf(), now);
+	}
 }
 
 async fn spaces_of(context: &CoreContext, source_id: Uuid) -> Arc<Vec<(Uuid, String)>> {
-	if let Some(spaces) = SPACES.lock().get(&source_id) {
-		return spaces.clone();
-	}
+	let generation = {
+		let spaces = SPACES.lock();
+		if let Some(spaces) = spaces.get(&source_id) {
+			return spaces.clone();
+		}
+		GENERATION.load(Ordering::SeqCst)
+	};
 	let spaces = match context.volume_index().read_store(source_id).await {
 		Some(db) => match db.spaces().await {
 			Ok(rows) => rows.into_iter().map(|row| (row.uuid, row.root)).collect(),
@@ -122,7 +150,10 @@ async fn spaces_of(context: &CoreContext, source_id: Uuid) -> Arc<Vec<(Uuid, Str
 		None => Vec::new(),
 	};
 	let spaces = Arc::new(spaces);
-	SPACES.lock().insert(source_id, spaces.clone());
+	let mut cache = SPACES.lock();
+	if GENERATION.load(Ordering::SeqCst) == generation {
+		cache.insert(source_id, spaces.clone());
+	}
 	spaces
 }
 
@@ -148,15 +179,30 @@ fn innermost(spaces: &[(Uuid, String)], relative: &str) -> Option<(Uuid, String)
 }
 
 /// The space holding `path`, if any. `path` may be spelled under the
-/// source's root or under the volume's spelling of it.
-pub async fn space_of(context: &CoreContext, path: &Path) -> Option<InSpace> {
+/// source's root or under the volume's spelling of it. With `library`, only
+/// that library's sources are considered, since sources of two libraries
+/// can nest.
+pub async fn space_of(
+	context: &CoreContext,
+	path: &Path,
+	library: Option<Uuid>,
+) -> Option<InSpace> {
 	let index = context.volume_index();
+	let source_for = |path: &Path| match library {
+		None => index.source_id_for(path),
+		Some(library) => index
+			.sources_of(library)
+			.into_iter()
+			.filter(|source| source.attached && path.starts_with(&source.root))
+			.max_by_key(|source| source.root.components().count())
+			.map(|source| source.id),
+	};
 	let spelled;
-	let (source_id, path) = match index.source_id_for(path) {
+	let (source_id, path) = match source_for(path) {
 		Some(id) => (id, path),
 		None => {
 			spelled = context.volume_manager.locate_path(path).await?.1;
-			(index.source_id_for(&spelled)?, spelled.as_path())
+			(source_for(&spelled)?, spelled.as_path())
 		}
 	};
 	let spaces = spaces_of(context, source_id).await;
@@ -239,9 +285,9 @@ pub async fn record(context: &CoreContext, who: Attribution, change: Change) -> 
 		}
 	}
 
-	let from = space_of(context, &change.path).await;
+	let from = space_of(context, &change.path, who.library).await;
 	let to = match &change.to {
-		Some(to) => space_of(context, to).await,
+		Some(to) => space_of(context, to, who.library).await,
 		None => None,
 	};
 	let mut written = 0;
@@ -379,9 +425,9 @@ pub async fn record_watched(context: &CoreContext, event: &FsEvent) {
 		}
 		watched.insert(path.clone(), (op, now));
 	}
-	if space_of(context, path).await.is_none()
+	if space_of(context, path, None).await.is_none()
 		&& match to {
-			Some(to) => space_of(context, to).await.is_none(),
+			Some(to) => space_of(context, to, None).await.is_none(),
 			None => true,
 		} {
 		return;
@@ -402,6 +448,7 @@ pub async fn record_watched(context: &CoreContext, event: &FsEvent) {
 			actor: device,
 			grant: None,
 			undo: None,
+			library: None,
 		},
 		Change {
 			op,

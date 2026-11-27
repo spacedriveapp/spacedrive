@@ -523,7 +523,7 @@ async fn list_changes(
 			.map_err(|_| "invalid cursor".to_string())?,
 		None => 0,
 	};
-	let at = crate::ops::spaces::events::space_of(context, &scope.root)
+	let at = crate::ops::spaces::events::space_of(context, &scope.root, Some(scope.library_id))
 		.await
 		.filter(|at| at.space_id == space_id)
 		.ok_or_else(|| "the grant root is no longer inside its space".to_string())?;
