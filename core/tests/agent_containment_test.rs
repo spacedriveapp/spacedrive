@@ -435,6 +435,32 @@ async fn stat_hashes_match_the_write_preconditions() -> anyhow::Result<()> {
 		blake3::hash(b"gamma").to_hex().as_str()
 	);
 
+	// The revision stat names is the one a write compares. It counts every
+	// change the store ingests, so a write racing the ingest of the one
+	// above can see it move once; the next stat names the settled value.
+	let mut landed = false;
+	for _ in 0..20 {
+		let stat = client.ok("stat", json!({ "path": "dir/new.txt" })).await;
+		let revision = stat["revision"].as_str().unwrap().to_string();
+		let (store, value) = revision.split_once(':').unwrap();
+		assert!(
+			store.len() == 32 && value.parse::<u64>().is_ok(),
+			"{revision}"
+		);
+		let reply = client
+			.call(
+				"write_file",
+				json!({ "path": "dir/new.txt", "content": "delta", "expect": { "revision": revision } }),
+			)
+			.await;
+		if reply.served() {
+			landed = true;
+			break;
+		}
+		tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+	}
+	assert!(landed, "a write against stat's revision never landed");
+
 	let made = client.ok("make_dir", json!({ "path": "dir" })).await;
 	let stat = client.ok("stat", json!({ "path": "dir" })).await;
 	assert_eq!(made["state"]["kind"], "directory");

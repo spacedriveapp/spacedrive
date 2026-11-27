@@ -179,10 +179,13 @@ impl Directory {
 
 	/// Describes the entry `name` without following it when it is a link.
 	pub fn stat(&self, name: &std::ffi::OsStr) -> io::Result<Stat> {
+		// Names come from listing the directory, so the length limit, which
+		// counts UTF-8 bytes and not the UTF-16 units Windows limits, is not
+		// applied; only names that could leave the directory are refused.
 		let raw = name.as_encoded_bytes();
-		check_component(raw)?;
-		if raw.contains(&b'/') || (cfg!(windows) && raw.contains(&b'\\')) {
-			return Err(invalid("name holds a separator"));
+		let separator = raw.contains(&b'/') || (cfg!(windows) && raw.contains(&b'\\'));
+		if matches!(raw, b"" | b"." | b"..") || raw.contains(&0) || separator {
+			return Err(invalid("not a single name in the directory"));
 		}
 		self.0.stat(name)
 	}
@@ -1274,5 +1277,23 @@ mod macos_tests {
 			stat_beneath(&root, Path::new("escape")).unwrap().kind,
 			Kind::Symlink
 		);
+	}
+}
+
+#[cfg(all(test, windows))]
+mod windows_tests {
+	use std::path::Path;
+
+	use super::*;
+
+	#[test]
+	fn a_listed_name_over_255_utf8_bytes_is_described() {
+		let temp = tempfile::tempdir().expect("tempdir");
+		let name = "\u{e9}".repeat(128);
+		std::fs::write(temp.path().join(&name), b"x").unwrap();
+		let dir = Directory::open(temp.path(), Path::new("")).unwrap();
+		assert!(dir.names().unwrap().iter().any(|listed| *listed == *name));
+		let stat = dir.stat(name.as_ref()).unwrap();
+		assert_eq!((stat.kind, stat.len), (Kind::File, 1));
 	}
 }

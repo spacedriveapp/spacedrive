@@ -1123,15 +1123,29 @@ async fn stat_with_precondition(
 	})
 	.await
 	.map_err(|_| "the call failed".to_string())??;
-	let state = agent_write::state_of(context, &root, &path, cancel)
-		.await
-		.map_err(|e| e.to_string())?;
-	// agent_write reads by path, so its hash of a file or directory is
-	// replaced by the one read through handles beneath the root. A link keeps
-	// agent_write's hash of its target string.
-	structured["content_hash"] = json!(contained.unwrap_or(state.content_hash));
-	structured["revision"] = json!(state.revision);
+	let Some(content_hash) = contained else {
+		// Only a link swapped in since the grant check, or a special file,
+		// lands here; agent_write's state is cheap for both and gives the
+		// link its hash of the target string.
+		let state = agent_write::state_of(context, &root, &path, cancel)
+			.await
+			.map_err(|e| e.to_string())?;
+		structured["content_hash"] = json!(state.content_hash);
+		structured["revision"] = json!(state.revision);
+		return Ok(Output::json(structured));
+	};
+	structured["content_hash"] = json!(content_hash);
+	structured["revision"] = json!(revision(context, &path).await);
 	Ok(Output::json(structured))
+}
+
+/// The revision of the store that ingests `path`, in the `store_id:value`
+/// form a write's precondition compares.
+async fn revision(context: &CoreContext, path: &Path) -> Option<String> {
+	let index = context.volume_index();
+	let db = index.read_store(index.source_id_for(path)?).await?;
+	let revision = db.revision().await.ok()?;
+	Some(format!("{}:{}", revision.store_id.simple(), revision.value))
 }
 
 /// The BLAKE3 hash of the scope's file, hex, read through a handle beneath
