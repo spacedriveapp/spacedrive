@@ -63,6 +63,22 @@ pub trait JobHandler: Job {
 	fn is_resuming(&self) -> bool {
 		false // Default implementation for non-resumable jobs
 	}
+
+	/// Whether a successful run leaves its row in the job history.
+	///
+	/// A background pass that found nothing to do is upkeep, not history, and
+	/// a watcher dispatches one every few minutes. Returning false removes the
+	/// row and its log once the run succeeds. Failures are always kept.
+	fn keep_record(&self, _output: &Self::Output) -> bool {
+		true
+	}
+
+	/// How many finished rows of this job's name the history keeps, newest
+	/// first, pruned each time one of these jobs finishes. `None` keeps them
+	/// all.
+	fn finished_rows_kept(&self) -> Option<u64> {
+		None
+	}
 }
 
 /// Trait for jobs that can be serialized
