@@ -49,14 +49,18 @@ directories appear with their sizes and times. Symlinks, devices and sockets
 do not appear. Writes, renames and deletes fail with `EROFS`.
 
 The node checks the token on every request and records each one in the
-grant's audit log. When the grant is revoked or expires, every listing, open
-and read fails with `EACCES`.
+grant's audit log. The client also asks the node every 5 seconds whether the
+token still holds. Once the grant is revoked or expires, every listing, open
+and read fails with `EACCES`, files opened before included, the kernel drops
+what it cached, and `sd mount` unmounts and exits with an error.
 
 ## Reads and caching
 
 Bytes are fetched in 1 MiB blocks and kept in a block cache under
 `~/.cache/spacedrive/mounts` (use `--cache-dir` to move it), with up to 2 GiB on
-disk. A file read in order is read ahead. Blocks are keyed by the file's path,
+disk. The cache directory is made readable by your user only (mode 0700),
+since its blocks are copies of granted files. A file read in order is read
+ahead. Blocks are keyed by the file's path,
 size and modified time, so a file that changes on the node is fetched again,
 and the cache never serves its old bytes. The cache can be deleted at any time.
 

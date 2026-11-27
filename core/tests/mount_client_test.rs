@@ -234,23 +234,59 @@ async fn a_thin_client_mounts_a_granted_folder_over_the_endpoint() -> anyhow::Re
 		.await;
 	}
 
-	// Revoked: the node refuses the token, so the mount refuses reads.
+	// Blocks of granted files are readable by this user alone.
+	{
+		use std::os::unix::fs::PermissionsExt;
+		let mode = std::fs::metadata(base.join("cache"))?.permissions().mode();
+		assert_eq!(mode & 0o777, 0o700, "the block cache is private: {mode:o}");
+	}
+
+	// A file opened and read while the grant held, so its bytes sit in the
+	// block cache and the kernel's page cache.
+	let held = {
+		let (mnt, clip) = (mnt.clone(), clip.clone());
+		blocking(move || {
+			let mut file = std::fs::File::open(mnt.join("clip.bin")).unwrap();
+			let mut head = vec![0u8; 4096];
+			file.read_exact(&mut head).unwrap();
+			assert_eq!(head, clip[..4096]);
+			file
+		})
+		.await
+	};
+	let ended = tokio::spawn({
+		let fs = fs.clone();
+		async move { fs.grant_ended().await }
+	});
+
+	// Revoked: the client notices without being asked, and nothing is served
+	// after that, not even bytes it already holds.
 	RevokeGrantAction::from_input(RevokeGrantInput { id: grant.grant.id })
 		.map_err(anyhow::Error::msg)?
 		.execute(harness.library.clone(), context.clone())
 		.await?;
+	tokio::time::timeout(Duration::from_secs(15), ended)
+		.await
+		.expect("the client sees the grant end within its check interval")?;
+	let held = blocking(move || {
+		let mut held = held;
+		held.seek(SeekFrom::Start(0)).unwrap();
+		let mut head = vec![0u8; 4096];
+		assert_eq!(
+			os_error(held.read_exact(&mut head)),
+			Some(EACCES),
+			"a descriptor opened before the revoke cannot read cached bytes"
+		);
+		held
+	})
+	.await;
+	drop(held);
 	{
 		let mnt = mnt.clone();
-		eventually(
-			Duration::from_secs(10),
-			"a revoked grant is refused",
-			move || {
-				std::fs::read(mnt.join("added.txt"))
-					.err()
-					.and_then(|err| err.raw_os_error())
-					== Some(EACCES)
-			},
-		)
+		blocking(move || {
+			assert_eq!(os_error(std::fs::read(mnt.join("added.txt"))), Some(EACCES));
+			assert_eq!(os_error(std::fs::read_dir(&mnt)), Some(EACCES));
+		})
 		.await;
 	}
 

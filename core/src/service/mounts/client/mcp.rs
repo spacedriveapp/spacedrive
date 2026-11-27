@@ -1,4 +1,4 @@
-//! The agent MCP endpoint as a mount transport.
+//! # Agent MCP mount transport
 //!
 //! Every Spacedrive node that lends folders to agents already answers
 //! `list_dir`, `stat` and ranged `read` over MCP's streamable HTTP
@@ -7,19 +7,33 @@
 //! whose MCP endpoint it can reach, through the same grant checks, audit and
 //! limits an agent gets. The endpoint's per-grant rate and concurrency limits
 //! apply: a refused request is retried after the `Retry-After` it names.
+//!
+//! ## Example
+//! ```rust,no_run
+//! # async fn demo() -> Result<(), sd_core::service::mounts::vfs::MountError> {
+//! use sd_core::service::mounts::client::{mcp::McpTransport, Transport};
+//!
+//! let node = McpTransport::connect("http://127.0.0.1:7765", "sdg_...").await?;
+//! let readme = node.read("docs/readme.md", 0, 4096).await?;
+//! node.close().await;
+//! # Ok(())
+//! # }
+//! ```
 
-use super::{RemoteNode, Transport};
-use crate::service::mounts::vfs::{MountError, NodeKind};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{Duration, SystemTime};
+
 use async_trait::async_trait;
 use base64::Engine;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use reqwest::{header, StatusCode};
 use serde_json::{json, Value};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, SystemTime};
 use tokio::sync::Mutex;
 use tracing::{debug, warn};
+
+use super::{RemoteNode, Transport, TOKEN_REFUSED};
+use crate::service::mounts::vfs::{MountError, NodeKind};
 
 const PROTOCOL_VERSION: &str = "2025-06-18";
 const SESSION_HEADER: &str = "mcp-session-id";
@@ -163,9 +177,7 @@ impl McpTransport {
 				.unwrap_or_else(|| String::from_utf8_lossy(&body).into_owned());
 			return match status {
 				StatusCode::OK | StatusCode::ACCEPTED => Ok((headers, value)),
-				StatusCode::UNAUTHORIZED => Err(MountError::Denied(
-					"invalid, expired or revoked grant token".to_string(),
-				)),
+				StatusCode::UNAUTHORIZED => Err(MountError::Denied(TOKEN_REFUSED.to_string())),
 				StatusCode::NOT_FOUND => Err(MountError::Unavailable(SESSION_LOST.to_string())),
 				StatusCode::FORBIDDEN => Err(refusal(&message)),
 				_ => Err(MountError::Unavailable(format!("{status}: {message}"))),

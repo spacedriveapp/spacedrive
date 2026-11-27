@@ -30,25 +30,36 @@
 
 pub mod mcp;
 
+use std::collections::HashMap;
+use std::ops::Range;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant, SystemTime};
+
+use async_trait::async_trait;
+use bytes::{Bytes, BytesMut};
+use tokio::sync::{broadcast, watch};
+use tracing::info;
+use uuid::Uuid;
+
 use crate::infra::source_dirs::SourceDirs;
 use crate::service::mounts::cache::{BlockCache, CachedProvider};
 use crate::service::mounts::provider::{
 	ByteError, ByteProvider, ByteStat, ByteTarget, ProviderClass,
 };
 use crate::service::mounts::vfs::{DirEntry, MountError, MountFs, NodeAttr, NodeKind, OpenedFile};
-use async_trait::async_trait;
-use bytes::{Bytes, BytesMut};
-use std::collections::HashMap;
-use std::ops::Range;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant, SystemTime};
-use tokio::sync::broadcast;
-use uuid::Uuid;
 
 /// How long the kernel and this client trust an answer from the node when
 /// no change feed says otherwise.
 const VALID_FOR: Duration = Duration::from_secs(1);
+
+/// How often an idle mount asks the node whether its grant still holds.
+const GRANT_CHECK_INTERVAL: Duration = Duration::from_secs(5);
+
+/// What every transport answers with when the node refuses the token, so
+/// the client can tell a grant that ended from any other refusal.
+pub const TOKEN_REFUSED: &str = "invalid, expired or revoked grant token";
 
 /// Default ceiling for the client's block cache on disk.
 pub const DEFAULT_CACHE_BYTES: u64 = 2 * 1024 * 1024 * 1024;
@@ -101,8 +112,17 @@ pub async fn connect(
 		Some(dir) => dir,
 		None => default_cache_dir()?,
 	};
-	let dirs = SourceDirs::new(cache_dir)
+	let dirs = SourceDirs::new(cache_dir.clone())
 		.map_err(|err| MountError::Unavailable(format!("block cache: {err}")))?;
+	// Blocks are copies of granted files, so only this user may reach them,
+	// whatever the umask and however the directory was made before.
+	#[cfg(unix)]
+	{
+		use std::os::unix::fs::PermissionsExt;
+		std::fs::set_permissions(&cache_dir, std::fs::Permissions::from_mode(0o700)).map_err(
+			|err| MountError::Unavailable(format!("block cache {}: {err}", cache_dir.display())),
+		)?;
+	}
 	let cache = Arc::new(BlockCache::new(dirs, DEFAULT_CACHE_BYTES));
 	cache.restore().await;
 	// One cache namespace per node URL and grant, so two mounts never read
@@ -123,7 +143,11 @@ pub struct RemoteFs {
 	cache: Arc<BlockCache>,
 	source: Uuid,
 	attrs: Arc<Mutex<HashMap<PathBuf, (NodeAttr, Instant)>>>,
-	changes: Option<broadcast::Sender<PathBuf>>,
+	changes: broadcast::Sender<PathBuf>,
+	/// Set once the node refuses the token; nothing is served after that,
+	/// cached blocks included.
+	ended: Arc<AtomicBool>,
+	ended_tx: watch::Sender<bool>,
 }
 
 impl RemoteFs {
@@ -131,9 +155,9 @@ impl RemoteFs {
 		let attrs: Arc<Mutex<HashMap<PathBuf, (NodeAttr, Instant)>>> = Arc::default();
 		// Forget cached attributes before the frontend hears of a change, so
 		// the kernel's next question gets a fresh answer.
-		let changes = transport.changes().map(|mut feed| {
-			let (relay, _) = broadcast::channel(1024);
-			let (attrs, out) = (attrs.clone(), relay.clone());
+		let (changes, _) = broadcast::channel(1024);
+		if let Some(mut feed) = transport.changes() {
+			let (attrs, out) = (attrs.clone(), changes.clone());
 			tokio::spawn(async move {
 				use broadcast::error::RecvError;
 				loop {
@@ -156,15 +180,63 @@ impl RemoteFs {
 					}
 				}
 			});
-			relay
-		});
+		}
 		Self {
 			transport,
 			cache,
 			source,
 			attrs,
 			changes,
+			ended: Arc::new(AtomicBool::new(false)),
+			ended_tx: watch::Sender::new(false),
 		}
+	}
+
+	/// Returns once the node refuses the token: the grant was revoked or
+	/// expired. From then on every listing, open and read is refused, and
+	/// the kernel is told to drop everything it cached, so a file opened
+	/// before cannot be read from memory either. Callers unmount.
+	pub async fn grant_ended(&self) {
+		let mut ended = self.ended_tx.subscribe();
+		loop {
+			if *ended.borrow_and_update() {
+				return;
+			}
+			tokio::select! {
+				_ = ended.changed() => {}
+				_ = tokio::time::sleep(GRANT_CHECK_INTERVAL) => {
+					let _ = self.checked(self.transport.stat("").await);
+				}
+			}
+		}
+	}
+
+	fn end(&self) {
+		if self.ended.swap(true, Ordering::SeqCst) {
+			return;
+		}
+		info!("the node refused the grant token; refusing everything on this mount");
+		if let Ok(mut attrs) = self.attrs.lock() {
+			attrs.clear();
+		}
+		// The root path stands for every path.
+		let _ = self.changes.send(PathBuf::new());
+		self.ended_tx.send_replace(true);
+	}
+
+	fn refused() -> MountError {
+		MountError::Denied(TOKEN_REFUSED.to_string())
+	}
+
+	/// Pass `result` on, ending the mount when it says the token is refused.
+	fn checked<T>(&self, result: Result<T, MountError>) -> Result<T, MountError> {
+		if self.ended.load(Ordering::SeqCst) {
+			return Err(Self::refused());
+		}
+		if matches!(&result, Err(MountError::Denied(reason)) if reason == TOKEN_REFUSED) {
+			self.end();
+		}
+		result
 	}
 
 	/// Release the node's session for this client.
@@ -190,7 +262,7 @@ impl RemoteFs {
 	}
 
 	async fn fresh_stat(&self, path: &Path) -> Result<NodeAttr, MountError> {
-		let node = self.transport.stat(&wire_path(path)?).await?;
+		let node = self.checked(self.transport.stat(&wire_path(path)?).await)?;
 		let attr = attr(&node).ok_or(MountError::NotFound)?;
 		self.remember(path.to_path_buf(), attr.clone());
 		Ok(attr)
@@ -232,13 +304,13 @@ fn attr(node: &RemoteNode) -> Option<NodeAttr> {
 impl MountFs for RemoteFs {
 	async fn stat(&self, path: &Path) -> Result<NodeAttr, MountError> {
 		if let Some(attr) = self.cached(path) {
-			return Ok(attr);
+			return self.checked(Ok(attr));
 		}
 		self.fresh_stat(path).await
 	}
 
 	async fn list(&self, path: &Path) -> Result<Vec<DirEntry>, MountError> {
-		let children = self.transport.list(&wire_path(path)?).await?;
+		let children = self.checked(self.transport.list(&wire_path(path)?).await)?;
 		let mut entries = Vec::with_capacity(children.len());
 		for (name, node) in children {
 			let Some(attr) = attr(&node) else {
@@ -270,7 +342,10 @@ impl MountFs for RemoteFs {
 			},
 		});
 		Ok(OpenedFile {
-			provider: Arc::new(CachedProvider::new(file, self.cache.clone())),
+			provider: Arc::new(Gated {
+				inner: CachedProvider::new(file, self.cache.clone()),
+				ended: self.ended.clone(),
+			}),
 			target: ByteTarget {
 				source_id: self.source,
 				path: path.to_path_buf(),
@@ -279,7 +354,36 @@ impl MountFs for RemoteFs {
 	}
 
 	fn changes(&self) -> Option<broadcast::Receiver<PathBuf>> {
-		self.changes.as_ref().map(broadcast::Sender::subscribe)
+		Some(self.changes.subscribe())
+	}
+}
+
+/// Refuses every read once the grant has ended, before the block cache can
+/// answer from blocks fetched while it held.
+struct Gated {
+	inner: CachedProvider,
+	ended: Arc<AtomicBool>,
+}
+
+#[async_trait]
+impl ByteProvider for Gated {
+	async fn stat(&self, target: &ByteTarget) -> Result<ByteStat, ByteError> {
+		self.inner.stat(target).await
+	}
+
+	async fn read_range(&self, target: &ByteTarget, range: Range<u64>) -> Result<Bytes, ByteError> {
+		if self.ended.load(Ordering::SeqCst) {
+			return Err(ByteError::Unsupported(TOKEN_REFUSED.to_string()));
+		}
+		self.inner.read_range(target, range).await
+	}
+
+	fn class(&self) -> ProviderClass {
+		self.inner.class()
+	}
+
+	fn max_read(&self) -> u64 {
+		self.inner.max_read()
 	}
 }
 

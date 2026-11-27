@@ -174,7 +174,7 @@ pub trait MountFs: Send + Sync + 'static {
 
 	/// Paths whose cached attributes, listings or bytes are stale, pushed by
 	/// backends that learn of changes. Backends without a change feed rely on
-	/// each answer's `valid_for`.
+	/// each answer's `valid_for`. The root path stands for every path.
 	fn changes(&self) -> Option<broadcast::Receiver<PathBuf>> {
 		None
 	}

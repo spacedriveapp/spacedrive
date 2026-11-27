@@ -1,8 +1,15 @@
-//! `sd mount`: mount a folder lent by a grant from any Spacedrive node.
+//! # sd mount
 //!
-//! The thin client needs no library, no pairing and no daemon on this
-//! machine: the node's URL and a grant token are enough. It runs in the
-//! foreground and unmounts on Ctrl-C or SIGTERM. Read-only for now.
+//! `sd mount` mounts a folder lent by a grant from any Spacedrive node. The
+//! thin client needs no library, no pairing and no daemon on this machine:
+//! the node's URL and a grant token are enough. The mount is read-only. It
+//! runs in the foreground and unmounts on Ctrl-C, on SIGTERM, or when the
+//! node stops accepting the token.
+//!
+//! ## Example
+//! ```bash
+//! SD_GRANT_TOKEN=sdg_... sd mount http://127.0.0.1:7765 ~/site
+//! ```
 
 use std::path::PathBuf;
 
@@ -39,9 +46,13 @@ pub async fn run(args: MountArgs) -> Result<()> {
 	);
 
 	let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
-	tokio::select! {
-		_ = tokio::signal::ctrl_c() => {}
-		_ = terminate.recv() => {}
+	let grant_ended = tokio::select! {
+		_ = tokio::signal::ctrl_c() => false,
+		_ = terminate.recv() => false,
+		_ = fs.grant_ended() => true,
+	};
+	if grant_ended {
+		eprintln!("The node no longer accepts the grant token; unmounting");
 	}
 	let result = tokio::task::spawn_blocking(move || mounted.umount_and_join()).await?;
 	fs.close().await;
@@ -54,6 +65,9 @@ pub async fn run(args: MountArgs) -> Result<()> {
 			.status();
 	}
 	println!("Unmounted {}", dir.display());
+	if grant_ended {
+		anyhow::bail!("the grant was revoked or expired");
+	}
 	Ok(())
 }
 
