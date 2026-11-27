@@ -222,7 +222,6 @@ fn record_to_file(
 		content_identity: None,
 		alternate_paths: Vec::new(),
 		tags: Vec::new(),
-		sidecars: Vec::new(),
 		image_media_data: None,
 		video_media_data: None,
 		audio_media_data: None,

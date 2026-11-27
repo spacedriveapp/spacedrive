@@ -36,6 +36,20 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Sidecars tab lists what a file has again (Capy FAN-14816, November 27, in PR).
+`File.sidecars` was always empty after the entries drop, so the inspector's
+Sidecars tab never showed anything. The new library query `files.sidecars`
+takes one file and lists every artifact derived from it: the media sidecars in
+the content tree (proxy, speech audio, transcript, shots, keyframes, extension
+documents), the thumbnail tile in the source's `sidecars.db` and the
+thumbstrip under the volume, each with kind, variant, format, size, producer,
+how to fetch it and the file that holds it. It generates nothing.
+`media.sidecars` and `media.footage.status` read through it. `File.sidecars`,
+the file `Sidecar` type and the client branches that read them are gone. There
+is still no sidecar registry: a `content_sidecar` table in the source store,
+one writer for every producer, and moving the tree into the source wait on
+Jamie (`docs/plans/2026-08-22-source-convergence.md` item 4).
+
 Beta date and where beta.1 is cut (Capy FAN-14810, November 27, in PR). Jamie
 moved the Spacedrive 2.0 Beta target to December 5, 2026 on 2026-11-27.
 beta.1 is tagged from a verified `main` head. The `release/beta.1` branch is

@@ -2,6 +2,7 @@ import { getContentKind } from "@sd/ts-client";
 import { File as FileComponent } from "../../routes/explorer/File";
 import { formatBytes } from "../../routes/explorer/utils";
 import { useServer } from "../../contexts/ServerContext";
+import { useLibraryQuery } from "../../contexts/SpacedriveContext";
 import {
 	useState,
 	useEffect,
@@ -73,23 +74,24 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 	// Get a stable identifier for the image file itself
 	const imageFileId = file.content_identity?.uuid || file.id;
 
-	// Check if Gaussian splat sidecar exists and get URL
-	const splatSidecar = file.sidecars?.find(
+	const { data: sidecars } = useLibraryQuery(
+		{ type: "files.sidecars", input: { path: file.sd_path } },
+		{ enabled: file.is_local },
+	);
+	const splat = sidecars?.sidecars.find(
 		(s) => s.kind === "gaussian_splat" && s.format === "ply",
 	);
-	const hasSplat = !!splatSidecar;
-
-	// Build sidecar URL for the splat
 	const splatUrl =
-		hasSplat && file.content_identity?.uuid
+		splat?.address.type === "content" && sidecars?.content_uuid
 			? buildSidecarUrl(
-					file.content_identity.uuid,
-					splatSidecar!.kind,
-					splatSidecar!.variant,
-					splatSidecar!.format,
-					splatSidecar!.version,
+					sidecars.content_uuid,
+					splat.kind,
+					splat.variant,
+					splat.format,
+					splat.address.version,
 				)
 			: null;
+	const hasSplat = !!splatUrl;
 
 	// Notify parent of zoom state changes
 	useEffect(() => {
@@ -103,39 +105,8 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 		setSplatLoaded(false);
 	}, [imageFileId]);
 
-	// Get highest resolution thumbnail first
-	const getHighestResThumbnail = () => {
-		const thumbnails =
-			file.sidecars?.filter((s) => s.kind === "thumb") || [];
-		if (thumbnails.length === 0) return null;
-
-		const highest = thumbnails.sort((a, b) => {
-			const aSize = parseInt(
-				a.variant.split("x")[0]?.replace(/\D/g, "") || "0",
-			);
-			const bSize = parseInt(
-				b.variant.split("x")[0]?.replace(/\D/g, "") || "0",
-			);
-			return bSize - aSize;
-		})[0];
-
-		const contentUuid = file.content_identity?.uuid;
-		if (!contentUuid) return null;
-
-		return buildSidecarUrl(
-			contentUuid,
-			highest.kind,
-			highest.variant,
-			highest.format,
-			highest.version,
-		);
-	};
-
-	// A file listed from the arena carries no sidecars yet; the hot tier
-	// has a tile for it, which is also what the grid showed.
-	const sidecarThumbnailUrl = getHighestResThumbnail();
-	const hotThumb = useHotThumb(file.sd_path, sidecarThumbnailUrl === null);
-	const thumbnailUrl = sidecarThumbnailUrl ?? hotThumb.url;
+	const hotThumb = useHotThumb(file.sd_path, true);
+	const thumbnailUrl = hotThumb.url;
 
 	// A raw file with no embedded preview has no tile, and the browser cannot
 	// decode its original either. Each failure is against one URL, so a later
