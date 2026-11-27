@@ -63,7 +63,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": ["../../../target/release/sd-daemon"],
+    "externalBin": ["../../../target/release/sd-daemon", "../../../target/release/sd-cli"],
     "resources": {
       "gen/**/*": "./",
       "../../../extensions/videos/manifest.json": "extensions/videos/manifest.json",

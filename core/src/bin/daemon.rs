@@ -1,7 +1,18 @@
 use clap::Parser;
 use sd_core::infra::daemon::addr::daemon_socket_addr;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 use tokio::signal;
+
+/// Version for `sd-daemon --version`, in the same form as `sd --version`, so
+/// a CLI and daemon built from one commit print the same line. CI passes the
+/// full commit as `SD_GIT_SHA`; other builds fall back to the short one.
+static VERSION: LazyLock<String> = LazyLock::new(|| {
+	let sha = option_env!("SD_GIT_SHA")
+		.filter(|sha| !sha.trim().is_empty())
+		.unwrap_or(env!("VERGEN_GIT_SHA"));
+	format!("{} ({sha})", env!("CARGO_PKG_VERSION"))
+});
 
 // musl's allocator gives each allocation group its own memory mapping, and a
 // daemon holding replicas and hashing for hours runs into the kernel's
@@ -28,7 +39,7 @@ fn validate_instance_name(instance: &str) -> Result<(), String> {
 }
 
 #[derive(Parser, Debug)]
-#[command(name = "spacedrive-daemon", about = "Spacedrive daemon")]
+#[command(name = "spacedrive-daemon", about = "Spacedrive daemon", version = VERSION.as_str())]
 struct Args {
 	/// Path to spacedrive data directory
 	#[arg(long)]

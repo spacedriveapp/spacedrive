@@ -8,6 +8,26 @@ The Spacedrive CLI is a typed client of the same daemon used by the desktop and
 web interfaces. It can manage libraries, sources, files, jobs, devices, logs,
 and remote operations without bypassing core permissions or durability rules.
 
+## Install from the desktop app
+
+The desktop app ships `sd-cli` beside its daemon, built from the same commit
+with the same features, so the two always match. Open Settings, then General,
+and choose **Install** under Command Line:
+
+- On macOS it links `/usr/local/bin/sd` to
+  `Spacedrive.app/Contents/MacOS/sd-cli`. When `/usr/local/bin` is not
+  writable, macOS asks for an administrator password. If you decline, it links
+  `~/.local/bin/sd` instead, and you add that folder to your `PATH`.
+- On Linux it links `~/.local/bin/sd` to `/usr/bin/sd-cli` from the `.deb`.
+
+The row shows whether `sd` is installed, points at this app, or points
+somewhere else, such as a standalone download or an older copy of the app.
+Choose **Reinstall** to point it at this app, or **Uninstall** to remove the
+link. Because the link follows the app, an app update also updates `sd`, and
+`sd update` refuses to replace the copy inside the app. Move the app to the
+Applications folder before you install: macOS runs a downloaded app from a
+temporary path until you do.
+
 ## Install from source
 
 ~~~bash
