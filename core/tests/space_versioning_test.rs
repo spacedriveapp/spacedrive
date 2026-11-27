@@ -323,6 +323,24 @@ async fn edits_keep_versions_that_restore_through_the_write_path() -> anyhow::Re
 		"kept versions still restore"
 	);
 
+	// A file deleted while versioning was off is recorded gone once it is
+	// turned back on, so a snapshot does not bring it back.
+	tokio::fs::remove_file(tracked.root.join("project/notes.md")).await?;
+	let on = set_versioning(&harness, &off, true).await?;
+	history_until(&harness, &on, Some("notes.md"), |h| {
+		h.versions.first().is_some_and(|v| v.deleted)
+	})
+	.await;
+	let versions = versioning::open(&harness.core.context, on.source_id, on.id)
+		.await
+		.expect("versions");
+	assert!(
+		versions.manifest(None, Some("notes.md")).await?.is_empty(),
+		"the baseline records the delete"
+	);
+	drop(versions);
+	let off = set_versioning(&harness, &on, false).await?;
+
 	// Purging is the explicit step that deletes them.
 	let purged = SpaceHistoryPurgeAction::from_input(SpaceHistoryPurgeInput { id: off.id })
 		.map_err(anyhow::Error::msg)?

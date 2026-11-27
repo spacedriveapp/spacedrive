@@ -47,7 +47,9 @@ impl LibraryAction for SpaceHistoryPurgeAction {
 		let space = store::find(&library, &context, self.input.id)
 			.await
 			.map_err(ActionError::InvalidInput)?;
-		let purged = versioning::purge(&context, &space).await;
+		let purged = versioning::purge(&context, &space)
+			.await
+			.map_err(ActionError::Internal)?;
 		Ok(SpaceHistoryPurgeOutput { purged })
 	}
 

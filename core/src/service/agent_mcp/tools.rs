@@ -956,7 +956,9 @@ async fn purge_history(context: &CoreContext, scope: &GrantScope) -> Result<Outp
 				.to_string(),
 		);
 	}
-	versioning::discard(context, at.source_id, at.space_id).await;
+	versioning::discard(context, at.source_id, at.space_id)
+		.await
+		.map_err(|error| format!("could not delete the space's versions: {error}"))?;
 	Ok(Output::json(json!({ "purged": true })))
 }
 

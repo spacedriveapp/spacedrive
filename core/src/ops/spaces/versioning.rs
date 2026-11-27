@@ -20,7 +20,7 @@
 //! the reason to turn it off.
 
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	future::Future,
 	path::{Component, Path, PathBuf},
 	sync::{Arc, LazyLock},
@@ -345,6 +345,31 @@ pub async fn baseline(context: &CoreContext, space: &Space, actor: Uuid) -> usiz
 		.await
 		.unwrap_or_default();
 	let template = VersionRow::attributed(&Utc::now().to_rfc3339(), actor, BASELINE, None);
+	// Versions kept while versioning was off may name files that went away
+	// meanwhile. Record those deletes, each confirmed on disk, so a new
+	// snapshot does not bring them back.
+	let walked: HashSet<&str> = files.iter().map(|(_, below)| below.as_str()).collect();
+	let mut deleted = Vec::new();
+	for row in versions.manifest(None, None).await.unwrap_or_default() {
+		if walked.contains(row.path.as_str()) {
+			continue;
+		}
+		if let Err(error) = tokio::fs::symlink_metadata(root.join(&row.path)).await {
+			if error.kind() == std::io::ErrorKind::NotFound {
+				deleted.push(row.path);
+			}
+		}
+	}
+	for path in deleted {
+		let row = VersionRow {
+			path,
+			blob_hash: None,
+			..template.clone()
+		};
+		if let Err(error) = versions.append(&row).await {
+			debug!(path = %row.path, %error, "could not record a delete in the baseline");
+		}
+	}
 	let mut captured = 0;
 	for (file, below) in files {
 		if versions.is_closed() {
@@ -371,15 +396,21 @@ pub async fn baseline(context: &CoreContext, space: &Space, actor: Uuid) -> usiz
 
 /// Delete every version and snapshot of `space`. A space with versioning
 /// on keeps capturing changes from here. Answers whether it had any.
-pub async fn purge(context: &CoreContext, space: &Space) -> bool {
+pub async fn purge(context: &CoreContext, space: &Space) -> Result<bool, String> {
 	let had = has_versions(context, space.source_id, space.id);
-	discard(context, space.source_id, space.id).await;
-	had
+	discard(context, space.source_id, space.id)
+		.await
+		.map_err(|error| format!("could not delete the space's versions: {error}"))?;
+	Ok(had)
 }
 
 /// Delete a space's versions and snapshots, for a purge or a removed space.
 /// Its event log stays.
-pub async fn discard(context: &CoreContext, source_id: Uuid, space_id: Uuid) {
+pub async fn discard(
+	context: &CoreContext,
+	source_id: Uuid,
+	space_id: Uuid,
+) -> std::io::Result<()> {
 	// Holding the open handles until the files are gone keeps a re-enable
 	// from opening the store while it is being deleted.
 	let mut open = OPEN.lock().await;
@@ -387,20 +418,22 @@ pub async fn discard(context: &CoreContext, source_id: Uuid, space_id: Uuid) {
 		versions.close().await;
 	}
 	let Some(dir) = space_dir(context, source_id, space_id) else {
-		return;
+		return Ok(());
 	};
+	let gone = |result: std::io::Result<()>| match result {
+		Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(error),
+		_ => Ok(()),
+	};
+	// The database goes first, so a failure part way leaves no history that
+	// names chunks already deleted.
 	for name in [
 		sd_store::SPACE_VERSIONS_FILE.to_string(),
 		format!("{}-wal", sd_store::SPACE_VERSIONS_FILE),
 		format!("{}-shm", sd_store::SPACE_VERSIONS_FILE),
 	] {
-		let _ = tokio::fs::remove_file(dir.join(name)).await;
+		gone(tokio::fs::remove_file(dir.join(name)).await)?;
 	}
-	if let Err(error) = tokio::fs::remove_dir_all(dir.join(sd_store::BLOBS_DIR)).await {
-		if error.kind() != std::io::ErrorKind::NotFound {
-			warn!(space = %space_id, %error, "could not delete a space's stored versions");
-		}
-	}
+	gone(tokio::fs::remove_dir_all(dir.join(sd_store::BLOBS_DIR)).await)
 }
 
 /// What a restore reads from.
