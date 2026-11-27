@@ -60,7 +60,7 @@ inventory::collect!(ResourceInventoryEntry);
 
 /// Registration information for a resource
 pub struct ResourceRegistration {
-	/// Resource type identifier (e.g., "file", "space", "device")
+	/// Resource type identifier (e.g., "file", "layout", "device")
 	pub resource_type: &'static str,
 
 	/// List of dependency resource types (for virtual resources)
@@ -174,7 +174,7 @@ pub fn all_resource_types() -> Vec<&'static str> {
 ///
 /// For simple resources (single table, no dependencies):
 /// ```ignore
-/// register_resource!(Space);
+/// register_resource!(Layout);
 /// ```
 ///
 /// For virtual resources (computed from multiple tables):

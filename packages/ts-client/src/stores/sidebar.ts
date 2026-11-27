@@ -2,14 +2,14 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 interface DraggedItem {
-	type: 'file' | 'space-item' | 'space-group';
+	type: 'file' | 'layout-item' | 'layout-group';
 	data: any;
 }
 
 interface SidebarStore {
 	// Persisted state
-	currentSpaceId: string | null;
-	setCurrentSpace: (id: string | null) => void;
+	currentLayoutId: string | null;
+	setCurrentLayout: (id: string | null) => void;
 
 	// Ephemeral state
 	collapsedGroups: Set<string>;
@@ -26,8 +26,8 @@ export const useSidebarStore = create<SidebarStore>()(
 	persist(
 		(set) => ({
 			// Persisted
-			currentSpaceId: null,
-			setCurrentSpace: (id) => set({ currentSpaceId: id }),
+			currentLayoutId: null,
+			setCurrentLayout: (id) => set({ currentLayoutId: id }),
 
 			// Ephemeral
 			collapsedGroups: new Set(),
@@ -54,7 +54,7 @@ export const useSidebarStore = create<SidebarStore>()(
 		{
 			name: 'spacedrive-sidebar',
 			partialize: (state) => ({
-				currentSpaceId: state.currentSpaceId,
+				currentLayoutId: state.currentLayoutId,
 			}),
 		}
 	)

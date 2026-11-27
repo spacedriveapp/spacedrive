@@ -1,0 +1,11 @@
+use crate::domain::ItemType;
+use serde::{Deserialize, Serialize};
+use specta::Type;
+use uuid::Uuid;
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct AddItemInput {
+	pub layout_id: Uuid,
+	pub group_id: Option<Uuid>, // None = layout-level item
+	pub item_type: ItemType,
+}

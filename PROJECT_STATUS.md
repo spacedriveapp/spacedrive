@@ -36,6 +36,8 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Sidebar spaces are layouts (Capy FAN-14842, November 27, in PR). "Space" now names a folder with policy that people and agents work in, so the sidebar's saved arrangement is a `Layout`: `layouts.*` ops (`layouts.get_sidebar` returns a `SidebarLayout`), `layouts`, `layout_groups` and `layout_items` tables renamed in place with their rows, `layout` sync models, `sd layouts`, and the switcher's Layouts section. No `spaces.*` alias remains. Next: the `space` entity reuses `spaces.*`.
+
 Bundled command line tool (Capy FAN-14800, November 27, in PR). The desktop
 app ships `sd-cli` beside `sd-daemon` as a Tauri external binary on macOS
 arm64 and Intel and Linux, built in the same cargo run with the same features

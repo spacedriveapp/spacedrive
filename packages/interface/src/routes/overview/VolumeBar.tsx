@@ -9,7 +9,7 @@ import type {SourceInfo, Volume} from '@sd/ts-client';
 import {CircleButton} from '@spacedrive/primitives';
 import {motion} from 'framer-motion';
 import {useEffect, useState} from 'react';
-import {useVolumeContextMenu} from '../../components/SpacesSidebar/hooks/useVolumeContextMenu';
+import {useVolumeContextMenu} from '../../components/Sidebar/hooks/useVolumeContextMenu';
 import {useSpacedriveClient} from '../../contexts/SpacedriveContext';
 import {useVolumeIndexingStore} from '../../stores/volumeIndexingStore';
 import {formatRelativeTime} from '../explorer/utils';

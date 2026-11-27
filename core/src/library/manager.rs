@@ -604,7 +604,7 @@ impl LibraryManager {
 
 		// This is both the creation path and the migration path. Running it on
 		// every open keeps older libraries on the current sidebar contract.
-		self.create_default_space(&library).await?;
+		self.create_default_layout(&library).await?;
 
 		// Adopt this library's source registrations. Absolute roots resolve
 		// against wherever each anchoring volume is mounted now, so a drive
@@ -1214,11 +1214,11 @@ impl LibraryManager {
 		Ok(())
 	}
 
-	/// Create the compatible backing space for the default sidebar.
+	/// Create the compatible backing layout for the default sidebar.
 	///
-	/// Uses deterministic UUIDs so all devices create the same default space,
+	/// Uses deterministic UUIDs so all devices create the same default layout,
 	/// preventing duplicates during sync.
-	async fn create_default_space(&self, library: &Arc<Library>) -> Result<()> {
+	async fn create_default_layout(&self, library: &Arc<Library>) -> Result<()> {
 		use crate::domain::ItemType;
 		use crate::infra::sync::deterministic_library_default_uuid;
 		use chrono::Utc;
@@ -1227,13 +1227,14 @@ impl LibraryManager {
 		let db = library.db().conn();
 		let library_id = library.id();
 
-		// Create default space with deterministic UUID (same library = same UUID on all devices)
-		let space_id = deterministic_library_default_uuid(library_id, "space", "All Devices");
+		// Create default layout with deterministic UUID (same library = same UUID on all devices).
+		// The seeds keep the pre-rename "space" names so existing libraries keep their default rows.
+		let layout_id = deterministic_library_default_uuid(library_id, "space", "All Devices");
 		let now = Utc::now();
 
-		let space_model = crate::infra::db::entities::space::ActiveModel {
+		let layout_model = crate::infra::db::entities::layout::ActiveModel {
 			id: NotSet,
-			uuid: Set(space_id),
+			uuid: Set(layout_id),
 			name: Set("Default".to_string()),
 			icon: Set("Planet".to_string()),
 			color: Set("#3B82F6".to_string()),
@@ -1243,9 +1244,9 @@ impl LibraryManager {
 		};
 
 		// Use atomic upsert to handle race conditions with sync
-		// If Alice's space syncs to Bob before this runs, the upsert will update instead of failing
-		use crate::infra::db::entities::space::{Column, Entity};
-		Entity::insert(space_model)
+		// If Alice's layout syncs to Bob before this runs, the upsert will update instead of failing
+		use crate::infra::db::entities::layout::{Column, Entity};
+		Entity::insert(layout_model)
 			.on_conflict(
 				sea_orm::sea_query::OnConflict::column(Column::Uuid)
 					.update_columns([
@@ -1261,19 +1262,19 @@ impl LibraryManager {
 			.await
 			.map_err(LibraryError::DatabaseError)?;
 
-		// Query the space back to get the id for creating items/groups
-		let space_result = Entity::find()
-			.filter(Column::Uuid.eq(space_id))
+		// Query the layout back to get the id for creating items/groups
+		let layout_result = Entity::find()
+			.filter(Column::Uuid.eq(layout_id))
 			.one(db)
 			.await
 			.map_err(LibraryError::DatabaseError)?
-			.ok_or_else(|| LibraryError::Other("Space not found after upsert".to_string()))?;
+			.ok_or_else(|| LibraryError::Other("Layout not found after upsert".to_string()))?;
 
-		info!("Created default space for library {}", library.id());
+		info!("Created default layout for library {}", library.id());
 
 		// Keep stable item keys while the UI gives these destinations plain
 		// product names such as Home, Storage, and Protection.
-		let space_items = vec![
+		let layout_items = vec![
 			(ItemType::Overview, "Overview", 0),
 			(ItemType::Recents, "Recents", 1),
 			(
@@ -1287,20 +1288,20 @@ impl LibraryManager {
 			(ItemType::Redundancy, "Redundancy", 4),
 		];
 
-		use crate::infra::db::entities::space_item::{Column as ItemColumn, Entity as ItemEntity};
+		use crate::infra::db::entities::layout_item::{Column as ItemColumn, Entity as ItemEntity};
 
-		for (item_type, item_name, order) in space_items {
+		for (item_type, item_name, order) in layout_items {
 			let item_type_json = serde_json::to_string(&item_type).map_err(|e| {
 				LibraryError::Other(format!("Failed to serialize item_type: {}", e))
 			})?;
 
 			let item_uuid = deterministic_library_default_uuid(library_id, "space_item", item_name);
 
-			let item_model = crate::infra::db::entities::space_item::ActiveModel {
+			let item_model = crate::infra::db::entities::layout_item::ActiveModel {
 				id: NotSet,
 				uuid: Set(item_uuid),
-				space_id: Set(space_result.id),
-				group_id: Set(None),   // Space-level items have no group
+				layout_id: Set(layout_result.id),
+				group_id: Set(None),   // Layout-level items have no group
 				entry_uuid: Set(None), // Default items don't have entries
 				item_type: Set(item_type_json),
 				order: Set(order),
@@ -1336,11 +1337,11 @@ impl LibraryManager {
 		}
 
 		info!(
-			"Created default space-level items for library {}",
+			"Created default layout-level items for library {}",
 			library.id()
 		);
 
-		use crate::infra::db::entities::space_group::{
+		use crate::infra::db::entities::layout_group::{
 			Column as GroupColumn, Entity as GroupEntity,
 		};
 
@@ -1362,7 +1363,8 @@ impl LibraryManager {
 					.await
 					.map_err(LibraryError::DatabaseError)?;
 				for item in items {
-					let mut item: crate::infra::db::entities::space_item::ActiveModel = item.into();
+					let mut item: crate::infra::db::entities::layout_item::ActiveModel =
+						item.into();
 					item.group_id = Set(None);
 					item.update(db).await.map_err(LibraryError::DatabaseError)?;
 				}

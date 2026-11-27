@@ -82,6 +82,17 @@ impl PeerLog {
 		.await
 		.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
 
+		// Changes logged before the sidebar's spaces became layouts still name the
+		// old models, which no longer resolve; rewrite them so peers can apply them.
+		conn.execute(Statement::from_string(
+			DbBackend::Sqlite,
+			"UPDATE shared_changes SET model_type = 'layout' || substr(model_type, 6)
+			 WHERE model_type IN ('space', 'space_group', 'space_item')"
+				.to_string(),
+		))
+		.await
+		.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
+
 		// peer_acks table
 		conn.execute(Statement::from_string(
 			DbBackend::Sqlite,

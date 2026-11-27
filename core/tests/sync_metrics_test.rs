@@ -119,9 +119,9 @@ async fn test_metrics_broadcast_counting() -> anyhow::Result<()> {
 		"Metrics before sync"
 	);
 
-	let spaces = harness.create_spaces_alice(5).await?;
+	let layouts = harness.create_layouts_alice(5).await?;
 	harness
-		.wait_for_spaces_on_bob(&spaces, Duration::from_secs(30))
+		.wait_for_layouts_on_bob(&layouts, Duration::from_secs(30))
 		.await?;
 
 	// Small delay for metrics to update
@@ -191,9 +191,9 @@ async fn test_metrics_latency_tracking() -> anyhow::Result<()> {
 		.build()
 		.await?;
 
-	let spaces = harness.create_spaces_alice(3).await?;
+	let layouts = harness.create_layouts_alice(3).await?;
 	harness
-		.wait_for_spaces_on_bob(&spaces, Duration::from_secs(30))
+		.wait_for_layouts_on_bob(&layouts, Duration::from_secs(30))
 		.await?;
 	tokio::time::sleep(Duration::from_millis(500)).await;
 
@@ -252,10 +252,10 @@ async fn test_metrics_data_volume() -> anyhow::Result<()> {
 		.build()
 		.await?;
 
-	let space_count = 10;
-	let spaces = harness.create_spaces_alice(space_count).await?;
+	let layout_count = 10;
+	let layouts = harness.create_layouts_alice(layout_count).await?;
 	harness
-		.wait_for_spaces_on_bob(&spaces, Duration::from_secs(30))
+		.wait_for_layouts_on_bob(&layouts, Duration::from_secs(30))
 		.await?;
 	tokio::time::sleep(Duration::from_millis(500)).await;
 
@@ -281,13 +281,13 @@ async fn test_metrics_data_volume() -> anyhow::Result<()> {
 	}
 
 	// Live applies count under their model and backfill under "shared", so
-	// the total is what has to cover every space Bob now holds
+	// the total is what has to cover every layout Bob now holds
 	let bob_entries_synced: u64 = bob.data_volume.entries_synced.values().sum();
 	assert!(
-		bob_entries_synced >= space_count as u64,
-		"Bob should count every applied space: counted {}, created {}",
+		bob_entries_synced >= layout_count as u64,
+		"Bob should count every applied layout: counted {}, created {}",
 		bob_entries_synced,
-		space_count
+		layout_count
 	);
 
 	Ok(())
@@ -334,9 +334,9 @@ async fn test_metrics_snapshot_structure() -> anyhow::Result<()> {
 		.build()
 		.await?;
 
-	let spaces = harness.create_spaces_alice(3).await?;
+	let layouts = harness.create_layouts_alice(3).await?;
 	harness
-		.wait_for_spaces_on_bob(&spaces, Duration::from_secs(30))
+		.wait_for_layouts_on_bob(&layouts, Duration::from_secs(30))
 		.await?;
 
 	let alice = get_metrics_snapshot(&harness.library_alice).await;

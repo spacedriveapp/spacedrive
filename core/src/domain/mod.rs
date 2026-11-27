@@ -9,13 +9,13 @@ pub mod addressing;
 pub mod content_identity;
 pub mod device;
 pub mod file;
+pub mod layout;
 pub mod library;
 pub mod media_data;
 pub mod resource;
 pub mod resource_manager;
 pub mod resource_registry;
 pub mod sidecar;
-pub mod space;
 pub mod tag;
 pub mod volume;
 
@@ -24,15 +24,15 @@ pub use addressing::{PathResolutionError, SdPath, SdPathBatch, SdPathParseError}
 pub use content_identity::{ContentHashError, ContentHashGenerator, ContentIdentity, ContentKind};
 pub use device::{ConnectionMethod, Device, OperatingSystem};
 pub use file::{EntryKind, File};
+pub use layout::{
+	GroupType, ItemType, Layout, LayoutGroup, LayoutGroupWithItems, LayoutItem, SidebarLayout,
+};
 pub use library::Library;
 pub use media_data::{AudioMediaData, ImageMediaData, VideoMediaData};
 pub use resource::{EventEmitter, Identifiable};
 pub use resource_manager::ResourceManager;
 pub use sidecar::{
 	ContentSidecar, ProxyResolution, SidecarFormat, SidecarKind, SidecarStatus, SidecarVariant,
-};
-pub use space::{
-	GroupType, ItemType, Space, SpaceGroup, SpaceGroupWithItems, SpaceItem, SpaceLayout,
 };
 pub use tag::{Tag, TagError};
 pub use volume::{
