@@ -70,7 +70,9 @@ sd grant create s3://my-bucket/projects/site --read-write --ttl 2h
 
 The agent lists, reads, globs and greps the objects live, and writes with
 the same preconditions as on a local folder. The bucket itself refuses a
-stale write, so a change made outside Spacedrive is caught too. A move
+stale write, so a change made outside Spacedrive is caught too. Moves and
+deletes need object versioning on the bucket, so a write that lands during
+one is never lost; without it they are refused. A move
 copies and then deletes, keeping both objects on a taken name. A delete
 moves the object to `.spacedrive/trash/` in the same bucket, and both carry
 an `undo` id. Writes have no `undo` id, and `search`

@@ -245,12 +245,18 @@ itself. Code: `core/src/ops/agent_write/bucket.rs`.
   An object that changed since, or a key that is taken again, is left and
   reported. Writes carry no undo; the provider's object versioning restores
   an earlier version.
-- **The delete window.** S3 can refuse a stale write but OpenDAL sends no
-  `If-Match` on `DeleteObject`, so the daemon checks the tag just before an
-  unconditional delete. A write that lands in that window, one round trip
-  long, is deleted with the source. The copy that was made holds the
-  version the agent read, not the one that landed. Services where the
-  delete itself is conditional close the window once the backend sends it.
+- **Versioned buckets only.** OpenDAL sends no `If-Match` on `DeleteObject`,
+  so the daemon checks the tag just before an unconditional delete. A write
+  that lands between the check and the delete would be deleted with the
+  source. In a bucket that keeps object versions, that write survives as an
+  earlier version, so nothing is lost. Moves and deletes, and undo of them,
+  therefore run only in a bucket with versioning enabled, and are refused
+  elsewhere with a message that says to enable it. The daemon learns the
+  state from the version id a write of the empty object
+  `.spacedrive/versioning-probe` answers with, when the source is tracked and
+  before each move or delete, and trusts it for a minute. A suspended
+  bucket counts as unversioned. R2 has no object versioning, so agents can
+  write to R2 but cannot move or delete there.
 - **Read-only services.** A service whose backend cannot refuse a stale
   write, such as Google Drive, OneDrive or Dropbox, is read-only for agents.
   `grants.create` refuses a `read_write` grant on it, and `authorize`

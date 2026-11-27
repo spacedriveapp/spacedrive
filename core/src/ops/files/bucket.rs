@@ -183,17 +183,27 @@ pub async fn copy_new(
 }
 
 /// Move `object` to `to`: a copy that replaces nothing, then a delete of
-/// the source while it still carries its tag.
+/// the source while it still carries its tag. Answers with the copy, read
+/// before the delete so a failure after it cannot lose the journal record.
 pub async fn relocate(
 	backend: &dyn VolumeBackend,
 	object: &Object,
 	to: &str,
-) -> Result<(), Refusal> {
+) -> Result<Object, Refusal> {
 	copy_new(backend, object, to).await?;
+	let copy = self::object(backend, to)
+		.await
+		.map_err(Refusal::Failed)?
+		.ok_or_else(|| {
+			Refusal::Failed(VolumeError::Io(std::io::Error::other(format!(
+				"the copy at {to} is missing"
+			))))
+		})?;
 	backend
 		.delete_if_match(Path::new(&object.key), &object.etag)
 		.await
-		.map_err(|error| refused(error, Refusal::Kept))
+		.map_err(|error| refused(error, Refusal::Kept))?;
+	Ok(copy)
 }
 
 /// The trash key an object goes to for one job.
@@ -226,18 +236,21 @@ pub async fn trash(
 		Ok(_) => return Err(Refusal::Kept),
 		Err(error) => return Err(Refusal::Failed(error)),
 	}
-	backend
-		.delete_if_match(Path::new(&object.key), &object.etag)
-		.await
-		.map_err(|error| refused(error, Refusal::Kept))?;
-	self::object(backend, &to)
+	// Read the copy before the delete, so nothing can fail between the delete
+	// and the journal that records where the bytes went.
+	let copy = self::object(backend, &to)
 		.await
 		.map_err(Refusal::Failed)?
 		.ok_or_else(|| {
 			Refusal::Failed(VolumeError::Io(std::io::Error::other(format!(
 				"the trash copy at {to} is missing"
 			))))
-		})
+		})?;
+	backend
+		.delete_if_match(Path::new(&object.key), &object.etag)
+		.await
+		.map_err(|error| refused(error, Refusal::Kept))?;
+	Ok(copy)
 }
 
 /// The object at `key` while it is still the one a journal recorded: the

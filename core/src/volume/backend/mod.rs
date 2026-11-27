@@ -109,6 +109,14 @@ pub trait VolumeBackend: Send + Sync + Debug {
 		)))
 	}
 
+	/// Whether a delete here loses nothing even when a write lands between
+	/// the check of an object's tag and the delete: the bucket keeps object
+	/// versions, so the write survives as an earlier version. Moves and
+	/// deletes of bucket objects run only where this holds.
+	async fn deletes_are_recoverable(&self) -> Result<bool, VolumeError> {
+		Ok(false)
+	}
+
 	/// Copy the object at `from` to `to` inside the service, without the
 	/// bytes passing through this device. Nothing guards `to`, so callers
 	/// copy only to a key no one else writes.

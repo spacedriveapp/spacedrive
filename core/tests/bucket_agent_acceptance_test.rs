@@ -3,10 +3,12 @@
 //! then list, read, grep and stat through the agent MCP endpoint, write
 //! against the content hash `stat` returned, have a stale write refused with
 //! the current hash, and keep both objects when a create finds the name
-//! taken. A move keeps both objects on a taken name, a delete goes to the
-//! bucket's trash, and `files.undo` reverses each, prefixes included.
+//! taken. In a bucket that keeps versions a move keeps both objects on a
+//! taken name, a delete goes to the bucket's trash, and `files.undo` reverses each, prefixes included.
 //! Protected files, escapes, stale deletes and read-only grants are refused
-//! as they are on a local folder.
+//! as they are on a local folder, and a bucket without versions takes no
+//! moves or deletes. The main bucket must keep versions;
+//! `SD_TEST_S3_PLAIN_BUCKET` names one that does not.
 //!
 //! The service is named by `SD_TEST_S3_ENDPOINT` (and optionally
 //! `SD_TEST_S3_BUCKET`, `SD_TEST_S3_ACCESS_KEY`, `SD_TEST_S3_SECRET_KEY`).
@@ -576,6 +578,74 @@ async fn agents_read_grep_and_write_a_bucket_prefix_with_preconditions() -> anyh
 		read_only.contains("read-only") || read_only.contains("403"),
 		"{read_only}"
 	);
+
+	// A bucket that keeps no versions takes no moves or deletes: a write
+	// landing between the tag check and the delete would be lost for good.
+	let plain_bucket =
+		std::env::var("SD_TEST_S3_PLAIN_BUCKET").unwrap_or_else(|_| "spacedrive-test-plain".into());
+	let plain = CloudBackend::new_s3(
+		&plain_bucket,
+		"us-east-1",
+		&s3.access,
+		&s3.secret,
+		Some(s3.endpoint.clone()),
+	)
+	.await?;
+	plain
+		.write(Path::new(&format!("{run}/kept.txt")), Bytes::from("kept\n"))
+		.await?;
+	VolumeAddCloudAction::from_input(VolumeAddCloudInput {
+		service: CloudServiceType::S3,
+		display_name: "Unversioned bucket".to_string(),
+		config: CloudStorageConfig::S3 {
+			bucket: plain_bucket.clone(),
+			region: "us-east-1".to_string(),
+			access_key_id: s3.access.clone(),
+			secret_access_key: s3.secret.clone(),
+			endpoint: Some(s3.endpoint.clone()),
+		},
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?;
+	let plain_root = format!("s3://{plain_bucket}/{run}");
+	TrackSourceAction::from_input(TrackSourceInput {
+		path: PathBuf::from(&plain_root),
+		name: Some("Unversioned".to_string()),
+		overrides: AddOverrides::default(),
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?;
+	let mut unversioned = Client::connect(
+		&url,
+		&grant(&harness, &plain_root, GrantCap::ReadWrite).await?,
+	)
+	.await;
+	let kept = unversioned.hash("kept.txt").await;
+	for (tool, arguments) in [
+		(
+			"delete",
+			json!({ "path": "kept.txt", "expect": { "content_hash": kept } }),
+		),
+		(
+			"move",
+			json!({ "path": "kept.txt", "to": "moved.txt", "expect": { "content_hash": kept } }),
+		),
+	] {
+		let refused = unversioned.fails(tool, arguments).await;
+		assert!(refused.contains("versioning"), "{tool}: {refused}");
+	}
+	assert_eq!(
+		String::from_utf8(
+			plain
+				.read(Path::new(&format!("{run}/kept.txt")))
+				.await?
+				.to_vec()
+		)?,
+		"kept\n"
+	);
+	let _ = plain.delete(Path::new(&format!("{run}/"))).await;
 
 	let _ = seed.delete(Path::new(&format!("{run}/"))).await;
 	let _ = seed

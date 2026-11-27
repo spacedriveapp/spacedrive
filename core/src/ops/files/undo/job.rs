@@ -258,6 +258,16 @@ async fn apply_in_bucket(
 				.await
 				.map_err(|error| std::io::Error::other(error.to_string()))?;
 			let backend = backend.as_ref();
+			if !backend
+				.deletes_are_recoverable()
+				.await
+				.map_err(|error| std::io::Error::other(error.to_string()))?
+			{
+				return Err(std::io::Error::other(format!(
+					"{} needs object versioning before undo can move objects in it",
+					source.volume()
+				)));
+			}
 			let object = files_bucket::object(backend, &source.key)
 				.await
 				.map_err(|error| std::io::Error::other(error.to_string()))?
@@ -279,14 +289,10 @@ async fn apply_in_bucket(
 					}])
 				}
 				Some(destination) => {
-					files_bucket::relocate(backend, &object, &destination.key)
+					let subject = files_bucket::relocate(backend, &object, &destination.key)
 						.await
-						.map_err(refused)?;
-					let subject = files_bucket::object(backend, &destination.key)
-						.await
-						.ok()
-						.flatten()
-						.map(|object| object.subject());
+						.map_err(refused)
+						.map(|copy| Some(copy.subject()))?;
 					Ok(vec![Effect::Moved {
 						from: source.path(),
 						to: destination.path(),

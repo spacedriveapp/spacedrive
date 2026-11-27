@@ -95,6 +95,9 @@ The tools and rules above are the same, with these differences:
 
 - The bucket refuses a stale write itself, so a change made by anyone, not
   only through Spacedrive, makes your expect stale.
+- move and delete work only in a bucket with object versioning enabled.
+  Elsewhere they are refused and the error says so; write a new version
+  instead, or ask the user to enable versioning.
 - move copies, then deletes the source while it is unchanged. move and
   delete take objects up to 64 MiB. delete puts the object in the bucket's
   .spacedrive/trash/ prefix. Both have an undo id. If the object changes

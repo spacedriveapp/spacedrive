@@ -406,7 +406,24 @@ async fn track_bucket(
 			.await
 			.map_err(|e| ActionError::Internal(format!("could not save the source's name: {e}")))?;
 	}
-	tracing::info!(source = %id, root = %root.display(), "tracked a bucket source");
+	// Agents move and delete objects only in a versioned bucket, so say at
+	// tracking time which this is; the check runs again before each one.
+	let versioned = match volume.backend.as_ref() {
+		Some(backend) => backend.deletes_are_recoverable().await.unwrap_or(false),
+		None => false,
+	};
+	tracing::info!(
+		source = %id,
+		root = %root.display(),
+		versioned,
+		"tracked a bucket source"
+	);
+	if !versioned {
+		tracing::warn!(
+			root = %root.display(),
+			"the bucket does not keep object versions, so agents cannot move or delete in it until versioning is enabled"
+		);
+	}
 	Ok(TrackSourceOutput {
 		id,
 		name: context.volume_index().source_name(id).unwrap_or_default(),

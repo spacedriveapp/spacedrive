@@ -423,6 +423,7 @@ pub(super) async fn move_path(
 	}
 	let current = object(&from, &from.url, turn.cancel()).await?;
 	check(&expect, &current.state)?;
+	recoverable(&from, "moving").await?;
 	let is_dir = match current.state.kind {
 		Some(PathKind::File) => false,
 		Some(PathKind::Directory) => true,
@@ -452,12 +453,11 @@ pub(super) async fn move_path(
 				continue;
 			}
 			match files_bucket::relocate(backend, &source, &url.key).await {
-				Ok(()) => {
-					let subject = landed(backend, &url).await;
+				Ok(copy) => {
 					let effects = vec![Effect::Moved {
 						from: from.url.path(),
 						to: url.path(),
-						subject,
+						subject: Some(copy.subject()),
 					}];
 					let undo = journal(context, library, id, &effects).await;
 					return moved(&to, url, undo, turn).await;
@@ -509,10 +509,10 @@ pub(super) async fn move_path(
 		let relative = source.key[from.url.key.len()..].trim_start_matches('/');
 		let destination = target.join(relative);
 		match files_bucket::relocate(backend, source, &destination.key).await {
-			Ok(()) => effects.push(Effect::Moved {
+			Ok(copy) => effects.push(Effect::Moved {
 				from: files_bucket::path(&from.url, &source.key),
 				to: destination.path(),
-				subject: landed(backend, &destination).await,
+				subject: Some(copy.subject()),
 			}),
 			Err(refusal) => {
 				if matches!(refusal, Refusal::Kept) {
@@ -545,6 +545,7 @@ pub(super) async fn delete(
 ) -> Result<WriteOutcome, WriteError> {
 	let current = object(&bucket, &bucket.url, turn.cancel()).await?;
 	check(&expect, &current.state)?;
+	recoverable(&bucket, "deleting").await?;
 	let backend = bucket.backend.as_ref();
 	let id = Uuid::now_v7();
 	match current.state.kind {
@@ -616,6 +617,22 @@ async fn delete_prefix(
 		return Err(partial("deleting", &bucket, left, undo));
 	}
 	deleted(&bucket, checked, undo)
+}
+
+/// Refuse a move or delete on a bucket where a write landing between the
+/// tag check and the delete could be lost for good.
+async fn recoverable(bucket: &Bucket, verb: &str) -> Result<(), WriteError> {
+	match bucket.backend.deletes_are_recoverable().await {
+		Ok(true) => Ok(()),
+		Ok(false) => Err(WriteError::Invalid(format!(
+			"{verb} objects needs object versioning on {}, so that a write landing while the object is copied is never lost; enable versioning on the bucket and try again",
+			bucket.url.volume()
+		))),
+		Err(error) => Err(WriteError::Io(format!(
+			"could not check versioning on {}: {error}",
+			bucket.url.volume()
+		))),
+	}
 }
 
 fn files_bucket_url(url: &BucketUrl, key: &str) -> BucketUrl {
