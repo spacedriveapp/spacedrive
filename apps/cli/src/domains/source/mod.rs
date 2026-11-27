@@ -116,11 +116,14 @@ pub struct SourceUpdateArgs {
 pub async fn run(ctx: &Context, cmd: SourceCmd) -> Result<()> {
 	match cmd {
 		SourceCmd::Track(args) => {
-			let path = args
-				.path
-				.canonicalize()
-				.map(sd_core::common::utils::strip_windows_extended_prefix)
-				.map_err(|e| anyhow::anyhow!("{}: {e}", args.path.display()))?;
+			let path = if sd_core::ops::grants::bucket::BucketUrl::parse(&args.path).is_some() {
+				args.path
+			} else {
+				args.path
+					.canonicalize()
+					.map(sd_core::common::utils::strip_windows_extended_prefix)
+					.map_err(|e| anyhow::anyhow!("{}: {e}", args.path.display()))?
+			};
 			let input = TrackSourceInput {
 				path,
 				name: args.name,

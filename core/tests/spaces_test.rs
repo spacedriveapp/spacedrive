@@ -231,7 +231,10 @@ async fn a_deep_scope_set_before_spaces_becomes_spaces_that_decide_what_is_read(
 		)
 		.await?;
 	assert_eq!(store.deep_subtrees().await?, ["Projects"]);
+	assert!(list(&harness).await.is_empty(), "listing changes nothing");
 
+	// What opening the library does.
+	sd_core::ops::spaces::store::adopt_library(&harness.library, &harness.core.context).await;
 	let spaces = list(&harness).await;
 	assert_eq!(spaces.len(), 1, "{spaces:?}");
 	let projects = &spaces[0];
@@ -244,6 +247,7 @@ async fn a_deep_scope_set_before_spaces_becomes_spaces_that_decide_what_is_read(
 		"the old list is marked adopted"
 	);
 	assert_eq!(store.deep_subtrees().await?, ["Projects"]);
+	sd_core::ops::spaces::store::adopt_library(&harness.library, &harness.core.context).await;
 	assert_eq!(list(&harness).await, spaces, "adopting happens once");
 
 	let archive = create(

@@ -372,10 +372,15 @@ impl RpcServer {
 									}
 								}
 								Err(e) => {
-									tracing::error!("Failed to parse daemon request: {}", e);
+									// A malformed line can carry a token, a password or a file's
+									// contents, and serde's message quotes values it rejects, so
+									// only the shape of the failure reaches the log.
 									tracing::error!(
-										"Raw request: {}",
-										crate::common::redact::redact_url_credentials(line.trim())
+										kind = ?e.classify(),
+										line = e.line(),
+										column = e.column(),
+										bytes = line.len(),
+										"Failed to parse daemon request"
 									);
 									// Send error response
 									let error_response = DaemonResponse::Error(DaemonError::SerializationError(e.to_string()));

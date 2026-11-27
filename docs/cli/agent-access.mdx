@@ -58,6 +58,24 @@ the token itself into the config.
 Keep the token out of files you commit. A project-level MCP config that holds a
 literal token is one commit away from a public repository.
 
+### Grant a bucket prefix
+
+An S3 or R2 bucket works the same way once it is connected and tracked:
+
+```bash
+sd cloud                                      # connect the bucket and store its keys
+sd sources track s3://my-bucket/projects      # track a prefix, or the whole bucket
+sd grant create s3://my-bucket/projects/site --read-write --ttl 2h
+```
+
+The agent lists, reads, globs and greps the objects live, and writes with
+the same preconditions as on a local folder. The bucket itself refuses a
+stale write, so a change made outside Spacedrive is caught too. Moves and
+deletes are refused on a bucket, writes have no `undo` id, and `search`
+and `search_content` are not available yet because a bucket source has no
+index. Services that cannot refuse a stale write, such as Google Drive,
+OneDrive and Dropbox, take read grants only.
+
 Manage grants with these commands:
 
 | Command | What it does |

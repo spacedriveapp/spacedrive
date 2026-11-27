@@ -258,6 +258,8 @@ enum Commands {
 	/// Mount sources as a read-only directory tree (Linux, FUSE)
 	#[command(subcommand)]
 	Fuse(FuseCmd),
+	/// Mount a folder lent by a grant from any Spacedrive node, read-only
+	Mount(domains::mount::MountArgs),
 	/// Indexing operations
 	#[command(subcommand)]
 	Index(IndexCmd),
@@ -537,6 +539,11 @@ async fn main() -> Result<()> {
 		Commands::Daemon(cmd) => {
 			// Daemon management doesn't need the client, handle directly
 			daemon::run(data_dir, base_data_dir, instance, cmd).await?;
+		}
+		Commands::Mount(args) => {
+			// The thin client talks to the node in the URL, never to a local
+			// daemon.
+			domains::mount::run(args).await?;
 		}
 		Commands::Mcp => {
 			// Serves without a daemon so an MCP client can list tools; each

@@ -29,6 +29,8 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use tracing::warn;
 
+mod bucket;
+
 #[cfg(feature = "footage-clips")]
 use super::footage;
 use super::{limits::*, paths, SKILL};
@@ -166,6 +168,11 @@ impl Output {
 			content: vec![json!({ "type": "text", "text": text })],
 			structured,
 		}
+	}
+
+	/// What MCP returns as `structuredContent` and REST as the whole body.
+	pub fn structured(&self) -> &Value {
+		&self.structured
 	}
 
 	pub fn into_result(self) -> Value {
@@ -453,7 +460,13 @@ pub async fn call(
 	arguments: Value,
 	cancel: Arc<AtomicBool>,
 ) -> Result<Output, String> {
+	target_path(tool, &arguments)?;
 	let root = scope.root.clone();
+	if let Some(url) = crate::ops::grants::bucket::of_scope(&scope) {
+		if let Some(result) = bucket::call(&context, tool, &scope, url, &arguments, &cancel).await {
+			return result.map_err(|message| scrub(&message, &root));
+		}
+	}
 	let result = match tool {
 		Tool::GetSkill => Ok(Output {
 			content: vec![json!({ "type": "text", "text": SKILL })],
@@ -491,8 +504,64 @@ fn scrub(message: &str, root: &Path) -> String {
 	message.replace(&format!("{root}/"), "").replace(&root, ".")
 }
 
-fn args<T: for<'de> Deserialize<'de>>(arguments: Value) -> Result<T, String> {
+/// A tool's own arguments. `path` is left out: [`target_path`] checked it,
+/// the transport authorized it, and the tool works on the scope that
+/// resolved, never on the string.
+fn args<T: for<'de> Deserialize<'de>>(mut arguments: Value) -> Result<T, String> {
+	match &mut arguments {
+		Value::Object(fields) => {
+			fields.remove("path");
+		}
+		Value::Null => arguments = json!({}),
+		_ => {}
+	}
 	serde_json::from_value(arguments).map_err(|e| format!("invalid arguments: {e}"))
+}
+
+/// The grant-relative path a call names, after checking the call's fields
+/// against the tool's schema in [`definitions`].
+///
+/// Transports call this before `authorize`, so a misspelled field or a
+/// missing required `path` is refused instead of falling back to the grant
+/// root. A tool whose schema has no `path` gets `""`.
+pub fn target_path(tool: Tool, arguments: &Value) -> Result<String, String> {
+	let definitions = definitions();
+	let schema = definitions
+		.as_array()
+		.and_then(|list| list.iter().find(|entry| entry["name"] == tool.name()))
+		.map(|entry| &entry["inputSchema"]);
+	let properties = schema.and_then(|schema| schema["properties"].as_object());
+	let no_fields = serde_json::Map::new();
+	let fields = match arguments {
+		Value::Null => &no_fields,
+		Value::Object(fields) => fields,
+		_ => return Err("invalid arguments: expected an object".to_string()),
+	};
+	for name in fields.keys() {
+		if properties.is_some_and(|known| known.contains_key(name)) {
+			continue;
+		}
+		let expected: Vec<String> = properties
+			.map(|known| known.keys().map(|key| format!("`{key}`")).collect())
+			.unwrap_or_default();
+		return Err(if expected.is_empty() {
+			format!("invalid arguments: unknown field `{name}`, there are no fields")
+		} else {
+			format!(
+				"invalid arguments: unknown field `{name}`, expected one of {}",
+				expected.join(", ")
+			)
+		});
+	}
+	let required = schema
+		.and_then(|schema| schema["required"].as_array())
+		.is_some_and(|required| required.iter().any(|field| field == "path"));
+	match fields.get("path") {
+		Some(Value::String(path)) => Ok(path.clone()),
+		Some(_) => Err("invalid arguments: invalid type for `path`, expected a string".to_string()),
+		None if required => Err("invalid arguments: missing field `path`".to_string()),
+		None => Ok(String::new()),
+	}
 }
 
 async fn blocking(
@@ -543,6 +612,7 @@ fn page_offset(cursor: Option<&str>) -> Result<usize, String> {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ListArgs {
 	#[serde(default)]
 	limit: Option<u32>,
@@ -602,6 +672,7 @@ fn stat(scope: &GrantScope) -> Result<Output, String> {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ReadArgs {
 	#[serde(default)]
 	offset: Option<u64>,
@@ -618,7 +689,7 @@ struct ReadArgs {
 /// Open a regular file without following a final symlink, which closes the
 /// gap between the grant check and the open. A FIFO opened non-blocking
 /// cannot stall the call.
-fn open_file(path: &Path) -> Result<(File, Metadata), String> {
+pub(super) fn open_file(path: &Path) -> Result<(File, Metadata), String> {
 	let mut options = std::fs::OpenOptions::new();
 	options.read(true);
 	#[cfg(unix)]
@@ -689,13 +760,8 @@ fn read(scope: &GrantScope, args: ReadArgs, cancel: &AtomicBool) -> Result<Outpu
 			"next_offset": lines.next_offset,
 			"encoding": "utf-8",
 		});
-		return Ok(Output {
-			content: vec![
-				json!({ "type": "text", "text": String::from_utf8_lossy(&lines.content) }),
-				json!({ "type": "text", "text": structured.to_string() }),
-			],
-			structured,
-		});
+		let text = String::from_utf8_lossy(&lines.content).into_owned();
+		return Ok(with_payload(text, structured));
 	}
 
 	let offset = args.offset.unwrap_or(0);
@@ -720,13 +786,22 @@ fn read(scope: &GrantScope, args: ReadArgs, cancel: &AtomicBool) -> Result<Outpu
 		"next_offset": (!eof).then_some(end),
 		"encoding": encoding,
 	});
-	Ok(Output {
+	Ok(with_payload(text, structured))
+}
+
+/// A read's answer: the payload and the facts about it as two text blocks,
+/// and the structured value with the payload as `content`, so a client that
+/// reads only structured output, REST included, still gets the bytes.
+fn with_payload(text: String, mut structured: Value) -> Output {
+	let facts = structured.to_string();
+	structured["content"] = json!(text);
+	Output {
 		content: vec![
 			json!({ "type": "text", "text": text }),
-			json!({ "type": "text", "text": structured.to_string() }),
+			json!({ "type": "text", "text": facts }),
 		],
 		structured,
-	})
+	}
 }
 
 /// A line range read without holding more than the byte cap.
@@ -749,7 +824,7 @@ struct Lines {
 /// held beyond `cap`, so a file without newlines costs one buffer however
 /// large it is. Cancellation is checked between chunks.
 fn read_lines(
-	file: File,
+	file: impl Read,
 	start_line: u64,
 	count: u64,
 	cap: u64,
@@ -834,6 +909,7 @@ fn read_lines(
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct GlobArgs {
 	pattern: String,
 	#[serde(default = "yes")]
@@ -931,6 +1007,7 @@ fn glob(scope: &GrantScope, args: GlobArgs, cancel: &AtomicBool) -> Result<Outpu
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct GrepArgs {
 	pattern: String,
 	#[serde(default)]
@@ -1021,6 +1098,7 @@ fn grep(scope: &GrantScope, args: GrepArgs, cancel: &AtomicBool) -> Result<Outpu
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SearchArgs {
 	query: String,
 	#[serde(default)]
@@ -1130,6 +1208,7 @@ async fn stat_with_precondition(
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct WriteArgs {
 	content: String,
 	#[serde(default)]
@@ -1141,12 +1220,14 @@ struct WriteArgs {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct MoveArgs {
 	to: String,
 	expect: Precondition,
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct DeleteArgs {
 	expect: Precondition,
 }
@@ -1230,6 +1311,7 @@ async fn write(
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SearchContentArgs {
 	query: String,
 	#[serde(default)]
