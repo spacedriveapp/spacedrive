@@ -1,6 +1,6 @@
 //! `media.footage.status`: what the footage work has already made for a file.
 
-use std::{path::Path, sync::Arc};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -9,7 +9,10 @@ use uuid::Uuid;
 use super::{local_footage_path, VIDEOS_EXTENSION_ID};
 use crate::{
 	context::CoreContext,
-	domain::{sidecar::content_uuid_of_file, SdPath, SidecarFormat, SidecarKind},
+	domain::{
+		sidecar::{content_uuid_of_file, ContentSidecar},
+		SdPath, SidecarFormat, SidecarKind,
+	},
 	infra::{
 		api::SessionContext,
 		query::{LibraryQuery, QueryError, QueryResult},
@@ -18,6 +21,7 @@ use crate::{
 		files::query::sidecars::{content_sidecars, CORE_PRODUCER},
 		indexing::metadata::refuse_dataless,
 	},
+	service::sidecars::{SidecarFinder, SidecarRegistry},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -75,12 +79,9 @@ impl LibraryQuery for FootageStatusQuery {
 		let content_uuid = content_uuid_of_file(&path).await.map_err(|error| {
 			QueryError::InvalidInput(format!("could not read {}: {error}", path.display()))
 		})?;
-		let library_path = library.path();
-		let sidecars = content_sidecars(library_path, content_uuid)
-			.await
-			.map_err(|error| {
-				QueryError::Internal(format!("could not list the content sidecars: {error}"))
-			})?;
+		let registry = SidecarRegistry::of(&library);
+		let finder = registry.finder();
+		let sidecars = content_sidecars(&registry, content_uuid).await;
 		let core = |kind: &str, format: &str| {
 			sidecars.iter().any(|sidecar| {
 				sidecar.producer == CORE_PRODUCER
@@ -92,16 +93,16 @@ impl LibraryQuery for FootageStatusQuery {
 			content_uuid,
 			transcript: core("transcript", SidecarFormat::Json.extension()),
 			proxy: core("proxy", SidecarFormat::Mp4.extension()),
-			shots: shot_count(library_path, content_uuid).await?,
-			analyzed_shots: analyzed_shots(library_path, content_uuid).await?,
+			shots: shot_count(&finder, content_uuid).await?,
+			analyzed_shots: analyzed_shots(&finder, content_uuid).await?,
 		})
 	}
 }
 
 crate::register_library_query!(FootageStatusQuery, "media.footage.status");
 
-async fn shot_count(library_path: &Path, content_uuid: Uuid) -> QueryResult<Option<u32>> {
-	let list = crate::ops::media::shots::read_shots(library_path, content_uuid)
+async fn shot_count(finder: &SidecarFinder, content_uuid: Uuid) -> QueryResult<Option<u32>> {
+	let list = crate::ops::media::shots::read_shots(finder, content_uuid)
 		.await
 		.map_err(|error| QueryError::Internal(format!("could not read the shot list: {error}")))?;
 	Ok(list.map(|list| u32::try_from(list.shots.len()).unwrap_or(u32::MAX)))
@@ -109,7 +110,7 @@ async fn shot_count(library_path: &Path, content_uuid: Uuid) -> QueryResult<Opti
 
 /// The Videos extension's `scene` sidecar holds one entry per shot it has
 /// analyzed. Its shape belongs to the extension, so only the count is read.
-async fn analyzed_shots(library_path: &Path, content_uuid: Uuid) -> QueryResult<Option<u32>> {
+async fn analyzed_shots(finder: &SidecarFinder, content_uuid: Uuid) -> QueryResult<Option<u32>> {
 	#[derive(Deserialize)]
 	struct SceneDoc {
 		#[serde(default)]
@@ -118,14 +119,14 @@ async fn analyzed_shots(library_path: &Path, content_uuid: Uuid) -> QueryResult<
 
 	let kind =
 		SidecarKind::extension(VIDEOS_EXTENSION_ID, "scene").map_err(QueryError::Internal)?;
-	let path = library_path
-		.join("sidecars")
-		.join(sd_sidecar_path::relative_path(
-			&content_uuid,
-			&kind.directory(),
-			"default",
-			SidecarFormat::Json.extension(),
-		));
+	let Some(path) = finder.find(&ContentSidecar {
+		content_uuid,
+		kind,
+		variant: "default".into(),
+		format: SidecarFormat::Json,
+	}) else {
+		return Ok(None);
+	};
 	let bytes = match tokio::fs::read(&path).await {
 		Ok(bytes) => bytes,
 		Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),

@@ -1327,7 +1327,10 @@ async fn list_shots(context: &Arc<CoreContext>, scope: &GrantScope) -> Result<Ou
 		.get_library(scope.library_id)
 		.await
 		.ok_or_else(|| "the grant's library is not open".to_string())?;
-	let list = crate::ops::media::shots::shots_of_file(library.path(), &scope.path)
+	let list = crate::ops::media::shots::shots_of_file(
+		&crate::service::sidecars::SidecarRegistry::of(&library).finder(),
+		&scope.path,
+	)
 		.await
 		.map_err(|error| {
 			warn!(%error, "list_shots could not read a shot list");
