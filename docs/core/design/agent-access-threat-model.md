@@ -52,6 +52,10 @@ agents.
   ops on every paired node.
 - F2. When a request line fails to parse, `rpc.rs` logs the raw line at error
   level. Anything secret sent on a malformed line ends up in `daemon.log`.
+  Fixed: the daemon logs the error's kind, position and the line's length,
+  never the line, and the desktop app logs a proxied request's kind and method
+  only. `core/tests/rpc_security_test.rs` checks the log after malformed lines
+  that carry a token and a password.
 - F3. byterange's `authorize_path` rejects `..` and checks `starts_with` on
   the raw path, then calls `File::open`, which follows symlinks. A symlink
   inside a source that points outside it is read through. Today only paired
@@ -315,7 +319,7 @@ host or a host-networked container they are not.
 
 Follow-up work, in order:
 
-1. Fix F2 now, since it is small and grants make it matter.
+1. Fix F2 now, since it is small and grants make it matter. Done.
 2. Add a test that an HTTP request to 6969 closes the connection without
    dispatch, so F6 stays true.
 3. Require a per-daemon secret on RPC: a random cookie written to a `0600` file

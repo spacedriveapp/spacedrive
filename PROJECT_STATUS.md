@@ -36,6 +36,8 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+RPC lines stay out of logs (Capy FAN-14847, November 27, in PR). Threat model F2: a malformed RPC line logs its parse error's kind, position and length, never the text, and the desktop app's daemon proxy logs a request's kind and method instead of the payload and answer; `rpc_security_test` guards it.
+
 Bundled command line tool (Capy FAN-14800, November 27, in PR). The desktop
 app ships `sd-cli` beside `sd-daemon` as a Tauri external binary on macOS
 arm64 and Intel and Linux, built in the same cargo run with the same features
