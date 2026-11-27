@@ -66,7 +66,8 @@ impl RpcServer {
 
 		// Issued only once the port is ours, so a second daemon started on the
 		// same data directory cannot replace the secret of the one serving it.
-		let secret = Arc::new(auth::issue(&self.core.context.data_dir)?);
+		let data_dir = self.core.context.data_dir.clone();
+		let secret = Arc::new(tokio::task::spawn_blocking(move || auth::issue(&data_dir)).await??);
 		tracing::info!(
 			path = %auth::secret_path(&self.core.context.data_dir).display(),
 			"RPC secret issued"

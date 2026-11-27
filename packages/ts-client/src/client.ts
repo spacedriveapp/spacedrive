@@ -1,4 +1,4 @@
-import type { Transport } from "./transport";
+import type { RpcSecret, Transport } from "./transport";
 import { UnixSocketTransport, TcpSocketTransport, TauriTransport } from "./transport";
 import type { Event, Validation } from "./generated/types";
 
@@ -106,9 +106,10 @@ export class SpacedriveClient extends SimpleEventEmitter {
 	/**
 	 * Create client for Bun/Node.js using TCP socket
 	 * @param socketAddr - TCP address (e.g., "127.0.0.1:6969")
-	 * @param secret - Contents of rpc.secret in the daemon's data directory
+	 * @param secret - Contents of rpc.secret in the daemon's data directory, or
+	 * a function that reads it, so the client survives a daemon restart
 	 */
-	static fromTcpSocket(socketAddr: string, secret: string): SpacedriveClient {
+	static fromTcpSocket(socketAddr: string, secret: RpcSecret): SpacedriveClient {
 		return new SpacedriveClient(new TcpSocketTransport(socketAddr, secret));
 	}
 
