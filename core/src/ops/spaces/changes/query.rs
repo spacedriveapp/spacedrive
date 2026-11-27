@@ -95,9 +95,9 @@ pub async fn page(
 	space_id: Uuid,
 	query: EventQuery,
 ) -> Result<SpaceChangesOutput, String> {
-	let start = query
-		.cursor
-		.unwrap_or(if query.newest { i64::MAX } else { 0 });
+	// Newest first with no cursor reads from the top, but the cursor handed
+	// back stays a seq so it survives a JavaScript number.
+	let start = query.cursor.unwrap_or(0);
 	let Some(log) = events::log_of(context, source_id, space_id).await else {
 		return Ok(SpaceChangesOutput {
 			changes: Vec::new(),
@@ -111,8 +111,9 @@ pub async fn page(
 		})
 		.await
 		.map_err(|e| e.to_string())?;
-	// The watcher attributes to this device, so make sure it has a name.
-	let _ = actors::this_device(library, context).await;
+	// The watcher attributes to this device, which has no row until an app
+	// action names it; a read never writes one.
+	let this_device = context.device_manager.config().ok();
 	let known: HashMap<Uuid, Actor> = actors::all(library)
 		.await
 		.map_err(|e| e.to_string())?
@@ -123,16 +124,29 @@ pub async fn page(
 	let changes = rows
 		.into_iter()
 		.map(|row| {
-			let actor = known.get(&row.actor_id).cloned().unwrap_or(Actor {
-				id: row.actor_id,
-				kind: if row.origin == events::Origin::Watcher.as_str() {
-					ActorKind::Device
-				} else {
-					ActorKind::Agent
-				},
-				label: "an unknown actor".to_string(),
-				harness: None,
-			});
+			let actor = known.get(&row.actor_id).cloned();
+			let actor = actor
+				.or_else(|| {
+					this_device
+						.as_ref()
+						.filter(|device| device.id == row.actor_id)
+						.map(|device| Actor {
+							id: device.id,
+							kind: ActorKind::Device,
+							label: device.name.clone(),
+							harness: None,
+						})
+				})
+				.unwrap_or(Actor {
+					id: row.actor_id,
+					kind: if row.origin == events::Origin::Watcher.as_str() {
+						ActorKind::Device
+					} else {
+						ActorKind::Agent
+					},
+					label: "an unknown actor".to_string(),
+					harness: None,
+				});
 			let target = row.to_path.as_deref().unwrap_or(&row.path);
 			let summary = if row.origin == events::Origin::Watcher.as_str() {
 				format!("{target} changed outside Spacedrive on {}", actor.label)

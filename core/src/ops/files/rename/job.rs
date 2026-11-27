@@ -157,6 +157,7 @@ impl JobHandler for RenameJob {
 					continue;
 				}
 				progressed = true;
+				crate::ops::spaces::events::claim(&[&at, &rename.to]);
 				match tokio::fs::rename(&at, &rename.to).await {
 					Ok(()) => {
 						let subject = tokio::fs::symlink_metadata(&rename.to).await.ok();

@@ -133,6 +133,7 @@ impl JobHandler for RearrangeJob {
 		}
 
 		for directory in &rearrangement.directories {
+			crate::ops::spaces::events::claim(&[directory]);
 			match tokio::fs::create_dir_all(directory).await {
 				Ok(()) => {
 					let subject = tokio::fs::symlink_metadata(directory).await.ok();
@@ -165,6 +166,7 @@ impl JobHandler for RearrangeJob {
 				});
 				continue;
 			}
+			crate::ops::spaces::events::claim(&[&planned.from, &planned.to]);
 			match tokio::fs::rename(&planned.from, &planned.to).await {
 				Ok(()) => {
 					let subject = tokio::fs::symlink_metadata(&planned.to).await.ok();
@@ -206,6 +208,7 @@ impl JobHandler for RearrangeJob {
 
 		if matches!(self.what, Rearrange::Flatten(_)) {
 			for directory in directories_beneath(&scope).await {
+				crate::ops::spaces::events::claim(&[&directory]);
 				if tokio::fs::remove_dir(&directory).await.is_ok() {
 					ctx.record(vec![Effect::removed(directory)]).await;
 					output.pruned_directories += 1;

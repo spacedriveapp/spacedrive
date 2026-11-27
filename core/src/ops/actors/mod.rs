@@ -9,7 +9,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use sea_orm::{sea_query::OnConflict, ActiveValue::Set, EntityTrait};
+use sea_orm::{sea_query::OnConflict, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
@@ -91,9 +91,10 @@ async fn ensure(
 		created_at: Set(Utc::now()),
 		..Default::default()
 	})
+	// A person or device renamed since keeps its id and takes the new name.
 	.on_conflict(
 		OnConflict::column(actor::Column::Uuid)
-			.do_nothing()
+			.update_column(actor::Column::Label)
 			.to_owned(),
 	)
 	.exec_without_returning(library.db().conn())
@@ -126,12 +127,12 @@ pub async fn this_device(library: &Library, context: &CoreContext) -> Result<Uui
 /// The person using this device: what app actions are attributed to.
 pub async fn this_person(library: &Library, context: &CoreContext) -> Result<Uuid, String> {
 	let device = this_device(library, context).await?;
-	let label = std::env::var("USER")
-		.or_else(|_| std::env::var("USERNAME"))
-		.unwrap_or_else(|_| "You".to_string());
+	let label = tokio::task::spawn_blocking(full_name)
+		.await
+		.map_err(|e| e.to_string())?;
 	ensure(
 		library,
-		Uuid::new_v5(&PERSON_NAMESPACE, device.as_bytes()),
+		person_id(device),
 		ActorKind::Person,
 		label,
 		None,
@@ -139,6 +140,58 @@ pub async fn this_person(library: &Library, context: &CoreContext) -> Result<Uui
 	)
 	.await
 	.map_err(|e| e.to_string())
+}
+
+/// The id of the person actor of a device.
+pub fn person_id(device: Uuid) -> Uuid {
+	Uuid::new_v5(&PERSON_NAMESPACE, device.as_bytes())
+}
+
+/// The person using this device, without writing anything: the stored row
+/// once an app action has made one, else the same actor as it will be.
+pub async fn me(library: &Library, context: &CoreContext) -> Result<Actor, String> {
+	let device = context
+		.device_manager
+		.device_id()
+		.map_err(|e| format!("no device identity: {e}"))?;
+	let id = person_id(device);
+	if let Some(row) = actor::Entity::find()
+		.filter(actor::Column::Uuid.eq(id))
+		.one(library.db().conn())
+		.await
+		.map_err(|e| e.to_string())?
+	{
+		return Ok(row.into());
+	}
+	Ok(Actor {
+		id,
+		kind: ActorKind::Person,
+		label: tokio::task::spawn_blocking(full_name)
+			.await
+			.map_err(|e| e.to_string())?,
+		harness: None,
+	})
+}
+
+/// The name of the person signed in to this device: the full name the system
+/// keeps for the account (the GECOS field on Linux, the account's full name
+/// on macOS, the display name on Windows), or the login name without one.
+fn full_name() -> String {
+	// GECOS holds the name, then office and phone fields after commas.
+	whoami::fallible::realname()
+		.ok()
+		.and_then(|real| {
+			let name = real
+				.split(',')
+				.next()
+				.unwrap_or_default()
+				.trim()
+				.to_string();
+			(!name.is_empty()).then_some(name)
+		})
+		.or_else(|| whoami::fallible::username().ok())
+		.filter(|name| !name.trim().is_empty())
+		.unwrap_or_else(|| "You".to_string())
 }
 
 /// A new agent, created by the person on this device.
@@ -211,3 +264,46 @@ impl LibraryQuery for ActorsListQuery {
 }
 
 crate::register_library_query!(ActorsListQuery, "actors.list");
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ActorsMeInput {}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ActorsMeOutput {
+	/// The person using this device. Changes made through the app here are
+	/// attributed to this actor.
+	pub actor: Actor,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActorsMeQuery;
+
+impl LibraryQuery for ActorsMeQuery {
+	type Input = ActorsMeInput;
+	type Output = ActorsMeOutput;
+
+	fn from_input(_input: Self::Input) -> QueryResult<Self> {
+		Ok(Self)
+	}
+
+	async fn execute(
+		self,
+		context: Arc<CoreContext>,
+		session: crate::infra::api::SessionContext,
+	) -> QueryResult<Self::Output> {
+		let library_id = session
+			.current_library_id
+			.ok_or_else(|| QueryError::Internal("No library selected".to_string()))?;
+		let library = context
+			.libraries()
+			.await
+			.get_library(library_id)
+			.await
+			.ok_or(QueryError::LibraryNotFound(library_id))?;
+		Ok(ActorsMeOutput {
+			actor: me(&library, &context).await.map_err(QueryError::Internal)?,
+		})
+	}
+}
+
+crate::register_library_query!(ActorsMeQuery, "actors.me");
