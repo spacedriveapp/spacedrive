@@ -218,6 +218,11 @@ async fn create_tables(db: &DatabaseConnection) -> JobResult<()> {
 		db.execute_unprepared("ALTER TABLE job_journal ADD COLUMN grant_id TEXT")
 			.await?;
 	}
+	// The activity feed reads the newest rows first and stops at a cap.
+	db.execute_unprepared(
+		"CREATE INDEX IF NOT EXISTS job_journal_recorded_at ON job_journal (recorded_at DESC, sequence DESC)",
+	)
+	.await?;
 
 	Ok(())
 }
