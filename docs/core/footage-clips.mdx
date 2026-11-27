@@ -10,8 +10,10 @@ reads a file's transcript and shot list, and hands an ordered list of clips
 back to get a rough cut that Final Cut Pro, DaVinci Resolve or Premiere Pro
 opens.
 
-> **Status:** Built behind the `footage-clips` cargo feature, which is off by
-> default and not part of beta.1. It builds the shot detection module too.
+> **Status:** Built behind the `footage-clips` cargo feature, which is off in
+> a default build. It builds the shot detection module too. The desktop app's
+> daemon in beta.1 is built with it on every desktop target, through the
+> `footage` feature (`footage-without-onnx` on Intel Macs).
 
 ## Run it
 

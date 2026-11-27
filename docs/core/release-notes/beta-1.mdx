@@ -220,10 +220,18 @@ CLI and daemon
 - `sd file list` shows folders as folders.
 - The daemon raises its open-file limit at start.
 
+Footage
+
+- Videos and folders get Transcribe, Make proxy, Detect shots, Analyze and Export timeline in the context menu and the inspector. Every job starts only when you choose it.
+- Quick Preview shows a video's transcript and shot boundaries, and plays a proxy when the original does not decode.
+- Explorer search finds what was said in a recording and what a shot shows, and opens Quick Preview at that moment.
+- Settings > Models downloads Whisper and the inference models, and sets up cloud captions with your own key.
+- Export a rough cut as FCPXML, CMX 3600 EDL or OTIO.
+
 ## Not in beta.1
 
-- The extension runtime. Release builds do not include it. It stays off until after the beta.
-- AI features. There is no inference provider, so there is no scene classification, face detection or generated names for places and moments.
+- Footage in the standalone `sd` and `sd-daemon` downloads. They ship without the footage features; use the daemon the desktop app starts.
+- Local inference on Intel Macs. ONNX Runtime has no Intel macOS build, so only cloud captions with your own key work there.
 - Windows, as described above. Mobile apps.
 
 ## Known limits
