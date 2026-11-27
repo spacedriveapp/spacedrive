@@ -29,6 +29,8 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use tracing::warn;
 
+mod bucket;
+
 #[cfg(feature = "footage-clips")]
 use super::footage;
 use super::{limits::*, paths, SKILL};
@@ -454,6 +456,11 @@ pub async fn call(
 	cancel: Arc<AtomicBool>,
 ) -> Result<Output, String> {
 	let root = scope.root.clone();
+	if let Some(url) = crate::ops::grants::bucket::of_scope(&scope) {
+		if let Some(result) = bucket::call(&context, tool, &scope, url, &arguments, &cancel).await {
+			return result.map_err(|message| scrub(&message, &root));
+		}
+	}
 	let result = match tool {
 		Tool::GetSkill => Ok(Output {
 			content: vec![json!({ "type": "text", "text": SKILL })],
@@ -749,7 +756,7 @@ struct Lines {
 /// held beyond `cap`, so a file without newlines costs one buffer however
 /// large it is. Cancellation is checked between chunks.
 fn read_lines(
-	file: File,
+	file: impl Read,
 	start_line: u64,
 	count: u64,
 	cap: u64,

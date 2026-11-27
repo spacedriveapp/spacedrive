@@ -51,9 +51,15 @@ errors before treating an archival index as complete.
 
 ## Open the web interface
 
-The server hosts the web client on its configured HTTP address. Bind it to a
-private interface or place it behind a trusted reverse proxy. Use TLS for any
-browser connection that leaves the host.
+The server hosts the web client on `127.0.0.1:8080` by default. To reach it from
+another machine, set `SD_HOST` or `--host` to a private interface address, or
+keep loopback and place it behind a trusted reverse proxy. Use TLS for any
+browser connection that leaves the host, because HTTP Basic credentials travel
+in plaintext. The server warns at startup when it binds beyond loopback.
+
+Set `SD_AUTH` to `user:password` pairs. After 20 failed logins from one client
+address within a minute, that address gets `429` for 5 minutes. The address is
+the TCP peer, so behind a reverse proxy every client shares one limit.
 
 Browser authentication protects the web session. Peer pairing protects
 device-to-device operations. Keep both enabled because they address different

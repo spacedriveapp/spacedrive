@@ -25,8 +25,9 @@ Writes are single-owner and write-through.
   write is refused, and the agent decides what to do after it reads again.
 
 Writes from several devices to one source are out of scope. So are merges
-of any kind, row-level merges of CSV or similar files, writes to S3 and
-other adapter sources, and writes to a source that a peer device owns.
+of any kind, row-level merges of CSV or similar files, writes to adapter
+sources other than buckets, and writes to a source that a peer device owns.
+Bucket sources take writes under their own rules, in "Bucket sources" below.
 
 ## Operations
 
@@ -192,6 +193,41 @@ the item's own subtree, and a byte-range write to a cloud placeholder.
 A hard link to a protected file under another name does not let an agent
 change the protected file. Writes never modify a file in place: they
 replace the name with a new file, so the other name keeps the old bytes.
+
+## Bucket sources
+
+A grant on a prefix of an S3 or R2 bucket source takes the same write
+operations with the same answers, and the bucket enforces the precondition
+itself. Code: `core/src/ops/agent_write/bucket.rs`.
+
+- **Change.** The write reads the object's entity tag, streams the bytes at
+  that tag into a BLAKE3 hash, and checks the precondition against it. It
+  then sends the new bytes with `If-Match` and that tag. An object that
+  changed or was deleted after the check, by an agent or by anything outside
+  Spacedrive, makes the service refuse the write, and the agent gets the
+  usual stale refusal with the current hash. No lock is involved.
+- **Size.** Hashing holds one chunk in memory, whatever the object's size.
+  A byte-range write sends the whole object back, so it takes objects up to
+  64 MiB and refuses larger ones.
+- **Create.** The write is sent with `If-None-Match: *`. A taken key is
+  refused by the service, and the write tries the next conflict name, so
+  two creates racing for one name both keep their bytes.
+- **Revision.** A bucket source has no store revision yet. `revision` is
+  absent from its state, and a precondition that names one is stale. Use
+  the content hash.
+- **Directories.** A prefix with objects under it is a directory. Its hash
+  is the listing hash, as for a local directory. `make_dir` writes a
+  zero-byte `prefix/` marker.
+- **Refused.** Moves and deletes, because a bucket cannot make them
+  conditional on the version the agent read. Undo, because a bucket has no
+  trash; the provider's object versioning is what restores a version.
+- **Read-only services.** A service whose backend cannot refuse a stale
+  write, such as Google Drive, OneDrive or Dropbox, is read-only for agents.
+  `grants.create` refuses a `read_write` grant on it, and `authorize`
+  refuses every write request with a message that says why.
+
+`core/tests/bucket_agent_acceptance_test.rs` runs these cases against a
+real S3-compatible server.
 
 ## Acceptance matrix
 

@@ -41,7 +41,7 @@ agents.
 | SMB share (`core/src/service/mounts/smb.rs`) | `127.0.0.1`, ephemeral port | One user, random password per start, or `SD_MOUNT_SMB_PASSWORD` | Same as WebDAV |
 | byterange (`core/src/service/network/protocol/byterange.rs`) | Iroh QUIC | Paired node key | Stat, ranged reads (8 MiB per request), snapshots and database exports of attached sources |
 | remote ops (`core/src/service/network/protocol/remote_ops.rs`) | Iroh QUIC | Paired node key | Every op in the registry and the log stream |
-| `sd-server` (`apps/server/src/main.rs`) | `[::]:8080` by default | HTTP Basic from `SD_AUTH`; release builds refuse to start without it unless set to `disabled` | `/rpc` proxies the whole registry, plus sidecars, thumbnails, extension bundles and the share |
+| `sd-server` (`apps/server/src/main.rs`) | `127.0.0.1:8080` by default; `SD_HOST` widens it | HTTP Basic from `SD_AUTH`; release builds refuse to start without it unless set to `disabled` | `/rpc` proxies the whole registry, plus sidecars, thumbnails, extension bundles and the share |
 
 ### Findings
 
@@ -68,14 +68,22 @@ agents.
   the raw path, then calls `File::open`, which follows symlinks. A symlink
   inside a source that points outside it is read through. Today only paired
   devices can send these requests, so this is a containment gap, not an open
-  hole. A grant check built the same way would be an open hole.
+  hole. A grant check built the same way would be an open hole. Fixed: every
+  peer path now opens through `common::contain::open_beneath`, which resolves
+  it beneath the source root's handle (`openat2` with `RESOLVE_BENEATH` on
+  Linux) and refuses a link that leaves the root, and reads go through that
+  handle. Thumbnail asks are checked the same way, but the bake reopens by path.
 - F4. The SMB mount URL, password included, is logged at info on every start.
   The password is also accepted from an environment variable, which other
   processes of the same user can read.
 - F5. `sd-server` listens on all interfaces by default over plain HTTP. Basic
   credentials cross the network on every request, and failed logins are not
   rate limited. It is the one surface already exposed to a network, and it
-  exposes more than any grant would.
+  exposes more than any grant would. Fixed: `sd-server` binds `127.0.0.1`
+  unless `SD_HOST` or `--host` says otherwise and warns when it binds beyond
+  loopback. `apps/server/src/login_limit.rs` answers 429 with `Retry-After` for
+  5 minutes after 20 failed logins per TCP peer address (IPv6 per /64) in a
+  minute, correct credentials included.
 - F6. The RPC line protocol happens to refuse browsers: an HTTP request's first
   line is not JSON, so the connection closes before dispatch. Nothing tests
   this, and nothing keeps a future change from adding an HTTP mode. Now
@@ -172,8 +180,8 @@ Accepted risks: a hard link inside the root to a file outside it is readable,
 since creating one needs write access inside the root; a volume mounted inside
 the root is readable, since it is under the folder the user chose.
 
-F3 should be fixed with the same handle-based check, so byterange and the grant
-verifier share one containment function.
+byterange and the grant verifier share one containment function,
+`core/src/common/contain.rs`.
 
 ## Untrusted content
 

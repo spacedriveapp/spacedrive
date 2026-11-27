@@ -49,6 +49,135 @@ pub enum GrepError {
 	Cancelled,
 }
 
+/// One page of matches, built file by file in path order.
+///
+/// The local walk feeds it files from disk. A caller walking something else,
+/// such as a bucket listing, feeds it the same way with [`Page::wants`] and
+/// [`Page::search`], so both get the same matching, context, skip reasons and
+/// cursors.
+pub struct Page<'a> {
+	matcher: RegexMatcher,
+	searcher: Searcher,
+	cursor: Option<Cursor>,
+	max_results: usize,
+	max_file_bytes: u64,
+	context: usize,
+	cancel: &'a AtomicBool,
+	out: GrepOutput,
+}
+
+impl<'a> Page<'a> {
+	pub fn new(options: &GrepOptions, cancel: &'a AtomicBool) -> Result<Self, GrepError> {
+		options.validate().map_err(GrepError::Input)?;
+		let matcher = RegexMatcherBuilder::new()
+			.case_insensitive(options.case_insensitive)
+			.fixed_strings(options.literal)
+			.line_terminator(Some(b'\n'))
+			.build(&options.pattern)
+			.map_err(|e| GrepError::Pattern(e.to_string()))?;
+		let context = options.context_lines as usize;
+		let searcher = SearcherBuilder::new()
+			.binary_detection(BinaryDetection::quit(b'\0'))
+			.line_number(true)
+			.before_context(context)
+			.after_context(context)
+			.build();
+		Ok(Self {
+			matcher,
+			searcher,
+			cursor: options.cursor.as_deref().map(Cursor::decode).transpose()?,
+			max_results: options.max_results(),
+			max_file_bytes: options.max_file_bytes(),
+			context,
+			cancel,
+			out: GrepOutput::default(),
+		})
+	}
+
+	/// Whether the file at `rel` belongs on this page: not before the cursor,
+	/// and no larger than `max_file_bytes`. A file passed over for its size is
+	/// counted as skipped.
+	pub fn wants(&mut self, rel: &Path, size: u64, shown: &str) -> bool {
+		if self
+			.cursor
+			.as_ref()
+			.is_some_and(|cursor| rel < cursor.path.as_path())
+		{
+			return false;
+		}
+		if size > self.max_file_bytes {
+			self.skip(shown, GrepSkipReason::TooLarge);
+			return false;
+		}
+		true
+	}
+
+	/// The largest file searched.
+	pub fn max_file_bytes(&self) -> u64 {
+		self.max_file_bytes
+	}
+
+	pub fn skip(&mut self, shown: &str, reason: GrepSkipReason) {
+		self.out.files_skipped += 1;
+		if self.out.skipped.len() < MAX_SKIPPED_LISTED {
+			self.out.skipped.push(GrepSkipped {
+				path: shown.to_string(),
+				reason,
+			});
+		}
+	}
+
+	/// Search one file's bytes. Answers true once the page is full, when the
+	/// caller stops feeding it.
+	pub fn search(&mut self, rel: &Path, shown: &str, bytes: &[u8]) -> Result<bool, GrepError> {
+		let already_returned = match &self.cursor {
+			Some(cursor) if cursor.path == rel => cursor.skip,
+			_ => 0,
+		};
+		let remaining = self.max_results - self.out.matches.len();
+		let mut sink = FileSink::new(self.context, already_returned, remaining, self.cancel);
+		if let Err(error) = self.searcher.search_slice(&self.matcher, bytes, &mut sink) {
+			debug!(path = %shown, %error, "grep search failed");
+			return Ok(false);
+		}
+		if self.cancel.load(Ordering::Relaxed) {
+			return Err(GrepError::Cancelled);
+		}
+		if sink.binary {
+			self.skip(shown, GrepSkipReason::Binary);
+			return Ok(false);
+		}
+		self.out.files_scanned += 1;
+
+		let found = sink.found.len();
+		self.out
+			.matches
+			.extend(sink.found.into_iter().map(|found| GrepMatch {
+				path: shown.to_string(),
+				line_number: found.line_number,
+				line: found.line,
+				before: found.before,
+				after: found.after,
+			}));
+		if self.out.matches.len() < self.max_results {
+			return Ok(false);
+		}
+		self.out.truncated = true;
+		self.out.next_cursor = Some(
+			Cursor {
+				path: rel.to_path_buf(),
+				skip: already_returned + found,
+			}
+			.encode(),
+		);
+		Ok(true)
+	}
+
+	pub fn finish(self) -> GrepOutput {
+		self.out
+	}
+}
+
 /// Search the files under `root.join(scope)` and return one page of matches.
 ///
 /// `root` is trusted as given: a source root, or the subtree a caller may
@@ -65,23 +194,7 @@ pub fn grep(
 	options: &GrepOptions,
 	cancel: &AtomicBool,
 ) -> Result<GrepOutput, GrepError> {
-	options.validate().map_err(GrepError::Input)?;
-	let matcher = RegexMatcherBuilder::new()
-		.case_insensitive(options.case_insensitive)
-		.fixed_strings(options.literal)
-		.line_terminator(Some(b'\n'))
-		.build(&options.pattern)
-		.map_err(|e| GrepError::Pattern(e.to_string()))?;
-	let context = options.context_lines as usize;
-	let mut searcher = SearcherBuilder::new()
-		.binary_detection(BinaryDetection::quit(b'\0'))
-		.line_number(true)
-		.before_context(context)
-		.after_context(context)
-		.build();
-	let cursor = options.cursor.as_deref().map(Cursor::decode).transpose()?;
-	let max_results = options.max_results();
-	let max_file_bytes = options.max_file_bytes();
+	let mut page = Page::new(options, cancel)?;
 
 	let anchor = Anchor::open(root, scope).map_err(|source| GrepError::Scope {
 		path: root.join(scope).display().to_string(),
@@ -118,7 +231,7 @@ pub fn grep(
 			message: e.to_string(),
 		})?);
 	}
-	if let Some(cursor) = &cursor {
+	if let Some(cursor) = &page.cursor {
 		// Prune everything before the cursor, keeping the directories on the
 		// way down to it.
 		let root = scope.to_path_buf();
@@ -130,7 +243,6 @@ pub fn grep(
 		});
 	}
 
-	let mut out = GrepOutput::default();
 	for entry in walk.build() {
 		if cancel.load(Ordering::Relaxed) {
 			return Err(GrepError::Cancelled);
@@ -148,29 +260,17 @@ pub fn grep(
 		}
 		let path = entry.path();
 		let rel = path.strip_prefix(scope).unwrap_or(path);
-		let already_returned = match &cursor {
-			Some(cursor) if cursor.path == rel => cursor.skip,
-			_ => 0,
-		};
+		let display = display_path(rel, path);
 
-		let mut skip = |reason| {
-			out.files_skipped += 1;
-			if out.skipped.len() < MAX_SKIPPED_LISTED {
-				out.skipped.push(GrepSkipped {
-					path: display_path(rel, path),
-					reason,
-				});
-			}
-		};
 		// A stat, which the provider answers without downloading anything.
 		if refuse_dataless_blocking(path).is_err() {
-			skip(GrepSkipReason::CloudPlaceholder);
+			page.skip(&display, GrepSkipReason::CloudPlaceholder);
 			continue;
 		}
-		let bytes = match read_capped(&anchor, rel, max_file_bytes) {
+		let bytes = match read_capped(&anchor, rel, page.max_file_bytes) {
 			Ok(Some(bytes)) => bytes,
 			Ok(None) => {
-				skip(GrepSkipReason::TooLarge);
+				page.skip(&display, GrepSkipReason::TooLarge);
 				continue;
 			}
 			Err(error) => {
@@ -178,45 +278,11 @@ pub fn grep(
 				continue;
 			}
 		};
-
-		let remaining = max_results - out.matches.len();
-		let mut sink = FileSink::new(context, already_returned, remaining, cancel);
-		if let Err(error) = searcher.search_slice(&matcher, &bytes, &mut sink) {
-			debug!(path = %path.display(), %error, "grep search failed");
-			continue;
-		}
-		if cancel.load(Ordering::Relaxed) {
-			return Err(GrepError::Cancelled);
-		}
-		if sink.binary {
-			skip(GrepSkipReason::Binary);
-			continue;
-		}
-		out.files_scanned += 1;
-
-		let display = display_path(rel, path);
-		let found = sink.found.len();
-		out.matches
-			.extend(sink.found.into_iter().map(|found| GrepMatch {
-				path: display.clone(),
-				line_number: found.line_number,
-				line: found.line,
-				before: found.before,
-				after: found.after,
-			}));
-		if out.matches.len() >= max_results {
-			out.truncated = true;
-			out.next_cursor = Some(
-				Cursor {
-					path: rel.to_path_buf(),
-					skip: already_returned + found,
-				}
-				.encode(),
-			);
+		if page.search(rel, &display, &bytes)? {
 			break;
 		}
 	}
-	Ok(out)
+	Ok(page.finish())
 }
 
 /// Read a regular file whole, or `None` when it is larger than `cap`.
