@@ -310,39 +310,52 @@ pub(super) async fn open(
 	tokio::spawn(async move {
 		let _slot = slot;
 		let root = scope.root;
-		let send = |text: String| {
-			let tx = tx.clone();
-			async move { tx.send(Ok(Bytes::from(text))).await.is_ok() }
-		};
-		if reset && !send(RESET.to_string()).await {
-			return;
-		}
-		for change in &replay {
-			if let Some(frame) = feed.frame(change, &root) {
-				if !send(frame).await {
-					return;
-				}
-			}
-		}
-
 		let ended = http::ended(&endpoint, scope.library_id, scope.grant_id);
 		tokio::pin!(ended);
 		let idle = tokio::time::sleep(IDLE_CLOSE);
 		tokio::pin!(idle);
+
+		// Every send races the grant's end and the idle deadline, so a client
+		// that stops reading cannot hold the stream open past either.
+		macro_rules! deliver {
+			($text:expr) => {
+				tokio::select! {
+					biased;
+					_ = &mut ended => {
+						let _ = tx.try_send(Ok(Bytes::from_static(END.as_bytes())));
+						return;
+					}
+					_ = &mut idle => return,
+					sent = tx.send(Ok(Bytes::from($text))) => {
+						if sent.is_err() {
+							return;
+						}
+					}
+				}
+			};
+		}
+
+		if reset {
+			deliver!(RESET);
+		}
+		for change in &replay {
+			if let Some(frame) = feed.frame(change, &root) {
+				deliver!(frame);
+			}
+		}
+
 		let mut keep =
 			tokio::time::interval_at(tokio::time::Instant::now() + KEEP_ALIVE, KEEP_ALIVE);
 		loop {
 			let frame = tokio::select! {
 				_ = &mut ended => {
-					send(END.to_string()).await;
+					let _ = tx.try_send(Ok(Bytes::from_static(END.as_bytes())));
 					return;
 				}
 				_ = &mut idle => return,
 				_ = tx.closed() => return,
 				_ = keep.tick() => {
-					if !send(KEEP.to_string()).await {
-						return;
-					}
+					deliver!(KEEP);
 					continue;
 				}
 				signal = live.recv() => match signal {
@@ -358,9 +371,7 @@ pub(super) async fn open(
 					Err(broadcast::error::RecvError::Closed) => return,
 				},
 			};
-			if !send(frame).await {
-				return;
-			}
+			deliver!(frame);
 			idle.as_mut()
 				.reset(tokio::time::Instant::now() + IDLE_CLOSE);
 		}

@@ -694,13 +694,8 @@ fn read(scope: &GrantScope, args: ReadArgs, cancel: &AtomicBool) -> Result<Outpu
 			"next_offset": lines.next_offset,
 			"encoding": "utf-8",
 		});
-		return Ok(Output {
-			content: vec![
-				json!({ "type": "text", "text": String::from_utf8_lossy(&lines.content) }),
-				json!({ "type": "text", "text": structured.to_string() }),
-			],
-			structured,
-		});
+		let text = String::from_utf8_lossy(&lines.content).into_owned();
+		return Ok(with_payload(text, structured));
 	}
 
 	let offset = args.offset.unwrap_or(0);
@@ -725,13 +720,22 @@ fn read(scope: &GrantScope, args: ReadArgs, cancel: &AtomicBool) -> Result<Outpu
 		"next_offset": (!eof).then_some(end),
 		"encoding": encoding,
 	});
-	Ok(Output {
+	Ok(with_payload(text, structured))
+}
+
+/// A read's answer: the payload and the facts about it as two text blocks,
+/// and the structured value with the payload as `content`, so a client that
+/// reads only structured output, REST included, still gets the bytes.
+fn with_payload(text: String, mut structured: Value) -> Output {
+	let facts = structured.to_string();
+	structured["content"] = json!(text);
+	Output {
 		content: vec![
 			json!({ "type": "text", "text": text }),
-			json!({ "type": "text", "text": structured.to_string() }),
+			json!({ "type": "text", "text": facts }),
 		],
 		structured,
-	})
+	}
 }
 
 /// A line range read without holding more than the byte cap.

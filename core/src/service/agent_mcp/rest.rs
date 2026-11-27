@@ -217,8 +217,10 @@ async fn serve(
 			let scope = request
 				.space_scope(&space, "rest.stat", &path, GrantCap::Read)
 				.await?;
-			let grant = scope.grant_id;
-			let value = request.blocking(grant, move || stat(&scope, &path)).await?;
+			let (grant, library) = (scope.grant_id, scope.library_id);
+			let value = request
+				.blocking((grant, library), move || stat(&scope, &path))
+				.await?;
 			Ok(request.json(grant, value))
 		}
 		Route::List { space, path } => {
@@ -226,9 +228,9 @@ async fn serve(
 			let scope = request
 				.space_scope(&space, "rest.list", &path, GrantCap::Read)
 				.await?;
-			let grant = scope.grant_id;
+			let (grant, library) = (scope.grant_id, scope.library_id);
 			let value = request
-				.blocking(grant, move || list(&scope, &path, cursor, limit))
+				.blocking((grant, library), move || list(&scope, &path, cursor, limit))
 				.await?;
 			Ok(request.json(grant, value))
 		}
@@ -240,9 +242,9 @@ async fn serve(
 			let if_match = headers
 				.get(header::IF_MATCH)
 				.map(|value| value.to_str().unwrap_or_default().to_string());
-			let grant = scope.grant_id;
+			let (grant, library) = (scope.grant_id, scope.library_id);
 			let block = request
-				.blocking(grant, move || {
+				.blocking((grant, library), move || {
 					read_block(&scope, range, if_match.as_deref())
 				})
 				.await?;
@@ -391,21 +393,38 @@ impl Request<'_> {
 	/// call slots, so block reads share the call budget with tools.
 	async fn blocking<T: Send + 'static>(
 		&self,
-		grant: Uuid,
+		(grant, library): (Uuid, Uuid),
 		work: impl FnOnce() -> Result<T, Response> + Send + 'static,
 	) -> Result<T, Response> {
 		let slot = self
 			.endpoint
 			.begin_call(grant, false)
 			.map_err(|reason| too_many(Duration::from_secs(1), &reason))?;
-		let result = tokio::task::spawn_blocking(work).await.map_err(|_| {
-			error(
-				StatusCode::SERVICE_UNAVAILABLE,
-				"the request failed; try again",
-			)
-		})?;
-		drop(slot);
-		result
+		// The worker owns the slot, so a read stalled on a slow volume keeps
+		// counting against the budgets until it really returns, even after
+		// its client got an answer.
+		let worker = tokio::task::spawn_blocking(move || {
+			let result = work();
+			drop(slot);
+			result
+		});
+		tokio::select! {
+			joined = tokio::time::timeout(self.endpoint.limits.call_timeout, worker) => match joined {
+				Ok(Ok(result)) => result,
+				Ok(Err(_)) => Err(error(
+					StatusCode::SERVICE_UNAVAILABLE,
+					"the request failed; try again",
+				)),
+				Err(_) => Err(error(
+					StatusCode::SERVICE_UNAVAILABLE,
+					&format!(
+						"the request ran past {} s; try again",
+						self.endpoint.limits.call_timeout.as_secs()
+					),
+				)),
+			},
+			_ = http::ended(self.endpoint, library, grant) => Err(unauthorized()),
+		}
 	}
 
 	async fn spaces(&self) -> Result<Response, Response> {
@@ -579,7 +598,7 @@ fn status_for(message: &str) -> StatusCode {
 
 /// The version stamp of a file: size, modification time in nanoseconds, and
 /// file identity, quoted as an HTTP entity tag.
-fn etag(meta: &Metadata) -> String {
+fn etag_of(meta: &Metadata) -> String {
 	#[cfg(unix)]
 	let (mtime, identity) = {
 		use std::os::unix::fs::MetadataExt;
@@ -624,7 +643,7 @@ fn entry(path: String, meta: &Metadata) -> Value {
 		"modified_at": meta.modified().ok().map(|at| timestamp(at.into())),
 	});
 	if file_type.is_file() {
-		value["etag"] = json!(etag(meta));
+		value["etag"] = json!(etag_of(meta));
 	}
 	value
 }
@@ -791,7 +810,7 @@ fn read_block(
 	}
 	let (mut file, meta) = tools::open_file(&scope.path).map_err(fs_error)?;
 	let size = meta.len();
-	let etag = etag(&meta);
+	let etag = etag_of(&meta);
 	if let Some(wanted) = if_match {
 		let matches = wanted
 			.split(',')
@@ -812,10 +831,19 @@ fn read_block(
 	file.seek(SeekFrom::Start(start))
 		.map_err(|e| fs_error(tools::io_message(&e)))?;
 	let mut bytes = Vec::with_capacity(want as usize);
-	file.take(want)
+	(&mut file)
+		.take(want)
 		.read_to_end(&mut bytes)
 		.map_err(|e| fs_error(tools::io_message(&e)))?;
-	// A file truncated after the open answers with what is still there.
+	// A write to the open file during the read would mix versions, so the
+	// bytes are sent only if the handle still reports the version checked.
+	let after = file
+		.metadata()
+		.map_err(|e| fs_error(tools::io_message(&e)))?;
+	let current = etag_of(&after);
+	if current != etag {
+		return Err(stale(&current));
+	}
 	if bytes.is_empty() {
 		return Err(unsatisfiable(size));
 	}

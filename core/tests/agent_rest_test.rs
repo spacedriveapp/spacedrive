@@ -245,6 +245,11 @@ async fn rest_serves_tools_and_block_reads_from_one_registry() -> anyhow::Result
 	// Tool calls answer with the structured content.
 	let read = rest.ok("read", json!({ "path": "small.txt" })).await;
 	assert_eq!(read["bytes_read"], json!(5));
+	assert_eq!(read["content"], json!("hello"));
+	let lines = rest
+		.ok("read", json!({ "path": "docs/readme.md", "start_line": 2 }))
+		.await;
+	assert_eq!(lines["content"], json!("line two\n"));
 	assert_eq!(read["path"], json!("small.txt"));
 	let listing = rest.ok("list_dir", json!({ "path": "docs" })).await;
 	assert_eq!(listing["entries"][0]["path"], json!("docs/readme.md"));
