@@ -63,6 +63,93 @@ function Field({
 	);
 }
 
+/**
+ * Links `sd` on the PATH to the CLI the desktop app ships beside its daemon,
+ * so the terminal always runs the CLI built with that daemon.
+ */
+function CommandLineToolSetting() {
+	const status = useCoreQuery({ type: "cli.status", input: {} });
+	const install = useCoreMutation("cli.install", {
+		onSuccess: () => {
+			status.refetch();
+		},
+	});
+	const uninstall = useCoreMutation("cli.uninstall", {
+		onSuccess: () => {
+			status.refetch();
+		},
+	});
+
+	const data = status.data;
+	const link = data?.link;
+	const busy = install.isPending || uninstall.isPending;
+	const error = install.error ?? uninstall.error ?? status.error;
+
+	let description: string;
+	if (!data || !link) {
+		description = "Checking for the sd command...";
+	} else if (!data.bundled) {
+		description = "This build of Spacedrive has no command line tool beside its daemon.";
+	} else if (link.kind === "not_installed") {
+		description = "Install the sd command to use Spacedrive from a terminal.";
+	} else if (link.kind === "bundled") {
+		description = `${link.path} runs the command line tool in this app.`;
+	} else {
+		description = `${link.path} points somewhere else${
+			link.target ? ` (${link.target})` : ""
+		}. Reinstall to use the version that matches this app.`;
+	}
+
+	const notes = [
+		install.data?.fell_back &&
+			"Administrator access was not granted, so sd was linked in your home folder instead.",
+		install.data?.shadowed_by &&
+			`${install.data.shadowed_by} still runs another copy and comes first on the default PATH. Put ~/.local/bin before /usr/local/bin in your PATH, or reinstall and allow administrator access.`,
+		data?.path_hint &&
+			`Add ${data.path_hint} to your PATH if your shell cannot find sd.`,
+		error?.message,
+	].filter((note): note is string => Boolean(note));
+
+	return (
+		<>
+			<SettingItem label="Command Line Tool" description={description}>
+				{link?.kind === "bundled" ? (
+					<Button
+						variant="gray"
+						size="sm"
+						disabled={busy}
+						onClick={() => uninstall.mutate({})}
+					>
+						{uninstall.isPending ? "Uninstalling..." : "Uninstall"}
+					</Button>
+				) : (
+					<Button
+						variant="accent"
+						size="sm"
+						disabled={busy || !data?.bundled}
+						onClick={() => install.mutate({})}
+					>
+						{install.isPending
+							? "Installing..."
+							: link?.kind === "other"
+								? "Reinstall"
+								: "Install"}
+					</Button>
+				)}
+			</SettingItem>
+			{notes.length > 0 && (
+				<div className="px-4 pb-3">
+					{notes.map((note) => (
+						<p key={note} className="text-tiny leading-relaxed text-ink-faint">
+							{note}
+						</p>
+					))}
+				</div>
+			)}
+		</>
+	);
+}
+
 export function GeneralSettings() {
 	const platform = usePlatform();
 	const statusQuery = useCoreQuery({ type: "core.status", input: {} });
@@ -137,6 +224,17 @@ export function GeneralSettings() {
 					</div>
 				</SectionCard>
 			</Section>
+
+			{platform.platform === "tauri" && (
+				<Section
+					title="Command Line"
+					description="Use Spacedrive from a terminal with the sd command."
+				>
+					<SectionRows>
+						<CommandLineToolSetting />
+					</SectionRows>
+				</Section>
+			)}
 
 			<Section
 				title="Reset"

@@ -115,6 +115,8 @@ async fn install_launchd_service(
 
 	// Get the current daemon binary path
 	let current_exe = std::env::current_exe()?;
+	// A link such as /usr/local/bin/sd keeps the daemon beside the real binary.
+	let current_exe = current_exe.canonicalize().unwrap_or(current_exe);
 	let daemon_path = current_exe
 		.parent()
 		.ok_or_else(|| anyhow::anyhow!("Could not determine binary directory"))?
@@ -351,6 +353,8 @@ async fn install_launchd_service(
 
 	// Get the current daemon binary path
 	let current_exe = std::env::current_exe()?;
+	// A link such as /usr/local/bin/sd keeps the daemon beside the real binary.
+	let current_exe = current_exe.canonicalize().unwrap_or(current_exe);
 	let daemon_path = current_exe
 		.parent()
 		.ok_or_else(|| anyhow::anyhow!("Could not determine binary directory"))?

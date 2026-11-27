@@ -53,6 +53,16 @@ descriptions. A 4.1 GB index upgraded in 26 s on a cold cloud disk using 8 MB
 of extra space. A pass gives freed pages back once they are a quarter of the
 file. Next: merge, then the Settings and "Keep indexed" UI.
 
+Bundled command line tool (Capy FAN-14800, November 27, in PR). The desktop
+app ships `sd-cli` beside `sd-daemon` as a Tauri external binary on macOS
+arm64 and Intel and Linux, built in the same cargo run with the same features
+and commit, so `sd` and the daemon can no longer drift apart. Settings,
+General, Command Line links `/usr/local/bin/sd` (administrator prompt, falling
+back to `~/.local/bin/sd`) on macOS and `~/.local/bin/sd` on Linux through the
+`cli.status`, `cli.install` and `cli.uninstall` core ops. `sd update` refuses
+to replace the copy inside the app. The standalone `sd-<platform>` assets
+stay. Next: a signed release dry run, then live install on a Mac.
+
 Sidecars tab lists what a file has again (Capy FAN-14816, November 27, in PR).
 `File.sidecars` was always empty after the entries drop, so the inspector's
 Sidecars tab never showed anything. The new library query `files.sidecars`

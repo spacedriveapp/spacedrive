@@ -75,9 +75,11 @@ fn main() {
 		""
 	};
 
-	// target/<profile>/sd-daemon is a host build, so copying it under another
-	// triple would bundle a daemon of the wrong architecture. Cross builds get
-	// their sidecar from ensure-daemon-sidecar.sh.
+	// The app ships the daemon and the CLI built beside it. target/<profile>
+	// holds host builds, so copying them under another triple would bundle
+	// binaries of the wrong architecture. Cross builds get their sidecars from
+	// ensure-daemon-sidecar.sh.
+	let sidecars = ["sd-daemon", "sd-cli"];
 	let host_triple = std::env::var("HOST").expect("HOST not set");
 	let source_profiles: &[&str] = if host_triple == target_triple {
 		&[profile.as_str(), "release"]
@@ -85,41 +87,56 @@ fn main() {
 		&[]
 	};
 	for source_profile in source_profiles {
-		let daemon_source = format!(
-			"{}/target/{}/sd-daemon{}",
-			workspace_dir, source_profile, exe_ext
-		);
-		let daemon_target = format!(
-			"{}/target/{}/sd-daemon-{}{}",
-			workspace_dir, source_profile, target_triple, exe_ext
-		);
+		for name in sidecars {
+			let source = format!(
+				"{}/target/{}/{}{}",
+				workspace_dir, source_profile, name, exe_ext
+			);
+			let target = format!(
+				"{}/target/{}/{}-{}{}",
+				workspace_dir, source_profile, name, target_triple, exe_ext
+			);
 
-		if std::path::Path::new(&daemon_source).exists() {
-			let _ = std::fs::remove_file(&daemon_target);
+			if std::path::Path::new(&source).exists() {
+				let _ = std::fs::remove_file(&target);
 
-			if let Err(e) = std::fs::copy(&daemon_source, &daemon_target) {
-				eprintln!("Warning: Failed to copy daemon: {}", e);
+				if let Err(e) = std::fs::copy(&source, &target) {
+					eprintln!("Warning: Failed to copy {name}: {e}");
+				}
 			}
 		}
 	}
 
 	// tauri_build fails when an externalBin is missing, which is the state of
-	// every `cargo check` or `cargo clippy` that never built the daemon. Drop
-	// the sidecar from the config for those builds so the workspace still
-	// type-checks; a bundle always runs the daemon build first.
-	let sidecar = format!(
-		"{}/target/release/sd-daemon-{}{}",
-		workspace_dir, target_triple, exe_ext
-	);
-	if !std::path::Path::new(&sidecar).exists() {
+	// every `cargo check` or `cargo clippy` that never built the sidecars.
+	// Drop the missing ones from the config for those builds so the workspace
+	// still type-checks; a bundle always runs the sidecar build first, and the
+	// release workflow checks both binaries are in the app.
+	let missing: Vec<&str> = sidecars
+		.into_iter()
+		.filter(|name| {
+			!std::path::Path::new(&format!(
+				"{}/target/release/{}-{}{}",
+				workspace_dir, name, target_triple, exe_ext
+			))
+			.exists()
+		})
+		.collect();
+	if !missing.is_empty() {
 		println!(
-			"cargo:warning=sd-daemon sidecar not found in target/release; building without externalBin. Run `bun run daemon:sidecar` before bundling."
+			"cargo:warning={} not found in target/release; building without them as externalBin. Run `bun run daemon:sidecar` before bundling.",
+			missing.join(", ")
 		);
+		let present: Vec<String> = sidecars
+			.into_iter()
+			.filter(|name| !missing.contains(name))
+			.map(|name| format!("../../../target/release/{name}"))
+			.collect();
 		let mut config: serde_json::Value = std::env::var("TAURI_CONFIG")
 			.ok()
 			.and_then(|raw| serde_json::from_str(&raw).ok())
 			.unwrap_or_else(|| serde_json::json!({}));
-		config["bundle"]["externalBin"] = serde_json::json!([]);
+		config["bundle"]["externalBin"] = serde_json::json!(present);
 		std::env::set_var("TAURI_CONFIG", config.to_string());
 	}
 
