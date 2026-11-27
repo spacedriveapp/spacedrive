@@ -26,23 +26,28 @@ later step that reads footage (transcripts, shot detection, scene descriptions,
 faces, clip export) reads these files instead of the original, so their names
 and formats are fixed here.
 
-They live under the library directory:
+They live under one of the library's sources, in the daemon's data directory:
 
 ```
-<library>/sidecars/content/<h0>/<h1>/<content_uuid>/<kind_dir>/<variant>.<ext>
+<data>/sources/<source>/derived/<h0>/<h1>/<content_uuid>/<kind_dir>/<variant>.<ext>
 ```
+
+The directory is `derived` rather than `sidecars` because the source's
+thumbnail store, `sidecars.db`, sits beside it and holds something else:
+record-keyed tiles, described in [Thumbnail Generation](./thumbnail-generation.mdx)
+and `docs/core/design/thumbnail-storage.md`.
 
 `h0` and `h1` are the first two byte-pairs of the content uuid in lowercase hex
 without hyphens. For a video whose content uuid is
 `abcd1234-5678-90ab-cdef-123456789012`:
 
-| Artifact | Path under `sidecars/` | Format |
+| Artifact | Path under `derived/` | Format |
 | --- | --- | --- |
-| Proxy, default | `content/ab/cd/abcd1234-…/proxies/720p.mp4` | H.264 High, yuv420p, short side 720 |
-| Proxy, optional | `content/ab/cd/abcd1234-…/proxies/1080p.mp4` | H.264 High, yuv420p, short side 1080 |
-| Speech audio | `content/ab/cd/abcd1234-…/audio/16k_mono.wav` | PCM signed 16-bit little-endian, 16 kHz, mono |
-| Transcript | `content/ab/cd/abcd1234-…/transcript/default.json` | Timed segments, described in [Transcription](./transcription#the-sidecars) |
-| Subtitles | `content/ab/cd/abcd1234-…/transcript/default.srt`, `default.vtt` | SubRip and WebVTT made from the transcript |
+| Proxy, default | `ab/cd/abcd1234-…/proxies/720p.mp4` | H.264 High, yuv420p, short side 720 |
+| Proxy, optional | `ab/cd/abcd1234-…/proxies/1080p.mp4` | H.264 High, yuv420p, short side 1080 |
+| Speech audio | `ab/cd/abcd1234-…/audio/16k_mono.wav` | PCM signed 16-bit little-endian, 16 kHz, mono |
+| Transcript | `ab/cd/abcd1234-…/transcript/default.json` | Timed segments, described in [Transcription](./transcription#the-sidecars) |
+| Subtitles | `ab/cd/abcd1234-…/transcript/default.srt`, `default.vtt` | SubRip and WebVTT made from the transcript |
 
 The rules every reader can rely on:
 
@@ -74,11 +79,13 @@ The rules every reader can rely on:
 - A change to a recipe that alters the output takes a new variant name, such as
   `720p.r2`, rather than overwriting files readers already hold.
 
-Resolve paths with `ContentSidecar` in `core/src/domain/sidecar.rs`
-(`ContentSidecar::proxy(uuid, ProxyResolution::P720).path_in(library.path())`,
+Name sidecars with `ContentSidecar` in `core/src/domain/sidecar.rs`
+(`ContentSidecar::proxy(uuid, ProxyResolution::P720)`,
 `ContentSidecar::speech_audio(uuid)`,
-`ContentSidecar::transcript(uuid, SidecarFormat::Json)`), and get a file's content uuid with
-`content_uuid_of_file`. Processes that do not link the core use the
+`ContentSidecar::transcript(uuid, SidecarFormat::Json)`), find them with
+`SidecarRegistry::of(&library).finder().find(&sidecar)`, and get a file's
+content uuid with `content_uuid_of_file`. The registry is described under
+[The registry](#the-registry). Processes that do not link the core use the
 `sd-sidecar-path` crate, which owns the directory names. The daemon serves the
 same files at `/sidecar/<library_id>/<content_uuid>/<kind>/<variant>.<ext>`,
 where `kind` is `proxy` or `audio`.
@@ -93,10 +100,10 @@ Shot detection splits a video into shots, the unit that scene descriptions,
 faces and clip export attach to. It writes two more content sidecars beside
 the proxy:
 
-| Artifact | Path under `sidecars/` | Format |
+| Artifact | Path under `derived/` | Format |
 | --- | --- | --- |
-| Shot list | `content/ab/cd/abcd1234-…/shots/default.json` | JSON, described below |
-| Keyframe of one shot | `content/ab/cd/abcd1234-…/keyframes/<shot id>.jpg` | JPEG, short side at most 720, display orientation |
+| Shot list | `ab/cd/abcd1234-…/shots/default.json` | JSON, described below |
+| Keyframe of one shot | `ab/cd/abcd1234-…/keyframes/<shot id>.jpg` | JPEG, short side at most 720, display orientation |
 
 The shot list holds every shot of the video, in order and with no gaps:
 
@@ -155,13 +162,55 @@ The shot list holds every shot of the video, in order and with no gaps:
   before removing keyframes the old list named. A cloud placeholder is refused
   rather than downloaded.
 
-Read a shot list with `ops::media::shots::read_shots(library.path(), uuid)` or
+Read a shot list with `ops::media::shots::read_shots(&finder, uuid)` or
 `shots_of_file`, never by parsing the file. The `media.shots.detect` action
 runs the job, the `media.shots.list` query returns a file's shot list, and the
 agent MCP endpoint answers `list_shots` for a video inside a grant. All of
 them, and the job, exist only in a daemon built with the `video-shots` cargo
 feature. A default build leaves it off; the desktop app's daemon is built with
 it.
+
+### The registry
+
+Every content sidecar is a file under a source's `derived/` directory and a
+row in that source's `content_sidecar` table in `data.db`, keyed by content
+uuid, producer, kind, variant and format, with the producer's version, the
+size, a BLAKE3 checksum and when it was written. The producer is `core` or
+the extension's id, since an extension names its own kinds.
+
+`SidecarRegistry` in `core/src/service/sidecars.rs` is the one writer. A
+producer asks it for the content's home, fills a `.<variant>.partial.<ext>`
+file there, and calls `publish`, which renames the file into place, records
+the row and emits a `content_sidecar` resource event. Proxies, speech audio,
+transcripts, shot lists, keyframes and the extension host's `sidecars.write`
+and `sidecars.delete` all go through it.
+
+- A content has one copy. Its home is the source that already holds its
+  directory; otherwise the source whose file it is being made from; otherwise,
+  for a writer with no file such as an extension, any source whose store holds
+  the content. Readers, the HTTP sidecar
+  route included, probe every source of the library.
+- The file is the authority and the row its index. When a library opens, the
+  registry lists each source's `derived/` directory, adds rows for files that
+  have none and drops rows whose file is gone, so a row lost to a crash or to a
+  store that was away comes back without re-deriving anything.
+- The same pass prunes the sidecars of content no source of the library holds
+  any more. It waits until every source's store answers and has identified
+  every file it holds, because an artifact made before identification would
+  otherwise look orphaned.
+- Deleting a source with its catalog deletes its `derived/` directory. Content
+  another source still holds moves to that source first.
+- Library statistics sum the rows of every source.
+- `files.sidecars` lists one file's sidecars from the rows, and from the
+  directory when a source has no rows for it, beside the thumbnail tile and
+  thumbstrip.
+
+Libraries made before this kept the same tree at
+`<library>/sidecars/content/`. When a library opens, each content directory
+there is renamed under its home source. A content is moved whole when its
+destination is empty and file by file otherwise, so an interrupted move
+finishes on the next open, and nothing is re-derived. A content no source
+holds yet stays where it is, and readers still look there.
 
 ## Sidecar classes
 

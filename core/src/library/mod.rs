@@ -693,9 +693,14 @@ impl Library {
 			"Starting statistics calculation from database"
 		);
 
-		let mut stats =
-			Self::calculate_all_statistics_static(&db, &path, &live_capacity, &volume_index)
-				.await?;
+		let mut stats = Self::calculate_all_statistics_static(
+			library_id,
+			&db,
+			&path,
+			&live_capacity,
+			&volume_index,
+		)
+		.await?;
 		stats.updated_at = chrono::Utc::now();
 
 		debug!(
@@ -845,6 +850,7 @@ impl Library {
 
 	/// Calculate all statistics from database (static version)
 	async fn calculate_all_statistics_static(
+		library_id: Uuid,
 		db: &Arc<Database>,
 		path: &PathBuf,
 		live_capacity: &std::collections::HashMap<String, (u64, u64)>,
@@ -909,7 +915,8 @@ impl Library {
 
 		debug!("Starting sidecar statistics calculation");
 		// Calculate sidecar statistics
-		let (sidecar_count, sidecar_size) = Self::calculate_sidecar_statistics_static(path).await?;
+		let (sidecar_count, sidecar_size) =
+			crate::service::sidecars::sidecar_totals(volume_index, library_id, path).await;
 		debug!(
 			sidecar_count = sidecar_count,
 			sidecar_size = sidecar_size,
@@ -959,7 +966,12 @@ impl Library {
 		let database_size = self.calculate_database_size().await?;
 
 		// Calculate sidecar statistics
-		let (sidecar_count, sidecar_size) = self.calculate_sidecar_statistics().await?;
+		let (sidecar_count, sidecar_size) = crate::service::sidecars::sidecar_totals(
+			self.core_context.volume_index(),
+			self.id(),
+			self.path(),
+		)
+		.await;
 
 		Ok(LibraryStatistics {
 			total_files,
@@ -1069,61 +1081,6 @@ impl Library {
 			);
 			Ok(0)
 		}
-	}
-
-	/// Calculate sidecar statistics (count and total size) by scanning sidecars directory
-	async fn calculate_sidecar_statistics(&self) -> Result<(u64, u64)> {
-		let sidecars_dir = self.path().join("sidecars");
-
-		debug!(
-			sidecars_dir = %sidecars_dir.display(),
-			"Starting sidecar statistics calculation"
-		);
-
-		let mut total_count = 0u64;
-		let mut total_size = 0u64;
-
-		if sidecars_dir.exists() {
-			let (count, size) = self.count_and_size_recursive(sidecars_dir.clone()).await?;
-			total_count += count;
-			total_size += size;
-		}
-
-		debug!(
-			sidecar_count = total_count,
-			sidecar_size = total_size,
-			"Completed sidecar statistics calculation"
-		);
-
-		Ok((total_count, total_size))
-	}
-
-	/// Count files and sum their sizes recursively in a directory
-	async fn count_and_size_recursive(&self, path: PathBuf) -> Result<(u64, u64)> {
-		Box::pin(self.count_and_size_recursive_impl(path)).await
-	}
-
-	async fn count_and_size_recursive_impl(&self, path: PathBuf) -> Result<(u64, u64)> {
-		let mut count = 0u64;
-		let mut size = 0u64;
-		let mut entries = tokio::fs::read_dir(&path).await?;
-
-		while let Some(entry) = entries.next_entry().await? {
-			let file_type = entry.file_type().await?;
-			if file_type.is_dir() {
-				let (sub_count, sub_size) =
-					Box::pin(self.count_and_size_recursive_impl(entry.path())).await?;
-				count += sub_count;
-				size += sub_size;
-			} else if file_type.is_file() {
-				count += 1;
-				if let Ok(metadata) = entry.metadata().await {
-					size += metadata.len();
-				}
-			}
-		}
-
-		Ok((count, size))
 	}
 
 	// Static versions of calculation methods for background tasks
@@ -1338,50 +1295,6 @@ impl Library {
 		} else {
 			Ok(0)
 		}
-	}
-
-	/// Calculate sidecar statistics (static version)
-	async fn calculate_sidecar_statistics_static(path: &PathBuf) -> Result<(u64, u64)> {
-		let sidecars_dir = path.join("sidecars");
-
-		let mut total_count = 0u64;
-		let mut total_size = 0u64;
-
-		if sidecars_dir.exists() {
-			let (count, size) = Self::count_and_size_recursive_static(sidecars_dir).await?;
-			total_count += count;
-			total_size += size;
-		}
-
-		Ok((total_count, total_size))
-	}
-
-	/// Count files and sum their sizes recursively (static version)
-	async fn count_and_size_recursive_static(path: PathBuf) -> Result<(u64, u64)> {
-		Box::pin(Self::count_and_size_recursive_static_impl(path)).await
-	}
-
-	async fn count_and_size_recursive_static_impl(path: PathBuf) -> Result<(u64, u64)> {
-		let mut count = 0u64;
-		let mut size = 0u64;
-		let mut entries = tokio::fs::read_dir(&path).await?;
-
-		while let Some(entry) = entries.next_entry().await? {
-			let file_type = entry.file_type().await?;
-			if file_type.is_dir() {
-				let (sub_count, sub_size) =
-					Box::pin(Self::count_and_size_recursive_static_impl(entry.path())).await?;
-				count += sub_count;
-				size += sub_size;
-			} else if file_type.is_file() {
-				count += 1;
-				if let Ok(metadata) = entry.metadata().await {
-					size += metadata.len();
-				}
-			}
-		}
-
-		Ok((count, size))
 	}
 }
 

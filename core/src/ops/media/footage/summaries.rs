@@ -43,6 +43,7 @@ use crate::{
 		query::{LibraryQuery, QueryError, QueryResult},
 	},
 	ops::media::shots::read_shots,
+	service::sidecars::SidecarRegistry,
 };
 
 /// More rows than any listing renders at once.
@@ -106,7 +107,7 @@ impl LibraryQuery for FootageSummariesQuery {
 			.get_library(library_id)
 			.await
 			.ok_or(QueryError::LibraryNotFound(library_id))?;
-		let library_path = library.path();
+		let finder = &SidecarRegistry::of(&library).finder();
 		let context = &context;
 
 		let results: Vec<QueryResult<Option<FootageSummary>>> = stream::iter(self.input.paths)
@@ -114,18 +115,16 @@ impl LibraryQuery for FootageSummariesQuery {
 				let Some(content_uuid) = content_uuid(context, &path).await else {
 					return Ok(None);
 				};
-				let transcript = tokio::fs::try_exists(
-					ContentSidecar::transcript(content_uuid, SidecarFormat::Json)
-						.path_in(library_path),
-				)
-				.await
-				.unwrap_or(false);
-				let list = read_shots(library_path, content_uuid)
-					.await
-					.map_err(|error| {
-						QueryError::Internal(format!("could not read the shot list: {error}"))
-					})?;
-				let analyzed_shots = analyzed_shots(library_path, content_uuid).await?;
+				let transcript = finder
+					.find(&ContentSidecar::transcript(
+						content_uuid,
+						SidecarFormat::Json,
+					))
+					.is_some();
+				let list = read_shots(finder, content_uuid).await.map_err(|error| {
+					QueryError::Internal(format!("could not read the shot list: {error}"))
+				})?;
+				let analyzed_shots = analyzed_shots(finder, content_uuid).await?;
 				if !transcript && list.is_none() && analyzed_shots.is_none() {
 					return Ok(None);
 				}
