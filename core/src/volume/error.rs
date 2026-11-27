@@ -60,6 +60,14 @@ pub enum VolumeError {
 	/// Volume is not tracked
 	#[error("Volume is not tracked: {0}")]
 	NotTracked(String),
+
+	/// A conditional write or read found the object changed or present
+	#[error("Precondition failed: {0}")]
+	PreconditionFailed(String),
+
+	/// The backend cannot do what was asked
+	#[error("Unsupported: {0}")]
+	Unsupported(String),
 }
 
 impl VolumeError {

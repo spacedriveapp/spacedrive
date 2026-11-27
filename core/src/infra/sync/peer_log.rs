@@ -82,6 +82,18 @@ impl PeerLog {
 		.await
 		.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
 
+		// Changes logged before the sidebar's spaces became layouts still name the
+		// old models, which no longer resolve; rewrite them so peers can apply them.
+		conn.execute(Statement::from_string(
+			DbBackend::Sqlite,
+			r#"UPDATE shared_changes SET model_type = 'layout' || substr(model_type, 6),
+				data = replace(data, '"space_uuid":', '"layout_uuid":')
+			 WHERE model_type IN ('space', 'space_group', 'space_item')"#
+				.to_string(),
+		))
+		.await
+		.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
+
 		// peer_acks table
 		conn.execute(Statement::from_string(
 			DbBackend::Sqlite,
@@ -536,6 +548,32 @@ mod tests {
 			.unwrap();
 
 		(peer_log, temp_dir)
+	}
+
+	#[tokio::test]
+	async fn changes_logged_before_the_layout_rename_still_apply() {
+		let (peer_log, temp) = create_test_peer_log().await;
+		let time = SystemTimeSource;
+		let entry = SharedChangeEntry {
+			hlc: HLC::now(peer_log.device_id, &time),
+			model_type: "space_item".to_string(),
+			record_uuid: Uuid::new_v4(),
+			change_type: ChangeType::Insert,
+			data: serde_json::json!({"space_uuid": "a", "group_uuid": "b"}),
+		};
+		peer_log.append(entry).await.unwrap();
+		let (library_id, device_id) = (peer_log.library_id, peer_log.device_id);
+		drop(peer_log);
+
+		let reopened = PeerLog::open(library_id, device_id, temp.path())
+			.await
+			.unwrap();
+		let changes = reopened.get_since(None, None).await.unwrap();
+		assert_eq!(changes[0].model_type, "layout_item");
+		assert_eq!(
+			changes[0].data,
+			serde_json::json!({"layout_uuid": "a", "group_uuid": "b"})
+		);
 	}
 
 	#[tokio::test]

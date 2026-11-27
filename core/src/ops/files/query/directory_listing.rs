@@ -519,6 +519,7 @@ impl DirectoryListingQuery {
 			.collect();
 		let mut listing = self.finalize_listing(files);
 		crate::ops::tags::decorate::decorate_from_store(&db, &mut listing.files).await;
+		crate::ops::search::capture::decorate_store_files(&db, &mut listing.files).await;
 		Some(listing)
 	}
 

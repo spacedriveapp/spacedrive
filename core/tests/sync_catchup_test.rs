@@ -238,16 +238,16 @@ async fn test_changes_buffered_during_catch_up_are_applied() -> anyhow::Result<(
 		.set_state_for_test(DeviceSyncState::CatchingUp { buffered_count: 0 })
 		.await;
 
-	let space_uuid = Uuid::new_v4();
+	let layout_uuid = Uuid::new_v4();
 	let now = chrono::Utc::now();
 	peer_sync
 		.on_shared_change_received(SharedChangeEntry {
 			hlc: HLC::now(peer, &SystemTimeSource),
-			model_type: "space".to_string(),
-			record_uuid: space_uuid,
+			model_type: "layout".to_string(),
+			record_uuid: layout_uuid,
 			change_type: ChangeType::Insert,
 			data: serde_json::json!({
-				"uuid": space_uuid,
+				"uuid": layout_uuid,
 				"name": "From peer",
 				"icon": "Planet",
 				"color": "#000000",
@@ -258,14 +258,14 @@ async fn test_changes_buffered_during_catch_up_are_applied() -> anyhow::Result<(
 		})
 		.await?;
 
-	let space_count = || async {
-		entities::space::Entity::find()
-			.filter(entities::space::Column::Uuid.eq(space_uuid))
+	let layout_count = || async {
+		entities::layout::Entity::find()
+			.filter(entities::layout::Column::Uuid.eq(layout_uuid))
 			.count(library.db().conn())
 			.await
 	};
 	assert_eq!(
-		space_count().await?,
+		layout_count().await?,
 		0,
 		"the change must be buffered while catching up"
 	);
@@ -274,7 +274,7 @@ async fn test_changes_buffered_during_catch_up_are_applied() -> anyhow::Result<(
 
 	assert!(peer_sync.state().await.is_ready());
 	assert_eq!(
-		space_count().await?,
+		layout_count().await?,
 		1,
 		"the change buffered during catch-up was never applied"
 	);

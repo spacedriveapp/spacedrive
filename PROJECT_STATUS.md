@@ -36,7 +36,16 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
-Space endpoint (Capy FAN-14843, November 27, in PR): the spec for MCP, REST at `/v1/spaces/<space>/...`, 1 MiB block reads and the invalidation event stream is `docs/core/design/space-endpoint.md`; the listener, TLS and handle containment follow, switched off by default.
+Video duration at indexing (Capy SPAC-129 follow-up, November 27, beta.1, in
+PR). Jamie decided a video's duration belongs in the record, so the Duration
+column fills in without analysis. The media metadata pass that reads EXIF now
+also reads each identified video's container header into `facet_video`:
+duration, frame size and codec. `sd_media_metadata::video` is a pure-Rust
+header reader with no FFmpeg and no decoding. It covers MP4/MOV with `moov`
+anywhere in the file, and MKV/WebM ahead of the first cluster. Rows are keyed
+by content hash like the image facet and reach listings, search hits and the
+inspector as `video_media_data`. The pass claims only identified records; once
+#3286 lands, identification and this pass run only in the deep scope. Next: review and merge.
 
 Content sidecars have a registry and live in their source (Capy FAN-14816,
 November 27, in PR, stacked on the Sidecars tab PR). Every derived file other

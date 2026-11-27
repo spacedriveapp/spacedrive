@@ -287,6 +287,7 @@ async fn store_page(
 	}
 
 	crate::ops::tags::decorate::decorate_from_store(&db, &mut found).await;
+	crate::ops::search::capture::decorate_store_files(&db, &mut found).await;
 	Ok(Page {
 		files: found,
 		full_at: after.filter(|_| full),

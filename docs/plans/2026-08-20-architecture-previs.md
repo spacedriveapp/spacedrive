@@ -1,5 +1,7 @@
 # Spacedrive Architecture — Previs
 
+> **Amendment (2026-11-27):** [spaces.md](../core/design/spaces.md) supersedes this document in part. Where it says that writes from more than one device, merging, or the sync freeze are out of scope, spaces.md now governs: each space has one authority, handed over by lease and epoch fencing, merges happen only at merge points (a fork merged back, or a replica or mirror handing authority back), and spaces sync as assertions, not through the frozen sync framework.
+
 > Written as if the entries teardown is complete. Present tense throughout, as
 > though describing a system that exists. It does not. This is the target,
 > written down so it can be argued with before it is built.
