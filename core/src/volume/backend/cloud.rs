@@ -337,7 +337,12 @@ impl VolumeBackend for CloudBackend {
 	}
 
 	async fn read_dir(&self, path: &Path) -> Result<Vec<RawDirEntry>, VolumeError> {
-		let cloud_path = self.to_cloud_path(path);
+		// A listing without the trailing `/` names the prefix itself rather
+		// than what is under it.
+		let cloud_path = match self.to_cloud_path(path).trim_end_matches('/') {
+			"" => "/".to_string(),
+			prefix => format!("{prefix}/"),
+		};
 		debug!("CloudBackend::read_dir: {}", cloud_path);
 
 		let mut entries = Vec::new();
@@ -352,6 +357,9 @@ impl VolumeBackend for CloudBackend {
 		let mut lister = lister;
 		while let Some(entry_result) = lister.try_next().await.transpose() {
 			let entry = entry_result.map_err(volume_error)?;
+			if entry.path() == cloud_path || entry.path().trim_end_matches('/').is_empty() {
+				continue;
+			}
 
 			let metadata = entry.metadata();
 			let name = entry

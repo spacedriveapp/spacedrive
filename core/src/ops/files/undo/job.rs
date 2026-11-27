@@ -183,6 +183,9 @@ impl JobHandler for UndoJob {
 /// Apply one step, answering with what it did for this job's journal.
 async fn apply(ctx: &JobContext<'_>, step: Step) -> std::io::Result<Vec<Effect>> {
 	if let Some(effects) = apply_in_bucket(ctx, &step).await {
+		if let Step::Trash { path, .. } | Step::MoveBack { from: path, .. } = &step {
+			crate::ops::sources::rescan::rescan_soon(ctx.library_arc(), path);
+		}
 		return effects;
 	}
 	match step {

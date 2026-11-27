@@ -13,6 +13,7 @@ pub mod list_items;
 pub mod list_records;
 pub mod media_listing;
 pub mod registry;
+pub mod rescan;
 pub mod search;
 pub mod sync;
 pub mod track;

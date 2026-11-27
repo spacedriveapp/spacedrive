@@ -810,9 +810,9 @@ async fn read_directory(
 
 /// Reads directory contents via a volume backend and converts paths for cloud vs local.
 ///
-/// For cloud volumes, prepends the cloud URL base (e.g., "s3://bucket/") to build proper
-/// hierarchical paths. For local volumes, uses standard PathBuf joins. This ensures cloud
-/// entries have full URIs like "s3://bucket/folder/file.txt" instead of relative paths.
+/// A cloud walk keeps full URLs like "s3://bucket/folder/file.txt" as its
+/// paths, and the backend is asked for the key below the URL base (e.g.
+/// "s3://bucket/"), since it addresses objects by key.
 async fn read_directory_with_backend(
 	backend: &dyn crate::volume::VolumeBackend,
 	path: &Path,
@@ -820,25 +820,31 @@ async fn read_directory_with_backend(
 ) -> Result<Vec<DirEntry>, std::io::Error> {
 	let t_rd_start = Instant::now();
 
+	let listed = match cloud_url_base {
+		Some(base) => {
+			let url = path.to_string_lossy();
+			let key = url
+				.strip_prefix(base.trim_end_matches('/'))
+				.ok_or_else(|| {
+					std::io::Error::new(
+						std::io::ErrorKind::InvalidInput,
+						format!("{url} is outside {base}"),
+					)
+				})?
+				.trim_start_matches('/');
+			PathBuf::from(key)
+		}
+		None => path.to_path_buf(),
+	};
 	let raw_entries = backend
-		.read_dir(path)
+		.read_dir(&listed)
 		.await
 		.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
 	let entries: Vec<DirEntry> = raw_entries
 		.into_iter()
 		.filter_map(|raw| {
-			let full_path = if let Some(base) = cloud_url_base {
-				let relative = path.to_string_lossy();
-				let joined = if relative.is_empty() {
-					raw.name.clone()
-				} else {
-					format!("{}/{}", relative.trim_end_matches('/'), raw.name)
-				};
-				PathBuf::from(format!("{}{}", base, joined))
-			} else {
-				path.join(&raw.name)
-			};
+			let full_path = path.join(&raw.name);
 
 			// Spacedrive's own directories are never indexed, whatever the
 			// rules say: a store's journals churn fast enough to poison
