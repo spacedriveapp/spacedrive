@@ -2,10 +2,7 @@
 //!
 //! The shape of the shot list, and the one place that reads and writes it.
 
-use std::{
-	io,
-	path::{Path, PathBuf},
-};
+use std::{io, path::Path};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -14,6 +11,7 @@ use uuid::Uuid;
 use crate::{
 	domain::sidecar::{content_uuid_of_file, ContentSidecar},
 	ops::indexing::metadata::refuse_dataless,
+	service::sidecars::{Home, SidecarFinder, SidecarRegistry},
 };
 
 /// The `version` of the shot list this build writes. A reader refuses a
@@ -210,9 +208,9 @@ pub struct ShotList {
 }
 
 impl ShotList {
-	/// The keyframe image of a shot, under a library directory.
-	pub fn keyframe_path(&self, library_path: &Path, shot: &Shot) -> PathBuf {
-		ContentSidecar::keyframe(self.content_uuid, shot.id).path_in(library_path)
+	/// The keyframe image of a shot.
+	pub fn keyframe(&self, shot: &Shot) -> ContentSidecar {
+		ContentSidecar::keyframe(self.content_uuid, shot.id)
 	}
 
 	/// The shot that holds `frame`.
@@ -226,10 +224,15 @@ impl ShotList {
 	}
 }
 
-/// The shot list of a content uuid under a library directory, or `None`
+/// The shot list of a content uuid wherever `finder` finds it, or `None`
 /// when shot detection has not run for it.
-pub async fn read_shots(library_path: &Path, content_uuid: Uuid) -> io::Result<Option<ShotList>> {
-	let path = ContentSidecar::shots(content_uuid).path_in(library_path);
+pub async fn read_shots(
+	finder: &SidecarFinder,
+	content_uuid: Uuid,
+) -> io::Result<Option<ShotList>> {
+	let Some(path) = finder.find(&ContentSidecar::shots(content_uuid)) else {
+		return Ok(None);
+	};
 	let bytes = match tokio::fs::read(&path).await {
 		Ok(bytes) => bytes,
 		Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
@@ -250,8 +253,8 @@ pub async fn read_shots(library_path: &Path, content_uuid: Uuid) -> io::Result<O
 }
 
 /// The shot list of a local file, found by its candidate content uuid.
-pub async fn shots_of_file(library_path: &Path, file: &Path) -> io::Result<Option<ShotList>> {
-	read_shots(library_path, content_uuid_of_video(file).await?).await
+pub async fn shots_of_file(finder: &SidecarFinder, file: &Path) -> io::Result<Option<ShotList>> {
+	read_shots(finder, content_uuid_of_video(file).await?).await
 }
 
 /// The candidate content uuid of a local video. A cloud placeholder is
@@ -263,33 +266,23 @@ pub async fn content_uuid_of_video(file: &Path) -> io::Result<Uuid> {
 		.map_err(|error| io::Error::other(error.to_string()))
 }
 
-/// Write the shot list through a partial file, so a reader never sees half
-/// of one.
+/// Write the shot list through a partial file and publish it, so a reader
+/// never sees half of one.
 #[cfg_attr(not(feature = "video-shots"), allow(dead_code))]
-pub(super) async fn write_shots(library_path: &Path, list: &ShotList) -> io::Result<()> {
-	let path = ContentSidecar::shots(list.content_uuid).path_in(library_path);
-	let partial = partial_path(&path);
-	if let Some(parent) = path.parent() {
+pub(super) async fn write_shots(
+	registry: &SidecarRegistry,
+	home: &Home,
+	list: &ShotList,
+) -> io::Result<()> {
+	let sidecar = ContentSidecar::shots(list.content_uuid);
+	let partial = home.partial(&sidecar);
+	if let Some(parent) = partial.parent() {
 		tokio::fs::create_dir_all(parent).await?;
 	}
 	let bytes = serde_json::to_vec_pretty(list).map_err(io::Error::other)?;
 	tokio::fs::write(&partial, bytes).await?;
-	tokio::fs::rename(&partial, &path).await
-}
-
-/// `.<variant>.partial.<ext>` beside `path`, the name the media sidecar
-/// rules reserve for a file being written.
-#[cfg_attr(not(feature = "video-shots"), allow(dead_code))]
-pub(super) fn partial_path(path: &Path) -> PathBuf {
-	let stem = path
-		.file_stem()
-		.map(|stem| stem.to_string_lossy().into_owned())
-		.unwrap_or_default();
-	let extension = path
-		.extension()
-		.map(|extension| extension.to_string_lossy().into_owned())
-		.unwrap_or_default();
-	path.with_file_name(format!(".{stem}.partial.{extension}"))
+	registry.publish(home, &sidecar, &partial, None).await?;
+	Ok(())
 }
 
 #[cfg(test)]
@@ -366,13 +359,5 @@ mod tests {
 		assert_eq!(list.shot_at(39).map(|shot| shot.index), Some(0));
 		assert_eq!(list.shot_at(40).map(|shot| shot.index), Some(1));
 		assert_eq!(list.shot_at(100), None);
-	}
-
-	#[test]
-	fn partial_names_follow_the_sidecar_rule() {
-		assert_eq!(
-			partial_path(Path::new("/s/shots/default.json")),
-			PathBuf::from("/s/shots/.default.partial.json")
-		);
 	}
 }

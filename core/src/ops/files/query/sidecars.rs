@@ -1,13 +1,13 @@
 //! # Sidecars of one file
 //!
 //! `files.sidecars` lists everything this device has derived from one file,
-//! whichever store holds it: the media sidecars in the library's
-//! content-addressed tree (proxies, speech audio, transcripts, shot lists,
+//! whichever store holds it: the content sidecars the registry lists across
+//! the library's sources (proxies, speech audio, transcripts, shot lists,
 //! keyframes and the documents extensions write), and the thumbnail tile and
 //! video scrub sheet the thumbnail service keeps by record. Nothing is
 //! generated to answer it.
 //!
-//! The content tree is keyed by the candidate content uuid, which comes from
+//! Content sidecars are keyed by the candidate content uuid, which comes from
 //! sampling the file, so a viewer asks for the one file it shows rather than
 //! a listing carrying it on every row. A file on another device answers
 //! `null`, since sidecars are made and kept where the bytes are.
@@ -20,12 +20,7 @@
 //! variant and format a client addresses it by, its size, who made it, and
 //! the file on this device that holds it.
 
-use std::{
-	io,
-	path::{Path, PathBuf},
-	sync::Arc,
-	time::UNIX_EPOCH,
-};
+use std::{path::PathBuf, sync::Arc, time::UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -40,11 +35,13 @@ use crate::{
 		query::{LibraryQuery, QueryError, QueryResult},
 	},
 	ops::indexing::metadata::refuse_dataless,
-	service::thumbs::{ThumbstripIdentity, TileIdentity},
+	service::{
+		sidecars::SidecarRegistry,
+		thumbs::{ThumbstripIdentity, TileIdentity},
+	},
 };
 
-/// The producer named for artifacts the core makes.
-pub const CORE_PRODUCER: &str = "core";
+pub use crate::domain::sidecar::CORE_PRODUCER;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct FileSidecarsInput {
@@ -174,12 +171,7 @@ impl LibraryQuery for FileSidecarsQuery {
 			Err(_) => None,
 		};
 		if let Some(content_uuid) = content_uuid {
-			match content_sidecars(library.path(), content_uuid).await {
-				Ok(found) => sidecars.extend(found),
-				Err(error) => {
-					warn!(%content_uuid, %error, "Could not list the content sidecars")
-				}
-			}
+			sidecars.extend(content_sidecars(&SidecarRegistry::of(&library), content_uuid).await);
 		}
 
 		Ok(Some(FileSidecarsOutput {
@@ -191,47 +183,32 @@ impl LibraryQuery for FileSidecarsQuery {
 
 crate::register_library_query!(FileSidecarsQuery, "files.sidecars");
 
-/// Every sidecar in a library's content tree for one content uuid, core
-/// kinds first, each group sorted by kind, variant and format.
-///
-/// Files starting with a dot are a writer's partial output and `.tmp` files
-/// an extension document mid-rename; neither is a sidecar yet.
-pub async fn content_sidecars(
-	library_path: &Path,
-	content_uuid: Uuid,
-) -> io::Result<Vec<FileSidecar>> {
-	let root = library_path
-		.join("sidecars")
-		.join(sd_sidecar_path::content_directory(&content_uuid));
-	let mut sidecars = Vec::new();
-	for (directory, name) in subdirectories(&root).await? {
-		if name == "extensions" {
-			for (extension, extension_id) in subdirectories(&directory).await? {
-				for (kind_directory, kind) in subdirectories(&extension).await? {
-					read_kind(
-						&kind_directory,
-						&kind,
-						&extension_id,
-						SidecarAddress::Extension,
-						&mut sidecars,
-					)
-					.await?;
-				}
+/// Every content sidecar of one content uuid across the library's sources,
+/// core kinds first, each group sorted by kind, variant and format.
+pub async fn content_sidecars(registry: &SidecarRegistry, content_uuid: Uuid) -> Vec<FileSidecar> {
+	let mut sidecars: Vec<FileSidecar> = registry
+		.list(content_uuid)
+		.await
+		.into_iter()
+		.map(|listed| {
+			let producer = listed.sidecar.producer().to_string();
+			FileSidecar {
+				kind: listed.sidecar.kind.as_str().to_string(),
+				variant: listed.sidecar.variant.as_str().to_string(),
+				format: listed.sidecar.format.extension().to_string(),
+				size: Some(listed.size),
+				address: if producer == CORE_PRODUCER {
+					SidecarAddress::Content {
+						version: listed.modified_ms,
+					}
+				} else {
+					SidecarAddress::Extension
+				},
+				producer,
+				path: listed.path,
 			}
-			continue;
-		}
-		let Some(kind) = sd_sidecar_path::directory_kind(&name) else {
-			continue;
-		};
-		read_kind(
-			&directory,
-			kind,
-			CORE_PRODUCER,
-			SidecarAddress::Content { version: 0 },
-			&mut sidecars,
-		)
-		.await?;
-	}
+		})
+		.collect();
 	sidecars.sort_by(|a, b| {
 		(
 			a.producer != CORE_PRODUCER,
@@ -248,144 +225,5 @@ pub async fn content_sidecars(
 				&b.format,
 			))
 	});
-	Ok(sidecars)
-}
-
-/// The directories directly under `path` with their names. A missing
-/// directory has none.
-async fn subdirectories(path: &Path) -> io::Result<Vec<(PathBuf, String)>> {
-	let mut entries = match tokio::fs::read_dir(path).await {
-		Ok(entries) => entries,
-		Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
-		Err(error) => return Err(error),
-	};
-	let mut found = Vec::new();
-	while let Some(entry) = entries.next_entry().await? {
-		let Ok(name) = entry.file_name().into_string() else {
-			continue;
-		};
-		if entry.file_type().await?.is_dir() {
-			found.push((entry.path(), name));
-		}
-	}
-	Ok(found)
-}
-
-/// The sidecars in one kind's directory. A content sidecar's address takes
-/// the file's modification time as its version.
-async fn read_kind(
-	directory: &Path,
-	kind: &str,
-	producer: &str,
-	address: SidecarAddress,
-	sidecars: &mut Vec<FileSidecar>,
-) -> io::Result<()> {
-	let mut entries = tokio::fs::read_dir(directory).await?;
-	while let Some(entry) = entries.next_entry().await? {
-		let Ok(name) = entry.file_name().into_string() else {
-			continue;
-		};
-		if name.starts_with('.') || name.ends_with(".tmp") {
-			continue;
-		}
-		let Some((variant, format)) = name.rsplit_once('.') else {
-			continue;
-		};
-		let metadata = entry.metadata().await?;
-		if !metadata.is_file() {
-			continue;
-		}
-		let address = match address {
-			SidecarAddress::Content { .. } => SidecarAddress::Content {
-				version: metadata
-					.modified()
-					.ok()
-					.and_then(|time| time.duration_since(UNIX_EPOCH).ok())
-					.map_or(0, |since| since.as_millis() as i64),
-			},
-			ref other => other.clone(),
-		};
-		sidecars.push(FileSidecar {
-			kind: kind.to_string(),
-			variant: variant.to_string(),
-			format: format.to_string(),
-			size: Some(metadata.len()),
-			producer: producer.to_string(),
-			address,
-			path: entry.path(),
-		});
-	}
-	Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use crate::domain::{ContentSidecar, ProxyResolution, SidecarFormat};
-
-	async fn write(path: PathBuf, bytes: &[u8]) {
-		tokio::fs::create_dir_all(path.parent().unwrap())
-			.await
-			.unwrap();
-		tokio::fs::write(path, bytes).await.unwrap();
-	}
-
-	#[tokio::test]
-	async fn lists_core_and_extension_sidecars_and_skips_partials() {
-		let library = tempfile::tempdir().unwrap();
-		let uuid = Uuid::parse_str("abcd1234-5678-90ab-cdef-123456789012").unwrap();
-		let proxy = ContentSidecar::proxy(uuid, ProxyResolution::P720).path_in(library.path());
-		write(proxy.clone(), b"mp4").await;
-		write(proxy.with_file_name(".720p.partial-1.mp4"), b"half").await;
-		write(
-			ContentSidecar::transcript(uuid, SidecarFormat::Json).path_in(library.path()),
-			b"{}",
-		)
-		.await;
-		let faces = library
-			.path()
-			.join("sidecars")
-			.join(sd_sidecar_path::relative_path(
-				&uuid,
-				&sd_sidecar_path::extension_kind_directory("com.spacedrive.photos", "faces"),
-				"default",
-				"json",
-			));
-		write(faces.clone(), b"[]").await;
-		write(faces.with_extension("json.tmp"), b"[").await;
-
-		let found = content_sidecars(library.path(), uuid).await.unwrap();
-		let names: Vec<_> = found
-			.iter()
-			.map(|s| {
-				(
-					s.producer.as_str(),
-					s.kind.as_str(),
-					s.variant.as_str(),
-					s.format.as_str(),
-				)
-			})
-			.collect();
-		assert_eq!(
-			names,
-			[
-				("core", "proxy", "720p", "mp4"),
-				("core", "transcript", "default", "json"),
-				("com.spacedrive.photos", "faces", "default", "json"),
-			]
-		);
-		assert_eq!(found[0].size, Some(3));
-		assert_eq!(found[0].path, proxy);
-		assert!(matches!(found[0].address, SidecarAddress::Content { version } if version > 0));
-		assert_eq!(found[2].address, SidecarAddress::Extension);
-	}
-
-	#[tokio::test]
-	async fn content_without_sidecars_lists_nothing() {
-		let library = tempfile::tempdir().unwrap();
-		assert!(content_sidecars(library.path(), Uuid::new_v4())
-			.await
-			.unwrap()
-			.is_empty());
-	}
+	sidecars
 }

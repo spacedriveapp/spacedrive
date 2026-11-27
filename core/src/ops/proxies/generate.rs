@@ -25,6 +25,7 @@ use crate::{
 	},
 	library::Library,
 	ops::indexing::metadata::{refuse_dataless, DATALESS_REASON},
+	service::sidecars::{Home, SidecarRegistry},
 	service::thumbs::is_video,
 };
 
@@ -154,7 +155,7 @@ impl JobHandler for ProxyGenerateJob {
 		if let Some(saved) = ctx.load_state::<Self>().await? {
 			*self = saved;
 		}
-		let library_path = ctx.library().path().to_path_buf();
+		let registry = SidecarRegistry::of(ctx.library());
 
 		let (scope, recursive) = (self.scope.clone(), self.recursive);
 		let videos = tokio::task::spawn_blocking(move || list_videos(&scope, recursive))
@@ -183,7 +184,7 @@ impl JobHandler for ProxyGenerateJob {
 					format!("{}/{total}: {}", done + 1, video.display()),
 				)));
 			};
-			match self.process(&ctx, &library_path, &video, report).await? {
+			match self.process(&ctx, &registry, &video, report).await? {
 				Outcome::Generated => self.generated += 1,
 				Outcome::Skipped => self.skipped += 1,
 				Outcome::Unavailable(reason) => {
@@ -219,7 +220,7 @@ impl ProxyGenerateJob {
 	async fn process(
 		&self,
 		ctx: &JobContext<'_>,
-		library_path: &Path,
+		registry: &SidecarRegistry,
 		video: &Path,
 		report: impl Fn(&str, f64),
 	) -> JobResult<Outcome> {
@@ -232,10 +233,11 @@ impl ProxyGenerateJob {
 			Ok(uuid) => uuid,
 			Err(error) => return Ok(Outcome::Failed(format!("hash: {error}"))),
 		};
-		let proxy = ContentSidecar::proxy(content_uuid, self.resolution).path_in(library_path);
-		let audio = ContentSidecar::speech_audio(content_uuid).path_in(library_path);
-		let proxy_missing = !proxy.is_file();
-		let audio_missing = !audio.is_file();
+		let finder = registry.finder();
+		let proxy = ContentSidecar::proxy(content_uuid, self.resolution);
+		let audio = ContentSidecar::speech_audio(content_uuid);
+		let proxy_missing = finder.find(&proxy).is_none();
+		let audio_missing = finder.find(&audio).is_none();
 		if !proxy_missing && !audio_missing {
 			return Ok(Outcome::Skipped);
 		}
@@ -258,12 +260,21 @@ impl ProxyGenerateJob {
 			return Ok(Outcome::Skipped);
 		}
 		let duration = probe.duration.unwrap_or(0.0);
+		let home = match registry.home(content_uuid, Some(video)).await {
+			Ok(home) => home,
+			Err(error) => return Ok(Outcome::Unavailable(error.to_string())),
+		};
+		let sink = Sink {
+			registry,
+			home: &home,
+		};
 
 		if proxy_missing {
 			let phase = format!("Writing {} proxy", self.resolution.variant());
 			let result = publish(
 				ctx,
 				video,
+				&sink,
 				&proxy,
 				recipe::proxy(self.resolution, probe.timecode.as_deref()),
 				|seconds| {
@@ -278,11 +289,18 @@ impl ProxyGenerateJob {
 			}
 		}
 		if audio_missing {
-			let result = publish(ctx, video, &audio, recipe::speech_audio(), |seconds| {
-				if duration > 0.0 {
-					report("Extracting speech audio", 0.9 + seconds / duration * 0.1);
-				}
-			})
+			let result = publish(
+				ctx,
+				video,
+				&sink,
+				&audio,
+				recipe::speech_audio(),
+				|seconds| {
+					if duration > 0.0 {
+						report("Extracting speech audio", 0.9 + seconds / duration * 0.1);
+					}
+				},
+			)
 			.await?;
 			if let Err(error) = result {
 				return Ok(Outcome::Failed(error));
@@ -292,15 +310,24 @@ impl ProxyGenerateJob {
 	}
 }
 
-/// Write a sidecar beside its final path and rename it into place, so a file
-/// at a sidecar path is always complete.
+/// Where a run publishes what it encodes.
+struct Sink<'a> {
+	registry: &'a SidecarRegistry,
+	home: &'a Home,
+}
+
+/// Write a sidecar beside its final path and publish it, so a file at a
+/// sidecar path is always complete.
 async fn publish(
 	ctx: &JobContext<'_>,
 	video: &Path,
-	output: &Path,
+	sink: &Sink<'_>,
+	sidecar: &ContentSidecar,
 	recipe: sd_ffmpeg::footage::Transcode,
 	on_progress: impl FnMut(f64),
 ) -> JobResult<Result<(), String>> {
+	let output = sink.home.path(sidecar);
+	let output = output.as_path();
 	let parent = output.parent().expect("sidecar paths have a parent");
 	if let Err(error) = tokio::fs::create_dir_all(parent).await {
 		return Ok(Err(format!("create {}: {error}", parent.display())));
@@ -324,7 +351,8 @@ async fn publish(
 	encode(
 		ctx,
 		video,
-		output,
+		sink,
+		sidecar,
 		parent,
 		stem,
 		extension,
@@ -369,7 +397,8 @@ impl Drop for Writer {
 async fn encode(
 	ctx: &JobContext<'_>,
 	video: &Path,
-	output: &Path,
+	sink: &Sink<'_>,
+	sidecar: &ContentSidecar,
 	parent: &Path,
 	stem: &str,
 	extension: &str,
@@ -399,13 +428,16 @@ async fn encode(
 		_ => {
 			return Ok(Err(format!(
 				"the encoder wrote no output for {}",
-				output.display()
+				sink.home.path(sidecar).display()
 			)))
 		}
 	}
-	Ok(tokio::fs::rename(&partial, output)
+	Ok(sink
+		.registry
+		.publish(sink.home, sidecar, &partial, None)
 		.await
-		.map_err(|error| format!("publish {}: {error}", output.display())))
+		.map(|_| ())
+		.map_err(|error| format!("publish {}: {error}", sink.home.path(sidecar).display())))
 }
 
 /// Video files under `scope` in path order, or `scope` itself when it is one.
