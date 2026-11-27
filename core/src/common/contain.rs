@@ -492,9 +492,9 @@ mod imp {
 						return Err(io::Error::from_raw_os_error(libc::ELOOP));
 					}
 					let relative = if target.is_absolute() {
-						let inner = target.strip_prefix(real_root).map_err(|_| escaped())?;
+						let inner = inside_root(root, real_root, &target)?;
 						stack.truncate(1);
-						inner.to_path_buf()
+						inner
 					} else {
 						target
 					};
@@ -525,6 +525,33 @@ mod imp {
 				leaf_flags(leaf, true),
 			)?)),
 		})
+	}
+
+	/// An absolute link target relative to the root, when the root is one of
+	/// its ancestors.
+	///
+	/// A link can spell the root another way than its real path, such as
+	/// `/var` for `/private/var` on macOS or through any symlinked parent, so
+	/// ancestors the prefix test misses are compared with the root's handle by
+	/// device and inode. Only the prefix is chosen this way: the rest is still
+	/// resolved from the root's handle, so a parent swapped during the check
+	/// can only pick another path beneath the root.
+	fn inside_root(root: &OwnedFd, real_root: &Path, target: &Path) -> io::Result<PathBuf> {
+		use std::os::unix::fs::MetadataExt;
+
+		if let Ok(inner) = target.strip_prefix(real_root) {
+			return Ok(inner.to_path_buf());
+		}
+		let meta = File::from(root.try_clone()?).metadata()?;
+		let (dev, ino) = (meta.dev(), meta.ino());
+		target
+			.ancestors()
+			.find(|ancestor| {
+				std::fs::metadata(ancestor).is_ok_and(|meta| meta.dev() == dev && meta.ino() == ino)
+			})
+			.and_then(|ancestor| target.strip_prefix(ancestor).ok())
+			.map(Path::to_path_buf)
+			.ok_or_else(escaped)
 	}
 
 	/// How the walk opens a component: the last as `leaf` asks, the rest as
@@ -900,6 +927,24 @@ mod tests {
 		symlink(temp.path().join("outside/secret.txt"), root.join("abs")).unwrap();
 		let err = read(&alias, "abs").unwrap_err();
 		assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+	}
+
+	#[test]
+	fn an_absolute_link_through_another_spelling_of_the_root_opens() {
+		let (temp, _) = tree();
+		let real = std::fs::canonicalize(temp.path()).unwrap();
+		std::fs::create_dir_all(real.join("real/root/a")).unwrap();
+		std::fs::write(real.join("real/root/a/inner.txt"), b"inner").unwrap();
+		symlink(real.join("real"), real.join("alias")).unwrap();
+		let root = real.join("alias/root");
+		symlink(root.join("a/inner.txt"), root.join("aliased")).unwrap();
+		symlink(real.join("outside/secret.txt"), root.join("escape")).unwrap();
+		assert_eq!(read(&root, "aliased").unwrap(), "inner");
+		assert_eq!(read(&real.join("real/root"), "aliased").unwrap(), "inner");
+		assert_eq!(
+			read(&root, "escape").unwrap_err().kind(),
+			io::ErrorKind::PermissionDenied
+		);
 	}
 
 	#[test]
