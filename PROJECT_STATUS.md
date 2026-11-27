@@ -36,8 +36,6 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
-Bucket conditional writes (Capy FAN-14846, November 27, in PR): `CloudBackend::write_if` sends If-Match or If-None-Match, services without them refuse; next, bucket sources and grants for agents.
-
 Content sidecars have a registry and live in their source (Capy FAN-14816,
 November 27, in PR, stacked on the Sidecars tab PR). Every derived file other
 than thumbnail tiles and scrub sheets is published through
