@@ -10,6 +10,7 @@
 //! facet_<model>   the type's own columns, keyed by record_uuid
 //! facet_file      the filesystem facet, one model like any other
 //! content         the identity of the bytes a record points at
+//! content_sidecar what has been derived from that content, and by whom
 //! edge            relationships between records in this source
 //! record_overlay  what no ingest produced: a person's assertions
 //! tag_definition  the tags this source uses, named, colored, hierarchical
@@ -48,6 +49,7 @@
 //! router, no job system. Those belong to whoever owns more than one source.
 
 pub mod content;
+pub mod content_sidecar;
 pub mod content_text;
 pub mod db;
 pub mod error;
@@ -66,6 +68,7 @@ pub mod video;
 use serde::{Deserialize, Serialize};
 
 pub use content::{uuid_for, ContentId, CONTENT_NAMESPACE};
+pub use content_sidecar::{ContentSidecarKey, ContentSidecarRow};
 pub use content_text::{
 	match_expression, ContentTextIndex, DescriptionDoc, DescriptionSpan, PendingText,
 	PendingTranscript, SnippetPart, TextDoc, TextHit, TextIndexCounts, TextSearch, TranscriptDoc,

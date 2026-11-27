@@ -13,7 +13,7 @@
 //! answers `null` for a file on another device, and otherwise the content
 //! uuid with whichever of the three sidecars exist.
 
-use std::{path::Path, sync::Arc};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -32,6 +32,7 @@ use crate::{
 		files::query::sidecars::{content_sidecars, SidecarAddress, CORE_PRODUCER},
 		transcription::transcript::{read_transcript, Transcript},
 	},
+	service::sidecars::SidecarRegistry,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -102,23 +103,24 @@ impl LibraryQuery for MediaSidecarsQuery {
 			QueryError::InvalidInput(format!("could not read the file: {error}"))
 		})?;
 
-		let library_path = library.path();
+		let registry = SidecarRegistry::of(&library);
+		let finder = registry.finder();
 		// A sidecar that cannot be read leaves the others usable, and the
 		// viewer plays the original without it.
-		let transcript = read_transcript(library_path, content_uuid)
+		let transcript = read_transcript(&finder, content_uuid)
 			.await
 			.unwrap_or_else(|error| {
 				warn!(%content_uuid, %error, "Could not read the transcript sidecar");
 				None
 			});
-		let shots = read_shots(library_path, content_uuid)
+		let shots = read_shots(&finder, content_uuid)
 			.await
 			.unwrap_or_else(|error| {
 				warn!(%content_uuid, %error, "Could not read the shots sidecar");
 				None
 			});
-		let proxy = largest_proxy(library_path, content_uuid).await;
-		let descriptions = shot_descriptions(library_path, content_uuid)
+		let proxy = largest_proxy(&registry, content_uuid).await;
+		let descriptions = shot_descriptions(&finder, content_uuid)
 			.await
 			.unwrap_or_else(|error| {
 				warn!(%content_uuid, %error, "Could not read the scene descriptions");
@@ -135,13 +137,8 @@ impl LibraryQuery for MediaSidecarsQuery {
 	}
 }
 
-async fn largest_proxy(library_path: &Path, content_uuid: Uuid) -> Option<ProxySidecar> {
-	let sidecars = content_sidecars(library_path, content_uuid)
-		.await
-		.unwrap_or_else(|error| {
-			warn!(%content_uuid, %error, "Could not list the content sidecars");
-			Vec::new()
-		});
+async fn largest_proxy(registry: &SidecarRegistry, content_uuid: Uuid) -> Option<ProxySidecar> {
+	let sidecars = content_sidecars(registry, content_uuid).await;
 	[ProxyResolution::P1080, ProxyResolution::P720]
 		.into_iter()
 		.find_map(|resolution| {

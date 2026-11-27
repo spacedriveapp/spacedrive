@@ -241,13 +241,12 @@ async fn media_of(
 		ExportMedia::Original => (path.to_path_buf(), original.clone()),
 		ExportMedia::Proxy => {
 			let video = Footage::load(context, library, path).await?;
-			let proxy = proxy_path(library, video.content_uuid);
-			if !video.proxy {
+			let Some(proxy) = proxy_path(library, video.content_uuid) else {
 				return Err(format!(
 					"{} has no proxy yet; export with media: original, or generate proxies first",
 					display_name(path)
 				));
-			}
+			};
 			let picture = probe(&proxy).await?;
 			(proxy, picture)
 		}
