@@ -1,8 +1,7 @@
 import {ArrowCounterClockwise, Desktop, Robot, User} from '@phosphor-icons/react';
-import type {Actor, Device, ListLibraryDevicesInput, Space, SpaceChange} from '@sd/ts-client';
+import type {Actor, Space, SpaceChange} from '@sd/ts-client';
 import {Button} from '@spacedrive/primitives';
-import {useQuery} from '@tanstack/react-query';
-import {useLibraryQuery, useNormalizedQuery} from '../../contexts/SpacedriveContext';
+import {useLibraryQuery} from '../../contexts/SpacedriveContext';
 import {useUndoDialog} from '../modals/UndoModal';
 
 const REFRESH_MS = 10_000;
@@ -15,40 +14,9 @@ const VERBS: Record<string, string> = {
 	delete: 'deleted'
 };
 
-/** The namespace `actors::this_person` derives the person on a device from. */
-const PERSON_NAMESPACE = '2b8e510c-9347-4d1a-a66f-0e953c71d248';
-
-function uuidBytes(uuid: string): Uint8Array {
-	const hex = uuid.replace(/-/g, '');
-	return Uint8Array.from({length: 16}, (_, i) => parseInt(hex.slice(i * 2, i * 2 + 2), 16));
-}
-
-/** UUID v5 of `name` in `namespace`, as the core's `Uuid::new_v5` computes it. */
-async function uuidV5(namespace: string, name: Uint8Array): Promise<string> {
-	const input = new Uint8Array(16 + name.length);
-	input.set(uuidBytes(namespace));
-	input.set(name, 16);
-	const bytes = new Uint8Array(await crypto.subtle.digest('SHA-1', input)).slice(0, 16);
-	bytes[6] = (bytes[6]! & 0x0f) | 0x50;
-	bytes[8] = (bytes[8]! & 0x3f) | 0x80;
-	const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
-
 /** The actor id of the person using this device, so their changes read as "You". */
 function useLocalPersonId() {
-	const {data: devices} = useNormalizedQuery<ListLibraryDevicesInput, Device[]>({
-		query: 'devices.list',
-		input: {include_offline: true, include_details: false},
-		resourceType: 'device'
-	});
-	const deviceId = devices?.find((device) => device.is_current)?.id;
-	return useQuery({
-		queryKey: ['local-person-actor', deviceId],
-		queryFn: () => uuidV5(PERSON_NAMESPACE, uuidBytes(deviceId!)),
-		enabled: !!deviceId,
-		staleTime: Infinity
-	}).data;
+	return useLibraryQuery({type: 'actors.me', input: {}}, {staleTime: Infinity}).data?.actor.id;
 }
 
 function actorName(actor: Actor, you: string | undefined) {
