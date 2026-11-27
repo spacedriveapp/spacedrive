@@ -405,6 +405,7 @@ const MAX_PREFIX_OBJECTS: usize = 10_000;
 pub(super) async fn move_path(
 	context: &CoreContext,
 	library: Uuid,
+	grant: Uuid,
 	from: Bucket,
 	to: Bucket,
 	expect: Precondition,
@@ -459,7 +460,7 @@ pub(super) async fn move_path(
 						to: url.path(),
 						subject: Some(copy.subject()),
 					}];
-					let undo = journal(context, library, id, &effects).await;
+					let undo = journal(context, library, grant, id, &effects).await;
 					return moved(&to, url, undo, turn).await;
 				}
 				Err(Refusal::Taken) => continue,
@@ -469,7 +470,7 @@ pub(super) async fn move_path(
 						path: url.path(),
 						subject: landed(backend, &url).await,
 					}];
-					let undo = journal(context, library, id, &effects).await;
+					let undo = journal(context, library, grant, id, &effects).await;
 					return Err(kept(&from, &url, undo));
 				}
 				Err(refusal) => return Err(failed(&from, refusal)),
@@ -528,7 +529,7 @@ pub(super) async fn move_path(
 			}
 		}
 	}
-	let undo = journal(context, library, id, &effects).await;
+	let undo = journal(context, library, grant, id, &effects).await;
 	if !left.is_empty() {
 		return Err(partial("moving", &from, left, undo));
 	}
@@ -539,6 +540,7 @@ pub(super) async fn move_path(
 pub(super) async fn delete(
 	context: &CoreContext,
 	library: Uuid,
+	grant: Uuid,
 	bucket: Bucket,
 	expect: Precondition,
 	turn: &WriteTurn,
@@ -551,7 +553,7 @@ pub(super) async fn delete(
 	match current.state.kind {
 		Some(PathKind::File) => {}
 		Some(PathKind::Directory) => {
-			return delete_prefix(context, library, bucket, current.state, turn).await
+			return delete_prefix(context, library, grant, bucket, current.state, turn).await
 		}
 		_ => return Err(stale(current.state)),
 	}
@@ -567,7 +569,7 @@ pub(super) async fn delete(
 		return match files_bucket::trash(backend, &source, id).await {
 			Ok(copy) => {
 				let effects = vec![trashed(&bucket.url, &source, &copy)];
-				let undo = journal(context, library, id, &effects).await;
+				let undo = journal(context, library, grant, id, &effects).await;
 				deleted(&bucket, current.state, undo)
 			}
 			Err(Refusal::Changed) => Err(stale(state(&bucket, turn.cancel()).await?)),
@@ -590,6 +592,7 @@ pub(super) async fn delete(
 async fn delete_prefix(
 	context: &CoreContext,
 	library: Uuid,
+	grant: Uuid,
 	bucket: Bucket,
 	checked: PathState,
 	turn: &WriteTurn,
@@ -612,7 +615,7 @@ async fn delete_prefix(
 			)),
 		}
 	}
-	let undo = journal(context, library, id, &effects).await;
+	let undo = journal(context, library, grant, id, &effects).await;
 	if !left.is_empty() {
 		return Err(partial("deleting", &bucket, left, undo));
 	}

@@ -546,7 +546,11 @@ async fn capture_facts_read_the_same_through_arena_and_store() -> anyhow::Result
 			sqlx::query_scalar("SELECT COUNT(*) FROM facet_image WHERE content_hash IS NOT NULL")
 				.fetch_one(store.db().pool())
 				.await?;
-		if rows == 4 && store.files_needing_image_facets_count().await? == 0 {
+		if rows == 4
+			&& store
+				.files_needing_facets_count(sd_core::domain::ContentKind::Image)
+				.await? == 0
+		{
 			break;
 		}
 		assert!(

@@ -44,6 +44,21 @@ pub const TEXT_INDEX_FILE: &str = "text.db";
 const MATCH_START: char = '\u{E000}';
 const MATCH_END: char = '\u{E001}';
 
+/// The layout and read policy `text_doc` and `text_fts` were written
+/// under. An index from an older build is cleared once when it opens, which
+/// is how an index filled before the deep scope and the per-kind caps gives
+/// its space back: those rows were read from files the policy no longer
+/// reads, and pruning them one by one would leave the file just as large.
+///
+/// 1. Every file the source recorded, up to a megabyte of text each.
+/// 2. Only the source's deep scope, outside hidden folders, with per-kind
+///    caps.
+const TEXT_LAYOUT: i64 = 2;
+
+/// Free pages worth giving back after a pass: a quarter of the file, and at
+/// least this much.
+const RECLAIM_MIN_BYTES: i64 = 16 * 1024 * 1024;
+
 const TEXT_SCHEMA: [&str; 3] = [
 	"CREATE TABLE IF NOT EXISTS text_doc (
     id INTEGER PRIMARY KEY,
@@ -140,6 +155,54 @@ pub struct PendingText {
 	pub mtime: Option<i64>,
 	/// Lowercase, without the dot.
 	pub extension: String,
+}
+
+/// Which files a pass reads.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct TextFilter {
+	/// Lowercase extensions an extractor reads.
+	pub extensions: Vec<String>,
+	/// The subtrees the source's deep scope covers, `/`-separated and
+	/// relative to the source root. An empty string is the whole source;
+	/// no subtrees means no file is read.
+	pub subtrees: Vec<String>,
+}
+
+impl TextFilter {
+	/// Every file with one of `extensions`, anywhere in the source.
+	pub fn everywhere(extensions: &[&str]) -> Self {
+		Self {
+			extensions: extensions.iter().map(|e| e.to_string()).collect(),
+			subtrees: vec![String::new()],
+		}
+	}
+
+	/// Whether no file can match, so a pass has nothing to claim.
+	pub fn is_empty(&self) -> bool {
+		self.extensions.is_empty() || self.subtrees.is_empty()
+	}
+
+	/// A condition over `r`, `f` and `p` that holds for a file this
+	/// filter reads, pushing its binds. Files under a hidden folder, or
+	/// hidden themselves, are never read: on a home folder those are caches,
+	/// toolchains and tool state, the bulk of its text and none of what a
+	/// person searches for.
+	fn condition(&self, binds: &mut Vec<Bind>) -> String {
+		if self.is_empty() {
+			return "0".to_string();
+		}
+		let path = RECORD_PATH;
+		binds.extend(self.extensions.iter().map(|e| Bind::Text(e.clone())));
+		let mut sql = format!(
+			"(lower(f.extension) IN ({}) AND instr('/' || {path}, '/.') = 0",
+			vec!["?"; self.extensions.len()].join(", ")
+		);
+		sql.push_str(&format!(
+			" AND {})",
+			crate::deep_scope::subtree_condition(&self.subtrees, "r.parent_uuid")
+		));
+		sql
+	}
 }
 
 /// What a pass read from one file.
@@ -334,11 +397,51 @@ impl ContentTextIndex {
 			sqlx::query(statement).execute(&mut *tx).await?;
 		}
 		tx.commit().await?;
-		Ok(Self {
+		let index = Self {
 			pool,
 			path,
 			writer: Default::default(),
-		})
+		};
+		let layout: i64 = sqlx::query_scalar("SELECT value FROM text_meta WHERE key = 'layout'")
+			.fetch_optional(&index.pool)
+			.await?
+			.unwrap_or(1);
+		if layout < TEXT_LAYOUT {
+			let files: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM text_doc")
+				.fetch_one(&index.pool)
+				.await?;
+			if files == 0 {
+				sqlx::query(
+					"INSERT INTO text_meta (key, value) VALUES ('layout', ?) \
+					 ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+				)
+				.bind(TEXT_LAYOUT)
+				.execute(&index.pool)
+				.await?;
+				return Ok(index);
+			}
+			tracing::info!(
+				path = %index.path.display(),
+				layout,
+				files,
+				"clearing a content text index written under an older read policy"
+			);
+			index.drop_text_tables().await?;
+		}
+		// Gives back what a cleared index left, including after a daemon
+		// stopped between the drop and the rewrite. Best effort: on a disk
+		// too full to rewrite even what survives, the index still opens and
+		// the next pass tries again.
+		match index.reclaim().await {
+			Ok(0) => {}
+			Ok(bytes) => {
+				tracing::info!(path = %index.path.display(), bytes, "gave back free space in the content text index")
+			}
+			Err(error) => {
+				tracing::warn!(path = %index.path.display(), %error, "could not give back free space in the content text index")
+			}
+		}
+		Ok(index)
 	}
 
 	/// The sidecar's file.
@@ -359,25 +462,22 @@ impl ContentTextIndex {
 	/// missing or stamped with other bytes, in row order.
 	pub async fn pending(
 		&self,
-		extensions: &[&str],
+		filter: &TextFilter,
 		after: i64,
 		limit: usize,
 	) -> Result<Vec<PendingText>> {
-		if extensions.is_empty() {
+		if filter.is_empty() {
 			return Ok(Vec::new());
 		}
+		let mut binds = Vec::new();
 		let sql = format!(
 			"SELECT r.rowid, r.uuid, r.parent_uuid, p.path, r.title, f.size, f.mtime, \
 			 lower(f.extension) {} AND r.rowid > ? ORDER BY r.rowid LIMIT ?",
-			pending_clause(extensions.len())
+			pending_clause(filter, &mut binds)
 		);
-		let mut query = sqlx::query(&sql);
-		for extension in extensions {
-			query = query.bind(extension.to_string());
-		}
-		let rows = query
-			.bind(after)
-			.bind(limit as i64)
+		binds.push(Bind::Int(after));
+		binds.push(Bind::Int(limit as i64));
+		let rows = bind_all(sqlx::query(&sql), binds)
 			.fetch_all(&self.pool)
 			.await?;
 
@@ -397,35 +497,33 @@ impl ContentTextIndex {
 	}
 
 	/// How many files [`Self::pending`] would hand out from the start.
-	pub async fn pending_count(&self, extensions: &[&str]) -> Result<u64> {
-		self.pending_count_under(extensions, "").await
+	pub async fn pending_count(&self, filter: &TextFilter) -> Result<u64> {
+		self.pending_count_under(filter, "").await
 	}
 
 	/// How many of those files sit at or under `under`, a path relative to
 	/// the source root. Empty means the whole source.
-	pub async fn pending_count_under(&self, extensions: &[&str], under: &str) -> Result<u64> {
-		if extensions.is_empty() {
+	pub async fn pending_count_under(&self, filter: &TextFilter, under: &str) -> Result<u64> {
+		if filter.is_empty() {
 			return Ok(0);
 		}
-		let mut sql = format!("SELECT COUNT(*) {}", pending_clause(extensions.len()));
+		let mut binds = Vec::new();
+		let mut sql = format!("SELECT COUNT(*) {}", pending_clause(filter, &mut binds));
 		let under = under.trim_matches('/');
 		if !under.is_empty() {
 			sql.push_str(&format!(
 				" AND ({RECORD_PATH} = ? OR substr({RECORD_PATH}, 1, ?) = ?)"
 			));
-		}
-		let mut query = sqlx::query_scalar::<_, i64>(&sql);
-		for extension in extensions {
-			query = query.bind(extension.to_string());
-		}
-		if !under.is_empty() {
 			let prefix = format!("{under}/");
-			query = query
-				.bind(under.to_string())
-				.bind(prefix.chars().count() as i64)
-				.bind(prefix);
+			binds.push(Bind::Text(under.to_string()));
+			binds.push(Bind::Int(prefix.chars().count() as i64));
+			binds.push(Bind::Text(prefix));
 		}
-		Ok(query.fetch_one(&self.pool).await?.max(0) as u64)
+		let count: i64 = bind_all(sqlx::query(&sql), binds)
+			.fetch_one(&self.pool)
+			.await?
+			.get(0);
+		Ok(count.max(0) as u64)
 	}
 
 	/// Write what a pass read, replacing any older text for the same records.
@@ -477,27 +575,28 @@ impl ContentTextIndex {
 		Ok(())
 	}
 
-	/// Remove rows whose record is gone or no longer has one of
-	/// `extensions`, which a rename to another extension does.
-	pub async fn prune(&self, extensions: &[&str]) -> Result<u64> {
-		let placeholders = vec!["?"; extensions.len().max(1)].join(", ");
+	/// Remove rows whose record is gone or that `filter` no longer reads:
+	/// a rename to another extension, a move out of the deep scope, or a
+	/// narrower scope.
+	pub async fn prune(&self, filter: &TextFilter) -> Result<u64> {
+		let mut binds = Vec::new();
 		let orphans = format!(
 			"SELECT d.id FROM text_doc d \
 			 LEFT JOIN src.record r ON r.uuid = d.record_uuid AND r.type = 'file' \
 			 LEFT JOIN src.facet_file f ON f.record_uuid = r.uuid \
+			 LEFT JOIN src.directory_path p ON p.record_uuid = r.parent_uuid \
 			 WHERE r.uuid IS NULL OR f.record_uuid IS NULL \
-			 OR lower(f.extension) IS NULL OR lower(f.extension) NOT IN ({placeholders})"
+			 OR lower(f.extension) IS NULL OR NOT coalesce({}, 0)",
+			filter.condition(&mut binds)
 		);
 		let _writer = self.writer.lock().await;
 		let mut tx = self.pool.begin().await?;
-		let mut ids = sqlx::query_scalar::<_, i64>(&orphans);
-		for extension in extensions {
-			ids = ids.bind(extension.to_string());
-		}
-		if extensions.is_empty() {
-			ids = ids.bind("");
-		}
-		let ids = ids.fetch_all(&mut *tx).await?;
+		let ids: Vec<i64> = bind_all(sqlx::query(&orphans), binds)
+			.fetch_all(&mut *tx)
+			.await?
+			.into_iter()
+			.map(|row| row.get(0))
+			.collect();
 		for id in &ids {
 			sqlx::query("DELETE FROM text_fts WHERE rowid = ?")
 				.bind(id)
@@ -515,9 +614,22 @@ impl ContentTextIndex {
 	/// Drop every row and give the space back. The record store is not
 	/// touched; the next pass reads every file again.
 	pub async fn clear(&self) -> Result<()> {
+		self.drop_text_tables().await?;
 		let _writer = self.writer.lock().await;
 		let mut conn = self.pool.acquire().await?;
-		let mut tx = conn.begin().await?;
+		vacuum(&mut conn).await
+	}
+
+	/// Drop and recreate the file text tables, raising the epoch, in one
+	/// transaction.
+	///
+	/// Dropping a table frees its pages without rewriting them, so the
+	/// write-ahead log grows by the freelist's own pages, a few megabytes for
+	/// a file of tens of gigabytes, where deleting the rows would log every
+	/// page they touch. Transcript and description tables are not touched.
+	async fn drop_text_tables(&self) -> Result<()> {
+		let _writer = self.writer.lock().await;
+		let mut tx = self.pool.begin().await?;
 		for statement in [
 			"DROP TABLE IF EXISTS text_fts",
 			"DROP TABLE IF EXISTS text_doc",
@@ -533,9 +645,47 @@ impl ContentTextIndex {
 		)
 		.execute(&mut *tx)
 		.await?;
+		sqlx::query(
+			"INSERT INTO text_meta (key, value) VALUES ('layout', ?) \
+			 ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+		)
+		.bind(TEXT_LAYOUT)
+		.execute(&mut *tx)
+		.await?;
 		tx.commit().await?;
-		sqlx::query("VACUUM").execute(&mut *conn).await?;
 		Ok(())
+	}
+
+	/// Give free pages, and the index postings of deleted rows, back to
+	/// the disk once free pages are a quarter of the file. Rows replaced as
+	/// files change and rows pruned as the scope narrows leave pages SQLite
+	/// reuses but never returns. Returns the bytes given back.
+	///
+	/// The rewrite needs free disk in proportion to what survives, not to
+	/// the file: VACUUM builds the survivors in a temporary file and writes
+	/// them back through the write-ahead log, which is then truncated.
+	pub async fn reclaim(&self) -> Result<u64> {
+		let _writer = self.writer.lock().await;
+		let mut conn = self.pool.acquire().await?;
+		let (pages, free, page_size): (i64, i64, i64) = sqlx::query_as(
+			"SELECT (SELECT page_count FROM pragma_page_count()), \
+			 (SELECT freelist_count FROM pragma_freelist_count()), \
+			 (SELECT page_size FROM pragma_page_size())",
+		)
+		.fetch_one(&mut *conn)
+		.await?;
+		let free_bytes = free * page_size;
+		if free_bytes < RECLAIM_MIN_BYTES || free * 4 < pages {
+			return Ok(0);
+		}
+		// A deleted row's text frees its pages at once, but its postings
+		// stay in the index segments, behind a tombstone, until a merge
+		// rewrites them. Merge everything first so the rewrite drops them.
+		sqlx::query("INSERT INTO text_fts (text_fts) VALUES ('optimize')")
+			.execute(&mut *conn)
+			.await?;
+		vacuum(&mut conn).await?;
+		Ok(free_bytes as u64)
 	}
 
 	/// A number [`Self::clear`] raises. A pass that sees it change knows
@@ -1024,19 +1174,41 @@ async fn delete_spans(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>, doc_id: i64)
 const RECORD_PATH: &str =
 	"(CASE WHEN r.parent_uuid IS NULL THEN r.title ELSE p.path || '/' || r.title END)";
 
-/// The rows a pass has to read, after `FROM`, with one placeholder per
-/// extension.
-fn pending_clause(extensions: usize) -> String {
+/// The rows a pass has to read, after `FROM`, pushing the filter's binds.
+fn pending_clause(filter: &TextFilter, binds: &mut Vec<Bind>) -> String {
 	format!(
 		"FROM src.record r \
 		 JOIN src.facet_file f ON f.record_uuid = r.uuid \
 		 LEFT JOIN src.directory_path p ON p.record_uuid = r.parent_uuid \
 		 LEFT JOIN text_doc d ON d.record_uuid = r.uuid \
-		 WHERE r.type = 'file' AND f.link_target IS NULL AND lower(f.extension) IN ({}) \
+		 WHERE r.type = 'file' AND f.link_target IS NULL AND {} \
 		 AND (d.id IS NULL OR d.size IS NOT f.size OR d.mtime IS NOT f.mtime \
 		 OR d.extension IS NOT lower(f.extension))",
-		vec!["?"; extensions].join(", ")
+		filter.condition(binds)
 	)
+}
+
+fn bind_all<'q>(
+	mut query: sqlx::query::Query<'q, sqlx::Sqlite, sqlx::sqlite::SqliteArguments<'q>>,
+	binds: Vec<Bind>,
+) -> sqlx::query::Query<'q, sqlx::Sqlite, sqlx::sqlite::SqliteArguments<'q>> {
+	for bind in binds {
+		query = match bind {
+			Bind::Text(text) => query.bind(text),
+			Bind::Int(value) => query.bind(value),
+		};
+	}
+	query
+}
+
+/// Rewrite the file without its free pages, then empty the write-ahead log
+/// the rewrite went through, which would otherwise hold a second copy.
+async fn vacuum(conn: &mut sqlx::SqliteConnection) -> Result<()> {
+	sqlx::query("VACUUM").execute(&mut *conn).await?;
+	sqlx::query("PRAGMA wal_checkpoint(TRUNCATE)")
+		.execute(&mut *conn)
+		.await?;
+	Ok(())
 }
 
 /// An FTS5 expression for what a person typed.

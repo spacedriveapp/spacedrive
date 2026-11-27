@@ -314,6 +314,7 @@ pub async fn move_path_in(
 		return bucket::move_path(
 			context,
 			from.library_id,
+			from.grant_id,
 			source,
 			target,
 			input.expect,
@@ -392,7 +393,15 @@ pub async fn delete_in(
 ) -> Result<WriteOutcome, WriteError> {
 	let scope = writable(context, &input.token, "agent.delete", &input.path).await?;
 	if let Some(target) = Bucket::of(context, &scope).await? {
-		return bucket::delete(context, scope.library_id, target, input.expect, &turn).await;
+		return bucket::delete(
+			context,
+			scope.library_id,
+			scope.grant_id,
+			target,
+			input.expect,
+			&turn,
+		)
+		.await;
 	}
 	let (current, metadata) =
 		state::read_until(context, &scope.root, &scope.path, turn.cancel.clone()).await?;
@@ -597,7 +606,7 @@ async fn finish(
 	landed: &Path,
 	conflict: bool,
 ) -> Result<WriteOutcome, WriteError> {
-	let undo = journal(context, scope.library_id, id, &effects).await;
+	let undo = journal(context, scope.library_id, scope.grant_id, id, &effects).await;
 	let (state, _) = state::read(context, &scope.root, landed).await?;
 	info!(
 		grant = %scope.grant_id,
@@ -617,6 +626,7 @@ async fn finish(
 pub(super) async fn journal(
 	context: &CoreContext,
 	library_id: Uuid,
+	grant_id: Uuid,
 	id: Uuid,
 	effects: &[Effect],
 ) -> Option<Uuid> {
@@ -627,7 +637,7 @@ pub(super) async fn journal(
 	match library
 		.jobs()
 		.database()
-		.append_journal(JobId(id), effects)
+		.append_journal_for(JobId(id), Some(grant_id), effects)
 		.await
 	{
 		Ok(()) => Some(id),

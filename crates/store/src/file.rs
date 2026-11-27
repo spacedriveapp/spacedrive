@@ -778,12 +778,35 @@ const PENDING_CONTENT: &str = "\
 	WHERE r.content_id IS NULL AND r.type = 'file' AND f.size > 0 \
 	AND f.content_error IS NULL";
 
-/// How many files are still waiting. What a progress bar needs, once.
-pub async fn count_files_needing_content(pool: &sqlx::SqlitePool) -> Result<i64> {
+/// How many files under `subtrees` are still waiting. What a progress bar
+/// needs, once.
+pub async fn count_files_needing_content(
+	pool: &sqlx::SqlitePool,
+	subtrees: &[String],
+) -> Result<i64> {
 	Ok(
-		sqlx::query_scalar(&format!("SELECT COUNT(*) {PENDING_CONTENT}"))
+		sqlx::query_scalar(&format!("SELECT COUNT(*) {}", pending_content(subtrees)))
 			.fetch_one(pool)
 			.await?,
+	)
+}
+
+/// [`PENDING_CONTENT`] narrowed to `subtrees`.
+///
+/// Narrowed, the query is driven from the folders in scope: the unary `+`
+/// keeps SQLite off the `content_id` and `type` indexes, which on a home
+/// folder lead through every unidentified record outside the scope.
+fn pending_content(subtrees: &[String]) -> String {
+	if crate::deep_scope::whole(subtrees) {
+		return PENDING_CONTENT.to_string();
+	}
+	format!(
+		"{} AND {}",
+		PENDING_CONTENT.replace(
+			"r.content_id IS NULL AND r.type = 'file'",
+			"+r.content_id IS NULL AND +r.type = 'file'"
+		),
+		crate::deep_scope::subtree_condition(subtrees, "r.parent_uuid")
 	)
 }
 
@@ -798,7 +821,9 @@ pub struct PendingContent {
 	pub size: i64,
 }
 
-/// Files with no content identity, oldest record first.
+/// Files under `subtrees` with no content identity, oldest record first.
+/// A file outside them is never claimed: reading its bytes is what the
+/// source's deep scope leaves out.
 ///
 /// A file is addressed through its parent and its name, so the path is rebuilt
 /// by the same join [`Ledger::load`] uses rather than read from a column. That
@@ -810,9 +835,11 @@ pub struct PendingContent {
 pub async fn files_needing_content(
 	pool: &sqlx::SqlitePool,
 	batch_size: usize,
+	subtrees: &[String],
 ) -> Result<Vec<PendingContent>> {
 	let rows: Vec<PendingContentRow> = sqlx::query_as(&format!(
-		"SELECT r.uuid, r.parent_uuid, d.path, r.title, f.size {PENDING_CONTENT} ORDER BY r.rowid LIMIT ?"
+		"SELECT r.uuid, r.parent_uuid, d.path, r.title, f.size {} ORDER BY r.rowid LIMIT ?",
+		pending_content(subtrees)
 	))
 	.bind(batch_size as i64)
 	.fetch_all(pool)
@@ -1250,6 +1277,7 @@ fn image_model() -> ModelDef {
 /// 24000/1001 is not 23.976 and the difference accumulates over a timeline.
 fn video_model() -> ModelDef {
 	model(&[
+		("content_hash", FieldType::String),
 		("width", FieldType::Integer),
 		("height", FieldType::Integer),
 		("blurhash", FieldType::String),
