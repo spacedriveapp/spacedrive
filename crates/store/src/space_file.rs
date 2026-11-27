@@ -19,15 +19,15 @@
 //! use sd_store::{space_file::SpaceFile, SpaceVersions};
 //!
 //! async fn round_trip(versions: &SpaceVersions, target: &SpaceVersions) -> sd_store::Result<()> {
-//! 	let out = Path::new("/tmp/project.sdspace");
-//! 	let file = SpaceFile::create(out).await?;
-//! 	file.put_versions(versions, false).await?;
-//! 	file.close().await;
+//!     let out = Path::new("/tmp/project.sdspace");
+//!     let file = SpaceFile::create(out).await?;
+//!     file.put_versions(versions, false).await?;
+//!     file.close().await;
 //!
-//! 	let file = SpaceFile::open(out).await?;
-//! 	file.check().await?;
-//! 	file.restore_versions(target, &Default::default()).await?;
-//! 	Ok(())
+//!     let file = SpaceFile::open(out).await?;
+//!     file.check().await?;
+//!     file.restore_versions(target, &Default::default()).await?;
+//!     Ok(())
 //! }
 //! ```
 

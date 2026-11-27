@@ -18,34 +18,34 @@
 //! use std::{path::PathBuf, sync::Arc};
 //!
 //! use sd_core::{
-//! 	context::CoreContext,
-//! 	infra::action::LibraryAction,
-//! 	library::Library,
-//! 	ops::spaces::{SpaceExportAction, SpaceExportInput, SpaceImportAction, SpaceImportInput},
+//!     context::CoreContext,
+//!     infra::action::LibraryAction,
+//!     library::Library,
+//!     ops::spaces::{SpaceExportAction, SpaceExportInput, SpaceImportAction, SpaceImportInput},
 //! };
 //!
 //! async fn copy(
-//! 	library: Arc<Library>,
-//! 	context: Arc<CoreContext>,
-//! 	id: uuid::Uuid,
+//!     library: Arc<Library>,
+//!     context: Arc<CoreContext>,
+//!     id: uuid::Uuid,
 //! ) -> Result<(), Box<dyn std::error::Error>> {
-//! 	let file = PathBuf::from("/tmp/project.sdspace");
-//! 	SpaceExportAction::from_input(SpaceExportInput {
-//! 		id,
-//! 		path: file.clone(),
-//! 		current_only: false,
-//! 	})?
-//! 	.execute(library.clone(), context.clone())
-//! 	.await?;
-//! 	let imported = SpaceImportAction::from_input(SpaceImportInput {
-//! 		path: file,
-//! 		destination: PathBuf::from("/tmp/project-copy"),
-//! 		name: None,
-//! 	})?
-//! 	.execute(library, context)
-//! 	.await?;
-//! 	tracing::info!(space = %imported.space.id, "imported");
-//! 	Ok(())
+//!     let file = PathBuf::from("/tmp/project.sdspace");
+//!     SpaceExportAction::from_input(SpaceExportInput {
+//!         id,
+//!         path: file.clone(),
+//!         current_only: false,
+//!     })?
+//!     .execute(library.clone(), context.clone())
+//!     .await?;
+//!     let imported = SpaceImportAction::from_input(SpaceImportInput {
+//!         path: file,
+//!         destination: PathBuf::from("/tmp/project-copy"),
+//!         name: None,
+//!     })?
+//!     .execute(library, context)
+//!     .await?;
+//!     tracing::info!(space = %imported.space.id, "imported");
+//!     Ok(())
 //! }
 //! ```
 
