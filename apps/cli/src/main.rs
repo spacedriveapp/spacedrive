@@ -51,6 +51,7 @@ use crate::domains::{
 	redundancy::{self, RedundancyCmd},
 	search::{self, SearchCmd},
 	source::{self, SourceCmd},
+	space::{self, SpaceCmd},
 	sync::{self, SyncCmd},
 	tag::{self, TagCmd},
 	thumbs::{self, ThumbsCmd},
@@ -293,6 +294,9 @@ enum Commands {
 	/// Sync operations and metrics
 	#[command(subcommand)]
 	Sync(SyncCmd),
+	/// Spaces: folders people and agents work in
+	#[command(subcommand)]
+	Space(SpaceCmd),
 	/// Tag operations
 	#[command(subcommand)]
 	Tag(TagCmd),
@@ -875,6 +879,7 @@ async fn run_client_command(
 		Commands::Redundancy(cmd) => redundancy::run(&ctx, cmd).await?,
 		Commands::Search(cmd) => search::run(&ctx, cmd).await?,
 		Commands::Layouts(cmd) => layouts::exec(cmd, &ctx).await?,
+		Commands::Space(cmd) => space::run(&ctx, cmd).await?,
 		Commands::Tag(cmd) => tag::run(&ctx, cmd).await?,
 		Commands::Volume(cmd) => volume::run(&ctx, cmd).await?,
 		Commands::Cloud => cloud::run(&ctx).await?,
