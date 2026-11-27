@@ -6608,7 +6608,7 @@ outstanding: number };
 /**
  * Video metadata extracted from FFmpeg
  */
-export type VideoMediaData = { uuid: string; width: number; height: number; blurhash: string | null; duration_seconds: number | null; bit_rate: number | null; codec: string | null; pixel_format: string | null; color_space: string | null; color_range: string | null; color_primaries: string | null; color_transfer: string | null; fps_num: number | null; fps_den: number | null; audio_codec: string | null; audio_channels: string | null; audio_sample_rate: number | null; audio_bit_rate: number | null; title: string | null; artist: string | null; album: string | null; creation_time: string | null; date_captured: string | null };
+export type VideoMediaData = { uuid: string; width: number | null; height: number | null; blurhash: string | null; duration_seconds: number | null; bit_rate: number | null; codec: string | null; pixel_format: string | null; color_space: string | null; color_range: string | null; color_primaries: string | null; color_transfer: string | null; fps_num: number | null; fps_den: number | null; audio_codec: string | null; audio_channels: string | null; audio_sample_rate: number | null; audio_bit_rate: number | null; title: string | null; artist: string | null; album: string | null; creation_time: string | null; date_captured: string | null };
 
 /**
  * A volume in Spacedrive - unified model for runtime and database

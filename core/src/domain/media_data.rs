@@ -76,8 +76,8 @@ impl ImageMediaData {
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct VideoMediaData {
 	pub uuid: Uuid,
-	pub width: u32,
-	pub height: u32,
+	pub width: Option<u32>,
+	pub height: Option<u32>,
 	pub blurhash: Option<String>,
 	pub duration_seconds: Option<f64>,
 	pub bit_rate: Option<i64>,
@@ -125,6 +125,41 @@ pub struct AudioMediaData {
 // Convert from database entity to domain model
 
 impl VideoMediaData {
+	/// What a record's video facet says, under the record's uuid. `None`
+	/// for the empty row the header pass writes when the container named
+	/// nothing.
+	pub fn from_facet(record: Uuid, facet: &sd_store::VideoFacet) -> Option<Self> {
+		if *facet == sd_store::VideoFacet::default() {
+			return None;
+		}
+		let as_u32 = |value: Option<i64>| value.and_then(|v| u32::try_from(v).ok());
+		Some(Self {
+			uuid: record,
+			width: as_u32(facet.width),
+			height: as_u32(facet.height),
+			blurhash: None,
+			duration_seconds: facet.duration_seconds,
+			bit_rate: None,
+			codec: facet.codec.clone(),
+			pixel_format: None,
+			color_space: None,
+			color_range: None,
+			color_primaries: None,
+			color_transfer: None,
+			fps_num: None,
+			fps_den: None,
+			audio_codec: None,
+			audio_channels: None,
+			audio_sample_rate: None,
+			audio_bit_rate: None,
+			title: None,
+			artist: None,
+			album: None,
+			creation_time: None,
+			date_captured: None,
+		})
+	}
+
 	/// Calculate framerate as float from numerator/denominator
 	pub fn framerate(&self) -> Option<f32> {
 		match (self.fps_num, self.fps_den) {
