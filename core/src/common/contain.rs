@@ -103,7 +103,9 @@ pub fn stat_beneath(root: &Path, relative: &Path) -> io::Result<Stat> {
 	let leaf = components
 		.pop()
 		.expect("validate returns at least one component");
-	Directory::open_components(root, &components)?.stat(&leaf)
+	// The parent only resolves the name, so it needs search permission and
+	// not the read permission a listing does.
+	Directory(imp::Directory::open_search(root, &components)?).stat(&leaf)
 }
 
 /// What a path is, as [`stat_beneath`] and [`Directory::stat`] describe it.
@@ -299,6 +301,8 @@ mod imp {
 		Directory,
 		/// Stat'ed, never opened.
 		Probe,
+		/// Opened as a directory that can only resolve names beneath it.
+		Search,
 	}
 
 	/// Where a walk ended.
@@ -413,6 +417,7 @@ mod imp {
 			Leaf::Any => libc::O_RDONLY | libc::O_NOCTTY | libc::O_NONBLOCK,
 			Leaf::Directory => libc::O_RDONLY | libc::O_DIRECTORY,
 			Leaf::Probe => libc::O_PATH,
+			Leaf::Search => SEARCH,
 		};
 		how.flags = (flags | libc::O_CLOEXEC) as u64;
 		how.resolve = libc::RESOLVE_BENEATH | libc::RESOLVE_NO_MAGICLINKS;
@@ -526,7 +531,7 @@ mod imp {
 		let dir = stack.pop().expect("stack holds the root");
 		Ok(match leaf {
 			Leaf::Probe => Reached::Probed(dir, ".".into()),
-			Leaf::Any | Leaf::Directory => Reached::Opened(File::from(open_at(
+			Leaf::Any | Leaf::Directory | Leaf::Search => Reached::Opened(File::from(open_at(
 				Some(&dir),
 				OsStr::new("."),
 				leaf_flags(leaf, true),
@@ -649,6 +654,18 @@ mod imp {
 			}
 		}
 
+		/// A handle that can describe entries but not list them, so a folder
+		/// the daemon may traverse but not read still answers a stat.
+		pub fn open_search(root: &Path, components: &[OsString]) -> io::Result<Self> {
+			if components.is_empty() {
+				return Ok(Self(root_dir(root)?.1));
+			}
+			match resolve(root, components, Leaf::Search)? {
+				Reached::Opened(file) => Ok(Self(file.into())),
+				Reached::Probed(..) => unreachable!("only a probe stops short of opening"),
+			}
+		}
+
 		pub fn names(&self) -> io::Result<Vec<OsString>> {
 			// fdopendir owns the descriptor it is given and closedir closes
 			// it, so it gets a duplicate.
@@ -703,9 +720,16 @@ mod imp {
 			use super::Kind;
 
 			let raw = lstat_at(self.0.as_raw_fd(), name)?;
+			// Times before 1970 have negative seconds and non-negative
+			// nanoseconds, as the standard library reads them.
 			let time = |secs: libc::time_t, nanos: libc::c_long| {
-				let secs = u64::try_from(secs).ok()?;
-				SystemTime::UNIX_EPOCH.checked_add(Duration::new(secs, nanos as u32))
+				let total = i128::from(secs) * 1_000_000_000 + i128::from(nanos);
+				let span = Duration::from_nanos(u64::try_from(total.unsigned_abs()).ok()?);
+				if total >= 0 {
+					SystemTime::UNIX_EPOCH.checked_add(span)
+				} else {
+					SystemTime::UNIX_EPOCH.checked_sub(span)
+				}
 			};
 			#[cfg(any(target_os = "macos", target_os = "ios"))]
 			let created = time(raw.st_birthtime, raw.st_birthtime_nsec);
@@ -797,6 +821,10 @@ mod imp {
 				path: final_path(&handle)?,
 				_handle: handle,
 			})
+		}
+
+		pub fn open_search(root: &Path, components: &[OsString]) -> io::Result<Self> {
+			Self::open(root, components)
 		}
 
 		pub fn names(&self) -> io::Result<Vec<OsString>> {
@@ -1149,6 +1177,7 @@ mod tests {
 		let read_result = read(&root, "a/b/inner.txt");
 		let reached = reach_beneath(&root, Path::new("a/b/inner.txt"));
 		let described = metadata_beneath(&root, Path::new("a/b/inner.txt"));
+		let stat_result = stat_beneath(&root, Path::new("a/b/inner.txt"));
 		let listed = Directory::open(&root, Path::new("a")).and_then(|dir| dir.names());
 		let walked = imp::root_dir(&root)
 			.and_then(|(real, fd)| imp::walk(&fd, &real, &validate(Path::new("a/b/inner.txt"))?));
@@ -1159,6 +1188,7 @@ mod tests {
 		assert!(walked.is_ok(), "{walked:?}");
 		assert!(reached.is_ok());
 		assert_eq!(described.unwrap().kind, Kind::File);
+		assert_eq!(stat_result.unwrap().kind, Kind::File);
 		assert_eq!(listed.unwrap_err().kind(), io::ErrorKind::PermissionDenied);
 	}
 

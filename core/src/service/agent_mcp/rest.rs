@@ -627,10 +627,13 @@ fn status_for(message: &str) -> StatusCode {
 /// File indices are not exposed on stable Rust off unix, so there the
 /// identity is 0 and the stamp rests on size and time.
 fn etag_of(meta: &Stat) -> String {
+	// Signed, so distinct times before 1970 stay distinct.
 	let mtime = meta
 		.modified
-		.and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok())
-		.map_or(0, |since| since.as_nanos() as i128);
+		.map_or(0, |at| match at.duration_since(std::time::UNIX_EPOCH) {
+			Ok(after) => after.as_nanos() as i128,
+			Err(before) => -(before.duration().as_nanos() as i128),
+		});
 	format!("\"f-{}-{mtime}-{}\"", meta.len, meta.identity)
 }
 
@@ -965,6 +968,28 @@ mod tests {
 
 	fn path(raw: &str) -> Result<String, StatusCode> {
 		decode_path(raw).map_err(|response| response.status())
+	}
+
+	#[test]
+	fn etags_keep_times_before_1970_apart() {
+		use std::time::{Duration, UNIX_EPOCH};
+
+		let at = |modified| Stat {
+			kind: Kind::File,
+			len: 4,
+			modified,
+			accessed: None,
+			created: None,
+			readonly: false,
+			identity: 7,
+		};
+		let before = |secs| Some(UNIX_EPOCH - Duration::from_millis(secs));
+		assert_ne!(etag_of(&at(before(1500))), etag_of(&at(before(2500))));
+		assert_eq!(etag_of(&at(before(1500))), "\"f-4--1500000000-7\"");
+		assert_eq!(
+			etag_of(&at(Some(UNIX_EPOCH + Duration::from_secs(2)))),
+			"\"f-4-2000000000-7\""
+		);
 	}
 
 	#[test]
