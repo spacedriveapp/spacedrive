@@ -14,6 +14,7 @@
 
 pub mod attach;
 pub mod cache;
+pub mod client;
 pub mod fuse;
 pub mod offline;
 pub mod peer;
