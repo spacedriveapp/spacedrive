@@ -67,9 +67,7 @@
     "resources": {
       "gen/**/*": "./",
       "../../../extensions/videos/manifest.json": "extensions/videos/manifest.json",
-      "../../../extensions/videos/ui_manifest.json": "extensions/videos/ui_manifest.json",
-      "../../../extensions/videos/videos.wasm": "extensions/videos/videos.wasm",
-      "../../../extensions/videos/ui/": "extensions/videos/ui/"
+      "../../../extensions/videos/videos.wasm": "extensions/videos/videos.wasm"
     },
     "fileAssociations": [
       {

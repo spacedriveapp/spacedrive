@@ -62,19 +62,16 @@ The client applies an edit by running `edit_roster` through
 | `assign` | `person`, `face` | Pins a face to a person. |
 | `exclude` | `person`, `face` | Takes a face off a person for good. |
 
-## The view
+## In the app
 
-`ui_manifest.json` declares one library view, `ui/videos.js`. The client lists
-it in the sidebar under Extensions. It shows each file's shots with the
-keyframe, the description, the places, the people and the transcript lines that
-fall inside the shot, and lets you browse shots by person, place and tag. It
-reads the `Footage` and `Person` models through `extensions.models` and the
-core's sidecars through the sidecar route.
-
-The Tags tab lists every tag in the library, including your own. The view
-reads them with `tags.search` and `files.by_tag`. A `Videos/Places/*` or
-`Videos/People/*` tag narrows to the shots that carry it. Any other tag is on
-whole files, so the tab lists every shot of the tagged footage.
+The extension has no page of its own. Its output shows where the rest of a
+file's metadata does, in the explorer. Selecting a video puts a Footage section
+in the inspector with the shot keyframes, each shot's description, an excerpt
+of the transcript and the Analyze actions. The explorer can show duration, shot
+count and a transcript marker as list columns and grid badges, and the Videos
+item in the sidebar lists every video in the library. They read the core's
+`media.sidecars` and `media.footage.summaries` queries, which include the
+descriptions this extension writes to its `scene` sidecar.
 
 ## Building
 
@@ -91,6 +88,6 @@ bundles it. The app's daemon is built with the `footage` feature, which
 includes the `wasm` runtime.
 
 To try a local build with any other daemon built with `wasm`, copy
-`manifest.json`, `ui_manifest.json`, `videos.wasm` and `ui/` into
+`manifest.json` and `videos.wasm` into
 `<data dir>/extensions/videos/` and restart the daemon. A dev build of the app
 does not install bundled extensions, so it never overwrites that copy.

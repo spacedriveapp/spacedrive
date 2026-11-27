@@ -1,6 +1,8 @@
 import {sounds} from '@sd/assets/sounds';
 import {useJobs as useJobsCore, type UseJobsReturn} from '@sd/ts-client';
+import {useQueryClient} from '@tanstack/react-query';
 import {useVolumeIndexingStore} from '../../../stores/volumeIndexingStore';
+import {FOOTAGE_SUMMARIES_KEY} from '../../Footage/useFootage';
 import {useEffect, useRef} from 'react';
 
 // Global set to track which jobs have already played their completion sound
@@ -18,9 +20,14 @@ const SOUND_THROTTLE_MS = 5000;
  */
 export function useJobs(): UseJobsReturn {
 	const {setVolumeJob, clearVolumeJob} = useVolumeIndexingStore();
+	const queryClient = useQueryClient();
 
 	const jobs = useJobsCore({
 		onJobCompleted: (jobId, jobType) => {
+			// Footage jobs, the extension's among them, write sidecars that
+			// listing columns, badges and the Videos filters read.
+			void queryClient.invalidateQueries({queryKey: [FOOTAGE_SUMMARIES_KEY]});
+
 			// Play completion sound
 			if (!completedJobSounds.has(jobId)) {
 				completedJobSounds.add(jobId);
