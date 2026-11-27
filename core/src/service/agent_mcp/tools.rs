@@ -1111,13 +1111,90 @@ async fn stat_with_precondition(
 	cancel: Arc<AtomicBool>,
 ) -> Result<Output, String> {
 	let (root, path) = (scope.root.clone(), scope.path.clone());
-	let Output { mut structured, .. } = blocking(move || stat(&scope)).await?;
+	let hash_cancel = cancel.clone();
+	let (Output { mut structured, .. }, contained) = tokio::task::spawn_blocking(move || {
+		let stat = stat(&scope)?;
+		let contained = match stat.structured["type"].as_str() {
+			Some("file") => Some(file_hash(&scope, &hash_cancel)?),
+			Some("dir") => Some(Some(listing_hash(&scope)?)),
+			_ => None,
+		};
+		Ok::<_, String>((stat, contained))
+	})
+	.await
+	.map_err(|_| "the call failed".to_string())??;
 	let state = agent_write::state_of(context, &root, &path, cancel)
 		.await
 		.map_err(|e| e.to_string())?;
-	structured["content_hash"] = json!(state.content_hash);
+	// agent_write reads by path, so its hash of a file or directory is
+	// replaced by the one read through handles beneath the root. A link keeps
+	// agent_write's hash of its target string.
+	structured["content_hash"] = json!(contained.unwrap_or(state.content_hash));
 	structured["revision"] = json!(state.revision);
 	Ok(Output::json(structured))
+}
+
+/// The BLAKE3 hash of the scope's file, hex, read through a handle beneath
+/// the grant root, or `None` for a cloud placeholder, which is not read. It is
+/// the hash `agent_write` compares a write's `content_hash` with.
+fn file_hash(scope: &GrantScope, cancel: &AtomicBool) -> Result<Option<String>, String> {
+	if refuse_dataless_blocking(&scope.path).is_err() {
+		return Ok(None);
+	}
+	let (mut file, _) = open_file(scope)?;
+	let mut hasher = blake3::Hasher::new();
+	let mut buffer = vec![0u8; 256 * 1024];
+	loop {
+		if cancel.load(Ordering::Relaxed) {
+			return Err("cancelled".to_string());
+		}
+		let read = file.read(&mut buffer).map_err(|e| io_message(&e))?;
+		if read == 0 {
+			break;
+		}
+		hasher.update(&buffer[..read]);
+	}
+	Ok(Some(hasher.finalize().to_hex().to_string()))
+}
+
+/// The hash `agent_write` gives the scope's directory, from a listing read
+/// through a handle beneath the grant root: each child's name, kind, size and
+/// modification time, sorted by name, with links described and not followed.
+fn listing_hash(scope: &GrantScope) -> Result<String, String> {
+	let dir = Directory::open(&scope.root, &scope.relative).map_err(|e| io_message(&e))?;
+	let mut children: Vec<(Vec<u8>, String)> = dir
+		.names()
+		.map_err(|e| io_message(&e))?
+		.into_iter()
+		.map(|name| {
+			let line = match dir.stat(&name) {
+				Ok(meta) => format!(
+					"{}:{}:{}",
+					match meta.kind {
+						Kind::Dir => "d",
+						Kind::Symlink => "l",
+						Kind::File | Kind::Other => "f",
+					},
+					if meta.kind == Kind::Dir { 0 } else { meta.len },
+					meta.modified
+						.and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok())
+						.map(|at| at.as_nanos())
+						.unwrap_or(0)
+				),
+				Err(_) => "gone".to_string(),
+			};
+			(name.as_encoded_bytes().to_vec(), line)
+		})
+		.collect();
+	children.sort();
+	let mut hasher = blake3::Hasher::new();
+	for (name, line) in children {
+		hasher.update(&name);
+		hasher.update(b"\0");
+		hasher.update(line.as_bytes());
+		hasher.update(b"\n");
+	}
+	Ok(hasher.finalize().to_hex().to_string())
 }
 
 #[derive(Deserialize)]

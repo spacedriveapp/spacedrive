@@ -39,10 +39,14 @@ const OUTSIDE_MARKER: &str = "OUTSIDE-MARKER-7f3a";
 /// A name only the outside directory has.
 const OUTSIDE_NAME: &str = "only-outside-name.txt";
 
-async fn grant(harness: &IndexingHarness, path: &Path) -> anyhow::Result<CreateGrantOutput> {
+async fn grant(
+	harness: &IndexingHarness,
+	path: &Path,
+	caps: GrantCap,
+) -> anyhow::Result<CreateGrantOutput> {
 	Ok(CreateGrantAction::from_input(CreateGrantInput {
 		path: path.to_path_buf(),
-		caps: Some(GrantCap::Read),
+		caps: Some(caps),
 		ttl_seconds: None,
 		label: Some("containment".to_string()),
 	})
@@ -250,7 +254,7 @@ async fn agent_mcp_reads_only_beneath_the_grant_root() -> anyhow::Result<()> {
 	};
 	let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
 	let bound = agent_mcp::serve(harness.core.context.clone(), listener, limits)?;
-	let issued = grant(&harness, &project).await?;
+	let issued = grant(&harness, &project, GrantCap::Read).await?;
 	let mut client = Client::new(&format!("http://{bound}/mcp"), &issued.token);
 	client.initialize().await;
 
@@ -394,5 +398,55 @@ async fn agent_mcp_reads_only_beneath_the_grant_root() -> anyhow::Result<()> {
 	assert!(swaps >= 2000, "only {swaps} swaps");
 	assert!(served > 0, "no request was served during the race");
 
+	Ok(())
+}
+
+/// stat reads the content hash through handles, and it has to stay the hash
+/// the write tools compare a precondition with, for a file and a directory.
+#[tokio::test]
+async fn stat_hashes_match_the_write_preconditions() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("agent_containment_hashes")
+		.disable_watcher()
+		.build()
+		.await?;
+	let tracked = harness.create_test_dir("tracked").await?;
+	tracked.write_file("project/dir/a.txt", "alpha").await?;
+	tracked.write_file("project/dir/sub/b.txt", "beta").await?;
+	tracked.track().await?;
+	let project = std::fs::canonicalize(harness.temp_path())?.join("tracked/project");
+	std::os::unix::fs::symlink("a.txt", project.join("dir/link"))?;
+
+	let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+	let bound = agent_mcp::serve(harness.core.context.clone(), listener, Limits::default())?;
+	let issued = grant(&harness, &project, GrantCap::ReadWrite).await?;
+	let mut client = Client::new(&format!("http://{bound}/mcp"), &issued.token);
+	client.initialize().await;
+
+	let written = client
+		.ok(
+			"write_file",
+			json!({ "path": "dir/new.txt", "content": "gamma" }),
+		)
+		.await;
+	let stat = client.ok("stat", json!({ "path": "dir/new.txt" })).await;
+	assert_eq!(stat["content_hash"], written["state"]["content_hash"]);
+	assert_eq!(
+		stat["content_hash"],
+		blake3::hash(b"gamma").to_hex().as_str()
+	);
+
+	let made = client.ok("make_dir", json!({ "path": "dir" })).await;
+	let stat = client.ok("stat", json!({ "path": "dir" })).await;
+	assert_eq!(made["state"]["kind"], "directory");
+	assert!(stat["content_hash"].is_string());
+	assert_eq!(stat["content_hash"], made["state"]["content_hash"]);
+
+	client
+		.ok(
+			"delete",
+			json!({ "path": "dir", "expect": { "content_hash": stat["content_hash"] } }),
+		)
+		.await;
+	assert!(!project.join("dir").exists());
 	Ok(())
 }

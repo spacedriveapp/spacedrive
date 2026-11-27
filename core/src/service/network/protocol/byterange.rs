@@ -690,15 +690,23 @@ impl ByteRangeProtocolHandler {
 	) -> anyhow::Result<()> {
 		match request {
 			ByteRangeRequest::Stat { path } => {
-				let file = match self.open_path(&path).await {
-					Ok(file) => file,
+				let (root, relative) = match self.locate_path(&path) {
+					Ok(located) => located,
 					Err(reason) => {
 						return write_frame(send, &ByteRangeResponse::Error(reason)).await;
 					}
 				};
-				match file.metadata().await {
+				// Described without opening the file: opening a cloud
+				// placeholder would download it just to report its size.
+				let described = tokio::task::spawn_blocking(move || {
+					crate::common::contain::metadata_beneath(&root, &relative)
+				})
+				.await
+				.map_err(std::io::Error::other)
+				.and_then(|described| described);
+				match described {
 					Ok(meta) => {
-						let modified_secs = meta.modified().ok().and_then(|m| {
+						let modified_secs = meta.modified.and_then(|m| {
 							m.duration_since(std::time::UNIX_EPOCH)
 								.ok()
 								.map(|d| d.as_secs())
@@ -706,7 +714,7 @@ impl ByteRangeProtocolHandler {
 						write_frame(
 							send,
 							&ByteRangeResponse::Stat {
-								size: meta.len(),
+								size: meta.len,
 								modified_secs,
 							},
 						)

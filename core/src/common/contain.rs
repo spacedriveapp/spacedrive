@@ -76,6 +76,19 @@ pub fn reach_beneath(root: &Path, relative: &Path) -> io::Result<()> {
 	imp::reach_beneath(root, &components)
 }
 
+/// Describes what `relative` beneath `root` resolves to, following links
+/// that stay beneath it, without opening it for reading.
+///
+/// It answers what [`open_beneath`] would open, refused the same way, but
+/// a cloud placeholder is not downloaded and a FIFO cannot block. An empty
+/// `relative` describes the root itself.
+pub fn metadata_beneath(root: &Path, relative: &Path) -> io::Result<Stat> {
+	if relative.as_os_str().is_empty() {
+		return Ok(Stat::from(&open_root(root)?.metadata()?));
+	}
+	imp::metadata_beneath(root, &validate(relative)?)
+}
+
 /// Describes `relative` beneath `root` without following a final symlink.
 ///
 /// The parent directory is opened beneath the root and the last component is
@@ -281,9 +294,9 @@ mod imp {
 	/// Where a walk ended.
 	pub(super) enum Reached {
 		Opened(File),
-		/// A probe found the last component in this directory, which macOS
-		/// checks with `F_GETPATH`.
-		Probed(#[cfg_attr(not(target_os = "macos"), allow(dead_code))] OwnedFd),
+		/// A probe found the last component, by this name and not a link, in
+		/// this directory.
+		Probed(OwnedFd, OsString),
 	}
 
 	pub fn open_root(root: &Path) -> io::Result<File> {
@@ -293,7 +306,7 @@ mod imp {
 	pub fn open_beneath(root: &Path, components: &[OsString]) -> io::Result<File> {
 		match resolve(root, components, Leaf::Any)? {
 			Reached::Opened(file) => Ok(file),
-			Reached::Probed(_) => unreachable!("only a probe stops short of opening"),
+			Reached::Probed(..) => unreachable!("only a probe stops short of opening"),
 		}
 	}
 
@@ -301,16 +314,29 @@ mod imp {
 		resolve(root, components, Leaf::Probe).map(drop)
 	}
 
+	pub fn metadata_beneath(root: &Path, components: &[OsString]) -> io::Result<Stat> {
+		match resolve(root, components, Leaf::Probe)? {
+			Reached::Opened(file) => Ok(Stat::from(&file.metadata()?)),
+			Reached::Probed(dir, name) => Directory(dir).stat(&name),
+		}
+	}
+
+	/// Flags for a directory handle used only to resolve names beneath it,
+	/// which needs search permission and not read permission, so a folder the
+	/// daemon may traverse but not list still serves the files it names.
+	#[cfg(target_os = "linux")]
+	const SEARCH: libc::c_int = libc::O_PATH | libc::O_DIRECTORY;
+	#[cfg(any(target_os = "macos", target_os = "ios"))]
+	const SEARCH: libc::c_int = libc::O_SEARCH;
+	#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "ios")))]
+	const SEARCH: libc::c_int = libc::O_RDONLY | libc::O_DIRECTORY;
+
 	/// The root's real path and a directory handle on it.
-	fn root_dir(root: &Path) -> io::Result<(PathBuf, OwnedFd)> {
+	pub(super) fn root_dir(root: &Path) -> io::Result<(PathBuf, OwnedFd)> {
 		// The root is trusted, so resolve its spelling once; absolute links
 		// are judged against this real path.
 		let real_root = std::fs::canonicalize(root)?;
-		let fd = open_at(
-			None,
-			real_root.as_os_str(),
-			libc::O_RDONLY | libc::O_DIRECTORY,
-		)?;
+		let fd = open_at(None, real_root.as_os_str(), SEARCH)?;
 		Ok((real_root, fd))
 	}
 
@@ -331,7 +357,7 @@ mod imp {
 		#[cfg(target_os = "macos")]
 		match &reached {
 			Reached::Opened(file) => check_final_path(&root_fd, file.as_raw_fd())?,
-			Reached::Probed(dir) => check_final_path(&root_fd, dir.as_raw_fd())?,
+			Reached::Probed(dir, _) => check_final_path(&root_fd, dir.as_raw_fd())?,
 		}
 		Ok(reached)
 	}
@@ -414,7 +440,7 @@ mod imp {
 	) -> io::Result<File> {
 		match walk_to(root, real_root, components, Leaf::Any)? {
 			Reached::Opened(file) => Ok(file),
-			Reached::Probed(_) => unreachable!("only a probe stops short of opening"),
+			Reached::Probed(..) => unreachable!("only a probe stops short of opening"),
 		}
 	}
 
@@ -444,18 +470,11 @@ mod imp {
 			let attempt = if last && leaf == Leaf::Probe {
 				let stat = lstat_at(dir.as_raw_fd(), &name)?;
 				if stat.st_mode & libc::S_IFMT != libc::S_IFLNK {
-					return Ok(Reached::Probed(dir.try_clone()?));
+					return Ok(Reached::Probed(dir.try_clone()?, name));
 				}
 				Err(io::Error::from_raw_os_error(libc::ELOOP))
 			} else {
-				let flags = libc::O_NOFOLLOW
-					| libc::O_NOCTTY
-					| if last && leaf == Leaf::Any {
-						libc::O_RDONLY | libc::O_NONBLOCK
-					} else {
-						libc::O_RDONLY | libc::O_DIRECTORY
-					};
-				open_at(Some(dir), &name, flags)
+				open_at(Some(dir), &name, libc::O_NOFOLLOW | leaf_flags(leaf, last))
 			};
 			let opened = match attempt {
 				Ok(fd) => fd,
@@ -492,12 +511,27 @@ mod imp {
 			}
 			stack.push(opened);
 		}
-		// Every component was consumed by links ending at a directory.
+		// Every component was consumed by links ending at a directory, whose
+		// handle on the stack can only search, so it is opened again as asked.
 		let dir = stack.pop().expect("stack holds the root");
 		Ok(match leaf {
-			Leaf::Probe => Reached::Probed(dir),
-			Leaf::Any | Leaf::Directory => Reached::Opened(File::from(dir)),
+			Leaf::Probe => Reached::Probed(dir, ".".into()),
+			Leaf::Any | Leaf::Directory => Reached::Opened(File::from(open_at(
+				Some(&dir),
+				OsStr::new("."),
+				leaf_flags(leaf, true),
+			)?)),
 		})
+	}
+
+	/// How the walk opens a component: the last as `leaf` asks, the rest as
+	/// search-only directories.
+	fn leaf_flags(leaf: Leaf, last: bool) -> libc::c_int {
+		match (leaf, last) {
+			(Leaf::Any, true) => libc::O_RDONLY | libc::O_NOCTTY | libc::O_NONBLOCK,
+			(Leaf::Directory, true) => libc::O_RDONLY | libc::O_DIRECTORY,
+			_ => SEARCH,
+		}
 	}
 
 	/// The link's target when `name` is a symlink, or `None` when the open
@@ -564,11 +598,17 @@ mod imp {
 	impl Directory {
 		pub fn open(root: &Path, components: &[OsString]) -> io::Result<Self> {
 			if components.is_empty() {
-				return Ok(Self(root_dir(root)?.1));
+				let real_root = std::fs::canonicalize(root)?;
+				return open_at(
+					None,
+					real_root.as_os_str(),
+					libc::O_RDONLY | libc::O_DIRECTORY,
+				)
+				.map(Self);
 			}
 			match resolve(root, components, Leaf::Directory)? {
 				Reached::Opened(file) => Ok(Self(file.into())),
-				Reached::Probed(_) => unreachable!("only a probe stops short of opening"),
+				Reached::Probed(..) => unreachable!("only a probe stops short of opening"),
 			}
 		}
 
@@ -677,6 +717,12 @@ mod imp {
 
 	pub fn reach_beneath(root: &Path, components: &[OsString]) -> io::Result<()> {
 		open_beneath(root, components).map(drop)
+	}
+
+	pub fn metadata_beneath(root: &Path, components: &[OsString]) -> io::Result<super::Stat> {
+		Ok(super::Stat::from(
+			&open_beneath(root, components)?.metadata()?,
+		))
 	}
 
 	pub fn open_beneath(root: &Path, components: &[OsString]) -> io::Result<File> {
@@ -988,6 +1034,79 @@ mod tests {
 	}
 
 	#[test]
+	fn metadata_follows_inner_links_without_opening() {
+		let (temp, root) = tree();
+		symlink("b/inner.txt", root.join("a/file_link")).unwrap();
+		symlink("..", root.join("a/b/up")).unwrap();
+		symlink(temp.path().join("outside"), root.join("a/out")).unwrap();
+		let linked = metadata_beneath(&root, Path::new("a/file_link")).unwrap();
+		assert_eq!((linked.kind, linked.len), (Kind::File, 5));
+		assert_eq!(
+			metadata_beneath(&root, Path::new("a/b/up")).unwrap().kind,
+			Kind::Dir
+		);
+		assert_eq!(
+			metadata_beneath(&root, Path::new("a/out/secret.txt"))
+				.unwrap_err()
+				.kind(),
+			io::ErrorKind::PermissionDenied
+		);
+		assert_eq!(
+			metadata_beneath(&root, Path::new("")).unwrap().kind,
+			Kind::Dir
+		);
+		let fifo = std::ffi::CString::new(root.join("pipe").into_os_string().into_encoded_bytes())
+			.unwrap();
+		assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) }, 0);
+		assert_eq!(
+			metadata_beneath(&root, Path::new("pipe")).unwrap().kind,
+			Kind::Other
+		);
+		let real = std::fs::canonicalize(&root).unwrap();
+		let fd: std::os::fd::OwnedFd = File::open(&real).unwrap().into();
+		let reached = imp::walk_to(
+			&fd,
+			&real,
+			&validate(Path::new("a/b/up")).unwrap(),
+			imp::Leaf::Directory,
+		)
+		.unwrap();
+		let imp::Reached::Opened(dir) = reached else {
+			panic!("a directory opens");
+		};
+		assert!(dir.metadata().unwrap().is_dir());
+	}
+
+	#[test]
+	fn a_root_that_can_be_searched_but_not_listed_still_serves_named_files() {
+		use std::os::unix::fs::PermissionsExt;
+
+		if unsafe { libc::geteuid() } == 0 {
+			// Root ignores directory permissions, so there is nothing to test.
+			return;
+		}
+		let (_temp, root) = tree();
+		let a = root.join("a");
+		for dir in [&root, &a] {
+			std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o111)).unwrap();
+		}
+		let read_result = read(&root, "a/b/inner.txt");
+		let reached = reach_beneath(&root, Path::new("a/b/inner.txt"));
+		let described = metadata_beneath(&root, Path::new("a/b/inner.txt"));
+		let listed = Directory::open(&root, Path::new("a")).and_then(|dir| dir.names());
+		let walked = imp::root_dir(&root)
+			.and_then(|(real, fd)| imp::walk(&fd, &real, &validate(Path::new("a/b/inner.txt"))?));
+		for dir in [&root, &a] {
+			std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+		}
+		assert_eq!(read_result.unwrap(), "inner");
+		assert!(walked.is_ok(), "{walked:?}");
+		assert!(reached.is_ok());
+		assert_eq!(described.unwrap().kind, Kind::File);
+		assert_eq!(listed.unwrap_err().kind(), io::ErrorKind::PermissionDenied);
+	}
+
+	#[test]
 	fn the_walk_alone_probes_and_opens_directories() {
 		let (temp, root) = tree();
 		symlink(temp.path().join("outside"), root.join("a/out")).unwrap();
@@ -999,7 +1118,7 @@ mod tests {
 		};
 		assert!(matches!(
 			walk("a/file_link", imp::Leaf::Probe).unwrap(),
-			imp::Reached::Probed(_)
+			imp::Reached::Probed(..)
 		));
 		assert_eq!(
 			walk("a/out", imp::Leaf::Probe).err().unwrap().kind(),
