@@ -38,6 +38,20 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 RPC lines stay out of logs (Capy FAN-14847, November 27, in PR). Threat model F2: a malformed RPC line logs its parse error's kind, position and length, never the text, and the desktop app's daemon proxy logs a request's kind and method instead of the payload and answer; `rpc_security_test` guards it.
 
+Content sidecars have a registry and live in their source (Capy FAN-14816,
+November 27, in PR, stacked on the Sidecars tab PR). Every derived file other
+than thumbnail tiles and scrub sheets is published through
+`SidecarRegistry::publish`, which renames it into
+`sources/<id>/derived/<h0>/<h1>/<content_uuid>/` and writes a `content_sidecar`
+row in the source's `data.db` (producer, version, size, BLAKE3). Proxies, speech
+audio, transcripts, shots, keyframes and the extension host's
+`sidecars.write`/`sidecars.delete` use it. Opening a library adopts the old
+`<library>/sidecars/content` tree by rename, rebuilds rows from disk and
+prunes content no source holds; deleting a source with its catalog removes its
+tree after moving shared content to another holder. Library statistics sum the
+rows. Thumbnail tiles, `thumbs.pvcache` and thumbstrips are unchanged. Convergence
+item 4 is done; availability and peer replication (step D) are next.
+
 Bundled command line tool (Capy FAN-14800, November 27, in PR). The desktop
 app ships `sd-cli` beside `sd-daemon` as a Tauri external binary on macOS
 arm64 and Intel and Linux, built in the same cargo run with the same features

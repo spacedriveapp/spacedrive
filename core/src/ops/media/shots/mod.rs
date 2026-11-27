@@ -21,9 +21,10 @@
 //! ## Example
 //! ```rust,no_run
 //! # async fn demo(library: &sd_core::library::Library, path: &std::path::Path) -> std::io::Result<()> {
-//! use sd_core::ops::media::shots::shots_of_file;
+//! use sd_core::{ops::media::shots::shots_of_file, service::sidecars::SidecarRegistry};
 //!
-//! if let Some(list) = shots_of_file(library.path(), path).await? {
+//! let finder = SidecarRegistry::of(library).finder();
+//! if let Some(list) = shots_of_file(&finder, path).await? {
 //! 	for shot in &list.shots {
 //! 		tracing::info!(id = %shot.id, start = shot.in_point.frame, end = shot.out_point.frame, "shot");
 //! 	}
