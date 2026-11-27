@@ -102,10 +102,10 @@ impl crate::infra::job::traits::DynJob for ExifEnrichJob {
 impl JobHandler for ExifEnrichJob {
 	type Output = ExifEnrichOutput;
 
-	/// Unreadable images stay pending, so a pass that only met those did
+	/// Unreadable files stay pending, so a pass that only met those did
 	/// nothing.
 	fn keep_record(&self, output: &Self::Output) -> bool {
-		!self.background || output.enriched > 0
+		!self.background || output.enriched > 0 || output.videos > 0
 	}
 
 	fn finished_rows_kept(&self) -> Option<u64> {
