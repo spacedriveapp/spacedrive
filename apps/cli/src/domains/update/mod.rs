@@ -142,6 +142,15 @@ pub async fn run(
 	socket_addr: String,
 	options: UpdateOptions,
 ) -> Result<()> {
+	let exe = std::env::current_exe()?;
+	let exe = exe.canonicalize().unwrap_or(exe);
+	if bundled_with_desktop_app(&exe) {
+		anyhow::bail!(
+			"{} ships with the Spacedrive desktop app. Update the app to update the command line tool.",
+			exe.display()
+		);
+	}
+
 	let config = CliConfig::load(&data_dir)?;
 	let nightly = config.update.channel == NIGHTLY_CHANNEL;
 	let installed = if nightly {
@@ -180,6 +189,13 @@ pub async fn run(
 	}
 
 	outcome.map(|_| ())
+}
+
+/// Whether `exe` is the CLI the desktop app bundles, which updates with the
+/// app. Replacing it would break the app's signature and pair the CLI with a
+/// daemon from another build.
+fn bundled_with_desktop_app(exe: &Path) -> bool {
+	exe.to_string_lossy().contains(".app/Contents/MacOS/") || exe.starts_with("/usr/bin")
 }
 
 /// Appends the attempt to update.log and replaces the state file.
@@ -873,6 +889,17 @@ pub fn get_platform_string() -> String {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn the_cli_inside_the_desktop_app_does_not_update_itself() {
+		assert!(bundled_with_desktop_app(Path::new(
+			"/Applications/Spacedrive.app/Contents/MacOS/sd-cli"
+		)));
+		assert!(bundled_with_desktop_app(Path::new("/usr/bin/sd-cli")));
+		assert!(!bundled_with_desktop_app(Path::new(
+			"/Users/me/.local/bin/sd"
+		)));
+	}
 
 	fn asset(name: &str) -> GitHubAsset {
 		GitHubAsset {
