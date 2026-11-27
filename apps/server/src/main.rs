@@ -153,8 +153,8 @@ fn plain_status(status: StatusCode, message: &'static str) -> Response {
 		.expect("static status response is well-formed")
 }
 
-/// Serve a sidecar file (thumbnail, thumbstrip, proxy, …) from the library's
-/// sidecars tree — the HTTP twin of the desktop app's local sidecar server,
+/// Serve a sidecar file (thumbnail, thumbstrip, proxy, …) from the daemon's
+/// derived media — the HTTP twin of the desktop app's local sidecar server,
 /// built on sd-core's canonical path scheme.
 async fn serve_sidecar(
 	State(state): State<AppState>,
@@ -183,14 +183,21 @@ async fn serve_sidecar(
 		return plain_status(StatusCode::NOT_FOUND, "unknown library");
 	};
 
-	let path = library_folder
-		.join("sidecars")
-		.join(sd_sidecar_path::relative_path(
-			&content_uuid,
-			kind_dir,
-			variant,
-			ext,
-		));
+	let Ok(library_uuid) = uuid::Uuid::parse_str(&library_id) else {
+		return plain_status(StatusCode::BAD_REQUEST, "invalid library id");
+	};
+
+	// A content's sidecars sit under whichever of the library's sources holds
+	// it, so each of them is probed.
+	let relative = sd_sidecar_path::relative_path(&content_uuid, kind_dir, variant, ext);
+	let sources_dir = state.data_dir.join("sources");
+	let Ok(Some(path)) = tokio::task::spawn_blocking(move || {
+		sd_sidecar_path::locate(&sources_dir, &library_uuid, &library_folder, &relative)
+	})
+	.await
+	else {
+		return plain_status(StatusCode::NOT_FOUND, "sidecar not found");
+	};
 
 	// ServeFile answers byte ranges, which a video element needs to play and
 	// seek a proxy. Sidecar paths are content-addressed (uuid + variant), so

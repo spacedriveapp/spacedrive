@@ -13,6 +13,7 @@ use crate::{
 	context::CoreContext,
 	domain::SdPath,
 	infra::query::{LibraryQuery, QueryError, QueryResult},
+	service::sidecars::SidecarRegistry,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -58,7 +59,7 @@ impl LibraryQuery for ShotListQuery {
 		let content_uuid = content_uuid_of_video(&path).await.map_err(|error| {
 			QueryError::InvalidInput(format!("could not read the file: {error}"))
 		})?;
-		let shots = read_shots(library.path(), content_uuid)
+		let shots = read_shots(&SidecarRegistry::of(&library).finder(), content_uuid)
 			.await
 			.map_err(|error| {
 				QueryError::Internal(format!("could not read the shot list: {error}"))

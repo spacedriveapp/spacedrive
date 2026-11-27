@@ -4,6 +4,8 @@
 > **Captured:** 2026-08-17
 > **Companions:** `docs/plans/2026-08-17-record-table-transplant.md` (workstream D)
 
+> **Where this landed:** tiles are record-keyed. The durable tier is each source's `sidecars.db`, and the hot tier is each volume's `thumbs.pvcache`. The content-addressed tree described below holds no thumbnails. It holds the other derived media (proxies, speech audio, transcripts, shots, keyframes, extension documents) under `sources/<id>/derived/`, with a `content_sidecar` row each; see [Virtual Sidecars](../virtual-sidecars.mdx#the-registry). `files.sidecars` reports a file's tile and thumbstrip beside those rows without moving them.
+
 ## The finding that reframes the port
 
 The plan said "port native's two-tier bake + pvcache." The code audit says the two systems are complements, not competitors, and each repo shipped the half the other is missing:
