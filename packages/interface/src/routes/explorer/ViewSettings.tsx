@@ -151,6 +151,27 @@ export function ViewSettingsPanel({
 				</button>
 			</div>
 
+			{(viewMode === "grid" || viewMode === "list") && (
+				<div className="space-y-1 pt-1">
+					<div className="text-[11px] font-medium text-sidebar-inkFaint">Video details</div>
+					<ToggleRow
+						label="Duration"
+						value={viewSettings.showVideoDuration}
+						onChange={(showVideoDuration) => setViewSettings({ showVideoDuration })}
+					/>
+					<ToggleRow
+						label="Shot count"
+						value={viewSettings.showShotCount}
+						onChange={(showShotCount) => setViewSettings({ showShotCount })}
+					/>
+					<ToggleRow
+						label="Transcript"
+						value={viewSettings.showTranscriptMarker}
+						onChange={(showTranscriptMarker) => setViewSettings({ showTranscriptMarker })}
+					/>
+				</div>
+			)}
+
 			{/* Folders First Toggle */}
 			<div className="flex items-center justify-between pt-1">
 				<label className="text-xs text-sidebar-inkDull">Folders First</label>
@@ -172,6 +193,38 @@ export function ViewSettingsPanel({
 					/>
 				</button>
 			</div>
+		</div>
+	);
+}
+
+function ToggleRow({
+	label,
+	value,
+	onChange,
+}: {
+	label: string;
+	value: boolean;
+	onChange: (value: boolean) => void;
+}) {
+	return (
+		<div className="flex items-center justify-between pt-1">
+			<label className="text-xs text-sidebar-inkDull">{label}</label>
+			<button
+				onClick={() => onChange(!value)}
+				role="switch"
+				aria-checked={value}
+				aria-label={label}
+				className={clsx(
+					"relative w-9 h-5 rounded-full transition-colors",
+					value ? "bg-accent" : "bg-app-line",
+				)}
+			>
+				<motion.div
+					className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full"
+					animate={{ x: value ? 16 : 0 }}
+					transition={{ duration: 0.2 }}
+				/>
+			</button>
 		</div>
 	);
 }

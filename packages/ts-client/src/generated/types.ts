@@ -2115,6 +2115,36 @@ shots: number | null;
  */
 analyzed_shots: number | null };
 
+export type FootageSummariesInput = { 
+/**
+ * The videos a listing shows.
+ */
+paths: SdPath[] };
+
+export type FootageSummariesOutput = { 
+/**
+ * One entry per video that has any footage sidecar. A path missing
+ * here has had nothing made for it.
+ */
+summaries: FootageSummary[] };
+
+/**
+ * The footage state of one video.
+ */
+export type FootageSummary = { path: SdPath; transcript: boolean; 
+/**
+ * Shots in the shot list, `None` until shot detection has run.
+ */
+shots: number | null; 
+/**
+ * Shots the Videos extension has analyzed, `None` until it has run.
+ */
+analyzed_shots: number | null; 
+/**
+ * The length shot detection measured, `None` until it has run.
+ */
+duration_seconds: number | null };
+
 /**
  * Whether a footage job can start, and if not, what the person can do.
  */
@@ -3863,7 +3893,11 @@ proxy: ProxySidecar | null;
 /**
  * `None` until shot detection has run.
  */
-shots: ShotList | null };
+shots: ShotList | null; 
+/**
+ * The Videos extension's description of each shot it has analyzed.
+ */
+descriptions: ShotDescription[] };
 
 /**
  * Sort options for media listing
@@ -5167,6 +5201,11 @@ keyframe: FramePoint;
  * Scene score of the cut that opens this shot, 0 for the first shot.
  */
 cut_score: number };
+
+/**
+ * One shot the Videos extension has written a description for.
+ */
+export type ShotDescription = { shot_id: string; description: string };
 
 /**
  * Every shot of one video, in order, with no gaps.
@@ -7145,6 +7184,7 @@ export type LibraryQuery =
   |  { type: 'libraries.info'; input: LibraryInfoQueryInput; output: Library }
   |  { type: 'media.footage.capabilities'; input: FootageCapabilitiesInput; output: FootageCapabilities }
   |  { type: 'media.footage.status'; input: FootageStatusInput; output: FootageStatusOutput }
+  |  { type: 'media.footage.summaries'; input: FootageSummariesInput; output: FootageSummariesOutput }
   |  { type: 'media.sidecars'; input: MediaSidecarsInput; output: MediaSidecarsOutput }
   |  { type: 'paths.compare'; input: PathCompareInput; output: PathCompareOutput }
   |  { type: 'paths.context'; input: PathContextInput; output: PathContextOutput }
@@ -7376,6 +7416,7 @@ export const WIRE_METHODS = {
     'libraries.info': 'query:libraries.info',
     'media.footage.capabilities': 'query:media.footage.capabilities',
     'media.footage.status': 'query:media.footage.status',
+    'media.footage.summaries': 'query:media.footage.summaries',
     'media.sidecars': 'query:media.sidecars',
     'paths.compare': 'query:paths.compare',
     'paths.context': 'query:paths.context',

@@ -3,7 +3,8 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { FileCard } from "./FileCard";
-import type { File } from "@sd/ts-client";
+import type { File, FootageSummary } from "@sd/ts-client";
+import { footageKey, useFootageSummaries } from "../../../../components/Footage/useFootage";
 import { useExplorerFiles } from "../../hooks/useExplorerFiles";
 import { DragSelect } from "./DragSelect";
 import { useEmptySpaceContextMenu } from "../../hooks/useEmptySpaceContextMenu";
@@ -27,6 +28,12 @@ export function GridView() {
 
 	// Get files from centralized hook (handles search, virtual, and directory)
 	const { files, isLoading, source } = useExplorerFiles();
+	const { summaries: footage } = useFootageSummaries(
+		files,
+		viewSettings.showVideoDuration ||
+			viewSettings.showShotCount ||
+			viewSettings.showTranscriptMarker,
+	);
 
 	// Update current files in explorer context for quick preview navigation
 	useEffect(() => {
@@ -95,6 +102,7 @@ export function GridView() {
 								allFiles={files}
 								selected={isSelected(file.id)}
 								focused={index === focusedIndex}
+								footage={footageOf(footage, file)}
 								selectedFiles={selectedFiles}
 								selectFile={selectFile}
 							/>
@@ -108,6 +116,7 @@ export function GridView() {
 	return (
 		<VirtualizedGrid
 			files={files}
+			footage={footage}
 			gridSize={gridSize}
 			gapSize={gapSize}
 			isSelected={isSelected}
@@ -122,8 +131,14 @@ export function GridView() {
 	);
 }
 
+function footageOf(footage: Map<string, FootageSummary>, file: File) {
+	const key = footageKey(file);
+	return key ? footage.get(key) : undefined;
+}
+
 interface VirtualizedGridProps {
 	files: File[];
+	footage: Map<string, FootageSummary>;
 	gridSize: number;
 	gapSize: number;
 	isSelected: (id: string) => boolean;
@@ -143,6 +158,7 @@ interface VirtualizedGridProps {
 
 function VirtualizedGrid({
 	files,
+	footage,
 	gridSize,
 	gapSize,
 	isSelected,
@@ -325,6 +341,7 @@ function VirtualizedGrid({
 												focused={
 													fileIndex === focusedIndex
 												}
+												footage={footageOf(footage, file)}
 												selectedFiles={selectedFiles}
 												selectFile={selectFile}
 											/>
