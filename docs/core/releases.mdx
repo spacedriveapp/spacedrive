@@ -5,7 +5,7 @@ sidebarTitle: Releases
 ---
 
 <Callout>
-  **Spacedrive 2.0 Beta is planned for November 27, 2026.**
+  **Spacedrive 2.0 Beta is planned for December 5, 2026.**
 
   Release artifacts remain drafts until the cross-platform and destructive
   operation gates on this page pass.
@@ -58,6 +58,15 @@ git push origin v2.0.0-beta.1
 
 Pushing the tag starts release builds. It does not by itself publish a stable
 release.
+
+## Where beta.1 is cut
+
+beta.1 is tagged from a verified `main` head. There is no release branch:
+`release/beta.1` is retired, and fixes land on `main` instead of being
+cherry-picked onto a branch. Every in-flight feature, the footage work
+included, ships in beta.1 by merging to `main` before the cut. Run the bump
+on a `main` commit whose CI is green and whose build has passed the release
+gates on this page.
 
 ## Dry run
 
