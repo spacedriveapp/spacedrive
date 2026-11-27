@@ -34,6 +34,7 @@ use crate::{
 	ops::{
 		files::trash,
 		grants::{authorize, scope, GrantCap, GrantError, GrantScope},
+		spaces::events::{self as space_events, Attribution, Origin},
 	},
 	service::network::protocol::staged_receive::{rename_noreplace, StagedReceive, JOURNAL_DIR},
 };
@@ -221,7 +222,8 @@ pub async fn write_file_in(
 		}
 	};
 
-	finish(context, &scope, id, effects, &landed, conflict).await
+	let before = current.content_hash.clone();
+	finish(context, &scope, id, effects, &landed, conflict, before).await
 }
 
 /// Create a directory and any missing parents.
@@ -246,7 +248,7 @@ pub async fn make_dir_in(
 		state::read_until(context, &scope.root, &scope.path, turn.cancel.clone()).await?;
 	let id = Uuid::now_v7();
 	if current.kind == Some(PathKind::Directory) {
-		return finish(context, &scope, id, Vec::new(), &scope.path, false).await;
+		return finish(context, &scope, id, Vec::new(), &scope.path, false, None).await;
 	}
 	let mut wanted = if current.exists() {
 		conflict_name(&scope.path, true)
@@ -268,7 +270,7 @@ pub async fn make_dir_in(
 	let meta = std::fs::symlink_metadata(&wanted).ok();
 	effects.push(Effect::created(wanted.clone(), meta.as_ref()));
 	let conflict = wanted != scope.path;
-	finish(context, &scope, id, effects, &wanted, conflict).await
+	finish(context, &scope, id, effects, &wanted, conflict, None).await
 }
 
 /// Move or rename a path within the grant, on one volume.
@@ -340,7 +342,8 @@ pub async fn move_path_in(
 		meta.as_ref(),
 	));
 	let conflict = wanted != to.path;
-	let mut outcome = finish(context, &to, id, effects, &wanted, conflict).await?;
+	let before = current.content_hash.clone();
+	let mut outcome = finish(context, &to, id, effects, &wanted, conflict, before).await?;
 	outcome.requested = state::shown(&to.root, &to.path);
 	Ok(outcome)
 }
@@ -379,7 +382,8 @@ pub async fn delete_in(
 		location,
 		Some(&metadata),
 	)];
-	finish(context, &scope, id, effects, &scope.path, false).await
+	let before = current.content_hash.clone();
+	finish(context, &scope, id, effects, &scope.path, false, before).await
 }
 
 async fn writable(
@@ -562,9 +566,24 @@ async fn finish(
 	effects: Vec<Effect>,
 	landed: &Path,
 	conflict: bool,
+	before: Option<String>,
 ) -> Result<WriteOutcome, WriteError> {
 	let undo = journal(context, scope.library_id, id, &effects).await;
 	let (state, _) = state::read(context, &scope.root, landed).await?;
+	// Still inside the write's turn, so no other agent write lands between
+	// the journal row and this space's record of the change.
+	space_events::record_effects(
+		context,
+		Attribution {
+			origin: Origin::AgentWrite,
+			actor: scope.actor_id,
+			grant: Some(scope.grant_id),
+			undo,
+		},
+		&effects,
+		Some((landed, before, state.content_hash.clone())),
+	)
+	.await;
 	info!(
 		grant = %scope.grant_id,
 		path = %state.path,

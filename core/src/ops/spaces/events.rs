@@ -1,0 +1,447 @@
+//! # Space events
+//!
+//! Writes each change inside a space to that space's event log, attributed to
+//! whoever made it. Three writers feed it: agent writes, file operations run
+//! through the app, and the watcher for everything else. Only paths inside a
+//! space are logged. A change anywhere else in a source costs one in-memory
+//! lookup and writes nothing, so a home folder full of caches and build
+//! output never fills a log or starts a job.
+//!
+//! An agent write or an app operation is seen again by the watcher a moment
+//! later. The first writer marks the path, and the watcher skips a marked path
+//! for a few seconds, so one change is one event with the right actor.
+
+use std::{
+	collections::HashMap,
+	path::{Path, PathBuf},
+	sync::{Arc, LazyLock},
+	time::{Duration, Instant},
+};
+
+use chrono::Utc;
+use parking_lot::Mutex;
+use sd_fs_watcher::{FsEvent, FsEventKind};
+use sd_store::{SpaceEvent, SpaceEventLog};
+use tracing::warn;
+use uuid::Uuid;
+
+use crate::{context::CoreContext, infra::job::journal::Effect, ops::spaces::store::slash_path};
+
+/// How long a space keeps its events unless it says otherwise.
+pub const RETENTION_DAYS: i64 = 30;
+
+/// How long the watcher leaves a path alone after Spacedrive changed it.
+const OWN_WRITE_WINDOW: Duration = Duration::from_secs(5);
+
+/// Repeats of one watcher change within this window are one event: an editor
+/// saving a file fires several modify events.
+const WATCHER_COALESCE: Duration = Duration::from_secs(2);
+
+const PRUNE_EVERY: Duration = Duration::from_secs(60 * 60);
+
+/// Who made a change and through what.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Origin {
+	AgentWrite,
+	AppOp,
+	Watcher,
+}
+
+impl Origin {
+	pub fn as_str(self) -> &'static str {
+		match self {
+			Self::AgentWrite => "agent_write",
+			Self::AppOp => "app_op",
+			Self::Watcher => "watcher",
+		}
+	}
+}
+
+/// The attribution every event of one change shares.
+#[derive(Debug, Clone, Copy)]
+pub struct Attribution {
+	pub origin: Origin,
+	pub actor: Uuid,
+	pub grant: Option<Uuid>,
+	/// The job id `files.undo` takes to reverse the change.
+	pub undo: Option<Uuid>,
+}
+
+/// One change to record, in absolute paths.
+#[derive(Debug, Clone)]
+pub struct Change {
+	pub op: &'static str,
+	pub path: PathBuf,
+	pub to: Option<PathBuf>,
+	pub before_hash: Option<String>,
+	pub after_hash: Option<String>,
+	pub size: Option<u64>,
+}
+
+/// A path resolved to the space that holds it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InSpace {
+	pub source_id: Uuid,
+	pub space_id: Uuid,
+	/// Relative to the space root, `/`-separated. Empty is the root itself.
+	pub path: String,
+}
+
+struct Logs {
+	open: HashMap<Uuid, (Arc<SpaceEventLog>, Instant)>,
+}
+
+static SPACES: LazyLock<Mutex<HashMap<Uuid, Arc<Vec<(Uuid, String)>>>>> =
+	LazyLock::new(Default::default);
+static LOGS: LazyLock<tokio::sync::Mutex<Logs>> = LazyLock::new(|| {
+	tokio::sync::Mutex::new(Logs {
+		open: HashMap::new(),
+	})
+});
+static OWN_WRITES: LazyLock<Mutex<HashMap<PathBuf, Instant>>> = LazyLock::new(Default::default);
+static WATCHED: LazyLock<Mutex<HashMap<PathBuf, (&'static str, Instant)>>> =
+	LazyLock::new(Default::default);
+
+/// Forget what is cached about a source's spaces, after one changed.
+pub fn invalidate(source_id: Uuid) {
+	SPACES.lock().remove(&source_id);
+}
+
+async fn spaces_of(context: &CoreContext, source_id: Uuid) -> Arc<Vec<(Uuid, String)>> {
+	if let Some(spaces) = SPACES.lock().get(&source_id) {
+		return spaces.clone();
+	}
+	let spaces = match context.volume_index().read_store(source_id).await {
+		Some(db) => match db.spaces().await {
+			Ok(rows) => rows.into_iter().map(|row| (row.uuid, row.root)).collect(),
+			Err(error) => {
+				warn!(%source_id, %error, "could not read the spaces of a source");
+				return Arc::new(Vec::new());
+			}
+		},
+		None => Vec::new(),
+	};
+	let spaces = Arc::new(spaces);
+	SPACES.lock().insert(source_id, spaces.clone());
+	spaces
+}
+
+/// The innermost space of `spaces` that holds `relative`, and `relative`
+/// under that space's root.
+fn innermost(spaces: &[(Uuid, String)], relative: &str) -> Option<(Uuid, String)> {
+	spaces
+		.iter()
+		.filter_map(|(id, root)| {
+			let inside = if root.is_empty() {
+				Some(relative)
+			} else if relative == root {
+				Some("")
+			} else {
+				relative
+					.strip_prefix(root.as_str())
+					.and_then(|rest| rest.strip_prefix('/'))
+			}?;
+			Some((root.len(), *id, inside.to_string()))
+		})
+		.max_by_key(|(depth, _, _)| *depth)
+		.map(|(_, id, inside)| (id, inside))
+}
+
+/// The space holding `path`, if any. `path` may be spelled under the
+/// source's root or under the volume's spelling of it.
+pub async fn space_of(context: &CoreContext, path: &Path) -> Option<InSpace> {
+	let index = context.volume_index();
+	let spelled;
+	let (source_id, path) = match index.source_id_for(path) {
+		Some(id) => (id, path),
+		None => {
+			spelled = context.volume_manager.locate_path(path).await?.1;
+			(index.source_id_for(&spelled)?, spelled.as_path())
+		}
+	};
+	let spaces = spaces_of(context, source_id).await;
+	if spaces.is_empty() {
+		return None;
+	}
+	let root = index.source_root(source_id)?;
+	let relative = slash_path(path.strip_prefix(&root).ok()?);
+	let (space_id, path) = innermost(&spaces, &relative)?;
+	Some(InSpace {
+		source_id,
+		space_id,
+		path,
+	})
+}
+
+async fn log_for(context: &CoreContext, at: &InSpace) -> Option<Arc<SpaceEventLog>> {
+	let mut logs = LOGS.lock().await;
+	if let Some((log, pruned)) = logs.open.get_mut(&at.space_id) {
+		if pruned.elapsed() >= PRUNE_EVERY {
+			*pruned = Instant::now();
+			prune(log).await;
+		}
+		return Some(log.clone());
+	}
+	let dir = context
+		.volume_index()
+		.store_dir(at.source_id)?
+		.join("spaces")
+		.join(at.space_id.to_string());
+	let log = match SpaceEventLog::open(&dir).await {
+		Ok(log) => Arc::new(log),
+		Err(error) => {
+			warn!(space = %at.space_id, %error, "could not open a space's event log");
+			return None;
+		}
+	};
+	prune(&log).await;
+	logs.open.insert(at.space_id, (log.clone(), Instant::now()));
+	Some(log)
+}
+
+async fn prune(log: &SpaceEventLog) {
+	let cutoff = (Utc::now() - chrono::Duration::days(RETENTION_DAYS)).to_rfc3339();
+	if let Err(error) = log.prune_before(&cutoff).await {
+		warn!(%error, "could not prune a space's event log");
+	}
+}
+
+/// The event log of one space, if its source has a store on this device.
+pub async fn log_of(
+	context: &CoreContext,
+	source_id: Uuid,
+	space_id: Uuid,
+) -> Option<Arc<SpaceEventLog>> {
+	log_for(
+		context,
+		&InSpace {
+			source_id,
+			space_id,
+			path: String::new(),
+		},
+	)
+	.await
+}
+
+/// Record one change in the spaces it touches. A move within a space is one
+/// event; a move between spaces, or in or out of one, is a delete where it
+/// left and a create where it landed. Answers how many events were written.
+pub async fn record(context: &CoreContext, who: Attribution, change: Change) -> usize {
+	if who.origin != Origin::Watcher {
+		let now = Instant::now();
+		let mut own = OWN_WRITES.lock();
+		if own.len() > 4096 {
+			own.retain(|_, at| now.duration_since(*at) < OWN_WRITE_WINDOW);
+		}
+		own.insert(change.path.clone(), now);
+		if let Some(to) = &change.to {
+			own.insert(to.clone(), now);
+		}
+	}
+
+	let from = space_of(context, &change.path).await;
+	let to = match &change.to {
+		Some(to) => space_of(context, to).await,
+		None => None,
+	};
+	let mut written = 0;
+	let mut write = |at: InSpace, op: &'static str, to_path: Option<String>| {
+		let event = SpaceEvent {
+			seq: 0,
+			space_id: at.space_id,
+			at: Utc::now().to_rfc3339(),
+			actor_id: who.actor,
+			grant_id: who.grant,
+			origin: who.origin.as_str().to_string(),
+			op: op.to_string(),
+			path: at.path.clone(),
+			to_path,
+			before_hash: change.before_hash.clone(),
+			after_hash: change.after_hash.clone(),
+			size: change.size.map(|size| size as i64),
+			undo_id: who.undo,
+			authority_epoch: 0,
+		};
+		written += 1;
+		(at, event)
+	};
+	let events = match (from, to) {
+		(Some(from), Some(to)) if change.op == "move" && from.space_id == to.space_id => {
+			let to_path = Some(to.path);
+			vec![write(from, "move", to_path)]
+		}
+		(from, to) if change.op == "move" => from
+			.map(|from| write(from, "delete", None))
+			.into_iter()
+			.chain(to.map(|to| write(to, "create", None)))
+			.collect(),
+		(Some(from), _) => vec![write(from, change.op, None)],
+		(None, _) => Vec::new(),
+	};
+	for (at, event) in events {
+		let Some(log) = log_for(context, &at).await else {
+			continue;
+		};
+		if let Err(error) = log.append(&event).await {
+			warn!(space = %at.space_id, %error, "could not append a space event");
+		}
+	}
+	written
+}
+
+/// Record what a journaled operation did, one event per effect.
+/// `hashes` names the path the operation was about and its content hashes
+/// before and after, where the caller knows them.
+pub async fn record_effects(
+	context: &CoreContext,
+	who: Attribution,
+	effects: &[Effect],
+	hashes: Option<(&Path, Option<String>, Option<String>)>,
+) {
+	for effect in effects {
+		let Some(mut change) = change_of(effect) else {
+			continue;
+		};
+		if let Some((path, before, after)) = &hashes {
+			if change.to.as_deref().unwrap_or(&change.path) == *path {
+				change.before_hash = before.clone();
+				change.after_hash = after.clone();
+			}
+		}
+		record(context, who, change).await;
+	}
+}
+
+fn change_of(effect: &Effect) -> Option<Change> {
+	let change = |op, path: &PathBuf, to: Option<&PathBuf>, size: Option<u64>| Change {
+		op,
+		path: path.clone(),
+		to: to.cloned(),
+		before_hash: None,
+		after_hash: None,
+		size,
+	};
+	Some(match effect {
+		Effect::Created { path, subject } => {
+			let is_dir = subject.is_some_and(|s| s.is_dir);
+			let op = if is_dir { "mkdir" } else { "create" };
+			change(
+				op,
+				path,
+				None,
+				subject.filter(|s| !s.is_dir).map(|s| s.size),
+			)
+		}
+		Effect::Moved { from, to, subject } => change(
+			"move",
+			from,
+			Some(to),
+			subject.filter(|s| !s.is_dir).map(|s| s.size),
+		),
+		Effect::Trashed { from, .. } => change("delete", from, None, None),
+		Effect::Removed { path } => change("delete", path, None, None),
+		Effect::Replaced { path, subject, .. } => {
+			change("modify", path, None, subject.map(|s| s.size))
+		}
+		Effect::Attributes { path, .. } => change("modify", path, None, None),
+	})
+}
+
+/// Record a change the watcher saw, when it is inside a space and Spacedrive
+/// did not make it. It is attributed to this device.
+pub async fn record_watched(context: &CoreContext, event: &FsEvent) {
+	let (op, path, to) = match &event.kind {
+		FsEventKind::Create => ("create", &event.path, None),
+		FsEventKind::Modify => ("modify", &event.path, None),
+		FsEventKind::Remove => ("delete", &event.path, None),
+		FsEventKind::Rename { from, to } => ("move", from, Some(to)),
+	};
+	let now = Instant::now();
+	{
+		let own = OWN_WRITES.lock();
+		let recent = |p: &PathBuf| {
+			own.get(p)
+				.is_some_and(|at| now.duration_since(*at) < OWN_WRITE_WINDOW)
+		};
+		if recent(path) || to.is_some_and(recent) {
+			return;
+		}
+	}
+	{
+		let mut watched = WATCHED.lock();
+		if watched.len() > 4096 {
+			watched.retain(|_, (_, at)| now.duration_since(*at) < WATCHER_COALESCE);
+		}
+		if let Some((last, at)) = watched.get(path) {
+			if *last == op && now.duration_since(*at) < WATCHER_COALESCE {
+				return;
+			}
+		}
+		watched.insert(path.clone(), (op, now));
+	}
+	if space_of(context, path).await.is_none()
+		&& match to {
+			Some(to) => space_of(context, to).await.is_none(),
+			None => true,
+		} {
+		return;
+	}
+	let Ok(device) = context.device_manager.device_id() else {
+		return;
+	};
+	let landed = to.unwrap_or(path);
+	let meta = tokio::fs::symlink_metadata(landed).await.ok();
+	let op = match (op, &meta) {
+		("create", Some(meta)) if meta.is_dir() => "mkdir",
+		_ => op,
+	};
+	record(
+		context,
+		Attribution {
+			origin: Origin::Watcher,
+			actor: device,
+			grant: None,
+			undo: None,
+		},
+		Change {
+			op,
+			path: path.clone(),
+			to: to.cloned(),
+			before_hash: None,
+			after_hash: None,
+			size: meta.filter(|m| m.is_file()).map(|m| m.len()),
+		},
+	)
+	.await;
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn the_innermost_space_holds_a_path() {
+		let a = Uuid::from_u128(1);
+		let b = Uuid::from_u128(2);
+		let c = Uuid::from_u128(3);
+		let spaces = vec![
+			(a, String::new()),
+			(b, "Documents".into()),
+			(c, "Documents/thesis".into()),
+		];
+		assert_eq!(
+			innermost(&spaces, "Documents/thesis/ch1.md"),
+			Some((c, "ch1.md".into()))
+		);
+		assert_eq!(
+			innermost(&spaces, "Documents/notes.md"),
+			Some((b, "notes.md".into()))
+		);
+		assert_eq!(innermost(&spaces, "Documents"), Some((b, String::new())));
+		assert_eq!(
+			innermost(&spaces, "Documentsx/a"),
+			Some((a, "Documentsx/a".into()))
+		);
+		assert_eq!(innermost(&spaces[1..], "Library/Caches/x"), None);
+	}
+}

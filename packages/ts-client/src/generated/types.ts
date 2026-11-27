@@ -25,6 +25,14 @@ export type ActiveProvider = { category: Category; locality: Locality;
  */
 model_id: string | null };
 
+export type Actor = { id: string; kind: ActorKind; label: string; harness: string | null };
+
+export type ActorKind = "person" | "device" | "agent";
+
+export type ActorsListInput = Record<string, never>;
+
+export type ActorsListOutput = { actors: Actor[] };
+
 export type AdapterConfigField = { key: string; name: string; description: string; field_type: string; required: boolean; secret: boolean; default: string | null };
 
 export type AdapterInfo = { id: string; name: string; description: string; version: string; author: string; data_type: string; icon_svg: string | null; update_available: boolean };
@@ -5754,6 +5762,52 @@ path: string | null;
  */
 content_indexing: boolean; created_at: string };
 
+/**
+ * One change inside a space.
+ */
+export type SpaceChange = { seq: number; 
+/**
+ * RFC 3339.
+ */
+at: string; actor: Actor; grant_id: string | null; 
+/**
+ * `agent_write`, `app_op` or `watcher`.
+ */
+origin: string; 
+/**
+ * `create`, `mkdir`, `modify`, `move` or `delete`.
+ */
+op: string; 
+/**
+ * Relative to the space root, `/`-separated.
+ */
+path: string; to_path: string | null; before_hash: string | null; after_hash: string | null; size: number | null; 
+/**
+ * The job whose undo reverses the change.
+ */
+undo_id: string | null; 
+/**
+ * One line for a person, such as "changed outside Spacedrive on Studio".
+ */
+summary: string };
+
+export type SpaceChangesInput = { id: string; 
+/**
+ * The `next` of the previous page. Omit to start at the oldest
+ * change still kept.
+ */
+since?: number | null; 
+/**
+ * Defaults to 100, at most 500.
+ */
+limit?: number | null };
+
+export type SpaceChangesOutput = { changes: SpaceChange[]; 
+/**
+ * Pass as `since` to read the changes after this page.
+ */
+next: number };
+
 export type SpaceCreateInput = { 
 /**
  * Display name, or the folder's own name.
@@ -7302,7 +7356,8 @@ export type CoreQuery =
 ;
 
 export type LibraryQuery =
-     { type: 'adapters.config'; input: GetAdapterConfigInput; output: [AdapterConfigField] }
+     { type: 'actors.list'; input: ActorsListInput; output: ActorsListOutput }
+  |  { type: 'adapters.config'; input: GetAdapterConfigInput; output: [AdapterConfigField] }
   |  { type: 'adapters.list'; input: ListAdaptersInput; output: [AdapterInfo] }
   |  { type: 'agent.stat'; input: StatInput; output: PathState }
   |  { type: 'ai.providers.list'; input: ListProvidersInput; output: ListProvidersOutput }
@@ -7348,6 +7403,7 @@ export type LibraryQuery =
   |  { type: 'sources.media_listing'; input: SourceMediaListingInput; output: SourceMediaListingOutput }
   |  { type: 'sources.search'; input: SourceSearchInput; output: [SourceSearchResult] }
   |  { type: 'sources.validate_path'; input: ValidateSourcePathInput; output: ValidateSourcePathOutput }
+  |  { type: 'spaces.changes'; input: SpaceChangesInput; output: SpaceChangesOutput }
   |  { type: 'spaces.get'; input: SpaceGetQueryInput; output: SpaceGetQueryOutput }
   |  { type: 'spaces.list'; input: SpacesListQueryInput; output: SpacesListQueryOutput }
   |  { type: 'sync.activity'; input: GetSyncActivityInput; output: GetSyncActivityOutput }
@@ -7543,6 +7599,7 @@ export const WIRE_METHODS = {
   },
 
   libraryQueries: {
+    'actors.list': 'query:actors.list',
     'adapters.config': 'query:adapters.config',
     'adapters.list': 'query:adapters.list',
     'agent.stat': 'query:agent.stat',
@@ -7589,6 +7646,7 @@ export const WIRE_METHODS = {
     'sources.media_listing': 'query:sources.media_listing',
     'sources.search': 'query:sources.search',
     'sources.validate_path': 'query:sources.validate_path',
+    'spaces.changes': 'query:spaces.changes',
     'spaces.get': 'query:spaces.get',
     'spaces.list': 'query:spaces.list',
     'sync.activity': 'query:sync.activity',

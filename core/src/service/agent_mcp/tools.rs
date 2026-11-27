@@ -72,6 +72,7 @@ pub enum Tool {
 	MakeDir,
 	Move,
 	Delete,
+	ListChanges,
 	#[cfg(feature = "video-shots")]
 	ListShots,
 	#[cfg(feature = "footage-clips")]
@@ -96,6 +97,7 @@ impl Tool {
 		Self::MakeDir,
 		Self::Move,
 		Self::Delete,
+		Self::ListChanges,
 		#[cfg(feature = "video-shots")]
 		Self::ListShots,
 		#[cfg(feature = "footage-clips")]
@@ -120,6 +122,7 @@ impl Tool {
 			Self::MakeDir => "make_dir",
 			Self::Move => "move",
 			Self::Delete => "delete",
+			Self::ListChanges => "list_changes",
 			#[cfg(feature = "video-shots")]
 			Self::ListShots => "list_shots",
 			#[cfg(feature = "footage-clips")]
@@ -421,6 +424,20 @@ pub fn definitions() -> Value {
 			},
 			"annotations": writes("Move to the trash", true),
 		},
+		{
+			"name": "list_changes",
+			"title": "List recent changes",
+			"description": "Returns what changed under the grant root, oldest first: each change's op (create, mkdir, modify, move or delete), path, who made it (you, another agent, the person in the app, or someone outside Spacedrive), and the content hashes before and after when known. Changes are kept for 30 days. Pass next_cursor back as cursor to read only what changed since your last call.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"limit": { "type": "integer", "minimum": 1, "maximum": PAGE_MAX, "default": PAGE_DEFAULT, "description": "Changes per page." },
+					"cursor": cursor,
+				},
+				"additionalProperties": false,
+			},
+			"annotations": annotations("List recent changes"),
+		},
 	]);
 	#[cfg(feature = "video-shots")]
 	if let Some(list) = tools.as_array_mut() {
@@ -469,6 +486,7 @@ pub async fn call(
 		Tool::WriteFile | Tool::MakeDir | Tool::Move | Tool::Delete => {
 			write(context.clone(), token, tool, &scope, arguments, cancel).await
 		}
+		Tool::ListChanges => list_changes(&context, &scope, args(arguments)?).await,
 		#[cfg(feature = "video-shots")]
 		Tool::ListShots => list_shots(&context, &scope).await,
 		#[cfg(feature = "footage-clips")]
@@ -479,6 +497,88 @@ pub async fn call(
 		Tool::ExportTimeline => footage::export_timeline(&context, token, &scope, args(arguments)?).await,
 	};
 	result.map_err(|message| scrub(&message, &root))
+}
+
+#[derive(Deserialize)]
+struct ListChangesArgs {
+	#[serde(default)]
+	limit: Option<u32>,
+	#[serde(default)]
+	cursor: Option<String>,
+}
+
+/// The changes of the grant's space that fall under the grant root, with
+/// paths relative to that root.
+async fn list_changes(
+	context: &CoreContext,
+	scope: &GrantScope,
+	args: ListChangesArgs,
+) -> Result<Output, String> {
+	let Some(space_id) = scope.space_id else {
+		return Err("this grant has no change log because it predates spaces; ask the owner for a new grant".to_string());
+	};
+	let since = match args.cursor.as_deref() {
+		Some(cursor) => cursor
+			.parse::<i64>()
+			.map_err(|_| "invalid cursor".to_string())?,
+		None => 0,
+	};
+	let at = crate::ops::spaces::events::space_of(context, &scope.root)
+		.await
+		.filter(|at| at.space_id == space_id)
+		.ok_or_else(|| "the grant root is no longer inside its space".to_string())?;
+	let library = context
+		.libraries()
+		.await
+		.get_library(scope.library_id)
+		.await
+		.ok_or_else(|| "the library is not open".to_string())?;
+	let limit = args.limit.unwrap_or(PAGE_DEFAULT).clamp(1, PAGE_MAX);
+	let page =
+		crate::ops::spaces::page(&library, context, at.source_id, space_id, since, limit).await?;
+	let under = |path: &str| -> Option<String> {
+		if at.path.is_empty() {
+			return Some(path.to_string());
+		}
+		if path == at.path {
+			return Some(String::new());
+		}
+		path.strip_prefix(at.path.as_str())
+			.and_then(|rest| rest.strip_prefix('/'))
+			.map(str::to_string)
+	};
+	let changes: Vec<Value> = page
+		.changes
+		.into_iter()
+		.filter_map(|change| {
+			let path = under(&change.path);
+			let to_path = change.to_path.as_deref().and_then(under);
+			if path.is_none() && to_path.is_none() {
+				return None;
+			}
+			let by = if change.actor.id == scope.actor_id {
+				"you".to_string()
+			} else {
+				change.actor.label.clone()
+			};
+			Some(json!({
+				"at": change.at,
+				"op": change.op,
+				"path": path,
+				"to_path": to_path,
+				"by": by,
+				"actor_kind": change.actor.kind,
+				"origin": change.origin,
+				"before_hash": change.before_hash,
+				"after_hash": change.after_hash,
+				"size": change.size,
+			}))
+		})
+		.collect();
+	Ok(Output::json(json!({
+		"changes": changes,
+		"next_cursor": page.next.to_string(),
+	})))
 }
 
 /// Drop any spelling of the grant root from a message, so a lower layer's
@@ -1484,6 +1584,8 @@ mod tests {
 		std::fs::write(root.join("cloud.txt"), "not here").unwrap();
 		let scope = GrantScope {
 			grant_id: uuid::Uuid::new_v4(),
+			actor_id: uuid::Uuid::new_v4(),
+			space_id: None,
 			library_id: uuid::Uuid::new_v4(),
 			cap: GrantCap::Read,
 			path: root.join("cloud.txt"),
