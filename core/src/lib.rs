@@ -302,9 +302,7 @@ impl Core {
 		// Serve grant holders over MCP when the user turned the endpoint on.
 		let agent_mcp = config.read().await.agent_mcp.clone();
 		if agent_mcp.enabled {
-			if let Err(e) =
-				crate::service::agent_mcp::start(context.clone(), &agent_mcp.listen).await
-			{
+			if let Err(e) = crate::service::agent_mcp::start(context.clone(), &agent_mcp).await {
 				error!("Agent MCP endpoint not started: {}", e);
 			}
 		}
