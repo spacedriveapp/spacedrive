@@ -54,6 +54,10 @@ use crate::service::mounts::vfs::{DirEntry, MountError, MountFs, NodeAttr, NodeK
 /// no change feed says otherwise.
 const VALID_FOR: Duration = Duration::from_secs(1);
 
+/// Longest wait for a frontend to report that the kernel dropped its caches
+/// once the grant ended.
+const FLUSH_WAIT: Duration = Duration::from_secs(2);
+
 /// How often an idle mount asks the node whether its grant still holds.
 const GRANT_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -112,17 +116,20 @@ pub async fn connect(
 		Some(dir) => dir,
 		None => default_cache_dir()?,
 	};
-	let dirs = SourceDirs::new(cache_dir.clone())
-		.map_err(|err| MountError::Unavailable(format!("block cache: {err}")))?;
-	// Blocks are copies of granted files, so only this user may reach them,
-	// whatever the umask and however the directory was made before.
-	#[cfg(unix)]
-	{
-		use std::os::unix::fs::PermissionsExt;
-		std::fs::set_permissions(&cache_dir, std::fs::Permissions::from_mode(0o700)).map_err(
-			|err| MountError::Unavailable(format!("block cache {}: {err}", cache_dir.display())),
-		)?;
-	}
+	let dirs = tokio::task::spawn_blocking(move || -> anyhow::Result<SourceDirs> {
+		let dirs = SourceDirs::new(cache_dir.clone())?;
+		// Blocks are copies of granted files, so only this user may reach
+		// them, whatever the umask and however the directory was made before.
+		#[cfg(unix)]
+		{
+			use std::os::unix::fs::PermissionsExt;
+			std::fs::set_permissions(&cache_dir, std::fs::Permissions::from_mode(0o700))?;
+		}
+		Ok(dirs)
+	})
+	.await
+	.map_err(|err| MountError::Unavailable(err.to_string()))?
+	.map_err(|err| MountError::Unavailable(format!("block cache: {err}")))?;
 	let cache = Arc::new(BlockCache::new(dirs, DEFAULT_CACHE_BYTES));
 	cache.restore().await;
 	// One cache namespace per node URL and grant, so two mounts never read
@@ -148,6 +155,9 @@ pub struct RemoteFs {
 	/// cached blocks included.
 	ended: Arc<AtomicBool>,
 	ended_tx: watch::Sender<bool>,
+	/// Set once the frontend reports the kernel dropped its caches after the
+	/// grant ended.
+	flushed_tx: watch::Sender<bool>,
 }
 
 impl RemoteFs {
@@ -189,17 +199,22 @@ impl RemoteFs {
 			changes,
 			ended: Arc::new(AtomicBool::new(false)),
 			ended_tx: watch::Sender::new(false),
+			flushed_tx: watch::Sender::new(false),
 		}
 	}
 
 	/// Returns once the node refuses the token: the grant was revoked or
 	/// expired. From then on every listing, open and read is refused, and
 	/// the kernel is told to drop everything it cached, so a file opened
-	/// before cannot be read from memory either. Callers unmount.
+	/// before cannot be read from memory either. It returns only after the
+	/// frontend has done so, or after [`FLUSH_WAIT`] for a frontend that
+	/// never reports. Callers unmount.
 	pub async fn grant_ended(&self) {
 		let mut ended = self.ended_tx.subscribe();
 		loop {
 			if *ended.borrow_and_update() {
+				let mut flushed = self.flushed_tx.subscribe();
+				let _ = tokio::time::timeout(FLUSH_WAIT, flushed.wait_for(|done| *done)).await;
 				return;
 			}
 			tokio::select! {
@@ -219,8 +234,11 @@ impl RemoteFs {
 		if let Ok(mut attrs) = self.attrs.lock() {
 			attrs.clear();
 		}
-		// The root path stands for every path.
-		let _ = self.changes.send(PathBuf::new());
+		// The root path stands for every path. With no frontend listening
+		// there is nothing to flush.
+		if self.changes.send(PathBuf::new()).is_err() {
+			self.flushed_tx.send_replace(true);
+		}
 		self.ended_tx.send_replace(true);
 	}
 
@@ -355,6 +373,12 @@ impl MountFs for RemoteFs {
 
 	fn changes(&self) -> Option<broadcast::Receiver<PathBuf>> {
 		Some(self.changes.subscribe())
+	}
+
+	fn invalidated(&self, path: &Path) {
+		if path.as_os_str().is_empty() && self.ended.load(Ordering::SeqCst) {
+			self.flushed_tx.send_replace(true);
+		}
 	}
 }
 

@@ -178,6 +178,10 @@ pub trait MountFs: Send + Sync + 'static {
 	fn changes(&self) -> Option<broadcast::Receiver<PathBuf>> {
 		None
 	}
+
+	/// Called by a frontend once the kernel has dropped what it cached for a
+	/// path from the change feed, so a backend can wait for that to finish.
+	fn invalidated(&self, _path: &Path) {}
 }
 
 /// A name a frontend may pass on: exactly one plain component.

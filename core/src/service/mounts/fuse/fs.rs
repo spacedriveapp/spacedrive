@@ -128,6 +128,7 @@ async fn invalidate(
 				}
 			})
 			.await;
+			inner.fs.invalidated(&path);
 			continue;
 		}
 		let (ino, parent) = {
@@ -151,6 +152,7 @@ async fn invalidate(
 			}
 		})
 		.await;
+		inner.fs.invalidated(&path);
 	}
 }
 
