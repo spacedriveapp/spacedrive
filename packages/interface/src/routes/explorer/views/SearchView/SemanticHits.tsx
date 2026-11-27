@@ -25,7 +25,7 @@ export function SemanticHits() {
 				)}
 			</div>
 			{error && (
-				<p className="mt-2 text-xs text-red-500">
+				<p className="text-status-error mt-2 text-xs">
 					{files.length > 0
 						? `Search failed in ${failedSources} ${failedSources === 1 ? "source" : "sources"}: ${error}`
 						: `Search by meaning failed: ${error}`}
