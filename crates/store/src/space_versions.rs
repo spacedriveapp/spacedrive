@@ -272,6 +272,31 @@ impl SpaceVersions {
 		insert(&mut conn, row).await
 	}
 
+	/// Append `row` only while `current` is still the newest row of its path,
+	/// so a reconciliation never hides a capture that landed after it looked.
+	/// Answers whether it was appended.
+	pub async fn append_if_current(&self, row: &VersionRow, current: i64) -> Result<bool> {
+		let appended = sqlx::query(
+			"INSERT INTO version (path, blob_hash, size, mode, mtime, at, actor_id, origin, event_seq)
+			 SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9
+			 WHERE (SELECT MAX(id) FROM version WHERE path = ?1) = ?10",
+		)
+		.bind(&row.path)
+		.bind(&row.blob_hash)
+		.bind(row.size)
+		.bind(row.mode)
+		.bind(&row.mtime)
+		.bind(&row.at)
+		.bind(row.actor_id)
+		.bind(&row.origin)
+		.bind(row.event_seq)
+		.bind(current)
+		.execute(&self.pool)
+		.await?
+		.rows_affected();
+		Ok(appended == 1)
+	}
+
 	/// Record that `from` and everything under it now lives at `to`: a
 	/// delete at each old path and the same content at each new one.
 	/// Answers how many files moved.
@@ -749,6 +774,37 @@ mod tests {
 			.await
 			.unwrap();
 		(dir, versions)
+	}
+
+	#[tokio::test]
+	async fn a_conditional_delete_yields_to_a_newer_capture() {
+		let (dir, versions) = open().await;
+		let file = dir.path().join("a.md");
+		std::fs::write(&file, "one").unwrap();
+		let (first, _) = versions
+			.capture(&file, row("a.md", "2026-11-27T00:00:00Z"))
+			.await
+			.unwrap()
+			.unwrap();
+		std::fs::write(&file, "two").unwrap();
+		versions
+			.capture(&file, row("a.md", "2026-11-27T00:00:01Z"))
+			.await
+			.unwrap()
+			.unwrap();
+		let delete = row("a.md", "2026-11-27T00:00:02Z");
+		assert!(!versions.append_if_current(&delete, first).await.unwrap());
+		assert_eq!(
+			versions.manifest(None, Some("a.md")).await.unwrap().len(),
+			1
+		);
+		let newest = versions.current("a.md").await.unwrap().unwrap().id;
+		assert!(versions.append_if_current(&delete, newest).await.unwrap());
+		assert!(versions
+			.manifest(None, Some("a.md"))
+			.await
+			.unwrap()
+			.is_empty());
 	}
 
 	#[tokio::test]
