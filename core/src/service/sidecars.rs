@@ -197,6 +197,7 @@ impl SidecarRegistry {
 			.into_iter()
 			.find(|source| source.id == chosen)
 			.expect("the chosen source is one of the library's");
+		mark(&source.derived, self.library_id).await?;
 		Ok(Home {
 			source: source.id,
 			source_root: source.root,
@@ -341,6 +342,9 @@ impl SidecarRegistry {
 			};
 			if !has_rows && !source.derived.is_dir() {
 				continue;
+			}
+			if let Err(error) = mark(&source.derived, self.library_id).await {
+				warn!(source = %source.id, %error, "could not mark the derived directory");
 			}
 			let Some(store) = self.volume_index.store_for(&source.root).await else {
 				continue;
@@ -554,6 +558,15 @@ pub(crate) fn choose_home(
 		.copied()
 		.or(origin)
 		.or_else(|| holders.first().copied())
+}
+
+/// Name the library in a source's derived directory, for the HTTP sidecar
+/// routes, which see only the data directory.
+async fn mark(derived: &Path, library_id: Uuid) -> io::Result<()> {
+	let derived = derived.to_path_buf();
+	tokio::task::spawn_blocking(move || sd_sidecar_path::mark_library(&derived, &library_id))
+		.await
+		.map_err(io::Error::other)?
 }
 
 fn merge(found: &mut Vec<Listed>, listed: Vec<Listed>) {

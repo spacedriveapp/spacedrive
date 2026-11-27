@@ -22,6 +22,11 @@ use uuid::Uuid;
 /// store `sidecars.db` rather than a different thing.
 pub const DERIVED_DIR: &str = "derived";
 
+/// The file in a derived directory naming the library it belongs to. A
+/// source's descriptor can live on the source's own drive, so the derived
+/// directory carries its own ownership for readers outside the daemon.
+pub const LIBRARY_MARKER: &str = ".library";
+
 /// A source's derived media directory under the daemon's `sources`
 /// directory.
 pub fn derived_root(sources_dir: &Path, source_id: &Uuid) -> PathBuf {
@@ -64,16 +69,34 @@ pub fn locate(
 		.find(|path| path.is_file())
 }
 
-/// Whether the source directory's `source.json` names `library_id`.
+/// Record which library a derived directory belongs to, creating it.
+pub fn mark_library(derived: &Path, library_id: &Uuid) -> std::io::Result<()> {
+	let marker = derived.join(LIBRARY_MARKER);
+	let id = library_id.to_string();
+	if std::fs::read_to_string(&marker).ok().as_deref() == Some(id.as_str()) {
+		return Ok(());
+	}
+	std::fs::create_dir_all(derived)?;
+	std::fs::write(marker, id)
+}
+
+/// Whether a source directory belongs to `library_id`, by the marker in its
+/// derived directory, else by a `source.json` kept beside it.
 fn belongs_to(source: &Path, library_id: &Uuid) -> bool {
-	std::fs::read(source.join("source.json"))
+	let marked = std::fs::read_to_string(source.join(DERIVED_DIR).join(LIBRARY_MARKER))
 		.ok()
-		.and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
-		.and_then(|json| {
-			json.get("library_id")?
-				.as_str()
-				.and_then(|id| Uuid::parse_str(id).ok())
-		}) == Some(*library_id)
+		.and_then(|id| Uuid::parse_str(id.trim()).ok());
+	let owner = marked.or_else(|| {
+		std::fs::read(source.join("source.json"))
+			.ok()
+			.and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+			.and_then(|json| {
+				json.get("library_id")?
+					.as_str()
+					.and_then(|id| Uuid::parse_str(id).ok())
+			})
+	});
+	owner == Some(*library_id)
 }
 
 /// Directory name for a sidecar kind string, or `None` for an unknown kind.
@@ -196,7 +219,12 @@ mod tests {
 		let library = data.join("libraries").join("a.sdlibrary");
 		let uuid = Uuid::parse_str("abcd1234-5678-90ab-cdef-123456789012").unwrap();
 		let relative = relative_path(&uuid, "proxies", "720p", "mp4");
-		let (a, b, other) = (Uuid::from_u128(1), Uuid::from_u128(2), Uuid::from_u128(3));
+		let (a, b, other, on_drive) = (
+			Uuid::from_u128(1),
+			Uuid::from_u128(2),
+			Uuid::from_u128(3),
+			Uuid::from_u128(4),
+		);
 		let (mine, theirs) = (Uuid::from_u128(10), Uuid::from_u128(11));
 		let register = |source: &Uuid, library_id: &Uuid| {
 			let dir = derived_root(&sources, source);
@@ -228,6 +256,19 @@ mod tests {
 			locate(&sources, &theirs, &library, &relative),
 			Some(foreign)
 		);
+
+		// A source whose descriptor lives on its own drive is found by the
+		// marker the daemon leaves in its derived directory.
+		std::fs::remove_file(derived_root(&sources, &b).join(&relative)).unwrap();
+		let marked = derived_root(&sources, &on_drive).join(&relative);
+		std::fs::create_dir_all(marked.parent().unwrap()).unwrap();
+		std::fs::write(&marked, b"on drive").unwrap();
+		assert_eq!(
+			locate(&sources, &mine, &library, &relative),
+			Some(legacy_root(&library).join(&relative))
+		);
+		mark_library(&derived_root(&sources, &on_drive), &mine).unwrap();
+		assert_eq!(locate(&sources, &mine, &library, &relative), Some(marked));
 		std::fs::remove_dir_all(&data).unwrap();
 	}
 
