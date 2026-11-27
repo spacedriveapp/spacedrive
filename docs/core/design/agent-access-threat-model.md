@@ -56,7 +56,11 @@ agents.
   the raw path, then calls `File::open`, which follows symlinks. A symlink
   inside a source that points outside it is read through. Today only paired
   devices can send these requests, so this is a containment gap, not an open
-  hole. A grant check built the same way would be an open hole.
+  hole. A grant check built the same way would be an open hole. Fixed: every
+  peer path now opens through `common::contain::open_beneath`, which resolves
+  it beneath the source root's handle (`openat2` with `RESOLVE_BENEATH` on
+  Linux) and refuses a link that leaves the root, and reads go through that
+  handle. Thumbnail asks are checked the same way, but the bake reopens by path.
 - F4. The SMB mount URL, password included, is logged at info on every start.
   The password is also accepted from an environment variable, which other
   processes of the same user can read.
@@ -158,8 +162,8 @@ Accepted risks: a hard link inside the root to a file outside it is readable,
 since creating one needs write access inside the root; a volume mounted inside
 the root is readable, since it is under the folder the user chose.
 
-F3 should be fixed with the same handle-based check, so byterange and the grant
-verifier share one containment function.
+byterange and the grant verifier share one containment function,
+`core/src/common/contain.rs`.
 
 ## Untrusted content
 
