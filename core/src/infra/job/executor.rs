@@ -343,17 +343,26 @@ impl<J: JobHandler> JobExecutor<J> {
 					);
 				}
 
-				if self.state.should_persist && !keep_record {
+				// A row that cannot be removed is recorded as completed
+				// instead, so it never reads as running with no task behind it.
+				let forgotten =
+					self.state.should_persist
+						&& !keep_record && match self.state.job_db.forget(self.state.job_id).await {
+						Ok(()) => true,
+						Err(e) => {
+							warn!(
+								"Failed to remove the row of job {}: {}",
+								self.state.job_id, e
+							);
+							false
+						}
+					};
+				if forgotten {
 					// Dropping the logger first stops the completion line from
 					// writing the removed log file back.
 					self.state.file_logger = None;
-					if let Err(e) = self.state.job_db.forget(self.state.job_id).await {
-						warn!(
-							"Failed to remove the row of job {}: {}",
-							self.state.job_id, e
-						);
-					}
 					self.remove_log(&self.state.job_id.to_string()).await;
+					self.prune_history().await;
 				} else if self.state.should_persist {
 					let final_progress =
 						if let Some(Ok(ref output)) = *self.state.output.lock().await {

@@ -44,8 +44,10 @@ Each hashing pass then queued a text pass, and the text pass counted files it
 cannot read, such as cloud placeholders, as pending every time. Now each
 source is nudged at most once per 5 minutes while changes keep arriving. A
 change after a quiet spell is still nudged within 30 s, and a source whose pass
-is still live stays dirty instead of getting a second row. A background pass
-that did nothing deletes its row and log. Each background kind keeps its 20
+is still live stays dirty instead of getting a second row. A file the text pass
+cannot read gets a skipped row stamped with its size and mtime, so it is read
+again only when it changes. A background pass that did nothing deletes its row
+and log. Each background kind keeps its 20
 newest finished rows. On a 210k-file tree with 5 to 35 edits every 10 s, rows
 went from 360 to 36 an hour and daemon CPU from 13.4% to 4.9%. Next: green CI.
 

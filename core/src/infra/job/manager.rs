@@ -2805,6 +2805,43 @@ mod tests {
 		}
 		assert_eq!(settled_rows_named(library.jobs(), Upkeep::NAME, 3).await, 3);
 
+		// A backlog left by an older build is trimmed by the next pass, even
+		// one that found nothing to do.
+		for _ in 0..4 {
+			database::jobs::ActiveModel {
+				id: Set(JobId::new().to_string()),
+				name: Set(Upkeep::NAME.to_string()),
+				state: Set(Vec::new()),
+				status: Set(JobStatus::Completed.to_string()),
+				priority: Set(0),
+				progress_type: Set(None),
+				progress_data: Set(None),
+				parent_job_id: Set(None),
+				created_at: Set(Utc::now()),
+				started_at: Set(None),
+				completed_at: Set(Some(Utc::now() - chrono::Duration::days(1))),
+				paused_at: Set(None),
+				error_message: Set(None),
+				warnings: Set(None),
+				non_critical_errors: Set(None),
+				metrics: Set(None),
+				action_context: Set(None),
+				action_type: Set(None),
+			}
+			.insert(library.jobs().db.conn())
+			.await
+			.expect("backlog row");
+		}
+		library
+			.jobs()
+			.dispatch(Upkeep { did_work: false })
+			.await
+			.expect("dispatch")
+			.wait()
+			.await
+			.expect("idle pass");
+		assert_eq!(settled_rows_named(library.jobs(), Upkeep::NAME, 3).await, 3);
+
 		drop(library);
 		core.shutdown().await.expect("core shutdown");
 	}
