@@ -69,7 +69,8 @@ const TEXT_SCHEMA: [&str; 3] = [
     kind TEXT NOT NULL,
     text_bytes INTEGER NOT NULL,
     truncated INTEGER NOT NULL DEFAULT 0,
-    skipped TEXT
+    skipped TEXT,
+    rev INTEGER NOT NULL DEFAULT 0
 )",
 	"CREATE VIRTUAL TABLE IF NOT EXISTS text_fts USING fts5(
     body,
@@ -92,7 +93,8 @@ const TRANSCRIPT_SCHEMA: [&str; 4] = [
     language TEXT,
     model TEXT NOT NULL,
     duration_ms INTEGER,
-    skipped TEXT
+    skipped TEXT,
+    rev INTEGER NOT NULL DEFAULT 0
 )",
 	"CREATE TABLE IF NOT EXISTS transcript_span (
     id INTEGER PRIMARY KEY,
@@ -120,6 +122,7 @@ const DESCRIPTION_SCHEMA: [&str; 4] = [
     id INTEGER PRIMARY KEY,
     content_uuid BLOB NOT NULL,
     kind TEXT NOT NULL,
+    rev INTEGER NOT NULL DEFAULT 0,
     UNIQUE (content_uuid, kind)
 )",
 	"CREATE TABLE IF NOT EXISTS description_span (
@@ -301,6 +304,10 @@ pub struct TextSearch {
 	pub under: String,
 	/// Only files read by these extractors. Empty means every kind.
 	pub kinds: Vec<String>,
+	/// Only files in these subtrees of the deep scope, when set. No subtrees
+	/// means no file. Transcripts and descriptions outlive a narrowed scope,
+	/// so a search that must honor it says so here.
+	pub subtrees: Option<Vec<String>>,
 	pub limit: usize,
 	pub offset: usize,
 	/// Tokens of context the snippet keeps around the best match.
@@ -395,6 +402,20 @@ impl ContentTextIndex {
 			.chain(DESCRIPTION_SCHEMA)
 		{
 			sqlx::query(statement).execute(&mut *tx).await?;
+		}
+		for table in ["text_doc", "transcript_doc", "description_doc"] {
+			let has_rev: bool = sqlx::query_scalar(&format!(
+				"SELECT COUNT(*) > 0 FROM pragma_table_info('{table}') WHERE name = 'rev'"
+			))
+			.fetch_one(&mut *tx)
+			.await?;
+			if !has_rev {
+				sqlx::query(&format!(
+					"ALTER TABLE {table} ADD COLUMN rev INTEGER NOT NULL DEFAULT 0"
+				))
+				.execute(&mut *tx)
+				.await?;
+			}
 		}
 		tx.commit().await?;
 		let index = Self {
@@ -533,6 +554,7 @@ impl ContentTextIndex {
 		}
 		let _writer = self.writer.lock().await;
 		let mut tx = self.pool.begin().await?;
+		let rev = next_rev(&mut tx).await?;
 		for doc in docs {
 			let old: Option<i64> =
 				sqlx::query_scalar("SELECT id FROM text_doc WHERE record_uuid = ?")
@@ -546,11 +568,11 @@ impl ContentTextIndex {
 					.await?;
 			}
 			let id: i64 = sqlx::query_scalar(
-				"INSERT INTO text_doc (record_uuid, size, mtime, extension, kind, text_bytes, truncated, skipped) \
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?) \
+				"INSERT INTO text_doc (record_uuid, size, mtime, extension, kind, text_bytes, truncated, skipped, rev) \
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) \
 				 ON CONFLICT (record_uuid) DO UPDATE SET size = excluded.size, \
 				 mtime = excluded.mtime, extension = excluded.extension, kind = excluded.kind, text_bytes = excluded.text_bytes, \
-				 truncated = excluded.truncated, skipped = excluded.skipped \
+				 truncated = excluded.truncated, skipped = excluded.skipped, rev = excluded.rev \
 				 RETURNING id",
 			)
 			.bind(doc.record_uuid)
@@ -561,6 +583,7 @@ impl ContentTextIndex {
 			.bind(doc.text.len() as i64)
 			.bind(doc.truncated)
 			.bind(&doc.skipped)
+			.bind(rev)
 			.fetch_one(&mut *tx)
 			.await?;
 			if !doc.text.is_empty() {
@@ -741,15 +764,21 @@ impl ContentTextIndex {
 		let mut branches = Vec::new();
 		let snippet_tokens = i64::from(search.snippet_tokens.clamp(1, 64));
 		let path = RECORD_PATH;
+		let scope_clause = search.subtrees.as_ref().map_or(String::new(), |subtrees| {
+			format!(
+				" AND {}",
+				crate::deep_scope::subtree_condition(subtrees, "r.parent_uuid")
+			)
+		});
 		let under_clause = |binds: &mut Vec<Bind>| {
 			if under.is_empty() {
-				return String::new();
+				return scope_clause.clone();
 			}
 			let prefix = format!("{under}/");
 			binds.push(Bind::Text(under.to_string()));
 			binds.push(Bind::Int(prefix.chars().count() as i64));
 			binds.push(Bind::Text(prefix));
-			format!(" AND ({path} = ? OR substr({path}, 1, ?) = ?)")
+			format!(" AND ({path} = ? OR substr({path}, 1, ?) = ?){scope_clause}")
 		};
 
 		if want_text {
@@ -958,11 +987,11 @@ impl ContentTextIndex {
 			delete_spans(&mut tx, id).await?;
 		}
 		let id: i64 = sqlx::query_scalar(
-			"INSERT INTO transcript_doc (record_uuid, size, mtime, extension, language, model, duration_ms, skipped) \
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?) \
+			"INSERT INTO transcript_doc (record_uuid, size, mtime, extension, language, model, duration_ms, skipped, rev) \
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) \
 			 ON CONFLICT (record_uuid) DO UPDATE SET size = excluded.size, mtime = excluded.mtime, \
 			 extension = excluded.extension, language = excluded.language, model = excluded.model, \
-			 duration_ms = excluded.duration_ms, skipped = excluded.skipped \
+			 duration_ms = excluded.duration_ms, skipped = excluded.skipped, rev = excluded.rev \
 			 RETURNING id",
 		)
 		.bind(doc.record_uuid)
@@ -973,6 +1002,7 @@ impl ContentTextIndex {
 		.bind(&doc.model)
 		.bind(doc.duration_ms)
 		.bind(&doc.skipped)
+		.bind(next_rev(&mut tx).await?)
 		.fetch_one(&mut *tx)
 		.await?;
 		for span in doc.spans.iter().filter(|span| !span.text.trim().is_empty()) {
@@ -1057,10 +1087,11 @@ impl ContentTextIndex {
 		delete_description(&mut tx, doc.content_uuid, &doc.kind).await?;
 		if !spans.is_empty() {
 			let id: i64 = sqlx::query_scalar(
-				"INSERT INTO description_doc (content_uuid, kind) VALUES (?, ?) RETURNING id",
+				"INSERT INTO description_doc (content_uuid, kind, rev) VALUES (?, ?, ?) RETURNING id",
 			)
 			.bind(doc.content_uuid)
 			.bind(&doc.kind)
+			.bind(next_rev(&mut tx).await?)
 			.fetch_one(&mut *tx)
 			.await?;
 			for span in spans {
@@ -1155,6 +1186,18 @@ async fn delete_description(
 	Ok(true)
 }
 
+/// A number every write raises and stamps on the rows it writes. Row ids
+/// are reused once a row is deleted, so a derived index that only kept the
+/// id could not tell a rewritten row from the one it replaced.
+async fn next_rev(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>) -> Result<i64> {
+	Ok(sqlx::query_scalar(
+		"INSERT INTO text_meta (key, value) VALUES ('rev', 1) \
+		 ON CONFLICT (key) DO UPDATE SET value = value + 1 RETURNING value",
+	)
+	.fetch_one(&mut **tx)
+	.await?)
+}
+
 async fn delete_spans(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>, doc_id: i64) -> Result<()> {
 	sqlx::query(
 		"DELETE FROM transcript_fts WHERE rowid IN (SELECT id FROM transcript_span WHERE doc_id = ?)",
@@ -1171,7 +1214,7 @@ async fn delete_spans(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>, doc_id: i64)
 
 /// A record's path relative to the source root, over `r` and its parent's
 /// `p`.
-const RECORD_PATH: &str =
+pub(crate) const RECORD_PATH: &str =
 	"(CASE WHEN r.parent_uuid IS NULL THEN r.title ELSE p.path || '/' || r.title END)";
 
 /// The rows a pass has to read, after `FROM`, pushing the filter's binds.
@@ -1238,6 +1281,19 @@ pub fn match_expression(query: &str) -> String {
 		}
 	}
 	terms.join(" AND ")
+}
+
+/// An FTS5 expression that matches any of the words typed, for ranking
+/// rather than filtering: BM25 still puts files with more of them first.
+/// Quotes and `*` are taken as literal characters of words.
+pub fn any_word_expression(query: &str) -> String {
+	query
+		.split(|c: char| c.is_whitespace() || c == '"')
+		.map(|word| word.trim_matches('*'))
+		.filter(|word| !word.is_empty())
+		.map(quote)
+		.collect::<Vec<_>>()
+		.join(" OR ")
 }
 
 fn quote(text: &str) -> String {
