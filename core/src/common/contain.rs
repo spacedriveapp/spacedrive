@@ -44,13 +44,21 @@ const MAX_COMPONENT_BYTES: usize = 255;
 ///
 /// `relative` is validated before the filesystem is touched: absolute paths,
 /// empty, `.` and `..` components, NUL and components over 255 bytes are
-/// `InvalidInput`, as are, on Windows, `:`, `\\`, a trailing dot or space and
-/// reserved device names. `root` itself is trusted and may be a symlink or
-/// spelled differently from its real path. Directories open too, so the
-/// handle can answer `metadata` for either.
+/// `InvalidInput`, as are, on Windows, `:`, a trailing dot or space and
+/// reserved device names. Windows accepts `\\` as a separator like `/`.
+/// `root` itself is trusted and may be a symlink or spelled differently from
+/// its real path. Directories open too, so the handle can answer `metadata`
+/// for either. On Unix the handle is non-blocking, so a FIFO opens at once
+/// instead of waiting for a writer.
 pub fn open_beneath(root: &Path, relative: &Path) -> io::Result<File> {
 	let components = validate(relative)?;
 	imp::open_beneath(root, &components)
+}
+
+/// Opens a trusted root itself, file or directory, the way
+/// [`open_beneath`] opens what lies under it.
+pub fn open_root(root: &Path) -> io::Result<File> {
+	imp::open_root(root)
 }
 
 fn invalid(reason: &str) -> io::Error {
@@ -95,10 +103,10 @@ fn validate(relative: &Path) -> io::Result<Vec<std::ffi::OsString>> {
 	if text.is_empty() {
 		return Err(invalid("empty path"));
 	}
-	if text.starts_with('/') || text.contains('\\') || text.contains(':') {
+	if text.starts_with(['/', '\\']) || text.contains(':') {
 		return Err(invalid("absolute path or reserved character"));
 	}
-	text.split('/')
+	text.split(['/', '\\'])
 		.map(|part| {
 			check_component(part.as_bytes())?;
 			if part.ends_with('.') || part.ends_with(' ') {
@@ -145,6 +153,10 @@ mod imp {
 	/// Symlink expansions allowed in one walk, matching Linux's own limit.
 	const MAX_LINKS: usize = 40;
 
+	pub fn open_root(root: &Path) -> io::Result<File> {
+		File::open(root)
+	}
+
 	pub fn open_beneath(root: &Path, components: &[OsString]) -> io::Result<File> {
 		// The root is trusted, so resolve its spelling once; absolute links
 		// are judged against this real path.
@@ -190,7 +202,7 @@ mod imp {
 		let joined: PathBuf = components.iter().collect();
 		let path = cstring(joined.as_os_str())?;
 		let mut how: libc::open_how = unsafe { std::mem::zeroed() };
-		how.flags = (libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NOCTTY) as u64;
+		how.flags = (libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NOCTTY | libc::O_NONBLOCK) as u64;
 		how.resolve = libc::RESOLVE_BENEATH | libc::RESOLVE_NO_MAGICLINKS;
 		// The kernel answers EAGAIN when a rename races the resolution.
 		for _ in 0..8 {
@@ -242,7 +254,7 @@ mod imp {
 			let flags = libc::O_NOFOLLOW
 				| libc::O_NOCTTY
 				| if last {
-					libc::O_RDONLY
+					libc::O_RDONLY | libc::O_NONBLOCK
 				} else {
 					libc::O_RDONLY | libc::O_DIRECTORY
 				};
@@ -349,15 +361,17 @@ mod imp {
 
 	use super::escaped;
 
+	/// Backup semantics is what lets Windows open a directory handle.
+	pub fn open_root(path: &Path) -> io::Result<File> {
+		OpenOptions::new()
+			.read(true)
+			.custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
+			.open(path)
+	}
+
 	pub fn open_beneath(root: &Path, components: &[OsString]) -> io::Result<File> {
-		let open = |path: &Path| {
-			OpenOptions::new()
-				.read(true)
-				.custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
-				.open(path)
-		};
-		let root_handle = open(root)?;
-		let file = open(&components.iter().fold(root.to_path_buf(), |p, c| p.join(c)))?;
+		let root_handle = open_root(root)?;
+		let file = open_root(&components.iter().fold(root.to_path_buf(), |p, c| p.join(c)))?;
 		// Both sides come from the same OS call, so case, 8.3 names and
 		// junctions in the root's own spelling compare equal.
 		if final_path(&file)?.starts_with(final_path(&root_handle)?) {
@@ -490,6 +504,19 @@ mod tests {
 		symlink(temp.path().join("outside/secret.txt"), root.join("abs")).unwrap();
 		let err = read(&alias, "abs").unwrap_err();
 		assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+	}
+
+	#[test]
+	fn a_fifo_opens_without_waiting_for_a_writer() {
+		let (_temp, root) = tree();
+		let fifo = std::ffi::CString::new(root.join("pipe").into_os_string().into_encoded_bytes())
+			.unwrap();
+		assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) }, 0);
+		let meta = open_beneath(&root, Path::new("pipe"))
+			.unwrap()
+			.metadata()
+			.unwrap();
+		assert!(std::os::unix::fs::FileTypeExt::is_fifo(&meta.file_type()));
 	}
 
 	#[test]

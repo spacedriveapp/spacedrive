@@ -907,7 +907,7 @@ fn locate(
 async fn open_located(root: PathBuf, relative: PathBuf) -> std::io::Result<tokio::fs::File> {
 	let file = tokio::task::spawn_blocking(move || {
 		if relative.as_os_str().is_empty() {
-			std::fs::File::open(&root)
+			crate::common::contain::open_root(&root)
 		} else {
 			crate::common::contain::open_beneath(&root, &relative)
 		}
