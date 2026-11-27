@@ -80,15 +80,17 @@ pub fn is_signed(token: &str) -> bool {
 	token.starts_with(SIGNED_PREFIX)
 }
 
-/// Sign `claims` into a token.
-pub fn sign(key: &SigningKey, claims: &Claims) -> String {
+/// Sign `claims` into a token, or `None` when the claims are too large for
+/// [`verify`] to ever accept, which only a very long subtree can cause.
+pub fn sign(key: &SigningKey, claims: &Claims) -> Option<String> {
 	let payload = serde_json::to_vec(claims).expect("claims always serialize");
 	let signature = key.sign(&signed_message(&payload));
-	format!(
+	let token = format!(
 		"{SIGNED_PREFIX}{}.{}",
 		URL_SAFE_NO_PAD.encode(&payload),
 		URL_SAFE_NO_PAD.encode(signature.to_bytes())
-	)
+	);
+	(token.len() <= MAX_TOKEN_LEN).then_some(token)
 }
 
 /// The claims of a signed token, unchecked.
@@ -176,7 +178,7 @@ mod tests {
 	fn a_token_verifies_against_its_issuer_and_reads_back_its_claims() {
 		let now = Utc::now();
 		let key = key(1);
-		let token = sign(&key, &claims(now));
+		let token = sign(&key, &claims(now)).unwrap();
 		assert!(is_signed(&token));
 		assert!(token.starts_with(super::super::token::TOKEN_PREFIX));
 		assert_eq!(super::super::token::hash(&token), None);
@@ -199,10 +201,18 @@ mod tests {
 	}
 
 	#[test]
+	fn claims_too_large_to_verify_are_never_signed() {
+		let now = Utc::now();
+		let mut long = claims(now);
+		long.subtree = vec!["folder"; 600].join("/");
+		assert_eq!(sign(&key(1), &long), None);
+	}
+
+	#[test]
 	fn an_expired_token_is_refused_as_expired() {
 		let now = Utc::now();
 		let key = key(1);
-		let token = sign(&key, &claims(now));
+		let token = sign(&key, &claims(now)).unwrap();
 		let at_expiry = claims(now).expires_at();
 		assert_eq!(
 			verify(&token, &key.verifying_key(), at_expiry),
@@ -223,7 +233,7 @@ mod tests {
 	#[test]
 	fn a_token_signed_by_another_key_is_refused() {
 		let now = Utc::now();
-		let token = sign(&key(1), &claims(now));
+		let token = sign(&key(1), &claims(now)).unwrap();
 		assert_eq!(
 			verify(&token, &key(2).verifying_key(), now),
 			Err(GrantError::UnknownToken)
@@ -234,7 +244,7 @@ mod tests {
 	fn any_altered_claim_breaks_the_signature() {
 		let now = Utc::now();
 		let key = key(1);
-		let token = sign(&key, &claims(now));
+		let token = sign(&key, &claims(now)).unwrap();
 		let signature = token.rsplit_once('.').unwrap().1;
 
 		let mut widened = claims(now);
@@ -262,7 +272,7 @@ mod tests {
 	fn a_flipped_byte_anywhere_is_refused() {
 		let now = Utc::now();
 		let key = key(1);
-		let token = sign(&key, &claims(now));
+		let token = sign(&key, &claims(now)).unwrap();
 		for index in SIGNED_PREFIX.len()..token.len() {
 			let mut bytes = token.clone().into_bytes();
 			bytes[index] = if bytes[index] == b'A' { b'B' } else { b'A' };
@@ -281,7 +291,7 @@ mod tests {
 	fn malformed_tokens_are_unknown() {
 		let now = Utc::now();
 		let key = key(1);
-		let token = sign(&key, &claims(now));
+		let token = sign(&key, &claims(now)).unwrap();
 		let verifying = key.verifying_key();
 		let (payload, signature) = token.rsplit_once('.').unwrap();
 		for malformed in [
@@ -310,7 +320,7 @@ mod tests {
 		let mut future = claims(now);
 		future.v = 2;
 		assert_eq!(
-			verify(&sign(&key, &future), &key.verifying_key(), now),
+			verify(&sign(&key, &future).unwrap(), &key.verifying_key(), now),
 			Err(GrantError::UnknownToken)
 		);
 

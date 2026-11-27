@@ -194,8 +194,8 @@ impl SourceDb {
 	}
 
 	/// Publish the key a device signs grant tokens with, unless the store
-	/// already holds that key or a later one for that device. Returns whether
-	/// the row changed.
+	/// already holds a later stamp for that device. Returns whether the row
+	/// changed.
 	pub async fn put_grant_issuer(&self, issuer: &GrantIssuer) -> Result<bool> {
 		let result = sqlx::query(
 			"INSERT INTO grant_issuer (device_uuid, public_key, updated_hlc, origin_device)
@@ -204,10 +204,9 @@ impl SourceDb {
 				public_key = excluded.public_key,
 				updated_hlc = excluded.updated_hlc,
 				origin_device = excluded.origin_device
-			 WHERE excluded.public_key != grant_issuer.public_key
-				AND (excluded.updated_hlc > grant_issuer.updated_hlc
-					OR (excluded.updated_hlc = grant_issuer.updated_hlc
-						AND excluded.origin_device > grant_issuer.origin_device))",
+			 WHERE excluded.updated_hlc > grant_issuer.updated_hlc
+				OR (excluded.updated_hlc = grant_issuer.updated_hlc
+					AND excluded.origin_device > grant_issuer.origin_device)",
 		)
 		.bind(issuer.device_uuid)
 		.bind(&issuer.public_key)
@@ -395,13 +394,38 @@ mod tests {
 	async fn an_issuer_key_reads_back_and_merges_by_stamp() {
 		let (_dir, db) = store("drive-1").await;
 		assert!(db.put_grant_issuer(&issuer("0002", 1)).await.unwrap());
-		assert!(!db.put_grant_issuer(&issuer("0003", 1)).await.unwrap());
 		assert!(!db.put_grant_issuer(&issuer("0001", 2)).await.unwrap());
+		assert!(db.put_grant_issuer(&issuer("0003", 1)).await.unwrap());
+		assert!(!db.put_grant_issuer(&issuer("0003", 1)).await.unwrap());
 		assert_eq!(
 			db.grant_issuer(Uuid::from_u128(9)).await.unwrap(),
-			Some(issuer("0002", 1))
+			Some(issuer("0003", 1))
 		);
+		// A republished key keeps its newer stamp, so an older key arriving
+		// afterwards cannot replace it.
+		assert!(!db.put_grant_issuer(&issuer("0002", 2)).await.unwrap());
 		assert!(db.put_grant_issuer(&issuer("0004", 2)).await.unwrap());
+
+		// Every arrival order of the same issuer rows converges.
+		let rows = [issuer("0001", 1), issuer("0003", 1), issuer("0002", 2)];
+		for order in [
+			[0, 1, 2],
+			[0, 2, 1],
+			[1, 0, 2],
+			[1, 2, 0],
+			[2, 0, 1],
+			[2, 1, 0],
+		] {
+			let (_dir, fresh) = store("drive-order").await;
+			for index in order {
+				fresh.put_grant_issuer(&rows[index]).await.unwrap();
+			}
+			assert_eq!(
+				fresh.grant_issuer(Uuid::from_u128(9)).await.unwrap(),
+				Some(issuer("0003", 1)),
+				"{order:?}"
+			);
+		}
 		assert_eq!(
 			db.grant_issuer(Uuid::from_u128(9))
 				.await
