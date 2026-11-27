@@ -187,6 +187,8 @@ impl JobHandler for ContentTextJob {
 				output.pruned += index.prune(&filter).await.map_err(|e| e.to_string())?;
 				cursor = 0;
 				swept_again = false;
+				// A folder released and kept again lost its rows to the prune.
+				attempted.clear();
 				ctx.log("The deep scope changed; reading under the new one");
 			}
 			let claimed = index
