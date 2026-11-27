@@ -1,3 +1,5 @@
+//! # sd nfs
+//!
 //! `sd nfs`: mount sources as a read-only directory tree through a localhost
 //! NFS server, for macOS, where FUSE needs a kernel extension.
 

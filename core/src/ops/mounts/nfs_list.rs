@@ -1,13 +1,17 @@
+//! # List NFS mounts
+//!
 //! The NFS mounts the daemon holds, and whether it can make one.
+
+use std::sync::Arc;
+
+use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::{
 	context::CoreContext,
 	infra::query::{CoreQuery, QueryResult},
 	service::mounts::nfs::{self, NfsMountInfo},
 };
-use serde::{Deserialize, Serialize};
-use specta::Type;
-use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Default)]
 pub struct NfsListInput {}

@@ -30,20 +30,22 @@ mod front;
 #[cfg(feature = "nfs")]
 pub mod server;
 
-use crate::config::AppConfig;
-use crate::context::CoreContext;
-use crate::ops::grants::GrantError;
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use specta::Type;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock};
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use thiserror::Error;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tracing::{info, warn};
 use uuid::Uuid;
+
+use crate::config::AppConfig;
+use crate::context::CoreContext;
+use crate::ops::grants::GrantError;
 
 /// An NFS mount the daemon holds.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -236,34 +238,52 @@ pub async fn unmount(path: &Path) -> Result<NfsMountInfo, NfsError> {
 	take_down(&path, true).await
 }
 
+/// Detach the kernel mount, then stop its server. If the OS will not let
+/// go, the server stops answering but the mount stays listed, so a later
+/// unmount can try again.
 async fn take_down(path: &Path, stop_watch: bool) -> Result<NfsMountInfo, NfsError> {
-	let mounted = MOUNTS
-		.lock()
-		.await
+	let mut mounts = MOUNTS.lock().await;
+	let mounted = mounts
+		.get(path)
+		.ok_or_else(|| NfsError::NotMounted(path.to_path_buf()))?;
+	if let Err(err) = detach(path, &mounted.session).await {
+		warn!(path = %path.display(), error = %err, "could not unmount; the server stops answering");
+		return Err(err);
+	}
+	let mounted = mounts
 		.remove(path)
 		.ok_or_else(|| NfsError::NotMounted(path.to_path_buf()))?;
+	drop(mounts);
 	if stop_watch {
 		if let Some(watch) = &mounted.watch {
 			watch.abort();
 		}
 	}
-	end_session(path, mounted.session).await;
+	stop(mounted.session);
 	info!(path = %path.display(), "NFS mount down");
 	Ok(mounted.info)
 }
 
-/// The kernel lets go first, then the server stops, so the client never
-/// waits on a server that is gone.
 #[cfg(all(unix, feature = "nfs"))]
-async fn end_session(path: &Path, session: Session) {
-	if let Err(err) = server::unmount(path).await {
-		warn!(path = %path.display(), error = %err, "could not unmount");
-	}
+async fn detach(path: &Path, session: &Session) -> Result<(), NfsError> {
+	server::unmount(path).await.map_err(|err| {
+		session.close();
+		NfsError::Mount(err.to_string())
+	})
+}
+
+#[cfg(all(unix, feature = "nfs"))]
+fn stop(session: Session) {
 	session.shutdown();
 }
 
 #[cfg(not(all(unix, feature = "nfs")))]
-async fn end_session(_path: &Path, session: Session) {
+async fn detach(_path: &Path, session: &Session) -> Result<(), NfsError> {
+	match *session {}
+}
+
+#[cfg(not(all(unix, feature = "nfs")))]
+fn stop(session: Session) {
 	match session {}
 }
 

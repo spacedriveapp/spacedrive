@@ -46,7 +46,9 @@ SMB shares name them, such as `Photos-3f9c21` or `footage@studio-a1b2c3`.
 Each mount gets its own server. The daemon unmounts every mount and stops its
 server when it shuts down. If the daemon exits without shutting down, the mount
 stays in the kernel's table and returns errors; remove it with
-`umount -f <path>`.
+`umount -f <path>`. If the OS refuses to unmount, `sd-cli nfs unmount`
+reports the error, the server stops answering, and the mount stays in
+`sd-cli nfs list` so you can try again.
 
 ## Mount one granted folder
 
@@ -62,7 +64,8 @@ The mount then shows the granted folder's contents at its root. The daemon
 checks the token on every directory listing and every file open, and records
 each check in the grant's audit log as `nfs.list` or `nfs.open`. NFS has no
 open call, so the server keeps a file it opened for up to 10 seconds of
-sequential reads before it checks again. A revoked or expired grant is refused
+sequential reads before it checks again. It reopens the file sooner when the
+file's size or modification time changes. A revoked or expired grant is refused
 with `EACCES`, and the daemon unmounts the mount and stops its server within
 five seconds.
 
@@ -74,7 +77,10 @@ cache as the FUSE mount. Symlinks do not appear.
 
 The mount is attached with `actimeo=1`, so the NFS client keeps attributes
 and names for one second. NFSv3 has no way for a server to tell a client that
-something changed, so a change shows up after that second.
+something changed, so a change shows up after that second. The top of the
+mount and each source root have no modification time of their own, so they
+report the current time, which makes the client list them again after each
+second.
 
 ## macOS details
 

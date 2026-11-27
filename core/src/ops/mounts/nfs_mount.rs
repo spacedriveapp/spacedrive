@@ -1,14 +1,18 @@
+//! # Mount over NFS
+//!
 //! Mount sources as a read-only directory tree through a localhost NFS server.
+
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::{
 	context::CoreContext,
 	infra::action::{error::ActionError, CoreAction},
 	service::mounts::nfs::{self, NfsError, NfsMountInfo},
 };
-use serde::{Deserialize, Serialize};
-use specta::Type;
-use std::path::PathBuf;
-use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct NfsMountInput {

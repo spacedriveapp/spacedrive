@@ -1,3 +1,5 @@
+//! # NFS adapter and server
+//!
 //! The NFSv3 side of a mount: file ids, attributes and replies.
 //!
 //! [`NfsAdapter`] answers nfsserve's [`NFSFileSystem`] calls from a [`MountFs`], so
@@ -32,14 +34,6 @@
 //! # }
 //! ```
 
-use crate::service::mounts::vfs::{plain, MountError, MountFs, NodeAttr, NodeKind, OpenedFile};
-use async_trait::async_trait;
-use nfsserve::nfs::{
-	cookieverf3, fattr3, fileid3, filename3, fsinfo3, ftype3, nfspath3, nfsstat3, nfstime3,
-	post_op_attr, sattr3, specdata3,
-};
-use nfsserve::tcp::{NFSTcp, NFSTcpListener};
-use nfsserve::vfs::{DirEntry, NFSFileSystem, ReadDirResult, VFSCapabilities};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
@@ -49,10 +43,20 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use async_trait::async_trait;
+use nfsserve::nfs::{
+	cookieverf3, fattr3, fileid3, filename3, fsinfo3, ftype3, nfspath3, nfsstat3, nfstime3,
+	post_op_attr, sattr3, specdata3,
+};
+use nfsserve::tcp::{NFSTcp, NFSTcpListener};
+use nfsserve::vfs::{DirEntry, NFSFileSystem, ReadDirResult, VFSCapabilities};
 use tokio::net::TcpListener;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tracing::{debug, info};
+
+use crate::service::mounts::vfs::{plain, MountError, MountFs, NodeAttr, NodeKind, OpenedFile};
 
 const ROOT: fileid3 = 1;
 /// Open files kept between reads. Sequential readers touch one or two files
@@ -123,7 +127,10 @@ struct Listing {
 struct Opened {
 	at: Instant,
 	file: Arc<OpenedFile>,
+	/// The version the provider was opened at. A provider keeps reading
+	/// the file it opened, so a replaced file needs a new one.
 	size: u64,
+	modified: Option<SystemTime>,
 }
 
 struct Inner {
@@ -277,7 +284,14 @@ impl NfsAdapter {
 			NodeKind::File => (ftype3::NF3REG, 0o444, 1),
 			NodeKind::Directory => (ftype3::NF3DIR, 0o555, 2),
 		};
-		let mtime = node.modified.unwrap_or(self.inner.started);
+		// A directory without a time, such as a source root, reports now: the
+		// client refreshes a cached listing only when the directory's mtime
+		// moves, and these listings change without one.
+		let mtime = match (node.modified, node.kind) {
+			(Some(modified), _) => modified,
+			(None, NodeKind::Directory) => SystemTime::now(),
+			(None, NodeKind::File) => self.inner.started,
+		};
 		fattr3 {
 			ftype,
 			mode,
@@ -369,19 +383,10 @@ impl NfsAdapter {
 		Ok((entries, start))
 	}
 
-	/// The opened file behind `id`, from the cache while it is fresh.
+	/// The opened file behind `id`, from the cache while it is fresh and the
+	/// file has the size and time it was opened at.
 	async fn opened(&self, id: fileid3) -> Result<(Arc<OpenedFile>, u64), nfsstat3> {
 		let path = self.path(id)?;
-		if let Ok(mut files) = self.inner.files.lock() {
-			if let Some(index) = files.iter().position(|(known, _)| *known == id) {
-				let (known, opened) = files.remove(index);
-				if opened.at.elapsed() < REUSE_FOR {
-					let found = (opened.file.clone(), opened.size);
-					files.push((known, opened));
-					return Ok(found);
-				}
-			}
-		}
 		let node = self
 			.inner
 			.fs
@@ -390,6 +395,19 @@ impl NfsAdapter {
 			.map_err(|err| nfs_error(&err))?;
 		if node.is_dir() {
 			return Err(nfsstat3::NFS3ERR_ISDIR);
+		}
+		if let Ok(mut files) = self.inner.files.lock() {
+			if let Some(index) = files.iter().position(|(known, _)| *known == id) {
+				let (known, opened) = files.remove(index);
+				if opened.at.elapsed() < REUSE_FOR
+					&& opened.size == node.size
+					&& opened.modified == node.modified
+				{
+					let file = opened.file.clone();
+					files.push((known, opened));
+					return Ok((file, node.size));
+				}
+			}
 		}
 		let file = Arc::new(self.inner.fs.open(&path).await.map_err(|err| {
 			debug!(%err, path = %path.display(), "nfs open refused");
@@ -406,6 +424,7 @@ impl NfsAdapter {
 					at: Instant::now(),
 					file: file.clone(),
 					size: node.size,
+					modified: node.modified,
 				},
 			));
 		}
@@ -614,6 +633,12 @@ impl NfsServer {
 
 	pub fn addr(&self) -> SocketAddr {
 		self.addr
+	}
+
+	/// Refuse every call from now on while the server keeps running, for a
+	/// mount the OS would not let go of.
+	pub fn close(&self) {
+		self.adapter.close();
 	}
 
 	/// Stop accepting connections, close the open ones, and refuse every

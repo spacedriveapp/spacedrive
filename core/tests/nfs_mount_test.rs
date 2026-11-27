@@ -27,7 +27,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -44,7 +44,8 @@ use uuid::Uuid;
 /// A tree held in memory. Anything under `secret` is listed and stat'ed but
 /// refused on open and list, the way a grant refuses a path.
 struct MemFs {
-	files: BTreeMap<PathBuf, Bytes>,
+	/// Each file's bytes and the time they were written.
+	files: std::sync::Mutex<BTreeMap<PathBuf, (Bytes, SystemTime)>>,
 	dirs: HashSet<PathBuf>,
 	opens: AtomicUsize,
 	changes: broadcast::Sender<PathBuf>,
@@ -61,14 +62,28 @@ impl MemFs {
 			}
 		}
 		Self {
-			files: files
-				.iter()
-				.map(|(path, bytes)| (PathBuf::from(path), bytes.clone()))
-				.collect(),
+			files: std::sync::Mutex::new(
+				files
+					.iter()
+					.map(|(path, bytes)| (PathBuf::from(path), (bytes.clone(), UNIX_EPOCH)))
+					.collect(),
+			),
 			dirs,
 			opens: AtomicUsize::new(0),
 			changes: broadcast::channel(16).0,
 		}
+	}
+
+	/// Replace a file's bytes, as an atomic rename at the origin would.
+	fn replace(&self, path: &str, bytes: &'static [u8], modified: SystemTime) {
+		self.files
+			.lock()
+			.unwrap()
+			.insert(PathBuf::from(path), (Bytes::from_static(bytes), modified));
+	}
+
+	fn file(&self, path: &Path) -> Option<(Bytes, SystemTime)> {
+		self.files.lock().unwrap().get(path).cloned()
 	}
 
 	fn denied(path: &Path) -> bool {
@@ -114,11 +129,11 @@ impl MountFs for MemFs {
 		if self.dirs.contains(path) {
 			return Ok(NodeAttr::directory(Duration::from_secs(1)));
 		}
-		let bytes = self.files.get(path).ok_or(MountError::NotFound)?;
+		let (bytes, modified) = self.file(path).ok_or(MountError::NotFound)?;
 		Ok(NodeAttr {
 			kind: NodeKind::File,
 			size: bytes.len() as u64,
-			modified: None,
+			modified: Some(modified),
 			accessed: None,
 			created: None,
 			valid_for: Duration::from_secs(1),
@@ -126,7 +141,7 @@ impl MountFs for MemFs {
 	}
 
 	async fn list(&self, path: &Path) -> Result<Vec<DirEntry>, MountError> {
-		if self.files.contains_key(path) {
+		if self.file(path).is_some() {
 			return Err(MountError::NotADirectory);
 		}
 		if !self.dirs.contains(path) {
@@ -146,6 +161,8 @@ impl MountFs for MemFs {
 			.collect();
 		entries.extend(
 			self.files
+				.lock()
+				.unwrap()
 				.keys()
 				.filter(|file| file.parent() == Some(path))
 				.map(|file| DirEntry {
@@ -160,7 +177,7 @@ impl MountFs for MemFs {
 		if self.dirs.contains(path) {
 			return Err(MountError::IsADirectory);
 		}
-		let bytes = self.files.get(path).ok_or(MountError::NotFound)?;
+		let (bytes, _) = self.file(path).ok_or(MountError::NotFound)?;
 		if Self::denied(path) {
 			return Err(MountError::Denied("not granted".into()));
 		}
@@ -340,6 +357,27 @@ async fn the_adapter_answers_nfs_calls() {
 	adapter.invalidate(Path::new("docs/readme.md"));
 	adapter.read(readme, 0, 4).await.unwrap();
 	assert_eq!(fs.opens.load(Ordering::SeqCst), 3);
+
+	// A file replaced at its origin is reopened, even at the same size and
+	// with no change feed, so new bytes never arrive under old attributes.
+	fs.replace(
+		"docs/readme.md",
+		b"HELLO FROM NFS\n",
+		UNIX_EPOCH + Duration::from_secs(60),
+	);
+	let (bytes, _) = adapter.read(readme, 0, 4096).await.unwrap();
+	assert_eq!(bytes, b"HELLO FROM NFS\n");
+	assert_eq!(fs.opens.load(Ordering::SeqCst), 4);
+	assert_eq!(adapter.getattr(readme).await.unwrap().mtime.seconds, 60);
+
+	// A directory with no time of its own reports now, so a client that
+	// cached its listing asks again.
+	let now = SystemTime::now()
+		.duration_since(UNIX_EPOCH)
+		.unwrap()
+		.as_secs() as u32;
+	let root_attr = adapter.getattr(root).await.unwrap();
+	assert!(root_attr.mtime.seconds + 2 >= now, "{:?}", root_attr.mtime);
 
 	// Denied paths are refused with EACCES.
 	let secret = walk(&adapter, "secret").await.unwrap();
@@ -939,6 +977,27 @@ mod kernel {
 				);
 			})
 			.await;
+		}
+
+		// A source added after the first listing shows up at the top of the
+		// mount once the client's one-second attribute cache runs out.
+		let later = harness.create_test_dir("later").await?;
+		later.write_file("hello.txt", "later").await?;
+		later.track().await?;
+		let deadline = tokio::time::Instant::now() + Duration::from_secs(15);
+		loop {
+			let listed = {
+				let all = all.clone();
+				blocking(move || names(&all)).await
+			};
+			if listed.iter().any(|name| name.starts_with("later-")) {
+				break;
+			}
+			assert!(
+				tokio::time::Instant::now() < deadline,
+				"a new source appears in a listed mount: {listed:?}"
+			);
+			tokio::time::sleep(Duration::from_millis(500)).await;
 		}
 
 		// A grant narrows a mount to the directory it lends.

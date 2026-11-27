@@ -1,3 +1,5 @@
+//! # NFS front port
+//!
 //! The public port of a mount's NFS server.
 //!
 //! nfsserve answers plain READDIR from the first entry of the directory on
@@ -10,16 +12,18 @@
 //! an internal loopback port unchanged. Replies from both are whole records,
 //! so they interleave safely on the client's connection.
 
-use super::server::NfsAdapter;
+use std::io;
+use std::net::SocketAddr;
+
 use nfsserve::nfs::{fattr3, nfs_fh3, post_op_attr};
 use nfsserve::vfs::NFSFileSystem;
 use nfsserve::xdr::XDR;
-use std::io;
-use std::net::SocketAddr;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, watch};
 use tracing::debug;
+
+use super::server::NfsAdapter;
 
 const NFS_PROGRAM: u32 = 100003;
 const NFS_VERSION: u32 = 3;

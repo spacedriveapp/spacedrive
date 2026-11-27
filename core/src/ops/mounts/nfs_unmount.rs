@@ -1,4 +1,12 @@
+//! # Unmount NFS
+//!
 //! Unmount an NFS mount the daemon holds.
+
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use super::nfs_mount::action_error;
 use crate::{
@@ -6,10 +14,6 @@ use crate::{
 	infra::action::{error::ActionError, CoreAction},
 	service::mounts::nfs::{self, NfsMountInfo},
 };
-use serde::{Deserialize, Serialize};
-use specta::Type;
-use std::path::PathBuf;
-use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct NfsUnmountInput {

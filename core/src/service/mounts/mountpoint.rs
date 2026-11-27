@@ -1,3 +1,5 @@
+//! # Daemon mount helpers
+//!
 //! What the daemon's FUSE and NFS mounts share: the mount point check, the
 //! grant a mount can be bound to, and the wait for that grant to end.
 //!
@@ -5,15 +7,17 @@
 //! same [`LibraryTree`], so a grant narrows and ends either mount the same
 //! way. Only how the kernel is told to mount and unmount differs.
 
-use crate::context::CoreContext;
-use crate::ops::grants::{authorize, GrantCap, GrantError, GrantScope};
-use crate::service::mounts::tree::{BoundGrant, MountRoot};
-use chrono::Utc;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
+
+use chrono::Utc;
 use tracing::warn;
 use uuid::Uuid;
+
+use crate::context::CoreContext;
+use crate::ops::grants::{authorize, GrantCap, GrantError, GrantScope};
+use crate::service::mounts::tree::{BoundGrant, MountRoot};
 
 /// How often a grant-bound mount checks that its grant is still active.
 const GRANT_CHECK_INTERVAL: Duration = Duration::from_secs(5);
