@@ -599,7 +599,20 @@ async fn daemon_request(
 ) -> Result<serde_json::Value, String> {
 	let daemon_state = state.read().await;
 
-	tracing::debug!("Proxying daemon request: {:?}", request);
+	// Payloads and answers can hold credentials or grant tokens, so only the
+	// request's kind and method are logged.
+	tracing::debug!(
+		kind = request
+			.as_object()
+			.and_then(|o| o.keys().next())
+			.map(String::as_str),
+		method = request
+			.as_object()
+			.and_then(|o| o.values().next())
+			.and_then(|v| v.get("method"))
+			.and_then(|m| m.as_str()),
+		"Proxying daemon request"
+	);
 
 	// Connect to daemon via TCP
 	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -615,8 +628,6 @@ async fn daemon_request(
 	let request_line = serde_json::to_string(&request)
 		.map_err(|e| format!("Failed to serialize request: {}", e))?;
 
-	tracing::debug!("Sending to daemon: {}", request_line);
-
 	writer
 		.write_all(format!("{}\n", request_line).as_bytes())
 		.await
@@ -631,7 +642,7 @@ async fn daemon_request(
 		.await
 		.map_err(|e| format!("Failed to read response: {}", e))?;
 
-	tracing::debug!("Received from daemon: {}", response_line.trim());
+	tracing::debug!(bytes = response_line.len(), "Received from daemon");
 
 	// Explicitly close the connection by dropping both halves
 	drop(writer);
