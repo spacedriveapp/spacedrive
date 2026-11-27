@@ -43,6 +43,7 @@ pub mod create;
 pub mod extend;
 pub mod list;
 pub mod oauth;
+pub mod protect;
 pub mod revoke;
 pub mod scope;
 pub mod setup;

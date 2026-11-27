@@ -266,8 +266,12 @@ stale and the error names the current values. A write that creates a file
 never replaces one: if the name is taken, the new file is written beside it
 as `name (agent conflict 1).ext` and both are kept. Spacedrive never merges.
 
-Writes to `AGENTS.md`, `CLAUDE.md`, `SKILL.md` and `.git` are refused, and
-so is a move or delete of a directory that holds one. Replaced and deleted
+Writes to `AGENTS.md`, `CLAUDE.md`, `SKILL.md`, `.git`, `GEMINI.md`,
+`AGENT.md`, `.cursor/rules/`, `.github/workflows/` and `.env*` files are
+refused, and so is a move or delete of a directory that holds one. A space
+can protect more paths: `sd space update <id> --protect '*.pem' --protect
+'/secrets/**'`. A pattern that starts with `/` is anchored at the space root;
+any other matches at every depth. Replaced and deleted
 files go to the trash. Each write returns an `undo` id; reverse the write
 with `files.undo` and that id as `job`. The full model is in
 `docs/core/design/agent-writes.md` in the repository.

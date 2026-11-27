@@ -37,6 +37,9 @@ pub struct SpaceCreateInput {
 	/// Whether file contents inside the space are hashed and read. On by
 	/// default.
 	pub content_indexing: Option<bool>,
+	/// Patterns an agent may not write inside the space, on top of the
+	/// built-in list. None protects only the built-in list.
+	pub protected: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -66,6 +69,9 @@ impl LibraryAction for SpaceCreateAction {
 			.is_some_and(|name| name.trim().is_empty())
 		{
 			return Err("the name cannot be empty".to_string());
+		}
+		if let Some(patterns) = &input.protected {
+			store::protected_patterns(patterns.clone())?;
 		}
 		Ok(Self { input })
 	}
@@ -158,6 +164,8 @@ impl LibraryAction for SpaceCreateAction {
 			)));
 		}
 
+		let protected = store::protected_patterns(input.protected.unwrap_or_default())
+			.map_err(ActionError::InvalidInput)?;
 		let stamp = store::stamp(&context).map_err(ActionError::Internal)?;
 		let row = sd_store::SpaceRow {
 			uuid: id,
@@ -165,6 +173,7 @@ impl LibraryAction for SpaceCreateAction {
 			kind: input.kind.as_str().to_string(),
 			root: relative,
 			content_indexing: input.content_indexing.unwrap_or(true),
+			protected,
 			created_at: Utc::now().to_rfc3339(),
 			deleted: false,
 			updated_hlc: stamp.hlc,

@@ -34,7 +34,10 @@ use crate::{
 	},
 	ops::{
 		files::trash,
-		grants::{authorize, bucket::BucketUrl, scope, GrantCap, GrantError, GrantScope},
+		grants::{
+			authorize, bucket::BucketUrl, protect::Protection, scope, GrantCap, GrantError,
+			GrantScope,
+		},
 		spaces::events::{self as space_events, Attribution, Origin},
 	},
 	service::network::protocol::staged_receive::{rename_noreplace, StagedReceive, JOURNAL_DIR},
@@ -352,7 +355,7 @@ pub async fn move_path_in(
 	};
 	unchanged(context, &from, &current, &metadata, &turn).await?;
 	if is_dir {
-		no_protected_descendant(&from, &turn).await?;
+		no_protected_descendant(context, &from, &turn).await?;
 	}
 	turn.proceed()?;
 	let mut effects = make_parents(&to.root, &wanted).await?;
@@ -424,7 +427,7 @@ pub async fn delete_in(
 	let metadata = metadata.ok_or_else(|| stale(current.clone()))?;
 	unchanged(context, &scope, &current, &metadata, &turn).await?;
 	if metadata.is_dir() {
-		no_protected_descendant(&scope, &turn).await?;
+		no_protected_descendant(context, &scope, &turn).await?;
 	}
 	still_inside(&scope).await?;
 	let id = Uuid::now_v7();
@@ -489,8 +492,14 @@ async fn unchanged(
 /// Refuse to move or delete a directory that holds a path the grant
 /// protects, since authorizing the directory does not authorize what is in
 /// it. Links are not followed: a link is moved or trashed as itself.
-async fn no_protected_descendant(scope: &GrantScope, turn: &WriteTurn) -> Result<(), WriteError> {
+async fn no_protected_descendant(
+	context: &CoreContext,
+	scope: &GrantScope,
+	turn: &WriteTurn,
+) -> Result<(), WriteError> {
+	let protection = Protection::of(context, &scope.path, scope.library_id).await;
 	let (root, dir) = (scope.root.clone(), scope.path.clone());
+	let top = dir.clone();
 	let cancel = turn.cancel.clone();
 	let found = tokio::task::spawn_blocking(move || -> Result<Option<String>, WriteError> {
 		let mut pending = vec![dir];
@@ -503,7 +512,8 @@ async fn no_protected_descendant(scope: &GrantScope, turn: &WriteTurn) -> Result
 			for entry in entries {
 				let entry = entry.map_err(|e| WriteError::Io(format!("list: {e}")))?;
 				let path = entry.path();
-				if scope::protected_component(Path::new(&entry.file_name())).is_some() {
+				let below = path.strip_prefix(&top).unwrap_or(&path);
+				if protection.find_below(below).is_some() {
 					return Ok(Some(state::shown(&root, &path)));
 				}
 				if entry.file_type().is_ok_and(|kind| kind.is_dir()) {

@@ -14,6 +14,7 @@ use std::{path::Path, time::Duration};
 
 use helpers::*;
 use sd_core::{
+	domain::SpaceKind,
 	infra::{action::LibraryAction, job::output::JobOutput},
 	ops::{
 		agent_write::{
@@ -26,6 +27,7 @@ use sd_core::{
 			create::{CreateGrantAction, CreateGrantInput},
 			GrantCap, GrantError,
 		},
+		spaces::{SpaceCreateAction, SpaceCreateInput, SpaceUpdateAction, SpaceUpdateInput},
 	},
 };
 use uuid::Uuid;
@@ -575,4 +577,111 @@ fn walk(dir: &Path) -> Vec<std::path::PathBuf> {
 		out.push(path);
 	}
 	out
+}
+
+#[tokio::test]
+async fn space_patterns_protect_paths_inside_the_space() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("agent_writes_space_protected")
+		.disable_watcher()
+		.build()
+		.await?;
+	let tracked = harness.create_test_dir("tracked").await?;
+	for (path, content) in [
+		("project/notes.md", "notes"),
+		("project/secrets/key.txt", "key"),
+		("project/keys/id.pem", "pem"),
+		("project/docs/secrets/ok.md", "ok"),
+		("project/.github/workflows/ci.yml", "on: push"),
+	] {
+		tracked.write_file(path, content).await?;
+	}
+	tracked.track().await?;
+	let project = std::fs::canonicalize(harness.temp_path())?.join("tracked/project");
+	let space = SpaceCreateAction::from_input(SpaceCreateInput {
+		name: None,
+		kind: SpaceKind::Folder,
+		path: Some(project.clone()),
+		content_indexing: Some(false),
+		protected: Some(vec!["/secrets/**".into(), "*.pem".into()]),
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?
+	.space;
+	assert_eq!(space.protected, ["/secrets/**", "*.pem"]);
+	assert!(SpaceCreateAction::from_input(SpaceCreateInput {
+		name: None,
+		kind: SpaceKind::Folder,
+		path: Some(project.clone()),
+		content_indexing: None,
+		protected: Some(vec!["a[b".into()]),
+	})
+	.is_err());
+	let agent = Agent {
+		token: grant(&harness, &project, GrantCap::ReadWrite).await?,
+		harness: &harness,
+	};
+
+	// The space's patterns and the default list are refused before anything
+	// is touched, whichever operation reaches them.
+	let key = agent.stat("secrets/key.txt").await;
+	for result in [
+		agent
+			.write("secrets/key.txt", "leaked", None, Some(hash(&key)))
+			.await,
+		agent.write("secrets/new.txt", "x", None, None).await,
+		agent.write("keys/other.PEM", "x", None, None).await,
+		agent.make_dir("secrets/sub").await,
+		agent
+			.move_to("notes.md", "notes.pem", hash(&agent.stat("notes.md").await))
+			.await,
+		agent
+			.move_to("secrets", "moved", hash(&agent.stat("secrets").await))
+			.await,
+		agent.delete("keys", hash(&agent.stat("keys").await)).await,
+		agent
+			.write(".github/workflows/ci.yml", "on: pull_request", None, None)
+			.await,
+		agent.write("app/.env.local", "TOKEN=x", None, None).await,
+		agent.write("GEMINI.md", "rules", None, None).await,
+		agent
+			.write(".cursor/rules/style.mdc", "rules", None, None)
+			.await,
+	] {
+		assert!(
+			matches!(result, Err(WriteError::Grant(GrantError::Protected(_)))),
+			"{result:?}"
+		);
+	}
+	assert_eq!(read(&project.join("secrets/key.txt")), "key");
+	assert_eq!(read(&project.join("keys/id.pem")), "pem");
+	assert!(!project.join("secrets/sub").exists());
+
+	// An anchored pattern holds only at the space root.
+	let ok = agent.stat("docs/secrets/ok.md").await;
+	agent
+		.write("docs/secrets/ok.md", "still ok", None, Some(hash(&ok)))
+		.await?;
+	assert_eq!(read(&project.join("docs/secrets/ok.md")), "still ok");
+
+	// Patterns are read on every request, so clearing them applies at once;
+	// the default list stays.
+	SpaceUpdateAction::from_input(SpaceUpdateInput {
+		id: space.id,
+		name: None,
+		content_indexing: None,
+		protected: Some(Vec::new()),
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?;
+	agent
+		.write("secrets/key.txt", "rotated", None, Some(hash(&key)))
+		.await?;
+	assert_eq!(read(&project.join("secrets/key.txt")), "rotated");
+	assert!(matches!(
+		agent.write("app/.env", "TOKEN=x", None, None).await,
+		Err(WriteError::Grant(GrantError::Protected(_)))
+	));
+	Ok(())
 }

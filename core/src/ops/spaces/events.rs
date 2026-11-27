@@ -22,13 +22,18 @@ use std::{
 };
 
 use chrono::Utc;
+use globset::GlobSet;
 use parking_lot::Mutex;
 use sd_fs_watcher::{FsEvent, FsEventKind};
 use sd_store::{SpaceEvent, SpaceEventLog};
 use tracing::warn;
 use uuid::Uuid;
 
-use crate::{context::CoreContext, infra::job::journal::Effect, ops::spaces::store::slash_path};
+use crate::{
+	context::CoreContext,
+	infra::job::journal::Effect,
+	ops::{grants::protect, spaces::store::slash_path},
+};
 
 /// How long a space keeps its events unless it says otherwise.
 pub const RETENTION_DAYS: i64 = 30;
@@ -100,8 +105,15 @@ struct Logs {
 	open: HashMap<Uuid, (Arc<SpaceEventLog>, Uuid, Instant)>,
 }
 
-static SPACES: LazyLock<Mutex<HashMap<Uuid, Arc<Vec<(Uuid, String)>>>>> =
-	LazyLock::new(Default::default);
+/// A space as the lookups here need it.
+struct Cached {
+	id: Uuid,
+	root: String,
+	/// Its protected patterns, when it has any that compile.
+	protected: Option<Arc<GlobSet>>,
+}
+
+static SPACES: LazyLock<Mutex<HashMap<Uuid, Arc<Vec<Cached>>>>> = LazyLock::new(Default::default);
 static LOGS: LazyLock<tokio::sync::Mutex<Logs>> = LazyLock::new(|| {
 	tokio::sync::Mutex::new(Logs {
 		open: HashMap::new(),
@@ -230,7 +242,7 @@ fn is_own(own: &HashMap<PathBuf, Claim>, path: &Path, now: Instant) -> bool {
 	})
 }
 
-async fn spaces_of(context: &CoreContext, source_id: Uuid) -> Arc<Vec<(Uuid, String)>> {
+async fn spaces_of(context: &CoreContext, source_id: Uuid) -> Arc<Vec<Cached>> {
 	let generation = {
 		let spaces = SPACES.lock();
 		if let Some(spaces) = spaces.get(&source_id) {
@@ -240,7 +252,7 @@ async fn spaces_of(context: &CoreContext, source_id: Uuid) -> Arc<Vec<(Uuid, Str
 	};
 	let spaces = match context.volume_index().read_store(source_id).await {
 		Some(db) => match db.spaces().await {
-			Ok(rows) => rows.into_iter().map(|row| (row.uuid, row.root)).collect(),
+			Ok(rows) => rows.into_iter().map(cached).collect(),
 			Err(error) => {
 				warn!(%source_id, %error, "could not read the spaces of a source");
 				return Arc::new(Vec::new());
@@ -256,36 +268,58 @@ async fn spaces_of(context: &CoreContext, source_id: Uuid) -> Arc<Vec<(Uuid, Str
 	spaces
 }
 
+fn cached(row: sd_store::SpaceRow) -> Cached {
+	let patterns: Vec<String> = serde_json::from_str(&row.protected).unwrap_or_default();
+	// A pattern synced from a newer build may not compile here; the space
+	// keeps the built-in protection rather than losing its log.
+	let protected = match protect::compile(&patterns) {
+		Ok(set) if !patterns.is_empty() => Some(Arc::new(set)),
+		Ok(_) => None,
+		Err(error) => {
+			warn!(space = %row.uuid, %error, "ignoring the protected patterns of a space");
+			None
+		}
+	};
+	Cached {
+		id: row.uuid,
+		root: row.root,
+		protected,
+	}
+}
+
+/// `relative` under `root`, when `root` holds it.
+fn inside<'a>(root: &str, relative: &'a str) -> Option<&'a str> {
+	if root.is_empty() {
+		Some(relative)
+	} else if relative == root {
+		Some("")
+	} else {
+		relative
+			.strip_prefix(root)
+			.and_then(|rest| rest.strip_prefix('/'))
+	}
+}
+
 /// The innermost space of `spaces` that holds `relative`, and `relative`
 /// under that space's root.
-fn innermost(spaces: &[(Uuid, String)], relative: &str) -> Option<(Uuid, String)> {
+fn innermost(spaces: &[Cached], relative: &str) -> Option<(Uuid, String)> {
 	spaces
 		.iter()
-		.filter_map(|(id, root)| {
-			let inside = if root.is_empty() {
-				Some(relative)
-			} else if relative == root {
-				Some("")
-			} else {
-				relative
-					.strip_prefix(root.as_str())
-					.and_then(|rest| rest.strip_prefix('/'))
-			}?;
-			Some((root.len(), *id, inside.to_string()))
+		.filter_map(|space| {
+			let inside = inside(&space.root, relative)?;
+			Some((space.root.len(), space.id, inside.to_string()))
 		})
 		.max_by_key(|(depth, _, _)| *depth)
 		.map(|(_, id, inside)| (id, inside))
 }
 
-/// The space holding `path`, if any. `path` may be spelled under the
-/// source's root or under the volume's spelling of it. With `library`, only
-/// that library's sources are considered, since sources of two libraries
-/// can nest.
-pub async fn space_of(
+/// The source of `path`, its spaces, and `path` relative to the source
+/// root.
+async fn locate(
 	context: &CoreContext,
 	path: &Path,
 	library: Option<Uuid>,
-) -> Option<InSpace> {
+) -> Option<(Uuid, Arc<Vec<Cached>>, String)> {
 	let index = context.volume_index();
 	let source_for = |path: &Path| match library {
 		None => index.source_id_for(path),
@@ -310,12 +344,45 @@ pub async fn space_of(
 	}
 	let root = index.source_root(source_id)?;
 	let relative = slash_path(path.strip_prefix(&root).ok()?);
+	Some((source_id, spaces, relative))
+}
+
+/// The space holding `path`, if any. `path` may be spelled under the
+/// source's root or under the volume's spelling of it. With `library`, only
+/// that library's sources are considered, since sources of two libraries
+/// can nest.
+pub async fn space_of(
+	context: &CoreContext,
+	path: &Path,
+	library: Option<Uuid>,
+) -> Option<InSpace> {
+	let (source_id, spaces, relative) = locate(context, path, library).await?;
 	let (space_id, path) = innermost(&spaces, &relative)?;
 	Some(InSpace {
 		source_id,
 		space_id,
 		path,
 	})
+}
+
+/// The protected patterns of every space of `library` holding `path`, each
+/// with `path` relative to that space's root. Outer spaces count as well as
+/// the innermost, so nesting a space never lifts a protection.
+pub async fn protected_at(
+	context: &CoreContext,
+	path: &Path,
+	library: Uuid,
+) -> Vec<(String, Arc<GlobSet>)> {
+	let Some((_, spaces, relative)) = locate(context, path, Some(library)).await else {
+		return Vec::new();
+	};
+	spaces
+		.iter()
+		.filter_map(|space| {
+			let set = space.protected.clone()?;
+			Some((inside(&space.root, &relative)?.to_string(), set))
+		})
+		.collect()
 }
 
 async fn log_for(context: &CoreContext, at: &InSpace) -> Option<Arc<SpaceEventLog>> {
@@ -576,10 +643,15 @@ mod tests {
 		let a = Uuid::from_u128(1);
 		let b = Uuid::from_u128(2);
 		let c = Uuid::from_u128(3);
+		let space = |id, root: &str| Cached {
+			id,
+			root: root.into(),
+			protected: None,
+		};
 		let spaces = vec![
-			(a, String::new()),
-			(b, "Documents".into()),
-			(c, "Documents/thesis".into()),
+			space(a, ""),
+			space(b, "Documents"),
+			space(c, "Documents/thesis"),
 		];
 		assert_eq!(
 			innermost(&spaces, "Documents/thesis/ch1.md"),
