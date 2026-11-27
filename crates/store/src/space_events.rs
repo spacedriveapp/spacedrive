@@ -105,6 +105,12 @@ impl SpaceEventLog {
 	}
 
 	/// Append one event and answer its sequence number.
+	/// Close the log, waiting for writes in flight, so its folder can be
+	/// deleted.
+	pub async fn close(&self) {
+		self.pool.close().await;
+	}
+
 	pub async fn append(&self, event: &SpaceEvent) -> Result<i64> {
 		let result = sqlx::query(
 			"INSERT INTO space_event
