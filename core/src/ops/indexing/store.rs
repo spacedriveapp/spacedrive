@@ -468,7 +468,14 @@ impl SourceStore {
 		self.send(Ingest::FinishSweep { unreachable }).await;
 	}
 
-	/// Files this source holds whose bytes have not been identified yet.
+	/// The subtrees whose contents this source reads, relative to its root.
+	pub async fn deep_subtrees(&self) -> Result<Vec<String>> {
+		super::deep_scope::deep_subtrees(&self.db, &self.root)
+			.await
+			.with_context(|| format!("read the deep scope of source {}", self.id))
+	}
+
+	/// Files in the deep scope whose bytes have not been identified yet.
 	///
 	/// Absolute paths, because the caller is going to open them. The store
 	/// addresses everything relative to the root so that a drive remounting
@@ -479,7 +486,8 @@ impl SourceStore {
 	) -> Result<Vec<(Uuid, PathBuf, u64)>> {
 		// A failed read is an error, never an empty vector: a hashing job
 		// reads emptiness as a drained queue and reports success.
-		let pending = sd_store::files_needing_content(self.db.pool(), batch_size)
+		let subtrees = self.deep_subtrees().await?;
+		let pending = sd_store::files_needing_content(self.db.pool(), batch_size, &subtrees)
 			.await
 			.with_context(|| format!("list files needing content in source {}", self.id))?;
 		Ok(pending
@@ -577,9 +585,10 @@ impl SourceStore {
 		Ok(count.max(0) as u64)
 	}
 
-	/// How many files are still waiting to be identified.
+	/// How many files in the deep scope are still waiting to be identified.
 	pub async fn files_needing_content_count(&self) -> Result<u64> {
-		let count = sd_store::count_files_needing_content(self.db.pool())
+		let subtrees = self.deep_subtrees().await?;
+		let count = sd_store::count_files_needing_content(self.db.pool(), &subtrees)
 			.await
 			.with_context(|| format!("count files needing content in source {}", self.id))?;
 		Ok(count.max(0) as u64)

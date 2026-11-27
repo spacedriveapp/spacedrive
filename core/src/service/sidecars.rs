@@ -376,7 +376,14 @@ impl SidecarRegistry {
 				debug!(source = %source.id, "store unreachable; not pruning content sidecars");
 				return 0;
 			};
-			match sd_store::count_files_needing_content(db.pool()).await {
+			// Files outside the deep scope are never identified, so waiting on them would stop pruning for good.
+			let pending = match crate::ops::indexing::deep_scope::deep_subtrees(&db, &source.root)
+				.await
+			{
+				Ok(subtrees) => sd_store::count_files_needing_content(db.pool(), &subtrees).await,
+				Err(error) => Err(error),
+			};
+			match pending {
 				Ok(0) => stores.push(db),
 				_ => {
 					debug!(source = %source.id, "identification pending; not pruning content sidecars");
