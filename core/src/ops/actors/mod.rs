@@ -214,6 +214,22 @@ pub async fn new_agent(
 	.map_err(|e| e.to_string())
 }
 
+/// Add an actor another library named, as that library knew it, so a change
+/// log and versions imported from it still say who made each change.
+pub async fn remember(library: &Library, actor: &Actor) -> Result<(), String> {
+	ensure(
+		library,
+		actor.id,
+		actor.kind,
+		actor.label.clone(),
+		actor.harness.clone(),
+		None,
+	)
+	.await
+	.map(drop)
+	.map_err(|e| e.to_string())
+}
+
 /// Every actor in the library.
 pub async fn all(library: &Library) -> Result<Vec<Actor>, sea_orm::DbErr> {
 	Ok(actor::Entity::find()

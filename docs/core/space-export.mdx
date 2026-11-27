@@ -1,0 +1,43 @@
+---
+title: Space Export and Import
+description: Carry a space, its change log and its versions to another library as one .sdspace file
+sidebarTitle: Space Export
+---
+
+You can write a space to one `.sdspace` file and create a space from that file in another library. The file holds the space's files, its change log and, for a space with versioning on, its versions and snapshots. History, restore and snapshots work in the new library as they did in the old one.
+
+## Export
+
+```bash
+sd space export <space-id> project.sdspace
+sd space export <space-id> project.sdspace --current
+```
+
+The op is `spaces.export` with `{ id, path, current_only }`. It answers the file's path and what it holds: files, changes, versions, snapshots, and the bytes of stored content.
+
+- By default the file holds every version the space keeps and every snapshot.
+- With `--current` (`current_only`), it holds the newest version of each file and no snapshots. The change log still comes along.
+- A space with versioning off exports its files as they are now. Spacedrive stages them in a temporary folder beside the export and removes it before the export returns.
+- The export never replaces a file. If `path` exists, the export is refused.
+- The people, devices and agents the change log and versions name come along by name, so the new library can say who made each change.
+
+## Import
+
+```bash
+sd space import project.sdspace ~/Spaces/project
+sd space import project.sdspace ~/Spaces/project --name "Project copy"
+```
+
+The op is `spaces.import` with `{ path, destination, name? }`. It creates a new workspace space at `destination`, which must not exist or must be empty, and answers the new space and what came across.
+
+1. Spacedrive creates the space and writes the newest version of each file into its folder. These writes are part of the import and do not appear as changes made outside Spacedrive.
+2. It adds the change log to the new space's log.
+3. If the exported space kept versions, it copies the versions and snapshots into the new space's version store and turns versioning on.
+
+The new space has a new id. Version ids, snapshot names and the order of the change log stay as they were.
+
+## The file
+
+An `.sdspace` file is one SQLite database. `meta` holds the format version (1) and the space record as JSON. `space_event`, `version`, `snapshot` and `blob` have the same columns as a space's `events.db` and `versions.db`. `chunk` holds the chunk bytes the version store keeps as files.
+
+Spacedrive checks every chunk and every file against its BLAKE3 hash when it reads them back, and refuses a damaged file. It refuses a file from a newer format, and a file that names a path outside the space.

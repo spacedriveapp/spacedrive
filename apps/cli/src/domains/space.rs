@@ -11,13 +11,13 @@ use uuid::Uuid;
 use sd_core::{
 	domain::{Space, SpaceKind},
 	ops::spaces::{
-		SpaceCreateInput, SpaceCreateOutput, SpaceDeleteInput, SpaceDeleteOutput,
-		SpaceGetQueryInput, SpaceGetQueryOutput, SpaceHistoryInput, SpaceHistoryOutput,
-		SpaceHistoryPurgeInput, SpaceHistoryPurgeOutput, SpaceRestoreInput, SpaceRestoreOutput,
-		SpaceSnapshot, SpaceSnapshotCreateInput, SpaceSnapshotCreateOutput,
-		SpaceSnapshotDeleteInput, SpaceSnapshotDeleteOutput, SpaceSnapshotListInput,
-		SpaceSnapshotListOutput, SpaceUpdateInput, SpaceUpdateOutput, SpacesListQueryInput,
-		SpacesListQueryOutput,
+		SpaceCreateInput, SpaceCreateOutput, SpaceDeleteInput, SpaceDeleteOutput, SpaceExportInput,
+		SpaceExportOutput, SpaceGetQueryInput, SpaceGetQueryOutput, SpaceHistoryInput,
+		SpaceHistoryOutput, SpaceHistoryPurgeInput, SpaceHistoryPurgeOutput, SpaceImportInput,
+		SpaceImportOutput, SpaceRestoreInput, SpaceRestoreOutput, SpaceSnapshot,
+		SpaceSnapshotCreateInput, SpaceSnapshotCreateOutput, SpaceSnapshotDeleteInput,
+		SpaceSnapshotDeleteOutput, SpaceSnapshotListInput, SpaceSnapshotListOutput,
+		SpaceUpdateInput, SpaceUpdateOutput, SpacesListQueryInput, SpacesListQueryOutput,
 	},
 };
 
@@ -49,6 +49,25 @@ pub enum SpaceCmd {
 	Snapshot(SnapshotCmd),
 	/// Delete every stored version and snapshot of a space; its files stay
 	PurgeHistory { id: Uuid },
+	/// Write a space, its change log and its versions to one .sdspace file
+	Export {
+		id: Uuid,
+		/// The file to write; it must not exist
+		path: PathBuf,
+		/// Only the newest version of each file, with no snapshots
+		#[arg(long)]
+		current: bool,
+	},
+	/// Create a space from a .sdspace file, with its files, change log and versions
+	Import {
+		/// The .sdspace file
+		path: PathBuf,
+		/// The folder the space's files go in; it must not exist or must be empty
+		destination: PathBuf,
+		/// The new space's name; the exported name by default
+		#[arg(long)]
+		name: Option<String>,
+	},
 }
 
 #[derive(Args, Debug)]
@@ -285,6 +304,48 @@ pub async fn run(ctx: &Context, cmd: SpaceCmd) -> Result<()> {
 					} else {
 						"No such snapshot"
 					}
+				);
+			});
+		}
+		SpaceCmd::Export { id, path, current } => {
+			let input = SpaceExportInput {
+				id,
+				path: std::path::absolute(&path)?,
+				current_only: current,
+			};
+			let out: SpaceExportOutput = execute_action!(ctx, input);
+			print_output!(ctx, &out, |o: &SpaceExportOutput| {
+				println!(
+					"Exported {} files, {} changes, {} versions and {} snapshots ({} bytes) to {}",
+					o.summary.files,
+					o.summary.changes,
+					o.summary.versions,
+					o.summary.snapshots,
+					o.summary.bytes,
+					o.path.display()
+				);
+			});
+		}
+		SpaceCmd::Import {
+			path,
+			destination,
+			name,
+		} => {
+			let input = SpaceImportInput {
+				path: std::path::absolute(&path)?,
+				destination: std::path::absolute(&destination)?,
+				name,
+			};
+			let out: SpaceImportOutput = execute_action!(ctx, input);
+			print_output!(ctx, &out, |o: &SpaceImportOutput| {
+				println!(
+					"Imported {} ({}) with {} files, {} changes, {} versions and {} snapshots",
+					o.space.name,
+					o.space.id,
+					o.summary.files,
+					o.summary.changes,
+					o.summary.versions,
+					o.summary.snapshots
 				);
 			});
 		}

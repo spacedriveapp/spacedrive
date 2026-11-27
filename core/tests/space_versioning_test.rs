@@ -24,8 +24,9 @@ use sd_core::{
 		},
 		spaces::{
 			versioning, ChangeOrder, SpaceChangesInput, SpaceChangesQuery, SpaceCreateAction,
-			SpaceCreateInput, SpaceHistoryInput, SpaceHistoryOutput, SpaceHistoryPurgeAction,
-			SpaceHistoryPurgeInput, SpaceHistoryQuery, SpaceRestoreAction, SpaceRestoreInput,
+			SpaceCreateInput, SpaceExportAction, SpaceExportInput, SpaceHistoryInput,
+			SpaceHistoryOutput, SpaceHistoryPurgeAction, SpaceHistoryPurgeInput, SpaceHistoryQuery,
+			SpaceImportAction, SpaceImportInput, SpaceRestoreAction, SpaceRestoreInput,
 			SpaceSnapshotCreateAction, SpaceSnapshotCreateInput, SpaceSnapshotDeleteAction,
 			SpaceSnapshotDeleteInput, SpaceSnapshotListInput, SpaceSnapshotListQuery,
 			SpaceUpdateAction, SpaceUpdateInput,
@@ -579,6 +580,166 @@ async fn only_a_grant_on_the_whole_space_makes_or_drops_snapshots() -> anyhow::R
 	)
 	.await;
 	assert_eq!(dropped["isError"], json!(false), "{dropped}");
+	Ok(())
+}
+
+#[tokio::test]
+async fn a_space_round_trips_through_an_sdspace_file() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("versioning_export")
+		.disable_watcher()
+		.build()
+		.await?;
+	let home = harness.create_test_dir("home").await?;
+	home.write_file("project/a.md", "a1").await?;
+	home.write_file("project/docs/b.md", "b1").await?;
+	home.write_file("plain/c.md", "c1").await?;
+	let tracked = home.track().await?;
+	let project = space(&harness, &tracked.root.join("project")).await?;
+	let project = set_versioning(&harness, &project, true).await?;
+	history_until(&harness, &project, None, |h| h.versions.len() == 2).await;
+	SpaceSnapshotCreateAction::from_input(SpaceSnapshotCreateInput {
+		id: project.id,
+		name: "first".into(),
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?;
+	let token = grant(&harness, &tracked.root.join("project")).await?.token;
+	let a1 = history(&harness, &project, Some("a.md")).await.versions[0]
+		.hash
+		.clone();
+	write(&harness, &token, "a.md", "a2", a1).await?;
+	let before = history(&harness, &project, None).await;
+	assert_eq!(before.versions.len(), 3);
+
+	let out = harness.create_test_dir("out").await?;
+	let export = |id, path: std::path::PathBuf, current_only| {
+		let harness = &harness;
+		async move {
+			SpaceExportAction::from_input(SpaceExportInput {
+				id,
+				path,
+				current_only,
+			})
+			.map_err(anyhow::Error::msg)?
+			.execute(harness.library.clone(), harness.core.context.clone())
+			.await
+			.map_err(|e| anyhow::anyhow!("export: {e:?}"))
+		}
+	};
+	let import = |path: std::path::PathBuf, destination: std::path::PathBuf| {
+		let harness = &harness;
+		async move {
+			SpaceImportAction::from_input(SpaceImportInput {
+				path: path.clone(),
+				destination,
+				name: None,
+			})
+			.map_err(anyhow::Error::msg)?
+			.execute(harness.library.clone(), harness.core.context.clone())
+			.await
+			.map_err(|e| anyhow::anyhow!("import {}: {e:?}", path.display()))
+		}
+	};
+
+	// The whole space: files, change log, every version and the snapshot.
+	let full = out.path().join("project.sdspace");
+	let exported = export(project.id, full.clone(), false).await?;
+	let full_bytes = exported.summary.bytes;
+	assert_eq!(exported.summary.files, 2);
+	assert_eq!(exported.summary.versions, 3);
+	assert_eq!(exported.summary.snapshots, 1);
+	assert!(exported.summary.changes >= 1, "{:?}", exported.summary);
+	assert!(
+		export(project.id, full.clone(), false).await.is_err(),
+		"an export never replaces a file"
+	);
+	let copy = import(full.clone(), out.path().join("copy")).await?;
+	assert_ne!(copy.space.id, project.id);
+	assert!(copy.space.versioning);
+	assert_eq!(copy.summary.versions, 3);
+	let folder = copy.space.path.clone().expect("a folder");
+	assert_eq!(tokio::fs::read_to_string(folder.join("a.md")).await?, "a2");
+	assert_eq!(
+		tokio::fs::read_to_string(folder.join("docs/b.md")).await?,
+		"b1"
+	);
+	let after = history(&harness, &copy.space, None).await;
+	assert_eq!(
+		after
+			.versions
+			.iter()
+			.map(|v| (&v.path, &v.hash, &v.origin, &v.actor.label))
+			.collect::<Vec<_>>(),
+		before
+			.versions
+			.iter()
+			.map(|v| (&v.path, &v.hash, &v.origin, &v.actor.label))
+			.collect::<Vec<_>>(),
+		"the history comes across as it was"
+	);
+	let changes = SpaceChangesQuery::from_input(SpaceChangesInput {
+		id: copy.space.id,
+		order: None,
+		since: None,
+		before: None,
+		path: None,
+		limit: Some(100),
+	})
+	.expect("input")
+	.execute(harness.core.context.clone(), session(&harness))
+	.await?;
+	assert_eq!(changes.changes.len() as u64, exported.summary.changes);
+	let restored = restore(&harness, &copy.space, None, Some("first"), None).await?;
+	assert_eq!(restored.restored.len(), 1);
+	assert_eq!(tokio::fs::read_to_string(folder.join("a.md")).await?, "a1");
+	assert!(
+		import(full.clone(), out.path().join("copy")).await.is_err(),
+		"an import needs an empty folder"
+	);
+
+	// Only the current files.
+	let current = out.path().join("current.sdspace");
+	let exported = export(project.id, current.clone(), true).await?;
+	assert_eq!(
+		(exported.summary.versions, exported.summary.snapshots),
+		(2, 0)
+	);
+	assert!(
+		exported.summary.bytes < full_bytes,
+		"the current files carry less content: {:?}",
+		exported.summary
+	);
+	assert!(
+		full.exists(),
+		"a refused export leaves the existing file alone"
+	);
+	let slim = import(current, out.path().join("slim")).await?;
+	let folder = slim.space.path.clone().expect("a folder");
+	assert_eq!(tokio::fs::read_to_string(folder.join("a.md")).await?, "a2");
+	let history_of_slim = history(&harness, &slim.space, None).await;
+	assert_eq!(history_of_slim.versions.len(), 2);
+
+	// A space with versioning off exports its files as they are.
+	let plain = space(&harness, &tracked.root.join("plain")).await?;
+	let plain_file = out.path().join("plain.sdspace");
+	let exported = export(plain.id, plain_file.clone(), false).await?;
+	assert_eq!(exported.summary.files, 1);
+	let mut leftovers = tokio::fs::read_dir(out.path()).await?;
+	while let Some(entry) = leftovers.next_entry().await? {
+		assert!(
+			!entry.file_name().to_string_lossy().starts_with(".sdspace-"),
+			"no staging left beside the export"
+		);
+	}
+	let imported = import(plain_file, out.path().join("plain-copy")).await?;
+	assert!(!imported.space.versioning);
+	let folder = imported.space.path.clone().expect("a folder");
+	assert_eq!(tokio::fs::read_to_string(folder.join("c.md")).await?, "c1");
+	assert!(history(&harness, &imported.space, None)
+		.await
+		.versions
+		.is_empty());
 	Ok(())
 }
 

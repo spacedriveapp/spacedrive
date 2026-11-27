@@ -328,6 +328,18 @@ async fn nested_roots(context: &CoreContext, source_id: Uuid, space_id: Uuid) ->
 		.collect()
 }
 
+/// Every file in `space` now, with its path in the space, leaving out the
+/// spaces nested inside it.
+pub async fn current_files(context: &CoreContext, space: &Space) -> Vec<(PathBuf, String)> {
+	let Some(root) = space.path.clone() else {
+		return Vec::new();
+	};
+	let nested = nested_roots(context, space.source_id, space.id).await;
+	tokio::task::spawn_blocking(move || files_under(&root, &nested))
+		.await
+		.unwrap_or_default()
+}
+
 /// Capture every file already in a space that just turned versioning on, as
 /// its baseline. Folders that are spaces of their own are left to them.
 /// Answers how many files were captured.
