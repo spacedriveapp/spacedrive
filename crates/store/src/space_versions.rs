@@ -28,7 +28,10 @@ use std::{
 	collections::HashSet,
 	io::{Read, Write},
 	path::{Path, PathBuf},
-	sync::Arc,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 };
 
 use fastcdc::v2020::StreamCDC;
@@ -166,6 +169,8 @@ pub struct SpaceVersions {
 	blobs: PathBuf,
 	/// Captures share it; a prune takes it alone.
 	collect: Arc<RwLock<()>>,
+	/// Set by [`Self::close`]; a capture after it stores nothing.
+	closed: Arc<AtomicBool>,
 }
 
 impl SpaceVersions {
@@ -188,7 +193,22 @@ impl SpaceVersions {
 			pool,
 			blobs,
 			collect: Arc::new(RwLock::new(())),
+			closed: Arc::new(AtomicBool::new(false)),
 		})
+	}
+
+	/// Wait for captures and prunes in flight, then refuse every later one
+	/// and close the database, so the files can be deleted with nothing
+	/// still writing to them.
+	pub async fn close(&self) {
+		let _alone = self.collect.write().await;
+		self.closed.store(true, Ordering::SeqCst);
+		self.pool.close().await;
+	}
+
+	/// Whether [`Self::close`] ran.
+	pub fn is_closed(&self) -> bool {
+		self.closed.load(Ordering::SeqCst)
 	}
 
 	/// The pool, for an export that copies the tables.
@@ -205,6 +225,9 @@ impl SpaceVersions {
 		mut row: VersionRow,
 	) -> Result<Option<(i64, StoredBlob)>> {
 		let _shared = self.collect.read().await;
+		if self.is_closed() {
+			return Err(Error::Other("the space's versions were closed".to_string()));
+		}
 		let meta = tokio::fs::metadata(file).await?;
 		if !meta.is_file() {
 			return Ok(None);
@@ -612,6 +635,25 @@ fn split_chunks(list: &[u8]) -> Vec<[u8; HASH_LEN]> {
 fn chunk_path(blobs: &Path, chunk: &[u8; HASH_LEN]) -> PathBuf {
 	let hex = blake3::Hash::from_bytes(*chunk).to_hex();
 	blobs.join(&hex[..2]).join(hex.as_str())
+}
+
+/// The content hash a capture would give the file at `path`, or None when
+/// no regular file is there.
+pub async fn content_hash(path: &Path) -> Result<Option<String>> {
+	let path = path.to_path_buf();
+	tokio::task::spawn_blocking(move || {
+		match std::fs::symlink_metadata(&path) {
+			Ok(meta) if meta.is_file() => {}
+			Ok(_) => return Ok(None),
+			Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+			Err(error) => return Err(error.into()),
+		}
+		let mut hasher = blake3::Hasher::new();
+		hasher.update_reader(std::fs::File::open(&path)?)?;
+		Ok(Some(hasher.finalize().to_hex().to_string()))
+	})
+	.await
+	.map_err(|e| Error::Other(format!("hash a file: {e}")))?
 }
 
 /// Cut a file into chunks, store the ones not stored yet, and answer the

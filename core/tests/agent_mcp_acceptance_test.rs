@@ -226,10 +226,13 @@ async fn agent_mcp_serves_a_grant_and_refuses_everything_else() -> anyhow::Resul
 		"move",
 		"delete",
 		"list_changes",
+		"history",
+		"restore",
+		"snapshot",
 	] {
 		assert!(names.contains(&tool), "{tool} missing from {names:?}");
 	}
-	assert_eq!(names.len(), 13, "nothing beyond the curated set");
+	assert_eq!(names.len(), 16, "nothing beyond the curated set");
 
 	// get_skill returns the compiled-in guide.
 	let reply = client.call("get_skill", json!({})).await;

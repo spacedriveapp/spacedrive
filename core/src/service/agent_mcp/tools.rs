@@ -818,7 +818,8 @@ async fn restore(
 	};
 	let mut restored = Vec::new();
 	let mut failed = Vec::new();
-	for (path, hash) in plan.files {
+	let mut unchanged = 0;
+	for (path, hash) in plan {
 		let shown = under_root(&at.path, &path).unwrap_or_else(|| path.clone());
 		// Each file is checked against the grant on its own, so a snapshot
 		// cannot restore a protected name inside a folder.
@@ -839,7 +840,8 @@ async fn restore(
 			Err(error) => Err(error.to_string()),
 		};
 		match written {
-			Ok(outcome) => restored.push(json!({
+			Ok(None) => unchanged += 1,
+			Ok(Some(outcome)) => restored.push(json!({
 				"path": shown,
 				"landed": outcome.state.path,
 				"conflict": outcome.conflict,
@@ -856,7 +858,7 @@ async fn restore(
 	}
 	Ok(Output::json(json!({
 		"restored": restored,
-		"unchanged": plan.unchanged,
+		"unchanged": unchanged,
 		"failed": failed,
 	})))
 }
@@ -874,7 +876,17 @@ async fn snapshot(
 	scope: &GrantScope,
 	args: SnapshotArgs,
 ) -> Result<Output, String> {
-	let (_, versions) = versioned_space(context, scope).await?;
+	let (at, versions) = versioned_space(context, scope).await?;
+	// A snapshot pins the whole space, so only a grant on the whole space
+	// may make or drop one; dropping one lets retention take files outside
+	// a narrower grant.
+	let whole_space = || {
+		if at.path.is_empty() {
+			Ok(())
+		} else {
+			Err("snapshots cover the whole space; this grant covers only part of it".to_string())
+		}
+	};
 	let shown = |row: &sd_store::SnapshotRow| json!({ "id": row.id, "name": row.name, "at": row.at, "version": row.manifest_id });
 	let name = args
 		.name
@@ -883,6 +895,7 @@ async fn snapshot(
 		.filter(|name| !name.is_empty());
 	match args.action.as_deref().unwrap_or("list") {
 		"create" => {
+			whole_space()?;
 			let name = name.ok_or_else(|| "name the snapshot".to_string())?;
 			let row = versions
 				.create_snapshot(name, scope.actor_id, &Utc::now().to_rfc3339())
@@ -897,6 +910,7 @@ async fn snapshot(
 			))
 		}
 		"delete" => {
+			whole_space()?;
 			let name = name.ok_or_else(|| "name the snapshot to delete".to_string())?;
 			let row = versions
 				.snapshot(name)

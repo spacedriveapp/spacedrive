@@ -133,7 +133,7 @@ pub(super) async fn follow(
 		"delete" => versions.removed(&event.path, &template).await.map(drop),
 		_ => {
 			let landed = change.to.as_deref().unwrap_or(&change.path);
-			capture_tree(&versions, landed, &event.path, &template).await;
+			capture_tree(context, at, &versions, landed, &event.path, &template).await;
 			Ok(())
 		}
 	};
@@ -169,7 +169,8 @@ pub fn settle(context: &Arc<CoreContext>, path: &Path) {
 }
 
 /// Capture what the watcher saw at `path`, attributed to this device and to
-/// the event that reported it.
+/// the event that reported it. A path that is gone is marked deleted, which
+/// changes nothing when a logged delete already did.
 async fn capture_watched(context: &CoreContext, path: &Path) {
 	let Some(at) = events::space_of(context, path, None)
 		.await
@@ -177,9 +178,7 @@ async fn capture_watched(context: &CoreContext, path: &Path) {
 	else {
 		return;
 	};
-	if tokio::fs::symlink_metadata(path).await.is_err() {
-		return;
-	}
+	let gone = tokio::fs::symlink_metadata(path).await.is_err();
 	let Ok(device) = context.device_manager.device_id() else {
 		return;
 	};
@@ -201,19 +200,29 @@ async fn capture_watched(context: &CoreContext, path: &Path) {
 		Origin::Watcher.as_str(),
 		seq,
 	);
-	capture_tree(&versions, path, &at.path, &template).await;
+	if gone {
+		if let Err(error) = versions.removed(&at.path, &template).await {
+			warn!(space = %at.space_id, path = %at.path, %error, "could not record a delete");
+		}
+		return;
+	}
+	capture_tree(context, &at, &versions, path, &at.path, &template).await;
 }
 
 /// Capture the file at `path`, or every file under it, as `relative` and the
-/// paths under it. A file that vanished meanwhile is skipped.
+/// paths under it. A file that vanished meanwhile is skipped, and so are
+/// spaces nested inside, which keep their own versions or none.
 async fn capture_tree(
+	context: &CoreContext,
+	at: &InSpace,
 	versions: &SpaceVersions,
 	path: &Path,
 	relative: &str,
 	template: &VersionRow,
 ) {
 	let root = path.to_path_buf();
-	let files = tokio::task::spawn_blocking(move || files_under(&root, &[]))
+	let nested = nested_roots(context, at.source_id, at.space_id).await;
+	let files = tokio::task::spawn_blocking(move || files_under(&root, &nested))
 		.await
 		.unwrap_or_default();
 	for (file, below) in files {
@@ -264,6 +273,25 @@ fn join(relative: &str, below: &str) -> String {
 	}
 }
 
+/// The folders of the spaces inside `space_id`, which its captures leave out.
+async fn nested_roots(context: &CoreContext, source_id: Uuid, space_id: Uuid) -> Vec<PathBuf> {
+	let spaces = events::spaces_of(context, source_id).await;
+	let Some((_, own, _)) = spaces.iter().find(|(id, ..)| *id == space_id) else {
+		return Vec::new();
+	};
+	let Some(base) = context.volume_index().source_root(source_id) else {
+		return Vec::new();
+	};
+	let inside = format!("{own}/");
+	spaces
+		.iter()
+		.filter(|(id, inner, _)| {
+			*id != space_id && !inner.is_empty() && (own.is_empty() || inner.starts_with(&inside))
+		})
+		.map(|(_, inner, _)| base.join(inner))
+		.collect()
+}
+
 /// Capture every file already in a space that just turned versioning on, as
 /// its baseline. Folders that are spaces of their own are left to them.
 /// Answers how many files were captured.
@@ -274,16 +302,7 @@ pub async fn baseline(context: &CoreContext, space: &Space, actor: Uuid) -> usiz
 	let Some(versions) = open(context, space.source_id, space.id).await else {
 		return 0;
 	};
-	let source_root = context.volume_index().source_root(space.source_id);
-	let nested: Vec<PathBuf> = events::spaces_of(context, space.source_id)
-		.await
-		.iter()
-		.filter(|(id, inner, _)| {
-			*id != space.id
-				&& (space.root.is_empty() || inner.starts_with(&format!("{}/", space.root)))
-		})
-		.filter_map(|(_, inner, _)| source_root.as_ref().map(|base| base.join(inner)))
-		.collect();
+	let nested = nested_roots(context, space.source_id, space.id).await;
 	let started = Instant::now();
 	let walk_root = root.clone();
 	let files = tokio::task::spawn_blocking(move || files_under(&walk_root, &nested))
@@ -292,6 +311,9 @@ pub async fn baseline(context: &CoreContext, space: &Space, actor: Uuid) -> usiz
 	let template = VersionRow::attributed(&Utc::now().to_rfc3339(), actor, BASELINE, None);
 	let mut captured = 0;
 	for (file, below) in files {
+		if versions.is_closed() {
+			break;
+		}
 		let row = VersionRow {
 			path: below,
 			..template.clone()
@@ -314,7 +336,12 @@ pub async fn baseline(context: &CoreContext, space: &Space, actor: Uuid) -> usiz
 /// Delete a space's versions and snapshots, after versioning was turned off
 /// or the space removed. Its event log stays.
 pub async fn discard(context: &CoreContext, source_id: Uuid, space_id: Uuid) {
-	OPEN.lock().await.remove(&space_id);
+	// Holding the open handles until the files are gone keeps a re-enable
+	// from opening the store while it is being deleted.
+	let mut open = OPEN.lock().await;
+	if let Some((versions, _)) = open.remove(&space_id) {
+		versions.close().await;
+	}
 	let Some(dir) = space_dir(context, source_id, space_id) else {
 		return;
 	};
@@ -341,22 +368,15 @@ pub enum RestoreFrom {
 	Snapshot(String),
 }
 
-/// The files a restore writes, as (path in the space, content hash), and
-/// how many it leaves because they already match.
-#[derive(Debug, Default)]
-pub struct RestorePlan {
-	pub files: Vec<(String, String)>,
-	pub unchanged: u32,
-}
-
-/// Work out what a restore writes. For a version, `path` is where it goes,
-/// its own path by default. For a snapshot, `path` narrows it to a file or
-/// folder, the whole space by default.
+/// Work out what a restore writes, as (path in the space, content hash).
+/// For a version, `path` is where it goes, its own path by default. For a
+/// snapshot, `path` narrows it to a file or folder, the whole space by
+/// default.
 pub async fn plan(
 	versions: &SpaceVersions,
 	from: &RestoreFrom,
 	path: Option<&str>,
-) -> Result<RestorePlan, String> {
+) -> Result<Vec<(String, String)>, String> {
 	match from {
 		RestoreFrom::Version(id) => {
 			let row = versions
@@ -371,10 +391,7 @@ pub async fn plan(
 				.map(|path| path.trim_matches('/').to_string())
 				.filter(|path| !path.is_empty())
 				.unwrap_or(row.path);
-			Ok(RestorePlan {
-				files: vec![(target, hash)],
-				unchanged: 0,
-			})
+			Ok(vec![(target, hash)])
 		}
 		RestoreFrom::Snapshot(name) => {
 			let snapshot = versions
@@ -393,35 +410,34 @@ pub async fn plan(
 					path.unwrap_or("the space root")
 				));
 			}
-			let mut plan = RestorePlan::default();
-			for entry in entries {
-				let Some(hash) = entry.blob_hash else {
-					continue;
-				};
-				let current = versions
-					.current(&entry.path)
-					.await
-					.map_err(|e| e.to_string())?;
-				if current.and_then(|row| row.blob_hash).as_deref() == Some(hash.as_str()) {
-					plan.unchanged += 1;
-				} else {
-					plan.files.push((entry.path, hash));
-				}
-			}
-			Ok(plan)
+			Ok(entries
+				.into_iter()
+				.filter_map(|entry| Some((entry.path, entry.blob_hash?)))
+				.collect())
 		}
 	}
 }
 
 /// Write the stored content `hash` to the path `scope` names, through the
-/// write path, as `who`.
+/// write path, as `who`. Answers None when the file there already holds it.
+///
+/// The file on disk is compared, not the newest captured version, since a
+/// watcher change may not be captured yet. The check runs under the write
+/// turn so no other write lands between it and the restore.
 pub async fn restore_file(
 	context: &CoreContext,
 	versions: Arc<SpaceVersions>,
 	scope: &GrantScope,
 	who: Attribution,
 	hash: String,
-) -> Result<WriteOutcome, WriteError> {
+) -> Result<Option<WriteOutcome>, WriteError> {
+	let turn = WriteTurn::take(Default::default()).await;
+	let live = sd_store::space_versions::content_hash(&scope.path)
+		.await
+		.map_err(|e| WriteError::Io(format!("read the file to restore over: {e}")))?;
+	if live.as_deref() == Some(hash.as_str()) {
+		return Ok(None);
+	}
 	let fill = Fill::With(Box::new(move |partial: PathBuf| {
 		Box::pin(async move {
 			versions
@@ -431,14 +447,7 @@ pub async fn restore_file(
 				.map_err(|e| format!("read the stored version: {e}"))
 		}) as std::pin::Pin<Box<dyn Future<Output = Result<(), String>> + Send>>
 	}));
-	restore_in(
-		context,
-		scope,
-		who,
-		fill,
-		WriteTurn::take(Default::default()).await,
-	)
-	.await
+	restore_in(context, scope, who, fill, turn).await.map(Some)
 }
 
 /// The scope a person's restore writes in: the space's own folder, with

@@ -525,15 +525,16 @@ pub async fn record_watched(context: &Arc<CoreContext>, event: &FsEvent) {
 		FsEventKind::Rename { from, to } => ("move", from, Some(to)),
 	};
 	let now = Instant::now();
-	{
+	let own = {
 		let own = OWN_WRITES.lock();
-		if is_own(&own, path, now) || to.is_some_and(|to| is_own(&own, to, now)) {
-			return;
-		}
-	}
+		is_own(&own, path, now) || to.is_some_and(|to| is_own(&own, to, now))
+	};
 	// Repeats are one event, but a space keeping versions wants the bytes
-	// the last of them left, so it captures once the path goes quiet.
-	if op != "delete" {
+	// the last of them left, so it captures once the path goes quiet. An
+	// echo of Spacedrive's own write settles too: it matches what was
+	// captured and adds nothing, while an outside edit or delete in the
+	// same moment is still kept.
+	if own || op != "delete" {
 		let landed = to.unwrap_or(path);
 		if space_of(context, landed, None)
 			.await
@@ -541,6 +542,9 @@ pub async fn record_watched(context: &Arc<CoreContext>, event: &FsEvent) {
 		{
 			versioning::settle(context, landed);
 		}
+	}
+	if own {
+		return;
 	}
 	{
 		let mut watched = WATCHED.lock();

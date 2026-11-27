@@ -395,6 +395,15 @@ async fn a_snapshot_keeps_its_versions_past_retention() -> anyhow::Result<()> {
 		"a second restore finds nothing to change"
 	);
 
+	// An edit not captured yet is compared on disk, not by its last version.
+	tokio::fs::write(tracked.root.join("project/a.md"), "outside").await?;
+	let fresh = restore(&harness, &project, None, Some("before the agent"), None).await?;
+	assert_eq!((fresh.restored.len(), fresh.unchanged), (1, 1));
+	assert_eq!(
+		tokio::fs::read_to_string(tracked.root.join("project/a.md")).await?,
+		"a1"
+	);
+
 	let list = SpaceSnapshotListQuery::from_input(SpaceSnapshotListInput { id: project.id })
 		.expect("input")
 		.execute(harness.core.context.clone(), session(&harness))
@@ -413,6 +422,125 @@ async fn a_snapshot_keeps_its_versions_past_retention() -> anyhow::Result<()> {
 		pruned.versions > 0 && pruned.chunks > 0,
 		"unpinned, they age out: {pruned:?}"
 	);
+	Ok(())
+}
+
+#[tokio::test]
+async fn only_a_grant_on_the_whole_space_makes_or_drops_snapshots() -> anyhow::Result<()> {
+	use serde_json::{json, Value};
+
+	let harness = IndexingHarnessBuilder::new("versioning_snapshot_scope")
+		.disable_watcher()
+		.build()
+		.await?;
+	let home = harness.create_test_dir("home").await?;
+	home.write_file("project/a.md", "a1").await?;
+	home.write_file("project/sub/b.md", "b1").await?;
+	let tracked = home.track().await?;
+	let project = space(&harness, &tracked.root.join("project")).await?;
+	let project = set_versioning(&harness, &project, true).await?;
+	history_until(&harness, &project, None, |h| h.versions.len() == 2).await;
+
+	let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+	let bound = sd_core::service::agent_mcp::serve(
+		harness.core.context.clone(),
+		listener,
+		sd_core::service::agent_mcp::Limits::default(),
+	)?;
+	let url = format!("http://{bound}/mcp");
+	let http = reqwest::Client::new();
+	let call = |token: String, tool: &'static str, arguments: Value| {
+		let (http, url) = (http.clone(), url.clone());
+		async move {
+			let message = |method: &str, params: Value| {
+				json!({ "jsonrpc": "2.0", "id": 1, "method": method, "params": params }).to_string()
+			};
+			let post = |body: String, session: Option<String>| {
+				let mut request = http
+					.post(&url)
+					.bearer_auth(&token)
+					.header("accept", "application/json, text/event-stream")
+					.header("content-type", "application/json")
+					.body(body);
+				if let Some(session) = session {
+					request = request.header("mcp-session-id", session);
+				}
+				request.send()
+			};
+			let init = post(
+				message(
+					"initialize",
+					json!({
+						"protocolVersion": "2025-06-18",
+						"capabilities": {},
+						"clientInfo": { "name": "versioning", "version": "0" },
+					}),
+				),
+				None,
+			)
+			.await
+			.expect("initialize");
+			let session = init
+				.headers()
+				.get("mcp-session-id")
+				.map(|session| session.to_str().unwrap().to_string());
+			let reply = post(
+				message(
+					"tools/call",
+					json!({ "name": tool, "arguments": arguments }),
+				),
+				session,
+			)
+			.await
+			.expect("call");
+			let body: Value = serde_json::from_slice(&reply.bytes().await.expect("body")).unwrap();
+			body["result"].clone()
+		}
+	};
+
+	let whole = grant(&harness, &tracked.root.join("project")).await?.token;
+	let part = grant(&harness, &tracked.root.join("project/sub"))
+		.await?
+		.token;
+	let refused = call(
+		part.clone(),
+		"snapshot",
+		json!({ "action": "create", "name": "mine" }),
+	)
+	.await;
+	assert_eq!(refused["isError"], json!(true), "{refused}");
+	let made = call(
+		whole.clone(),
+		"snapshot",
+		json!({ "action": "create", "name": "kept" }),
+	)
+	.await;
+	assert_eq!(made["isError"], json!(false), "{made}");
+	let listed = call(part.clone(), "snapshot", json!({ "action": "list" })).await;
+	assert_eq!(listed["isError"], json!(false), "{listed}");
+	let dropped = call(
+		part,
+		"snapshot",
+		json!({ "action": "delete", "name": "kept" }),
+	)
+	.await;
+	assert_eq!(dropped["isError"], json!(true), "{dropped}");
+	let list = SpaceSnapshotListQuery::from_input(SpaceSnapshotListInput { id: project.id })
+		.expect("input")
+		.execute(harness.core.context.clone(), session(&harness))
+		.await?;
+	assert_eq!(
+		list.snapshots.len(),
+		1,
+		"the person's snapshot is still there"
+	);
+	let dropped = call(
+		whole,
+		"snapshot",
+		json!({ "action": "delete", "name": "kept" }),
+	)
+	.await;
+	assert_eq!(dropped["isError"], json!(false), "{dropped}");
 	Ok(())
 }
 
@@ -484,6 +612,10 @@ async fn bench_versioning_overhead_on_a_gigabyte_folder() -> anyhow::Result<()> 
 		.build()
 		.await?;
 	let home = harness.create_test_dir("home").await?;
+	// Every replaced file goes to the trash. Point the platform trash at a
+	// folder of this run, so emptying it between writes touches nothing else.
+	let trash_home = harness.create_test_dir("data").await?;
+	std::env::set_var("XDG_DATA_HOME", trash_home.path());
 	let mut state = 0x9e37_79b9_7f4a_7c15u64;
 	let mut next = move || {
 		state ^= state << 13;
@@ -553,13 +685,11 @@ async fn bench_versioning_overhead_on_a_gigabyte_folder() -> anyhow::Result<()> 
 		let mut hashes = vec![None::<String>; files.len()];
 		let mut latencies = Vec::with_capacity(EDITS);
 		for (done, (file, offset, bytes)) in picks.iter().enumerate() {
-			// Every replaced file goes to the trash; empty it between timed
-			// writes so 10,000 edits fit on the disk.
+			// Empty this run's trash between timed writes so 10,000 edits fit
+			// on the disk.
 			if done % 250 == 0 {
-				if let Some(data) = dirs::data_dir() {
-					let _ = std::fs::remove_dir_all(data.join("Trash/files"));
-					let _ = std::fs::remove_dir_all(data.join("Trash/info"));
-				}
+				let _ = std::fs::remove_dir_all(trash_home.path().join("Trash/files"));
+				let _ = std::fs::remove_dir_all(trash_home.path().join("Trash/info"));
 			}
 			let (name, _) = &files[*file];
 			let expect = match &hashes[*file] {

@@ -125,10 +125,10 @@ impl LibraryAction for SpaceRestoreAction {
 		};
 		let mut output = SpaceRestoreOutput {
 			restored: Vec::new(),
-			unchanged: plan.unchanged,
+			unchanged: 0,
 			failed: Vec::new(),
 		};
-		for (path, hash) in plan.files {
+		for (path, hash) in plan {
 			let written = match versioning::person_scope(library.id(), &space, person, &path).await
 			{
 				Ok(scope) => {
@@ -139,7 +139,8 @@ impl LibraryAction for SpaceRestoreAction {
 				Err(error) => Err(error),
 			};
 			match written {
-				Ok(outcome) => output.restored.push(RestoredFile {
+				Ok(None) => output.unchanged += 1,
+				Ok(Some(outcome)) => output.restored.push(RestoredFile {
 					path,
 					landed: outcome.state.path,
 					conflict: outcome.conflict,

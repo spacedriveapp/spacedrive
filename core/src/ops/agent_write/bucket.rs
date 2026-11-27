@@ -460,7 +460,7 @@ pub(super) async fn move_path(
 						to: url.path(),
 						subject: Some(copy.subject()),
 					}];
-					let undo = journal(context, library, grant, id, &effects).await;
+					let undo = journal(context, library, Some(grant), id, &effects).await;
 					return moved(&to, url, undo, turn).await;
 				}
 				Err(Refusal::Taken) => continue,
@@ -470,7 +470,7 @@ pub(super) async fn move_path(
 						path: url.path(),
 						subject: landed(backend, &url).await,
 					}];
-					let undo = journal(context, library, grant, id, &effects).await;
+					let undo = journal(context, library, Some(grant), id, &effects).await;
 					return Err(kept(&from, &url, undo));
 				}
 				Err(refusal) => return Err(failed(&from, refusal)),
@@ -529,7 +529,7 @@ pub(super) async fn move_path(
 			}
 		}
 	}
-	let undo = journal(context, library, grant, id, &effects).await;
+	let undo = journal(context, library, Some(grant), id, &effects).await;
 	if !left.is_empty() {
 		return Err(partial("moving", &from, left, undo));
 	}
@@ -569,7 +569,7 @@ pub(super) async fn delete(
 		return match files_bucket::trash(backend, &source, id).await {
 			Ok(copy) => {
 				let effects = vec![trashed(&bucket.url, &source, &copy)];
-				let undo = journal(context, library, grant, id, &effects).await;
+				let undo = journal(context, library, Some(grant), id, &effects).await;
 				deleted(&bucket, current.state, undo)
 			}
 			Err(Refusal::Changed) => Err(stale(state(&bucket, turn.cancel()).await?)),
@@ -615,7 +615,7 @@ async fn delete_prefix(
 			)),
 		}
 	}
-	let undo = journal(context, library, grant, id, &effects).await;
+	let undo = journal(context, library, Some(grant), id, &effects).await;
 	if !left.is_empty() {
 		return Err(partial("deleting", &bucket, left, undo));
 	}
