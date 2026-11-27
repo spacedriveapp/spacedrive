@@ -118,14 +118,14 @@ function MediaGallery({ path }: { path: SdPath }) {
 ```tsx
 function SpacesList() {
 	const { data } = useNormalizedQuery({
-		query: "spaces.list",
+		query: "layouts.list",
 		input: null,
-		resourceType: "space",
-		// No pathScope - spaces are global resources
+		resourceType: "layout",
+		// No pathScope - layouts are global resources
 	});
 
 	return (
-		<ul>{data?.spaces?.map((space) => <li key={space.id}>{space.name}</li>)}</ul>
+		<ul>{data?.layouts?.map((layout) => <li key={layout.id}>{layout.name}</li>)}</ul>
 	);
 }
 ```
@@ -165,7 +165,7 @@ interface UseNormalizedQueryOptions<I> {
 	// Input for the query
 	input: I;
 
-	// Resource type for event filtering (e.g., "file", "space")
+	// Resource type for event filtering (e.g., "file", "layout")
 	resourceType: string;
 
 	// Whether query is enabled (default: true)
@@ -297,7 +297,7 @@ This ensures correctness even if server-side filtering has edge cases.
 ```tsx
 {
   ResourceChanged: {
-    resource_type: "space",
+    resource_type: "layout",
     resource: {
       id: "uuid",
       name: "Photos",
@@ -341,7 +341,7 @@ This ensures correctness even if server-side filtering has edge cases.
 ```tsx
 {
   ResourceDeleted: {
-    resource_type: "space",
+    resource_type: "layout",
     resource_id: "uuid"
   }
 }
@@ -423,16 +423,16 @@ Multiple hooks with identical filters automatically share a single backend subsc
 // Component A
 function SpacesList() {
   useNormalizedQuery({
-    query: 'spaces.list',
-    resourceType: 'space',
+    query: 'layouts.list',
+    resourceType: 'layout',
   });
 }
 
 // Component B (mounted at same time)
 function SpacesDropdown() {
   useNormalizedQuery({
-    query: 'spaces.list',
-    resourceType: 'space',
+    query: 'layouts.list',
+    resourceType: 'layout',
   });
 }
 
@@ -442,8 +442,8 @@ function SpacesDropdown() {
 
 **How it works:**
 
-1. First hook creates subscription with filter `{resource_type: "space", library_id: "abc"}`
-2. Subscription manager generates key from filter: `{"resource_type":"space","library_id":"abc"}`
+1. First hook creates subscription with filter `{resource_type: "layout", library_id: "abc"}`
+2. Subscription manager generates key from filter: `{"resource_type":"layout","library_id":"abc"}`
 3. Second hook with same filter reuses existing subscription
 4. Events broadcast to all listeners
 5. When both unmount, subscription cleaned up automatically
@@ -683,15 +683,15 @@ console.log(queryClient.getQueryData(queryKey));
 ```tsx
 // Before (no real-time updates)
 const { data } = useLibraryQuery({
-	type: "spaces.list",
+	type: "layouts.list",
 	input: {},
 });
 
 // After (instant updates)
 const { data } = useNormalizedQuery({
-	query: "spaces.list",
+	query: "layouts.list",
 	input: null,
-	resourceType: "space",
+	resourceType: "layout",
 });
 ```
 

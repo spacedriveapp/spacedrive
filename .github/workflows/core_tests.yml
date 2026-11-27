@@ -84,6 +84,23 @@ jobs:
         if: matrix.suite.name == 'acceptance'
         run: sudo apt-get install -y fuse3 && ls -l /dev/fuse || true
 
+      # The bucket suites run against SeaweedFS, an S3-compatible server that
+      # honors If-Match and If-None-Match on PutObject. With no identities
+      # configured it accepts any credentials, so the bucket is made with a
+      # plain PUT.
+      - name: Start S3-compatible server
+        if: matrix.suite.name == 'acceptance'
+        run: |
+          docker run -d --name seaweedfs -p 8333:8333 chrislusf/seaweedfs:4.55 server -s3
+          for _ in $(seq 1 60); do
+            curl -sf -X PUT http://127.0.0.1:8333/spacedrive-test && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8333/spacedrive-test > /dev/null
+          echo "SD_TEST_S3_ENDPOINT=http://127.0.0.1:8333" >> "$GITHUB_ENV"
+          echo "SD_TEST_S3_BUCKET=spacedrive-test" >> "$GITHUB_ENV"
+          echo "SD_REQUIRE_S3=1" >> "$GITHUB_ENV"
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
@@ -162,6 +179,7 @@ jobs:
         run: |
           sudo apt-get install -y fuse3
           SD_REQUIRE_FUSE=1 RUST_LOG=sd_core=info cargo test -p sd-core --features fuse --test fuse_mount_test -- --test-threads=1 --nocapture
+          SD_REQUIRE_FUSE=1 RUST_LOG=sd_core=info cargo test -p sd-core --features fuse --test mount_client_test -- --test-threads=1 --nocapture
 
       # The kernel half of the NFS mount suite mounts with mount.nfs through
       # passwordless sudo, which the hosted runner has.

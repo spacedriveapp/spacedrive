@@ -99,6 +99,8 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		&["--test", "database_migration_test"],
 	),
 	core("Library test", &["--test", "library_test"]),
+	// The RPC server's trust boundary: what it logs and whom it answers.
+	core("RPC security test", &["--test", "rpc_security_test"]),
 	core("Indexing rules test", &["--test", "indexing_rules_test"]),
 	core("Watcher test", &["--test", "watcher_test"]),
 	core("File move test", &["--test", "file_move_test"]),
@@ -179,6 +181,21 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"sd-core",
 		"Agent MCP writes test",
 		&["--test", "agent_mcp_writes_test"],
+	),
+	// Conditional writes against an S3-compatible service. CI starts
+	// SeaweedFS for it; it skips with a reason where SD_TEST_S3_ENDPOINT is
+	// unset unless SD_REQUIRE_S3 is set.
+	acceptance(
+		"sd-core",
+		"Bucket conditional writes test",
+		&["--test", "bucket_conditional_writes_test"],
+	),
+	// Agents on a bucket source: track, grant a prefix, read, grep, and
+	// write with preconditions against the same server.
+	acceptance(
+		"sd-core",
+		"Bucket agent acceptance test",
+		&["--test", "bucket_agent_acceptance_test"],
 	),
 	// OAuth on the agent MCP endpoint (docs/cli/mcp-oauth.mdx): discovery,
 	// registration, the PKCE code flow, refresh rotation and revocation.

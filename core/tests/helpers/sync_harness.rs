@@ -34,7 +34,7 @@ impl TestConfigBuilder {
 				sd_core::service::sync::peer=trace,\
 				sd_core::service::sync::backfill=trace,\
 				sd_core::infra::db::entities::device=debug,\
-				sd_core::infra::db::entities::space=debug"
+				sd_core::infra::db::entities::layout=debug"
 				.to_string(),
 		}
 	}
@@ -497,17 +497,17 @@ impl TwoDeviceHarness {
 		Ok(())
 	}
 
-	/// Create spaces on Alice through the sync path. Spaces are a shared model,
+	/// Create layouts on Alice through the sync path. Layouts are a shared model,
 	/// so they give the engine real traffic to carry now that indexing writes
 	/// nothing the library syncs.
-	pub async fn create_spaces_alice(&self, count: usize) -> anyhow::Result<Vec<Uuid>> {
+	pub async fn create_layouts_alice(&self, count: usize) -> anyhow::Result<Vec<Uuid>> {
 		let mut created = Vec::with_capacity(count);
 		for index in 0..count {
 			let now = chrono::Utc::now();
-			let model = entities::space::ActiveModel {
+			let model = entities::layout::ActiveModel {
 				id: sea_orm::NotSet,
 				uuid: Set(Uuid::new_v4()),
-				name: Set(format!("Space {index}")),
+				name: Set(format!("Layout {index}")),
 				icon: Set("Folder".to_string()),
 				color: Set("#3B82F6".to_string()),
 				order: Set(index as i32),
@@ -524,20 +524,20 @@ impl TwoDeviceHarness {
 		Ok(created)
 	}
 
-	/// Wait until Bob holds every given space.
-	pub async fn wait_for_spaces_on_bob(
+	/// Wait until Bob holds every given layout.
+	pub async fn wait_for_layouts_on_bob(
 		&self,
 		uuids: &[Uuid],
 		max_duration: Duration,
 	) -> anyhow::Result<()> {
 		let present = || async {
-			entities::space::Entity::find()
-				.filter(entities::space::Column::Uuid.is_in(uuids.to_vec()))
+			entities::layout::Entity::find()
+				.filter(entities::layout::Column::Uuid.is_in(uuids.to_vec()))
 				.count(self.library_bob.db().conn())
 				.await
 				.map(|count| count as usize)
 		};
-		if super::wait_until("Bob to hold every space", max_duration, || async {
+		if super::wait_until("Bob to hold every layout", max_duration, || async {
 			(present().await.ok()? == uuids.len()).then_some(())
 		})
 		.await
@@ -546,7 +546,7 @@ impl TwoDeviceHarness {
 			return Ok(());
 		}
 		anyhow::bail!(
-			"Bob holds {} of {} spaces after {max_duration:?}",
+			"Bob holds {} of {} layouts after {max_duration:?}",
 			present().await?,
 			uuids.len()
 		)
@@ -565,7 +565,7 @@ fn start_event_collector(library: &Arc<Library>, event_log: Arc<Mutex<Vec<Event>
 				| Event::ResourceChangedBatch { resource_type, .. }
 					if matches!(
 						resource_type.as_str(),
-						"space" | "space_group" | "space_item" | "volume" | "device"
+						"layout" | "layout_group" | "layout_item" | "volume" | "device"
 					) =>
 				{
 					event_log.lock().await.push(event);
@@ -573,7 +573,7 @@ fn start_event_collector(library: &Arc<Library>, event_log: Arc<Mutex<Vec<Event>
 				Event::ResourceDeleted { resource_type, .. }
 					if matches!(
 						resource_type.as_str(),
-						"space" | "space_group" | "space_item" | "volume"
+						"layout" | "layout_group" | "layout_item" | "volume"
 					) =>
 				{
 					event_log.lock().await.push(event);

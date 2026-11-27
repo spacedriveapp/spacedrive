@@ -4,6 +4,7 @@
 
 use async_trait::async_trait;
 use bytes::Bytes;
+use futures::stream::BoxStream;
 use std::fmt::Debug;
 use std::ops::Range;
 use std::path::Path;
@@ -49,11 +50,80 @@ pub trait VolumeBackend: Send + Sync + Debug {
 	/// Create a directory at the specified path
 	async fn create_directory(&self, path: &Path, recursive: bool) -> Result<(), VolumeError>;
 
+	/// Whether [`VolumeBackend::write_if`] is enforced by the service.
+	///
+	/// A backend that cannot refuse a write against a changed object answers
+	/// false, and agents treat its sources as read-only rather than risk an
+	/// overwrite nobody asked for.
+	fn conditional_writes(&self) -> bool {
+		false
+	}
+
+	/// Write only when the object at `path` is in the state `condition`
+	/// names. Answers the new object's entity tag when the service reports
+	/// one.
+	///
+	/// Returns [`VolumeError::PreconditionFailed`] when the service refused
+	/// the write because the object changed, appeared or vanished.
+	async fn write_if(
+		&self,
+		path: &Path,
+		_data: Bytes,
+		_condition: WriteCondition,
+	) -> Result<Option<String>, VolumeError> {
+		Err(VolumeError::Unsupported(format!(
+			"conditional writes to {}",
+			path.display()
+		)))
+	}
+
+	/// The entity tag of the object at `path`, or `None` when nothing is
+	/// there. The tag is what [`WriteCondition::Matches`] names.
+	async fn entity_tag(&self, path: &Path) -> Result<Option<String>, VolumeError> {
+		Err(VolumeError::Unsupported(format!(
+			"entity tags for {}",
+			path.display()
+		)))
+	}
+
+	/// Read the whole object only while its entity tag is still `etag`, so
+	/// the bytes returned are the version the tag names.
+	async fn read_if_match(&self, path: &Path, _etag: &str) -> Result<Bytes, VolumeError> {
+		Err(VolumeError::Unsupported(format!(
+			"conditional reads of {}",
+			path.display()
+		)))
+	}
+
+	/// Stream the object only while its entity tag is still `etag`. A change
+	/// that lands during the stream fails it with
+	/// [`VolumeError::PreconditionFailed`], so the chunks are all from the
+	/// version the tag names.
+	async fn stream_if_match(
+		&self,
+		path: &Path,
+		_etag: &str,
+	) -> Result<BoxStream<'static, Result<Bytes, VolumeError>>, VolumeError> {
+		Err(VolumeError::Unsupported(format!(
+			"conditional reads of {}",
+			path.display()
+		)))
+	}
+
 	/// Backend identification (used to optimize operations)
 	fn is_local(&self) -> bool;
 
 	/// Get backend type identifier
 	fn backend_type(&self) -> BackendType;
+}
+
+/// What a conditional write requires of the object it replaces.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WriteCondition {
+	/// An object exists at the path and its entity tag is this one.
+	Matches(String),
+	/// Nothing exists at the path.
+	Absent,
 }
 
 /// Backend type identifier

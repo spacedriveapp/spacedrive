@@ -38,6 +38,7 @@ mime_guess = "2"
 
 # Auth
 secstr = "0.5"
+subtle = "2.6"
 
 # Serialization
 serde      = { version = "1", features = ["derive"] }
@@ -59,6 +60,9 @@ dirs = "5.0"
 
 # Dev dependencies
 tempfile = "3"
+
+[dev-dependencies]
+base64 = { workspace = true }
 
 [[bin]]
 name = "sd-server"

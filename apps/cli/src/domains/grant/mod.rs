@@ -17,6 +17,7 @@ use sd_core::ops::grants::{
 	extend::{ExtendGrantInput, ExtendGrantOutput},
 	list::{ListGrantsInput, ListGrantsOutput},
 	revoke::{RevokeGrantInput, RevokeGrantOutput},
+	setup::mcp_url,
 	GrantCap, GrantInfo,
 };
 
@@ -92,8 +93,11 @@ pub struct GrantAuditArgs {
 pub async fn run(ctx: &Context, cmd: GrantCmd) -> Result<()> {
 	match cmd {
 		GrantCmd::Create(args) => {
-			// A path for another device is that device's to resolve.
+			// A path for another device is that device's to resolve, and a
+			// bucket URL is the daemon's.
+			let bucket = sd_core::ops::grants::bucket::BucketUrl::parse(&args.path).is_some();
 			let path = match ctx.core.device() {
+				_ if bucket => args.path,
 				Some(_) => args.path,
 				None => args
 					.path
@@ -235,14 +239,6 @@ fn row(grant: &GrantInfo) -> Vec<String> {
 
 /// The environment variable printed MCP configs read the token from.
 const TOKEN_ENV: &str = "SPACEDRIVE_GRANT_TOKEN";
-
-/// The URL MCP clients connect to for an endpoint listening on `listen`.
-fn mcp_url(listen: &str) -> String {
-	let addr = sd_core::service::agent_mcp::listen_addr(listen)
-		.map(|addr| addr.to_string())
-		.unwrap_or_else(|_| sd_core::service::agent_mcp::DEFAULT_LISTEN.to_string());
-	format!("http://{addr}{}", sd_core::service::agent_mcp::MCP_PATH)
-}
 
 /// Ready-to-paste config for Claude Code and Codex.
 ///

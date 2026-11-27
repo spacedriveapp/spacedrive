@@ -1,7 +1,7 @@
 //! Single-daemon rows of the entries final drop acceptance matrix
 //! (`docs/core/acceptance/entries-drop-and-file-operations.md`): the library
 //! schema after the drop, the static boundary around the retired tables,
-//! pins as Space items, assertions surviving a reindex, a store that
+//! pins as Layout items, assertions surviving a reindex, a store that
 //! describes itself away from its library, non-UTF-8 names, and the rename
 //! known limit.
 //!
@@ -27,13 +27,13 @@ use sd_core::{
 	},
 	ops::{
 		indexing::IndexScope,
-		sources::track::{TrackSourceAction, TrackSourceInput},
-		spaces::{
+		layouts::{
 			add_item::{action::AddItemAction, input::AddItemInput},
-			create::{action::SpaceCreateAction, input::SpaceCreateInput},
+			create::{action::LayoutCreateAction, input::LayoutCreateInput},
 			delete_item::{action::DeleteItemAction, input::DeleteItemInput},
-			get_layout::query::{SpaceLayoutQuery, SpaceLayoutQueryInput},
+			get_sidebar::query::{SidebarLayoutQuery, SidebarLayoutQueryInput},
 		},
+		sources::track::{TrackSourceAction, TrackSourceInput},
 	},
 };
 use sd_store::{
@@ -56,11 +56,11 @@ const LIBRARY_TABLES: &[&str] = &[
 	"device_state_tombstones",
 	"devices",
 	"grant_audit",
+	"layout_groups",
+	"layout_items",
+	"layouts",
 	"seaql_migrations",
 	"sources",
-	"space_groups",
-	"space_items",
-	"spaces",
 	"sqlite_sequence",
 	"sync_checkpoints",
 	"tag_staging",
@@ -165,9 +165,9 @@ async fn assert_nothing_retired(conn: &DatabaseConnection) {
 }
 
 /// FDA "an upgraded library keeps every user assertion" and the FD4 proof:
-/// a library built by the pre-drop chain, holding a Space item using the
+/// a library built by the pre-drop chain, holding a Layout item using the
 /// current navigation contract and rows in the retired tables, converges on
-/// the seventeen-table schema with the Space item intact.
+/// the seventeen-table schema with the Layout item intact.
 #[tokio::test]
 async fn a_pre_drop_library_upgrades_to_the_seventeen_table_schema() {
 	let dir = tempfile::tempdir().expect("tempdir");
@@ -194,20 +194,20 @@ async fn a_pre_drop_library_upgrades_to_the_seventeen_table_schema() {
 		assert!(before.contains(table), "the fixture is pre-drop: {table}");
 	}
 
-	// A Space item on the current contract, and a Location item the drop
+	// A Layout item on the current contract, and a Location item the drop
 	// deletes rather than migrates.
-	let space = Uuid::new_v4();
+	let layout = Uuid::new_v4();
 	let pin = Uuid::new_v4();
 	let location_item = Uuid::new_v4();
 	let pinned = SdPath::local("/pinned/folder");
 	conn.execute_unprepared(&format!(
 		"INSERT INTO spaces (uuid, name, icon, color, \"order\", created_at, updated_at)
-		 VALUES (X'{space}', 'Fixture', 'folder', '#fff', 0, '2026-09-01 00:00:00', '2026-09-01 00:00:00');
+		 VALUES (X'{layout}', 'Fixture', 'folder', '#fff', 0, '2026-09-01 00:00:00', '2026-09-01 00:00:00');
 		 INSERT INTO space_items (uuid, space_id, group_id, entry_uuid, item_type, \"order\", created_at)
 		 VALUES (X'{pin}', 1, NULL, NULL, '{path_json}', 0, '2026-09-01 00:00:00');
 		 INSERT INTO space_items (uuid, space_id, group_id, entry_uuid, item_type, \"order\", created_at)
 		 VALUES (X'{location_item}', 1, NULL, NULL, '{{\"Location\":{{\"location_id\":\"00000000-0000-0000-0000-000000000001\"}}}}', 1, '2026-09-01 00:00:00');",
-		space = space.simple(),
+		layout = layout.simple(),
 		pin = pin.simple(),
 		location_item = location_item.simple(),
 		path_json = serde_json::to_string(&ItemType::Path { sd_path: pinned.clone() })
@@ -224,7 +224,7 @@ async fn a_pre_drop_library_upgrades_to_the_seventeen_table_schema() {
 	let items = conn
 		.query_all(Statement::from_string(
 			DatabaseBackend::Sqlite,
-			"SELECT item_type FROM space_items ORDER BY \"order\"".to_string(),
+			"SELECT item_type FROM layout_items ORDER BY \"order\"".to_string(),
 		))
 		.await
 		.expect("items");
@@ -669,9 +669,9 @@ async fn a_frozen_store_describes_itself_and_is_not_written_by_a_reader() -> any
 	Ok(())
 }
 
-async fn add_pin(harness: &IndexingHarness, space: Uuid, path: &Path) -> Uuid {
+async fn add_pin(harness: &IndexingHarness, layout: Uuid, path: &Path) -> Uuid {
 	AddItemAction::from_input(AddItemInput {
-		space_id: space,
+		layout_id: layout,
 		group_id: None,
 		item_type: ItemType::Path {
 			sd_path: SdPath::local(path),
@@ -685,8 +685,8 @@ async fn add_pin(harness: &IndexingHarness, space: Uuid, path: &Path) -> Uuid {
 	.id
 }
 
-async fn layout(harness: &IndexingHarness, space: Uuid) -> sd_core::domain::SpaceLayout {
-	SpaceLayoutQuery::from_input(SpaceLayoutQueryInput { space_id: space })
+async fn sidebar(harness: &IndexingHarness, layout: Uuid) -> sd_core::domain::SidebarLayout {
+	SidebarLayoutQuery::from_input(SidebarLayoutQueryInput { layout_id: layout })
 		.expect("input")
 		.execute(harness.core.context.clone(), session(harness))
 		.await
@@ -694,12 +694,12 @@ async fn layout(harness: &IndexingHarness, space: Uuid) -> sd_core::domain::Spac
 }
 
 /// FDA "Adding or removing a bookmark neither indexes nor deletes records
-/// and does not change processing policies": a pin is a Space item of the
+/// and does not change processing policies": a pin is a Layout item of the
 /// Path kind; adding and removing one dispatches no walk, moves no store
 /// revision, and leaves the source's configuration as it was. A pin on a
 /// folder nothing tracks is still a pin.
 #[tokio::test]
-async fn a_pin_is_a_space_item_with_no_indexing_side_effect() -> anyhow::Result<()> {
+async fn a_pin_is_a_layout_item_with_no_indexing_side_effect() -> anyhow::Result<()> {
 	let harness = IndexingHarnessBuilder::new("fda_pins")
 		.disable_watcher()
 		.build()
@@ -719,7 +719,7 @@ async fn a_pin_is_a_space_item_with_no_indexing_side_effect() -> anyhow::Result<
 	let config = cache.source_config(tracked.id).map(|c| c.unfiltered);
 	let jobs_before = harness.library.jobs().list_jobs(None).await?.len();
 
-	let space = SpaceCreateAction::from_input(SpaceCreateInput {
+	let layout = LayoutCreateAction::from_input(LayoutCreateInput {
 		name: "Pins".into(),
 		icon: "star".into(),
 		color: "#ffffff".into(),
@@ -727,24 +727,24 @@ async fn a_pin_is_a_space_item_with_no_indexing_side_effect() -> anyhow::Result<
 	.expect("input")
 	.execute(harness.library.clone(), harness.core.context.clone())
 	.await?
-	.space
+	.layout
 	.id;
 
 	let untracked = harness.temp_path().join("elsewhere");
 	tokio::fs::create_dir_all(&untracked).await?;
-	let inside = add_pin(&harness, space, &tracked.root.join("sub")).await;
-	let outside = add_pin(&harness, space, &untracked).await;
+	let inside = add_pin(&harness, layout, &tracked.root.join("sub")).await;
+	let outside = add_pin(&harness, layout, &untracked).await;
 
-	let layout = layout(&harness, space).await;
-	let pinned: Vec<PathBuf> = layout
-		.space_items
+	let sidebar = sidebar(&harness, layout).await;
+	let pinned: Vec<PathBuf> = sidebar
+		.layout_items
 		.iter()
 		.filter_map(|item| match &item.item_type {
 			ItemType::Path { sd_path } => sd_path.as_local_path().map(Path::to_path_buf),
 			_ => None,
 		})
 		.collect();
-	assert_eq!(pinned.len(), 2, "{:?}", layout.space_items);
+	assert_eq!(pinned.len(), 2, "{:?}", sidebar.layout_items);
 	assert!(pinned.contains(&untracked));
 
 	store.flush().await?;
@@ -780,14 +780,14 @@ async fn a_pin_is_a_space_item_with_no_indexing_side_effect() -> anyhow::Result<
 	);
 	assert_eq!(store.db().count_all().await?, records);
 	assert!(tracked.root.join("sub/b.txt").exists());
-	assert!(layout_is_empty(&harness, space).await);
+	assert!(layout_is_empty(&harness, layout).await);
 
 	harness.shutdown().await?;
 	Ok(())
 }
 
-async fn layout_is_empty(harness: &IndexingHarness, space: Uuid) -> bool {
-	layout(harness, space).await.space_items.is_empty()
+async fn layout_is_empty(harness: &IndexingHarness, layout: Uuid) -> bool {
+	sidebar(harness, layout).await.layout_items.is_empty()
 }
 
 /// FDA "Saved navigation survives" a restart: a pin added before the core
@@ -829,22 +829,22 @@ async fn a_pin_survives_a_restart() -> anyhow::Result<()> {
 			walk.wait().await?;
 		}
 	}
-	let space = library
+	let layout = library
 		.db()
 		.conn()
 		.query_one(Statement::from_string(
 			DatabaseBackend::Sqlite,
-			"SELECT uuid FROM spaces ORDER BY id LIMIT 1".to_string(),
+			"SELECT uuid FROM layouts ORDER BY id LIMIT 1".to_string(),
 		))
 		.await?
-		.expect("the default space")
+		.expect("the default layout")
 		.try_get::<Uuid>("", "uuid")?;
 	let folder = tracked.root.join("keep");
 	let pin = ItemType::Path {
 		sd_path: SdPath::local(&folder),
 	};
 	AddItemAction::from_input(AddItemInput {
-		space_id: space,
+		layout_id: layout,
 		group_id: None,
 		item_type: pin.clone(),
 	})
@@ -860,14 +860,14 @@ async fn a_pin_survives_a_restart() -> anyhow::Result<()> {
 		session.current_library_id = Some(library_id);
 		session
 	};
-	let pins = |layout: sd_core::domain::SpaceLayout| {
+	let pins = |layout: sd_core::domain::SidebarLayout| {
 		layout
-			.space_items
+			.layout_items
 			.into_iter()
 			.filter(|item| item.item_type == pin)
 			.collect::<Vec<_>>()
 	};
-	let before = SpaceLayoutQuery::from_input(SpaceLayoutQueryInput { space_id: space })
+	let before = SidebarLayoutQuery::from_input(SidebarLayoutQueryInput { layout_id: layout })
 		.expect("input")
 		.execute(core.context.clone(), session_for(library_id))
 		.await?;
@@ -885,7 +885,7 @@ async fn a_pin_survives_a_restart() -> anyhow::Result<()> {
 		core.libraries.get_library(library_id).await.is_some(),
 		"the library reopened"
 	);
-	let after = SpaceLayoutQuery::from_input(SpaceLayoutQueryInput { space_id: space })
+	let after = SidebarLayoutQuery::from_input(SidebarLayoutQueryInput { layout_id: layout })
 		.expect("input")
 		.execute(core.context.clone(), session_for(library_id))
 		.await?;

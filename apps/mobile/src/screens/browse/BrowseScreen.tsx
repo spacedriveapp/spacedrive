@@ -19,11 +19,11 @@ import { useNormalizedQuery } from "../../client";
 import { PageIndicator } from "../../components/PageIndicator";
 import { GlassSearchBar } from "../../components/GlassSearchBar";
 import { useRouter } from "expo-router";
-import type { SpaceItem, SpaceGroup } from "@sd/ts-client";
-import { SpaceItem as SpaceItemComponent, SpaceGroupComponent } from "./components";
+import type { LayoutItem, LayoutGroup } from "@sd/ts-client";
+import { LayoutItem as LayoutItemComponent, LayoutGroupComponent } from "./components";
 import { SettingsGroup } from "../../components/primitive";
 
-interface Space {
+interface Layout {
 	id: string;
 	name: string;
 	color: string;
@@ -31,11 +31,11 @@ interface Space {
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
-function SpaceContent({
-	space,
+function LayoutContent({
+	layout,
 	insets
 }: {
-	space: Space;
+	layout: Layout;
 	insets: EdgeInsets;
 }) {
 	const router = useRouter();
@@ -51,17 +51,16 @@ function SpaceContent({
 		router.push("/search");
 	};
 
-	// Fetch space layout
-	const { data: layout } = useNormalizedQuery({
-		query: "spaces.get_layout",
-		input: { space_id: space.id },
-		resourceType: "space_layout",
-		resourceId: space.id,
-		enabled: !!space.id,
+	const { data: sidebar } = useNormalizedQuery({
+		query: "layouts.get_sidebar",
+		input: { layout_id: layout.id },
+		resourceType: "sidebar_layout",
+		resourceId: layout.id,
+		enabled: !!layout.id,
 	});
 
-	// Space name scale on overscroll (anchored left)
-	const spaceNameScale = useAnimatedStyle(() => {
+	// Layout name scale on overscroll (anchored left)
+	const layoutNameScale = useAnimatedStyle(() => {
 		const scale = interpolate(
 			scrollY.value,
 			[-200, 0],
@@ -76,10 +75,10 @@ function SpaceContent({
 	});
 
 	// Filter out Overview items (mobile doesn't show Overview in browse tab)
-	const spaceItems = (layout?.space_items || []).filter(
+	const layoutItems = (sidebar?.layout_items || []).filter(
 		(item) => item.item_type !== "Overview"
 	);
-	const groups = layout?.groups || [];
+	const groups = sidebar?.groups || [];
 
 	return (
 		<Animated.ScrollView
@@ -98,13 +97,13 @@ function SpaceContent({
 				<View className="flex-row items-center gap-2">
 					<View
 						className="w-4 h-4 mx-1 rounded-full"
-						style={{ backgroundColor: space.color }}
+						style={{ backgroundColor: layout.color }}
 					/>
 					<Animated.Text
-						style={[spaceNameScale]}
+						style={[layoutNameScale]}
 						className="text-ink text-[30px] font-bold"
 					>
-						{space.name}
+						{layout.name}
 					</Animated.Text>
 				</View>
 			</View>
@@ -114,12 +113,12 @@ function SpaceContent({
 				<GlassSearchBar onPress={handleSearchPress} editable={false} />
 			</View>
 
-			{/* Space Items (pinned shortcuts) */}
-			{spaceItems.length > 0 && (
+			{/* Layout Items (pinned shortcuts) */}
+			{layoutItems.length > 0 && (
 				<View className="mb-6">
 					<SettingsGroup>
-						{spaceItems.map((item) => (
-							<SpaceItemComponent key={item.id} item={item} />
+						{layoutItems.map((item) => (
+							<LayoutItemComponent key={item.id} item={item} />
 						))}
 					</SettingsGroup>
 				</View>
@@ -127,13 +126,13 @@ function SpaceContent({
 
 			{/* Groups */}
 			{groups.map(({ group, items }) => (
-				<SpaceGroupComponent key={group.id} group={group} items={items} />
+				<LayoutGroupComponent key={group.id} group={group} items={items} />
 			))}
 		</Animated.ScrollView>
 	);
 }
 
-function CreateSpaceScreen() {
+function CreateLayoutScreen() {
 	return (
 		<View
 			style={{ width: SCREEN_WIDTH, paddingHorizontal: 16 }}
@@ -143,10 +142,10 @@ function CreateSpaceScreen() {
 				<Text className="text-accent text-3xl">+</Text>
 			</View>
 			<Text className="text-xl font-bold text-ink mb-2">
-				Create New Space
+				Create New Layout
 			</Text>
 			<Text className="text-ink-dull text-center max-w-xs">
-				Organize your files, devices, and sources into separate spaces
+				Organize your files, devices, and sources into separate layouts
 			</Text>
 		</View>
 	);
@@ -154,16 +153,16 @@ function CreateSpaceScreen() {
 
 export function BrowseScreen() {
 	const insets = useSafeAreaInsets();
-	const { data: spacesData } = useNormalizedQuery({
-		query: "spaces.list",
+	const { data: layoutsData } = useNormalizedQuery({
+		query: "layouts.list",
 		input: null,
-		resourceType: "space",
+		resourceType: "layout",
 	});
 	const [currentPage, setCurrentPage] = useState(0);
 	const scrollViewRef = useRef<ScrollView>(null);
 
-	const spacesList = (spacesData?.spaces || []) as Space[];
-	const totalPages = spacesList.length + 1; // +1 for create space page
+	const layoutsList = (layoutsData?.layouts || []) as Layout[];
+	const totalPages = layoutsList.length + 1; // +1 for create layout page
 
 	const handleScroll = useCallback(
 		(event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -174,9 +173,9 @@ export function BrowseScreen() {
 		[]
 	);
 
-	// Build page colors array - space colors for space pages, accent for create page
+	// Build page colors array - layout colors for layout pages, accent for create page
 	const pageColors = [
-		...spacesList.map((space) => space.color),
+		...layoutsList.map((layout) => layout.color),
 		"hsl(208, 100%, 57%)", // Create page uses accent color
 	];
 
@@ -191,17 +190,17 @@ export function BrowseScreen() {
 				scrollEventThrottle={16}
 				decelerationRate="fast"
 			>
-				{spacesList.map((space) => (
-					<SpaceContent
-						key={space.id}
-						space={space}
+				{layoutsList.map((layout) => (
+					<LayoutContent
+						key={layout.id}
+						layout={layout}
 						insets={insets}
 					/>
 				))}
-				<CreateSpaceScreen />
+				<CreateLayoutScreen />
 			</ScrollView>
 
-			{/* Floating Space Indicator */}
+			{/* Floating Layout Indicator */}
 			<View
 				className="absolute left-0 right-0"
 				style={{

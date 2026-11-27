@@ -22,7 +22,7 @@ use std::time::{Duration, UNIX_EPOCH};
 use anyhow::{Context, Result};
 use sd_store::{
 	filesystem_schema, ContentIdentity, FileKind, FileWrite, ImageFacet, Ledger, Observation,
-	PendingImage, SourceDb, SourceManager, SubtreeRename,
+	PendingFacet, SourceDb, SourceManager, SubtreeRename, VideoFacet,
 };
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
@@ -44,9 +44,6 @@ const QUEUE_DEPTH: usize = 8192;
 
 /// `_sync_state` key present while a walk of the whole source is unfinished.
 const WALK_UNFINISHED: &str = "walk_unfinished";
-
-/// The content kind the image facet is read for, as the store holds it.
-const IMAGE_KIND: i64 = crate::domain::ContentKind::Image as i64;
 
 /// What the arena tells the store it saw.
 enum Ingest {
@@ -75,6 +72,8 @@ enum Ingest {
 	Unreadable(Vec<(Uuid, String)>),
 	/// What an EXIF read of some bytes said, keyed by content hash.
 	ImageFacets(Vec<(String, ImageFacet)>),
+	/// What a container header read of some bytes said, keyed by content hash.
+	VideoFacets(Vec<(String, VideoFacet)>),
 	/// Commit what is pending and answer with what has failed to land since
 	/// the previous flush barrier. Nothing is the only success.
 	Flush(oneshot::Sender<Failures>),
@@ -469,7 +468,14 @@ impl SourceStore {
 		self.send(Ingest::FinishSweep { unreachable }).await;
 	}
 
-	/// Files this source holds whose bytes have not been identified yet.
+	/// The subtrees whose contents this source reads, relative to its root.
+	pub async fn deep_subtrees(&self) -> Result<Vec<String>> {
+		super::deep_scope::deep_subtrees(&self.db, &self.root)
+			.await
+			.with_context(|| format!("read the deep scope of source {}", self.id))
+	}
+
+	/// Files in the deep scope whose bytes have not been identified yet.
 	///
 	/// Absolute paths, because the caller is going to open them. The store
 	/// addresses everything relative to the root so that a drive remounting
@@ -480,7 +486,8 @@ impl SourceStore {
 	) -> Result<Vec<(Uuid, PathBuf, u64)>> {
 		// A failed read is an error, never an empty vector: a hashing job
 		// reads emptiness as a drained queue and reports success.
-		let pending = sd_store::files_needing_content(self.db.pool(), batch_size)
+		let subtrees = self.deep_subtrees().await?;
+		let pending = sd_store::files_needing_content(self.db.pool(), batch_size, &subtrees)
 			.await
 			.with_context(|| format!("list files needing content in source {}", self.id))?;
 		Ok(pending
@@ -578,9 +585,10 @@ impl SourceStore {
 		Ok(count.max(0) as u64)
 	}
 
-	/// How many files are still waiting to be identified.
+	/// How many files in the deep scope are still waiting to be identified.
 	pub async fn files_needing_content_count(&self) -> Result<u64> {
-		let count = sd_store::count_files_needing_content(self.db.pool())
+		let subtrees = self.deep_subtrees().await?;
+		let count = sd_store::count_files_needing_content(self.db.pool(), &subtrees)
 			.await
 			.with_context(|| format!("count files needing content in source {}", self.id))?;
 		Ok(count.max(0) as u64)
@@ -612,17 +620,26 @@ impl SourceStore {
 		self.send(Ingest::Unreadable(failures)).await;
 	}
 
-	/// Image records whose facet row is missing or describes other bytes,
-	/// past the `after` row id. Absolute paths, because the caller opens them.
-	pub async fn files_needing_image_facets(
+	/// Image or video records whose facet row is missing or describes other
+	/// bytes, past the `after` row id. Absolute paths, because the caller
+	/// opens them. Any other kind has no facet and nothing pending.
+	pub async fn files_needing_facets(
 		&self,
+		kind: crate::domain::ContentKind,
 		after: i64,
 		batch_size: usize,
-	) -> Result<Vec<(PendingImage, PathBuf)>> {
-		let pending =
-			sd_store::files_needing_image_facets(self.db.pool(), IMAGE_KIND, after, batch_size)
-				.await
-				.with_context(|| format!("list images needing facets in source {}", self.id))?;
+	) -> Result<Vec<(PendingFacet, PathBuf)>> {
+		let pool = self.db.pool();
+		let pending = match kind {
+			crate::domain::ContentKind::Image => {
+				sd_store::files_needing_image_facets(pool, kind as i64, after, batch_size).await
+			}
+			crate::domain::ContentKind::Video => {
+				sd_store::files_needing_video_facets(pool, kind as i64, after, batch_size).await
+			}
+			_ => Ok(Vec::new()),
+		}
+		.with_context(|| format!("list {kind:?} records needing facets in source {}", self.id))?;
 		Ok(pending
 			.into_iter()
 			.map(|image| {
@@ -632,11 +649,27 @@ impl SourceStore {
 			.collect())
 	}
 
-	/// How many image records are still waiting for a facet row.
-	pub async fn files_needing_image_facets_count(&self) -> Result<u64> {
-		let count = sd_store::count_files_needing_image_facets(self.db.pool(), IMAGE_KIND)
-			.await
-			.with_context(|| format!("count images needing facets in source {}", self.id))?;
+	/// How many image or video records are still waiting for a facet row.
+	pub async fn files_needing_facets_count(
+		&self,
+		kind: crate::domain::ContentKind,
+	) -> Result<u64> {
+		let pool = self.db.pool();
+		let count = match kind {
+			crate::domain::ContentKind::Image => {
+				sd_store::count_files_needing_image_facets(pool, kind as i64).await
+			}
+			crate::domain::ContentKind::Video => {
+				sd_store::count_files_needing_video_facets(pool, kind as i64).await
+			}
+			_ => Ok(0),
+		}
+		.with_context(|| {
+			format!(
+				"count {kind:?} records needing facets in source {}",
+				self.id
+			)
+		})?;
 		Ok(count.max(0) as u64)
 	}
 
@@ -647,6 +680,15 @@ impl SourceStore {
 			return;
 		}
 		self.send(Ingest::ImageFacets(facets)).await;
+	}
+
+	/// Record what a container header read of these bytes said. Each row
+	/// lands on every record holding the hash.
+	pub async fn video_facets(&self, facets: Vec<(String, VideoFacet)>) {
+		if facets.is_empty() {
+			return;
+		}
+		self.send(Ingest::VideoFacets(facets)).await;
 	}
 
 	/// Write a dated, self-contained copy of this source's store.
@@ -1115,6 +1157,21 @@ async fn write_loop(
 					.await;
 				if let Err(error) = sd_store::set_image_facets(db.pool(), &facets).await {
 					tracing::error!(%error, "image facets failed to land");
+					store.failed(&mut failures, facets.len(), &error);
+				}
+			}
+			Ingest::VideoFacets(facets) => {
+				store
+					.commit(
+						&mut ledger,
+						&mut writes,
+						&mut removals,
+						&mut renames,
+						&mut failures,
+					)
+					.await;
+				if let Err(error) = sd_store::set_video_facets(db.pool(), &facets).await {
+					tracing::error!(%error, "video facets failed to land");
 					store.failed(&mut failures, facets.len(), &error);
 				}
 			}

@@ -38,12 +38,14 @@
 
 pub mod audit;
 mod authorize;
+pub mod bucket;
 pub mod create;
 pub mod extend;
 pub mod list;
 pub mod oauth;
 pub mod revoke;
 pub mod scope;
+pub mod setup;
 pub mod store;
 pub mod token;
 
@@ -177,6 +179,8 @@ pub enum GrantError {
 	Protected(String),
 	#[error("the granted directory is unavailable: {0}")]
 	RootUnavailable(String),
+	#[error("{0} cannot refuse a write against a changed object, so agents can only read it")]
+	NoConditionalWrites(String),
 	#[error("invalid path: {0}")]
 	InvalidPath(String),
 	#[error("internal error: {0}")]

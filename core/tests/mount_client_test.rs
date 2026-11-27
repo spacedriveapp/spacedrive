@@ -35,6 +35,7 @@ use tracing::warn;
 
 const EROFS: i32 = 30;
 const EACCES: i32 = 13;
+const EIO: i32 = 5;
 
 fn skip_reason() -> Option<String> {
 	let reason = if let Err(err) = std::fs::OpenOptions::new()
@@ -272,10 +273,12 @@ async fn a_thin_client_mounts_a_granted_folder_over_the_endpoint() -> anyhow::Re
 		let mut held = held;
 		held.seek(SeekFrom::Start(0)).unwrap();
 		let mut head = vec![0u8; 4096];
-		assert_eq!(
-			os_error(held.read_exact(&mut head)),
-			Some(EACCES),
-			"a descriptor opened before the revoke cannot read cached bytes"
+		// Some kernels read through the page cache and report any refused
+		// fill as EIO rather than passing EACCES on.
+		let refused = os_error(held.read_exact(&mut head));
+		assert!(
+			matches!(refused, Some(EACCES) | Some(EIO)),
+			"a descriptor opened before the revoke cannot read cached bytes: {refused:?}"
 		);
 		held
 	})

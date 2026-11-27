@@ -41,6 +41,7 @@ import {useContextMenu} from '../../../hooks/useContextMenu';
 import {useExtensionKinds} from '../../../hooks/useExtensionKinds';
 import {useOptionalJobsContext} from '../../JobManager/hooks/JobsContext';
 import {useHotThumb} from '../../../routes/explorer/hooks/useHotThumb';
+import {ActivityFeed, ChangedBy, useActivity} from '../../Activity/ActivityFeed';
 import {FootageSection} from '../../Footage/FootageSection';
 import {kindLabel} from '../../QuickPreview/renderers';
 import {File as FileComponent} from '../../../routes/explorer/File';
@@ -100,6 +101,9 @@ export function FileInspector({file}: FileInspectorProps) {
 	});
 
 	const fileData = fileQuery.data || file;
+	// Activity reads journals on this device, so only a local path has any.
+	const localPath =
+		fileData?.is_local && 'Physical' in fileData.sd_path ? fileData.sd_path.Physical.path : null;
 
 	const tabs = [
 		{id: 'overview', label: 'Overview', icon: Info},
@@ -108,7 +112,7 @@ export function FileInspector({file}: FileInspectorProps) {
 		...(isDev
 			? [{id: 'chat', label: 'Chat', icon: ChatCircle, badge: 3}]
 			: []),
-		...(isDev
+		...(localPath
 			? [{id: 'activity', label: 'Activity', icon: ClockCounterClockwise}]
 			: []),
 		{id: 'details', label: 'More', icon: DotsThree}
@@ -139,9 +143,11 @@ export function FileInspector({file}: FileInspectorProps) {
 					</TabContent>
 				)}
 
-				{isDev && (
+				{localPath && (
 					<TabContent id="activity" activeTab={activeTab}>
-						<ActivityTab />
+						<div className="no-scrollbar mask-fade-out flex flex-col overflow-x-hidden overflow-y-scroll px-2 pb-10 pt-2">
+							<ActivityFeed path={localPath} />
+						</div>
 					</TabContent>
 				)}
 
@@ -639,6 +645,9 @@ function OverviewTab({file}: {file: File}) {
 					label="Modified"
 					value={formatDate(file.modified_at)}
 				/>
+				{file.is_local && 'Physical' in file.sd_path && (
+					<ChangedByRow path={file.sd_path.Physical.path} />
+				)}
 				{file.accessed_at && (
 					<InfoRow
 						label="Accessed"
@@ -708,10 +717,12 @@ function OverviewTab({file}: {file: File}) {
 			{/* Video Metadata */}
 			{file.video_media_data && (
 				<Section title="Video Info" icon={Image}>
-					<InfoRow
-						label="Resolution"
-						value={`${file.video_media_data.width} × ${file.video_media_data.height}`}
-					/>
+					{file.video_media_data.width != null && file.video_media_data.height != null && (
+						<InfoRow
+							label="Resolution"
+							value={`${file.video_media_data.width} × ${file.video_media_data.height}`}
+						/>
+					)}
 					{file.video_media_data.duration_seconds && (
 						<InfoRow
 							label="Duration"
@@ -1458,47 +1469,10 @@ function ChatTab() {
 	);
 }
 
-function ActivityTab() {
-	const activity = [
-		{action: 'Synced to NAS', time: '2 min ago', device: 'MacBook Pro'},
-		{action: 'Uploaded to S3', time: '1 hour ago', device: 'MacBook Pro'},
-		{
-			action: 'Thumbnail generated',
-			time: '2 hours ago',
-			device: 'MacBook Pro'
-		},
-		{action: "Tagged as 'Travel'", time: '3 hours ago', device: 'iPhone'},
-		{action: 'Created', time: 'Jan 15, 2025', device: 'iPhone'}
-	];
-
-	return (
-		<div className="no-scrollbar mask-fade-out flex flex-col space-y-4 overflow-x-hidden overflow-y-scroll px-2 pb-10 pt-2">
-			<p className="text-sidebar-inkDull text-xs">
-				History of changes and sync operations
-			</p>
-
-			<div className="space-y-0.5">
-				{activity.map((item, i) => (
-					<div
-						key={i}
-						className="hover:bg-app-box/40 flex items-start gap-3 rounded-lg p-2 transition-colors"
-					>
-						<span className="text-sidebar-inkDull mt-0.5 shrink-0">
-							<ClockCounterClockwise size={16} weight="bold" />
-						</span>
-						<div className="min-w-0 flex-1">
-							<div className="text-sidebar-ink text-xs">
-								{item.action}
-							</div>
-							<div className="text-sidebar-inkDull mt-0.5 text-[11px]">
-								{item.time} · {item.device}
-							</div>
-						</div>
-					</div>
-				))}
-			</div>
-		</div>
-	);
+function ChangedByRow({path}: {path: string}) {
+	const latest = useActivity(path, 1).data?.entries[0];
+	if (!latest) return null;
+	return <InfoRow label="Changed by" value={<ChangedBy entry={latest} />} />;
 }
 
 function DetailsTab({file}: {file: File}) {

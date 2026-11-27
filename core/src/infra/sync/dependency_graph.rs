@@ -29,14 +29,14 @@ pub enum DependencyError {
 /// # Example
 /// ```ignore
 /// let models = vec![
-///     ("space_item", &["space"][..]),
-///     ("space", &["device"][..]),
+///     ("layout_item", &["layout"][..]),
+///     ("layout", &["device"][..]),
 ///     ("device", &[][..]),
 ///     ("audit_log", &[][..]),
 /// ];
 /// let order = compute_sync_order(models.into_iter())?;
-/// // order = ["device", "space", "space_item", "audit_log"]
-/// // or    = ["device", "audit_log", "space", "space_item"]
+/// // order = ["device", "layout", "layout_item", "audit_log"]
+/// // or    = ["device", "audit_log", "layout", "layout_item"]
 /// // (tag and device are independent, so order between them doesn't matter)
 /// ```
 pub fn compute_sync_order<'a>(
@@ -143,8 +143,8 @@ mod tests {
 	#[test]
 	fn test_simple_dependency_chain() {
 		let models = vec![
-			("space_item", &["space"][..]),
-			("space", &["device"][..]),
+			("layout_item", &["layout"][..]),
+			("layout", &["device"][..]),
 			("device", &[][..]),
 		];
 
@@ -152,8 +152,8 @@ mod tests {
 
 		// Device must come before space
 		let device_idx = order.iter().position(|m| m == "device").unwrap();
-		let space_idx = order.iter().position(|m| m == "space").unwrap();
-		let item_idx = order.iter().position(|m| m == "space_item").unwrap();
+		let space_idx = order.iter().position(|m| m == "layout").unwrap();
+		let item_idx = order.iter().position(|m| m == "layout_item").unwrap();
 
 		assert!(device_idx < space_idx);
 		assert!(space_idx < item_idx);
@@ -187,8 +187,8 @@ mod tests {
 	fn test_complex_graph() {
 		// More realistic dependency graph
 		let models = vec![
-			("space_item", &["space"][..]),
-			("space", &["device"][..]),
+			("layout_item", &["layout"][..]),
+			("layout", &["device"][..]),
 			("device", &[][..]),
 			("audit_log", &[][..]),
 			("audit_dependent", &["audit_log"][..]),
@@ -201,11 +201,11 @@ mod tests {
 
 		// Device must come before space
 		let device_idx = order.iter().position(|m| m == "device").unwrap();
-		let space_idx = order.iter().position(|m| m == "space").unwrap();
+		let space_idx = order.iter().position(|m| m == "layout").unwrap();
 		assert!(device_idx < space_idx);
 
 		// Space must come before its items
-		let item_idx = order.iter().position(|m| m == "space_item").unwrap();
+		let item_idx = order.iter().position(|m| m == "layout_item").unwrap();
 		assert!(space_idx < item_idx);
 
 		// A dependency outside the device chain still orders first
