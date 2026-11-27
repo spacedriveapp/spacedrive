@@ -5,12 +5,14 @@
 //! space's store can check it: the issuing device's public key is published
 //! there as an assertion, and revocations reach the node the same way.
 //!
-//! A token is `sdgs_`, the claims as JSON in unpadded base64url, a dot, and an
+//! A token is `sdg_s.`, the claims as JSON in unpadded base64url, a dot, and an
 //! Ed25519 signature over a domain label followed by those exact bytes, also
 //! base64url. The signature covers the bytes as sent rather than a
 //! re-serialization, so no two encoders can disagree about what was signed.
 //! The label keeps a grant signature from ever being mistaken for any other
-//! signature the same key makes.
+//! signature the same key makes. The prefix starts with `sdg_`, so every log
+//! filter, URL check and secret scanner that matches opaque tokens matches
+//! signed ones too, while [`super::token::hash`] never accepts one.
 //!
 //! The signing key is derived from the device's master key with its own HKDF
 //! label, so it is stable across restarts, never stored, and distinct from the
@@ -27,7 +29,7 @@ use uuid::Uuid;
 use super::{GrantCap, GrantError};
 
 /// The prefix every signed grant token carries.
-pub const SIGNED_PREFIX: &str = "sdgs_";
+pub const SIGNED_PREFIX: &str = "sdg_s.";
 
 /// The claims format this build writes and reads.
 pub const CLAIMS_VERSION: u8 = 1;
@@ -176,7 +178,8 @@ mod tests {
 		let key = key(1);
 		let token = sign(&key, &claims(now));
 		assert!(is_signed(&token));
-		assert!(!token.starts_with(super::super::token::TOKEN_PREFIX));
+		assert!(token.starts_with(super::super::token::TOKEN_PREFIX));
+		assert_eq!(super::super::token::hash(&token), None);
 		assert_eq!(
 			verify(&token, &key.verifying_key(), now).unwrap(),
 			claims(now)
