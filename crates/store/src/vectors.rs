@@ -716,7 +716,8 @@ impl VectorIndex {
 			}
 		}
 		let mut ranked: Vec<Scored> = best.into_values().collect();
-		ranked.sort_by(|a, b| b.0.total_cmp(&a.0));
+		// Ties fall back to the chunk id so every page of a query sees one order.
+		ranked.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
 
 		// A document answers for its file, or for every file with its bytes,
 		// so resolve the leaders a page at a time until enough files are found.
@@ -747,7 +748,11 @@ impl VectorIndex {
 					})
 				})
 				.collect();
-			hits.sort_by(|a, b| b.similarity.total_cmp(&a.similarity));
+			hits.sort_by(|a, b| {
+				b.similarity
+					.total_cmp(&a.similarity)
+					.then(a.record_uuid.cmp(&b.record_uuid))
+			});
 			for hit in hits {
 				if seen.insert(hit.record_uuid) {
 					out.push(hit);

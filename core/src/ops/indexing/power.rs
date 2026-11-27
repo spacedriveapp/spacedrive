@@ -4,6 +4,17 @@
 //! wait for mains power. A device that cannot tell, such as a desktop or a
 //! platform without a reading here, counts as plugged in. The answer is
 //! cached for half a minute, because asking can mean starting a process.
+//!
+//! ## Example
+//! ```rust,no_run
+//! # async fn example() {
+//! use sd_core::ops::indexing::power::on_battery;
+//!
+//! while on_battery().await {
+//!     tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+//! }
+//! # }
+//! ```
 
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -11,16 +22,19 @@ use std::time::{Duration, Instant};
 const CACHE: Duration = Duration::from_secs(30);
 
 /// Whether the device is running on battery power now.
-pub fn on_battery() -> bool {
+///
+/// The reading runs off the async runtime, since it reads sysfs on Linux and
+/// waits for `pmset` on macOS.
+pub async fn on_battery() -> bool {
 	static LAST: Mutex<Option<(Instant, bool)>> = Mutex::new(None);
-	let mut last = LAST.lock().unwrap_or_else(|e| e.into_inner());
-	if let Some((at, value)) = *last {
+	let cached = *LAST.lock().unwrap_or_else(|e| e.into_inner());
+	if let Some((at, value)) = cached {
 		if at.elapsed() < CACHE {
 			return value;
 		}
 	}
-	let value = read();
-	*last = Some((Instant::now(), value));
+	let value = tokio::task::spawn_blocking(read).await.unwrap_or(false);
+	*LAST.lock().unwrap_or_else(|e| e.into_inner()) = Some((Instant::now(), value));
 	value
 }
 
