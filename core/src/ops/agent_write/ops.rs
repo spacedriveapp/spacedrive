@@ -563,7 +563,7 @@ async fn finish(
 	landed: &Path,
 	conflict: bool,
 ) -> Result<WriteOutcome, WriteError> {
-	let undo = journal(context, scope.library_id, id, &effects).await;
+	let undo = journal(context, scope.library_id, scope.grant_id, id, &effects).await;
 	let (state, _) = state::read(context, &scope.root, landed).await?;
 	info!(
 		grant = %scope.grant_id,
@@ -583,6 +583,7 @@ async fn finish(
 async fn journal(
 	context: &CoreContext,
 	library_id: Uuid,
+	grant_id: Uuid,
 	id: Uuid,
 	effects: &[Effect],
 ) -> Option<Uuid> {
@@ -593,7 +594,7 @@ async fn journal(
 	match library
 		.jobs()
 		.database()
-		.append_journal(JobId(id), effects)
+		.append_journal_for(JobId(id), Some(grant_id), effects)
 		.await
 	{
 		Ok(()) => Some(id),

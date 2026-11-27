@@ -14,6 +14,7 @@ pub mod change_detection;
 pub mod collections;
 pub mod content_identity;
 pub mod content_text;
+pub mod deep_scope;
 pub mod descriptor;
 pub mod exif_enrich;
 pub mod handlers;
