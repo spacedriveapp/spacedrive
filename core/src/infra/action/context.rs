@@ -66,11 +66,44 @@ pub trait ActionContextProvider {
 		Self: Sized;
 }
 
-/// Helper to safely serialize action input, removing sensitive fields if needed
+/// Serializes an action input for a job record with credential values masked.
+///
+/// Job records outlive the action and are listed to any client, so a field
+/// whose name marks it as a credential keeps its key but loses its value.
 pub fn sanitize_action_input<T: Serialize>(input: &T) -> serde_json::Value {
-	// For now, serialize as-is. In the future, we could implement
-	// field-level sanitization to remove passwords, tokens, etc.
-	serde_json::to_value(input).unwrap_or_default()
+	let mut value = serde_json::to_value(input).unwrap_or_default();
+	mask_credentials(&mut value);
+	value
+}
+
+const CREDENTIAL_KEYS: &[&str] = &[
+	"password",
+	"passphrase",
+	"secret",
+	"token",
+	"api_key",
+	"apikey",
+	"access_key",
+	"private_key",
+	"credential",
+	"authorization",
+];
+
+fn mask_credentials(value: &mut serde_json::Value) {
+	match value {
+		serde_json::Value::Object(map) => {
+			for (key, field) in map.iter_mut() {
+				let key = key.to_ascii_lowercase();
+				if !field.is_null() && CREDENTIAL_KEYS.iter().any(|k| key.contains(k)) {
+					*field = serde_json::Value::String("***".into());
+				} else {
+					mask_credentials(field);
+				}
+			}
+		}
+		serde_json::Value::Array(items) => items.iter_mut().for_each(mask_credentials),
+		_ => {}
+	}
 }
 
 #[cfg(test)]
@@ -119,6 +152,36 @@ mod tests {
 			json!({
 				"path": "/test/path",
 				"name": "Test"
+			})
+		);
+	}
+
+	#[test]
+	fn sanitize_action_input_masks_credentials() {
+		let input = json!({
+			"name": "bucket",
+			"config": {
+				"SecretAccessKey": "aws-canary",
+				"refresh_token": "oauth-canary",
+				"client_secret": null,
+			},
+			"peers": [{ "grant_token": "sdg_canary", "host": "nas" }],
+			"api_key": "key-canary",
+			"password": "smb-canary",
+		});
+
+		assert_eq!(
+			sanitize_action_input(&input),
+			json!({
+				"name": "bucket",
+				"config": {
+					"SecretAccessKey": "***",
+					"refresh_token": "***",
+					"client_secret": null,
+				},
+				"peers": [{ "grant_token": "***", "host": "nas" }],
+				"api_key": "***",
+				"password": "***",
 			})
 		);
 	}

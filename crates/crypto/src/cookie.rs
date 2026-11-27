@@ -164,8 +164,6 @@ impl CookieCipher {
 	/// # Returns
 	/// * `Result<[u8; 32], CryptoCookieError>` - A 32-byte key or an error
 	pub fn generate_key_from_string(string: &str) -> Result<[u8; 32], CryptoCookieError> {
-		debug!("Generating key from string: {}", string);
-
 		if string.is_empty() {
 			error!("Input string is empty");
 			return Err(CryptoCookieError::KeyCreation(
@@ -210,6 +208,14 @@ impl CookieCipher {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	#[tracing_test::traced_test]
+	fn key_source_string_is_not_logged() {
+		let source = "0193b34e-0ad9-70e0-a3dd-key-source-canary";
+		CookieCipher::generate_key_from_string(source).unwrap();
+		assert!(!logs_contain("key-source-canary"));
+	}
 
 	#[test]
 	fn test_key_generation() {

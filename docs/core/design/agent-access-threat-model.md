@@ -75,7 +75,14 @@ agents.
   handle. Thumbnail asks are checked the same way, but the bake reopens by path.
 - F4. The SMB mount URL, password included, is logged at info on every start.
   The password is also accepted from an environment variable, which other
-  processes of the same user can read.
+  processes of the same user can read. Fixed: the daemon logs the share
+  address with its login masked, and its log writer masks the login of any
+  URL a record carries. `mounts.status` hands the login only to a client that
+  presents the RPC secret. The environment variable stays: a process of the
+  same user can already read the data directory, `rpc.secret` included.
+  `core/tests/rpc_security_test.rs` checks the log after the share starts.
+  Job records mask credential fields of the action input that started them,
+  and no log record carries the string a cookie key is derived from.
 - F5. `sd-server` listens on all interfaces by default over plain HTTP. Basic
   credentials cross the network on every request, and failed logins are not
   rate limited. It is the one surface already exposed to a network, and it
