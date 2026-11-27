@@ -86,7 +86,8 @@ function CreateSpaceDialog(props: CreateSpaceProps) {
 				kind: props.kind,
 				name: name.trim() || null,
 				path: props.path ?? null,
-				content_indexing: contentIndexing
+				content_indexing: contentIndexing,
+				protected: null
 			});
 			dialogManager.setState(props.id, {open: false});
 			toast.success(`${space.name} is a space`);
@@ -179,7 +180,8 @@ function SpaceSettingsDialog(props: SpaceSettingsProps) {
 				id: space.id,
 				name: name.trim() !== space.name ? name.trim() : null,
 				content_indexing:
-					contentIndexing !== space.content_indexing ? contentIndexing : null
+					contentIndexing !== space.content_indexing ? contentIndexing : null,
+				protected: null
 			});
 			close();
 		} catch (error) {
