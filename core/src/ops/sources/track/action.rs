@@ -26,6 +26,7 @@ use crate::{
 	domain::addressing::SdPath,
 	infra::action::{error::ActionError, LibraryAction},
 	library::{config::AddOverrides, Library},
+	ops::grants::bucket::BucketUrl,
 	ops::indexing::{
 		job::{IndexScope, IndexerJob},
 		rules::RuleToggles,
@@ -84,8 +85,11 @@ impl LibraryAction for TrackSourceAction {
 	type Output = TrackSourceOutput;
 
 	fn from_input(input: Self::Input) -> Result<Self, String> {
-		if !input.path.is_absolute() {
-			return Err("Source root must be an absolute path".to_string());
+		if !input.path.is_absolute() && BucketUrl::parse(&input.path).is_none() {
+			return Err(
+				"Source root must be an absolute path or a bucket URL such as s3://bucket/prefix"
+					.to_string(),
+			);
 		}
 		Ok(Self { input })
 	}
@@ -131,6 +135,9 @@ pub async fn track_and_index(
 	name: Option<String>,
 	overrides: &AddOverrides,
 ) -> Result<TrackSourceOutput, ActionError> {
+	if let Some(url) = BucketUrl::parse(&root) {
+		return track_bucket(library, context, url, name, overrides).await;
+	}
 	if !root.is_dir() {
 		return Err(ActionError::Internal(format!(
 			"{} is not a directory",
@@ -330,6 +337,86 @@ pub async fn track_and_index(
 		store_path,
 		catalog_reused,
 		job_id,
+	})
+}
+
+/// Register a prefix of a connected bucket as a source.
+///
+/// The bucket has to be connected first with `volumes.add_cloud`, which holds
+/// its credentials; the source is anchored to that cloud volume so it follows
+/// the volume's identity. A bucket cannot hold a SQLite store, so the store
+/// always lives in the library. The source is not walked: agents list, read
+/// and grep a bucket live through its backend.
+async fn track_bucket(
+	library: &Arc<Library>,
+	context: &Arc<CoreContext>,
+	url: BucketUrl,
+	name: Option<String>,
+	overrides: &AddOverrides,
+) -> Result<TrackSourceOutput, ActionError> {
+	let volume = context
+		.volume_manager
+		.find_cloud_volume(url.service, &url.bucket)
+		.await
+		.ok_or_else(|| {
+			ActionError::InvalidInput(format!(
+				"{} is not connected; add the bucket with volumes.add_cloud first",
+				url.volume()
+			))
+		})?;
+	let root = url.path();
+	let anchor = VolumeAnchor {
+		uuid: volume.id,
+		mount_point: volume.mount_point.clone(),
+	};
+	context
+		.volume_manager
+		.ensure_volume_in_db(&volume, library)
+		.await
+		.map_err(|e| {
+			ActionError::Internal(format!(
+				"could not track volume {} for {}: {e}",
+				volume.name,
+				root.display()
+			))
+		})?;
+
+	let (id, existed) = context
+		.volume_index()
+		.register_source_with(Some(library.id()), &root, Some(anchor), None)
+		.await
+		.map_err(|e| ActionError::Internal(format!("Failed to register source: {e}")))?;
+	let settings = match context.volume_index().source_config(id) {
+		Some(previous) if existed => previous,
+		_ => SourceConfig {
+			placement: StorePlacement::InLibrary,
+			identify_content: false,
+			..library.config().await.settings.adding.resolve(overrides)
+		},
+	};
+	context
+		.volume_index()
+		.set_source_config(id, settings.clone())
+		.await
+		.map_err(|e| ActionError::Internal(format!("could not save the source's settings: {e}")))?;
+	if let Some(name) = name.filter(|name| !name.trim().is_empty()) {
+		context
+			.volume_index()
+			.set_source_name(id, name)
+			.await
+			.map_err(|e| ActionError::Internal(format!("could not save the source's name: {e}")))?;
+	}
+	tracing::info!(source = %id, root = %root.display(), "tracked a bucket source");
+	Ok(TrackSourceOutput {
+		id,
+		name: context.volume_index().source_name(id).unwrap_or_default(),
+		root,
+		volume_uuid: Some(volume.id),
+		whole_volume: url.key.is_empty(),
+		settings,
+		store_path: context.volume_index().store_dir(id),
+		catalog_reused: existed,
+		job_id: None,
 	})
 }
 

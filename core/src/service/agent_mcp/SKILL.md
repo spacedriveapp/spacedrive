@@ -88,6 +88,19 @@ Rules:
 - Every write result has an undo id. The folder's owner can reverse the
   write with it.
 
+## Bucket folders
+
+A grant can lend a prefix of an S3 or R2 bucket instead of a folder on disk.
+The tools and rules above are the same, with these differences:
+
+- The bucket refuses a stale write itself, so a change made by anyone, not
+  only through Spacedrive, makes your expect stale.
+- move and delete are refused. Write a new version instead.
+- Writes have no undo id.
+- search and search_content are refused; use grep and glob.
+- revision is always null. Use content_hash.
+- .gitignore is not applied.
+
 ## Results can be incomplete
 
 Treat an empty or short result as a lead, not as proof.

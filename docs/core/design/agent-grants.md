@@ -22,7 +22,7 @@ grant:
 
 The row lives in `library.db` in the `agent_grant` table. It is small shared state under the rules in `AGENTS.md`: no ingest can rebuild it, and it has no place in a source store. In this version a grant stays on the node that minted it and does not sync.
 
-The directory must be inside a filesystem source tracked by the same library. A grant is a scope over something Spacedrive already tracks, not a way to reach arbitrary folders on the node. Removing the source revokes every grant on it. A kept catalog keeps the source id, so without the revocation, re-adding the same scope would revive the old tokens.
+The directory must be inside a source tracked by the same library: a filesystem source, or a bucket source. A bucket grant names a prefix as a URL, `s3://bucket/prefix`, and the prefix must sit inside a bucket source of the library. See "Bucket prefixes" below. A grant is a scope over something Spacedrive already tracks, not a way to reach arbitrary folders on the node. Removing the source revokes every grant on it. A kept catalog keeps the source id, so without the revocation, re-adding the same scope would revive the old tokens.
 
 ## Tokens
 
@@ -77,6 +77,10 @@ Identity comparison handles the spellings that a prefix test gets wrong in eithe
 - **Symlinks out of the directory** resolve to their target, which is outside, so they are refused.
 - **Firmlinks.** macOS reaches the same directory as `/Users/me` and `/System/Volumes/Data/Users/me`, and `realpath` resolves neither to the other. Both spellings have one identity, so a request through either one is inside exactly when it names the granted directory. The firmlink handling added for file info and the watcher relies on the same fact.
 - **Case-insensitive aliases.** On APFS, NTFS or casefolded ext4, `Granted` and `GRANTED` are one directory with one identity. On a case-sensitive volume they are two directories, and the other one is outside.
+
+### Bucket prefixes
+
+A bucket has no symlinks, firmlinks or case aliases, so a bucket grant resolves a request by its spelling. Every component must be a plain name: `..`, an absolute path and a URL outside the granted prefix are refused. The key is the prefix with the request joined below it, compared by whole components, so a grant on `s3://media/projects` never reaches `s3://media/projects-old`. Protected names are checked the same way as on a filesystem source. The backend comes from the bucket's cloud volume, connected with `volumes.add_cloud`. A writable request on a service without conditional writes is refused with `NoConditionalWrites`.
 
 ## Protected files
 
