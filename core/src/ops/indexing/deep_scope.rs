@@ -1,0 +1,192 @@
+//! # Deep scope
+//!
+//! The subtrees of a source whose file contents are read: content identity,
+//! the content text index and the passes that follow them. The walk and the
+//! records always cover the whole source, so browsing, search by name and
+//! the analyser see everything; reading bytes stays where a person keeps
+//! things. `docs/core/design/zero-onboarding-startup.md` calls this the
+//! durable set and its "Keep indexed" gesture is
+//! [`crate::ops::sources::deep_scope`].
+//!
+//! A person's list is an assertion in the source store
+//! ([`sd_store::SourceDb::deep_scope`]). Until someone sets one, the home
+//! folder keeps its standard user folders and any other source keeps its
+//! whole root: a source someone added by hand was added to be read. A drive
+//! that startup only maps has no store, so nothing reads its contents.
+
+use std::path::{Path, PathBuf};
+
+/// The subtrees of the source at `root` whose contents are read, as
+/// `/`-separated paths relative to it. An empty path is the whole source.
+pub async fn deep_subtrees(db: &sd_store::SourceDb, root: &Path) -> sd_store::Result<Vec<String>> {
+	if let Some(kept) = db.deep_scope().await? {
+		return Ok(kept);
+	}
+	let root = root.to_path_buf();
+	tokio::task::spawn_blocking(move || {
+		let home = dirs::home_dir().and_then(|home| std::fs::canonicalize(home).ok());
+		let root = std::fs::canonicalize(&root).unwrap_or(root);
+		default_subtrees(&root, home.as_deref(), &standard_folders())
+	})
+	.await
+	.map_err(|e| sd_store::Error::Other(e.to_string()))
+}
+
+/// What a source keeps before anyone chose: the standard user folders for
+/// the home folder, the whole root for anything else.
+fn default_subtrees(root: &Path, home: Option<&Path>, folders: &[PathBuf]) -> Vec<String> {
+	if home != Some(root) {
+		return vec![String::new()];
+	}
+	let mut subtrees: Vec<String> = folders
+		.iter()
+		.filter_map(|folder| folder.strip_prefix(root).ok())
+		.map(slash_path)
+		.filter(|relative| !relative.is_empty())
+		.collect();
+	subtrees.sort();
+	subtrees.dedup();
+	subtrees
+}
+
+/// The operating system's standard user folders that exist: Desktop,
+/// Documents, Downloads, Pictures, Movies or Videos, Music and Public,
+/// resolved by the platform (known folders on macOS and Windows, XDG user
+/// dirs on Linux) rather than by name. On macOS, iCloud Drive's Desktop and
+/// Documents resolve to the same paths.
+pub fn standard_folders() -> Vec<PathBuf> {
+	[
+		dirs::desktop_dir(),
+		dirs::document_dir(),
+		dirs::download_dir(),
+		dirs::picture_dir(),
+		dirs::video_dir(),
+		dirs::audio_dir(),
+		dirs::public_dir(),
+	]
+	.into_iter()
+	.flatten()
+	.filter_map(|dir| std::fs::canonicalize(dir).ok())
+	.collect()
+}
+
+/// `subtrees` with `subtree` kept. A subtree already covered changes
+/// nothing, and one that covers kept subtrees replaces them.
+pub fn keep(subtrees: &[String], subtree: &str) -> Vec<String> {
+	if subtrees.iter().any(|kept| covers(kept, subtree)) {
+		return subtrees.to_vec();
+	}
+	let mut kept: Vec<String> = subtrees
+		.iter()
+		.filter(|kept| !covers(subtree, kept))
+		.cloned()
+		.collect();
+	kept.push(subtree.to_string());
+	kept.sort();
+	kept
+}
+
+/// `subtrees` without `subtree` and anything kept under it.
+///
+/// The list only says what is kept, so a folder inside a kept one cannot be
+/// left out on its own; that is refused with the subtree that keeps it.
+pub fn release(subtrees: &[String], subtree: &str) -> Result<Vec<String>, String> {
+	if let Some(parent) = subtrees
+		.iter()
+		.find(|kept| *kept != subtree && covers(kept, subtree))
+	{
+		return Err(if parent.is_empty() {
+			"the whole source is kept; release it first".to_string()
+		} else {
+			format!("{parent} is kept and holds it; release {parent} instead")
+		});
+	}
+	Ok(subtrees
+		.iter()
+		.filter(|kept| !covers(subtree, kept))
+		.cloned()
+		.collect())
+}
+
+/// Whether `outer` is `inner` or one of its ancestors.
+fn covers(outer: &str, inner: &str) -> bool {
+	outer.is_empty()
+		|| inner == outer
+		|| inner
+			.strip_prefix(outer)
+			.is_some_and(|rest| rest.starts_with('/'))
+}
+
+/// A relative path in the store's spelling: `/`-separated on every platform.
+pub fn slash_path(path: &Path) -> String {
+	path.components()
+		.map(|component| component.as_os_str().to_string_lossy())
+		.collect::<Vec<_>>()
+		.join("/")
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn list(items: &[&str]) -> Vec<String> {
+		items.iter().map(|s| s.to_string()).collect()
+	}
+
+	#[test]
+	fn the_home_folder_keeps_its_standard_folders_and_other_sources_their_root() {
+		let home = Path::new("/home/ada");
+		let folders = [
+			home.join("Documents"),
+			home.join("Desktop"),
+			home.to_path_buf(),
+			PathBuf::from("/srv/media"),
+		];
+		assert_eq!(
+			default_subtrees(home, Some(home), &folders),
+			["Desktop", "Documents"]
+		);
+		assert_eq!(
+			default_subtrees(Path::new("/home/ada/Documents"), Some(home), &folders),
+			[""]
+		);
+		assert_eq!(
+			default_subtrees(Path::new("/Volumes/Archive"), Some(home), &folders),
+			[""]
+		);
+		assert_eq!(default_subtrees(home, None, &folders), [""]);
+	}
+
+	#[test]
+	fn keeping_a_folder_folds_into_what_already_covers_it() {
+		let kept = list(&["Desktop", "Documents"]);
+		assert_eq!(keep(&kept, "Documents/thesis"), kept);
+		assert_eq!(
+			keep(&kept, "Projects"),
+			["Desktop", "Documents", "Projects"]
+		);
+		assert_eq!(
+			keep(
+				&list(&["Projects/a", "Projects/b", "Projectsx"]),
+				"Projects"
+			),
+			["Projects", "Projectsx"]
+		);
+		assert_eq!(keep(&kept, ""), [""]);
+		assert_eq!(keep(&list(&[""]), "Desktop"), [""]);
+	}
+
+	#[test]
+	fn releasing_a_folder_drops_it_and_what_it_holds() {
+		let kept = list(&["Desktop", "Projects/a", "Projects/b"]);
+		assert_eq!(release(&kept, "Projects").unwrap(), ["Desktop"]);
+		assert_eq!(
+			release(&kept, "Desktop").unwrap(),
+			["Projects/a", "Projects/b"]
+		);
+		assert_eq!(release(&kept, "Music").unwrap(), kept);
+		assert!(release(&kept, "Desktop/old").is_err());
+		assert!(release(&list(&[""]), "Desktop").is_err());
+		assert!(release(&list(&[""]), "").unwrap().is_empty());
+	}
+}

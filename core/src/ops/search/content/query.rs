@@ -117,8 +117,11 @@ impl LibraryQuery for ContentSearchQuery {
 				})
 			})
 			.collect();
+		let filter = crate::ops::indexing::content_text::text_filter(&store)
+			.await
+			.map_err(|e| QueryError::Internal(e.to_string()))?;
 		let pending_files = index
-			.pending_count_under(&TextKind::extensions(), &under)
+			.pending_count_under(&filter, &under)
 			.await
 			.map_err(|e| QueryError::Internal(e.to_string()))?;
 

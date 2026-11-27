@@ -36,6 +36,21 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Deep scope and the text index size (Capy FAN-14801, November 27, in PR). A
+home source on a Mac grew `text.db` to 19 GB in a day. Every text file the
+walk recorded was read, up to 1 MB each, and FTS5 kept a full copy of the
+text beside its index (74% of the file in a reproduction). Hidden folders
+(package caches, agent transcripts) were most of the text. Each source now
+has a deep scope: one list of subtrees, stored as an assertion in
+`data.db`, where content identity and the text index run. The home source
+defaults to the OS user folders and any other source to its whole root.
+`sources.deep_scope.update` keeps or releases a folder, and
+`sources.deep_scope.get` reads the list. The text pass also skips hidden
+folders, lockfiles and minified files, and cuts code at 256 KB and data and
+logs at 64 KB. An index written under the old policy is cleared and vacuumed
+when it opens; a pass gives freed pages back once they are a quarter of the
+file. Next: merge, then the Settings and "Keep indexed" UI.
+
 Job shutdown deadlock (Capy FAN-12312, November 25, in PR). The Windows unit
 job kept failing on `a_directory_that_never_answers_does_not_hold_up_the_pass`.
 The cause was not the reconcile pass but `core.shutdown()` at the end of the

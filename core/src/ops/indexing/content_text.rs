@@ -14,6 +14,12 @@
 //! reach them, because a search joins through the record. A source added
 //! without content identification gets no pass, since content reads are
 //! what that setting turns off.
+//!
+//! A pass reads only the source's deep scope ([`super::deep_scope`]), by
+//! default the home folder's standard user folders, and never a hidden
+//! folder. Metadata capture covers the whole source; the text of a
+//! home folder's caches, toolchains, logs and agent transcripts once grew
+//! the index past the size of everything a person would search.
 
 use std::{
 	collections::HashSet,
@@ -21,10 +27,10 @@ use std::{
 	sync::Arc,
 };
 
-use sd_store::{PendingText, TextDoc};
+use sd_store::{PendingText, TextDoc, TextFilter};
 use serde::{Deserialize, Serialize};
 
-use super::text_extract::{self, Extraction, TextKind, MAX_TEXT_BYTES};
+use super::text_extract::{self, Extraction, TextKind};
 use crate::infra::job::{generic_progress::GenericProgress, prelude::*, types::JobPriority};
 
 /// Files claimed per round. Each is up to a megabyte of text, so the claim
@@ -131,7 +137,7 @@ impl JobHandler for ContentTextJob {
 		// The pass reads the record store; claim what has landed.
 		store.flush().await.map_err(|e| e.to_string())?;
 		let index = store.text_index().await.map_err(|e| e.to_string())?;
-		let extensions = TextKind::extensions();
+		let filter = text_filter(&store).await.map_err(|e| e.to_string())?;
 		if self.rebuild {
 			index.clear().await.map_err(|e| e.to_string())?;
 			self.rebuild = false;
@@ -139,11 +145,11 @@ impl JobHandler for ContentTextJob {
 		}
 
 		let mut output = ContentTextOutput {
-			pruned: index.prune(&extensions).await.map_err(|e| e.to_string())?,
+			pruned: index.prune(&filter).await.map_err(|e| e.to_string())?,
 			..Default::default()
 		};
 		let outstanding = index
-			.pending_count(&extensions)
+			.pending_count(&filter)
 			.await
 			.map_err(|e| e.to_string())?;
 		ctx.log(format!(
@@ -174,7 +180,7 @@ impl JobHandler for ContentTextJob {
 				ctx.log("The index was cleared; reading every file again");
 			}
 			let claimed = index
-				.pending(&extensions, cursor, BATCH_SIZE)
+				.pending(&filter, cursor, BATCH_SIZE)
 				.await
 				.map_err(|e| e.to_string())?;
 			let Some(last) = claimed.last() else {
@@ -215,8 +221,9 @@ impl JobHandler for ContentTextJob {
 			)));
 		}
 
+		let reclaimed = index.reclaim().await.map_err(|e| e.to_string())?;
 		ctx.log(format!(
-			"Indexed {} files, {} with nothing to index, {} unreadable",
+			"Indexed {} files, {} with nothing to index, {} unreadable, {reclaimed} bytes given back",
 			output.indexed, output.skipped, output.unreadable
 		));
 		Ok(output)
@@ -237,20 +244,34 @@ async fn extract_batch(root: PathBuf, batch: Vec<PendingText>) -> (Vec<TextDoc>,
 				continue;
 			};
 			let path = root.join(&file.external_id);
+			let name = file.external_id.rsplit('/').next().unwrap_or_default();
+			if let Some(reason) = text_extract::skip_by_name(name) {
+				docs.push(TextDoc {
+					record_uuid: file.record_uuid,
+					size: file.size,
+					mtime: file.mtime,
+					extension: file.extension.clone(),
+					kind: kind.as_str().to_string(),
+					text: String::new(),
+					truncated: false,
+					skipped: Some(reason.to_string()),
+				});
+				continue;
+			}
 			if super::metadata::refuse_dataless_blocking(&path).is_err() {
 				unreadable += 1;
 				continue;
 			}
-			let (text, truncated, skipped) =
-				match text_extract::extract(&path, kind, MAX_TEXT_BYTES) {
-					Ok(Extraction::Text { text, truncated }) => (text, truncated, None),
-					Ok(Extraction::Skipped(reason)) => (String::new(), false, Some(reason)),
-					Err(error) => {
-						tracing::debug!(path = %path.display(), %error, "could not read for the text index");
-						unreadable += 1;
-						continue;
-					}
-				};
+			let cap = text_extract::text_cap(kind, &file.extension);
+			let (text, truncated, skipped) = match text_extract::extract(&path, kind, cap) {
+				Ok(Extraction::Text { text, truncated }) => (text, truncated, None),
+				Ok(Extraction::Skipped(reason)) => (String::new(), false, Some(reason)),
+				Err(error) => {
+					tracing::debug!(path = %path.display(), %error, "could not read for the text index");
+					unreadable += 1;
+					continue;
+				}
+			};
 			docs.push(TextDoc {
 				record_uuid: file.record_uuid,
 				size: file.size,
@@ -334,9 +355,9 @@ pub async fn index_text_soon(
 	let Some(store) = volume_index.store_for(root).await else {
 		return;
 	};
-	let pending = match store.text_index().await {
-		Ok(index) => index.pending_count(&TextKind::extensions()).await,
-		Err(error) => Err(sd_store::Error::Other(error.to_string())),
+	let pending = match (store.text_index().await, text_filter(&store).await) {
+		(Ok(index), Ok(filter)) => index.pending_count(&filter).await,
+		(Err(error), _) | (_, Err(error)) => Err(sd_store::Error::Other(error.to_string())),
 	};
 	match pending {
 		Ok(0) => return,
@@ -357,4 +378,16 @@ pub async fn index_text_soon(
 	{
 		tracing::warn!(root = %root.display(), %error, "could not start the text index pass");
 	}
+}
+
+/// What a text pass over the source at `root` reads: every extension an
+/// extractor handles, under the source's deep scope.
+pub async fn text_filter(store: &super::store::SourceStore) -> anyhow::Result<TextFilter> {
+	Ok(TextFilter {
+		extensions: TextKind::extensions()
+			.into_iter()
+			.map(String::from)
+			.collect(),
+		subtrees: store.deep_subtrees().await?,
+	})
 }

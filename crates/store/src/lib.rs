@@ -14,6 +14,7 @@
 //! record_overlay  what no ingest produced: a person's assertions
 //! tag_definition  the tags this source uses, named, colored, hierarchical
 //! tag_assertion   which tags apply to which records and content
+//! deep_scope      which subtrees content-reading passes cover
 //! search_index    FTS5 over the fields the search contract names
 //! ```
 //!
@@ -35,7 +36,8 @@
 //! the content text index in `text.db`) can be
 //! rebuilt for as long as its origin still answers. `record_overlay` and the
 //! tag tables hold what no ingest produced, so nothing rebuilds them on any
-//! day, for any source.
+//! day, for any source. Nor does anything rebuild `deep_scope`, the part of
+//! the source a person chose to have its contents read.
 //!
 //! Whether the origin still answers varies per source, varies over time, and
 //! changes without an event: a detached drive, a revoked token, a closed
@@ -50,6 +52,7 @@
 pub mod content;
 pub mod content_text;
 pub mod db;
+pub mod deep_scope;
 pub mod error;
 pub mod file;
 pub mod fts;
@@ -67,8 +70,8 @@ use serde::{Deserialize, Serialize};
 pub use content::{uuid_for, ContentId, CONTENT_NAMESPACE};
 pub use content_text::{
 	match_expression, ContentTextIndex, DescriptionDoc, DescriptionSpan, PendingText,
-	PendingTranscript, SnippetPart, TextDoc, TextHit, TextIndexCounts, TextSearch, TranscriptDoc,
-	TranscriptSpan, CAPTION_KIND, SCENE_KIND, TEXT_INDEX_FILE, TRANSCRIPT_KIND,
+	PendingTranscript, SnippetPart, TextDoc, TextFilter, TextHit, TextIndexCounts, TextSearch,
+	TranscriptDoc, TranscriptSpan, CAPTION_KIND, SCENE_KIND, TEXT_INDEX_FILE, TRANSCRIPT_KIND,
 };
 pub use db::{ItemRow, OverlayEvidence, SourceDb, Stamp};
 pub use error::{Error, Result};
