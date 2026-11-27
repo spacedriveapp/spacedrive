@@ -25,6 +25,63 @@ export type ActiveProvider = { category: Category; locality: Locality;
  */
 model_id: string | null };
 
+/**
+ * Who made a change.
+ */
+export type ActivityActor = 
+/**
+ * An agent writing through a grant. `grant_id` is `None` for writes
+ * journaled before writes recorded their grant.
+ */
+{ kind: "agent"; grant_id: string | null; label: string | null } | 
+/**
+ * Someone using Spacedrive on this device, through a job such as a copy.
+ */
+{ kind: "person"; device: string; job: string };
+
+/**
+ * One change: an agent write, or a job's whole journal.
+ */
+export type ActivityEntry = { 
+/**
+ * The journal's id. `files.undo` with this id reverses the change.
+ */
+id: string; at: string; actor: ActivityActor; 
+/**
+ * What the last step of the change did, which for an agent write is
+ * the write itself rather than the folders made above it. With a
+ * requested path, the last step under it.
+ */
+kind: ActivityKind; path: string; 
+/**
+ * Where a move went.
+ */
+to_path: string | null; 
+/**
+ * How many paths the change touched, counting only those under the
+ * requested path when one was given.
+ */
+changes: number; 
+/**
+ * Whether `files.undo` can reverse at least part of it.
+ */
+undoable: boolean };
+
+export type ActivityKind = "create" | "make_dir" | "modify" | "move" | "delete" | "attributes";
+
+export type ActivityListInput = { 
+/**
+ * Only changes at or under this path on this device. Every change
+ * when absent.
+ */
+path?: string | null; 
+/**
+ * The most entries to return, newest first. Defaults to 50.
+ */
+limit?: number | null };
+
+export type ActivityListOutput = { entries: ActivityEntry[] };
+
 export type AdapterConfigField = { key: string; name: string; description: string; field_type: string; required: boolean; secret: boolean; default: string | null };
 
 export type AdapterInfo = { id: string; name: string; description: string; version: string; author: string; data_type: string; icon_svg: string | null; update_available: boolean };
@@ -821,7 +878,8 @@ job_receipt?: JobReceipt | null };
 
 export type CreateGrantInput = { 
 /**
- * The directory to grant, on this device.
+ * The directory to grant, on this device, or a bucket prefix such as
+ * `s3://bucket/prefix` inside a tracked bucket source.
  */
 path: string; 
 /**
@@ -7325,7 +7383,8 @@ export type CoreQuery =
 ;
 
 export type LibraryQuery =
-     { type: 'adapters.config'; input: GetAdapterConfigInput; output: [AdapterConfigField] }
+     { type: 'activity.list'; input: ActivityListInput; output: ActivityListOutput }
+  |  { type: 'adapters.config'; input: GetAdapterConfigInput; output: [AdapterConfigField] }
   |  { type: 'adapters.list'; input: ListAdaptersInput; output: [AdapterInfo] }
   |  { type: 'agent.stat'; input: StatInput; output: PathState }
   |  { type: 'ai.providers.list'; input: ListProvidersInput; output: ListProvidersOutput }
@@ -7563,6 +7622,7 @@ export const WIRE_METHODS = {
   },
 
   libraryQueries: {
+    'activity.list': 'query:activity.list',
     'adapters.config': 'query:adapters.config',
     'adapters.list': 'query:adapters.list',
     'agent.stat': 'query:agent.stat',

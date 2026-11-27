@@ -52,11 +52,19 @@ agents.
   ops on every paired node.
 - F2. When a request line fails to parse, `rpc.rs` logs the raw line at error
   level. Anything secret sent on a malformed line ends up in `daemon.log`.
+  Fixed: the daemon logs the error's kind, position and the line's length,
+  never the line, and the desktop app logs a proxied request's kind and method
+  only. `core/tests/rpc_security_test.rs` checks the log after malformed lines
+  that carry a token and a password.
 - F3. byterange's `authorize_path` rejects `..` and checks `starts_with` on
   the raw path, then calls `File::open`, which follows symlinks. A symlink
   inside a source that points outside it is read through. Today only paired
   devices can send these requests, so this is a containment gap, not an open
-  hole. A grant check built the same way would be an open hole.
+  hole. A grant check built the same way would be an open hole. Fixed: every
+  peer path now opens through `common::contain::open_beneath`, which resolves
+  it beneath the source root's handle (`openat2` with `RESOLVE_BENEATH` on
+  Linux) and refuses a link that leaves the root, and reads go through that
+  handle. Thumbnail asks are checked the same way, but the bake reopens by path.
 - F4. The SMB mount URL, password included, is logged at info on every start.
   The password is also accepted from an environment variable, which other
   processes of the same user can read.
@@ -158,8 +166,8 @@ Accepted risks: a hard link inside the root to a file outside it is readable,
 since creating one needs write access inside the root; a volume mounted inside
 the root is readable, since it is under the folder the user chose.
 
-F3 should be fixed with the same handle-based check, so byterange and the grant
-verifier share one containment function.
+byterange and the grant verifier share one containment function,
+`core/src/common/contain.rs`.
 
 ## Untrusted content
 
@@ -315,7 +323,7 @@ host or a host-networked container they are not.
 
 Follow-up work, in order:
 
-1. Fix F2 now, since it is small and grants make it matter.
+1. Fix F2 now, since it is small and grants make it matter. Done.
 2. Add a test that an HTTP request to 6969 closes the connection without
    dispatch, so F6 stays true.
 3. Require a per-daemon secret on RPC: a random cookie written to a `0600` file

@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use super::{
 	audit::{self, AuditId, Decision, RequestMeta, TallyKind},
-	scope, store, token, GrantCap, GrantError, GrantScope, GrantStatus,
+	bucket, scope, store, token, GrantCap, GrantError, GrantScope, GrantStatus,
 };
 use crate::{
 	context::CoreContext,
@@ -65,6 +65,7 @@ pub async fn authorize_with(
 	let libraries = context.libraries().await.list().await;
 	for library in &libraries {
 		match authorize_in_with(
+			context,
 			library.db().conn(),
 			library.id(),
 			token,
@@ -101,6 +102,7 @@ pub async fn authorize_with(
 /// Answers [`GrantError::UnknownToken`] without recording anything when the
 /// token is not one of this library's.
 pub async fn authorize_in(
+	context: &CoreContext,
 	db: &DatabaseConnection,
 	library_id: Uuid,
 	token: &str,
@@ -109,6 +111,7 @@ pub async fn authorize_in(
 	cap: GrantCap,
 ) -> Result<GrantScope, GrantError> {
 	authorize_in_with(
+		context,
 		db,
 		library_id,
 		token,
@@ -122,6 +125,7 @@ pub async fn authorize_in(
 }
 
 async fn authorize_in_with(
+	context: &CoreContext,
 	db: &DatabaseConnection,
 	library_id: Uuid,
 	token: &str,
@@ -139,7 +143,7 @@ async fn authorize_in_with(
 		.map_err(|e| GrantError::Internal(format!("read grant: {e}")))?
 		.ok_or(GrantError::UnknownToken)?;
 
-	let decision = decide(db, library_id, &grant, path, cap, Utc::now()).await;
+	let decision = decide(context, db, library_id, &grant, path, cap, Utc::now()).await;
 	let shown = path.display().to_string();
 	let recorded = audit::record(
 		db,
@@ -173,6 +177,7 @@ async fn authorize_in_with(
 }
 
 async fn decide(
+	context: &CoreContext,
 	db: &DatabaseConnection,
 	library_id: Uuid,
 	grant: &agent_grant::Model,
@@ -202,10 +207,22 @@ async fn decide(
 	}
 
 	let root = std::path::PathBuf::from(&grant.subtree);
-	let requested = path.to_path_buf();
-	let resolved = tokio::task::spawn_blocking(move || scope::resolve(&root, &requested))
-		.await
-		.map_err(|e| GrantError::Internal(format!("resolve: {e}")))??;
+	let resolved = match bucket::BucketUrl::parse(&root) {
+		Some(url) => {
+			let resolved = bucket::resolve(&url, path)?;
+			if cap == GrantCap::ReadWrite {
+				let backend = bucket::backend(context, &url).await?;
+				bucket::writable(&url, backend.as_ref())?;
+			}
+			resolved
+		}
+		None => {
+			let requested = path.to_path_buf();
+			tokio::task::spawn_blocking(move || scope::resolve(&root, &requested))
+				.await
+				.map_err(|e| GrantError::Internal(format!("resolve: {e}")))??
+		}
+	};
 
 	if cap == GrantCap::ReadWrite {
 		// The spelling sent and the spelling it resolved to are both checked,

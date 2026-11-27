@@ -4,6 +4,7 @@
 
 use async_trait::async_trait;
 use bytes::Bytes;
+use futures::stream::BoxStream;
 use std::fmt::Debug;
 use std::ops::Range;
 use std::path::Path;
@@ -88,6 +89,21 @@ pub trait VolumeBackend: Send + Sync + Debug {
 	/// Read the whole object only while its entity tag is still `etag`, so
 	/// the bytes returned are the version the tag names.
 	async fn read_if_match(&self, path: &Path, _etag: &str) -> Result<Bytes, VolumeError> {
+		Err(VolumeError::Unsupported(format!(
+			"conditional reads of {}",
+			path.display()
+		)))
+	}
+
+	/// Stream the object only while its entity tag is still `etag`. A change
+	/// that lands during the stream fails it with
+	/// [`VolumeError::PreconditionFailed`], so the chunks are all from the
+	/// version the tag names.
+	async fn stream_if_match(
+		&self,
+		path: &Path,
+		_etag: &str,
+	) -> Result<BoxStream<'static, Result<Bytes, VolumeError>>, VolumeError> {
 		Err(VolumeError::Unsupported(format!(
 			"conditional reads of {}",
 			path.display()

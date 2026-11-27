@@ -441,24 +441,25 @@ impl ByteRangeProtocolHandler {
 		}
 	}
 
-	/// Reads are only served for paths that sit under an attached registered
-	/// source and contain no traversal components — the same trust boundary
-	/// the index itself observes.
-	fn authorize_path(&self, path: &Path) -> Result<(), String> {
-		if path.components().any(|c| matches!(c, Component::ParentDir)) {
-			return Err("path traversal refused".into());
-		}
-		let allowed = self
+	/// The attached source root a peer's path names, and the path beneath it.
+	fn locate_path(&self, path: &Path) -> Result<(PathBuf, PathBuf), String> {
+		let roots = self
 			.context
 			.volume_index()
 			.sources()
 			.into_iter()
-			.any(|s| s.attached && path.starts_with(&s.root));
-		if allowed {
-			Ok(())
-		} else {
-			Err("path is not under an attached registered source".into())
-		}
+			.filter(|s| s.attached)
+			.map(|s| s.root);
+		locate(roots, path)
+	}
+
+	/// Opens a peer's path beneath the attached source that holds it, so a
+	/// symlink inside a source cannot serve a file outside every source.
+	async fn open_path(&self, path: &Path) -> Result<tokio::fs::File, String> {
+		let (root, relative) = self.locate_path(path)?;
+		open_located(root, relative)
+			.await
+			.map_err(|err| err.to_string())
 	}
 
 	/// Answer every ask on one stream, each as soon as its tile is ready
@@ -476,9 +477,16 @@ impl ByteRangeProtocolHandler {
 			.into_iter()
 			.enumerate()
 			.map(|(index, ask)| {
-				let authorized = self.authorize_path(&ask.path).is_ok();
+				let located = self.locate_path(&ask.path);
 				let thumbs = self.context.thumbs.clone();
 				async move {
+					// The bake reopens the file by path, so this check stops
+					// a link out of the source but not one swapped in during
+					// the bake.
+					let authorized = match located {
+						Ok((root, relative)) => open_located(root, relative).await.is_ok(),
+						Err(_) => false,
+					};
 					let answer = if authorized {
 						crate::service::thumbs::remote::answer(&thumbs, ask, index, total).await
 					} else {
@@ -682,10 +690,13 @@ impl ByteRangeProtocolHandler {
 	) -> anyhow::Result<()> {
 		match request {
 			ByteRangeRequest::Stat { path } => {
-				if let Err(reason) = self.authorize_path(&path) {
-					return write_frame(send, &ByteRangeResponse::Error(reason)).await;
-				}
-				match tokio::fs::metadata(&path).await {
+				let file = match self.open_path(&path).await {
+					Ok(file) => file,
+					Err(reason) => {
+						return write_frame(send, &ByteRangeResponse::Error(reason)).await;
+					}
+				};
+				match file.metadata().await {
 					Ok(meta) => {
 						let modified_secs = meta.modified().ok().and_then(|m| {
 							m.duration_since(std::time::UNIX_EPOCH)
@@ -705,13 +716,10 @@ impl ByteRangeProtocolHandler {
 				}
 			}
 			ByteRangeRequest::Read { path, offset, len } => {
-				if let Err(reason) = self.authorize_path(&path) {
-					return write_frame(send, &ByteRangeResponse::Error(reason)).await;
-				}
-				let mut file = match tokio::fs::File::open(&path).await {
+				let mut file = match self.open_path(&path).await {
 					Ok(f) => f,
-					Err(err) => {
-						return write_frame(send, &ByteRangeResponse::Error(err.to_string())).await;
+					Err(reason) => {
+						return write_frame(send, &ByteRangeResponse::Error(reason)).await;
 					}
 				};
 				let size = file.metadata().await.map(|m| m.len()).unwrap_or(0);
@@ -868,6 +876,45 @@ impl ByteRangeProtocolHandler {
 			}
 		}
 	}
+}
+
+/// The longest attached source root holding `path`, and the rest of `path`
+/// beneath it. Nested sources resolve to the innermost, which is the one
+/// whose containment the user chose most narrowly.
+fn locate(
+	roots: impl IntoIterator<Item = PathBuf>,
+	path: &Path,
+) -> Result<(PathBuf, PathBuf), String> {
+	if path.components().any(|c| matches!(c, Component::ParentDir)) {
+		return Err("path traversal refused".into());
+	}
+	let root = roots
+		.into_iter()
+		.filter(|root| path.starts_with(root))
+		.max_by_key(|root| root.components().count())
+		.ok_or_else(|| "path is not under an attached registered source".to_string())?;
+	let relative = path
+		.strip_prefix(&root)
+		.map_err(|_| "path is not under an attached registered source".to_string())?
+		.components()
+		.collect();
+	Ok((root, relative))
+}
+
+/// Opens `relative` beneath a source root. The root itself is the folder the
+/// user chose, so it opens directly; anything below it goes through the
+/// handle-based containment check.
+async fn open_located(root: PathBuf, relative: PathBuf) -> std::io::Result<tokio::fs::File> {
+	let file = tokio::task::spawn_blocking(move || {
+		if relative.as_os_str().is_empty() {
+			crate::common::contain::open_root(&root)
+		} else {
+			crate::common::contain::open_beneath(&root, &relative)
+		}
+	})
+	.await
+	.map_err(std::io::Error::other)??;
+	Ok(tokio::fs::File::from_std(file))
 }
 
 /// Hash an open file, emit its identity header, and stream its bytes from
@@ -1322,6 +1369,53 @@ mod tests {
 			read_frame(&mut refused.as_slice()).await.expect("frame"),
 			ByteRangeResponse::Error(_)
 		));
+	}
+
+	/// A peer's path opens beneath the source that holds it: files and
+	/// directories under the root and the root itself serve, while a symlink
+	/// inside the source pointing outside it is refused instead of read
+	/// through.
+	#[cfg(unix)]
+	#[tokio::test]
+	async fn a_symlink_out_of_an_attached_source_is_refused() {
+		let dir = tempfile::tempdir().expect("dir");
+		let root = dir.path().join("source");
+		std::fs::create_dir_all(root.join("photos")).expect("mkdir");
+		std::fs::write(root.join("photos/a.jpg"), b"photo").expect("write");
+		std::fs::write(dir.path().join("secret"), b"secret").expect("write");
+		std::os::unix::fs::symlink(dir.path().join("secret"), root.join("photos/leak"))
+			.expect("symlink");
+		let roots = || vec![dir.path().join("elsewhere"), root.clone()];
+		let open = |path: PathBuf| async move {
+			let (root, relative) = locate(roots(), &path)?;
+			open_located(root, relative)
+				.await
+				.map_err(|err| err.to_string())
+		};
+
+		let mut photo = open(root.join("photos/a.jpg")).await.expect("photo");
+		let mut text = String::new();
+		photo.read_to_string(&mut text).await.expect("read");
+		assert_eq!(text, "photo");
+		assert!(open(root.join("photos"))
+			.await
+			.expect("dir")
+			.metadata()
+			.await
+			.unwrap()
+			.is_dir());
+		assert!(open(root.clone())
+			.await
+			.expect("root")
+			.metadata()
+			.await
+			.unwrap()
+			.is_dir());
+
+		let leak = open(root.join("photos/leak")).await.unwrap_err();
+		assert!(leak.contains("outside"), "{leak}");
+		assert!(open(dir.path().join("secret")).await.is_err());
+		assert!(open(root.join("photos/../../secret")).await.is_err());
 	}
 
 	/// Facts cross the frame codec intact, and a classification this build
