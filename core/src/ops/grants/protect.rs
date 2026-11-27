@@ -103,16 +103,20 @@ impl Protection {
 	/// than only those holding `path`, so a scan below `path` also meets the
 	/// spaces nested inside it, whichever source holds them.
 	pub async fn of(context: &CoreContext, path: &Path, library: Uuid) -> Self {
-		let (roots, spaces) = crate::ops::spaces::events::protected_spaces(context, library).await;
-		// Asking the volume for its spelling reads the disk, so it is only
-		// done when no source of the library already spells the path.
-		let spelled = if spaces.is_empty() || roots.iter().any(|root| path.starts_with(root)) {
+		let spaces = crate::ops::spaces::events::protected_spaces(context, library).await;
+		// Both spellings are kept for every space, since a path under one
+		// source can name a space of another through a firmlink. The volume
+		// lookup canonicalizes, so it runs off the async workers.
+		let spelled = if spaces.is_empty() {
 			None
 		} else {
-			context
-				.volume_manager
-				.locate_path(path)
+			let manager = context.volume_manager.clone();
+			let runtime = tokio::runtime::Handle::current();
+			let owned = path.to_path_buf();
+			tokio::task::spawn_blocking(move || runtime.block_on(manager.locate_path(&owned)))
 				.await
+				.ok()
+				.flatten()
 				.map(|(_, spelled)| spelled)
 				.filter(|spelled| spelled != path)
 		};
