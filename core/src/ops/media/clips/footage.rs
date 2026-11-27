@@ -20,6 +20,7 @@ use crate::{
 		media::shots::{content_uuid_of_video, read_shots, ShotList},
 		transcription::transcript::{read_transcript, Transcript},
 	},
+	service::sidecars::SidecarRegistry,
 };
 
 /// A time a caller hands in: a frame at the file's rate, or seconds, which
@@ -90,15 +91,14 @@ impl Footage {
 		let content_uuid = content_uuid_of_video(path)
 			.await
 			.map_err(|error| format!("could not read {}: {error}", display_name(path)))?;
-		let shots = read_shots(library.path(), content_uuid)
-			.await
-			.map_err(|error| {
-				format!(
-					"could not read the shot list of {}: {error}",
-					display_name(path)
-				)
-			})?;
-		let transcript = read_transcript(library.path(), content_uuid)
+		let finder = SidecarRegistry::of(library).finder();
+		let shots = read_shots(&finder, content_uuid).await.map_err(|error| {
+			format!(
+				"could not read the shot list of {}: {error}",
+				display_name(path)
+			)
+		})?;
+		let transcript = read_transcript(&finder, content_uuid)
 			.await
 			.map_err(|error| {
 				format!(
@@ -106,9 +106,7 @@ impl Footage {
 					display_name(path)
 				)
 			})?;
-		let proxy = tokio::fs::try_exists(proxy_path(library, content_uuid))
-			.await
-			.unwrap_or(false);
+		let proxy = proxy_path(library, content_uuid).is_some();
 		let facts = match shots.as_ref().and_then(timing_of_shots) {
 			Some(facts) => facts,
 			None => {
@@ -179,8 +177,11 @@ fn timing_of_shots(list: &ShotList) -> Option<(Rate, i64, bool, i64)> {
 	))
 }
 
-pub(crate) fn proxy_path(library: &Library, content_uuid: Uuid) -> std::path::PathBuf {
-	ContentSidecar::proxy(content_uuid, ProxyResolution::P720).path_in(library.path())
+/// The 720p proxy of a content, wherever the library's sources keep it.
+pub(crate) fn proxy_path(library: &Library, content_uuid: Uuid) -> Option<std::path::PathBuf> {
+	SidecarRegistry::of(library)
+		.finder()
+		.find(&ContentSidecar::proxy(content_uuid, ProxyResolution::P720))
 }
 
 pub(crate) fn display_name(path: &Path) -> String {

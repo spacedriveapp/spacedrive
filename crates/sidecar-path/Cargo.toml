@@ -5,4 +5,5 @@ edition = "2021"
 description = "Canonical on-disk layout for sidecar files, shared by every process that reads the sidecar tree"
 
 [dependencies]
+serde_json = { workspace = true }
 uuid = { workspace = true }

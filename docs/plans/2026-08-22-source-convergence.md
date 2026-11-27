@@ -543,7 +543,20 @@ Everything above them is a real loss.
    root it is given. `thumbs.pvcache` is already per-source and already the hot
    tier, so this is the durable half catching up to where the cache went.
 
-**Order.** (1), (2) and (3) have landed. (4) is what remains.
+   **Done.** `content_sidecar` sits in each source's `data.db` beside `content`,
+   keyed `(content_uuid, producer, kind, variant, format)`: a kind name is only
+   unique within the core or one extension, so the producer joins the key.
+   `SidecarRegistry::publish` (`core/src/service/sidecars.rs`) is the one
+   writer for proxies, speech audio, transcripts, shots, keyframes and the
+   extension host. The files moved to `sources/<id>/derived/`, named so it does
+   not read as part of `sidecars.db`, which keeps the record-keyed thumbnail
+   tiles untouched. A content has one copy under the source whose file
+   produced it, and readers probe every source. Opening a library adopts the
+   old `<library>/sidecars/content` tree by rename, rebuilds rows from disk and
+   prunes content no source holds. `sidecar_availability` and replication to
+   peers have not started.
+
+**Order.** (1), (2), (3) and (4) have landed.
 
 **The content identity job landed.** `ContentIdentityJob` hashes what a source
 holds and has not identified, dispatched at `LOW` behind the walk that produced
