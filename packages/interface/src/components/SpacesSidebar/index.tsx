@@ -3,6 +3,7 @@ import {
 	CircleNotch,
 	Clock,
 	Eject,
+	FilmStrip,
 	GearSix,
 	HardDrives,
 	House,
@@ -408,6 +409,12 @@ export function SpacesSidebar({
 								label="Screenshots"
 								icon={Camera}
 								href="/collection/screenshots"
+							/>
+							<SidebarItem
+								id="videos"
+								label="Videos"
+								icon={FilmStrip}
+								href="/videos"
 							/>
 							<SidebarItem
 								id="storage"

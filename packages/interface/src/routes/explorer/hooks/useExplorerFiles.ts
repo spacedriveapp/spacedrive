@@ -7,15 +7,23 @@ import type {
 	FileSearchOutput,
 	GetFilesByTagInput,
 } from "@sd/ts-client";
-import { useLibraryQuery } from "@sd/ts-client";
+import { useLibraryQuery, WIRE_METHODS } from "@sd/ts-client";
+import { useQuery } from "@tanstack/react-query";
 import {
 	useNormalizedQuery,
 	useSpacedriveClient,
 } from "../../../contexts/SpacedriveContext";
-import { useExplorer } from "../context";
+import { useExplorer, type FootageFilter } from "../context";
 import { searchSortField } from "../sortOptions";
 import { isLapsedHandle, usePlanPreviewStore } from "./usePlanPreview";
 import { useVirtualListing } from "./useVirtualListing";
+import {
+	FOOTAGE_SUMMARIES_KEY,
+	assertLibrary,
+	fetchFootageSummaries,
+	footageKey,
+	footagePaths,
+} from "../../../components/Footage/useFootage";
 
 export type FileSource =
 	| "search"
@@ -217,13 +225,20 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		enabled: isRecentsMode && !!recentsQueryInput,
 	});
 
+	const footageFilter = mode.type === "filtered" ? mode.footage : undefined;
+	const wantsFootage = !!(footageFilter?.transcript || footageFilter?.analyzed);
+
 	// Filtered query (pre-applied SearchFilters)
 	const filteredQuery = useNormalizedQuery<FileSearchInput, FileSearchOutput>({
 		query: "search.files",
 		input: filteredQueryInput!,
 		resourceType: "file",
-		enabled: isFilteredMode && !!filteredQueryInput,
+		enabled: isFilteredMode && !!filteredQueryInput && !wantsFootage,
 	});
+	const footageQuery = useFootageSearch(
+		wantsFootage ? filteredQueryInput : null,
+		footageFilter,
+	);
 
 	// Tag query: files carrying the tag or any tag beneath it, so opening
 	// `Camera` also shows what was tagged `Camera/Leica`
@@ -334,6 +349,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 
 	const files = useMemo(() => {
 		if (isFilteredMode) {
+			if (wantsFootage) return footageQuery.data ?? [];
 			return (
 				(filteredQuery.data as FileSearchOutput | undefined)?.files || []
 			);
@@ -363,6 +379,8 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		return (directoryQuery.data as { files: File[] } | undefined)?.files ?? [];
 	}, [
 		isFilteredMode,
+		wantsFootage,
+		footageQuery.data,
 		isTagMode,
 		isCollectionMode,
 		isSourceMode,
@@ -380,7 +398,9 @@ export function useExplorerFiles(): ExplorerFilesResult {
 	]);
 
 	const isLoading = isFilteredMode
-		? filteredQuery.isLoading
+		? wantsFootage
+			? footageQuery.isLoading
+			: filteredQuery.isLoading
 		: isSourceMode
 			? sourceQuery.isLoading
 		: isCollectionMode
@@ -424,4 +444,51 @@ export function useExplorerFiles(): ExplorerFilesResult {
 				: undefined,
 		facets: searchOutput?.facets,
 	};
+}
+
+const SEARCH_PAGE = 1000;
+
+/**
+ * Every file a filtered search matches whose footage passes the filter. The
+ * search index does not know about sidecars, so this pages through the
+ * whole search, not its first page, and keeps the videos whose summaries
+ * match, in search order.
+ */
+function useFootageSearch(
+	input: FileSearchInput | null,
+	filter: FootageFilter | undefined,
+) {
+	const client = useSpacedriveClient();
+	const libraryId = client.getCurrentLibraryId();
+	return useQuery({
+		queryKey: [FOOTAGE_SUMMARIES_KEY, libraryId, "search", input, filter],
+		queryFn: async () => {
+			const found: File[] = [];
+			for (let offset = 0; input && libraryId; offset += SEARCH_PAGE) {
+				assertLibrary(client, libraryId);
+				const page = await client.execute<FileSearchInput, FileSearchOutput>(
+					WIRE_METHODS.libraryQueries["search.files"],
+					{ ...input, pagination: { limit: SEARCH_PAGE, offset } },
+				);
+				assertLibrary(client, libraryId);
+				found.push(...page.files);
+				if (page.files.length < SEARCH_PAGE) break;
+			}
+			const summaries = await fetchFootageSummaries(
+				client,
+				libraryId!,
+				footagePaths(found),
+			);
+			return found.filter((file) => {
+				const key = footageKey(file);
+				const summary = key ? summaries.get(key) : undefined;
+				if (!summary) return false;
+				if (filter?.transcript && !summary.transcript) return false;
+				if (filter?.analyzed && summary.analyzed_shots == null) return false;
+				return true;
+			});
+		},
+		enabled: !!libraryId && !!input,
+		staleTime: 30_000,
+	});
 }

@@ -2,13 +2,15 @@ import { memo, useCallback } from "react";
 import { flexRender, type Row } from "@tanstack/react-table";
 import clsx from "clsx";
 
-import type { ChangeKind, File } from "@sd/ts-client";
+import type { ChangeKind, File, FootageSummary } from "@sd/ts-client";
+import { Subtitles } from "@phosphor-icons/react";
 
 import { File as FileComponent } from "../../File";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { TagPill, tagColor } from "../../../../components/Tags";
-import { ROW_HEIGHT, TABLE_PADDING_X } from "./useTable";
+import { FOOTAGE_COLUMN_IDS, ROW_HEIGHT, TABLE_PADDING_X } from "./useTable";
+import { formatTimecode, videoDuration } from "../../../../components/Footage/useFootage";
 import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 import { isVirtualFile } from '@sd/ts-client';
 import { InlineNameEdit } from "../../components/InlineNameEdit";
@@ -25,6 +27,10 @@ interface TableRowProps {
 	isFocused: boolean;
 	isPreviousSelected: boolean;
 	isNextSelected: boolean;
+	/** The visible column ids, so a row re-renders when columns change. */
+	columnIds: string;
+	/** This video's footage state, from the listing's one summaries query. */
+	footage?: FootageSummary;
 	measureRef: (node: HTMLElement | null) => void;
 	selectFile: (
 		file: File,
@@ -44,6 +50,7 @@ export const TableRow = memo(
 		isFocused: _isFocused,
 		isPreviousSelected,
 		isNextSelected,
+		footage,
 		measureRef,
 		selectFile,
 	}: TableRowProps) {
@@ -171,6 +178,8 @@ export const TableRow = memo(
 							>
 								{isNameColumn ? (
 									<NameCell file={file} planned={planned} />
+								) : FOOTAGE_COLUMN_IDS.has(cell.column.id) ? (
+									<FootageCell column={cell.column.id} file={file} footage={footage} />
 								) : (
 									<span className="truncate">
 										{flexRender(
@@ -194,10 +203,33 @@ export const TableRow = memo(
 		if (prev.isNextSelected !== next.isNextSelected) return false;
 		if (prev.file !== next.file) return false;
 		if (prev.index !== next.index) return false;
+		if (prev.columnIds !== next.columnIds) return false;
+		if (prev.footage !== next.footage) return false;
 		// Ignore: row, files, measureRef, selectFile (function references)
 		return true;
 	},
 );
+
+function FootageCell({
+	column,
+	file,
+	footage,
+}: {
+	column: string;
+	file: File;
+	footage: FootageSummary | undefined;
+}) {
+	if (column === "duration") {
+		const seconds = videoDuration(file, footage);
+		return <span className="tabular-nums">{seconds == null ? "" : formatTimecode(seconds)}</span>;
+	}
+	if (column === "shots") {
+		return <span className="tabular-nums">{footage?.shots ?? ""}</span>;
+	}
+	return footage?.transcript ? (
+		<Subtitles size={14} weight="bold" aria-label="Has a transcript" />
+	) : null;
+}
 
 // Name cell with icon and tags
 const NameCell = memo(function NameCell({

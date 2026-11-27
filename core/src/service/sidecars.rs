@@ -1096,4 +1096,46 @@ mod tests {
 		write(&b.join(proxy.relative_path()), b"mp4");
 		assert_eq!(finder.find(&proxy), Some(b.join(proxy.relative_path())));
 	}
+
+	#[test]
+	fn a_directory_scan_names_core_and_extension_sidecars_and_skips_partials() {
+		let dir = tempfile::tempdir().unwrap();
+		let root = dir.path();
+		let content = Uuid::now_v7();
+		let proxy = ContentSidecar::proxy(content, ProxyResolution::P720);
+		write(&root.join(proxy.relative_path()), b"mp4");
+		write(&proxy.partial_path(root), b"half");
+		let transcript = ContentSidecar::transcript(content, SidecarFormat::Json);
+		write(&root.join(transcript.relative_path()), b"{}");
+		let faces = root.join(sd_sidecar_path::relative_path(
+			&content,
+			&sd_sidecar_path::extension_kind_directory("com.spacedrive.photos", "faces"),
+			"default",
+			"json",
+		));
+		write(&faces, b"[]");
+		write(&faces.with_extension("json.tmp"), b"[");
+
+		let mut found: Vec<_> = scan_tree(root, &sd_sidecar_path::content_directory(&content))
+			.iter()
+			.map(|sidecar| {
+				(
+					sidecar.producer().to_string(),
+					sidecar.kind.as_str().to_string(),
+					sidecar.variant.as_str().to_string(),
+					sidecar.format.extension().to_string(),
+				)
+			})
+			.collect();
+		found.sort();
+		let expected: Vec<(String, String, String, String)> = [
+			("com.spacedrive.photos", "faces", "default", "json"),
+			("core", "proxy", "720p", "mp4"),
+			("core", "transcript", "default", "json"),
+		]
+		.iter()
+		.map(|(a, b, c, d)| (a.to_string(), b.to_string(), c.to_string(), d.to_string()))
+		.collect();
+		assert_eq!(found, expected);
+	}
 }

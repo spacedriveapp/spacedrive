@@ -1,6 +1,6 @@
 import { memo } from "react";
 import clsx from "clsx";
-import type { File, SdPath } from "@sd/ts-client";
+import type { File, FootageSummary, SdPath } from "@sd/ts-client";
 import { File as FileComponent } from "../../File";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
@@ -12,7 +12,8 @@ import { useOverlaidChange } from "../../hooks/usePlanPreview";
 import { PlanBadge, planRowClass } from "../../components/PlanMark";
 import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 import { useDraggableFile } from "../../hooks/useDraggableFile";
-import { isVirtualFile } from '@sd/ts-client';
+import { getContentKind, isVirtualFile } from '@sd/ts-client';
+import { VideoBadges } from "../../../../components/Footage/VideoBadges";
 import { VolumeSizeBar } from "../../components/VolumeSizeBar";
 import { InlineNameEdit } from "../../components/InlineNameEdit";
 import { useOpenWith } from "../../../../hooks/useOpenWith";
@@ -23,6 +24,8 @@ interface FileCardProps {
 	allFiles: File[];
 	selected: boolean;
 	focused: boolean;
+	/** This video's footage state, from the listing's one summaries query. */
+	footage?: FootageSummary;
 	selectedFiles: File[];
 	selectFile: (
 		file: File,
@@ -39,11 +42,12 @@ export const FileCard = memo(
 		allFiles,
 		selected,
 		focused: _focused,
+		footage,
 		selectedFiles,
 		selectFile,
 	}: FileCardProps) {
 		const { viewSettings, navigateToPath } = useExplorer();
-		const { gridSize, showFileSize } = viewSettings;
+		const { gridSize, showFileSize, showVideoDuration, showShotCount, showTranscriptMarker } = viewSettings;
 		const { renamingFileId, saveRename, cancelRename } = useSelection();
 
 		const isRenaming = renamingFileId === file.id;
@@ -232,11 +236,23 @@ export const FileCard = memo(
 				>
 					<div
 						className={clsx(
-							"rounded-lg p-2",
+							"relative rounded-lg p-2",
 							selected && !dndIsDragging ? "bg-app-box" : "bg-transparent",
 						)}
 					>
 						<FileComponent.Thumb file={file} size={thumbSize} />
+						{getContentKind(file) === "video" && (
+							<VideoBadges
+								file={file}
+								footage={footage}
+								show={{
+									duration: showVideoDuration,
+									shots: showShotCount,
+									transcript: showTranscriptMarker,
+								}}
+								className="absolute bottom-2.5 right-2.5"
+							/>
+						)}
 					</div>
 					<div className="w-full flex flex-col items-center">
 						{isRenaming ? (
@@ -307,6 +323,7 @@ export const FileCard = memo(
 		if (prev.selected !== next.selected) return false; // Selection state changed
 		if (prev.focused !== next.focused) return false; // Focus state changed
 		if (prev.fileIndex !== next.fileIndex) return false; // Index changed
+		if (prev.footage !== next.footage) return false;
 		// Ignore: allFiles, selectedFiles, selectFile (passed through to handlers)
 		return true; // Props are equal, skip rerender
 	},

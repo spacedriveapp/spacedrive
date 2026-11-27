@@ -153,8 +153,8 @@ fn plain_status(status: StatusCode, message: &'static str) -> Response {
 		.expect("static status response is well-formed")
 }
 
-/// Serve a sidecar file (thumbnail, thumbstrip, proxy, …) from the library's
-/// sidecars tree — the HTTP twin of the desktop app's local sidecar server,
+/// Serve a sidecar file (thumbnail, thumbstrip, proxy, …) from the daemon's
+/// derived media — the HTTP twin of the desktop app's local sidecar server,
 /// built on sd-core's canonical path scheme.
 async fn serve_sidecar(
 	State(state): State<AppState>,
@@ -183,14 +183,14 @@ async fn serve_sidecar(
 		return plain_status(StatusCode::NOT_FOUND, "unknown library");
 	};
 
-	let path = library_folder
-		.join("sidecars")
-		.join(sd_sidecar_path::relative_path(
-			&content_uuid,
-			kind_dir,
-			variant,
-			ext,
-		));
+	// A content's sidecars sit under whichever of the daemon's sources holds
+	// it, so every source is probed.
+	let relative = sd_sidecar_path::relative_path(&content_uuid, kind_dir, variant, ext);
+	let Some(path) =
+		sd_sidecar_path::locate(&state.data_dir.join("sources"), &library_folder, &relative)
+	else {
+		return plain_status(StatusCode::NOT_FOUND, "sidecar not found");
+	};
 
 	// ServeFile answers byte ranges, which a video element needs to play and
 	// seek a proxy. Sidecar paths are content-addressed (uuid + variant), so

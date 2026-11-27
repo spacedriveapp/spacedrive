@@ -1331,14 +1331,12 @@ async fn list_shots(context: &Arc<CoreContext>, scope: &GrantScope) -> Result<Ou
 		&crate::service::sidecars::SidecarRegistry::of(&library).finder(),
 		&scope.path,
 	)
-		.await
-		.map_err(|error| {
-			warn!(%error, "list_shots could not read a shot list");
-			"could not read the shot list".to_string()
-		})?
-		.ok_or_else(|| {
-			"this video has no shots yet: shot detection has not run on it".to_string()
-		})?;
+	.await
+	.map_err(|error| {
+		warn!(%error, "list_shots could not read a shot list");
+		"could not read the shot list".to_string()
+	})?
+	.ok_or_else(|| "this video has no shots yet: shot detection has not run on it".to_string())?;
 	let shots: Vec<Value> = list
 		.shots
 		.iter()
