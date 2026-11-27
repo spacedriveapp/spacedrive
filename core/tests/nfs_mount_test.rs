@@ -99,6 +99,7 @@ impl ByteProvider for MemProvider {
 		Ok(ByteStat {
 			size: self.0.len() as u64,
 			modified: None,
+			version: None,
 		})
 	}
 
