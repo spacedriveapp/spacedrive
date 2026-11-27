@@ -43,6 +43,10 @@ pub struct Library {
 	/// Root directory of the library (the .sdlibrary folder)
 	path: PathBuf,
 
+	/// Copied out of the config so reading it never waits on, or fails
+	/// beside, a config write.
+	id: Uuid,
+
 	/// Library configuration
 	config: Arc<RwLock<LibraryConfig>>,
 
@@ -81,11 +85,7 @@ pub struct Library {
 impl Library {
 	/// Get the library ID
 	pub fn id(&self) -> Uuid {
-		// Config is immutable for ID, so we can use try_read
-		self.config.try_read().map(|c| c.id).unwrap_or_else(|_| {
-			// This should never happen in practice
-			panic!("Failed to read library config for ID")
-		})
+		self.id
 	}
 
 	/// Get the library name
@@ -276,9 +276,6 @@ impl Library {
 
 		let mut current_config = self.config.write().await;
 		*current_config = config;
-
-		// Note: Cannot call self.id() here as we still hold the write lock
-		// The caller should log this if needed
 
 		Ok(())
 	}

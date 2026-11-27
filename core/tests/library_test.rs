@@ -273,3 +273,21 @@ async fn closing_a_new_library_inside_the_watcher_debounce_keeps_it_closed() {
 		"the watcher reopened a library its creator closed"
 	);
 }
+
+#[tokio::test]
+async fn library_id_is_readable_during_a_config_write() {
+	let temp_dir = TempDir::new().unwrap();
+	let core = Core::new(temp_dir.path().to_path_buf()).await.unwrap();
+	let library = core
+		.libraries
+		.create_library("Id Under Write", None, core.context.clone())
+		.await
+		.unwrap();
+	let expected = library.id();
+	let mut seen = None;
+	library
+		.update_config(|_| seen = Some(library.id()))
+		.await
+		.unwrap();
+	assert_eq!(seen, Some(expected));
+}
