@@ -21,6 +21,46 @@ use specta::Type;
 /// The text read per file. A file with more is indexed up to here.
 pub const MAX_TEXT_BYTES: usize = 1_048_576;
 
+/// The text read from a source file. Past this a file is usually generated
+/// or vendored, and its start says what it is.
+pub const CODE_TEXT_BYTES: usize = 256 * 1024;
+
+/// The text read from data and logs: CSV, JSON and `.log` files. Their
+/// rows and lines are mostly ids, numbers and timestamps that each cost the
+/// index a posting of their own, and a search wants to find the file, which
+/// its start does.
+pub const DATA_TEXT_BYTES: usize = 64 * 1024;
+
+/// Files read as text that hold nothing a person searches for, by name.
+const SKIPPED_NAMES: &[&str] = &["package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml"];
+
+/// The most text kept from one file of `kind` with `extension`.
+///
+/// Prose and documents are kept furthest, since they are what a person
+/// searches. Code and data are cut sooner: on a developer's home folder they
+/// were most of the files and, uncut, most of the index.
+pub fn text_cap(kind: TextKind, extension: &str) -> usize {
+	match kind {
+		TextKind::Csv | TextKind::Json => DATA_TEXT_BYTES,
+		TextKind::Text if extension.eq_ignore_ascii_case("log") => DATA_TEXT_BYTES,
+		TextKind::Code => CODE_TEXT_BYTES,
+		_ => MAX_TEXT_BYTES,
+	}
+}
+
+/// Why a file is not read at all, judged by its name: lockfiles and
+/// minified bundles are machine output whose every token is unique.
+pub fn skip_by_name(name: &str) -> Option<&'static str> {
+	let name = name.to_ascii_lowercase();
+	if SKIPPED_NAMES.contains(&name.as_str()) {
+		return Some("lockfile");
+	}
+	if name.contains(".min.") {
+		return Some("minified");
+	}
+	None
+}
+
 /// PDF and DOCX files larger than this are not parsed. A PDF parse loads the
 /// whole file, and a DOCX's document part is read through this bound, so it
 /// is what keeps one document from taking the memory of a background pass.

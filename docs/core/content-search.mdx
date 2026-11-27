@@ -33,9 +33,22 @@ index covers files with these extensions:
 
 Text formats are read as UTF-8. A file with a NUL byte is treated as binary
 and skipped. PDF and DOCX files are parsed for their text. Files over 64 MiB are
-not parsed, and neither is a PDF whose compressed streams expand past 256 MiB. Every file contributes at most its first 1,048,576 bytes of
-text. A hit on a file that held more is marked `truncated`, and a word that
-only appears after the cap is not found.
+not parsed, and neither is a PDF whose compressed streams expand past 256 MiB.
+A file contributes at most the start of its text: 1,048,576 bytes for prose,
+PDF and DOCX, 262,144 bytes for `code`, and 65,536 bytes for `csv`, `json`
+and `.log` files. A hit on a file that held more is marked `truncated`, and a
+word that only appears after the cap is not found. Lockfiles
+(`package-lock.json`, `npm-shrinkwrap.json`, `pnpm-lock.yaml`) and files with
+`.min.` in their name are not read.
+
+Only files in the source's deep scope are read, and never a file in a hidden
+folder or a hidden file. The deep scope is the list of subtrees where a source
+reads file contents. The home source reads its OS user folders (Desktop,
+Documents, Downloads, Pictures, Movies or Videos, Music, Public) unless a
+person changed the list, and any other source reads its whole root.
+`sources.deep_scope.update` adds or removes a folder, and
+`sources.deep_scope.get` returns the list. Content identification follows the
+same list.
 
 The index never opens a cloud placeholder whose contents are not on the
 device, because opening one downloads it. The file is indexed once its
@@ -57,7 +70,10 @@ part of the store's generation half: every row comes from bytes the origin
 still holds, so it never holds anything a person asserted and dropping it
 loses nothing. It is a separate file so that writing large text never holds
 the record store's write lock, and so a replica of the record store does not
-carry it.
+carry it. An index written by a build that read every file is cleared and
+vacuumed the first time it opens, and the next pass reads the deep scope
+again. A pass that leaves free pages worth a quarter of the file, and at
+least 16 MiB, merges the index and vacuums it.
 
 A background pass fills it. The pass runs after each content identification
 pass, which follows every walk, watcher change and returning volume. When a

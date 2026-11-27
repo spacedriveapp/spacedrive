@@ -2330,6 +2330,21 @@ export type GetAdapterConfigInput = { adapter_id: string };
  */
 export type GetAppConfigQueryInput = null;
 
+export type GetDeepScopeInput = { source_id: string };
+
+export type GetDeepScopeOutput = { 
+/**
+ * Subtrees relative to the source root whose contents are read. An
+ * empty path is the whole source; an empty list is none of it.
+ */
+subtrees: string[]; 
+/**
+ * Whether a person chose the list. False means the source's default:
+ * the standard user folders for the home folder, the whole root for
+ * any other source.
+ */
+chosen: boolean };
+
 export type GetFilesByTagInput = { tag_id: string; 
 /**
  * Tagging something `Camera` should find what was tagged
@@ -6429,6 +6444,29 @@ message: string;
  */
 requires_restart: boolean };
 
+export type UpdateDeepScopeInput = { 
+/**
+ * A folder inside a source tracked on this device, or its root. Only a
+ * folder can be kept; releasing takes any path.
+ */
+path: string; 
+/**
+ * Keep the folder's contents read, or stop reading them.
+ */
+keep: boolean };
+
+export type UpdateDeepScopeOutput = { source_id: string; 
+/**
+ * The kept subtrees after the change, relative to the source root. An
+ * empty path is the whole source.
+ */
+subtrees: string[]; 
+/**
+ * The pass that reads a newly kept folder or drops a released one's
+ * text. None when nothing changed or the source does not read contents.
+ */
+job_id: string | null };
+
 /**
  * Input for updating device configuration
  */
@@ -7171,6 +7209,7 @@ export type LibraryAction =
   |  { type: 'search.content.rebuild'; input: RebuildContentIndexInput; output: RebuildContentIndexOutput }
   |  { type: 'sources.assertions.merge'; input: MergeAssertionsInput; output: MergeAssertionsOutput }
   |  { type: 'sources.create'; input: CreateSourceInput; output: CreateSourceOutput }
+  |  { type: 'sources.deep_scope.update'; input: UpdateDeepScopeInput; output: UpdateDeepScopeOutput }
   |  { type: 'sources.delete'; input: DeleteSourceInput; output: DeleteSourceOutput }
   |  { type: 'sources.freeze'; input: FreezeSourceInput; output: FreezeSourceOutput }
   |  { type: 'sources.sync'; input: SyncSourceInput; output: JobReceipt }
@@ -7267,6 +7306,7 @@ export type LibraryQuery =
   |  { type: 'search.files'; input: FileSearchInput; output: FileSearchOutput }
   |  { type: 'search.grep'; input: GrepInput; output: GrepOutput }
   |  { type: 'search.media'; input: MediaSearchInput; output: MediaSearchOutput }
+  |  { type: 'sources.deep_scope.get'; input: GetDeepScopeInput; output: GetDeepScopeOutput }
   |  { type: 'sources.get'; input: GetSourceInput; output: SourceInfo }
   |  { type: 'sources.list'; input: ListSourcesInput; output: [SourceInfo] }
   |  { type: 'sources.list_items'; input: ListSourceItemsInput; output: [SourceItem] }
@@ -7407,6 +7447,7 @@ export const WIRE_METHODS = {
     'search.content.rebuild': 'action:search.content.rebuild.input',
     'sources.assertions.merge': 'action:sources.assertions.merge.input',
     'sources.create': 'action:sources.create.input',
+    'sources.deep_scope.update': 'action:sources.deep_scope.update.input',
     'sources.delete': 'action:sources.delete.input',
     'sources.freeze': 'action:sources.freeze.input',
     'sources.sync': 'action:sources.sync.input',
@@ -7503,6 +7544,7 @@ export const WIRE_METHODS = {
     'search.files': 'query:search.files',
     'search.grep': 'query:search.grep',
     'search.media': 'query:search.media',
+    'sources.deep_scope.get': 'query:sources.deep_scope.get',
     'sources.get': 'query:sources.get',
     'sources.list': 'query:sources.list',
     'sources.list_items': 'query:sources.list_items',
