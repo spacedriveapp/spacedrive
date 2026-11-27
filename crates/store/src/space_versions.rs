@@ -272,24 +272,32 @@ impl SpaceVersions {
 		insert(&mut conn, row).await
 	}
 
-	/// Append `row` only while `current` is still the newest row of its path,
-	/// so a reconciliation never hides a capture that landed after it looked.
-	/// Answers whether it was appended.
-	pub async fn append_if_current(&self, row: &VersionRow, current: i64) -> Result<bool> {
+	/// Record `path` deleted when the file at `file` is gone and `current` is
+	/// still the newest row of the path. Captures are held off meanwhile, so a
+	/// write that recreated the file, even with the same bytes, is seen on
+	/// disk and keeps its version. Answers whether the delete was recorded.
+	pub async fn remove_if_gone(
+		&self,
+		file: &Path,
+		current: i64,
+		template: &VersionRow,
+	) -> Result<bool> {
+		let _alone = self.collect.write().await;
+		match tokio::fs::symlink_metadata(file).await {
+			Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+			Ok(_) => return Ok(false),
+			Err(error) => return Err(error.into()),
+		}
 		let appended = sqlx::query(
 			"INSERT INTO version (path, blob_hash, size, mode, mtime, at, actor_id, origin, event_seq)
-			 SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9
-			 WHERE (SELECT MAX(id) FROM version WHERE path = ?1) = ?10",
+			 SELECT ?1, NULL, NULL, NULL, NULL, ?2, ?3, ?4, ?5
+			 WHERE (SELECT MAX(id) FROM version WHERE path = ?1) = ?6",
 		)
-		.bind(&row.path)
-		.bind(&row.blob_hash)
-		.bind(row.size)
-		.bind(row.mode)
-		.bind(&row.mtime)
-		.bind(&row.at)
-		.bind(row.actor_id)
-		.bind(&row.origin)
-		.bind(row.event_seq)
+		.bind(&template.path)
+		.bind(&template.at)
+		.bind(template.actor_id)
+		.bind(&template.origin)
+		.bind(template.event_seq)
 		.bind(current)
 		.execute(&self.pool)
 		.await?
@@ -777,7 +785,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn a_conditional_delete_yields_to_a_newer_capture() {
+	async fn a_delete_is_recorded_only_for_a_file_still_gone() {
 		let (dir, versions) = open().await;
 		let file = dir.path().join("a.md");
 		std::fs::write(&file, "one").unwrap();
@@ -786,20 +794,38 @@ mod tests {
 			.await
 			.unwrap()
 			.unwrap();
+		let delete = row("a.md", "2026-11-27T00:00:02Z");
+
+		// Recreated with the same bytes: the capture adds no row, and the file
+		// on disk keeps the delete out.
+		assert!(!versions
+			.remove_if_gone(&file, first, &delete)
+			.await
+			.unwrap());
+
 		std::fs::write(&file, "two").unwrap();
 		versions
 			.capture(&file, row("a.md", "2026-11-27T00:00:01Z"))
 			.await
 			.unwrap()
 			.unwrap();
-		let delete = row("a.md", "2026-11-27T00:00:02Z");
-		assert!(!versions.append_if_current(&delete, first).await.unwrap());
+		std::fs::remove_file(&file).unwrap();
+		assert!(
+			!versions
+				.remove_if_gone(&file, first, &delete)
+				.await
+				.unwrap(),
+			"a newer capture wins over a delete checked against an older row"
+		);
 		assert_eq!(
 			versions.manifest(None, Some("a.md")).await.unwrap().len(),
 			1
 		);
 		let newest = versions.current("a.md").await.unwrap().unwrap().id;
-		assert!(versions.append_if_current(&delete, newest).await.unwrap());
+		assert!(versions
+			.remove_if_gone(&file, newest, &delete)
+			.await
+			.unwrap());
 		assert!(versions
 			.manifest(None, Some("a.md"))
 			.await

@@ -348,26 +348,17 @@ pub async fn baseline(context: &CoreContext, space: &Space, actor: Uuid) -> usiz
 	// Versions kept while versioning was off may name files that went away
 	// meanwhile. Record those deletes, each confirmed on disk, so a new
 	// snapshot does not bring them back.
-	// The delete is appended only while the row it checked is still the
-	// newest, so a write that recreated the file meanwhile keeps its version.
 	let walked: HashSet<&str> = files.iter().map(|(_, below)| below.as_str()).collect();
 	for row in versions.manifest(None, None).await.unwrap_or_default() {
 		if walked.contains(row.path.as_str()) {
 			continue;
 		}
-		let missing = matches!(
-			tokio::fs::symlink_metadata(root.join(&row.path)).await,
-			Err(error) if error.kind() == std::io::ErrorKind::NotFound
-		);
-		if !missing {
-			continue;
-		}
+		let file = root.join(&row.path);
 		let delete = VersionRow {
 			path: row.path,
-			blob_hash: None,
 			..template.clone()
 		};
-		if let Err(error) = versions.append_if_current(&delete, row.id).await {
+		if let Err(error) = versions.remove_if_gone(&file, row.id, &delete).await {
 			debug!(path = %delete.path, %error, "could not record a delete in the baseline");
 		}
 	}
