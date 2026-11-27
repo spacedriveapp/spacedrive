@@ -36,6 +36,8 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Bucket conditional writes (Capy FAN-14846, November 27, in PR): `CloudBackend::write_if` sends If-Match or If-None-Match, services without them refuse; next, bucket sources and grants for agents.
+
 Bundled command line tool (Capy FAN-14800, November 27, in PR). The desktop
 app ships `sd-cli` beside `sd-daemon` as a Tauri external binary on macOS
 arm64 and Intel and Linux, built in the same cargo run with the same features

@@ -12,7 +12,9 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use tracing::debug;
 
-use super::{BackendType, CloudServiceType, RawDirEntry, RawMetadata, VolumeBackend};
+use super::{
+	BackendType, CloudServiceType, RawDirEntry, RawMetadata, VolumeBackend, WriteCondition,
+};
 use crate::ops::indexing::state::EntryKind;
 use crate::volume::error::VolumeError;
 
@@ -237,6 +239,21 @@ impl CloudBackend {
 	}
 }
 
+/// An OpenDAL failure as a volume error, keeping the kinds callers act on:
+/// a missing object stays `NotFound` and a refused condition stays a
+/// precondition failure.
+fn volume_error(error: opendal::Error) -> VolumeError {
+	match error.kind() {
+		opendal::ErrorKind::NotFound => {
+			VolumeError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, error))
+		}
+		opendal::ErrorKind::ConditionNotMatch => VolumeError::PreconditionFailed(error.to_string()),
+		opendal::ErrorKind::PermissionDenied => VolumeError::PermissionDenied(error.to_string()),
+		opendal::ErrorKind::Unsupported => VolumeError::Unsupported(error.to_string()),
+		_ => VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, error)),
+	}
+}
+
 impl CloudBackend {
 	/// Convert path to cloud storage path (removes leading /)
 	fn to_cloud_path(&self, path: &Path) -> String {
@@ -258,7 +275,7 @@ impl VolumeBackend for CloudBackend {
 			.operator
 			.read(&cloud_path)
 			.await
-			.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+			.map_err(volume_error)?;
 
 		Ok(data.to_bytes())
 	}
@@ -275,7 +292,7 @@ impl VolumeBackend for CloudBackend {
 			.read_with(&cloud_path)
 			.range(range.start..range.end)
 			.await
-			.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+			.map_err(volume_error)?;
 
 		Ok(data.to_bytes())
 	}
@@ -287,7 +304,7 @@ impl VolumeBackend for CloudBackend {
 		self.operator
 			.write(&cloud_path, data)
 			.await
-			.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+			.map_err(volume_error)?;
 
 		Ok(())
 	}
@@ -301,14 +318,13 @@ impl VolumeBackend for CloudBackend {
 			.operator
 			.lister(&cloud_path)
 			.await
-			.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+			.map_err(volume_error)?;
 
 		// Collect entries from async iterator
 
 		let mut lister = lister;
 		while let Some(entry_result) = lister.try_next().await.transpose() {
-			let entry = entry_result
-				.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+			let entry = entry_result.map_err(volume_error)?;
 
 			let metadata = entry.metadata();
 			let name = entry
@@ -356,7 +372,7 @@ impl VolumeBackend for CloudBackend {
 			.operator
 			.stat(&cloud_path)
 			.await
-			.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+			.map_err(volume_error)?;
 
 		let kind = if metadata.is_dir() {
 			EntryKind::Directory
@@ -401,20 +417,20 @@ impl VolumeBackend for CloudBackend {
 			.operator
 			.stat(&cloud_path)
 			.await
-			.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+			.map_err(volume_error)?;
 
 		if metadata.is_dir() {
 			// Delete directory recursively
 			self.operator
 				.remove_all(&cloud_path)
 				.await
-				.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+				.map_err(volume_error)?;
 		} else {
 			// Delete file
 			self.operator
 				.delete(&cloud_path)
 				.await
-				.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+				.map_err(volume_error)?;
 		}
 
 		Ok(())
@@ -437,9 +453,72 @@ impl VolumeBackend for CloudBackend {
 		self.operator
 			.create_dir(&cloud_path)
 			.await
-			.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+			.map_err(volume_error)?;
 
 		Ok(())
+	}
+
+	fn conditional_writes(&self) -> bool {
+		let capability = self.operator.info().full_capability();
+		capability.write_with_if_match
+			&& capability.write_with_if_not_exists
+			&& capability.read_with_if_match
+	}
+
+	async fn write_if(
+		&self,
+		path: &Path,
+		data: Bytes,
+		condition: WriteCondition,
+	) -> Result<Option<String>, VolumeError> {
+		let cloud_path = self.to_cloud_path(path);
+		debug!(
+			"CloudBackend::write_if: {} ({} bytes, {:?})",
+			cloud_path,
+			data.len(),
+			condition
+		);
+		if !self.conditional_writes() {
+			return Err(VolumeError::Unsupported(format!(
+				"{:?} cannot refuse a write against a changed object",
+				self.service_type
+			)));
+		}
+		let write = self.operator.write_with(&cloud_path, data);
+		let metadata = match &condition {
+			WriteCondition::Matches(etag) => write.if_match(etag).await,
+			WriteCondition::Absent => write.if_not_exists(true).await,
+		}
+		.map_err(volume_error)?;
+		Ok(metadata.etag().map(str::to_string))
+	}
+
+	async fn entity_tag(&self, path: &Path) -> Result<Option<String>, VolumeError> {
+		let cloud_path = self.to_cloud_path(path);
+		match self.operator.stat(&cloud_path).await {
+			Ok(metadata) => metadata
+				.etag()
+				.map(|etag| Some(etag.to_string()))
+				.ok_or_else(|| {
+					VolumeError::Unsupported(format!(
+						"{:?} reports no entity tag for {cloud_path}",
+						self.service_type
+					))
+				}),
+			Err(error) if error.kind() == opendal::ErrorKind::NotFound => Ok(None),
+			Err(error) => Err(volume_error(error)),
+		}
+	}
+
+	async fn read_if_match(&self, path: &Path, etag: &str) -> Result<Bytes, VolumeError> {
+		let cloud_path = self.to_cloud_path(path);
+		let data = self
+			.operator
+			.read_with(&cloud_path)
+			.if_match(etag)
+			.await
+			.map_err(volume_error)?;
+		Ok(data.to_bytes())
 	}
 
 	fn is_local(&self) -> bool {
@@ -454,6 +533,33 @@ impl VolumeBackend for CloudBackend {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[tokio::test]
+	async fn a_service_without_conditional_writes_refuses_them() {
+		let operator = opendal::Operator::new(opendal::services::Memory::default())
+			.expect("memory operator")
+			.finish();
+		let backend = CloudBackend::from_operator(operator, CloudServiceType::Other);
+		assert!(!backend.conditional_writes());
+		let refused = backend
+			.write_if(Path::new("a.txt"), Bytes::from("x"), WriteCondition::Absent)
+			.await;
+		assert!(matches!(refused, Err(VolumeError::Unsupported(_))));
+		assert!(!backend.exists(Path::new("a.txt")).await.unwrap());
+	}
+
+	#[test]
+	fn opendal_kinds_survive_as_volume_errors() {
+		let missing = volume_error(opendal::Error::new(opendal::ErrorKind::NotFound, "gone"));
+		assert!(
+			matches!(missing, VolumeError::Io(ref e) if e.kind() == std::io::ErrorKind::NotFound)
+		);
+		let changed = volume_error(opendal::Error::new(
+			opendal::ErrorKind::ConditionNotMatch,
+			"etag",
+		));
+		assert!(matches!(changed, VolumeError::PreconditionFailed(_)));
+	}
 
 	// Note: These tests require actual cloud credentials and are disabled by default
 	// They serve as examples of how to use the CloudBackend
