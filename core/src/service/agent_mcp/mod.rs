@@ -23,8 +23,9 @@
 //!
 //! It is off by default and binds loopback. It can serve TLS from a configured
 //! certificate and key. A non-loopback IP is served only with TLS, from
-//! `agent_mcp.tls_cert` and `agent_mcp.tls_key`; wildcard addresses are always
-//! refused.
+//! `agent_mcp.tls_cert` and `agent_mcp.tls_key`, and only on Linux and macOS,
+//! since grep and directory listings on Windows still open by pathname;
+//! wildcard addresses are always refused.
 //! Reads beyond loopback are safe because every open goes through
 //! handle-based containment (`crate::common::contain`). Writes are not
 //! offered over the network: a request that needs
@@ -98,6 +99,9 @@ const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// The default value of `agent_mcp.block_bytes_per_hour`: 8 GiB.
 pub const DEFAULT_BLOCK_BYTES_PER_HOUR: u64 = 8 * 1024 * 1024 * 1024;
+
+#[cfg(not(unix))]
+const NO_WINDOWS_CONTAINMENT: &str = "listening beyond loopback needs handle-based containment for grep and directory listings, which Windows does not have yet";
 
 const NON_LOOPBACK_PLAIN: &str =
 	"a non-loopback listener needs TLS: set agent_mcp.tls_cert and agent_mcp.tls_key";
@@ -184,6 +188,14 @@ pub fn transport(addr: SocketAddr, config: &AgentMcpConfig) -> Result<Transport,
 	};
 	if config.block_bytes_per_hour == 0 {
 		return Err("agent_mcp.block_bytes_per_hour must be greater than 0".into());
+	}
+	// grep and directory listings still open by pathname here, so a swapped
+	// junction could serve files outside a grant to a network client.
+	#[cfg(not(unix))]
+	if !addr.ip().is_loopback() {
+		return Err(format!(
+			"refusing to listen on {addr}: {NO_WINDOWS_CONTAINMENT}"
+		));
 	}
 	if let Some(tls) = tls {
 		return Ok(tls);
@@ -440,6 +452,7 @@ mod tests {
 		assert_eq!(plan(&config("[::1]:7765")), Ok(Transport::Loopback));
 	}
 
+	#[cfg(unix)]
 	#[test]
 	fn non_loopback_addresses_need_tls() {
 		let refused = plan(&config("192.168.1.5:7765")).unwrap_err();
@@ -456,6 +469,20 @@ mod tests {
 				key: "key.pem".into()
 			})
 		);
+	}
+
+	#[cfg(not(unix))]
+	#[test]
+	fn non_loopback_addresses_are_refused_without_containment() {
+		let tls = AgentMcpConfig {
+			tls_cert: Some("cert.pem".into()),
+			tls_key: Some("key.pem".into()),
+			..config("100.64.0.1:7765")
+		};
+		for config in [config("192.168.1.5:7765"), tls] {
+			let refused = plan(&config).unwrap_err();
+			assert!(refused.contains("handle-based containment"), "{refused}");
+		}
 	}
 
 	#[test]

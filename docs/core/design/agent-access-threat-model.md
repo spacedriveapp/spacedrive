@@ -272,6 +272,9 @@ TLS:
 - Loopback: plain HTTP.
 - Any other address: the daemon starts only with `--tls-cert` and `--tls-key`
   and serves TLS from them. Without both it refuses the address and logs why.
+- Non-loopback listening is Linux and macOS only for now. On Windows, grep and
+  directory listings still open by pathname rather than through contained
+  handles, so the daemon refuses any non-loopback address there.
 - 2026-11-27: the `--plaintext` opt-in for networks that are already
   encrypted was dropped. A WireGuard or Tailscale address needs TLS like any
   other non-loopback address.
