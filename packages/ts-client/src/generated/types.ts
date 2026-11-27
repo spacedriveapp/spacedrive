@@ -2497,6 +2497,23 @@ created_by: string; created_at: string; expires_at: string; revoked_at: string |
  */
 last_used_at: string | null };
 
+export type GrantSetupInput = Record<string, never>;
+
+export type GrantSetupOutput = { 
+/**
+ * Whether the daemon is configured to serve the agent MCP endpoint.
+ * Turning it on takes effect after a restart.
+ */
+endpoint_enabled: boolean; 
+/**
+ * The URL MCP clients connect to, such as `http://127.0.0.1:7765/mcp`.
+ */
+mcp_url: string; 
+/**
+ * The guide the endpoint's `get_skill` tool returns, in Markdown.
+ */
+skill: string };
+
 /**
  * Whether a grant can still be used.
  */
@@ -7187,6 +7204,7 @@ export type CoreQuery =
   |  { type: 'files.local_path'; input: LocalPathInput; output: LocalPathOutput }
   |  { type: 'files.size_tree'; input: SizeTreeInput; output: SizeTreeOutput }
   |  { type: 'files.stream_url'; input: StreamUrlInput; output: StreamUrlOutput }
+  |  { type: 'grants.setup'; input: GrantSetupInput; output: GrantSetupOutput }
   |  { type: 'jobs.remote.all_devices'; input: RemoteJobsAllDevicesInput; output: RemoteJobsAllDevicesOutput }
   |  { type: 'jobs.remote.for_device'; input: RemoteJobsForDeviceInput; output: RemoteJobsForDeviceOutput }
   |  { type: 'libraries.backup.verify'; input: LibraryBackupVerifyInput; output: LibraryBackupVerifyOutput }
@@ -7422,6 +7440,7 @@ export const WIRE_METHODS = {
     'files.local_path': 'query:files.local_path',
     'files.size_tree': 'query:files.size_tree',
     'files.stream_url': 'query:files.stream_url',
+    'grants.setup': 'query:grants.setup',
     'jobs.remote.all_devices': 'query:jobs.remote.all_devices',
     'jobs.remote.for_device': 'query:jobs.remote.for_device',
     'libraries.backup.verify': 'query:libraries.backup.verify',
