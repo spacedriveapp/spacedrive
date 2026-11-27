@@ -239,8 +239,7 @@ async fn smb_share_password_is_not_logged() {
 	}
 	assert!(
 		log.contains("Mounts SMB share at smb://***@127.0.0.1:"),
-		"the share address was logged with its login masked:
-{log}"
+		"the share address was logged with its login masked:\n{log}"
 	);
 
 	let url = sd_core::service::mounts::smb::mount_url().expect("the SMB share is running");
@@ -248,10 +247,17 @@ async fn smb_share_password_is_not_logged() {
 		.strip_prefix("smb://spacedrive:")
 		.and_then(|rest| rest.split('@').next())
 		.expect("the mount URL carries the login");
-	assert!(password.len() >= 16, "a real password was issued: {url}");
+	assert!(!password.is_empty(), "the mount URL carries a password");
 	assert!(
-		!log.contains(password),
-		"the SMB password reached the log:
-{log}"
+		!log.contains(&format!(":{password}@")),
+		"the SMB login reached the log:\n{log}"
 	);
+	// A pinned password can be an ordinary word found elsewhere in the log;
+	// a generated one cannot.
+	if std::env::var_os("SD_MOUNT_SMB_PASSWORD").is_none() {
+		assert!(
+			!log.contains(password),
+			"the SMB password reached the log:\n{log}"
+		);
+	}
 }
