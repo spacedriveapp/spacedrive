@@ -36,23 +36,6 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
-Deep scope and the text index size (Capy FAN-14801, November 27, in PR). A
-home source on a Mac grew `text.db` to 19 GB in a day. Every text file the
-walk recorded was read, up to 1 MB each, and FTS5 kept a full copy of the
-text beside its index (74% of the file in a reproduction). Hidden folders
-(package caches, agent transcripts) were most of the text. Each source now
-has a deep scope: one list of subtrees, stored as an assertion in
-`data.db`, where content identity and the text index run. The home source
-defaults to the OS user folders and any other source to its whole root.
-`sources.deep_scope.update` keeps or releases a folder, and
-`sources.deep_scope.get` reads the list. The text pass also skips hidden
-folders, lockfiles and minified files, and cuts code at 256 KB and data and
-logs at 64 KB. An index written under the old policy has its text tables
-dropped and the file vacuumed when it opens, keeping transcripts and
-descriptions. A 4.1 GB index upgraded in 26 s on a cold cloud disk using 8 MB
-of extra space. A pass gives freed pages back once they are a quarter of the
-file. Next: merge, then the Settings and "Keep indexed" UI.
-
 Content sidecars have a registry and live in their source (Capy FAN-14816,
 November 27, in PR, stacked on the Sidecars tab PR). Every derived file other
 than thumbnail tiles and scrub sheets is published through
