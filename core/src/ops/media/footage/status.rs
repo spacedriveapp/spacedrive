@@ -107,25 +107,76 @@ async fn shot_count(library_path: &Path, content_uuid: Uuid) -> QueryResult<Opti
 	Ok(list.map(|list| u32::try_from(list.shots.len()).unwrap_or(u32::MAX)))
 }
 
-/// The Videos extension's `scene` sidecar holds one entry per shot it has
-/// analyzed. Its shape belongs to the extension, so only the count is read.
-async fn analyzed_shots(library_path: &Path, content_uuid: Uuid) -> QueryResult<Option<u32>> {
-	#[derive(Deserialize)]
-	struct SceneDoc {
-		#[serde(default)]
-		shots: Vec<serde::de::IgnoredAny>,
-	}
+pub(super) async fn analyzed_shots(
+	library_path: &Path,
+	content_uuid: Uuid,
+) -> QueryResult<Option<u32>> {
+	let scene = read_scene(library_path, content_uuid).await?;
+	Ok(scene.map(|shots| u32::try_from(shots.len()).unwrap_or(u32::MAX)))
+}
 
+/// One shot the Videos extension has written a description for.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct ShotDescription {
+	pub shot_id: String,
+	pub description: String,
+}
+
+/// The descriptions the Videos extension wrote for a video's shots, empty
+/// until it has analyzed the video or when it found no caption model.
+pub(crate) async fn shot_descriptions(
+	library_path: &Path,
+	content_uuid: Uuid,
+) -> QueryResult<Vec<ShotDescription>> {
+	let shots = read_scene(library_path, content_uuid)
+		.await?
+		.unwrap_or_default();
+	Ok(shots
+		.into_iter()
+		.filter_map(|shot| {
+			Some(ShotDescription {
+				shot_id: shot.shot_id,
+				description: shot.description?,
+			})
+		})
+		.collect())
+}
+
+#[derive(Deserialize)]
+struct SceneShot {
+	#[serde(default)]
+	shot_id: String,
+	#[serde(default)]
+	description: Option<String>,
+}
+
+fn scene_path(library_path: &Path, content_uuid: Uuid) -> QueryResult<std::path::PathBuf> {
 	let kind =
 		SidecarKind::extension(VIDEOS_EXTENSION_ID, "scene").map_err(QueryError::Internal)?;
-	let path = library_path
+	Ok(library_path
 		.join("sidecars")
 		.join(sd_sidecar_path::relative_path(
 			&content_uuid,
 			&kind.directory(),
 			"default",
 			SidecarFormat::Json.extension(),
-		));
+		)))
+}
+
+/// The Videos extension's `scene` sidecar holds one entry per shot it has
+/// analyzed. Its shape belongs to the extension, so only the shot id and
+/// the description are read, and both are optional.
+async fn read_scene(
+	library_path: &Path,
+	content_uuid: Uuid,
+) -> QueryResult<Option<Vec<SceneShot>>> {
+	#[derive(Deserialize)]
+	struct SceneDoc {
+		#[serde(default)]
+		shots: Vec<SceneShot>,
+	}
+
+	let path = scene_path(library_path, content_uuid)?;
 	let bytes = match tokio::fs::read(&path).await {
 		Ok(bytes) => bytes,
 		Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -138,5 +189,52 @@ async fn analyzed_shots(library_path: &Path, content_uuid: Uuid) -> QueryResult<
 	let scene: SceneDoc = serde_json::from_slice(&bytes).map_err(|error| {
 		QueryError::Internal(format!("could not read the scene descriptions: {error}"))
 	})?;
-	Ok(Some(u32::try_from(scene.shots.len()).unwrap_or(u32::MAX)))
+	Ok(Some(scene.shots))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[tokio::test]
+	async fn scene_sidecar_yields_described_shots_and_the_analyzed_count() {
+		let library = tempfile::tempdir().unwrap();
+		let content_uuid = Uuid::new_v4();
+		assert_eq!(
+			analyzed_shots(library.path(), content_uuid).await.unwrap(),
+			None
+		);
+		assert!(shot_descriptions(library.path(), content_uuid)
+			.await
+			.unwrap()
+			.is_empty());
+
+		let path = scene_path(library.path(), content_uuid).unwrap();
+		tokio::fs::create_dir_all(path.parent().unwrap())
+			.await
+			.unwrap();
+		tokio::fs::write(
+			&path,
+			r#"{"version":1,"shots":[
+				{"shot_id":"a","description":"A dog on a beach","places":[]},
+				{"shot_id":"b","description":null,"places":[{"label":"beach","score":0.9}]}
+			]}"#,
+		)
+		.await
+		.unwrap();
+
+		assert_eq!(
+			analyzed_shots(library.path(), content_uuid).await.unwrap(),
+			Some(2)
+		);
+		assert_eq!(
+			shot_descriptions(library.path(), content_uuid)
+				.await
+				.unwrap(),
+			vec![ShotDescription {
+				shot_id: "a".to_string(),
+				description: "A dog on a beach".to_string(),
+			}]
+		);
+	}
 }

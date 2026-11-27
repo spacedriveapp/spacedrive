@@ -1,8 +1,9 @@
 import type {Icon} from '@phosphor-icons/react';
 import {FilmSlate, FilmStrip, MagicWand, Subtitles} from '@phosphor-icons/react';
-import type {File, FootageJob, SdPath} from '@sd/ts-client';
+import type {File, FootageJob, FootageSummary, SdPath} from '@sd/ts-client';
 import {getContentKind, isVirtualFile, useFootageJobStore} from '@sd/ts-client';
 import {toast} from '@spacedrive/primitives';
+import {useMemo} from 'react';
 import {usePlatform} from '../../contexts/PlatformContext';
 import {useLibraryMutation, useLibraryQuery} from '../../contexts/SpacedriveContext';
 
@@ -104,4 +105,69 @@ export function useFootageActions() {
 		canPickFolder: !!platform.openDirectoryPickerDialog,
 		isBusy: run.isPending || exportTimeline.isPending
 	};
+}
+
+/** A video's length in seconds, from its media data or what shot detection measured. */
+export function videoDuration(file: File, footage?: FootageSummary): number | null {
+	return (
+		file.video_media_data?.duration_seconds ??
+		file.duration_seconds ??
+		footage?.duration_seconds ??
+		null
+	);
+}
+
+/** `1:05` or `1:02:05`, the way a player shows a position. */
+export function formatTimecode(seconds: number): string {
+	const total = Math.max(0, Math.floor(seconds));
+	const h = Math.floor(total / 3600);
+	const m = Math.floor(total / 60) % 60;
+	const s = String(total % 60).padStart(2, '0');
+	return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+}
+
+/** A local video's key in a summaries map, or null for anything else. */
+export function footageKey(file: File): string | null {
+	if (!file.is_local || getContentKind(file) !== 'video') return null;
+	return footagePathKey(file.sd_path) || null;
+}
+
+const MAX_SUMMARIES = 5000;
+const NO_SUMMARIES = new Map<string, FootageSummary>();
+
+/**
+ * The footage state of every local video in a listing, keyed by
+ * `footageKey`, from one query for the whole listing. A row reads its entry
+ * from the map instead of asking on its own, and a video missing from the
+ * map has had nothing made for it.
+ */
+export function useFootageSummaries(files: File[], enabled: boolean) {
+	const paths = useMemo(() => {
+		if (!enabled) return [];
+		const seen = new Set<string>();
+		const paths: SdPath[] = [];
+		for (const file of files) {
+			const key = footageKey(file);
+			if (!key || seen.has(key)) continue;
+			seen.add(key);
+			paths.push(file.sd_path);
+			// The daemon answers at most this many per query.
+			if (paths.length === MAX_SUMMARIES) break;
+		}
+		return paths;
+	}, [files, enabled]);
+
+	const {data, isLoading} = useLibraryQuery(
+		{type: 'media.footage.summaries', input: {paths}},
+		{enabled: paths.length > 0, staleTime: 30_000}
+	);
+
+	const summaries = useMemo(
+		() =>
+			data
+				? new Map(data.summaries.map((summary) => [footagePathKey(summary.path), summary]))
+				: NO_SUMMARIES,
+		[data]
+	);
+	return {summaries, isLoading: paths.length > 0 && isLoading};
 }

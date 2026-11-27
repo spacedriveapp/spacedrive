@@ -16,6 +16,10 @@ import { useExplorer } from "../context";
 import { searchSortField } from "../sortOptions";
 import { isLapsedHandle, usePlanPreviewStore } from "./usePlanPreview";
 import { useVirtualListing } from "./useVirtualListing";
+import {
+	footageKey,
+	useFootageSummaries,
+} from "../../../components/Footage/useFootage";
 
 export type FileSource =
 	| "search"
@@ -332,7 +336,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 						? "virtual"
 						: "directory";
 
-	const files = useMemo(() => {
+	const listed = useMemo(() => {
 		if (isFilteredMode) {
 			return (
 				(filteredQuery.data as FileSearchOutput | undefined)?.files || []
@@ -379,8 +383,28 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		directoryQuery.data,
 	]);
 
+	// The footage filter reads sidecars the search index does not have, so
+	// it narrows the results here, with one query for the whole result set.
+	const footageFilter = mode.type === "filtered" ? mode.footage : undefined;
+	const wantsFootage = !!(footageFilter?.transcript || footageFilter?.analyzed);
+	const { summaries, isLoading: footageLoading } = useFootageSummaries(
+		listed,
+		wantsFootage,
+	);
+	const files = useMemo(() => {
+		if (!wantsFootage) return listed;
+		return listed.filter((file) => {
+			const key = footageKey(file);
+			const summary = key ? summaries.get(key) : undefined;
+			if (!summary) return false;
+			if (footageFilter?.transcript && !summary.transcript) return false;
+			if (footageFilter?.analyzed && summary.analyzed_shots == null) return false;
+			return true;
+		});
+	}, [listed, wantsFootage, footageFilter, summaries]);
+
 	const isLoading = isFilteredMode
-		? filteredQuery.isLoading
+		? filteredQuery.isLoading || footageLoading
 		: isSourceMode
 			? sourceQuery.isLoading
 		: isCollectionMode
