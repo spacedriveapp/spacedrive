@@ -85,6 +85,9 @@ sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite"] }
 
 # API (temporarily disabled)
 axum = { workspace = true }
+hyper = { version = "1", features = ["http1", "server"] }
+hyper-util = { version = "0.1", features = ["http1", "server", "service", "tokio"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 
 # Serialization
 int-enum = "1.1"
@@ -361,4 +364,7 @@ path = "src/bin/daemon.rs"
 # on the public n0 relays.
 iroh-relay        = { version = "0.95.1", features = ["server"] }
 pretty_assertions = "1.4"
+rcgen             = "0.14"
+# The endpoint TLS suite needs a client that trusts a test root over rustls.
+reqwest-rustls    = { package = "reqwest", version = "0.12", default-features = false, features = ["rustls-tls"] }
 tempfile          = "3.14"
