@@ -679,3 +679,61 @@ async fn rest_event_stream_carries_watcher_changes() -> anyhow::Result<()> {
 	harness.shutdown().await?;
 	Ok(())
 }
+
+#[tokio::test]
+async fn rest_block_reads_spend_their_own_byte_budget() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("agent_rest_block_budget")
+		.disable_watcher()
+		.build()
+		.await?;
+	let tracked = harness.create_test_dir("tracked").await?;
+	tracked.write_file("project/small.txt", "hello").await?;
+	tracked.track().await?;
+	let project = std::fs::canonicalize(harness.temp_path())?.join("tracked/project");
+	std::fs::write(project.join("blocks.bin"), vec![7u8; 3 * MIB])?;
+
+	let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+	let bound = agent_mcp::serve(
+		harness.core.context.clone(),
+		listener,
+		Limits {
+			block_bytes_per_hour: 2 * MIB as u64,
+			bytes_per_hour: 64 * 1024,
+			..limits()
+		},
+	)?;
+	let issued = grant(&harness, &project, GrantCap::Read).await?;
+	let rest = Rest::new(
+		&format!("http://{bound}"),
+		&issued.token,
+		&issued.grant.id.to_string(),
+	);
+
+	// Two 1 MiB blocks fit the 2 MiB block budget, though each is far over
+	// the 64 KiB tools budget, which they do not touch.
+	for block in 0..2 {
+		let range = format!("bytes={}-{}", block * MIB, (block + 1) * MIB - 1);
+		let reply = rest.blocks("blocks.bin", Some(&range), None).await;
+		assert_eq!(reply.status, StatusCode::PARTIAL_CONTENT, "block {block}");
+	}
+	let reply = rest.ok("read", json!({ "path": "small.txt" })).await;
+	assert_eq!(reply["content"], json!("hello"));
+
+	// The third block finds the budget spent and is told when to come back.
+	let reply = rest
+		.blocks("blocks.bin", Some("bytes=2097152-3145727"), None)
+		.await;
+	assert_eq!(reply.status, StatusCode::TOO_MANY_REQUESTS);
+	assert_eq!(reply.code(), "limited");
+	let retry: u64 = reply.header("retry-after").parse()?;
+	assert!(
+		retry > 60,
+		"the window resets within the hour, not in {retry} s"
+	);
+
+	// Tools and stat keep their own budget.
+	assert_eq!(rest.get("stat/blocks.bin").await.status, StatusCode::OK);
+
+	harness.shutdown().await?;
+	Ok(())
+}

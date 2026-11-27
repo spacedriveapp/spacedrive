@@ -58,6 +58,7 @@ struct Session {
 pub(super) struct GrantUsage {
 	pub(super) bucket: Bucket,
 	pub(super) bytes: ByteWindow,
+	pub(super) block_bytes: ByteWindow,
 	calls: usize,
 	grep: bool,
 }
@@ -96,6 +97,7 @@ impl Endpoint {
 		let entry = usage.entry(grant).or_insert_with(|| GrantUsage {
 			bucket: Bucket::full(self.limits.rate_burst),
 			bytes: ByteWindow::new(),
+			block_bytes: ByteWindow::new(),
 			calls: 0,
 			grep: false,
 		});
@@ -169,10 +171,14 @@ impl Endpoint {
 	}
 
 	/// Claim a call slot for `grant`, or say which budget is spent.
+	///
+	/// `blocks` names a block read, which spends the block byte budget
+	/// instead of the one tools share.
 	pub(super) fn begin_call(
 		self: &Arc<Self>,
 		grant: Uuid,
 		grep: bool,
+		blocks: bool,
 	) -> Result<CallSlot, String> {
 		let total = self
 			.calls
@@ -180,7 +186,12 @@ impl Endpoint {
 			.try_acquire_owned()
 			.map_err(|_| "the endpoint is at its limit of tool calls in flight".to_string())?;
 		self.with_usage(grant, |usage| {
-			if let Some(wait) = usage.bytes.spent(self.limits.bytes_per_hour) {
+			let (window, budget) = if blocks {
+				(&mut usage.block_bytes, self.limits.block_bytes_per_hour)
+			} else {
+				(&mut usage.bytes, self.limits.bytes_per_hour)
+			};
+			if let Some(wait) = window.spent(budget) {
 				return Err(format!(
 					"the grant has returned its hourly byte budget; retry in {} s",
 					wait.as_secs().max(1)
@@ -536,7 +547,7 @@ async fn call(
 		.get("arguments")
 		.cloned()
 		.unwrap_or_else(|| json!({}));
-	let slot = match endpoint.begin_call(scope.grant_id, tool.exclusive()) {
+	let slot = match endpoint.begin_call(scope.grant_id, tool.exclusive(), false) {
 		Ok(slot) => slot,
 		Err(reason) => return too_many(id, Duration::from_secs(1), &reason),
 	};

@@ -219,7 +219,7 @@ async fn serve(
 				.await?;
 			let (grant, library) = (scope.grant_id, scope.library_id);
 			let value = request
-				.blocking((grant, library), move || stat(&scope, &path))
+				.blocking((grant, library), false, move || stat(&scope, &path))
 				.await?;
 			Ok(request.json(grant, value))
 		}
@@ -230,7 +230,9 @@ async fn serve(
 				.await?;
 			let (grant, library) = (scope.grant_id, scope.library_id);
 			let value = request
-				.blocking((grant, library), move || list(&scope, &path, cursor, limit))
+				.blocking((grant, library), false, move || {
+					list(&scope, &path, cursor, limit)
+				})
 				.await?;
 			Ok(request.json(grant, value))
 		}
@@ -244,11 +246,12 @@ async fn serve(
 				.map(|value| value.to_str().unwrap_or_default().to_string());
 			let (grant, library) = (scope.grant_id, scope.library_id);
 			let block = request
-				.blocking((grant, library), move || {
+				.blocking((grant, library), true, move || {
 					read_block(&scope, range, if_match.as_deref())
 				})
 				.await?;
-			request.count(grant, block.bytes.len());
+			let returned = block.bytes.len() as u64;
+			endpoint.with_usage(grant, |usage| usage.block_bytes.add(returned));
 			Ok(block.into_response())
 		}
 		Route::Events { space } => {
@@ -391,14 +394,33 @@ impl Request<'_> {
 
 	/// Run filesystem work on the blocking pool inside one of the grant's
 	/// call slots, so block reads share the call budget with tools.
+	///
+	/// `blocks` marks a block read, which spends the grant's block byte
+	/// budget rather than the one tools share. A spent budget answers 429
+	/// with the seconds until its window resets.
 	async fn blocking<T: Send + 'static>(
 		&self,
 		(grant, library): (Uuid, Uuid),
+		blocks: bool,
 		work: impl FnOnce() -> Result<T, Response> + Send + 'static,
 	) -> Result<T, Response> {
+		let limits = &self.endpoint.limits;
+		let spent = self.endpoint.with_usage(grant, |usage| {
+			if blocks {
+				usage.block_bytes.spent(limits.block_bytes_per_hour)
+			} else {
+				usage.bytes.spent(limits.bytes_per_hour)
+			}
+		});
+		if let Some(wait) = spent {
+			return Err(too_many(
+				wait,
+				"the grant has returned its hourly byte budget",
+			));
+		}
 		let slot = self
 			.endpoint
-			.begin_call(grant, false)
+			.begin_call(grant, false, blocks)
 			.map_err(|reason| too_many(Duration::from_secs(1), &reason))?;
 		// The worker owns the slot, so a read stalled on a slow volume keeps
 		// counting against the budgets until it really returns, even after
@@ -512,7 +534,7 @@ impl Request<'_> {
 
 		let endpoint = self.endpoint;
 		let slot = endpoint
-			.begin_call(scope.grant_id, tool.exclusive())
+			.begin_call(scope.grant_id, tool.exclusive(), false)
 			.map_err(|reason| too_many(Duration::from_secs(1), &reason))?;
 		let cancel = Arc::new(AtomicBool::new(false));
 		let _cancel_on_drop = CancelOnDrop(cancel.clone());
