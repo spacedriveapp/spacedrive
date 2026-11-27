@@ -16,8 +16,8 @@ use uuid::Uuid;
 /// Generic design: maps any UUID to updates waiting for it, regardless of type.
 /// Works for:
 /// - device_id (volume → device)
-/// - space_id (space_group → space)
-/// - group_id (space_item → space_group)
+/// - layout_id (layout_group → layout)
+/// - group_id (layout_item → layout_group)
 /// - Any other FK constraint
 pub struct DependencyTracker {
 	/// Maps dependency UUID → updates waiting for it
@@ -160,8 +160,8 @@ mod tests {
 	use chrono::Utc;
 
 	#[test]
-	fn test_extract_uuid_from_space_id_error() {
-		let error = "FK mapping failed: Sync dependency missing: space_id -> spaces (uuid=082653bb-d55b-45ea-ac0a-18205197981b): Space with uuid=082653bb-d55b-45ea-ac0a-18205197981b not found";
+	fn test_extract_uuid_from_layout_id_error() {
+		let error = "FK mapping failed: Sync dependency missing: layout_id -> layouts (uuid=082653bb-d55b-45ea-ac0a-18205197981b): Layout with uuid=082653bb-d55b-45ea-ac0a-18205197981b not found";
 
 		let uuid = extract_missing_dependency_uuid(error);
 		assert!(uuid.is_some());
@@ -173,7 +173,7 @@ mod tests {
 
 	#[test]
 	fn test_extract_uuid_from_group_id_error() {
-		let error = "FK mapping failed: Sync dependency missing: group_id -> space_groups (uuid=d9d3a478-ecf6-4cb4-8711-ddf776037dbb)";
+		let error = "FK mapping failed: Sync dependency missing: group_id -> layout_groups (uuid=d9d3a478-ecf6-4cb4-8711-ddf776037dbb)";
 
 		let uuid = extract_missing_dependency_uuid(error);
 		assert!(uuid.is_some());
@@ -207,7 +207,7 @@ mod tests {
 
 		let parent_uuid = Uuid::new_v4();
 		let child_change = StateChangeMessage {
-			model_type: "space_item".to_string(),
+			model_type: "layout_item".to_string(),
 			record_uuid: Uuid::new_v4(),
 			device_id: Uuid::new_v4(),
 			data: serde_json::json!({}),
@@ -244,7 +244,7 @@ mod tests {
 		// Three children waiting for same parent
 		for _ in 0..3 {
 			let child = StateChangeMessage {
-				model_type: "space_item".to_string(),
+				model_type: "layout_item".to_string(),
 				record_uuid: Uuid::new_v4(),
 				device_id: Uuid::new_v4(),
 				data: serde_json::json!({}),
@@ -276,7 +276,7 @@ mod tests {
 			.add_dependency(
 				parent1,
 				BufferedUpdate::StateChange(StateChangeMessage {
-					model_type: "space_item".to_string(),
+					model_type: "layout_item".to_string(),
 					record_uuid: Uuid::new_v4(),
 					device_id: Uuid::new_v4(),
 					data: serde_json::json!({}),
@@ -290,7 +290,7 @@ mod tests {
 			.add_dependency(
 				parent2,
 				BufferedUpdate::StateChange(StateChangeMessage {
-					model_type: "space_item".to_string(),
+					model_type: "layout_item".to_string(),
 					record_uuid: Uuid::new_v4(),
 					device_id: Uuid::new_v4(),
 					data: serde_json::json!({}),

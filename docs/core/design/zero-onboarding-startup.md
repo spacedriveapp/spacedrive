@@ -37,6 +37,16 @@ startup:
 
 The durable set is a default, not a decision the user must make — removable and extendable at any time from settings or by right-clicking any folder ("Keep indexed").
 
+> **Implemented 2026-11-27** as the source's *deep scope*. The home source is
+> recorded whole; its deep scope says where file contents are read: content
+> identity, the content text index and the passes behind them. It is one list
+> of subtrees per source, stored as an assertion in the source store
+> (`deep_scope` in `data.db`), so a rebuild never loses it. With no list set,
+> the home source reads the OS user folders (Desktop, Documents, Downloads,
+> Pictures, Movies or Videos, Music, Public, resolved by the platform) and any
+> other source reads its whole root. `sources.deep_scope.update` is "Keep
+> indexed" and its inverse; `sources.deep_scope.get` reads the list.
+
 ## The launch sequence
 
 ### Cold start (first ever launch)

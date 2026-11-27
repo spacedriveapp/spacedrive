@@ -304,15 +304,27 @@ async fn fixture_library(
 }
 
 fn digest_sidecar(library: &sd_core::library::Library, content_uuid: Uuid) -> PathBuf {
-	library
-		.path()
-		.join("sidecars")
-		.join(sd_sidecar_path::relative_path(
+	sidecar_file(
+		library,
+		sd_sidecar_path::relative_path(
 			&content_uuid,
 			&sd_sidecar_path::extension_kind_directory("test-extension", "digest"),
 			"default",
 			"json",
-		))
+		),
+	)
+}
+
+/// Where a sidecar is on disk: under whichever source holds it, else where
+/// the library kept sidecars before they moved, which readers still find.
+fn sidecar_file(library: &sd_core::library::Library, relative: PathBuf) -> PathBuf {
+	sd_sidecar_path::locate(
+		&library.core_context().data_dir.join("sources"),
+		&library.id(),
+		library.path(),
+		&relative,
+	)
+	.unwrap_or_else(|| sd_sidecar_path::legacy_root(library.path()).join(relative))
 }
 
 async fn wait_for_status(
@@ -782,8 +794,9 @@ async fn photos_analyze_photos_runs_end_to_end_without_a_detector() {
 	);
 	assert!(!log.contains("guest panic"), "{log}");
 	// No detector, so no faces sidecar anywhere under photos' namespace
-	let photos_sidecars = walk(&library.path().join("sidecars"))
+	let photos_sidecars = walk(&library.core_context().data_dir.join("sources"))
 		.into_iter()
+		.chain(walk(&library.path().join("sidecars")))
 		.filter(|p| p.to_string_lossy().contains("com.spacedrive.photos"))
 		.count();
 	assert_eq!(photos_sidecars, 0);
@@ -1612,27 +1625,27 @@ fn media_sidecar(
 	variant: &str,
 	ext: &str,
 ) -> PathBuf {
-	library
-		.path()
-		.join("sidecars")
-		.join(sd_sidecar_path::relative_path(
+	sidecar_file(
+		library,
+		sd_sidecar_path::relative_path(
 			&media,
 			sd_sidecar_path::kind_directory(kind).expect("a core media kind"),
 			variant,
 			ext,
-		))
+		),
+	)
 }
 
 fn videos_sidecar(library: &sd_core::library::Library, media: Uuid, kind: &str) -> PathBuf {
-	library
-		.path()
-		.join("sidecars")
-		.join(sd_sidecar_path::relative_path(
+	sidecar_file(
+		library,
+		sd_sidecar_path::relative_path(
 			&media,
 			&sd_sidecar_path::extension_kind_directory(VIDEOS, kind),
 			"default",
 			"json",
-		))
+		),
+	)
 }
 
 async fn videos_rows(

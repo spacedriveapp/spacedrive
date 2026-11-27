@@ -36,6 +36,31 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Video duration at indexing (Capy SPAC-129 follow-up, November 27, beta.1, in
+PR). Jamie decided a video's duration belongs in the record, so the Duration
+column fills in without analysis. The media metadata pass that reads EXIF now
+also reads each identified video's container header into `facet_video`:
+duration, frame size and codec. `sd_media_metadata::video` is a pure-Rust
+header reader with no FFmpeg and no decoding. It covers MP4/MOV with `moov`
+anywhere in the file, and MKV/WebM ahead of the first cluster. Rows are keyed
+by content hash like the image facet and reach listings, search hits and the
+inspector as `video_media_data`. The pass claims only identified records; once
+#3286 lands, identification and this pass run only in the deep scope. Next: review and merge.
+
+Content sidecars have a registry and live in their source (Capy FAN-14816,
+November 27, in PR, stacked on the Sidecars tab PR). Every derived file other
+than thumbnail tiles and scrub sheets is published through
+`SidecarRegistry::publish`, which renames it into
+`sources/<id>/derived/<h0>/<h1>/<content_uuid>/` and writes a `content_sidecar`
+row in the source's `data.db` (producer, version, size, BLAKE3). Proxies, speech
+audio, transcripts, shots, keyframes and the extension host's
+`sidecars.write`/`sidecars.delete` use it. Opening a library adopts the old
+`<library>/sidecars/content` tree by rename, rebuilds rows from disk and
+prunes content no source holds; deleting a source with its catalog removes its
+tree after moving shared content to another holder. Library statistics sum the
+rows. Thumbnail tiles, `thumbs.pvcache` and thumbstrips are unchanged. Convergence
+item 4 is done; availability and peer replication (step D) are next.
+
 Bundled command line tool (Capy FAN-14800, November 27, in PR). The desktop
 app ships `sd-cli` beside `sd-daemon` as a Tauri external binary on macOS
 arm64 and Intel and Linux, built in the same cargo run with the same features

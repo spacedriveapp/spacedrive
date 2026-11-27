@@ -140,13 +140,25 @@ async fn tracking_photos_fills_the_image_facet_once_per_content_hash() {
 	let (none_hash, none_date, none_lat, _) = by_name("none.jpg");
 	assert!(none_hash.is_some(), "a photo without EXIF is still read");
 	assert_eq!((none_date, none_lat), (None, None));
-	assert_eq!(store.files_needing_image_facets_count().await.unwrap(), 0);
+	assert_eq!(
+		store
+			.files_needing_facets_count(sd_core::domain::ContentKind::Image)
+			.await
+			.unwrap(),
+		0
+	);
 
 	// Row 2: the same photos tracked again read nothing. The rows keep the
 	// hash they were written under and the pass has no work.
 	track(&harness, photos.path(), AddOverrides::default()).await;
 	tokio::time::sleep(Duration::from_millis(300)).await;
-	assert_eq!(store.files_needing_image_facets_count().await.unwrap(), 0);
+	assert_eq!(
+		store
+			.files_needing_facets_count(sd_core::domain::ContentKind::Image)
+			.await
+			.unwrap(),
+		0
+	);
 	assert_eq!(wait_for_facets(&store, 4).await, rows);
 
 	// Row 3: new bytes under a name re-run the pass for that file alone.

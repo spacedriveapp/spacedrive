@@ -137,6 +137,9 @@ impl SourceManager {
 		Self::refuse_unaddressable_generation(pool).await?;
 		crate::migrate::run(pool).await?;
 		sqlx::raw_sql(RECORD_SCHEMA).execute(pool).await?;
+		sqlx::query(crate::content_sidecar::CONTENT_SIDECAR_SCHEMA)
+			.execute(pool)
+			.await?;
 		for sql in &generate_ddl(schema) {
 			sqlx::query(sql).execute(pool).await?;
 		}

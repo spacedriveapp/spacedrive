@@ -1,5 +1,7 @@
 # Agent writes
 
+> **Amendment (2026-11-27):** [spaces.md](spaces.md) supersedes this document in part. Where it says that writes from more than one device, merging, or the sync freeze are out of scope, spaces.md now governs: each space has one authority, handed over by lease and epoch fencing, merges happen only at merge points (a fork merged back, or a replica or mirror handing authority back), and spaces sync as assertions, not through the frozen sync framework. Three behaviors here also change. Writes may carry a per-file `after_hash` precondition. Protected patterns are extended and merged with a per-space list. A space event is written in the same critical section as the journal row.
+
 An agent that holds a writable grant can create, change, move and delete
 files inside the granted directory. This document defines how those writes
 behave: where they run, what each one must name, what happens on a

@@ -158,6 +158,13 @@ CREATE TABLE IF NOT EXISTS tag_assertion (
 CREATE INDEX IF NOT EXISTS idx_tag_assertion_record ON tag_assertion(record_uuid);
 CREATE INDEX IF NOT EXISTS idx_tag_assertion_content ON tag_assertion(content_uuid);
 
+CREATE TABLE IF NOT EXISTS deep_scope (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    subtrees TEXT NOT NULL,
+    updated_hlc TEXT NOT NULL,
+    origin_device BLOB NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS _schema (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     data_type_id TEXT NOT NULL,

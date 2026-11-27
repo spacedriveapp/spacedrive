@@ -145,14 +145,16 @@ async fn a_scene_sidecar_is_searchable_with_its_shot_range() {
 		tokio::time::sleep(Duration::from_millis(50)).await;
 	}
 
-	let library_path = harness.library.path().to_path_buf();
+	// Written where a library kept them before they moved under its
+	// sources, which readers still find until the tree is adopted.
+	let legacy = sd_sidecar_path::legacy_root(harness.library.path());
 	let list = shot_list(content_uuid);
 	write_json(
-		&ContentSidecar::shots(content_uuid).path_in(&library_path),
+		&legacy.join(ContentSidecar::shots(content_uuid).relative_path()),
 		&serde_json::to_value(&list).unwrap(),
 	)
 	.await;
-	let scene_path = scene_sidecar(content_uuid).path_in(&library_path);
+	let scene_path = legacy.join(scene_sidecar(content_uuid).relative_path());
 	let scene = |second: &str| {
 		serde_json::json!({
 			"version": 1,

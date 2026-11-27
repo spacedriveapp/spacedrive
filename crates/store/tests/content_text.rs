@@ -3,13 +3,24 @@
 
 use sd_store::file::{FileKind, FileWrite, Ledger, Observation};
 use sd_store::{
-	filesystem_schema, match_expression, ContentTextIndex, DescriptionDoc, DescriptionSpan,
-	PendingText, SourceDb, SourceManager, TextDoc, TextSearch, TranscriptDoc, TranscriptSpan,
-	CAPTION_KIND, SCENE_KIND,
+	count_files_needing_content, files_needing_content, filesystem_schema, match_expression,
+	ContentTextIndex, DescriptionDoc, DescriptionSpan, PendingText, SourceDb, SourceManager, Stamp,
+	TextDoc, TextFilter, TextSearch, TranscriptDoc, TranscriptSpan, CAPTION_KIND, SCENE_KIND,
 };
 use uuid::Uuid;
 
 const EXTENSIONS: &[&str] = &["md", "txt"];
+
+fn everywhere() -> TextFilter {
+	TextFilter::everywhere(EXTENSIONS)
+}
+
+fn only_under(subtrees: &[&str]) -> TextFilter {
+	TextFilter {
+		subtrees: subtrees.iter().map(|s| s.to_string()).collect(),
+		..everywhere()
+	}
+}
 
 struct Fixture {
 	dir: tempfile::TempDir,
@@ -141,34 +152,37 @@ async fn pending_files_are_read_once_and_searchable_by_path_and_kind() {
 	.await;
 	let index = f.index().await;
 
-	let pending = index.pending(EXTENSIONS, 0, 100).await.expect("pending");
+	let pending = index.pending(&everywhere(), 0, 100).await.expect("pending");
 	let mut names: Vec<&str> = pending.iter().map(|p| p.external_id.as_str()).collect();
 	names.sort();
 	assert_eq!(names, ["notes/a.md", "notes/deep/b.txt", "top.txt"]);
-	assert_eq!(index.pending_count(EXTENSIONS).await.unwrap(), 3);
+	assert_eq!(index.pending_count(&everywhere()).await.unwrap(), 3);
 	assert_eq!(
 		index
-			.pending_count_under(EXTENSIONS, "notes")
+			.pending_count_under(&everywhere(), "notes")
 			.await
 			.unwrap(),
 		2
 	);
 	assert_eq!(
 		index
-			.pending_count_under(EXTENSIONS, "notes/deep")
+			.pending_count_under(&everywhere(), "notes/deep")
 			.await
 			.unwrap(),
 		1
 	);
 	assert_eq!(
 		index
-			.pending_count_under(EXTENSIONS, "top.txt")
+			.pending_count_under(&everywhere(), "top.txt")
 			.await
 			.unwrap(),
 		1
 	);
 	assert_eq!(
-		index.pending_count_under(EXTENSIONS, "note").await.unwrap(),
+		index
+			.pending_count_under(&everywhere(), "note")
+			.await
+			.unwrap(),
 		0
 	);
 
@@ -189,7 +203,7 @@ async fn pending_files_are_read_once_and_searchable_by_path_and_kind() {
 		])
 		.await
 		.expect("write");
-	assert_eq!(index.pending_count(EXTENSIONS).await.unwrap(), 0);
+	assert_eq!(index.pending_count(&everywhere()).await.unwrap(), 0);
 
 	// Ranked by BM25: the file that says fox three times comes first.
 	assert_eq!(
@@ -244,7 +258,7 @@ async fn a_changed_file_leaves_results_until_it_is_read_again() {
 	let mut f = Fixture::new().await;
 	f.observe(&[("a.md", 10)]).await;
 	let index = f.index().await;
-	let pending = index.pending(EXTENSIONS, 0, 100).await.unwrap();
+	let pending = index.pending(&everywhere(), 0, 100).await.unwrap();
 	index
 		.write(&[doc(&pending[0], "markdown", "old words")])
 		.await
@@ -256,7 +270,7 @@ async fn a_changed_file_leaves_results_until_it_is_read_again() {
 		hit_paths(&index, &search("old")).await.is_empty(),
 		"text read from other bytes is never returned"
 	);
-	let pending = index.pending(EXTENSIONS, 0, 100).await.unwrap();
+	let pending = index.pending(&everywhere(), 0, 100).await.unwrap();
 	assert_eq!(pending.len(), 1);
 	assert_eq!(pending[0].size, Some(20));
 	index
@@ -273,7 +287,7 @@ async fn an_unreadable_file_waits_for_new_bytes_instead_of_every_pass() {
 	let mut f = Fixture::new().await;
 	f.observe(&[("locked.md", 10)]).await;
 	let index = f.index().await;
-	let pending = index.pending(EXTENSIONS, 0, 100).await.unwrap();
+	let pending = index.pending(&everywhere(), 0, 100).await.unwrap();
 	index
 		.write(&[TextDoc {
 			skipped: Some("unreadable: permission denied".into()),
@@ -281,10 +295,10 @@ async fn an_unreadable_file_waits_for_new_bytes_instead_of_every_pass() {
 		}])
 		.await
 		.unwrap();
-	assert_eq!(index.pending_count(EXTENSIONS).await.unwrap(), 0);
+	assert_eq!(index.pending_count(&everywhere()).await.unwrap(), 0);
 
 	f.observe(&[("locked.md", 20)]).await;
-	assert_eq!(index.pending_count(EXTENSIONS).await.unwrap(), 1);
+	assert_eq!(index.pending_count(&everywhere()).await.unwrap(), 1);
 }
 
 #[tokio::test]
@@ -292,7 +306,7 @@ async fn a_deleted_file_is_unreachable_and_pruned() {
 	let mut f = Fixture::new().await;
 	let uuids = f.observe(&[("a.md", 10), ("b.md", 11)]).await;
 	let index = f.index().await;
-	let pending = index.pending(EXTENSIONS, 0, 100).await.unwrap();
+	let pending = index.pending(&everywhere(), 0, 100).await.unwrap();
 	let docs: Vec<_> = pending
 		.iter()
 		.map(|p| doc(p, "markdown", "shared words"))
@@ -301,12 +315,18 @@ async fn a_deleted_file_is_unreachable_and_pruned() {
 
 	f.db.apply_files(&[], &[uuids[0]], &[], None).await.unwrap();
 	assert_eq!(hit_paths(&index, &search("shared")).await, ["b.md"]);
-	assert_eq!(index.prune(EXTENSIONS).await.unwrap(), 1);
+	assert_eq!(index.prune(&everywhere()).await.unwrap(), 1);
 	assert_eq!(index.counts().await.unwrap().files, 1);
-	assert_eq!(index.prune(EXTENSIONS).await.unwrap(), 0);
+	assert_eq!(index.prune(&everywhere()).await.unwrap(), 0);
 
 	// An extension no longer indexed is pruned too.
-	assert_eq!(index.prune(&["txt"]).await.unwrap(), 1);
+	assert_eq!(
+		index
+			.prune(&TextFilter::everywhere(&["txt"]))
+			.await
+			.unwrap(),
+		1
+	);
 	assert_eq!(index.counts().await.unwrap().files, 0);
 }
 
@@ -315,21 +335,21 @@ async fn clearing_the_index_leaves_the_records_and_requeues_every_file() {
 	let mut f = Fixture::new().await;
 	f.observe(&[("a.md", 10), ("b.txt", 11)]).await;
 	let index = f.index().await;
-	let pending = index.pending(EXTENSIONS, 0, 100).await.unwrap();
+	let pending = index.pending(&everywhere(), 0, 100).await.unwrap();
 	let docs: Vec<_> = pending.iter().map(|p| doc(p, "text", "words")).collect();
 	index.write(&docs).await.unwrap();
-	assert_eq!(index.pending_count(EXTENSIONS).await.unwrap(), 0);
+	assert_eq!(index.pending_count(&everywhere()).await.unwrap(), 0);
 
 	index.clear().await.expect("clear");
 	assert_eq!(index.counts().await.unwrap().files, 0);
 	assert!(hit_paths(&index, &search("words")).await.is_empty());
-	assert_eq!(index.pending_count(EXTENSIONS).await.unwrap(), 2);
+	assert_eq!(index.pending_count(&everywhere()).await.unwrap(), 2);
 	assert_eq!(f.db.count_all().await.unwrap(), 2, "records are untouched");
 
 	// Reopening finds the same, empty, file.
 	index.close().await;
 	let index = f.index().await;
-	assert_eq!(index.pending_count(EXTENSIONS).await.unwrap(), 2);
+	assert_eq!(index.pending_count(&everywhere()).await.unwrap(), 2);
 }
 
 #[tokio::test]
@@ -337,12 +357,12 @@ async fn a_rename_to_another_extension_is_read_again() {
 	let mut f = Fixture::new().await;
 	let uuids = f.observe(&[("report.md", 10)]).await;
 	let index = f.index().await;
-	let pending = index.pending(EXTENSIONS, 0, 100).await.unwrap();
+	let pending = index.pending(&everywhere(), 0, 100).await.unwrap();
 	index
 		.write(&[doc(&pending[0], "markdown", "renamed words")])
 		.await
 		.unwrap();
-	assert_eq!(index.pending_count(EXTENSIONS).await.unwrap(), 0);
+	assert_eq!(index.pending_count(&everywhere()).await.unwrap(), 0);
 
 	// The bytes, size and mtime are unchanged; only the extension moved.
 	let rename = |extension: &'static str| {
@@ -356,15 +376,15 @@ async fn a_rename_to_another_extension_is_read_again() {
 		hit_paths(&index, &search("renamed")).await.is_empty(),
 		"text read under another extractor is not returned"
 	);
-	let pending = index.pending(EXTENSIONS, 0, 100).await.unwrap();
+	let pending = index.pending(&everywhere(), 0, 100).await.unwrap();
 	assert_eq!(pending.len(), 1);
 	assert_eq!(pending[0].extension, "txt");
 
 	// To an extension nothing reads: unreachable at once, pruned later.
 	rename("bin").await.unwrap();
 	assert!(hit_paths(&index, &search("renamed")).await.is_empty());
-	assert_eq!(index.pending_count(EXTENSIONS).await.unwrap(), 0);
-	assert_eq!(index.prune(EXTENSIONS).await.unwrap(), 1);
+	assert_eq!(index.pending_count(&everywhere()).await.unwrap(), 0);
+	assert_eq!(index.prune(&everywhere()).await.unwrap(), 1);
 }
 
 #[tokio::test]
@@ -450,7 +470,7 @@ async fn a_transcript_hit_carries_the_time_it_was_said() {
 	let mut silent = transcript(by_name("clips/memo.m4a"), &[]);
 	silent.skipped = Some("no audio track".into());
 	index.write_transcript(&silent).await.unwrap();
-	let notes = index.pending(EXTENSIONS, 0, 100).await.unwrap();
+	let notes = index.pending(&everywhere(), 0, 100).await.unwrap();
 	index
 		.write(&[doc(&notes[0], "markdown", "the lighthouse keeper's notes")])
 		.await
@@ -685,4 +705,276 @@ async fn a_description_hit_answers_for_every_file_with_the_bytes() {
 		.await
 		.unwrap());
 	assert!(hit_paths(&index, &only("caption")).await.is_empty());
+}
+
+#[tokio::test]
+async fn a_pass_reads_only_the_scope_and_never_hidden_folders() {
+	let mut f = Fixture::new().await;
+	f.observe(&[
+		("Documents/a.md", 10),
+		("Documents/.obsidian/cache.md", 11),
+		("Documents/deep/.notes.txt", 12),
+		("Documents2/b.md", 13),
+		("Downloads/c.txt", 14),
+		(".cargo/registry/lib.md", 15),
+		("Projects/d.md", 16),
+	])
+	.await;
+	let index = f.index().await;
+
+	let paths = |pending: Vec<PendingText>| {
+		let mut paths: Vec<String> = pending.into_iter().map(|p| p.external_id).collect();
+		paths.sort();
+		paths
+	};
+	let scoped = only_under(&["Documents", "Downloads"]);
+	assert_eq!(
+		paths(index.pending(&scoped, 0, 100).await.unwrap()),
+		["Documents/a.md", "Downloads/c.txt"]
+	);
+	assert_eq!(index.pending_count(&scoped).await.unwrap(), 2);
+	assert_eq!(
+		index
+			.pending_count_under(&scoped, "Documents")
+			.await
+			.unwrap(),
+		1
+	);
+	assert_eq!(
+		paths(index.pending(&everywhere(), 0, 100).await.unwrap()),
+		[
+			"Documents/a.md",
+			"Documents2/b.md",
+			"Downloads/c.txt",
+			"Projects/d.md"
+		]
+	);
+	assert_eq!(index.pending_count(&only_under(&[])).await.unwrap(), 0);
+	assert!(index
+		.pending(&only_under(&[]), 0, 100)
+		.await
+		.unwrap()
+		.is_empty());
+}
+
+#[tokio::test]
+async fn narrowing_the_scope_prunes_what_falls_outside_it() {
+	let mut f = Fixture::new().await;
+	f.observe(&[("Documents/a.md", 10), ("Projects/b.md", 11)])
+		.await;
+	let index = f.index().await;
+	let pending = index.pending(&everywhere(), 0, 100).await.unwrap();
+	let docs: Vec<TextDoc> = pending
+		.iter()
+		.map(|p| doc(p, "markdown", "kept words"))
+		.collect();
+	index.write(&docs).await.unwrap();
+
+	assert_eq!(index.prune(&everywhere()).await.unwrap(), 0);
+	assert_eq!(index.prune(&only_under(&["Documents"])).await.unwrap(), 1);
+	assert_eq!(hit_paths(&index, &search("kept")).await, ["Documents/a.md"]);
+	assert_eq!(index.prune(&only_under(&[])).await.unwrap(), 1);
+	assert_eq!(index.counts().await.unwrap().files, 0);
+}
+
+#[tokio::test]
+async fn an_index_from_an_older_policy_is_cleared_on_open_and_keeps_transcripts() {
+	let mut f = Fixture::new().await;
+	f.observe(&[("notes/a.md", 10), ("clips/talk.mp4", 20)])
+		.await;
+	let index = f.index().await;
+	let pending = index.pending(&everywhere(), 0, 100).await.unwrap();
+	let docs: Vec<TextDoc> = pending
+		.iter()
+		.map(|p| doc(p, "markdown", "old words"))
+		.collect();
+	index.write(&docs).await.unwrap();
+	let recording = index
+		.pending_transcripts(&["mp4"], "", 0, 100)
+		.await
+		.unwrap();
+	index
+		.write_transcript(&transcript(&recording[0], &[(0, 900, "spoken words")]))
+		.await
+		.unwrap();
+	let epoch = index.epoch().await.unwrap();
+	sqlx::query("UPDATE text_meta SET value = 1 WHERE key = 'layout'")
+		.execute(index.pool())
+		.await
+		.unwrap();
+	index.close().await;
+
+	let reopened = f.index().await;
+	assert_eq!(reopened.counts().await.unwrap().files, 0);
+	assert!(reopened.epoch().await.unwrap() > epoch);
+	assert_eq!(reopened.pending_count(&everywhere()).await.unwrap(), 1);
+	assert_eq!(
+		hit_paths(&reopened, &search("spoken")).await,
+		["clips/talk.mp4"]
+	);
+	reopened.close().await;
+
+	let again = f.index().await;
+	let pending = again.pending(&everywhere(), 0, 100).await.unwrap();
+	again
+		.write(&[doc(&pending[0], "markdown", "new words")])
+		.await
+		.unwrap();
+	again.close().await;
+	assert_eq!(
+		f.index().await.counts().await.unwrap().files,
+		1,
+		"a current index is left alone"
+	);
+}
+
+#[tokio::test]
+async fn freed_pages_are_given_back_once_they_are_a_quarter_of_the_file() {
+	let mut f = Fixture::new().await;
+	let files: Vec<(String, i64)> = (0..80).map(|i| (format!("notes/{i}.md"), 10 + i)).collect();
+	let refs: Vec<(&str, i64)> = files.iter().map(|(p, s)| (p.as_str(), *s)).collect();
+	f.observe(&refs).await;
+	let index = f.index().await;
+	let pending = index.pending(&everywhere(), 0, 100).await.unwrap();
+	let body = (0..120_000).map(|i| format!("w{i} ")).collect::<String>();
+	let docs: Vec<TextDoc> = pending.iter().map(|p| doc(p, "markdown", &body)).collect();
+	index.write(&docs).await.unwrap();
+	let size = || std::fs::metadata(index.path()).unwrap().len();
+	let full = size();
+
+	assert_eq!(index.reclaim().await.unwrap(), 0, "nothing is free yet");
+	assert_eq!(index.prune(&only_under(&[])).await.unwrap(), 80);
+	assert!(index.reclaim().await.unwrap() > 0);
+	assert!(size() < full / 4, "{} of {full} bytes left", size());
+}
+
+#[tokio::test]
+async fn the_deep_scope_is_an_assertion_the_later_stamp_wins() {
+	let f = Fixture::new().await;
+	assert_eq!(f.db.deep_scope().await.unwrap(), None);
+
+	let device = Uuid::now_v7();
+	let stamp = |hlc: &str| Stamp {
+		hlc: hlc.to_string(),
+		device_uuid: device,
+	};
+	let whole = vec![String::new()];
+	let folders = vec!["Documents".to_string(), "Projects/notes".to_string()];
+	assert!(f.db.set_deep_scope(&folders, &stamp("0002")).await.unwrap());
+	assert!(!f.db.set_deep_scope(&whole, &stamp("0001")).await.unwrap());
+	assert_eq!(f.db.deep_scope().await.unwrap(), Some(folders));
+	assert!(f.db.set_deep_scope(&whole, &stamp("0003")).await.unwrap());
+	assert_eq!(f.db.deep_scope().await.unwrap(), Some(whole));
+}
+
+#[tokio::test]
+async fn hashing_claims_only_files_in_the_deep_scope() {
+	let mut f = Fixture::new().await;
+	f.observe(&[
+		("Documents/a.pdf", 10),
+		("Documents/.hidden/b.bin", 11),
+		("Library/Caches/c.bin", 12),
+		("top.bin", 13),
+	])
+	.await;
+	let pool = f.db.pool();
+	let claimed = |subtrees: &[&str]| {
+		let subtrees: Vec<String> = subtrees.iter().map(|s| s.to_string()).collect();
+		async move {
+			let mut paths: Vec<String> = files_needing_content(pool, 100, &subtrees)
+				.await
+				.unwrap()
+				.into_iter()
+				.map(|file| file.external_id)
+				.collect();
+			paths.sort();
+			(
+				paths,
+				count_files_needing_content(pool, &subtrees).await.unwrap(),
+			)
+		}
+	};
+	assert_eq!(
+		claimed(&["Documents"]).await,
+		(
+			vec!["Documents/.hidden/b.bin".into(), "Documents/a.pdf".into()],
+			2
+		)
+	);
+	assert_eq!(claimed(&[""]).await.1, 4);
+	assert_eq!(claimed(&[]).await, (vec![], 0));
+}
+
+#[tokio::test]
+async fn a_cleared_index_left_unvacuumed_gives_its_space_back_on_open() {
+	let mut f = Fixture::new().await;
+	let files: Vec<(String, i64)> = (0..60).map(|i| (format!("notes/{i}.md"), 10 + i)).collect();
+	let refs: Vec<(&str, i64)> = files.iter().map(|(p, s)| (p.as_str(), *s)).collect();
+	f.observe(&refs).await;
+	f.observe(&[("clips/talk.mp4", 5)]).await;
+	let index = f.index().await;
+	let pending = index.pending(&everywhere(), 0, 100).await.unwrap();
+	let body = (0..120_000).map(|i| format!("w{i} ")).collect::<String>();
+	let docs: Vec<TextDoc> = pending.iter().map(|p| doc(p, "markdown", &body)).collect();
+	index.write(&docs).await.unwrap();
+	let recording = index
+		.pending_transcripts(&["mp4"], "", 0, 10)
+		.await
+		.unwrap();
+	index
+		.write_transcript(&transcript(&recording[0], &[(0, 900, "spoken words")]))
+		.await
+		.unwrap();
+	// A daemon that stopped after the drop committed and before the rewrite.
+	for statement in [
+		"DROP TABLE text_fts",
+		"DROP TABLE text_doc",
+		"UPDATE text_meta SET value = 2 WHERE key = 'layout'",
+	] {
+		sqlx::query(statement).execute(index.pool()).await.unwrap();
+	}
+	let full = std::fs::metadata(index.path()).unwrap().len();
+	index.close().await;
+
+	let reopened = f.index().await;
+	let size = std::fs::metadata(reopened.path()).unwrap().len();
+	assert!(size < full / 10, "{size} of {full} bytes left");
+	assert_eq!(
+		hit_paths(&reopened, &search("spoken")).await,
+		["clips/talk.mp4"]
+	);
+	assert_eq!(reopened.pending_count(&everywhere()).await.unwrap(), 60);
+}
+
+/// Upgrades the old-policy index in `SD_TEXT_UPGRADE_DIR` in place. The
+/// disk-budget check runs it against a multi-gigabyte `text.db` on a small
+/// filesystem; see `docs/core/content-search.mdx`.
+#[tokio::test]
+#[ignore]
+async fn an_old_index_upgrades_in_place() {
+	let dir = std::path::PathBuf::from(
+		std::env::var("SD_TEXT_UPGRADE_DIR").expect("SD_TEXT_UPGRADE_DIR"),
+	);
+	let index = ContentTextIndex::open(&dir).await.expect("open");
+	assert_eq!(index.counts().await.unwrap().files, 0);
+	let pool = index.pool().clone();
+	let count = |sql: &'static str| {
+		let pool = pool.clone();
+		async move {
+			sqlx::query_scalar::<_, i64>(sql)
+				.fetch_one(&pool)
+				.await
+				.unwrap()
+		}
+	};
+	assert_eq!(
+		count("SELECT COUNT(*) FROM transcript_fts WHERE transcript_fts MATCH 'spoken'").await,
+		2000
+	);
+	assert_eq!(
+		count("SELECT COUNT(*) FROM description_fts WHERE description_fts MATCH 'described'").await,
+		100
+	);
+	assert_eq!(count("SELECT COUNT(*) FROM transcript_doc").await, 200);
+	index.close().await;
 }
