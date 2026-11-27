@@ -7,7 +7,7 @@ import { useSemanticSearch } from "../../hooks/useSemanticSearch";
  * together. Shown above the file results while the Meaning mode is on.
  */
 export function SemanticHits() {
-	const { files, isLoading, pendingDocuments } = useSemanticSearch(true);
+	const { files, isLoading, pendingDocuments, error, failedSources } = useSemanticSearch(true);
 	const open = useOpenContentHit();
 
 	return (
@@ -24,7 +24,14 @@ export function SemanticHits() {
 					</span>
 				)}
 			</div>
-			{!isLoading && files.length === 0 ? (
+			{error && (
+				<p className="mt-2 text-xs text-red-500">
+					{files.length > 0
+						? `Search failed in ${failedSources} ${failedSources === 1 ? "source" : "sources"}: ${error}`
+						: `Search by meaning failed: ${error}`}
+				</p>
+			)}
+			{error && files.length === 0 ? null : !isLoading && files.length === 0 ? (
 				<p className="text-ink-faint mt-2 text-xs">Nothing found by meaning.</p>
 			) : (
 				<ul className="mt-2 space-y-1">

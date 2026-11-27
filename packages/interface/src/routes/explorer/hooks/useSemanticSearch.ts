@@ -69,6 +69,10 @@ export interface SemanticSearchResult {
 	files: ContentFileHits[];
 	isLoading: boolean;
 	pendingDocuments: number;
+	/** Why a source's search failed, when one did. */
+	error: string | null;
+	/** Sources whose search failed; the others' files are still listed. */
+	failedSources: number;
 }
 
 /**
@@ -128,6 +132,8 @@ export function useSemanticSearch(enabled: boolean): SemanticSearchResult {
 					(sum, result) => sum + (result.data?.pending_documents ?? 0),
 					0,
 				),
+				error: results.find((result) => result.error)?.error?.toString() ?? null,
+				failedSources: results.filter((result) => result.error).length,
 			};
 		},
 	});
