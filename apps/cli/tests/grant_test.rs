@@ -7,7 +7,7 @@
 use sd_core::{
 	infra::{action::LibraryAction, daemon::addr::daemon_socket_addr},
 	ops::{
-		grants::{authorize, GrantCap, GrantError},
+		grants::{authorize, Access, GrantCap, GrantError},
 		sources::track::{TrackSourceAction, TrackSourceInput},
 	},
 	Core,
@@ -128,15 +128,8 @@ async fn sd_grant_creates_lists_and_revokes() -> Result<(), Box<dyn std::error::
 		.expect("the token is printed")
 		.to_string();
 	assert!(token.starts_with("sdg_"), "{stdout}");
-	assert!(authorize(
-		&core.context,
-		&token,
-		"test",
-		Path::new("a.txt"),
-		GrantCap::Read
-	)
-	.await
-	.is_ok());
+	let access = Access::new(&token, "test", Path::new("a.txt"), GrantCap::Read);
+	assert!(authorize(&core.context, &access).await.is_ok());
 
 	// A lifetime outside the bounds is refused.
 	let (ok, _, _) = sd(
@@ -173,14 +166,9 @@ async fn sd_grant_creates_lists_and_revokes() -> Result<(), Box<dyn std::error::
 	assert!(ok, "revoke failed: {stderr}");
 	assert!(stdout.contains(&id), "{stdout}");
 	assert_eq!(
-		authorize(
-			&core.context,
-			&token,
-			"test",
-			Path::new("a.txt"),
-			GrantCap::Read
-		)
-		.await,
+		authorize(&core.context, &access)
+			.await
+			.map(|authorized| authorized.scope),
 		Err(GrantError::Revoked)
 	);
 

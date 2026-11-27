@@ -26,10 +26,24 @@ needs nothing else from the daemon.
 ## Spaces and grants
 
 A space is a directory with a policy. A grant lends a subtree of a space to one
-holder. Until the `space` table exists, every directory grant is its own space:
-the space id is the grant id, and the space root is the granted directory. When
-spaces land, the space id becomes the space's own id and a grant names a
-subtree inside it. The URLs below do not change.
+holder. A grant belongs to the innermost space of its source whose root holds
+the granted directory, and its URLs use that space's id. A grant outside every
+space is its own space: the space id is the grant id. A request that names any
+other space answers 404, the same as a space that does not exist.
+
+The granted directory stays the limit inside a larger space. Paths in requests
+and responses are relative to the granted directory, so a grant on
+`projects/site` inside a space rooted at `projects` reads `a.txt` as
+`projects/site/a.txt` and cannot reach `projects/other`.
+
+A space has an authority epoch, which fences writes during a hand-over (see
+`docs/core/design/spaces.md`). A write tool takes an optional `epoch`
+argument: the epoch the client wrote against. A write naming an epoch other
+than the current one answers 409 with code `stale_epoch` and the current epoch
+in `error.epoch`; over MCP it is a tool error whose text starts with
+`stale_epoch` and names the current epoch. A write that names no epoch is not
+checked. Spaces store no epoch yet, so the current epoch is 0: a write naming 0
+passes and any other value is stale.
 
 A client learns its space ids from `GET /v1/spaces`. It never builds one from
 anything else.
@@ -51,8 +65,8 @@ the filesystem.
 - Unknown, expired and revoked tokens answer the same 401 with
   `WWW-Authenticate: Bearer realm="spacedrive"`. A client that gets 401 stops
   and asks its owner for a new token. It does not retry.
-- A request that names a space the token does not grant answers 404, the same
-  answer as a space that does not exist.
+- A request that names a space other than the one the token's grant resolves
+  to answers 404, the same answer as a space that does not exist.
 - The endpoint sends no CORS headers. A request carrying `Origin` answers 403,
   and `OPTIONS` answers 403.
 - `Host` must name the bound address or a configured host name, with the bound
@@ -73,6 +87,7 @@ Every non-2xx answer outside `/mcp` has a JSON body:
 | 403 | `forbidden` | The grant does not allow this: outside the root, read-only, a link out of the root, or a protected file. |
 | 404 | `not_found` | No such space, file or directory. |
 | 409 | `conflict` | A create would replace an existing file. |
+| 409 | `stale_epoch` | A write named an old authority epoch. The body carries the current `epoch`. |
 | 412 | `stale` | A precondition failed. The body carries the current `etag`. |
 | 413 | `too_large` | Body above its limit. |
 | 416 | `range` | The range starts at or past the end of the file. |

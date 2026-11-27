@@ -156,7 +156,7 @@ async fn mount_tree(
 	path: PathBuf,
 	grant_token: Option<String>,
 ) -> Result<FuseMountInfo, FuseError> {
-	use crate::ops::grants::{authorize, GrantCap};
+	use crate::ops::grants::{authorize, Access, GrantCap};
 	use tree::{ArenaFs, BoundGrant, LibraryTree, MountRoot};
 
 	let path = prepare_mountpoint(path).await?;
@@ -167,14 +167,8 @@ async fn mount_tree(
 
 	let (grant, scope) = match grant_token {
 		Some(token) => {
-			let scope = authorize(
-				&context,
-				&token,
-				"fuse.mount",
-				Path::new(""),
-				GrantCap::Read,
-			)
-			.await?;
+			let access = Access::new(&token, "fuse.mount", Path::new(""), GrantCap::Read);
+			let scope = authorize(&context, &access).await?.scope;
 			let sources = context.volume_index().sources();
 			let source = crate::ops::paths::reach::innermost_source(&sources, &scope.root)
 				.ok_or(FuseError::NoSource)?;

@@ -18,8 +18,9 @@
 //! per-minute tally, and a request from a locked-out address is tallied. A
 //! write that fails answers 503 instead.
 //!
-//! Until spaces exist, a space is a grant and its id is the grant id;
-//! [`space_scope`] is the one place that mapping lives.
+//! The space in a URL goes to `authorize`, which resolves the space a grant
+//! lends from: the innermost space whose root holds the granted directory,
+//! or for a grant outside every space the grant itself, with the grant id.
 
 use std::{
 	io::{Read, Seek, SeekFrom},
@@ -61,10 +62,11 @@ use crate::{
 	ops::{
 		files::bucket as files_bucket,
 		grants::{
-			self, authorize_with, bucket::BucketUrl, store, AuditId, AuditResult, GrantCap,
+			self, authorize, bucket::BucketUrl, store, Access, AuditId, AuditResult, GrantCap,
 			GrantError, GrantScope, RequestMeta,
 		},
 		indexing::{metadata::refuse_dataless_blocking, state::EntryKind},
+		spaces::store as spaces,
 	},
 	volume::{VolumeBackend, VolumeError},
 };
@@ -307,14 +309,14 @@ async fn serve(
 		Route::Spaces => request.spaces().await,
 		Route::Tools { space } => {
 			request
-				.space_scope(&space, "rest.tools", "", GrantCap::Read, None)
+				.space_scope(&space, "rest.tools", "", GrantCap::Read, None, None)
 				.await?;
 			Ok(json_ok(json!({ "tools": tools::definitions() })))
 		}
 		Route::Tool { space, name } => request.tool(&space, &name, body).await,
 		Route::Stat { space, path } => {
 			let scope = request
-				.space_scope(&space, "rest.stat", &path, GrantCap::Read, None)
+				.space_scope(&space, "rest.stat", &path, GrantCap::Read, None, None)
 				.await?;
 			let (grant, library) = (scope.grant_id, scope.library_id);
 			let context = endpoint.context.clone();
@@ -331,7 +333,7 @@ async fn serve(
 		Route::List { space, path } => {
 			let (cursor, limit) = list_query(uri)?;
 			let scope = request
-				.space_scope(&space, "rest.list", &path, GrantCap::Read, None)
+				.space_scope(&space, "rest.list", &path, GrantCap::Read, None, None)
 				.await?;
 			let (grant, library) = (scope.grant_id, scope.library_id);
 			let context = endpoint.context.clone();
@@ -347,7 +349,7 @@ async fn serve(
 		}
 		Route::Blocks { space, path } => {
 			let scope = request
-				.space_scope(&space, "rest.blocks", &path, GrantCap::Read, None)
+				.space_scope(&space, "rest.blocks", &path, GrantCap::Read, None, None)
 				.await?;
 			let range = parse_range(headers)?;
 			let if_match = headers
@@ -371,7 +373,7 @@ async fn serve(
 		}
 		Route::Events { space } => {
 			let scope = request
-				.space_scope(&space, "rest.events", "", GrantCap::Read, None)
+				.space_scope(&space, "rest.events", "", GrantCap::Read, None, None)
 				.await?;
 			let last_event_id = headers
 				.get("last-event-id")
@@ -430,6 +432,16 @@ fn screen(
 	Ok(())
 }
 
+/// What one request asks `authorize` for.
+struct Target<'a> {
+	op: &'a str,
+	space: Option<Uuid>,
+	path: &'a str,
+	cap: GrantCap,
+	pattern: Option<String>,
+	epoch: Option<u64>,
+}
+
 struct Request<'a> {
 	endpoint: &'a Arc<Endpoint>,
 	ip: IpAddr,
@@ -443,33 +455,24 @@ impl Request<'_> {
 	///
 	/// An allowed request's audit row is kept on the request, so the answer
 	/// completes it whichever route produced it.
-	async fn authorize(
-		&self,
-		op: &str,
-		path: &str,
-		cap: GrantCap,
-		pattern: Option<String>,
-	) -> Result<GrantScope, Response> {
-		let meta = RequestMeta {
-			client: Some(self.ip),
-			session: None,
-			pattern,
+	async fn authorize(&self, target: Target<'_>) -> Result<GrantScope, Response> {
+		let access = Access {
+			space: target.space,
+			epoch: target.epoch,
+			meta: RequestMeta {
+				client: Some(self.ip),
+				session: None,
+				pattern: target.pattern,
+			},
+			..Access::new(self.token, target.op, Path::new(target.path), target.cap)
 		};
-		let authorized = authorize_with(
-			&self.endpoint.context,
-			self.token,
-			op,
-			Path::new(path),
-			cap,
-			&meta,
-		)
-		.await;
-		match authorized {
-			Ok((scope, row)) => {
+		match authorize(&self.endpoint.context, &access).await {
+			Ok(authorized) => {
+				let scope = authorized.scope;
 				*self.audit.row.lock().expect("audit lock") = Some(Audited {
 					library: scope.library_id,
 					grant: scope.grant_id,
-					row,
+					row: authorized.audit,
 				});
 				Ok(scope)
 			}
@@ -489,6 +492,8 @@ impl Request<'_> {
 				"the space root is unavailable",
 			)),
 			Err(GrantError::InvalidPath(_)) => Err(error(StatusCode::BAD_REQUEST, "invalid path")),
+			Err(GrantError::UnknownSpace) => Err(error(StatusCode::NOT_FOUND, "no such space")),
+			Err(GrantError::StaleEpoch { current }) => Err(stale_epoch(current)),
 			Err(refusal) => Err(error(
 				StatusCode::FORBIDDEN,
 				http::refusal_message(&refusal),
@@ -498,9 +503,8 @@ impl Request<'_> {
 
 	/// The scope a request on `space` may use, after its rate is taken.
 	///
-	/// A space is a grant until the space table exists, so a space id other
-	/// than the token's grant id answers 404, the same as one that does not
-	/// exist. When spaces land, this is the function that changes.
+	/// A space id other than the grant's answers 404, the same as one that
+	/// does not exist.
 	async fn space_scope(
 		&self,
 		space: &str,
@@ -508,11 +512,22 @@ impl Request<'_> {
 		path: &str,
 		cap: GrantCap,
 		pattern: Option<String>,
+		epoch: Option<u64>,
 	) -> Result<GrantScope, Response> {
-		let scope = self.authorize(op, path, cap, pattern).await?;
-		if Uuid::parse_str(space).ok() != Some(scope.grant_id) {
-			return Err(error(StatusCode::NOT_FOUND, "no such space"));
-		}
+		// A malformed id still goes through `authorize`, so a bad token answers
+		// 401 before the 404 and the request is audited. No space or grant has
+		// the nil id.
+		let space = Uuid::parse_str(space).unwrap_or(Uuid::nil());
+		let scope = self
+			.authorize(Target {
+				op,
+				space: Some(space),
+				path,
+				cap,
+				pattern,
+				epoch,
+			})
+			.await?;
 		self.take_rate(scope.grant_id)?;
 		Ok(scope)
 	}
@@ -601,34 +616,57 @@ impl Request<'_> {
 
 	async fn spaces(&self) -> Result<Response, Response> {
 		let scope = self
-			.authorize("rest.spaces", "", GrantCap::Read, None)
+			.authorize(Target {
+				op: "rest.spaces",
+				space: None,
+				path: "",
+				cap: GrantCap::Read,
+				pattern: None,
+				epoch: None,
+			})
 			.await?;
 		self.take_rate(scope.grant_id)?;
+		let unavailable = |e: String| {
+			warn!(error = %e, "could not read a grant for the space list");
+			error(
+				StatusCode::SERVICE_UNAVAILABLE,
+				"the grant could not be read; try again",
+			)
+		};
 		let grant =
 			crate::ops::grants::verified(&self.endpoint.context, scope.library_id, self.token)
 				.await
 				.map_err(|e| match e {
-					GrantError::Internal(e) => {
-						warn!(error = %e, "could not read a grant for the space list");
-						error(
-							StatusCode::SERVICE_UNAVAILABLE,
-							"the grant could not be read; try again",
-						)
-					}
+					GrantError::Internal(e) => unavailable(e),
 					_ => unauthorized(),
 				})?;
-		let name = grant
-			.label
-			.filter(|label| !label.trim().is_empty())
-			.or_else(|| {
-				scope
-					.root
-					.file_name()
-					.map(|name| name.to_string_lossy().into_owned())
-			})
-			.unwrap_or_default();
+		let name = if scope.space_id == scope.grant_id {
+			grant
+				.label
+				.filter(|label| !label.trim().is_empty())
+				.or_else(|| {
+					scope
+						.root
+						.file_name()
+						.map(|name| name.to_string_lossy().into_owned())
+				})
+				.unwrap_or_default()
+		} else {
+			let library = self
+				.endpoint
+				.context
+				.libraries()
+				.await
+				.get_library(scope.library_id)
+				.await
+				.ok_or_else(|| unavailable("the library is not open".to_string()))?;
+			spaces::find(&library, &self.endpoint.context, scope.space_id)
+				.await
+				.map_err(unavailable)?
+				.name
+		};
 		Ok(json_ok(json!([{
-			"id": scope.grant_id,
+			"id": scope.space_id,
 			"name": name,
 			"caps": grant.caps.as_str(),
 			"expires_at": timestamp(grant.expires_at),
@@ -669,6 +707,11 @@ impl Request<'_> {
 		};
 		paths::check(&path).map_err(|reason| error(StatusCode::BAD_REQUEST, reason))?;
 		let cap = tool.map_or(GrantCap::Read, Tool::cap);
+		let epoch = match tool {
+			Some(tool) => tools::target_epoch(tool, &arguments)
+				.map_err(|message| error(StatusCode::BAD_REQUEST, &message))?,
+			None => None,
+		};
 		let scope = self
 			.space_scope(
 				space,
@@ -676,6 +719,7 @@ impl Request<'_> {
 				&path,
 				cap,
 				arguments["pattern"].as_str().map(str::to_string),
+				epoch,
 			)
 			.await?;
 		if let Some(reason) = self.endpoint.network_write_refused(cap, self.headers) {
@@ -1099,6 +1143,20 @@ fn stale(etag: &str) -> Response {
 	if let Ok(value) = HeaderValue::from_str(etag) {
 		response.headers_mut().insert(header::ETAG, value);
 	}
+	response
+}
+
+/// A write against an authority epoch the space has moved past. The body
+/// names the current epoch so the client can catch up and retry.
+fn stale_epoch(current: u64) -> Response {
+	let mut body = error_body(
+		StatusCode::CONFLICT,
+		&format!("the space's authority epoch is now {current}"),
+	);
+	body["error"]["code"] = json!("stale_epoch");
+	body["error"]["epoch"] = json!(current);
+	let mut response = json_ok(body);
+	*response.status_mut() = StatusCode::CONFLICT;
 	response
 }
 

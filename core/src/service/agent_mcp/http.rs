@@ -9,7 +9,7 @@
 //! budgets. Only then does a tool run.
 //!
 //! Every request carrying a token is audited before it is answered: the
-//! decision row `authorize_with` writes is completed with the response's size,
+//! decision row `authorize` writes is completed with the response's size,
 //! result and duration, a rate-limited request is folded into its grant's
 //! per-minute tally, and a locked-out address is tallied per minute. A write
 //! that fails answers 503 instead of the response.
@@ -48,8 +48,8 @@ use crate::{
 	context::CoreContext,
 	ops::grants::{
 		audit::{self, TallyKind},
-		authorize_with, store, AuditId, AuditResult, GrantCap, GrantError, GrantScope, GrantStatus,
-		RequestMeta,
+		authorize, store, Access, AuditId, AuditResult, GrantCap, GrantError, GrantScope,
+		GrantStatus, RequestMeta,
 	},
 };
 
@@ -511,23 +511,31 @@ impl Request {
 			.map(str::to_string)
 	}
 
-	/// The audit name, the grant-relative path and the capability this
-	/// message needs, or why a tool call's arguments do not fit its schema.
-	fn target(&self) -> Result<(String, String, GrantCap), String> {
+	/// The audit name, the grant-relative path, the capability this message
+	/// needs and the authority epoch a write names, or why a tool call's
+	/// arguments do not fit its schema.
+	fn target(&self) -> Result<(String, String, GrantCap, Option<u64>), String> {
 		Ok(match self.method.as_deref() {
 			Some("tools/call") => {
 				let name = self.params["name"].as_str().unwrap_or("unknown");
-				let (path, cap) = match tools::Tool::parse(name) {
+				let arguments = &self.params["arguments"];
+				let (path, cap, epoch) = match tools::Tool::parse(name) {
 					Some(tool) => (
-						tools::target_path(tool, &self.params["arguments"])?,
+						tools::target_path(tool, arguments)?,
 						tool.cap(),
+						tools::target_epoch(tool, arguments)?,
 					),
-					None => (String::new(), GrantCap::Read),
+					None => (String::new(), GrantCap::Read, None),
 				};
-				(format!("mcp.{name}"), path, cap)
+				(format!("mcp.{name}"), path, cap, epoch)
 			}
-			Some(method) => (format!("mcp.{method}"), String::new(), GrantCap::Read),
-			None => ("mcp.response".to_string(), String::new(), GrantCap::Read),
+			Some(method) => (format!("mcp.{method}"), String::new(), GrantCap::Read, None),
+			None => (
+				"mcp.response".to_string(),
+				String::new(),
+				GrantCap::Read,
+				None,
+			),
 		})
 	}
 }
@@ -538,15 +546,11 @@ async fn check(
 	endpoint: &Endpoint,
 	ip: IpAddr,
 	challenge: &str,
-	token: &str,
-	op: &str,
-	path: &str,
-	cap: GrantCap,
-	meta: &RequestMeta,
+	access: &Access<'_>,
 	id: &Value,
 ) -> Result<(GrantScope, AuditId), Response> {
-	match authorize_with(&endpoint.context, token, op, Path::new(path), cap, meta).await {
-		Ok(authorized) => Ok(authorized),
+	match authorize(&endpoint.context, access).await {
+		Ok(authorized) => Ok((authorized.scope, authorized.audit)),
 		Err(refusal) if refusal.is_credential() => {
 			endpoint.auth_failed(ip);
 			Err(unauthorized(id.clone(), challenge))
@@ -555,6 +559,14 @@ async fn check(
 			warn!(%reason, "agent MCP request could not be authorized");
 			Err(unavailable(id.clone()))
 		}
+		// The epoch is the tool's argument, so a stale one is the tool's
+		// failure the agent reads and acts on, not a protocol error.
+		Err(GrantError::StaleEpoch { current }) => Err(rpc_result(
+			id.clone(),
+			tools::error_result(&format!(
+				"stale_epoch: the space's authority epoch is now {current}; read again and write against epoch {current}"
+			)),
+		)),
 		Err(refusal) => Err(forbidden(id.clone(), refusal_message(&refusal))),
 	}
 }
@@ -593,7 +605,7 @@ async fn post(
 		}
 	}
 
-	let (op, path, cap) = match request.target() {
+	let (op, path, cap, epoch) = match request.target() {
 		Ok(target) => target,
 		Err(message) => return rpc_result(id, tools::error_result(&message)),
 	};
@@ -602,11 +614,15 @@ async fn post(
 		session: session_id(headers).map(str::to_string),
 		pattern: request.pattern(),
 	};
-	let (scope, row) =
-		match check(endpoint, ip, challenge, token, &op, &path, cap, &meta, &id).await {
-			Ok(authorized) => authorized,
-			Err(response) => return response,
-		};
+	let access = Access {
+		epoch,
+		meta,
+		..Access::new(token, &op, Path::new(&path), cap)
+	};
+	let (scope, row) = match check(endpoint, ip, challenge, &access, &id).await {
+		Ok(authorized) => authorized,
+		Err(response) => return response,
+	};
 	if let Some(reason) = endpoint.network_write_refused(cap, headers) {
 		let refused = (forbidden(id.clone(), reason), AuditResult::Denied);
 		return endpoint.finish(&scope, row, started, refused, &id).await;
@@ -788,24 +804,15 @@ async fn delete(
 		endpoint.auth_failed(ip);
 		return unauthorized(Value::Null, challenge);
 	};
-	let meta = RequestMeta {
-		client: Some(ip),
-		session: session_id(headers).map(str::to_string),
-		pattern: None,
+	let access = Access {
+		meta: RequestMeta {
+			client: Some(ip),
+			session: session_id(headers).map(str::to_string),
+			pattern: None,
+		},
+		..Access::new(token, "mcp.session.end", Path::new(""), GrantCap::Read)
 	};
-	let (scope, row) = match check(
-		endpoint,
-		ip,
-		challenge,
-		token,
-		"mcp.session.end",
-		"",
-		GrantCap::Read,
-		&meta,
-		&Value::Null,
-	)
-	.await
-	{
+	let (scope, row) = match check(endpoint, ip, challenge, &access, &Value::Null).await {
 		Ok(authorized) => authorized,
 		Err(response) => return response,
 	};

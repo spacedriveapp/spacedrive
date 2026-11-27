@@ -32,7 +32,7 @@ use sd_core::{
 			extend::{ExtendGrantAction, ExtendGrantInput},
 			list::{ListGrantsInput, ListGrantsQuery},
 			revoke::{RevokeGrantAction, RevokeGrantInput},
-			GrantCap, GrantError, GrantStatus,
+			Access, GrantCap, GrantError, GrantStatus,
 		},
 		sources::delete::action::{DeleteSourceAction, DeleteSourceInput},
 	},
@@ -76,9 +76,10 @@ async fn check(
 	path: impl AsRef<Path>,
 	cap: GrantCap,
 ) -> Result<PathBuf, GrantError> {
-	authorize(&harness.core.context, token, "test", path.as_ref(), cap)
+	let access = Access::new(token, "test", path.as_ref(), cap);
+	authorize(&harness.core.context, &access)
 		.await
-		.map(|scope| scope.path)
+		.map(|authorized| authorized.scope.path)
 }
 
 fn escapes(result: Result<PathBuf, GrantError>) -> bool {
