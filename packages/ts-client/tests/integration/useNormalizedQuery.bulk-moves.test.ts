@@ -19,6 +19,7 @@ import React from "react";
 // Bridge config type matching Rust TestBridgeConfig
 interface BridgeConfig {
 	socket_addr: string;
+	rpc_secret: string;
 	library_id: string;
 	device_slug: string;
 	source_path: string;
@@ -44,7 +45,7 @@ describe("useNormalizedQuery - Bulk Moves Integration", () => {
 		console.log(`[TS] Bridge config:`, bridgeConfig);
 
 		// Connect to daemon via TCP socket
-		client = SpacedriveClient.fromTcpSocket(bridgeConfig.socket_addr);
+		client = SpacedriveClient.fromTcpSocket(bridgeConfig.socket_addr, bridgeConfig.rpc_secret);
 
 		console.log(`[TS] Connected to daemon`);
 
