@@ -584,10 +584,11 @@ async fn post(
 		session: session_id(headers).map(str::to_string),
 		pattern: request.pattern(),
 	};
-	let (scope, row) = match check(endpoint, ip, challenge, token, &op, &path, cap, &meta, &id).await {
-		Ok(authorized) => authorized,
-		Err(response) => return response,
-	};
+	let (scope, row) =
+		match check(endpoint, ip, challenge, token, &op, &path, cap, &meta, &id).await {
+			Ok(authorized) => authorized,
+			Err(response) => return response,
+		};
 	if let Err(reason) = paths::check(&path) {
 		let refused = (forbidden(id.clone(), reason), AuditResult::Denied);
 		return endpoint.finish(&scope, row, started, refused, &id).await;
