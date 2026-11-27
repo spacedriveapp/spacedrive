@@ -5,14 +5,27 @@ use std::{
 	sync::Arc,
 };
 
+use chrono::Utc;
+use tracing::warn;
 use uuid::Uuid;
 
 use crate::{
 	context::CoreContext,
-	domain::Space,
+	domain::{Space, SpaceKind},
+	infra::{action::error::ActionError, job::types::JobPriority},
 	library::Library,
-	ops::{indexing::store::SourceStore, sources::registry},
+	ops::{
+		indexing::{
+			content_identity::ContentIdentityJob, content_text::ContentTextJob, deep_scope,
+			store::SourceStore,
+		},
+		sources::registry,
+	},
 };
+
+/// Held while a space is created, so two requests for one folder cannot both
+/// pass the check for an existing space before either writes.
+pub(super) static CREATES: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 /// A folder resolved to the source of this library that holds it.
 pub struct Located {
@@ -64,6 +77,14 @@ pub async fn all(library: &Library, context: &CoreContext) -> Result<Vec<Space>,
 	let index = context.volume_index();
 	let mut spaces = Vec::new();
 	for source in index.sources_of(library.id()) {
+		if source.attached {
+			if let Some(store) = index.store_for(&source.root).await {
+				if let Err(error) = adopt_deep_scope(context, source.id, &source.root, &store).await
+				{
+					warn!(source = %source.id, %error, "could not turn a source's deep scope into spaces");
+				}
+			}
+		}
 		let Some(db) = index.read_store(source.id).await else {
 			continue;
 		};
@@ -74,6 +95,114 @@ pub async fn all(library: &Library, context: &CoreContext) -> Result<Vec<Space>,
 	}
 	spaces.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
 	Ok(spaces)
+}
+
+/// Make the folders a source reads by default spaces, once.
+///
+/// The home folder reads its standard user folders until someone says
+/// otherwise, and a list set before spaces existed is kept in the store's
+/// `deep_scope` assertion. Each of those folders becomes a space with
+/// content indexing on, so what is read is one list a person can see and
+/// change. The assertion is then set to an empty list, which marks the
+/// source as adopted and stops the default from coming back after someone
+/// deletes one of the spaces. The ids derive from the source and the
+/// folder, so two devices that adopt the same source write the same spaces.
+pub async fn adopt_deep_scope(
+	context: &CoreContext,
+	source_id: Uuid,
+	root: &Path,
+	store: &SourceStore,
+) -> Result<(), String> {
+	let db = store.db();
+	let _one_create = CREATES.lock().await;
+	let kept = match db.deep_scope().await.map_err(|e| e.to_string())? {
+		Some(kept) => kept,
+		None => {
+			let default = deep_scope::default_scope(root)
+				.await
+				.map_err(|e| e.to_string())?;
+			// A source that reads its whole root by default needs no space
+			// to say so.
+			if default == [String::new()] {
+				return Ok(());
+			}
+			default
+		}
+	};
+	if kept.is_empty() {
+		return Ok(());
+	}
+	let existing = db.spaces().await.map_err(|e| e.to_string())?;
+	let stamp = stamp(context)?;
+	for subtree in kept {
+		if existing.iter().any(|space| space.root == subtree) {
+			continue;
+		}
+		let name = subtree
+			.rsplit('/')
+			.next()
+			.filter(|name| !name.is_empty())
+			.map(str::to_string)
+			.or_else(|| {
+				root.file_name()
+					.map(|name| name.to_string_lossy().into_owned())
+			})
+			.unwrap_or_else(|| "Home".to_string());
+		db.put_space(&sd_store::SpaceRow {
+			uuid: Uuid::new_v5(&source_id, subtree.as_bytes()),
+			name,
+			kind: SpaceKind::Folder.as_str().to_string(),
+			root: subtree,
+			content_indexing: true,
+			created_at: Utc::now().to_rfc3339(),
+			deleted: false,
+			updated_hlc: stamp.hlc.clone(),
+			origin_device: stamp.device_uuid,
+		})
+		.await
+		.map_err(|e| e.to_string())?;
+	}
+	db.set_deep_scope(&[], &stamp)
+		.await
+		.map_err(|e| e.to_string())?;
+	Ok(())
+}
+
+/// Start the pass that follows a change to what a source reads: reading a
+/// newly covered folder, or dropping the text of one no longer covered.
+/// Hashes already taken stay, because duplicate and integrity answers stand
+/// on them. Answers the job, or None when the source does not read contents.
+pub async fn reread(
+	library: &Library,
+	context: &CoreContext,
+	source_id: Uuid,
+	reading: bool,
+) -> Result<Option<Uuid>, ActionError> {
+	let index = context.volume_index();
+	let Some(root) = index.source_root(source_id) else {
+		return Ok(None);
+	};
+	let reads_contents = index
+		.source_config(source_id)
+		.is_some_and(|config| config.identify_content);
+	if !reads_contents || index.dispatch_refusal(&root).is_some() {
+		return Ok(None);
+	}
+	let handle = if reading {
+		// Identification queues the text and image passes behind it.
+		library
+			.jobs()
+			.dispatch_with_priority(ContentIdentityJob::new(root), JobPriority::LOW, None)
+			.await?
+			.id()
+	} else {
+		library
+			.jobs()
+			.dispatch_with_priority(ContentTextJob::new(root, false), JobPriority::LOW, None)
+			.await?
+			.id()
+	};
+	Ok(Some(handle.0))
 }
 
 /// One live space by id.

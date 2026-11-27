@@ -64,6 +64,10 @@ impl LibraryAction for SpaceDeleteAction {
 			.put_space(&row)
 			.await
 			.map_err(|e| ActionError::Internal(format!("could not delete the space: {e}")))?;
+		// Its files may now be outside what the source reads; drop their text.
+		if space.content_indexing {
+			store::reread(&library, &context, space.source_id, false).await?;
+		}
 		Ok(SpaceDeleteOutput { id: space.id })
 	}
 

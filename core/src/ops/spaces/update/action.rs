@@ -66,8 +66,12 @@ impl LibraryAction for SpaceUpdateAction {
 		if let Some(name) = self.input.name {
 			row.name = name.trim().to_string();
 		}
-		if let Some(content_indexing) = self.input.content_indexing {
-			row.content_indexing = content_indexing;
+		let reading = self
+			.input
+			.content_indexing
+			.filter(|reading| *reading != row.content_indexing);
+		if let Some(reading) = reading {
+			row.content_indexing = reading;
 		}
 		row.set_stamp(&store::stamp(&context).map_err(ActionError::Internal)?);
 		writable
@@ -75,6 +79,9 @@ impl LibraryAction for SpaceUpdateAction {
 			.put_space(&row)
 			.await
 			.map_err(|e| ActionError::Internal(format!("could not save the space: {e}")))?;
+		if let Some(reading) = reading {
+			store::reread(&library, &context, space.source_id, reading).await?;
+		}
 
 		let root = context.volume_index().source_root(space.source_id);
 		Ok(SpaceUpdateOutput {

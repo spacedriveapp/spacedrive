@@ -205,3 +205,73 @@ async fn a_workspace_space_is_an_empty_folder_tracked_as_its_own_source() -> any
 	harness.shutdown().await?;
 	Ok(())
 }
+
+#[tokio::test]
+async fn a_deep_scope_set_before_spaces_becomes_spaces_that_decide_what_is_read(
+) -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("spaces_adopt_deep_scope")
+		.disable_watcher()
+		.build()
+		.await?;
+	let dir = harness.create_test_dir("home").await?;
+	dir.write_file("Projects/plan.md", "plan").await?;
+	dir.write_file("Archive/old.md", "old").await?;
+	let tracked = dir.track().await?;
+	let index = harness.core.context.volume_index();
+	let store = index
+		.store_for(&tracked.root)
+		.await
+		.expect("the source has a store");
+	let device = harness.core.context.device_manager.device_id()?;
+	store
+		.db()
+		.set_deep_scope(
+			&["Projects".to_string()],
+			&sd_core::ops::tags::stamp::assertion_stamp(device),
+		)
+		.await?;
+	assert_eq!(store.deep_subtrees().await?, ["Projects"]);
+
+	let spaces = list(&harness).await;
+	assert_eq!(spaces.len(), 1, "{spaces:?}");
+	let projects = &spaces[0];
+	assert_eq!(projects.root, "Projects");
+	assert_eq!(projects.name, "Projects");
+	assert!(projects.content_indexing);
+	assert_eq!(
+		store.db().deep_scope().await?,
+		Some(Vec::new()),
+		"the old list is marked adopted"
+	);
+	assert_eq!(store.deep_subtrees().await?, ["Projects"]);
+	assert_eq!(list(&harness).await, spaces, "adopting happens once");
+
+	let archive = create(
+		&harness,
+		SpaceKind::Folder,
+		Some(tracked.root.join("Archive")),
+		None,
+	)
+	.await?;
+	assert_eq!(store.deep_subtrees().await?, ["Archive", "Projects"]);
+	SpaceUpdateAction::from_input(SpaceUpdateInput {
+		id: archive.id,
+		name: None,
+		content_indexing: Some(false),
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?;
+	assert_eq!(store.deep_subtrees().await?, ["Projects"]);
+	SpaceDeleteAction::from_input(SpaceDeleteInput { id: projects.id })
+		.map_err(anyhow::Error::msg)?
+		.execute(harness.library.clone(), harness.core.context.clone())
+		.await?;
+	assert!(
+		store.deep_subtrees().await?.is_empty(),
+		"a deleted space's folder is no longer read, and the old list stays adopted"
+	);
+
+	harness.shutdown().await?;
+	Ok(())
+}

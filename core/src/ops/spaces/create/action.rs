@@ -111,6 +111,7 @@ impl LibraryAction for SpaceCreateAction {
 
 		// A workspace is its own source, so its walk and its events stay its
 		// own even when the folder sits inside another source.
+		let mut tracked = false;
 		let located = match input.kind {
 			SpaceKind::Folder => store::locate(&library, &context, &path).await,
 			SpaceKind::Workspace => None,
@@ -123,6 +124,7 @@ impl LibraryAction for SpaceCreateAction {
 		} = match located {
 			Some(located) => located,
 			None => {
+				tracked = true;
 				track_and_index(
 					&library,
 					&context,
@@ -142,9 +144,7 @@ impl LibraryAction for SpaceCreateAction {
 			}
 		};
 
-		// One create at a time, so two requests for one folder cannot both
-		// pass the check below before either writes.
-		let _one_create = CREATES.lock().await;
+		let one_create = store::CREATES.lock().await;
 		let existing = store
 			.db()
 			.spaces()
@@ -175,6 +175,12 @@ impl LibraryAction for SpaceCreateAction {
 			.put_space(&row)
 			.await
 			.map_err(|e| ActionError::Internal(format!("could not save the space: {e}")))?;
+		drop(one_create);
+		// A source tracked just now is already being read; an existing one
+		// reads the new space's files if they were outside what it read.
+		if row.content_indexing && !tracked {
+			store::reread(&library, &context, source_id, true).await?;
+		}
 
 		Ok(SpaceCreateOutput {
 			space: Space::from_row(row, source_id, Some(&root)),
@@ -187,8 +193,6 @@ impl LibraryAction for SpaceCreateAction {
 }
 
 crate::register_library_action!(SpaceCreateAction, "spaces.create");
-
-static CREATES: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 /// Create `path` as an empty folder, or accept one that already is.
 async fn create_empty(path: &std::path::Path) -> Result<(), ActionError> {
