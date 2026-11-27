@@ -8,15 +8,15 @@ interface ViewSettings {
 	columnWidth: number;
 }
 
-interface SpaceItemViewPreferences {
+interface LayoutItemViewPreferences {
 	viewMode: 'grid' | 'list' | 'media' | 'column' | 'size' | 'knowledge';
 	viewSettings: ViewSettings;
 }
 
 interface ViewPreferencesStore {
-	preferences: Record<string, SpaceItemViewPreferences>;
-	getPreferences: (spaceItemId: string) => SpaceItemViewPreferences | undefined;
-	setPreferences: (spaceItemId: string, prefs: Partial<SpaceItemViewPreferences>) => void;
+	preferences: Record<string, LayoutItemViewPreferences>;
+	getPreferences: (layoutItemId: string) => LayoutItemViewPreferences | undefined;
+	setPreferences: (layoutItemId: string, prefs: Partial<LayoutItemViewPreferences>) => void;
 }
 
 const DEFAULT_VIEW_SETTINGS: ViewSettings = {
@@ -26,7 +26,7 @@ const DEFAULT_VIEW_SETTINGS: ViewSettings = {
 	columnWidth: 256,
 };
 
-const DEFAULT_PREFERENCES: SpaceItemViewPreferences = {
+const DEFAULT_PREFERENCES: LayoutItemViewPreferences = {
 	viewMode: 'grid',
 	viewSettings: DEFAULT_VIEW_SETTINGS,
 };
@@ -35,20 +35,20 @@ export const useViewPreferencesStore = create<ViewPreferencesStore>()(
 	persist(
 		(set, get) => ({
 			preferences: {},
-			getPreferences: (spaceItemId) => {
-				return get().preferences[spaceItemId];
+			getPreferences: (layoutItemId) => {
+				return get().preferences[layoutItemId];
 			},
-			setPreferences: (spaceItemId, prefs) =>
+			setPreferences: (layoutItemId, prefs) =>
 				set((state) => ({
 					preferences: {
 						...state.preferences,
-						[spaceItemId]: {
+						[layoutItemId]: {
 							...DEFAULT_PREFERENCES,
-							...state.preferences[spaceItemId],
+							...state.preferences[layoutItemId],
 							...prefs,
 							viewSettings: {
 								...DEFAULT_VIEW_SETTINGS,
-								...state.preferences[spaceItemId]?.viewSettings,
+								...state.preferences[layoutItemId]?.viewSettings,
 								...(prefs.viewSettings || {}),
 							},
 						},

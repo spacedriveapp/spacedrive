@@ -264,7 +264,7 @@ pub enum Event {
 	// Generic resource events (normalized cache)
 	// Works for every resource: File, Space, Device, Volume, etc.
 	ResourceChanged {
-		/// Resource type identifier (e.g., "file", "space", "device")
+		/// Resource type identifier (e.g., "file", "layout", "device")
 		resource_type: String,
 		/// The full resource data as JSON
 		resource: serde_json::Value,

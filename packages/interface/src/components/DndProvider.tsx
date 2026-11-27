@@ -13,7 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLibraryMutation, useSpacedriveClient } from "../contexts/SpacedriveContext";
 import { useSidebarStore } from "@sd/ts-client";
 import type { File, SdPath } from "@sd/ts-client";
-import { useSpaces } from "./SpacesSidebar/hooks/useSpaces";
+import { useLayouts } from "./Sidebar/hooks/useLayouts";
 import { useFileOperationDialog } from "./modals/FileOperationModal";
 import { useMergeFoldersDialog } from "./modals/MergeFoldersModal";
 import { File as FileComponent } from "../routes/explorer/File";
@@ -41,10 +41,10 @@ import { modifierKeysNow, useModifierKeyTracker } from "../hooks/useModifierKeys
  *    - Folders dropped on a folder with Option held open the merge dialog;
  *      dnd-kit carries no modifier state, so the window tracker answers
  *
- * 3. type: "space" | "group"
- *    - Legacy: Drops on the space root or group area (no specific item)
- *    - Adds item to space/group
- *    - Data: { type, spaceId, groupId? }
+ * 3. type: "layout" | "group"
+ *    - Legacy: Drops on the layout root or group area (no specific item)
+ *    - Adds item to layout/group
+ *    - Data: { type, layoutId, groupId? }
  */
 export function DndProvider({ children }: { children: React.ReactNode }) {
 	const sensors = useSensors(
@@ -54,18 +54,18 @@ export function DndProvider({ children }: { children: React.ReactNode }) {
 			},
 		}),
 	);
-	const addItem = useLibraryMutation("spaces.add_item");
-	const reorderItems = useLibraryMutation("spaces.reorder_items");
-	const reorderGroups = useLibraryMutation("spaces.reorder_groups");
+	const addItem = useLibraryMutation("layouts.add_item");
+	const reorderItems = useLibraryMutation("layouts.reorder_items");
+	const reorderGroups = useLibraryMutation("layouts.reorder_groups");
 	const openFileOperation = useFileOperationDialog();
 	const openMergeFolders = useMergeFoldersDialog();
 	useModifierKeyTracker();
 	const [activeItem, setActiveItem] = useState<any>(null);
 	const client = useSpacedriveClient();
 	const queryClient = useQueryClient();
-	const { currentSpaceId } = useSidebarStore();
-	const { data: spacesData } = useSpaces();
-	const spaces = spacesData?.spaces;
+	const { currentLayoutId } = useSidebarStore();
+	const { data: layoutsData } = useLayouts();
+	const layouts = layoutsData?.layouts;
 	const { reorderTabs } = useTabManager();
 
 	// Custom collision detection: prefer -top zones over -bottom zones to avoid double lines
@@ -118,16 +118,16 @@ export function DndProvider({ children }: { children: React.ReactNode }) {
 			});
 
 			const libraryId = client.getCurrentLibraryId();
-			const currentSpace =
-				spaces?.find((s: any) => s.id === currentSpaceId) ??
-				spaces?.[0];
+			const currentLayout =
+				layouts?.find((s: any) => s.id === currentLayoutId) ??
+				layouts?.[0];
 
-			if (!currentSpace || !libraryId) return;
+			if (!currentLayout || !libraryId) return;
 
 			const queryKey = [
-				"query:spaces.get_layout",
+				"query:layouts.get_sidebar",
 				libraryId,
-				{ space_id: currentSpace.id },
+				{ layout_id: currentLayout.id },
 			];
 			const layout = queryClient.getQueryData(queryKey) as any;
 
@@ -163,7 +163,7 @@ export function DndProvider({ children }: { children: React.ReactNode }) {
 					// Send reorder mutation
 					try {
 						await reorderGroups.mutateAsync({
-							space_id: currentSpace.id,
+							layout_id: currentLayout.id,
 							group_ids: newGroups.map((g: any) => g.group.id),
 						});
 						console.log("[DnD] Group reorder successful");
@@ -177,19 +177,19 @@ export function DndProvider({ children }: { children: React.ReactNode }) {
 				return;
 			}
 
-			// Reordering space items
-			if (layout?.space_items) {
-				const items = layout.space_items;
+			// Reordering layout items
+			if (layout?.layout_items) {
+				const items = layout.layout_items;
 				const oldIndex = items.findIndex(
 					(item: any) => item.id === active.id,
 				);
 
-				// Extract item ID from over.id (could be a drop zone ID like "space-item-{id}-top")
+				// Extract item ID from over.id (could be a drop zone ID like "layout-item-{id}-top")
 				let overItemId = String(over.id);
-				if (overItemId.startsWith("space-item-")) {
-					// Extract the UUID from "space-item-{uuid}-top/bottom/middle"
+				if (overItemId.startsWith("layout-item-")) {
+					// Extract the UUID from "layout-item-{uuid}-top/bottom/middle"
 					const parts = overItemId.split("-");
-					// Remove "space" and "item" and the last part (top/bottom/middle)
+					// Remove "layout" and "item" and the last part (top/bottom/middle)
 					overItemId = parts.slice(2, -1).join("-");
 				}
 
@@ -197,7 +197,7 @@ export function DndProvider({ children }: { children: React.ReactNode }) {
 					(item: any) => item.id === overItemId,
 				);
 
-				console.log("[DnD] Reorder space items:", {
+				console.log("[DnD] Reorder layout items:", {
 					oldIndex,
 					newIndex,
 					activeId: active.id,
@@ -216,18 +216,18 @@ export function DndProvider({ children }: { children: React.ReactNode }) {
 
 					queryClient.setQueryData(queryKey, {
 						...layout,
-						space_items: newItems,
+						layout_items: newItems,
 					});
 
 					// Send reorder mutation
 					try {
 						await reorderItems.mutateAsync({
-							group_id: null, // Space-level items
+							group_id: null, // Layout-level items
 							item_ids: newItems.map((item: any) => item.id),
 						});
-						console.log("[DnD] Space items reorder successful");
+						console.log("[DnD] Layout items reorder successful");
 					} catch (err) {
-						console.error("[DnD] Space items reorder failed:", err);
+						console.error("[DnD] Layout items reorder failed:", err);
 						// Revert on error
 						queryClient.setQueryData(queryKey, layout);
 					}
@@ -245,15 +245,15 @@ export function DndProvider({ children }: { children: React.ReactNode }) {
 		// Handle palette item drops (from customization panel)
 		if (dragData?.type === "palette-item") {
 			const libraryId = client.getCurrentLibraryId();
-			const currentSpace =
-				spaces?.find((s: any) => s.id === currentSpaceId) ??
-				spaces?.[0];
+			const currentLayout =
+				layouts?.find((s: any) => s.id === currentLayoutId) ??
+				layouts?.[0];
 
-			if (!currentSpace || !libraryId) return;
+			if (!currentLayout || !libraryId) return;
 
 			try {
 				await addItem.mutateAsync({
-					space_id: currentSpace.id,
+					layout_id: currentLayout.id,
 					group_id: dropData?.groupId || null,
 					item_type: dragData.itemType,
 				});
@@ -266,36 +266,36 @@ export function DndProvider({ children }: { children: React.ReactNode }) {
 
 		if (!dragData || dragData.type !== "explorer-file") return;
 
-		// Add to space (root-level drop zones between groups)
-		if (dropData?.action === "add-to-space") {
-			if (!dropData.spaceId) return;
+		// Add to layout (root-level drop zones between groups)
+		if (dropData?.action === "add-to-layout") {
+			if (!dropData.layoutId) return;
 
 			try {
 				await addItem.mutateAsync({
-					space_id: dropData.spaceId,
+					layout_id: dropData.layoutId,
 					group_id: null,
 					item_type: { Path: { sd_path: dragData.sdPath } },
 				});
-				console.log("[DnD] Successfully added to space root");
+				console.log("[DnD] Successfully added to layout root");
 			} catch (err) {
-				console.error("[DnD] Failed to add to space:", err);
+				console.error("[DnD] Failed to add to layout:", err);
 			}
 			return;
 		}
 
 		// Add to group (empty group drop zone)
 		if (dropData?.action === "add-to-group") {
-			if (!dropData.spaceId || !dropData.groupId) return;
+			if (!dropData.layoutId || !dropData.groupId) return;
 
 			console.log("[DnD] Adding to group:", {
-				spaceId: dropData.spaceId,
+				layoutId: dropData.layoutId,
 				groupId: dropData.groupId,
 				sdPath: dragData.sdPath,
 			});
 
 			try {
 				await addItem.mutateAsync({
-					space_id: dropData.spaceId,
+					layout_id: dropData.layoutId,
 					group_id: dropData.groupId,
 					item_type: { Path: { sd_path: dragData.sdPath } },
 				});
@@ -306,23 +306,23 @@ export function DndProvider({ children }: { children: React.ReactNode }) {
 			return;
 		}
 
-		// Insert before/after sidebar items (adds item to space/group)
+		// Insert before/after sidebar items (adds item to layout/group)
 		if (
 			dropData?.action === "insert-before" ||
 			dropData?.action === "insert-after"
 		) {
-			if (!dropData.spaceId) return;
+			if (!dropData.layoutId) return;
 
 			console.log("[DnD] Inserting item:", {
 				action: dropData.action,
-				spaceId: dropData.spaceId,
+				layoutId: dropData.layoutId,
 				groupId: dropData.groupId,
 				sdPath: dragData.sdPath,
 			});
 
 			try {
 				await addItem.mutateAsync({
-					space_id: dropData.spaceId,
+					layout_id: dropData.layoutId,
 					group_id: dropData.groupId || null,
 					item_type: { Path: { sd_path: dragData.sdPath } },
 				});
@@ -374,20 +374,20 @@ export function DndProvider({ children }: { children: React.ReactNode }) {
 			return;
 		}
 
-		// Drop on space root area (adds to space)
-		if (dropData?.type === "space" && dragData.type === "explorer-file") {
-			console.log("[DnD] Adding to space (type=space):", {
-				spaceId: dropData.spaceId,
+		// Drop on layout root area (adds to layout)
+		if (dropData?.type === "layout" && dragData.type === "explorer-file") {
+			console.log("[DnD] Adding to layout (type=layout):", {
+				layoutId: dropData.layoutId,
 				sdPath: dragData.sdPath,
 			});
 
 			try {
 				await addItem.mutateAsync({
-					space_id: dropData.spaceId,
+					layout_id: dropData.layoutId,
 					group_id: null,
 					item_type: { Path: { sd_path: dragData.sdPath } },
 				});
-				console.log("[DnD] Successfully added to space");
+				console.log("[DnD] Successfully added to layout");
 			} catch (err) {
 				console.error("[DnD] Failed to add item:", err);
 			}
@@ -396,14 +396,14 @@ export function DndProvider({ children }: { children: React.ReactNode }) {
 		// Drop on group area (adds to group)
 		if (dropData?.type === "group" && dragData.type === "explorer-file") {
 			console.log("[DnD] Adding to group (type=group):", {
-				spaceId: dropData.spaceId,
+				layoutId: dropData.layoutId,
 				groupId: dropData.groupId,
 				sdPath: dragData.sdPath,
 			});
 
 			try {
 				await addItem.mutateAsync({
-					space_id: dropData.spaceId,
+					layout_id: dropData.layoutId,
 					group_id: dropData.groupId,
 					item_type: { Path: { sd_path: dragData.sdPath } },
 				});
@@ -447,7 +447,7 @@ export function DndProvider({ children }: { children: React.ReactNode }) {
 						</span>
 					</div>
 				) : activeItem?.label ? (
-					// Group or SpaceItem preview (from sortable context)
+					// Group or LayoutItem preview (from sortable context)
 					<div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-sidebar/95 backdrop-blur-sm text-sidebar-ink shadow-lg border border-sidebar-line min-w-[180px]">
 						<span className="text-sm font-medium">
 							{activeItem.label}

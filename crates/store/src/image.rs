@@ -18,27 +18,31 @@ use crate::file::address;
 
 /// The hash a facet row is keyed by. The sampled hash survives verification
 /// (a confirmed row keeps it), so a verified file does not read as changed.
-const CONTENT_KEY: &str = "COALESCE(c.sampled_hash, c.integrity_hash)";
+pub(crate) const CONTENT_KEY: &str = "COALESCE(c.sampled_hash, c.integrity_hash)";
 
 /// [`CONTENT_KEY`] as a lookup, with the hash bound twice. Spelled out so
 /// each arm reaches its own index; a `COALESCE` on the left of `=` is a
 /// scan of `content` per statement.
-const CONTENT_KEY_IS: &str =
+pub(crate) const CONTENT_KEY_IS: &str =
 	"(c.sampled_hash = ? OR (c.sampled_hash IS NULL AND c.integrity_hash = ?))";
 
-/// Image records whose facet row is missing or describes other bytes.
+/// Records of one content kind whose row in a content-keyed facet table is
+/// missing or describes other bytes.
 ///
 /// One clause, so the count and the batch cannot disagree about what is
 /// outstanding. A file whose bytes could not be read has no content row and
 /// is not here; it waits for identification like everything else.
-const PENDING_IMAGE: &str = "\
-	FROM record r \
-	JOIN content c ON c.id = r.content_id \
-	JOIN facet_file f ON f.record_uuid = r.uuid \
-	LEFT JOIN directory_path d ON d.record_uuid = r.parent_uuid \
-	LEFT JOIN facet_image i ON i.record_uuid = r.uuid \
-	WHERE r.type = 'file' AND c.kind = ? \
-	AND (i.record_uuid IS NULL OR i.content_hash IS NOT COALESCE(c.sampled_hash, c.integrity_hash))";
+fn pending_clause(table: &str) -> String {
+	format!(
+		"FROM record r \
+		 JOIN content c ON c.id = r.content_id \
+		 JOIN facet_file f ON f.record_uuid = r.uuid \
+		 LEFT JOIN directory_path d ON d.record_uuid = r.parent_uuid \
+		 LEFT JOIN {table} i ON i.record_uuid = r.uuid \
+		 WHERE r.type = 'file' AND c.kind = ? \
+		 AND (i.record_uuid IS NULL OR i.content_hash IS NOT {CONTENT_KEY})"
+	)
+}
 
 /// What an EXIF read yields, in the facet's own columns. Every field is
 /// optional: a row with nothing but a content hash records that the bytes
@@ -69,9 +73,9 @@ pub struct ImageFacet {
 	pub description: Option<String>,
 }
 
-/// An image record waiting for its facet row.
+/// A record waiting for a facet row read from its bytes.
 #[derive(Debug, Clone)]
-pub struct PendingImage {
+pub struct PendingFacet {
 	pub uuid: Uuid,
 	/// Row id, the cursor a pass claims by.
 	pub rowid: i64,
@@ -81,7 +85,7 @@ pub struct PendingImage {
 	pub content_hash: String,
 }
 
-type PendingImageRow = (
+type PendingFacetRow = (
 	Uuid,
 	i64,
 	Option<Uuid>,
@@ -93,8 +97,12 @@ type PendingImageRow = (
 /// How many image records are still waiting. `kind` is the content kind
 /// discriminant the caller stores for images.
 pub async fn count_files_needing_image_facets(pool: &sqlx::SqlitePool, kind: i64) -> Result<i64> {
+	count_pending(pool, "facet_image", kind).await
+}
+
+pub(crate) async fn count_pending(pool: &sqlx::SqlitePool, table: &str, kind: i64) -> Result<i64> {
 	Ok(
-		sqlx::query_scalar(&format!("SELECT COUNT(*) {PENDING_IMAGE}"))
+		sqlx::query_scalar(&format!("SELECT COUNT(*) {}", pending_clause(table)))
 			.bind(kind)
 			.fetch_one(pool)
 			.await?,
@@ -110,10 +118,21 @@ pub async fn files_needing_image_facets(
 	kind: i64,
 	after: i64,
 	batch_size: usize,
-) -> Result<Vec<PendingImage>> {
-	let rows: Vec<PendingImageRow> = sqlx::query_as(&format!(
+) -> Result<Vec<PendingFacet>> {
+	pending(pool, "facet_image", kind, after, batch_size).await
+}
+
+pub(crate) async fn pending(
+	pool: &sqlx::SqlitePool,
+	table: &str,
+	kind: i64,
+	after: i64,
+	batch_size: usize,
+) -> Result<Vec<PendingFacet>> {
+	let rows: Vec<PendingFacetRow> = sqlx::query_as(&format!(
 		"SELECT r.uuid, r.rowid, r.parent_uuid, d.path, r.title, {CONTENT_KEY} \
-		 {PENDING_IMAGE} AND r.rowid > ? ORDER BY r.rowid LIMIT ?"
+		 {} AND r.rowid > ? ORDER BY r.rowid LIMIT ?",
+		pending_clause(table)
 	))
 	.bind(kind)
 	.bind(after)
@@ -125,7 +144,7 @@ pub async fn files_needing_image_facets(
 		.into_iter()
 		.filter_map(
 			|(uuid, rowid, parent_uuid, parent_path, title, content_hash)| {
-				Some(PendingImage {
+				Some(PendingFacet {
 					uuid,
 					rowid,
 					external_id: address(parent_uuid, parent_path, title)?,
