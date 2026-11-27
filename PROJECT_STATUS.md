@@ -44,8 +44,8 @@ duration, frame size and codec. `sd_media_metadata::video` is a pure-Rust
 header reader with no FFmpeg and no decoding. It covers MP4/MOV with `moov`
 anywhere in the file, and MKV/WebM ahead of the first cluster. Rows are keyed
 by content hash like the image facet and reach listings, search hits and the
-inspector as `video_media_data`. Identification runs only in the deep scope
-(#3286), so the pass does too. Next: review and merge.
+inspector as `video_media_data`. The pass claims only identified records; once
+#3286 lands, identification and this pass run only in the deep scope. Next: review and merge.
 
 Sidecars tab lists what a file has again (Capy FAN-14816, November 27, in PR).
 `File.sidecars` was always empty after the entries drop, so the inspector's
