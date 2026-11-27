@@ -139,7 +139,9 @@ pub async fn is_directory(
 	{
 		return Ok(true);
 	}
-	backend.exists(Path::new(&format!("{}/", url.key))).await
+	backend
+		.holds_marker(Path::new(&format!("{}/", url.key)))
+		.await
 }
 
 /// Whether anything sits at `key`: an object, or objects below it.
@@ -152,8 +154,9 @@ pub async fn occupied(backend: &dyn VolumeBackend, url: &BucketUrl) -> Result<bo
 		.is_empty())
 }
 
-/// Every object below the prefix `url` names, by key, in key order.
-/// Directory markers are left out; they hold no bytes.
+/// Every object below the prefix `url` names, by key, in key order, with
+/// the directory markers (`a/b/`) that keep empty directories, the prefix's
+/// own included. `None` past `limit` keys.
 pub async fn objects_under(
 	backend: &dyn VolumeBackend,
 	url: &BucketUrl,
@@ -162,6 +165,10 @@ pub async fn objects_under(
 	let mut found = Vec::new();
 	let mut pending = vec![url.clone()];
 	while let Some(prefix) = pending.pop() {
+		let marker = format!("{}/", prefix.key);
+		if !prefix.key.is_empty() && backend.holds_marker(Path::new(&marker)).await? {
+			found.push(marker);
+		}
 		for entry in crate::ops::grants::bucket::list(backend, &prefix).await? {
 			let child = prefix.join(&entry.name);
 			if entry.kind == EntryKind::Directory {

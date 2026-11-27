@@ -123,6 +123,21 @@ pub trait VolumeBackend: Send + Sync + Debug {
 		)))
 	}
 
+	/// Whether an object stands at the directory marker `path` (`a/b/`)
+	/// itself, as opposed to a directory implied by the keys below it.
+	async fn holds_marker(&self, _path: &Path) -> Result<bool, VolumeError> {
+		Ok(false)
+	}
+
+	/// Delete the directory marker object at `path` (`a/b/`) alone, leaving
+	/// the keys below it in place.
+	async fn delete_marker(&self, path: &Path) -> Result<(), VolumeError> {
+		Err(VolumeError::Unsupported(format!(
+			"directory markers at {}",
+			path.display()
+		)))
+	}
+
 	/// Whether a delete here loses nothing even when a write lands between
 	/// the check of an object's tag and the delete: the bucket keeps object
 	/// versions, so the write survives as an earlier version. Moves and

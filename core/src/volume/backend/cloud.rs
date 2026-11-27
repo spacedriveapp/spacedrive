@@ -588,6 +588,37 @@ impl VolumeBackend for CloudBackend {
 			.map_err(volume_error)
 	}
 
+	async fn holds_marker(&self, path: &Path) -> Result<bool, VolumeError> {
+		let cloud_path = self.to_cloud_path(path);
+		// A flat listing returns keys in order, so a marker is the first key.
+		let mut lister = self
+			.operator
+			.lister_with(&cloud_path)
+			.recursive(true)
+			.limit(1)
+			.await
+			.map_err(volume_error)?;
+		Ok(match lister.try_next().await.map_err(volume_error)? {
+			Some(entry) => entry.path() == cloud_path,
+			None => false,
+		})
+	}
+
+	async fn delete_marker(&self, path: &Path) -> Result<(), VolumeError> {
+		let cloud_path = self.to_cloud_path(path);
+		if !cloud_path.ends_with('/') {
+			return Err(VolumeError::Unsupported(format!(
+				"{cloud_path} is not a directory marker"
+			)));
+		}
+		// Operator::delete removes the one key; remove_all would take the
+		// objects below it too.
+		self.operator
+			.delete(&cloud_path)
+			.await
+			.map_err(volume_error)
+	}
+
 	async fn deletes_are_recoverable(&self) -> Result<bool, VolumeError> {
 		if self.service_type != CloudServiceType::S3 {
 			return Ok(false);

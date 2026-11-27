@@ -334,10 +334,25 @@ async fn a_bucket_prefix_is_a_space_an_agent_works_in() -> anyhow::Result<()> {
 	let empty = rest.get("list/empty").await;
 	assert_eq!(empty.status, StatusCode::OK, "{}", empty.json());
 	assert_eq!(empty.json()["entries"], json!([]));
-	assert_eq!(
-		rest.ok("stat", json!({ "path": "empty" })).await["type"],
-		json!("dir")
-	);
+	let empty_hash = rest.ok("stat", json!({ "path": "empty" })).await;
+	assert_eq!(empty_hash["type"], json!("dir"));
+	let empty_hash = empty_hash["content_hash"].clone();
+
+	// Moving and deleting an empty directory move and drop its marker.
+	rest.ok(
+		"move",
+		json!({ "path": "empty", "to": "hollow", "expect": { "content_hash": empty_hash } }),
+	)
+	.await;
+	assert_eq!(rest.get("stat/empty").await.status, StatusCode::NOT_FOUND);
+	let hollow = rest.ok("stat", json!({ "path": "hollow" })).await;
+	assert_eq!(hollow["type"], json!("dir"));
+	rest.ok(
+		"delete",
+		json!({ "path": "hollow", "expect": { "content_hash": hollow["content_hash"] } }),
+	)
+	.await;
+	assert_eq!(rest.get("stat/hollow").await.status, StatusCode::NOT_FOUND);
 	assert_eq!(
 		rest.get("stat/missing.md").await.status,
 		StatusCode::NOT_FOUND
