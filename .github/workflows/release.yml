@@ -452,10 +452,12 @@ jobs:
 
       # The desktop daemon ships the footage features, because the app ships
       # the codec framework speech-to-text links. A dry run may add more
-      # sd-core features on top. The standalone CLI binaries ship no codec
-      # framework, so they keep the default feature set. ort has no ONNX
-      # Runtime build for Intel Macs, so that daemon leaves out local inference
-      # and keeps the cloud caption provider.
+      # sd-core features on top. ensure-daemon-sidecar.sh builds the CLI the
+      # app bundles in the same cargo run with the same features, and
+      # SD_GIT_SHA gives both the same version line. The standalone CLI
+      # binaries ship no codec framework, so they keep the default feature
+      # set. ort has no ONNX Runtime build for Intel Macs, so that daemon
+      # leaves out local inference and keeps the cloud caption provider.
       - name: Select daemon features
         shell: bash
         env:
@@ -474,6 +476,7 @@ jobs:
           done
           echo "Daemon features: $list"
           echo "SD_DAEMON_FEATURES=$list" >> "$GITHUB_ENV"
+          echo "SD_GIT_SHA=$GITHUB_SHA" >> "$GITHUB_ENV"
           # whisper.cpp builds for the build machine's CPU unless this is set,
           # which fails on the macOS runners and would not run on older Macs.
           echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
@@ -531,15 +534,15 @@ jobs:
             --target ${{ matrix.settings.target }}
             --bundles ${{ matrix.settings.bundles }}
 
-      # A cross build that bundled a host daemon would ship an app whose
-      # daemon cannot start on the target Mac.
+      # A cross build that bundled a host daemon or CLI would ship an app whose
+      # sidecars cannot start on the target Mac.
       - name: Verify macOS binary architectures
         if: matrix.settings.os == 'darwin'
         run: |
           set -euo pipefail
           app="target/${{ matrix.settings.target }}/release/bundle/macos/Spacedrive.app"
           arch=${{ matrix.settings.arch == 'aarch64' && 'arm64' || matrix.settings.arch }}
-          for bin in "$app/Contents/MacOS/Spacedrive" "$app/Contents/MacOS/sd-daemon"; do
+          for bin in "$app/Contents/MacOS/Spacedrive" "$app/Contents/MacOS/sd-daemon" "$app/Contents/MacOS/sd-cli"; do
             lipo -info "$bin"
             if ! lipo "$bin" -verify_arch "$arch"; then
               echo "::error::$(basename "$bin") in Spacedrive.app is not built for $arch"
@@ -569,6 +572,25 @@ jobs:
             exit 1
           fi
           spctl --assess --type execute --verbose=2 "$app"
+          # Users run the bundled CLI from a link outside the app, so it has to
+          # carry the same Developer ID signature a standalone binary does.
+          for bin in "$app/Contents/MacOS/sd-daemon" "$app/Contents/MacOS/sd-cli"; do
+            codesign --verify --strict --verbose=2 "$bin"
+            info=$(codesign -dvv "$bin" 2>&1)
+            echo "$info"
+            if ! grep -q "^Authority=Developer ID Application" <<< "$info"; then
+              echo "::error::$(basename "$bin") is not signed with a Developer ID Application certificate"
+              exit 1
+            fi
+            if ! grep -q "flags=.*(runtime)" <<< "$info"; then
+              echo "::error::$(basename "$bin") is not signed with the hardened runtime"
+              exit 1
+            fi
+            if ! grep -q "^Timestamp=" <<< "$info"; then
+              echo "::error::$(basename "$bin") has no secure timestamp"
+              exit 1
+            fi
+          done
           # Without this entitlement tccd refuses to prompt for the Photos library.
           for bin in "$app" "$app/Contents/MacOS/sd-daemon"; do
             entitlements=$(codesign -d --entitlements - --xml "$bin" 2>/dev/null)
@@ -601,6 +623,49 @@ jobs:
           xcrun stapler staple "$dmg"
           xcrun stapler validate "$dmg"
           spctl -a -t open --context context:primary-signature -v "$dmg"
+
+      # Checks what a user installs rather than the build tree: the CLI is in
+      # the package beside the daemon, built for the target, and reports the
+      # same version line. The version check runs only where the runner can
+      # execute the target's binaries.
+      - name: Verify bundled CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle=target/${{ matrix.settings.target }}/release/bundle
+          if [ "${{ matrix.settings.os }}" = darwin ]; then
+            dmg=$(ls "$bundle"/dmg/*.dmg)
+            mount=$(mktemp -d)
+            hdiutil attach -nobrowse -readonly -mountpoint "$mount" "$dmg"
+            trap 'hdiutil detach "$mount" || true' EXIT
+            bin="$mount/Spacedrive.app/Contents/MacOS"
+            arch=${{ matrix.settings.arch == 'aarch64' && 'arm64' || matrix.settings.arch }}
+            for name in sd-daemon sd-cli; do
+              test -x "$bin/$name" || { echo "::error::$(basename "$dmg") has no Contents/MacOS/$name"; exit 1; }
+              file "$bin/$name"
+              lipo "$bin/$name" -verify_arch "$arch"
+              codesign -dvv "$bin/$name" 2>&1 | grep -E "^(Identifier|Authority|TeamIdentifier|Timestamp|CodeDirectory)" || true
+            done
+            [ "$(uname -m)" = "$arch" ] || { echo "Skipping the version check: $(uname -m) runner, $arch binaries"; exit 0; }
+          else
+            deb=$(ls "$bundle"/deb/*.deb)
+            root=$(mktemp -d)
+            dpkg-deb -x "$deb" "$root"
+            bin="$root/usr/bin"
+            for name in sd-daemon sd-cli; do
+              test -x "$bin/$name" || { echo "::error::$(basename "$deb") has no usr/bin/$name"; exit 1; }
+              file "$bin/$name"
+            done
+            export LD_LIBRARY_PATH="$root/usr/lib/spacedrive:${LD_LIBRARY_PATH:-}"
+          fi
+          daemon=$("$bin/sd-daemon" --version | cut -d' ' -f2-)
+          cli=$("$bin/sd-cli" --version | cut -d' ' -f2-)
+          echo "sd-daemon: $daemon"
+          echo "sd-cli:    $cli"
+          if [ "$daemon" != "$cli" ] || [ "$cli" != "$(jq -r .version apps/tauri/src-tauri/tauri.conf.json) ($GITHUB_SHA)" ]; then
+            echo "::error::The bundled CLI and daemon do not report the same version for $GITHUB_SHA"
+            exit 1
+          fi
 
       - name: Package frontend
         if: ${{ runner.os == 'Linux' }}
