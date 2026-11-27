@@ -2,11 +2,14 @@
 
 Status: release direction agreed with James on September 17, 2026. Beta is the
 target, not a claim that the current build has passed its release gates. The
-existing October 1 target remains subject to those gates.
+December 5, 2026 target remains subject to those gates.
 
 2026-10-05: target moved to November 1, 2026 (Jamie).
 2026-10-31: target moved to November 15, 2026 (Jamie).
 2026-11-21: target moved to November 27, 2026 (Jamie).
+2026-11-27: target moved to December 5, 2026 (Jamie). beta.1 is tagged from a
+verified `main` head. The `release/beta.1` branch is retired, and every
+in-flight feature, footage included, ships in beta.1 through `main`.
 
 ## The decision
 
