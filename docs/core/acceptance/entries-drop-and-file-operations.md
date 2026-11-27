@@ -60,8 +60,8 @@ cargo test -p sd-core --lib acceptance::a_trashed_file_is_listed_with_its_locati
 | # | Row | Test | Status |
 |---|---|---|---|
 | S1 | The three `rg` searches return no production references (`entities::entry`, `entry_closure::Entity`, `directory_paths::Entity`; `register_syncable.*"entry"`, `model_type == "entry"`; `core.ephemeral_(status\|reset)`) | `entries_drop_acceptance_test.rs` `no_production_source_names_the_entry_substrate` (walks `core/src`, `apps`, `crates`, `packages/ts-client/src`; also refuses a raw SQL statement in `core/src` that names any of the 29 dropped tables) | passing |
-| S2 | No registered sync model writes to a retired table | `entries_drop_acceptance_test.rs` `every_registered_sync_model_names_a_current_table` (iterates the `inventory` registry; every `table_name` is one of the seventeen) | passing |
-| S3 | A fresh `library.db` has no retired tables, indexes, FTS tables, or triggers | `entries_drop_acceptance_test.rs` `a_fresh_library_has_exactly_the_seventeen_tables` (exact table set; no trigger, no FTS shadow, no index on a retired table) | passing |
+| S2 | No registered sync model writes to a retired table | `entries_drop_acceptance_test.rs` `every_registered_sync_model_names_a_current_table` (iterates the `inventory` registry; every `table_name` is one of the eighteen) | passing |
+| S3 | A fresh `library.db` has no retired tables, indexes, FTS tables, or triggers | `entries_drop_acceptance_test.rs` `a_fresh_library_has_exactly_the_eighteen_tables` (exact table set; no trigger, no FTS shadow, no index on a retired table) | passing |
 
 ## FDA: data safety
 
@@ -71,7 +71,7 @@ cargo test -p sd-core --lib acceptance::a_trashed_file_is_listed_with_its_locati
 | D2 | Reindexing or evicting a source leaves its assertion tables unchanged (release gate "source reindex preserves assertions") | `entries_drop_acceptance_test.rs` `tags_survive_a_source_reindex` (arena cleared, source walked again; `tag_assertion` rows identical, record keeps its uuid, tag still reaches it); `crates/store/tests/tags.rs` `assertions_survive_generation_loss_and_rebind`; `crates/store/tests/files.rs` `a_moved_file_carries_its_assertions_with_it`, `a_removal_takes_the_facet_and_leaves_the_assertion` | passing |
 | D3 | A source store moved to a clean library remains self-describing | `entries_drop_acceptance_test.rs` `a_frozen_store_describes_itself_and_is_not_written_by_a_reader` (a frozen copy opened from another directory with no registry row answers its schema, records and tags) | passing |
 | D4 | Frozen copies are byte-for-byte untouched; live stores change only through tested migrations | same test (blake3 of the freeze and of the moved copy unchanged after reading); `crates/store/tests/migrate.rs` (#3112) for the migration half | passing |
-| D5 | An upgraded library keeps every user assertion and converges on the 17-table schema (14 from the drop, plus `agent_grant` and `grant_audit` added with agent grants, and `agent_grant_spent_refresh` added with OAuth) | `entries_drop_acceptance_test.rs` `a_pre_drop_library_upgrades_to_the_seventeen_table_schema` (the pre-drop chain applied, rows in `spaces`/`space_items` including a Location item, then the drop: seventeen tables, pin intact, Location item deleted, `integrity_check` ok, re-running the chain is a no-op) | passing |
+| D5 | An upgraded library keeps every user assertion and converges on the 18-table schema (14 from the drop, plus `agent_grant` and `grant_audit` added with agent grants, `agent_grant_spent_refresh` added with OAuth, and `grant_audit_tally` added with the per-minute audit counts) | `entries_drop_acceptance_test.rs` `a_pre_drop_library_upgrades_to_the_eighteen_table_schema` (the pre-drop chain applied, rows in `spaces`/`space_items` including a Location item, then the drop: eighteen tables, pin intact, Location item deleted, `integrity_check` ok, re-running the chain is a no-op) | passing |
 
 ## FDA: product behavior
 
