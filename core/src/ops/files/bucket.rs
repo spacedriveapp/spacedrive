@@ -58,6 +58,7 @@ impl Object {
 				.unwrap_or(0),
 			is_dir: false,
 			created_ms: None,
+			etag: Some(self.etag.clone()),
 		}
 	}
 }
@@ -200,16 +201,21 @@ pub fn trash_key(job: Uuid, key: &str) -> String {
 	format!("{TRASH}/{job}/{key}")
 }
 
-/// Put `object` in the bucket's trash and answer with its trash key.
+/// Put `object` in the bucket's trash and answer with the trash copy.
 ///
 /// The copy is made inside the service, then the source's tag is checked
 /// again so the copy is known to hold the version that is deleted. A source
-/// that changed meanwhile is kept, and so is the copy.
+/// that changed meanwhile is kept, and so is the copy. An object larger than
+/// a restore can copy back under `If-None-Match` is refused, so whatever
+/// goes to the trash can come back.
 pub async fn trash(
 	backend: &dyn VolumeBackend,
 	object: &Object,
 	job: Uuid,
-) -> Result<String, Refusal> {
+) -> Result<Object, Refusal> {
+	if object.size > MAX_COPY_BYTES {
+		return Err(Refusal::TooLarge(object.size));
+	}
 	let to = trash_key(job, &object.key);
 	backend
 		.copy_within(Path::new(&object.key), Path::new(&to))
@@ -224,18 +230,32 @@ pub async fn trash(
 		.delete_if_match(Path::new(&object.key), &object.etag)
 		.await
 		.map_err(|error| refused(error, Refusal::Kept))?;
-	Ok(to)
+	self::object(backend, &to)
+		.await
+		.map_err(Refusal::Failed)?
+		.ok_or_else(|| {
+			Refusal::Failed(VolumeError::Io(std::io::Error::other(format!(
+				"the trash copy at {to} is missing"
+			))))
+		})
 }
 
-/// Whether the object at `key` is still the one a journal recorded.
-pub async fn still_holds(backend: &dyn VolumeBackend, key: &str, subject: &Subject) -> bool {
-	match object(backend, key).await {
-		Ok(Some(now)) => {
-			let now = now.subject();
-			now.size == subject.size && now.mtime_ms == subject.mtime_ms
+/// The object at `key` while it is still the one a journal recorded: the
+/// same entity tag, or for a row without one the same size and time.
+pub async fn still_holds(
+	backend: &dyn VolumeBackend,
+	key: &str,
+	subject: &Subject,
+) -> Option<Object> {
+	let now = object(backend, key).await.ok().flatten()?;
+	let holds = match &subject.etag {
+		Some(etag) => &now.etag == etag,
+		None => {
+			let recorded = now.subject();
+			recorded.size == subject.size && recorded.mtime_ms == subject.mtime_ms
 		}
-		_ => false,
-	}
+	};
+	holds.then_some(now)
 }
 
 /// A journal path for a key in the bucket `url` names.
@@ -454,9 +474,9 @@ mod tests {
 		let bucket = Racing::with(&[("dir/a.txt", "alpha")], false);
 		let source = at(&bucket, "dir/a.txt").await;
 		let job = Uuid::now_v7();
-		let location = trash(&bucket, &source, job).await.unwrap();
-		assert_eq!(location, format!(".spacedrive/trash/{job}/dir/a.txt"));
+		let copy = trash(&bucket, &source, job).await.unwrap();
+		assert_eq!(copy.key, format!(".spacedrive/trash/{job}/dir/a.txt"));
 		assert_eq!(bucket.body("dir/a.txt"), None);
-		assert_eq!(bucket.body(&location).as_deref(), Some("alpha"));
+		assert_eq!(bucket.body(&copy.key).as_deref(), Some("alpha"));
 	}
 }

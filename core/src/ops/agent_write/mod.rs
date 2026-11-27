@@ -191,7 +191,7 @@ pub enum WriteError {
 	Cancelled,
 	/// A bucket move or delete that landed in part, or kept a copy beside an
 	/// object that changed under it. `undo` reverses the part that landed.
-	#[error("{message}")]
+	#[error("{message}{}", undo.map(|id| format!(". Pass undo {id} to files.undo to reverse what landed")).unwrap_or_default())]
 	Partial { message: String, undo: Option<Uuid> },
 }
 

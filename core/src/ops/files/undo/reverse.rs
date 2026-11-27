@@ -16,7 +16,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-	infra::job::journal::{Effect, Recorded, Subject},
+	infra::job::journal::{Effect, Recorded},
 	ops::{
 		files::bucket as files_bucket,
 		grants::bucket::{backend, BucketUrl},
@@ -32,12 +32,17 @@ pub enum Step {
 		path: PathBuf,
 		is_dir: bool,
 		size: u64,
+		/// For a bucket object, the entity tag the check found, which the
+		/// step acts on and nothing newer.
+		etag: Option<String>,
 	},
 	/// Put a moved or trashed item back.
 	MoveBack {
 		from: PathBuf,
 		to: PathBuf,
 		size: u64,
+		/// For a bucket object, as for `Trash`.
+		etag: Option<String>,
 	},
 	/// Trash the replacement and put the previous bytes back.
 	Restore {
@@ -94,7 +99,7 @@ pub async fn reversals(
 async fn reverse(effect: &Effect) -> Result<Step, Left> {
 	match effect {
 		Effect::Created { path, subject } => {
-			let subject = subject.ok_or(Left::Irreversible)?;
+			let subject = subject.as_ref().ok_or(Left::Irreversible)?;
 			if !subject.still_holds(path).await {
 				return Err(Left::Changed);
 			}
@@ -102,6 +107,7 @@ async fn reverse(effect: &Effect) -> Result<Step, Left> {
 				path: path.clone(),
 				is_dir: subject.is_dir,
 				size: subject.size,
+				etag: None,
 			})
 		}
 		Effect::Moved { from, to, subject } => {
@@ -118,7 +124,8 @@ async fn reverse(effect: &Effect) -> Result<Step, Left> {
 			Ok(Step::MoveBack {
 				from: to.clone(),
 				to: from.clone(),
-				size: subject.map(|subject| subject.size).unwrap_or(0),
+				size: subject.as_ref().map(|subject| subject.size).unwrap_or(0),
+				etag: None,
 			})
 		}
 		Effect::Trashed { from, to, subject } => {
@@ -134,7 +141,8 @@ async fn reverse(effect: &Effect) -> Result<Step, Left> {
 			Ok(Step::MoveBack {
 				from: to.clone(),
 				to: from.clone(),
-				size: subject.map(|subject| subject.size).unwrap_or(0),
+				size: subject.as_ref().map(|subject| subject.size).unwrap_or(0),
+				etag: None,
 			})
 		}
 		Effect::Replaced {
@@ -154,7 +162,7 @@ async fn reverse(effect: &Effect) -> Result<Step, Left> {
 			Ok(Step::Restore {
 				path: path.clone(),
 				previous: previous.clone(),
-				size: subject.map(|subject| subject.size).unwrap_or(0),
+				size: subject.as_ref().map(|subject| subject.size).unwrap_or(0),
 			})
 		}
 		Effect::Removed { .. } => Err(Left::Irreversible),
@@ -184,35 +192,34 @@ async fn bucket_reverse(
 		return Some(Err(Left::Changed));
 	};
 	let backend = backend.as_ref();
-	let holds = |key: String, subject: Option<Subject>| async move {
-		match subject {
-			Some(subject) => files_bucket::still_holds(backend, &key, &subject).await,
-			None => matches!(files_bucket::object(backend, &key).await, Ok(Some(_))),
-		}
-	};
 	Some(match effect {
-		Effect::Created { path, subject } => {
-			let Some(subject) = subject else {
-				return Some(Err(Left::Irreversible));
-			};
-			if !holds(url.key.clone(), Some(*subject)).await {
+		Effect::Created {
+			path,
+			subject: Some(subject),
+		} => {
+			let Some(now) = files_bucket::still_holds(backend, &url.key, subject).await else {
 				return Some(Err(Left::Changed));
-			}
+			};
 			Ok(Step::Trash {
 				path: path.clone(),
 				is_dir: false,
-				size: subject.size,
+				size: now.size,
+				etag: Some(now.etag),
 			})
 		}
-		Effect::Moved { from, to, subject }
+		Effect::Moved {
+			from,
+			to,
+			subject: Some(subject),
+		}
 		| Effect::Trashed {
 			from,
 			to: Some(to),
-			subject,
+			subject: Some(subject),
 		} => {
-			if !holds(url.key.clone(), *subject).await {
+			let Some(now) = files_bucket::still_holds(backend, &url.key, subject).await else {
 				return Some(Err(Left::Changed));
-			}
+			};
 			let Some(back) = BucketUrl::parse(from) else {
 				return Some(Err(Left::Irreversible));
 			};
@@ -222,7 +229,8 @@ async fn bucket_reverse(
 			Ok(Step::MoveBack {
 				from: to.clone(),
 				to: from.clone(),
-				size: subject.map(|subject| subject.size).unwrap_or(0),
+				size: now.size,
+				etag: Some(now.etag),
 			})
 		}
 		_ => Err(Left::Irreversible),

@@ -229,13 +229,18 @@ itself. Code: `core/src/ops/agent_write/bucket.rs`.
   while it still carries the tag it was copied at. Nothing is removed for
   good, and the trash prefix is emptied by the bucket's lifecycle rules or
   by hand. An object that changed after the copy is kept, and so is the
-  copy.
+  copy. A delete takes objects up to 64 MiB, the size undo can copy back
+  without replacing anything.
 - **Prefixes.** A move or delete of a prefix is checked against its listing
-  hash, then takes each object below it, up to 10,000, on the same rules.
-  An object that changed meanwhile is left and named in the error, which
-  carries the undo id for the objects that did go.
-- **Undo.** Moves and deletes are journaled by bucket URL, so `files.undo`
-  reverses them: a moved object goes back, and a trashed one is copied from
+  hash. The entity tag of every object below it, up to 10,000, is read with
+  that check, and each object is moved or trashed at that tag only. An
+  object written after the check is left and named in the error, which
+  carries the undo id for the objects that did go. A directory marker is
+  left in place, so a moved or deleted prefix can remain as an empty
+  folder.
+- **Undo.** Moves and deletes are journaled by bucket URL with the entity
+  tag of what they left, so `files.undo` reverses them and acts on that
+  version only: a moved object goes back, and a trashed one is copied from
   the trash to its key under `If-None-Match` and the trash copy deleted.
   An object that changed since, or a key that is taken again, is left and
   reported. Writes carry no undo; the provider's object versioning restores

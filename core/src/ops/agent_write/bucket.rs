@@ -481,7 +481,7 @@ pub(super) async fn move_path(
 		)));
 	}
 
-	let keys = prefix_objects(&from, turn).await?;
+	let sources = prefix_objects(&from, turn).await?;
 	let mut target = None;
 	for candidate in candidates {
 		turn.proceed()?;
@@ -505,23 +505,12 @@ pub(super) async fn move_path(
 	turn.proceed()?;
 	let mut effects = Vec::new();
 	let mut left = Vec::new();
-	for key in &keys {
-		let relative = key[from.url.key.len()..].trim_start_matches('/');
+	for source in &sources {
+		let relative = source.key[from.url.key.len()..].trim_start_matches('/');
 		let destination = target.join(relative);
-		let source = match files_bucket::object(backend, key).await {
-			Ok(Some(source)) => source,
-			Ok(None) => {
-				left.push(format!("{} is gone", from.shown(&from.url.join(relative))));
-				continue;
-			}
-			Err(error) => {
-				left.push(format!("{}: {error}", from.shown(&from.url.join(relative))));
-				continue;
-			}
-		};
-		match files_bucket::relocate(backend, &source, &destination.key).await {
+		match files_bucket::relocate(backend, source, &destination.key).await {
 			Ok(()) => effects.push(Effect::Moved {
-				from: files_bucket::path(&from.url, key),
+				from: files_bucket::path(&from.url, &source.key),
 				to: destination.path(),
 				subject: landed(backend, &destination).await,
 			}),
@@ -539,7 +528,6 @@ pub(super) async fn move_path(
 			}
 		}
 	}
-	drop_marker(backend, &from.url).await;
 	let undo = journal(context, library, id, &effects).await;
 	if !left.is_empty() {
 		return Err(partial("moving", &from, left, undo));
@@ -559,12 +547,14 @@ pub(super) async fn delete(
 	check(&expect, &current.state)?;
 	let backend = bucket.backend.as_ref();
 	let id = Uuid::now_v7();
-	let keys = match current.state.kind {
-		Some(PathKind::File) => vec![bucket.url.key.clone()],
-		Some(PathKind::Directory) => prefix_objects(&bucket, turn).await?,
+	match current.state.kind {
+		Some(PathKind::File) => {}
+		Some(PathKind::Directory) => {
+			return delete_prefix(context, library, bucket, current.state, turn).await
+		}
 		_ => return Err(stale(current.state)),
-	};
-	if keys.len() == 1 && keys[0] == bucket.url.key {
+	}
+	{
 		let Some(source) = files_bucket::object(backend, &bucket.url.key)
 			.await
 			.map_err(io)?
@@ -574,15 +564,15 @@ pub(super) async fn delete(
 		};
 		turn.proceed()?;
 		return match files_bucket::trash(backend, &source, id).await {
-			Ok(location) => {
-				let effects = vec![trashed(&bucket.url, &source, &location)];
+			Ok(copy) => {
+				let effects = vec![trashed(&bucket.url, &source, &copy)];
 				let undo = journal(context, library, id, &effects).await;
 				deleted(&bucket, current.state, undo)
 			}
 			Err(Refusal::Changed) => Err(stale(state(&bucket, turn.cancel()).await?)),
 			Err(Refusal::Kept) => Err(WriteError::Partial {
 				message: format!(
-					"stale: {} changed while it was being deleted, so it is left as it is. A copy of the version you read is in the bucket at {}",
+					"stale: {} changed while it was being deleted, so it is left as it is, and a copy is kept in the bucket at {}",
 					current.state.path,
 					files_bucket::trash_key(id, &source.key)
 				),
@@ -591,33 +581,41 @@ pub(super) async fn delete(
 			Err(refusal) => Err(failed(&bucket, refusal)),
 		};
 	}
-	if state(&bucket, turn.cancel()).await?.content_hash != current.state.content_hash {
+}
+
+/// Put every object under a prefix in the trash, each at the version the
+/// snapshot taken with the precondition check found. An object replaced
+/// since is left and named.
+async fn delete_prefix(
+	context: &CoreContext,
+	library: Uuid,
+	bucket: Bucket,
+	checked: PathState,
+	turn: &WriteTurn,
+) -> Result<WriteOutcome, WriteError> {
+	let backend = bucket.backend.as_ref();
+	let id = Uuid::now_v7();
+	let sources = prefix_objects(&bucket, turn).await?;
+	if state(&bucket, turn.cancel()).await?.content_hash != checked.content_hash {
 		return Err(stale(state(&bucket, turn.cancel()).await?));
 	}
 	turn.proceed()?;
 	let mut effects = Vec::new();
 	let mut left = Vec::new();
-	for key in &keys {
-		let shown = bucket.shown(&files_bucket_url(&bucket.url, key));
-		let source = match files_bucket::object(backend, key).await {
-			Ok(Some(source)) => source,
-			Ok(None) => continue,
-			Err(error) => {
-				left.push(format!("{shown}: {error}"));
-				continue;
-			}
-		};
-		match files_bucket::trash(backend, &source, id).await {
-			Ok(location) => effects.push(trashed(&bucket.url, &source, &location)),
-			Err(refusal) => left.push(format!("{shown}: {refusal}")),
+	for source in &sources {
+		match files_bucket::trash(backend, source, id).await {
+			Ok(copy) => effects.push(trashed(&bucket.url, source, &copy)),
+			Err(refusal) => left.push(format!(
+				"{}: {refusal}",
+				bucket.shown(&files_bucket_url(&bucket.url, &source.key))
+			)),
 		}
 	}
-	drop_marker(backend, &bucket.url).await;
 	let undo = journal(context, library, id, &effects).await;
 	if !left.is_empty() {
 		return Err(partial("deleting", &bucket, left, undo));
 	}
-	deleted(&bucket, current.state, undo)
+	deleted(&bucket, checked, undo)
 }
 
 fn files_bucket_url(url: &BucketUrl, key: &str) -> BucketUrl {
@@ -627,9 +625,14 @@ fn files_bucket_url(url: &BucketUrl, key: &str) -> BucketUrl {
 	}
 }
 
-/// Every object under the scope's prefix, refusing a prefix that holds a
-/// path the grant protects or more objects than one call takes.
-async fn prefix_objects(bucket: &Bucket, turn: &WriteTurn) -> Result<Vec<String>, WriteError> {
+/// Every object under the scope's prefix with the entity tag it has now,
+/// refusing a prefix that holds a path the grant protects or more objects
+/// than one call takes. Each object is then moved or trashed at that tag
+/// only, so one written after the check is left alone.
+async fn prefix_objects(
+	bucket: &Bucket,
+	turn: &WriteTurn,
+) -> Result<Vec<files_bucket::Object>, WriteError> {
 	turn.proceed()?;
 	let keys =
 		files_bucket::objects_under(bucket.backend.as_ref(), &bucket.url, MAX_PREFIX_OBJECTS)
@@ -649,16 +652,17 @@ async fn prefix_objects(bucket: &Bucket, turn: &WriteTurn) -> Result<Vec<String>
 			);
 		}
 	}
-	Ok(keys)
-}
-
-/// Remove the directory marker of a prefix that was emptied. A marker holds
-/// no bytes, so nothing is lost and nothing is journaled.
-async fn drop_marker(backend: &dyn VolumeBackend, url: &BucketUrl) {
-	if files_bucket::occupied(backend, url).await.unwrap_or(true) {
-		return;
+	let mut objects = Vec::with_capacity(keys.len());
+	for key in &keys {
+		turn.proceed()?;
+		if let Some(object) = files_bucket::object(bucket.backend.as_ref(), key)
+			.await
+			.map_err(io)?
+		{
+			objects.push(object);
+		}
 	}
-	let _ = backend.delete(Path::new(&format!("{}/", url.key))).await;
+	Ok(objects)
 }
 
 async fn landed(backend: &dyn VolumeBackend, url: &BucketUrl) -> Option<Subject> {
@@ -669,11 +673,11 @@ async fn landed(backend: &dyn VolumeBackend, url: &BucketUrl) -> Option<Subject>
 		.map(|object| object.subject())
 }
 
-fn trashed(url: &BucketUrl, source: &files_bucket::Object, location: &str) -> Effect {
+fn trashed(url: &BucketUrl, source: &files_bucket::Object, copy: &files_bucket::Object) -> Effect {
 	Effect::Trashed {
 		from: files_bucket::path(url, &source.key),
-		to: Some(files_bucket::path(url, location)),
-		subject: Some(source.subject()),
+		to: Some(files_bucket::path(url, &copy.key)),
+		subject: Some(copy.subject()),
 	}
 }
 

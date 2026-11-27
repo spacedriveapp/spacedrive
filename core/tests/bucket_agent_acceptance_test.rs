@@ -506,6 +506,9 @@ async fn agents_read_grep_and_write_a_bucket_prefix_with_preconditions() -> anyh
 	);
 
 	// A delete puts the object in the bucket's trash, and undo restores it.
+	// The delete runs a second after the upload, so the trash copy's time
+	// differs from the source's and undo has to know the copy by its own.
+	tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
 	let deleted = agent
 		.ok(
 			"delete",

@@ -240,9 +240,13 @@ async fn apply_in_bucket(
 	ctx: &JobContext<'_>,
 	step: &Step,
 ) -> Option<std::io::Result<Vec<Effect>>> {
-	let (source, destination) = match step {
-		Step::Trash { path, .. } => (BucketUrl::parse(path)?, None),
-		Step::MoveBack { from, to, .. } => (BucketUrl::parse(from)?, Some(BucketUrl::parse(to)?)),
+	let (source, destination, etag) = match step {
+		Step::Trash { path, etag, .. } => (BucketUrl::parse(path)?, None, etag.clone()),
+		Step::MoveBack { from, to, etag, .. } => (
+			BucketUrl::parse(from)?,
+			Some(BucketUrl::parse(to)?),
+			etag.clone(),
+		),
 		_ => return None,
 	};
 	Some(
@@ -257,18 +261,21 @@ async fn apply_in_bucket(
 			let object = files_bucket::object(backend, &source.key)
 				.await
 				.map_err(|error| std::io::Error::other(error.to_string()))?
-				.ok_or_else(|| std::io::Error::other(format!("{} is gone", source.key)))?;
+				.filter(|object| etag.is_none() || etag.as_ref() == Some(&object.etag))
+				.ok_or_else(|| {
+					std::io::Error::other(format!("{} changed since it was checked", source.key))
+				})?;
 			let refused =
 				|refusal: files_bucket::Refusal| std::io::Error::other(refusal.to_string());
 			match destination {
 				None => {
-					let location = files_bucket::trash(backend, &object, ctx.id().0)
+					let copy = files_bucket::trash(backend, &object, ctx.id().0)
 						.await
 						.map_err(refused)?;
 					Ok(vec![Effect::Trashed {
 						from: source.path(),
-						to: Some(files_bucket::path(&source, &location)),
-						subject: Some(object.subject()),
+						to: Some(files_bucket::path(&source, &copy.key)),
+						subject: Some(copy.subject()),
 					}])
 				}
 				Some(destination) => {

@@ -147,7 +147,7 @@ impl PreviewableAction for FileUndoAction {
 				Step::Trash { path, size, .. } => {
 					(at(&path), ChangeKind::Delete { last_copy: false }, size)
 				}
-				Step::MoveBack { from, to, size } => {
+				Step::MoveBack { from, to, size, .. } => {
 					(at(&to), ChangeKind::Move { from: at(&from) }, size)
 				}
 				Step::Restore {
