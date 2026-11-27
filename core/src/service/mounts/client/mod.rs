@@ -28,6 +28,7 @@
 //! # }
 //! ```
 
+pub mod endpoint;
 pub mod mcp;
 
 use std::collections::HashMap;
@@ -54,6 +55,10 @@ use crate::service::mounts::vfs::{DirEntry, MountError, MountFs, NodeAttr, NodeK
 /// no change feed says otherwise.
 const VALID_FOR: Duration = Duration::from_secs(1);
 
+/// How long an answer is trusted when the node pushes changes: the feed
+/// invalidates sooner, and this bounds staleness if an event is missed.
+const VALID_FOR_WITH_FEED: Duration = Duration::from_secs(10);
+
 /// How often an idle mount asks the node whether its grant still holds.
 const GRANT_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -73,6 +78,23 @@ pub struct RemoteNode {
 	pub modified: Option<SystemTime>,
 	pub created: Option<SystemTime>,
 	pub accessed: Option<SystemTime>,
+	/// The node's version stamp for a file, sent back with every read so
+	/// blocks from two versions are never stitched into one.
+	pub etag: Option<String>,
+}
+
+/// What a transport's change feed reports, with paths relative to the
+/// granted folder.
+#[derive(Debug, Clone)]
+pub enum Change {
+	/// This path's attributes, bytes and its parent's listing are stale.
+	Path(PathBuf),
+	/// As `Path`, for everything beneath it too: a move or a delete.
+	Subtree(PathBuf),
+	/// The node cannot say what changed; everything is stale.
+	Reset,
+	/// The grant was revoked or expired.
+	End,
 }
 
 /// How a client reaches the node that holds the granted folder. Paths are
@@ -86,13 +108,21 @@ pub trait Transport: Send + Sync + 'static {
 
 	/// Up to `len` bytes from `offset`; fewer only at the end of the file or
 	/// when the transport caps one request.
-	async fn read(&self, path: &str, offset: u64, len: u64) -> Result<Bytes, MountError>;
+	/// `etag`, when the node gave one, is the version the bytes must come
+	/// from; a read of another version fails rather than mixing the two.
+	async fn read(
+		&self,
+		path: &str,
+		offset: u64,
+		len: u64,
+		etag: Option<&str>,
+	) -> Result<Bytes, MountError>;
 
 	/// Largest read one request answers.
 	fn max_read(&self) -> u64;
 
-	/// Paths the node reports as changed, when the transport carries a feed.
-	fn changes(&self) -> Option<broadcast::Receiver<PathBuf>> {
+	/// What the node reports as changed, when the transport carries a feed.
+	fn changes(&self) -> Option<broadcast::Receiver<Change>> {
 		None
 	}
 
@@ -105,9 +135,22 @@ pub trait Transport: Send + Sync + 'static {
 pub async fn connect(
 	url: &str,
 	token: &str,
+	space: Option<&str>,
 	cache_dir: Option<PathBuf>,
 ) -> Result<Arc<RemoteFs>, MountError> {
-	let transport = Arc::new(mcp::McpTransport::connect(url, token).await?);
+	// A URL that names the MCP path asks for MCP. Otherwise the space
+	// endpoint is preferred, and a node that predates it is reached over MCP.
+	let transport: Arc<dyn Transport> = if url.trim_end_matches('/').ends_with("/mcp") {
+		Arc::new(mcp::McpTransport::connect(url, token).await?)
+	} else {
+		match endpoint::EndpointTransport::connect(url, token, space).await {
+			Ok(transport) => Arc::new(transport),
+			Err(endpoint::ConnectError::NoEndpoint) => {
+				Arc::new(mcp::McpTransport::connect(url, token).await?)
+			}
+			Err(endpoint::ConnectError::Refused(err)) => return Err(err),
+		}
+	};
 	let cache_dir = match cache_dir {
 		Some(dir) => dir,
 		None => default_cache_dir()?,
@@ -131,7 +174,7 @@ pub async fn connect(
 	// One cache namespace per node URL and grant, so two mounts never read
 	// each other's blocks and a remount finds its own.
 	let source = Uuid::new_v5(&Uuid::NAMESPACE_URL, format!("{url}#{token}").as_bytes());
-	Ok(Arc::new(RemoteFs::new(transport, cache, source)))
+	Ok(RemoteFs::new(transport, cache, source))
 }
 
 fn default_cache_dir() -> Result<PathBuf, MountError> {
@@ -154,49 +197,78 @@ pub struct RemoteFs {
 	/// Set once the frontend reports the kernel dropped its caches after the
 	/// grant ended.
 	flushed_tx: watch::Sender<bool>,
+	valid_for: Duration,
 }
 
 impl RemoteFs {
-	pub fn new(transport: Arc<dyn Transport>, cache: Arc<BlockCache>, source: Uuid) -> Self {
-		let attrs: Arc<Mutex<HashMap<PathBuf, (NodeAttr, Instant)>>> = Arc::default();
-		// Forget cached attributes before the frontend hears of a change, so
-		// the kernel's next question gets a fresh answer.
-		let (changes, _) = broadcast::channel(1024);
-		if let Some(mut feed) = transport.changes() {
-			let (attrs, out) = (attrs.clone(), changes.clone());
+	pub fn new(transport: Arc<dyn Transport>, cache: Arc<BlockCache>, source: Uuid) -> Arc<Self> {
+		let feed = transport.changes();
+		let fs = Arc::new(Self {
+			transport,
+			cache,
+			source,
+			attrs: Arc::default(),
+			changes: broadcast::channel(1024).0,
+			ended: Arc::new(AtomicBool::new(false)),
+			ended_tx: watch::Sender::new(false),
+			flushed_tx: watch::Sender::new(false),
+			valid_for: if feed.is_some() {
+				VALID_FOR_WITH_FEED
+			} else {
+				VALID_FOR
+			},
+		});
+		if let Some(mut feed) = feed {
+			let fs = Arc::downgrade(&fs);
 			tokio::spawn(async move {
 				use broadcast::error::RecvError;
 				loop {
-					match feed.recv().await {
-						Ok(path) => {
-							if let Ok(mut attrs) = attrs.lock() {
-								attrs.remove(&path);
-								if let Some(parent) = path.parent() {
-									attrs.remove(parent);
-								}
-							}
-							let _ = out.send(path);
-						}
-						Err(RecvError::Lagged(_)) => {
-							if let Ok(mut attrs) = attrs.lock() {
-								attrs.clear();
-							}
-						}
+					let change = feed.recv().await;
+					let Some(fs) = fs.upgrade() else {
+						break;
+					};
+					match change {
+						Ok(change) => fs.apply(change),
+						Err(RecvError::Lagged(_)) => fs.apply(Change::Reset),
 						Err(RecvError::Closed) => break,
 					}
 				}
 			});
 		}
-		Self {
-			transport,
-			cache,
-			source,
-			attrs,
-			changes,
-			ended: Arc::new(AtomicBool::new(false)),
-			ended_tx: watch::Sender::new(false),
-			flushed_tx: watch::Sender::new(false),
-		}
+		fs
+	}
+
+	/// Forget cached attributes before the frontend hears of a change, so the
+	/// kernel's next question gets a fresh answer.
+	fn apply(&self, change: Change) {
+		let path = match change {
+			Change::End => return self.end(),
+			Change::Reset => {
+				if let Ok(mut attrs) = self.attrs.lock() {
+					attrs.clear();
+				}
+				PathBuf::new()
+			}
+			Change::Path(path) => {
+				if let Ok(mut attrs) = self.attrs.lock() {
+					attrs.remove(&path);
+					if let Some(parent) = path.parent() {
+						attrs.remove(parent);
+					}
+				}
+				path
+			}
+			Change::Subtree(path) => {
+				if let Ok(mut attrs) = self.attrs.lock() {
+					attrs.retain(|cached, _| !cached.starts_with(&path));
+					if let Some(parent) = path.parent() {
+						attrs.remove(parent);
+					}
+				}
+				path
+			}
+		};
+		let _ = self.changes.send(path);
 	}
 
 	/// Returns once the node refuses the token: the grant was revoked or
@@ -275,11 +347,11 @@ impl RemoteFs {
 		}
 	}
 
-	async fn fresh_stat(&self, path: &Path) -> Result<NodeAttr, MountError> {
+	async fn fresh_stat(&self, path: &Path) -> Result<(NodeAttr, RemoteNode), MountError> {
 		let node = self.checked(self.transport.stat(&wire_path(path)?).await)?;
-		let attr = attr(&node).ok_or(MountError::NotFound)?;
+		let attr = attr(&node, self.valid_for).ok_or(MountError::NotFound)?;
 		self.remember(path.to_path_buf(), attr.clone());
-		Ok(attr)
+		Ok((attr, node))
 	}
 }
 
@@ -299,7 +371,7 @@ fn wire_path(path: &Path) -> Result<String, MountError> {
 	Ok(out)
 }
 
-fn attr(node: &RemoteNode) -> Option<NodeAttr> {
+fn attr(node: &RemoteNode, valid_for: Duration) -> Option<NodeAttr> {
 	Some(NodeAttr {
 		kind: node.kind?,
 		size: if node.kind? == NodeKind::Directory {
@@ -310,7 +382,7 @@ fn attr(node: &RemoteNode) -> Option<NodeAttr> {
 		modified: node.modified,
 		accessed: node.accessed,
 		created: node.created,
-		valid_for: VALID_FOR,
+		valid_for,
 	})
 }
 
@@ -320,14 +392,14 @@ impl MountFs for RemoteFs {
 		if let Some(attr) = self.cached(path) {
 			return self.checked(Ok(attr));
 		}
-		self.fresh_stat(path).await
+		Ok(self.fresh_stat(path).await?.0)
 	}
 
 	async fn list(&self, path: &Path) -> Result<Vec<DirEntry>, MountError> {
 		let children = self.checked(self.transport.list(&wire_path(path)?).await)?;
 		let mut entries = Vec::with_capacity(children.len());
 		for (name, node) in children {
-			let Some(attr) = attr(&node) else {
+			let Some(attr) = attr(&node, self.valid_for) else {
 				continue;
 			};
 			entries.push(DirEntry {
@@ -342,7 +414,7 @@ impl MountFs for RemoteFs {
 	async fn open(&self, path: &Path) -> Result<OpenedFile, MountError> {
 		// An open always asks the node, so the cache key below names the
 		// bytes the node has now.
-		let attr = self.fresh_stat(path).await?;
+		let (attr, node) = self.fresh_stat(path).await?;
 		if attr.is_dir() {
 			return Err(MountError::IsADirectory);
 		}
@@ -353,7 +425,12 @@ impl MountFs for RemoteFs {
 				size: attr.size,
 				// A file without a time still needs a stable cache key.
 				modified: Some(attr.modified.unwrap_or(SystemTime::UNIX_EPOCH)),
+				version: node.etag.as_deref().map(|etag| {
+					let hash = blake3::hash(etag.as_bytes());
+					u64::from_le_bytes(hash.as_bytes()[..8].try_into().unwrap_or_default())
+				}),
 			},
+			etag: node.etag,
 		});
 		Ok(OpenedFile {
 			provider: Arc::new(Gated {
@@ -412,6 +489,7 @@ struct RemoteFile {
 	transport: Arc<dyn Transport>,
 	path: String,
 	stat: ByteStat,
+	etag: Option<String>,
 }
 
 impl From<MountError> for ByteError {
@@ -441,7 +519,7 @@ impl ByteProvider for RemoteFile {
 		while cursor < end {
 			let chunk = self
 				.transport
-				.read(&self.path, cursor, end - cursor)
+				.read(&self.path, cursor, end - cursor, self.etag.as_deref())
 				.await?;
 			if chunk.is_empty() {
 				break;

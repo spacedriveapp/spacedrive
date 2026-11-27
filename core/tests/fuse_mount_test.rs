@@ -324,6 +324,7 @@ impl ByteProvider for SimulatedPeer {
 			Some(data) => Ok(ByteStat {
 				size: data.len() as u64,
 				modified: None,
+				version: None,
 			}),
 			None => Err(offline()),
 		}

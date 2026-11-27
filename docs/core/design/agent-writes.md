@@ -218,9 +218,47 @@ itself. Code: `core/src/ops/agent_write/bucket.rs`.
 - **Directories.** A prefix with objects under it is a directory. Its hash
   is the listing hash, as for a local directory. `make_dir` writes a
   zero-byte `prefix/` marker.
-- **Refused.** Moves and deletes, because a bucket cannot make them
-  conditional on the version the agent read. Undo, because a bucket has no
-  trash; the provider's object versioning is what restores a version.
+- **Move.** A bucket has no rename, so a move copies each object and then
+  deletes its source. The copy reads the object at the entity tag the
+  precondition was checked against and is sent with `If-None-Match: *`, so
+  it never replaces anything: a taken name sends the item to a conflict
+  name, as on disk. The source is deleted only while it still carries that
+  tag. When it changed after the copy landed, both are kept and the call
+  fails with a message naming the copy. A copy passes the bytes through the
+  daemon, so a move takes objects up to 64 MiB.
+- **Delete.** Each object is copied inside the service to
+  `.spacedrive/trash/<undo id>/<key>` at the bucket's root, then deleted
+  while it still carries the tag it was copied at. Nothing is removed for
+  good, and the trash prefix is emptied by the bucket's lifecycle rules or
+  by hand. An object that changed after the copy is kept, and so is the
+  copy. A delete takes objects up to 64 MiB, the size undo can copy back
+  without replacing anything.
+- **Prefixes.** A move or delete of a prefix is checked against its listing
+  hash. The entity tag of every object below it, up to 10,000, is read with
+  that check, and each object is moved or trashed at that tag only. An
+  object written after the check is left and named in the error, which
+  carries the undo id for the objects that did go. A directory marker is
+  left in place, so a moved or deleted prefix can remain as an empty
+  folder.
+- **Undo.** Moves and deletes are journaled by bucket URL with the entity
+  tag of what they left, so `files.undo` reverses them and acts on that
+  version only: a moved object goes back, and a trashed one is copied from
+  the trash to its key under `If-None-Match` and the trash copy deleted.
+  An object that changed since, or a key that is taken again, is left and
+  reported. Writes carry no undo; the provider's object versioning restores
+  an earlier version.
+- **Versioned buckets only.** OpenDAL sends no `If-Match` on `DeleteObject`,
+  so the daemon checks the tag just before an unconditional delete. A write
+  that lands between the check and the delete would be deleted with the
+  source. In a bucket that keeps object versions, that write survives as an
+  earlier version, so nothing is lost. Moves and deletes, and undo of them,
+  therefore run only in a bucket with versioning enabled, and are refused
+  elsewhere with a message that says to enable it. The daemon learns the
+  state from the version id a write of the empty object
+  `.spacedrive/versioning-probe` answers with, when the source is tracked and
+  before each move or delete, and trusts it for a minute. A suspended
+  bucket counts as unversioned. R2 has no object versioning, so agents can
+  write to R2 but cannot move or delete there.
 - **Read-only services.** A service whose backend cannot refuse a stale
   write, such as Google Drive, OneDrive or Dropbox, is read-only for agents.
   `grants.create` refuses a `read_write` grant on it, and `authorize`

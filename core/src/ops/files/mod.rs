@@ -4,6 +4,7 @@
 mod acceptance;
 pub mod archive;
 pub mod attributes_action;
+pub mod bucket;
 pub mod copy;
 pub mod create_folder;
 pub mod delete;
