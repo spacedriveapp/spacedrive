@@ -848,8 +848,7 @@ function updateWrappedCache(
  * Safe deep merge for resource updates
  *
  * Arrays are REPLACED (not concatenated) because:
- * - sidecars: Server sends complete list, duplicating would corrupt data
- * - alternate_paths: Same - server is authoritative
+ * - alternate_paths: Server sends the complete list, duplicating would corrupt data
  * - tags: Same pattern
  *
  * Only nested objects are deep merged (like content_identity).

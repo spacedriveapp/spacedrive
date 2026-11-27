@@ -23,7 +23,7 @@ pub mod volume;
 pub use addressing::{PathResolutionError, SdPath, SdPathBatch, SdPathParseError};
 pub use content_identity::{ContentHashError, ContentHashGenerator, ContentIdentity, ContentKind};
 pub use device::{ConnectionMethod, Device, OperatingSystem};
-pub use file::{EntryKind, File, Sidecar};
+pub use file::{EntryKind, File};
 pub use library::Library;
 pub use media_data::{AudioMediaData, ImageMediaData, VideoMediaData};
 pub use resource::{EventEmitter, Identifiable};

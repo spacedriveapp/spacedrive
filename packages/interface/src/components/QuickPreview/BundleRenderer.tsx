@@ -14,7 +14,7 @@ export interface BundleContext {
 	file: File;
 	/** The file's original bytes, once the daemon has a URL for them. */
 	originalUrl: string | null;
-	/** The largest thumbnail sidecar, or the hot-tier tile before one exists. */
+	/** The file's hot-tier thumbnail tile. */
 	thumbnailUrl: string | null;
 	buildSidecarUrl: (
 		contentUuid: string,
@@ -59,25 +59,8 @@ export function BundleRenderer(props: BundleRendererProps) {
 	const [failedFor, setFailedFor] = useState<string | null>(null);
 	const attempt = `${url}\u0000${fileKey}`;
 
-	const thumbnail = (file.sidecars ?? [])
-		.filter((s) => s.kind === "thumb")
-		.sort(
-			(a, b) =>
-				parseInt(b.variant.replace(/\D/g, "") || "0") -
-				parseInt(a.variant.replace(/\D/g, "") || "0"),
-		)[0];
-	const sidecarThumbnailUrl =
-		thumbnail && file.content_identity?.uuid
-			? buildSidecarUrl(
-					file.content_identity.uuid,
-					thumbnail.kind,
-					thumbnail.variant,
-					thumbnail.format,
-					thumbnail.version,
-				)
-			: null;
-	const hotThumb = useHotThumb(file.sd_path, sidecarThumbnailUrl === null);
-	const thumbnailUrl = sidecarThumbnailUrl ?? hotThumb.url;
+	const hotThumb = useHotThumb(file.sd_path, true);
+	const thumbnailUrl = hotThumb.url;
 
 	useEffect(() => {
 		const el = hostRef.current;
