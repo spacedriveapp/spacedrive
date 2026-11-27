@@ -93,13 +93,27 @@ A surface that changes a directory as a whole, such as a recursive delete or mov
 
 ## Audit
 
-Each decision against a known grant is recorded in the `grant_audit` table, whether the request was allowed or refused. A record holds the grant id, the operation, the path as the agent sent it, the result, the reason for a refusal, and the time.
+Each decision against a known grant is recorded in the `grant_audit` table, whether the request was allowed or refused, before the request is answered. A record holds:
 
-The table keeps the newest 10,000 rows and trims the oldest on every write. If the audit row for an allowed request cannot be written, the request is refused. Nothing is served without a record.
+- the time, the grant id and the grant's label
+- the client address and the MCP session id, on surfaces reached over the network
+- the operation, such as `mcp.read`, and the path as the agent sent it
+- the grep or glob pattern, cut to its first 256 bytes
+- the bytes of the response body, the result (`ok`, `denied`, `limited` or `error`), the duration, and the reason for a refusal
 
-A token that matches no grant has no grant and no library to record against. That refusal is logged through `tracing`.
+A record never holds the token, file contents or match text.
 
-`grants.list` shows the last allowed use of each grant from the audit. `grants.audit` returns the log, newest first, for one grant or for all grants.
+`authorize` writes the decision. A surface that knows more about the request calls `authorize_with` with a `RequestMeta` (client address, session, pattern). It gets back the scope and the id of the row, and calls `audit::finish` with the bytes, result and duration once it has the response body and before it sends it. If either write fails, the request is not served. The MCP endpoint answers 503.
+
+Some requests are counted instead of recorded one by one, so a flood cannot fill the table. They go to `grant_audit_tally`, one row per kind, subject and minute with a count:
+
+- `unknown_token`: a token that matches no grant, per client address. Nothing says which library the token was meant for, so the count goes to every open library.
+- `locked_out`: a request from an address locked out after failed authentications, per client address.
+- `rate_limited`: a request over its grant's request rate, per grant. Its decision row is folded into the count.
+
+Retention is 30 days or 1,000,000 rows per table, whichever comes first. The trim runs once every 1,000 audit writes, so a table can hold up to that many rows over the cap between two passes.
+
+`grants.list` shows the last allowed use and the request count of each grant, both within retention. `grants.audit` returns the rows and the tallies, newest first, for one grant or for all grants.
 
 ## Ops and CLI
 
@@ -109,14 +123,14 @@ A token that matches no grant has no grant and no library to record against. Tha
 | `grants.list` | library query | Active grants, or all with `include_inactive`. Never returns tokens. |
 | `grants.revoke` | library action | End a grant now. |
 | `grants.extend` | library action | Set a new expiry from now. |
-| `grants.audit` | library query | The audit log, newest first. |
+| `grants.audit` | library query | The audit rows and tallies, newest first. |
 
 ```
 sd grant create <path> [--read | --read-write] [--ttl 1h] [--label name]
 sd grant list [--all]
 sd grant revoke <id>
 sd grant extend <id> [--ttl 1h]
-sd grant audit [<id>] [--limit 50]
+sd grant audit [<id>] [--limit 50]   # also: sd grant log <id>
 ```
 
 The CLI binary is `sd-cli`. `--ttl` takes values such as `30m`, `1h` or `2h30m`.

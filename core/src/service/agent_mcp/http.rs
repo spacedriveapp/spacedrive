@@ -7,6 +7,12 @@
 //! first, then the client address's failed-authentication lockout, then the
 //! grant through `authorize`, then the grant's rate, its session, and its call
 //! budgets. Only then does a tool run.
+//!
+//! Every request carrying a token is audited before it is answered: the
+//! decision row `authorize_with` writes is completed with the response's size,
+//! result and duration, a rate-limited request is folded into its grant's
+//! per-minute tally, and a locked-out address is tallied per minute. A write
+//! that fails answers 503 instead of the response.
 
 use std::{
 	collections::HashMap,
@@ -20,7 +26,7 @@ use std::{
 };
 
 use axum::{
-	body::Bytes,
+	body::{Bytes, HttpBody},
 	extract::{ConnectInfo, DefaultBodyLimit, State},
 	http::{header, HeaderMap, HeaderValue, Method, StatusCode, Uri},
 	response::{IntoResponse, Response},
@@ -39,7 +45,11 @@ use super::{
 };
 use crate::{
 	context::CoreContext,
-	ops::grants::{authorize, store, GrantCap, GrantError, GrantScope, GrantStatus},
+	ops::grants::{
+		audit::{self, TallyKind},
+		authorize_with, store, AuditId, AuditResult, GrantCap, GrantError, GrantScope, GrantStatus,
+		RequestMeta,
+	},
 };
 
 /// Protocol revisions this server speaks, newest first.
@@ -374,6 +384,16 @@ impl Request {
 		self.id.clone().unwrap_or(Value::Null)
 	}
 
+	/// The grep or glob pattern a tool call carries, for the audit.
+	fn pattern(&self) -> Option<String> {
+		if self.method.as_deref() != Some("tools/call") {
+			return None;
+		}
+		self.params["arguments"]["pattern"]
+			.as_str()
+			.map(str::to_string)
+	}
+
 	/// The audit name, the grant-relative path and the capability this
 	/// message needs.
 	fn target(&self) -> (String, String, GrantCap) {
@@ -400,22 +420,18 @@ async fn check(
 	op: &str,
 	path: &str,
 	cap: GrantCap,
+	meta: &RequestMeta,
 	id: &Value,
-) -> Result<GrantScope, Response> {
-	match authorize(&endpoint.context, token, op, Path::new(path), cap).await {
-		Ok(scope) => Ok(scope),
+) -> Result<(GrantScope, AuditId), Response> {
+	match authorize_with(&endpoint.context, token, op, Path::new(path), cap, meta).await {
+		Ok(authorized) => Ok(authorized),
 		Err(refusal) if refusal.is_credential() => {
 			endpoint.auth_failed(ip);
 			Err(unauthorized(id.clone(), base))
 		}
 		Err(GrantError::Internal(reason)) => {
 			warn!(%reason, "agent MCP request could not be authorized");
-			Err(rpc_error(
-				StatusCode::SERVICE_UNAVAILABLE,
-				id.clone(),
-				REFUSED,
-				"the request could not be recorded; try again",
-			))
+			Err(unavailable(id.clone()))
 		}
 		Err(refusal) => Err(forbidden(id.clone(), refusal_message(&refusal))),
 	}
@@ -428,8 +444,9 @@ async fn post(
 	headers: &HeaderMap,
 	body: &[u8],
 ) -> Response {
+	let started = Instant::now();
 	if let Some(wait) = endpoint.locked_out(ip) {
-		return too_many(Value::Null, wait, "too many failed authentications");
+		return endpoint.refuse_locked_out(ip, wait).await;
 	}
 	let Some(token) = bearer(headers) else {
 		endpoint.auth_failed(ip);
@@ -455,59 +472,90 @@ async fn post(
 	}
 
 	let (op, path, cap) = request.target();
-	let scope = match check(endpoint, ip, base, token, &op, &path, cap, &id).await {
-		Ok(scope) => scope,
+	let meta = RequestMeta {
+		client: Some(ip),
+		session: session_id(headers).map(str::to_string),
+		pattern: request.pattern(),
+	};
+	let (scope, row) = match check(endpoint, ip, base, token, &op, &path, cap, &meta, &id).await {
+		Ok(authorized) => authorized,
 		Err(response) => return response,
 	};
 	if let Err(reason) = paths::check(&path) {
-		return forbidden(id, reason);
+		let refused = (forbidden(id.clone(), reason), AuditResult::Denied);
+		return endpoint.finish(&scope, row, started, refused, &id).await;
 	}
-	let grant = scope.grant_id;
-	if let Err(wait) = endpoint.with_usage(grant, |usage| {
+	if let Err(wait) = endpoint.with_usage(scope.grant_id, |usage| {
 		usage
 			.bucket
 			.take(endpoint.limits.rate_per_second, endpoint.limits.rate_burst)
 	}) {
-		return too_many(id, wait, "the grant is over its request rate");
+		let response = too_many(id.clone(), wait, "the grant is over its request rate");
+		return endpoint
+			.fold_rate_limited(&scope, row, ip, response, &id)
+			.await;
 	}
+	let served = serve(endpoint, base, token, headers, scope.clone(), request).await;
+	endpoint.finish(&scope, row, started, served, &id).await
+}
 
+/// Answer an authorized request, with the result its audit row records.
+async fn serve(
+	endpoint: &Arc<Endpoint>,
+	base: &str,
+	token: &str,
+	headers: &HeaderMap,
+	scope: GrantScope,
+	request: Request,
+) -> (Response, AuditResult) {
+	let id = request.id();
+	let grant = scope.grant_id;
 	if request.method.as_deref() == Some("initialize") {
 		let Some(session) = endpoint.open_session(grant) else {
-			return too_many(
+			let response = too_many(
 				id,
 				Duration::from_secs(60),
 				"the grant has too many open sessions",
 			);
+			return (response, AuditResult::Limited);
 		};
 		let mut response = rpc_result(id, initialize(&request.params));
 		if let Ok(value) = HeaderValue::from_str(&session) {
 			response.headers_mut().insert(SESSION_HEADER, value);
 		}
-		return response;
+		return (response, AuditResult::Ok);
 	}
 
-	let Some(session) = headers.get(SESSION_HEADER).and_then(|v| v.to_str().ok()) else {
-		return rpc_error(
+	let Some(session) = session_id(headers) else {
+		let response = rpc_error(
 			StatusCode::BAD_REQUEST,
 			id,
 			-32600,
 			"missing Mcp-Session-Id; send initialize first",
 		);
+		return (response, AuditResult::Error);
 	};
 	if !endpoint.touch_session(session, grant) {
-		return rpc_error(StatusCode::NOT_FOUND, id, REFUSED, "unknown session");
+		let response = rpc_error(StatusCode::NOT_FOUND, id, REFUSED, "unknown session");
+		return (response, AuditResult::Denied);
 	}
 
 	// Notifications and responses carry no id and get no body.
 	if request.id.is_none() || request.method.is_none() {
-		return StatusCode::ACCEPTED.into_response();
+		return (StatusCode::ACCEPTED.into_response(), AuditResult::Ok);
 	}
 
 	match request.method.as_deref() {
-		Some("ping") => rpc_result(id, json!({})),
-		Some("tools/list") => rpc_result(id, json!({ "tools": tools::definitions() })),
+		Some("ping") => (rpc_result(id, json!({})), AuditResult::Ok),
+		Some("tools/list") => (
+			rpc_result(id, json!({ "tools": tools::definitions() })),
+			AuditResult::Ok,
+		),
 		Some("tools/call") => call(endpoint, base, token, scope, request).await,
-		_ => rpc_error(StatusCode::OK, id, -32601, "method not found"),
+		_ => (
+			rpc_error(StatusCode::OK, id, -32601, "method not found"),
+			AuditResult::Error,
+		),
 	}
 }
 
@@ -517,11 +565,12 @@ async fn call(
 	token: &str,
 	scope: GrantScope,
 	request: Request,
-) -> Response {
+) -> (Response, AuditResult) {
 	let id = request.id();
 	let name = request.params["name"].as_str().unwrap_or_default();
 	let Some(tool) = tools::Tool::parse(name) else {
-		return rpc_error(StatusCode::OK, id, -32602, "unknown tool");
+		let response = rpc_error(StatusCode::OK, id, -32602, "unknown tool");
+		return (response, AuditResult::Error);
 	};
 	let arguments = request
 		.params
@@ -530,7 +579,10 @@ async fn call(
 		.unwrap_or_else(|| json!({}));
 	let slot = match endpoint.begin_call(scope.grant_id, tool.exclusive()) {
 		Ok(slot) => slot,
-		Err(reason) => return too_many(id, Duration::from_secs(1), &reason),
+		Err(reason) => {
+			let response = too_many(id, Duration::from_secs(1), &reason);
+			return (response, AuditResult::Limited);
+		}
 	};
 
 	let cancel = Arc::new(AtomicBool::new(false));
@@ -549,24 +601,25 @@ async fn call(
 		outcome = tokio::time::timeout(endpoint.limits.call_timeout, work) => outcome,
 		_ = ended(endpoint, library, grant) => {
 			debug!(%grant, "cancelled a tool call whose grant ended");
-			return unauthorized(id, base);
+			return (unauthorized(id, base), AuditResult::Denied);
 		}
 	};
-	let result = match outcome {
-		Ok(Ok(output)) => output.into_result(),
-		Ok(Err(message)) => tools::error_result(&message),
+	let (result, audited) = match outcome {
+		Ok(Ok(output)) => (output.into_result(), AuditResult::Ok),
+		Ok(Err(message)) => (tools::error_result(&message), AuditResult::Error),
 		Err(_) => {
 			cancel.store(true, Ordering::Relaxed);
-			tools::error_result(&format!(
+			let message = format!(
 				"the call ran past {} s and was cancelled; narrow the path or pattern",
 				endpoint.limits.call_timeout.as_secs()
-			))
+			);
+			(tools::error_result(&message), AuditResult::Error)
 		}
 	};
 	drop(slot);
 	let response = rpc_body(id, json!({ "result": result }));
 	endpoint.with_usage(grant, |usage| usage.bytes.add(response.len() as u64));
-	json_response(StatusCode::OK, response)
+	(json_response(StatusCode::OK, response), audited)
 }
 
 /// Resolves once the grant is revoked, expires or disappears, polling the
@@ -594,14 +647,20 @@ async fn ended(endpoint: &Endpoint, library_id: Uuid, grant: Uuid) {
 }
 
 async fn delete(endpoint: &Arc<Endpoint>, ip: IpAddr, base: &str, headers: &HeaderMap) -> Response {
+	let started = Instant::now();
 	if let Some(wait) = endpoint.locked_out(ip) {
-		return too_many(Value::Null, wait, "too many failed authentications");
+		return endpoint.refuse_locked_out(ip, wait).await;
 	}
 	let Some(token) = bearer(headers) else {
 		endpoint.auth_failed(ip);
 		return unauthorized(Value::Null, base);
 	};
-	let scope = match check(
+	let meta = RequestMeta {
+		client: Some(ip),
+		session: session_id(headers).map(str::to_string),
+		pattern: None,
+	};
+	let (scope, row) = match check(
 		endpoint,
 		ip,
 		base,
@@ -609,21 +668,117 @@ async fn delete(endpoint: &Arc<Endpoint>, ip: IpAddr, base: &str, headers: &Head
 		"mcp.session.end",
 		"",
 		GrantCap::Read,
+		&meta,
 		&Value::Null,
 	)
 	.await
 	{
-		Ok(scope) => scope,
+		Ok(authorized) => authorized,
 		Err(response) => return response,
 	};
-	let Some(session) = headers.get(SESSION_HEADER).and_then(|v| v.to_str().ok()) else {
-		return plain(StatusCode::BAD_REQUEST, "missing Mcp-Session-Id");
+	let served = match session_id(headers) {
+		None => (
+			plain(StatusCode::BAD_REQUEST, "missing Mcp-Session-Id"),
+			AuditResult::Error,
+		),
+		Some(session) if endpoint.close_session(session, scope.grant_id) => {
+			(StatusCode::NO_CONTENT.into_response(), AuditResult::Ok)
+		}
+		Some(_) => (
+			plain(StatusCode::NOT_FOUND, "unknown session"),
+			AuditResult::Denied,
+		),
 	};
-	if endpoint.close_session(session, scope.grant_id) {
-		StatusCode::NO_CONTENT.into_response()
-	} else {
-		plain(StatusCode::NOT_FOUND, "unknown session")
+	endpoint
+		.finish(&scope, row, started, served, &Value::Null)
+		.await
+}
+
+impl Endpoint {
+	async fn library_db(&self, library_id: Uuid) -> Option<sea_orm::DatabaseConnection> {
+		let library = self
+			.context
+			.libraries()
+			.await
+			.get_library(library_id)
+			.await?;
+		Some(library.db().conn().clone())
 	}
+
+	/// Complete an authorized request's audit row, then hand back its
+	/// response, or 503 when the row cannot be completed.
+	async fn finish(
+		&self,
+		scope: &GrantScope,
+		row: AuditId,
+		started: Instant,
+		(response, result): (Response, AuditResult),
+		id: &Value,
+	) -> Response {
+		let bytes = response.body().size_hint().exact();
+		let written = match self.library_db(scope.library_id).await {
+			Some(db) => audit::finish(&db, row, bytes, result, started.elapsed())
+				.await
+				.map_err(|e| e.to_string()),
+			None => Err("the library is closed".to_string()),
+		};
+		match written {
+			Ok(()) => response,
+			Err(reason) => {
+				warn!(grant = %scope.grant_id, %reason, "refused a request whose audit could not be completed");
+				unavailable(id.clone())
+			}
+		}
+	}
+
+	/// Count a request over its grant's rate in the grant's tally instead of
+	/// keeping its own row, then hand back the 429.
+	async fn fold_rate_limited(
+		&self,
+		scope: &GrantScope,
+		row: AuditId,
+		ip: IpAddr,
+		response: Response,
+		id: &Value,
+	) -> Response {
+		let written = match self.library_db(scope.library_id).await {
+			Some(db) => audit::fold_rate_limited(&db, row, scope.grant_id, Some(ip))
+				.await
+				.map_err(|e| e.to_string()),
+			None => Err("the library is closed".to_string()),
+		};
+		match written {
+			Ok(()) => response,
+			Err(reason) => {
+				warn!(grant = %scope.grant_id, %reason, "could not tally a rate-limited request");
+				unavailable(id.clone())
+			}
+		}
+	}
+
+	/// Count a request from a locked-out address in every open library, since
+	/// its token is never looked up, then answer 429.
+	async fn refuse_locked_out(&self, ip: IpAddr, wait: Duration) -> Response {
+		for library in self.context.libraries().await.list().await {
+			let counted = audit::tally(
+				library.db().conn(),
+				TallyKind::LockedOut,
+				&ip.to_string(),
+				None,
+				Some(ip),
+			)
+			.await;
+			if let Err(e) = counted {
+				warn!(client = %ip, error = %e, "could not tally a locked-out request");
+				return unavailable(Value::Null);
+			}
+		}
+		too_many(Value::Null, wait, "too many failed authentications")
+	}
+}
+
+fn session_id(headers: &HeaderMap) -> Option<&str> {
+	headers.get(SESSION_HEADER).and_then(|v| v.to_str().ok())
 }
 
 fn initialize(params: &Value) -> Value {
@@ -701,6 +856,17 @@ fn unauthorized(id: Value, base: &str) -> Response {
 			.insert(header::WWW_AUTHENTICATE, value);
 	}
 	response
+}
+
+/// The answer when a request's audit cannot be written: nothing is served
+/// unrecorded.
+fn unavailable(id: Value) -> Response {
+	rpc_error(
+		StatusCode::SERVICE_UNAVAILABLE,
+		id,
+		REFUSED,
+		"the request could not be recorded; try again",
+	)
 }
 
 fn forbidden(id: Value, message: &str) -> Response {

@@ -13,6 +13,7 @@ pub mod agent_grant_spent_refresh;
 pub mod assertion_outbox;
 pub mod audit_log;
 pub mod grant_audit;
+pub mod grant_audit_tally;
 pub mod source;
 pub mod space;
 pub mod space_group;

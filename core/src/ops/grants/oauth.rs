@@ -147,7 +147,19 @@ async fn rotate(
 	{
 		warn!(error = %e, "could not prune spent refresh hashes of ended grants");
 	}
-	if let Err(e) = audit::record(db, row.uuid, "oauth.refresh", "", Ok(())).await {
+	let recorded = audit::record(
+		db,
+		audit::Decision {
+			grant: &row,
+			op: "oauth.refresh",
+			path: "",
+			meta: &audit::RequestMeta::default(),
+			outcome: Ok(()),
+			duration: None,
+		},
+	)
+	.await;
+	if let Err(e) = recorded {
 		warn!(grant = %row.uuid, error = %e, "could not audit a token refresh");
 	}
 	info!(grant = %row.uuid, "grant tokens rotated by refresh");

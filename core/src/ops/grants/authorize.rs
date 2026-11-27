@@ -1,13 +1,16 @@
 //! The one enforcement point for agent-facing surfaces.
 
-use std::path::Path;
+use std::{path::Path, time::Instant};
 
 use chrono::{DateTime, Utc};
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use tracing::{debug, warn};
 use uuid::Uuid;
 
-use super::{audit, scope, store, token, GrantCap, GrantError, GrantScope, GrantStatus};
+use super::{
+	audit::{self, AuditId, Decision, RequestMeta, TallyKind},
+	scope, store, token, GrantCap, GrantError, GrantScope, GrantStatus,
+};
 use crate::{
 	context::CoreContext,
 	infra::db::entities::{agent_grant, source},
@@ -25,7 +28,8 @@ use crate::{
 /// Each open library is asked in turn, since a token names no library. Every
 /// decision against a known grant lands in that library's audit table; an
 /// allowed request whose audit row cannot be written is refused, so nothing
-/// is served unrecorded.
+/// is served unrecorded. Surfaces that know more about the request, such as
+/// its client address, call [`authorize_with`].
 pub async fn authorize(
 	context: &CoreContext,
 	token: &str,
@@ -33,13 +37,62 @@ pub async fn authorize(
 	path: &Path,
 	cap: GrantCap,
 ) -> Result<GrantScope, GrantError> {
-	for library in context.libraries().await.list().await {
-		match authorize_in(library.db().conn(), library.id(), token, op, path, cap).await {
+	authorize_with(context, token, op, path, cap, &RequestMeta::default())
+		.await
+		.map(|(scope, _)| scope)
+}
+
+/// [`authorize`] for a surface that records what it knows of the request
+/// and completes the audit row itself.
+///
+/// Returns the scope and the id of the request's audit row, which the
+/// surface passes to [`audit::finish`] with the bytes, result and duration
+/// before it sends the response.
+///
+/// A token that matches no grant is counted in every open library's
+/// unknown-token tally for `meta.client`, one row per address per minute,
+/// since nothing tells which library it was aimed at. A surface with no
+/// client address only logs it. A count that cannot be written answers
+/// [`GrantError::Internal`].
+pub async fn authorize_with(
+	context: &CoreContext,
+	token: &str,
+	op: &str,
+	path: &Path,
+	cap: GrantCap,
+	meta: &RequestMeta,
+) -> Result<(GrantScope, AuditId), GrantError> {
+	let libraries = context.libraries().await.list().await;
+	for library in &libraries {
+		match authorize_in_with(
+			library.db().conn(),
+			library.id(),
+			token,
+			op,
+			path,
+			cap,
+			meta,
+		)
+		.await
+		{
 			Err(GrantError::UnknownToken) => continue,
 			decided => return decided,
 		}
 	}
-	warn!(op, "refused a request carrying an unknown grant token");
+	warn!(op, client = ?meta.client, "refused a request carrying an unknown grant token");
+	if let Some(client) = meta.client {
+		for library in &libraries {
+			audit::tally(
+				library.db().conn(),
+				TallyKind::UnknownToken,
+				&client.to_string(),
+				None,
+				Some(client),
+			)
+			.await
+			.map_err(|e| GrantError::Internal(format!("audit: {e}")))?;
+		}
+	}
 	Err(GrantError::UnknownToken)
 }
 
@@ -55,6 +108,29 @@ pub async fn authorize_in(
 	path: &Path,
 	cap: GrantCap,
 ) -> Result<GrantScope, GrantError> {
+	authorize_in_with(
+		db,
+		library_id,
+		token,
+		op,
+		path,
+		cap,
+		&RequestMeta::default(),
+	)
+	.await
+	.map(|(scope, _)| scope)
+}
+
+async fn authorize_in_with(
+	db: &DatabaseConnection,
+	library_id: Uuid,
+	token: &str,
+	op: &str,
+	path: &Path,
+	cap: GrantCap,
+	meta: &RequestMeta,
+) -> Result<(GrantScope, AuditId), GrantError> {
+	let started = Instant::now();
 	let hash = token::hash(token).ok_or(GrantError::UnknownToken)?;
 	let grant = agent_grant::Entity::find()
 		.filter(agent_grant::Column::TokenHash.eq(hash))
@@ -65,22 +141,35 @@ pub async fn authorize_in(
 
 	let decision = decide(db, library_id, &grant, path, cap, Utc::now()).await;
 	let shown = path.display().to_string();
-	let recorded = audit::record(db, grant.uuid, op, &shown, decision.as_ref().map(drop)).await;
-	match (&decision, recorded) {
+	let recorded = audit::record(
+		db,
+		Decision {
+			grant: &grant,
+			op,
+			path: &shown,
+			meta,
+			outcome: decision.as_ref().map(drop),
+			duration: decision.is_err().then(|| started.elapsed()),
+		},
+	)
+	.await;
+	match (decision, recorded) {
+		(Ok(scope), Ok(row)) => {
+			debug!(grant = %grant.uuid, op, path = %scope.path.display(), "grant authorized");
+			Ok((scope, row))
+		}
 		(Ok(_), Err(e)) => {
 			warn!(grant = %grant.uuid, error = %e, "refused a request that could not be audited");
-			return Err(GrantError::Internal(format!("audit: {e}")));
+			Err(GrantError::Internal(format!("audit: {e}")))
 		}
-		(Err(_), Err(e)) => warn!(grant = %grant.uuid, error = %e, "could not audit a refusal"),
-		_ => {}
-	}
-	match &decision {
-		Ok(scope) => {
-			debug!(grant = %grant.uuid, op, path = %scope.path.display(), "grant authorized")
+		(Err(refusal), recorded) => {
+			if let Err(e) = recorded {
+				warn!(grant = %grant.uuid, error = %e, "could not audit a refusal");
+			}
+			debug!(grant = %grant.uuid, op, path = %shown, %refusal, "grant refused");
+			Err(refusal)
 		}
-		Err(refusal) => debug!(grant = %grant.uuid, op, path = %shown, %refusal, "grant refused"),
 	}
-	decision
 }
 
 async fn decide(
