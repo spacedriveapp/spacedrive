@@ -51,8 +51,7 @@ function LayoutContent({
 		router.push("/search");
 	};
 
-	// Fetch layout layout
-	const { data: layout } = useNormalizedQuery({
+	const { data: sidebar } = useNormalizedQuery({
 		query: "layouts.get_sidebar",
 		input: { layout_id: layout.id },
 		resourceType: "sidebar_layout",
@@ -76,10 +75,10 @@ function LayoutContent({
 	});
 
 	// Filter out Overview items (mobile doesn't show Overview in browse tab)
-	const layoutItems = (layout?.layout_items || []).filter(
+	const layoutItems = (sidebar?.layout_items || []).filter(
 		(item) => item.item_type !== "Overview"
 	);
-	const groups = layout?.groups || [];
+	const groups = sidebar?.groups || [];
 
 	return (
 		<Animated.ScrollView

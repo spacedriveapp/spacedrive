@@ -53,6 +53,15 @@ export const useSidebarStore = create<SidebarStore>()(
 		}),
 		{
 			name: 'spacedrive-sidebar',
+			version: 1,
+			// Version 0 stored the selection as currentSpaceId, before layouts were renamed.
+			migrate: (persisted, version) => {
+				const state = persisted as { currentSpaceId?: string | null; currentLayoutId?: string | null };
+				return {
+					currentLayoutId:
+						version === 0 ? state.currentSpaceId ?? null : state.currentLayoutId ?? null,
+				} as SidebarStore;
+			},
 			partialize: (state) => ({
 				currentLayoutId: state.currentLayoutId,
 			}),
