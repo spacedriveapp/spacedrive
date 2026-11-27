@@ -51,6 +51,7 @@ use crate::domains::{
 	redundancy::{self, RedundancyCmd},
 	search::{self, SearchCmd},
 	source::{self, SourceCmd},
+	space::{self, SpaceCmd},
 	sync::{self, SyncCmd},
 	tag::{self, TagCmd},
 	thumbs::{self, ThumbsCmd},
@@ -257,6 +258,8 @@ enum Commands {
 	/// Mount sources as a read-only directory tree (Linux, FUSE)
 	#[command(subcommand)]
 	Fuse(FuseCmd),
+	/// Mount a folder lent by a grant from any Spacedrive node, read-only
+	Mount(domains::mount::MountArgs),
 	/// Indexing operations
 	#[command(subcommand)]
 	Index(IndexCmd),
@@ -291,6 +294,9 @@ enum Commands {
 	/// Sync operations and metrics
 	#[command(subcommand)]
 	Sync(SyncCmd),
+	/// Spaces: folders people and agents work in
+	#[command(subcommand)]
+	Space(SpaceCmd),
 	/// Tag operations
 	#[command(subcommand)]
 	Tag(TagCmd),
@@ -533,6 +539,11 @@ async fn main() -> Result<()> {
 		Commands::Daemon(cmd) => {
 			// Daemon management doesn't need the client, handle directly
 			daemon::run(data_dir, base_data_dir, instance, cmd).await?;
+		}
+		Commands::Mount(args) => {
+			// The thin client talks to the node in the URL, never to a local
+			// daemon.
+			domains::mount::run(args).await?;
 		}
 		Commands::Mcp => {
 			// Serves without a daemon so an MCP client can list tools; each
@@ -868,6 +879,7 @@ async fn run_client_command(
 		Commands::Redundancy(cmd) => redundancy::run(&ctx, cmd).await?,
 		Commands::Search(cmd) => search::run(&ctx, cmd).await?,
 		Commands::Layouts(cmd) => layouts::exec(cmd, &ctx).await?,
+		Commands::Space(cmd) => space::run(&ctx, cmd).await?,
 		Commands::Tag(cmd) => tag::run(&ctx, cmd).await?,
 		Commands::Volume(cmd) => volume::run(&ctx, cmd).await?,
 		Commands::Cloud => cloud::run(&ctx).await?,

@@ -44,13 +44,14 @@ word that only appears after the cap is not found. Lockfiles
 `.min.` in their name are not read.
 
 Only files in the source's deep scope are read, and never a file in a hidden
-folder or a hidden file. The deep scope is the list of subtrees where a source
-reads file contents. The home source reads its OS user folders (Desktop,
-Documents, Downloads, Pictures, Movies or Videos, Music, Public) unless a
-person changed the list, and any other source reads its whole root.
-`sources.deep_scope.update` adds or removes a folder, and
-`sources.deep_scope.get` returns the list. Content identification follows the
-same list.
+folder or a hidden file. The deep scope is the set of folders where a source
+reads file contents: the spaces with content indexing on, plus the source's
+default. The home source's default is its OS user folders (Desktop, Documents,
+Downloads, Pictures, Movies or Videos, Music, Public), which become spaces
+when the source is tracked or its library opens, so a person turns them on and off like
+any other space. Any other source reads its whole root. `spaces.create` with
+content indexing on adds a folder, and `spaces.update` turns a space's content
+indexing on or off. Content identification follows the same set.
 
 The index never opens a cloud placeholder whose contents are not on the
 device, because opening one downloads it. The file is indexed once its

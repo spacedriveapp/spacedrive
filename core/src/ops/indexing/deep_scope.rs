@@ -4,24 +4,36 @@
 //! the content text index and the passes that follow them. The walk and the
 //! records always cover the whole source, so browsing, search by name and
 //! the analyser see everything; reading bytes stays where a person keeps
-//! things. `docs/core/design/zero-onboarding-startup.md` calls this the
-//! durable set and its "Keep indexed" gesture is
-//! [`crate::ops::sources::deep_scope`].
+//! things.
 //!
-//! A person's list is an assertion in the source store
-//! ([`sd_store::SourceDb::deep_scope`]). Until someone sets one, the home
-//! folder keeps its standard user folders and any other source keeps its
-//! whole root: a source someone added by hand was added to be read. A drive
-//! that startup only maps has no store, so nothing reads its contents.
+//! The scope is the roots of the source's spaces with content indexing on
+//! (`docs/core/design/spaces.md`), plus the source's default while it has
+//! one. The home folder's default is its standard user folders, which
+//! [`crate::ops::spaces::store::adopt_deep_scope`] turns into spaces; any other
+//! source reads its whole root, because a source someone added by hand was
+//! added to be read. A list set before spaces, in the store's `deep_scope`
+//! assertion, is the default until it is adopted the same way. A drive that
+//! startup only maps has no store, so nothing reads its contents.
 
 use std::path::{Path, PathBuf};
 
 /// The subtrees of the source at `root` whose contents are read, as
 /// `/`-separated paths relative to it. An empty path is the whole source.
 pub async fn deep_subtrees(db: &sd_store::SourceDb, root: &Path) -> sd_store::Result<Vec<String>> {
-	if let Some(kept) = db.deep_scope().await? {
-		return Ok(kept);
-	}
+	let base = match db.deep_scope().await? {
+		Some(kept) => kept,
+		None => default_scope(root).await?,
+	};
+	Ok(db
+		.spaces()
+		.await?
+		.into_iter()
+		.filter(|space| space.content_indexing)
+		.fold(base, |scope, space| keep(&scope, &space.root)))
+}
+
+/// What the source at `root` reads before its spaces say otherwise.
+pub async fn default_scope(root: &Path) -> sd_store::Result<Vec<String>> {
 	let root = root.to_path_buf();
 	tokio::task::spawn_blocking(move || {
 		// Compared by identity, not spelling: on macOS a home source is
@@ -91,28 +103,6 @@ pub fn keep(subtrees: &[String], subtree: &str) -> Vec<String> {
 	kept
 }
 
-/// `subtrees` without `subtree` and anything kept under it.
-///
-/// The list only says what is kept, so a folder inside a kept one cannot be
-/// left out on its own; that is refused with the subtree that keeps it.
-pub fn release(subtrees: &[String], subtree: &str) -> Result<Vec<String>, String> {
-	if let Some(parent) = subtrees
-		.iter()
-		.find(|kept| *kept != subtree && covers(kept, subtree))
-	{
-		return Err(if parent.is_empty() {
-			"the whole source is kept; release it first".to_string()
-		} else {
-			format!("{parent} is kept and holds it; release {parent} instead")
-		});
-	}
-	Ok(subtrees
-		.iter()
-		.filter(|kept| !covers(subtree, kept))
-		.cloned()
-		.collect())
-}
-
 /// Whether `outer` is `inner` or one of its ancestors.
 fn covers(outer: &str, inner: &str) -> bool {
 	outer.is_empty()
@@ -171,19 +161,5 @@ mod tests {
 		);
 		assert_eq!(keep(&kept, ""), [""]);
 		assert_eq!(keep(&list(&[""]), "Desktop"), [""]);
-	}
-
-	#[test]
-	fn releasing_a_folder_drops_it_and_what_it_holds() {
-		let kept = list(&["Desktop", "Projects/a", "Projects/b"]);
-		assert_eq!(release(&kept, "Projects").unwrap(), ["Desktop"]);
-		assert_eq!(
-			release(&kept, "Desktop").unwrap(),
-			["Projects/a", "Projects/b"]
-		);
-		assert_eq!(release(&kept, "Music").unwrap(), kept);
-		assert!(release(&kept, "Desktop/old").is_err());
-		assert!(release(&list(&[""]), "Desktop").is_err());
-		assert!(release(&list(&[""]), "").unwrap().is_empty());
 	}
 }

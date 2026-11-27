@@ -30,10 +30,10 @@ from disk again. The index covers:
 - Transcripts of audio and video files.
 - Scene descriptions of video shots and captions of photos.
 
-Only files inside the source's deep scope are embedded. On a home folder that
-is the standard user folders unless you choose others with
-`sources.deep_scope.update`. Releasing a folder removes its embeddings on
-the next pass.
+Only files inside the source's deep scope are embedded: the spaces with
+content indexing on, plus the source's default (see
+[content search](/docs/core/content-search)). Turning a space's content
+indexing off with `spaces.update` removes its embeddings on the next pass.
 
 Each document is cut into chunks of about 1,000 characters. Neighbouring
 chunks share 150 characters, and each chunk ends at the strongest break near

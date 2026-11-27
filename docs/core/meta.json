@@ -23,6 +23,7 @@
 		"volumes",
 		"filesystems",
 		"fuse-mount",
+		"mount-client",
 		"file-copy-operations",
 		"tagging",
 		"virtual-sidecars",

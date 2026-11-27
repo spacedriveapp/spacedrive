@@ -95,6 +95,7 @@ Perfect for TrueNAS, Unraid, or any Docker-compatible NAS.
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
 | `DATA_DIR` | Path to Spacedrive data directory | `/data` (in Docker) | Yes (production) |
+| `SD_HOST` | HTTP bind address | `127.0.0.1` (`0.0.0.0` in Docker) | No |
 | `PORT` | HTTP server port | `8080` | No |
 | `SD_AUTH` | Authentication credentials (format: `user:pass,user2:pass2`) | None | Recommended |
 | `SD_P2P` | Enable P2P networking | `true` | No |
@@ -116,6 +117,12 @@ SD_AUTH=disabled
 ```
 
 Uses HTTP Basic Authentication. The server will return `401 Unauthorized` if credentials don't match.
+
+After 20 failed logins from one client address within a minute, that address gets `429 Too Many Requests` with `Retry-After` for 5 minutes, even with correct credentials. IPv6 clients count per /64. The address is the TCP peer: `X-Forwarded-For` is ignored, so behind a reverse proxy all clients share the proxy's limit.
+
+### Network Exposure
+
+The server binds `127.0.0.1` by default. To serve other machines, set `SD_HOST` (or `--host`) to `0.0.0.0`, `::` or a specific address. Basic credentials travel in plaintext over HTTP, so put a TLS reverse proxy or an encrypted network such as a VPN in front of any non-loopback listener. The server logs a warning at startup when it binds beyond loopback.
 
 ### Data Storage
 
@@ -160,6 +167,7 @@ docker run -d \
   -v /mnt/pool/spacedrive:/data \
   -v /mnt/pool/media:/media:ro \
   -e SD_AUTH=admin:password \
+  -e SD_HOST=0.0.0.0 \
   -e TZ=UTC \
   --restart unless-stopped \
   spacedrive/server:latest
