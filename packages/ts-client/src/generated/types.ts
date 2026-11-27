@@ -140,7 +140,23 @@ enabled: boolean;
 /**
  * The address it listens on when enabled.
  */
-listen: string };
+listen: string; 
+/**
+ * PEM certificate chain served when TLS is on.
+ */
+tls_cert: string | null; 
+/**
+ * PEM private key for `tls_cert`.
+ */
+tls_key: string | null; 
+/**
+ * Whether a non-loopback listener may serve plain HTTP.
+ */
+plaintext: boolean; 
+/**
+ * Names a non-loopback listener accepts in Host besides its IP.
+ */
+host_names: string[] };
 
 /**
  * Per-library inference settings.
@@ -5977,7 +5993,12 @@ export type Subject = { size: number; mtime_ms: number; is_dir: boolean;
  * moves with every child written into it, so this is what tells a
  * job's folder from one that later took its place.
  */
-created_ms?: number | null };
+created_ms?: number | null; 
+/**
+ * The entity tag of a bucket object, which names its version where a
+ * second-resolution modification time and a size cannot.
+ */
+etag?: string | null };
 
 /**
  * Sync activity types for detailed sync monitoring
@@ -6543,10 +6564,29 @@ backup_restore_trash_keep?: number | null;
  */
 agent_mcp_enabled?: boolean | null; 
 /**
- * The loopback address the agent MCP endpoint listens on. Applies at
- * restart.
+ * The address the agent MCP endpoint listens on. Applies at restart.
  */
 agent_mcp_listen?: string | null; 
+/**
+ * PEM certificate chain the agent MCP endpoint serves TLS with; an empty
+ * string clears it. Applies at restart.
+ */
+agent_mcp_tls_cert?: string | null; 
+/**
+ * PEM private key for the agent MCP certificate; an empty string clears
+ * it. Applies at restart.
+ */
+agent_mcp_tls_key?: string | null; 
+/**
+ * Let a non-loopback agent MCP listener serve plain HTTP. Applies at
+ * restart.
+ */
+agent_mcp_plaintext?: boolean | null; 
+/**
+ * Host names a non-loopback agent MCP listener accepts besides its IP;
+ * an empty list clears them. Applies at restart.
+ */
+agent_mcp_host_names?: string[] | null; 
 /**
  * Whether networking is enabled
  */
