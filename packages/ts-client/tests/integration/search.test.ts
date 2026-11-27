@@ -4,6 +4,7 @@ import { SpacedriveClient } from '../../src/client';
 
 interface SearchBridgeConfig {
 	socket_addr: string;
+	rpc_secret: string;
 	library_id: string;
 	device_slug: string;
 	source_path: string;
@@ -32,7 +33,7 @@ beforeAll(async () => {
 	});
 
 	// Connect to daemon via TCP socket
-	client = SpacedriveClient.fromTcpSocket(bridgeConfig.socket_addr);
+	client = SpacedriveClient.fromTcpSocket(bridgeConfig.socket_addr, bridgeConfig.rpc_secret);
 	client.setCurrentLibrary(bridgeConfig.library_id);
 
 	console.log('[TS] Connected to daemon');

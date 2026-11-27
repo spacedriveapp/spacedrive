@@ -15,7 +15,6 @@
 //! [`space_scope`] is the one place that mapping lives.
 
 use std::{
-	fs::Metadata,
 	io::{Read, Seek, SeekFrom},
 	net::{IpAddr, SocketAddr},
 	path::Path,
@@ -49,6 +48,7 @@ use super::{
 	SKILL,
 };
 use crate::{
+	common::contain::{self, Directory, Kind, Stat},
 	config::MANAGED_DIR,
 	context::CoreContext,
 	ops::{
@@ -642,26 +642,19 @@ fn status_for(message: &str) -> StatusCode {
 
 /// The version stamp of a file: size, modification time in nanoseconds, and
 /// file identity, quoted as an HTTP entity tag.
-fn etag_of(meta: &Metadata) -> String {
-	#[cfg(unix)]
-	let (mtime, identity) = {
-		use std::os::unix::fs::MetadataExt;
-		(
-			(meta.mtime() as i128) * 1_000_000_000 + meta.mtime_nsec() as i128,
-			meta.ino(),
-		)
-	};
-	// File indices are not exposed on stable Rust off unix, so identity is
-	// left out and the stamp rests on size and time.
-	#[cfg(not(unix))]
-	let (mtime, identity) = (
-		meta.modified()
-			.ok()
-			.and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok())
-			.map_or(0, |since| since.as_nanos() as i128),
-		0u64,
-	);
-	format!("\"f-{}-{mtime}-{identity}\"", meta.len())
+/// Every surface describes a file through [`Stat`], from a handle, so a
+/// list entry, a stat and a block read stamp one version the same way.
+/// File indices are not exposed on stable Rust off unix, so there the
+/// identity is 0 and the stamp rests on size and time.
+fn etag_of(meta: &Stat) -> String {
+	// Signed, so distinct times before 1970 stay distinct.
+	let mtime = meta
+		.modified
+		.map_or(0, |at| match at.duration_since(std::time::UNIX_EPOCH) {
+			Ok(after) => after.as_nanos() as i128,
+			Err(before) => -(before.duration().as_nanos() as i128),
+		});
+	format!("\"f-{}-{mtime}-{}\"", meta.len, meta.identity)
 }
 
 fn timestamp(at: DateTime<Utc>) -> String {
@@ -669,24 +662,20 @@ fn timestamp(at: DateTime<Utc>) -> String {
 }
 
 /// A stat answer, or a list entry when `block_size` is left out.
-fn entry(path: String, meta: &Metadata) -> Value {
-	let file_type = meta.file_type();
-	let kind = if file_type.is_symlink() {
-		"symlink"
-	} else if file_type.is_dir() {
-		"directory"
-	} else if file_type.is_file() {
-		"file"
-	} else {
-		"other"
+fn entry(path: String, meta: &Stat) -> Value {
+	let kind = match meta.kind {
+		Kind::Symlink => "symlink",
+		Kind::Dir => "directory",
+		Kind::File => "file",
+		Kind::Other => "other",
 	};
 	let mut value = json!({
 		"path": path,
 		"kind": kind,
-		"size": meta.len(),
-		"modified_at": meta.modified().ok().map(|at| timestamp(at.into())),
+		"size": meta.len,
+		"modified_at": meta.modified.map(|at| timestamp(at.into())),
 	});
-	if file_type.is_file() {
+	if meta.kind == Kind::File {
 		value["etag"] = json!(etag_of(meta));
 	}
 	value
@@ -698,12 +687,16 @@ fn fs_error(message: String) -> Response {
 
 fn stat(scope: &GrantScope, requested: &str) -> Result<Value, Response> {
 	// The spelling the client sent, so a link at the path is reported as a
-	// link rather than as what `authorize` resolved it to.
-	let named = scope.root.join(requested);
-	let link = std::fs::symlink_metadata(&named).map_err(|e| fs_error(tools::io_message(&e)))?;
-	let mut value = if link.is_file() {
-		let (_, meta) = tools::open_file(&scope.path).map_err(fs_error)?;
-		entry(requested.to_string(), &meta)
+	// link rather than as what `authorize` resolved it to. It is described
+	// through a handle on its parent beneath the root, so a link earlier in
+	// the spelling cannot point the description outside it.
+	let named = requested.strip_suffix('/').unwrap_or(requested);
+	let named = if named == "." { "" } else { named };
+	let link = contain::stat_beneath(&scope.root, Path::new(named))
+		.map_err(|e| fs_error(tools::io_message(&e)))?;
+	let mut value = if link.kind == Kind::File {
+		let (_, meta) = tools::open_file(scope).map_err(fs_error)?;
+		entry(requested.to_string(), &Stat::from(&meta))
 	} else {
 		entry(requested.to_string(), &link)
 	};
@@ -735,13 +728,14 @@ fn list(
 	cursor: Option<String>,
 	limit: usize,
 ) -> Result<Value, Response> {
-	let meta = std::fs::metadata(&scope.path).map_err(|e| fs_error(tools::io_message(&e)))?;
-	if !meta.is_dir() {
-		return Err(error(StatusCode::BAD_REQUEST, "not a directory"));
-	}
-	let mut names: Vec<_> = std::fs::read_dir(&scope.path)
+	let dir = Directory::open(&scope.root, &scope.relative).map_err(|e| match e.kind() {
+		std::io::ErrorKind::NotADirectory => error(StatusCode::BAD_REQUEST, "not a directory"),
+		_ => fs_error(tools::io_message(&e)),
+	})?;
+	let mut names: Vec<_> = dir
+		.names()
 		.map_err(|e| fs_error(tools::io_message(&e)))?
-		.filter_map(|entry| entry.ok().map(|entry| entry.file_name()))
+		.into_iter()
 		.filter(|name| {
 			cursor
 				.as_deref()
@@ -755,7 +749,7 @@ fn list(
 		.iter()
 		.filter_map(|name| {
 			// An entry removed since the listing was read is left out.
-			let meta = std::fs::symlink_metadata(scope.path.join(name)).ok()?;
+			let meta = dir.stat(name).ok()?;
 			let shown = name.to_string_lossy();
 			let path = if requested.is_empty() {
 				shown.into_owned()
@@ -852,9 +846,9 @@ fn read_block(
 			"the file is a cloud placeholder and is not on this device",
 		));
 	}
-	let (mut file, meta) = tools::open_file(&scope.path).map_err(fs_error)?;
+	let (mut file, meta) = tools::open_file(scope).map_err(fs_error)?;
 	let size = meta.len();
-	let etag = etag_of(&meta);
+	let etag = etag_of(&Stat::from(&meta));
 	if let Some(wanted) = if_match {
 		let matches = wanted
 			.split(',')
@@ -884,7 +878,7 @@ fn read_block(
 	let after = file
 		.metadata()
 		.map_err(|e| fs_error(tools::io_message(&e)))?;
-	let current = etag_of(&after);
+	let current = etag_of(&Stat::from(&after));
 	if current != etag {
 		return Err(stale(&current));
 	}
@@ -1193,6 +1187,28 @@ mod tests {
 
 	fn path(raw: &str) -> Result<String, StatusCode> {
 		decode_path(raw).map_err(|response| response.status())
+	}
+
+	#[test]
+	fn etags_keep_times_before_1970_apart() {
+		use std::time::{Duration, UNIX_EPOCH};
+
+		let at = |modified| Stat {
+			kind: Kind::File,
+			len: 4,
+			modified,
+			accessed: None,
+			created: None,
+			readonly: false,
+			identity: 7,
+		};
+		let before = |secs| Some(UNIX_EPOCH - Duration::from_millis(secs));
+		assert_ne!(etag_of(&at(before(1500))), etag_of(&at(before(2500))));
+		assert_eq!(etag_of(&at(before(1500))), "\"f-4--1500000000-7\"");
+		assert_eq!(
+			etag_of(&at(Some(UNIX_EPOCH + Duration::from_secs(2)))),
+			"\"f-4-2000000000-7\""
+		);
 	}
 
 	#[test]

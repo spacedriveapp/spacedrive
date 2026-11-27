@@ -257,7 +257,7 @@ exit 1
 		};
 		let stderr_log = dir.path().join("logs").join("daemon-stderr.log");
 		let outcome = spawn_daemon(
-			&CoreClient::new(addr),
+			&CoreClient::new(addr, dir.path()),
 			&launch,
 			&stderr_log,
 			Duration::from_secs(10),
