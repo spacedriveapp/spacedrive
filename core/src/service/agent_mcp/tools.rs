@@ -51,7 +51,7 @@ use crate::{
 			self, ContentEncoding, DeleteInput, MakeDirInput, MoveInput, Precondition,
 			WriteFileInput,
 		},
-		grants::{create::owning_source, GrantCap, GrantScope},
+		grants::{authorize, create::owning_source, GrantCap, GrantScope},
 		indexing::{
 			metadata::{refuse_dataless_blocking, DATALESS_REASON},
 			text_extract::TextKind,
@@ -61,6 +61,10 @@ use crate::{
 			content::{ContentSearchInput, ContentSearchQuery},
 			grep::{scan, GrepOptions},
 			input::{PaginationOptions, SearchFilters, SortDirection, SortField, SortOptions},
+		},
+		spaces::{
+			events::{self as space_events, Attribution, InSpace, Origin},
+			versioning::{self, RestoreFrom},
 		},
 	},
 };
@@ -80,6 +84,9 @@ pub enum Tool {
 	Move,
 	Delete,
 	ListChanges,
+	History,
+	Restore,
+	Snapshot,
 	#[cfg(feature = "video-shots")]
 	ListShots,
 	#[cfg(feature = "footage-clips")]
@@ -105,6 +112,9 @@ impl Tool {
 		Self::Move,
 		Self::Delete,
 		Self::ListChanges,
+		Self::History,
+		Self::Restore,
+		Self::Snapshot,
 		#[cfg(feature = "video-shots")]
 		Self::ListShots,
 		#[cfg(feature = "footage-clips")]
@@ -130,6 +140,9 @@ impl Tool {
 			Self::Move => "move",
 			Self::Delete => "delete",
 			Self::ListChanges => "list_changes",
+			Self::History => "history",
+			Self::Restore => "restore",
+			Self::Snapshot => "snapshot",
 			#[cfg(feature = "video-shots")]
 			Self::ListShots => "list_shots",
 			#[cfg(feature = "footage-clips")]
@@ -148,7 +161,12 @@ impl Tool {
 	/// The capability the grant check asks for on this tool's path.
 	pub fn cap(self) -> GrantCap {
 		match self {
-			Self::WriteFile | Self::MakeDir | Self::Move | Self::Delete => GrantCap::ReadWrite,
+			Self::WriteFile
+			| Self::MakeDir
+			| Self::Move
+			| Self::Delete
+			| Self::Restore
+			| Self::Snapshot => GrantCap::ReadWrite,
 			_ => GrantCap::Read,
 		}
 	}
@@ -450,6 +468,51 @@ pub fn definitions() -> Value {
 			},
 			"annotations": annotations("List recent changes"),
 		},
+		{
+			"name": "history",
+			"title": "List versions",
+			"description": "Returns the stored versions of a file, or of everything in a folder, newest first, when the space keeps versions: each version's id, path, content hash, size, when it was captured and who made it. Versions are kept for 30 days unless a snapshot pins them. A change that was overwritten before Spacedrive read it has no version. Pass next_cursor back as cursor for older versions.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"path": path("The file or folder"),
+					"limit": { "type": "integer", "minimum": 1, "maximum": PAGE_MAX, "default": PAGE_DEFAULT, "description": "Versions per page." },
+					"cursor": cursor,
+				},
+				"additionalProperties": false,
+			},
+			"annotations": annotations("List versions"),
+		},
+		{
+			"name": "restore",
+			"title": "Restore a version",
+			"description": "Writes an earlier version back. With version (an id from history), path is where to write it. With snapshot (a name or id from snapshot), every file under path is put back as the snapshot held it; files the snapshot did not have are left alone. Replaced bytes go to the trash and the restore can be undone like any write. Refused if a file changes while it is restored.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"path": path("The file to write, or with snapshot the file or folder to restore"),
+					"version": { "type": "integer", "description": "A version id from history." },
+					"snapshot": { "type": "string", "description": "A snapshot name or id." },
+				},
+				"required": ["path"],
+				"additionalProperties": false,
+			},
+			"annotations": writes("Restore a version", false),
+		},
+		{
+			"name": "snapshot",
+			"title": "Name the current state",
+			"description": "Snapshots pin the state of the whole space so its versions are kept past the 30 days, and give you a name to restore to. action create takes a name and pins the current state; list returns the snapshots; delete removes one by name or id, letting its versions age out. Needs a space that keeps versions.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"action": { "type": "string", "enum": ["create", "list", "delete"], "default": "list" },
+					"name": { "type": "string", "description": "The snapshot's name, or its id to delete it." },
+				},
+				"additionalProperties": false,
+			},
+			"annotations": writes("Name the current state", false),
+		},
 	]);
 	#[cfg(feature = "video-shots")]
 	if let Some(list) = tools.as_array_mut() {
@@ -505,6 +568,9 @@ pub async fn call(
 			write(context.clone(), token, tool, &scope, arguments, cancel).await
 		}
 		Tool::ListChanges => list_changes(&context, &scope, args(arguments)?).await,
+		Tool::History => history(&context, &scope, args(arguments)?).await,
+		Tool::Restore => restore(&context, token, &scope, args(arguments)?).await,
+		Tool::Snapshot => snapshot(&context, &scope, args(arguments)?).await,
 		#[cfg(feature = "video-shots")]
 		Tool::ListShots => list_shots(&context, &scope).await,
 		#[cfg(feature = "footage-clips")]
@@ -608,6 +674,245 @@ async fn list_changes(
 		"changes": changes,
 		"next_cursor": page.next.to_string(),
 	})))
+}
+
+/// The grant's space when it keeps versions, with the grant root's path in
+/// it, and the versions.
+async fn versioned_space(
+	context: &CoreContext,
+	scope: &GrantScope,
+) -> Result<(InSpace, Arc<sd_store::SpaceVersions>), String> {
+	let Some(space_id) = scope.space_id else {
+		return Err(
+			"this grant has no versions because it predates spaces; ask the owner for a new grant"
+				.to_string(),
+		);
+	};
+	let at = space_events::space_of(context, &scope.root, Some(scope.library_id))
+		.await
+		.filter(|at| at.space_id == space_id)
+		.ok_or_else(|| "the grant root is no longer inside its space".to_string())?;
+	if !at.versioning {
+		return Err(
+			"this space does not keep versions; the owner can turn versioning on".to_string(),
+		);
+	}
+	let versions = versioning::open(context, at.source_id, at.space_id)
+		.await
+		.ok_or_else(|| "the space's versions are not on this device".to_string())?;
+	Ok((at, versions))
+}
+
+/// A space path as the grant sees it: relative to the grant root, or None
+/// when it is outside.
+fn under_root(root: &str, path: &str) -> Option<String> {
+	if root.is_empty() {
+		return Some(path.to_string());
+	}
+	if path == root {
+		return Some(String::new());
+	}
+	path.strip_prefix(root)
+		.and_then(|rest| rest.strip_prefix('/'))
+		.map(str::to_string)
+}
+
+/// A grant-relative path as the space sees it.
+fn in_space(root: &str, relative: &Path) -> String {
+	let relative = crate::ops::spaces::store::slash_path(relative);
+	match (root.is_empty(), relative.is_empty()) {
+		(_, true) => root.to_string(),
+		(true, false) => relative,
+		(false, false) => format!("{root}/{relative}"),
+	}
+}
+
+#[derive(Deserialize)]
+struct HistoryArgs {
+	#[serde(default)]
+	limit: Option<u32>,
+	#[serde(default)]
+	cursor: Option<String>,
+}
+
+async fn history(
+	context: &CoreContext,
+	scope: &GrantScope,
+	args: HistoryArgs,
+) -> Result<Output, String> {
+	let (at, versions) = versioned_space(context, scope).await?;
+	let before = match args.cursor.as_deref() {
+		Some(cursor) => Some(
+			cursor
+				.parse::<i64>()
+				.map_err(|_| "invalid cursor".to_string())?,
+		),
+		None => None,
+	};
+	let path = in_space(&at.path, &scope.relative);
+	let limit = args.limit.unwrap_or(PAGE_DEFAULT).clamp(1, PAGE_MAX);
+	let rows = versions
+		.history(Some(&path), before, limit)
+		.await
+		.map_err(|e| e.to_string())?;
+	let next = rows.last().map(|row| row.id).or(before).unwrap_or(0);
+	let listed: Vec<Value> = rows
+		.into_iter()
+		.filter_map(|row| {
+			Some(json!({
+				"version": row.id,
+				"path": under_root(&at.path, &row.path)?,
+				"hash": row.blob_hash,
+				"size": row.size,
+				"at": row.at,
+				"by": if row.actor_id == scope.actor_id { "you".to_string() } else { row.origin.clone() },
+				"origin": row.origin,
+				"deleted": row.blob_hash.is_none(),
+			}))
+		})
+		.collect();
+	Ok(Output::json(json!({
+		"versions": listed,
+		"next_cursor": next.to_string(),
+	})))
+}
+
+#[derive(Deserialize)]
+struct RestoreArgs {
+	#[serde(default)]
+	version: Option<i64>,
+	#[serde(default)]
+	snapshot: Option<String>,
+}
+
+async fn restore(
+	context: &CoreContext,
+	token: &str,
+	scope: &GrantScope,
+	args: RestoreArgs,
+) -> Result<Output, String> {
+	let (at, versions) = versioned_space(context, scope).await?;
+	let target = in_space(&at.path, &scope.relative);
+	let from = match (args.version, args.snapshot) {
+		(Some(id), None) => {
+			// A version is read only when its own path is inside the grant.
+			let row = versions
+				.version(id)
+				.await
+				.map_err(|e| e.to_string())?
+				.filter(|row| under_root(&at.path, &row.path).is_some())
+				.ok_or_else(|| format!("no version {id} under the grant root"))?;
+			drop(row);
+			RestoreFrom::Version(id)
+		}
+		(None, Some(snapshot)) => RestoreFrom::Snapshot(snapshot),
+		_ => return Err("pass version or snapshot, not both".to_string()),
+	};
+	let plan = versioning::plan(&versions, &from, Some(&target)).await?;
+	let who = Attribution {
+		origin: Origin::Restore,
+		actor: scope.actor_id,
+		grant: Some(scope.grant_id),
+		undo: None,
+		library: Some(scope.library_id),
+	};
+	let mut restored = Vec::new();
+	let mut failed = Vec::new();
+	for (path, hash) in plan.files {
+		let shown = under_root(&at.path, &path).unwrap_or_else(|| path.clone());
+		// Each file is checked against the grant on its own, so a snapshot
+		// cannot restore a protected name inside a folder.
+		let written = match authorize(
+			context,
+			token,
+			"mcp.restore",
+			Path::new(&shown),
+			GrantCap::ReadWrite,
+		)
+		.await
+		{
+			Ok(file_scope) => {
+				versioning::restore_file(context, versions.clone(), &file_scope, who, hash)
+					.await
+					.map_err(|e| e.to_string())
+			}
+			Err(error) => Err(error.to_string()),
+		};
+		match written {
+			Ok(outcome) => restored.push(json!({
+				"path": shown,
+				"landed": outcome.state.path,
+				"conflict": outcome.conflict,
+				"content_hash": outcome.state.content_hash,
+			})),
+			Err(error) => failed.push(json!({ "path": shown, "error": error })),
+		}
+	}
+	if restored.is_empty() && !failed.is_empty() {
+		return Err(failed[0]["error"]
+			.as_str()
+			.unwrap_or("the restore failed")
+			.to_string());
+	}
+	Ok(Output::json(json!({
+		"restored": restored,
+		"unchanged": plan.unchanged,
+		"failed": failed,
+	})))
+}
+
+#[derive(Deserialize)]
+struct SnapshotArgs {
+	#[serde(default)]
+	action: Option<String>,
+	#[serde(default)]
+	name: Option<String>,
+}
+
+async fn snapshot(
+	context: &CoreContext,
+	scope: &GrantScope,
+	args: SnapshotArgs,
+) -> Result<Output, String> {
+	let (_, versions) = versioned_space(context, scope).await?;
+	let shown = |row: &sd_store::SnapshotRow| json!({ "id": row.id, "name": row.name, "at": row.at, "version": row.manifest_id });
+	let name = args
+		.name
+		.as_deref()
+		.map(str::trim)
+		.filter(|name| !name.is_empty());
+	match args.action.as_deref().unwrap_or("list") {
+		"create" => {
+			let name = name.ok_or_else(|| "name the snapshot".to_string())?;
+			let row = versions
+				.create_snapshot(name, scope.actor_id, &Utc::now().to_rfc3339())
+				.await
+				.map_err(|e| e.to_string())?;
+			Ok(Output::json(json!({ "snapshot": shown(&row) })))
+		}
+		"list" => {
+			let rows = versions.snapshots().await.map_err(|e| e.to_string())?;
+			Ok(Output::json(
+				json!({ "snapshots": rows.iter().map(shown).collect::<Vec<_>>() }),
+			))
+		}
+		"delete" => {
+			let name = name.ok_or_else(|| "name the snapshot to delete".to_string())?;
+			let row = versions
+				.snapshot(name)
+				.await
+				.map_err(|e| e.to_string())?
+				.ok_or_else(|| format!("no snapshot {name}"))?;
+			versions
+				.delete_snapshot(row.id)
+				.await
+				.map_err(|e| e.to_string())?;
+			Ok(Output::json(json!({ "deleted": shown(&row) })))
+		}
+		other => Err(format!(
+			"unknown action {other}; use create, list or delete"
+		)),
+	}
 }
 
 /// Drop any spelling of the grant root from a message, so a lower layer's

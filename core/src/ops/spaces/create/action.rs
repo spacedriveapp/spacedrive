@@ -165,6 +165,7 @@ impl LibraryAction for SpaceCreateAction {
 			kind: input.kind.as_str().to_string(),
 			root: relative,
 			content_indexing: input.content_indexing.unwrap_or(true),
+			versioning: false,
 			created_at: Utc::now().to_rfc3339(),
 			deleted: false,
 			updated_hlc: stamp.hlc,

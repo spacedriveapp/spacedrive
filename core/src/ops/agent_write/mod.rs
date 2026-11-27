@@ -64,8 +64,8 @@ pub use action::{
 };
 pub use conflict::conflict_name;
 pub use ops::{
-	delete, delete_in, make_dir, make_dir_in, move_path, move_path_in, stat, write_file,
-	write_file_in, WriteTurn,
+	delete, delete_in, make_dir, make_dir_in, move_path, move_path_in, restore_in, stat,
+	write_file, write_file_in, Fill, WriteTurn,
 };
 
 /// The state of a path a grant check already resolved: what a precondition

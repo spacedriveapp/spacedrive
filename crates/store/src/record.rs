@@ -171,6 +171,7 @@ CREATE TABLE IF NOT EXISTS space (
     kind TEXT NOT NULL,
     root TEXT NOT NULL,
     content_indexing INTEGER NOT NULL,
+    versioning INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     deleted INTEGER NOT NULL DEFAULT 0,
     updated_hlc TEXT NOT NULL,

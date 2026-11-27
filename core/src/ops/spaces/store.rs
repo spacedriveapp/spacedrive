@@ -182,6 +182,7 @@ pub async fn adopt_deep_scope(
 			kind: SpaceKind::Folder.as_str().to_string(),
 			root: subtree,
 			content_indexing: true,
+			versioning: false,
 			created_at: Utc::now().to_rfc3339(),
 			deleted: false,
 			updated_hlc: stamp.hlc.clone(),

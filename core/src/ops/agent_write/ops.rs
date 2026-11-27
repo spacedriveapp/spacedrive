@@ -15,6 +15,7 @@ use std::{
 };
 
 use base64::Engine;
+use futures::future::BoxFuture;
 use tokio::sync::{Mutex, MutexGuard};
 use tracing::{info, warn};
 use uuid::Uuid;
@@ -23,8 +24,8 @@ use super::{
 	bucket::{self, Bucket},
 	conflict::conflict_name,
 	state::{self, check, stale},
-	ContentEncoding, DeleteInput, MakeDirInput, MoveInput, PathKind, PathState, StatInput,
-	WriteError, WriteFileInput, WriteOutcome, MAX_WRITE_BYTES,
+	ContentEncoding, DeleteInput, MakeDirInput, MoveInput, PathKind, PathState, Precondition,
+	StatInput, WriteError, WriteFileInput, WriteOutcome, MAX_WRITE_BYTES,
 };
 use crate::{
 	context::CoreContext,
@@ -139,12 +140,108 @@ pub async fn write_file_in(
 	if let Some(bucket) = Bucket::of(context, &scope).await? {
 		return bucket::write_file(bucket, bytes, input.offset, input.expect, &turn).await;
 	}
+	let fill = Fill::Bytes {
+		bytes,
+		offset: input.offset,
+	};
+	write_scoped(
+		context,
+		&scope,
+		agent(&scope),
+		fill,
+		input.expect.as_ref(),
+		turn,
+	)
+	.await
+}
+
+/// Where a write's new bytes come from.
+pub enum Fill {
+	/// Bytes the request carried, laid over a copy of the file from
+	/// `offset` when one is given.
+	Bytes { bytes: Vec<u8>, offset: Option<u64> },
+	/// Bytes written into the staged file by the closure, such as a stored
+	/// version of the file. It is given the staged file's path.
+	With(Box<dyn FnOnce(PathBuf) -> BoxFuture<'static, Result<(), String>> + Send>),
+}
+
+impl Fill {
+	fn offset(&self) -> Option<u64> {
+		match self {
+			Self::Bytes { offset, .. } => *offset,
+			Self::With(_) => None,
+		}
+	}
+}
+
+/// Write bytes back to a path as `who`, for a restore. A file at the path is
+/// replaced and its bytes go to the trash; a missing path is created, and a
+/// name taken meanwhile sends the bytes to a conflict name beside it. The
+/// write is refused if the file changes between this check and the commit,
+/// and it is journaled, so `files.undo` reverses it like any other write.
+///
+/// The caller resolved `scope`: through `authorize` for an agent, so its
+/// protected names hold, or from a space's own folder for a person.
+pub async fn restore_in(
+	context: &CoreContext,
+	scope: &GrantScope,
+	who: Attribution,
+	fill: Fill,
+	turn: WriteTurn,
+) -> Result<WriteOutcome, WriteError> {
+	if scope.relative.as_os_str().is_empty() {
+		return Err(WriteError::Invalid("name a file to restore".to_string()));
+	}
+	let (current, _) =
+		state::read_until(context, &scope.root, &scope.path, turn.cancel.clone()).await?;
+	let expect = match current.kind {
+		_ if !current.exists() => None,
+		Some(PathKind::File) => Some(Precondition {
+			revision: None,
+			content_hash: Some(
+				current
+					.content_hash
+					.clone()
+					.ok_or_else(|| WriteError::Placeholder(current.path.clone()))?,
+			),
+		}),
+		_ => {
+			return Err(WriteError::Invalid(format!(
+				"{} is not a regular file",
+				current.path
+			)))
+		}
+	};
+	write_scoped(context, scope, who, fill, expect.as_ref(), turn).await
+}
+
+/// The attribution of a write made through a grant.
+fn agent(scope: &GrantScope) -> Attribution {
+	Attribution {
+		origin: Origin::AgentWrite,
+		actor: scope.actor_id,
+		grant: Some(scope.grant_id),
+		undo: None,
+		library: Some(scope.library_id),
+	}
+}
+
+/// A whole-file write, or a byte range of an existing file, into a path the
+/// caller already resolved.
+async fn write_scoped(
+	context: &CoreContext,
+	scope: &GrantScope,
+	who: Attribution,
+	fill: Fill,
+	expect: Option<&Precondition>,
+	turn: WriteTurn,
+) -> Result<WriteOutcome, WriteError> {
 	let (current, metadata) =
 		state::read_until(context, &scope.root, &scope.path, turn.cancel.clone()).await?;
 	let id = Uuid::now_v7();
 	let mut effects = Vec::new();
 
-	let (landed, conflict) = match &input.expect {
+	let (landed, conflict) = match expect {
 		None => {
 			let wanted = if current.exists() {
 				conflict_name(&scope.path, false)
@@ -154,7 +251,7 @@ pub async fn write_file_in(
 			turn.proceed()?;
 			effects.extend(make_parents(&scope.root, &wanted).await?);
 			let mut staged = stage(context, &wanted).await?;
-			write_bytes(staged.path(), &bytes, None).await?;
+			fill_partial(staged.path(), fill, None).await?;
 			still_inside(&scope).await?;
 			let landed = commit(&mut staged, wanted).await?;
 			let conflict = landed != scope.path;
@@ -174,7 +271,7 @@ pub async fn write_file_in(
 				}
 			}
 			let metadata = metadata.ok_or_else(|| stale(current.clone()))?;
-			if let Some(offset) = input.offset {
+			if let Some(offset) = fill.offset() {
 				if current.content_hash.is_none() {
 					return Err(WriteError::Placeholder(current.path));
 				}
@@ -188,8 +285,8 @@ pub async fn write_file_in(
 			}
 			let subject = Subject::of(&metadata);
 			let mut staged = stage(context, &scope.path).await?;
-			let base = input.offset.map(|offset| (scope.path.clone(), offset));
-			write_bytes(staged.path(), &bytes, base).await?;
+			let base = fill.offset().map(|offset| (scope.path.clone(), offset));
+			fill_partial(staged.path(), fill, base).await?;
 
 			if !subject.still_holds(&scope.path).await {
 				return Err(stale(
@@ -236,7 +333,7 @@ pub async fn write_file_in(
 	};
 
 	let before = current.content_hash.clone();
-	finish(context, &scope, id, effects, &landed, conflict, before).await
+	finish(context, scope, who, id, effects, &landed, conflict, before).await
 }
 
 /// Create a directory and any missing parents.
@@ -264,7 +361,17 @@ pub async fn make_dir_in(
 		state::read_until(context, &scope.root, &scope.path, turn.cancel.clone()).await?;
 	let id = Uuid::now_v7();
 	if current.kind == Some(PathKind::Directory) {
-		return finish(context, &scope, id, Vec::new(), &scope.path, false, None).await;
+		return finish(
+			context,
+			&scope,
+			agent(&scope),
+			id,
+			Vec::new(),
+			&scope.path,
+			false,
+			None,
+		)
+		.await;
 	}
 	let mut wanted = if current.exists() {
 		conflict_name(&scope.path, true)
@@ -287,7 +394,17 @@ pub async fn make_dir_in(
 	let meta = std::fs::symlink_metadata(&wanted).ok();
 	effects.push(Effect::created(wanted.clone(), meta.as_ref()));
 	let conflict = wanted != scope.path;
-	finish(context, &scope, id, effects, &wanted, conflict, None).await
+	finish(
+		context,
+		&scope,
+		agent(&scope),
+		id,
+		effects,
+		&wanted,
+		conflict,
+		None,
+	)
+	.await
 }
 
 /// Move or rename a path within the grant, on one volume.
@@ -378,7 +495,17 @@ pub async fn move_path_in(
 	));
 	let conflict = wanted != to.path;
 	let before = current.content_hash.clone();
-	let mut outcome = finish(context, &to, id, effects, &wanted, conflict, before).await?;
+	let mut outcome = finish(
+		context,
+		&to,
+		agent(&to),
+		id,
+		effects,
+		&wanted,
+		conflict,
+		before,
+	)
+	.await?;
 	outcome.requested = state::shown(&to.root, &to.path);
 	Ok(outcome)
 }
@@ -430,7 +557,17 @@ pub async fn delete_in(
 		Some(&metadata),
 	)];
 	let before = current.content_hash.clone();
-	finish(context, &scope, id, effects, &scope.path, false, before).await
+	finish(
+		context,
+		&scope,
+		agent(&scope),
+		id,
+		effects,
+		&scope.path,
+		false,
+		before,
+	)
+	.await
 }
 
 async fn writable(
@@ -567,6 +704,19 @@ async fn stage(context: &CoreContext, destination: &Path) -> Result<StagedReceiv
 		.map_err(|e| WriteError::Io(format!("stage: {e}")))
 }
 
+/// Fill the partial from a write's source. `base` is the file a byte-range
+/// write lays its bytes over.
+async fn fill_partial(
+	partial: &Path,
+	fill: Fill,
+	base: Option<(PathBuf, u64)>,
+) -> Result<(), WriteError> {
+	match fill {
+		Fill::Bytes { bytes, .. } => write_bytes(partial, &bytes, base).await,
+		Fill::With(write) => write(partial.to_path_buf()).await.map_err(WriteError::Io),
+	}
+}
+
 /// Fill the partial: `bytes` alone, or `bytes` laid over a copy of
 /// `base` at an offset.
 async fn write_bytes(
@@ -608,38 +758,35 @@ async fn commit(staged: &mut StagedReceive, mut wanted: PathBuf) -> Result<PathB
 }
 
 /// Journal the effects under the write's id and answer with the result.
+#[allow(clippy::too_many_arguments)]
 async fn finish(
 	context: &CoreContext,
 	scope: &GrantScope,
+	who: Attribution,
 	id: Uuid,
 	effects: Vec<Effect>,
 	landed: &Path,
 	conflict: bool,
 	before: Option<String>,
 ) -> Result<WriteOutcome, WriteError> {
-	let undo = journal(context, scope.library_id, scope.grant_id, id, &effects).await;
+	let undo = journal(context, scope.library_id, who.grant, id, &effects).await;
 	let (state, _) = state::read(context, &scope.root, landed).await?;
 	// Still inside the write's turn, so no other agent write lands between
 	// the journal row and this space's record of the change.
 	space_events::record_effects(
 		context,
-		Attribution {
-			origin: Origin::AgentWrite,
-			actor: scope.actor_id,
-			grant: Some(scope.grant_id),
-			undo,
-			library: Some(scope.library_id),
-		},
+		Attribution { undo, ..who },
 		&effects,
 		Some((landed, before, state.content_hash.clone())),
 	)
 	.await;
 	info!(
-		grant = %scope.grant_id,
+		grant = ?who.grant,
+		origin = who.origin.as_str(),
 		path = %state.path,
 		conflict,
 		effects = effects.len(),
-		"agent write"
+		"write"
 	);
 	Ok(WriteOutcome {
 		requested: state::shown(&scope.root, &scope.path),
@@ -652,7 +799,7 @@ async fn finish(
 pub(super) async fn journal(
 	context: &CoreContext,
 	library_id: Uuid,
-	grant_id: Uuid,
+	grant_id: Option<Uuid>,
 	id: Uuid,
 	effects: &[Effect],
 ) -> Option<Uuid> {
@@ -663,7 +810,7 @@ pub(super) async fn journal(
 	match library
 		.jobs()
 		.database()
-		.append_journal_for(JobId(id), Some(grant_id), effects)
+		.append_journal_for(JobId(id), grant_id, effects)
 		.await
 	{
 		Ok(()) => Some(id),

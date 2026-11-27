@@ -57,6 +57,8 @@ pub struct Space {
 	pub path: Option<PathBuf>,
 	/// Whether file contents inside the space are hashed and read.
 	pub content_indexing: bool,
+	/// Whether every change inside the space keeps its bytes as a version.
+	pub versioning: bool,
 	pub created_at: DateTime<Utc>,
 }
 
@@ -77,6 +79,7 @@ impl Space {
 			root: row.root,
 			path,
 			content_indexing: row.content_indexing,
+			versioning: row.versioning,
 			created_at: DateTime::parse_from_rfc3339(&row.created_at)
 				.map(|at| at.with_timezone(&Utc))
 				.unwrap_or_default(),

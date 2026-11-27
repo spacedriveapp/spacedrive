@@ -65,6 +65,9 @@ impl LibraryAction for SpaceDeleteAction {
 			.await
 			.map_err(|e| ActionError::Internal(format!("could not delete the space: {e}")))?;
 		store::invalidate(space.source_id);
+		if space.versioning {
+			super::super::versioning::discard(&context, space.source_id, space.id).await;
+		}
 		// Its files may now be outside what the source reads; drop their text.
 		if space.content_indexing {
 			store::reread(&library, &context, space.source_id, false).await?;

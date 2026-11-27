@@ -545,10 +545,10 @@ async fn migration_2_adds_kind_name_without_a_backfill() {
 		.open("source-1")
 		.await
 		.expect("open migrates");
-	assert_eq!(db.schema_version(), 2);
+	assert_eq!(db.schema_version(), SCHEMA_VERSION);
 	assert_eq!(
 		migrate::version(db.pool()).await.expect("version"),
-		2,
+		SCHEMA_VERSION,
 		"the file carries the new version"
 	);
 	assert_eq!(
@@ -593,7 +593,7 @@ async fn migration_2_adds_kind_name_without_a_backfill() {
 	// Reopening is a no-op.
 	drop(db);
 	let reopened = fixture.manager.open("source-1").await.expect("reopen");
-	assert_eq!(reopened.schema_version(), 2);
+	assert_eq!(reopened.schema_version(), SCHEMA_VERSION);
 	assert_eq!(kind_columns(reopened.pool()).await.len(), 3);
 }
 
@@ -631,4 +631,38 @@ async fn a_version_1_replica_reads_with_an_empty_kind_name() {
 		1,
 		"nothing migrated the replica"
 	);
+}
+
+/// Migration 3 on a version 2 store that already holds a space: the space
+/// gains the versioning column, off.
+#[tokio::test]
+async fn migration_3_adds_versioning_to_spaces_off() {
+	let fixture = Fixture::new().await;
+	let pool = SqlitePool::connect(&format!("sqlite://{}", fixture.db_path().display()))
+		.await
+		.expect("open the file");
+	for statement in [
+		"ALTER TABLE space DROP COLUMN versioning",
+		"INSERT INTO space (uuid, name, kind, root, content_indexing, created_at, updated_hlc, origin_device)
+		 VALUES (X'01', 'Docs', 'folder', 'Documents', 1, '2026-11-27T00:00:00Z', '0001', X'09')",
+		"PRAGMA user_version = 2",
+	] {
+		sqlx::query(statement)
+			.execute(&pool)
+			.await
+			.expect(statement);
+	}
+	pool.close().await;
+
+	let db = fixture
+		.manager
+		.open("source-1")
+		.await
+		.expect("open migrates");
+	assert_eq!(db.schema_version(), SCHEMA_VERSION);
+	let versioning: Vec<bool> = sqlx::query_scalar("SELECT versioning FROM space")
+		.fetch_all(db.pool())
+		.await
+		.expect("the column");
+	assert_eq!(versioning, [false]);
 }

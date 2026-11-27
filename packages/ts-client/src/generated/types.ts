@@ -5185,6 +5185,11 @@ alternate_ids: string[];
  */
 affected_paths?: SdPath[] };
 
+/**
+ * One file a restore could not write.
+ */
+export type RestoreFailure = { path: string; error: string };
+
 export type RestoreMode = 
 /**
  * Replace an existing library's state with the backup's.
@@ -5194,6 +5199,24 @@ export type RestoreMode =
  * Create a library from the backup. Refuses to overwrite anything.
  */
 "new";
+
+/**
+ * One file a restore wrote.
+ */
+export type RestoredFile = { 
+/**
+ * Relative to the space root.
+ */
+path: string; 
+/**
+ * Where it landed: the path, or a conflict name beside it when
+ * something took the name during the restore.
+ */
+landed: string; conflict: boolean; 
+/**
+ * Pass to `files.undo` to reverse it.
+ */
+undo: string | null };
 
 export type RevokeGrantInput = { id: string };
 
@@ -5840,7 +5863,11 @@ path: string | null;
 /**
  * Whether file contents inside the space are hashed and read.
  */
-content_indexing: boolean; created_at: string };
+content_indexing: boolean; 
+/**
+ * Whether every change inside the space keeps its bytes as a version.
+ */
+versioning: boolean; created_at: string };
 
 /**
  * One change inside a space.
@@ -5931,6 +5958,35 @@ export type SpaceGetQueryInput = { id: string };
 
 export type SpaceGetQueryOutput = { space: Space };
 
+export type SpaceHistoryInput = { id: string; 
+/**
+ * Only this file, or everything in this folder, relative to the space
+ * root and `/`-separated. Omit for the whole space.
+ */
+path?: string | null; 
+/**
+ * The `next` of the previous page. Omit to start at the newest version.
+ */
+before?: number | null; 
+/**
+ * Defaults to 100, at most 500.
+ */
+limit?: number | null };
+
+export type SpaceHistoryOutput = { 
+/**
+ * Whether the space keeps versions. Off, the list is empty.
+ */
+versioning: boolean; 
+/**
+ * How long a version is kept unless a snapshot pins it.
+ */
+retention_days: number; versions: SpaceVersion[]; 
+/**
+ * Pass as `before` for the next page. It stays the same at the end.
+ */
+next: number };
+
 /**
  * How a space came to be.
  */
@@ -5944,9 +6000,109 @@ export type SpaceKind =
  */
 "workspace";
 
-export type SpaceUpdateInput = { id: string; name: string | null; content_indexing: boolean | null };
+export type SpaceRestoreInput = { id: string; 
+/**
+ * One version, by the id `spaces.history` gave it.
+ */
+version?: number | null; 
+/**
+ * A snapshot, by id or name.
+ */
+snapshot?: string | null; 
+/**
+ * With `version`, where to write it, its own path by default. With
+ * `snapshot`, the file or folder to restore, the whole space by
+ * default. Relative to the space root, `/`-separated.
+ */
+path?: string | null };
+
+export type SpaceRestoreOutput = { restored: RestoredFile[]; 
+/**
+ * Files a snapshot restore left because they already match.
+ */
+unchanged: number; failed: RestoreFailure[] };
+
+/**
+ * A named state of a space.
+ */
+export type SpaceSnapshot = { id: string; name: string; 
+/**
+ * The manifest it pins: the newest version id when it was taken.
+ */
+manifest_id: number; created_by: Actor; 
+/**
+ * RFC 3339.
+ */
+at: string; 
+/**
+ * Files in the snapshot and their total size.
+ */
+files: number; bytes: number };
+
+export type SpaceSnapshotCreateInput = { id: string; name: string };
+
+export type SpaceSnapshotCreateOutput = { snapshot: SpaceSnapshot };
+
+export type SpaceSnapshotDeleteInput = { id: string; snapshot: string };
+
+export type SpaceSnapshotDeleteOutput = { deleted: boolean };
+
+export type SpaceSnapshotListInput = { id: string };
+
+export type SpaceSnapshotListOutput = { 
+/**
+ * Oldest first. Empty when the space does not keep versions.
+ */
+snapshots: SpaceSnapshot[] };
+
+export type SpaceUpdateInput = { id: string; name: string | null; content_indexing: boolean | null; 
+/**
+ * Keep every change's bytes as a version. Turning it on captures the
+ * files already in the space in the background; turning it off deletes
+ * the space's versions and snapshots.
+ */
+versioning?: boolean | null };
 
 export type SpaceUpdateOutput = { space: Space };
+
+/**
+ * What one path held from one moment on.
+ */
+export type SpaceVersion = { 
+/**
+ * Pass to `spaces.restore` as `version`.
+ */
+id: number; 
+/**
+ * Relative to the space root, `/`-separated.
+ */
+path: string; 
+/**
+ * BLAKE3 of the content, hex. None for a delete.
+ */
+hash: string | null; size: number | null; 
+/**
+ * RFC 3339 modification time of the file when it was captured.
+ */
+modified_at: string | null; 
+/**
+ * RFC 3339 time the version was captured.
+ */
+at: string; actor: Actor; 
+/**
+ * `agent_write`, `app_op`, `watcher`, `restore`, or `baseline` for a
+ * file that was already there when versioning was turned on.
+ */
+origin: string; 
+/**
+ * Whether the path was deleted here. A delete cannot be restored; an
+ * earlier version of the path can.
+ */
+deleted: boolean; 
+/**
+ * The `spaces.changes` entry that made this version, while it is kept.
+ */
+change_seq: number | null };
 
 export type SpacedropSendInput = { device_id: string; paths: SdPath[]; sender: string | null };
 
@@ -7405,6 +7561,9 @@ export type LibraryAction =
   |  { type: 'sources.verify'; input: VerifySourceInput; output: VerifySourceOutput }
   |  { type: 'spaces.create'; input: SpaceCreateInput; output: SpaceCreateOutput }
   |  { type: 'spaces.delete'; input: SpaceDeleteInput; output: SpaceDeleteOutput }
+  |  { type: 'spaces.restore'; input: SpaceRestoreInput; output: SpaceRestoreOutput }
+  |  { type: 'spaces.snapshot.create'; input: SpaceSnapshotCreateInput; output: SpaceSnapshotCreateOutput }
+  |  { type: 'spaces.snapshot.delete'; input: SpaceSnapshotDeleteInput; output: SpaceSnapshotDeleteOutput }
   |  { type: 'spaces.update'; input: SpaceUpdateInput; output: SpaceUpdateOutput }
   |  { type: 'tags.apply'; input: ApplyTagsInput; output: ApplyTagsOutput }
   |  { type: 'tags.create'; input: CreateTagInput; output: CreateTagOutput }
@@ -7508,7 +7667,9 @@ export type LibraryQuery =
   |  { type: 'sources.validate_path'; input: ValidateSourcePathInput; output: ValidateSourcePathOutput }
   |  { type: 'spaces.changes'; input: SpaceChangesInput; output: SpaceChangesOutput }
   |  { type: 'spaces.get'; input: SpaceGetQueryInput; output: SpaceGetQueryOutput }
+  |  { type: 'spaces.history'; input: SpaceHistoryInput; output: SpaceHistoryOutput }
   |  { type: 'spaces.list'; input: SpacesListQueryInput; output: SpacesListQueryOutput }
+  |  { type: 'spaces.snapshot.list'; input: SpaceSnapshotListInput; output: SpaceSnapshotListOutput }
   |  { type: 'sync.activity'; input: GetSyncActivityInput; output: GetSyncActivityOutput }
   |  { type: 'sync.eventLog'; input: GetSyncEventLogInput; output: GetSyncEventLogOutput }
   |  { type: 'sync.metrics'; input: GetSyncMetricsInput; output: GetSyncMetricsOutput }
@@ -7650,6 +7811,9 @@ export const WIRE_METHODS = {
     'sources.verify': 'action:sources.verify.input',
     'spaces.create': 'action:spaces.create.input',
     'spaces.delete': 'action:spaces.delete.input',
+    'spaces.restore': 'action:spaces.restore.input',
+    'spaces.snapshot.create': 'action:spaces.snapshot.create.input',
+    'spaces.snapshot.delete': 'action:spaces.snapshot.delete.input',
     'spaces.update': 'action:spaces.update.input',
     'tags.apply': 'action:tags.apply.input',
     'tags.create': 'action:tags.create.input',
@@ -7753,7 +7917,9 @@ export const WIRE_METHODS = {
     'sources.validate_path': 'query:sources.validate_path',
     'spaces.changes': 'query:spaces.changes',
     'spaces.get': 'query:spaces.get',
+    'spaces.history': 'query:spaces.history',
     'spaces.list': 'query:spaces.list',
+    'spaces.snapshot.list': 'query:spaces.snapshot.list',
     'sync.activity': 'query:sync.activity',
     'sync.eventLog': 'query:sync.eventLog',
     'sync.metrics': 'query:sync.metrics',

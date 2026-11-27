@@ -30,6 +30,8 @@ pub struct SpaceRow {
 	pub root: String,
 	/// Whether file contents inside the space are hashed and read.
 	pub content_indexing: bool,
+	/// Whether every change inside the space keeps its bytes as a version.
+	pub versioning: bool,
 	/// RFC 3339 time the space was created.
 	pub created_at: String,
 	pub deleted: bool,
@@ -46,26 +48,42 @@ impl SpaceRow {
 	}
 }
 
-const COLUMNS: &str =
-	"uuid, name, kind, root, content_indexing, created_at, deleted, updated_hlc, origin_device";
+const COLUMNS: &str = "uuid, name, kind, root, content_indexing, versioning, created_at, deleted, \
+	updated_hlc, origin_device";
+
+/// The same columns from a store written before versioning, whose rows all
+/// read as versioning off.
+const COLUMNS_BEFORE_VERSIONING: &str =
+	"uuid, name, kind, root, content_indexing, 0 AS versioning, \
+	created_at, deleted, updated_hlc, origin_device";
 
 impl SourceDb {
 	/// Every space this store holds that has not been deleted, by root.
 	pub async fn spaces(&self) -> Result<Vec<SpaceRow>> {
-		let rows = sqlx::query_as(&format!(
-			"SELECT {COLUMNS} FROM space WHERE deleted = 0 ORDER BY root, name"
-		))
-		.fetch_all(self.pool())
-		.await;
+		let read = |columns: &'static str| async move {
+			let sql = format!("SELECT {columns} FROM space WHERE deleted = 0 ORDER BY root, name");
+			sqlx::query_as(&sql).fetch_all(self.pool()).await
+		};
+		let rows = match read(COLUMNS).await {
+			Err(error) if no_versioning_column(&error) => read(COLUMNS_BEFORE_VERSIONING).await,
+			rows => rows,
+		};
 		Ok(older_store_has_none(rows)?.unwrap_or_default())
 	}
 
 	/// One space by id, deleted or not.
 	pub async fn space(&self, uuid: Uuid) -> Result<Option<SpaceRow>> {
-		let row = sqlx::query_as(&format!("SELECT {COLUMNS} FROM space WHERE uuid = ?"))
-			.bind(uuid)
-			.fetch_optional(self.pool())
-			.await;
+		let read = |columns: &'static str| async move {
+			let sql = format!("SELECT {columns} FROM space WHERE uuid = ?");
+			sqlx::query_as(&sql)
+				.bind(uuid)
+				.fetch_optional(self.pool())
+				.await
+		};
+		let row = match read(COLUMNS).await {
+			Err(error) if no_versioning_column(&error) => read(COLUMNS_BEFORE_VERSIONING).await,
+			row => row,
+		};
 		Ok(older_store_has_none(row)?.flatten())
 	}
 
@@ -73,12 +91,13 @@ impl SourceDb {
 	/// stamp. Returns whether the row changed.
 	pub async fn put_space(&self, row: &SpaceRow) -> Result<bool> {
 		let result = sqlx::query(&format!(
-			"INSERT INTO space ({COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			"INSERT INTO space ({COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			 ON CONFLICT (uuid) DO UPDATE SET
 				name = excluded.name,
 				kind = excluded.kind,
 				root = excluded.root,
 				content_indexing = excluded.content_indexing,
+				versioning = excluded.versioning,
 				created_at = excluded.created_at,
 				deleted = excluded.deleted,
 				updated_hlc = excluded.updated_hlc,
@@ -92,6 +111,7 @@ impl SourceDb {
 		.bind(&row.kind)
 		.bind(&row.root)
 		.bind(row.content_indexing)
+		.bind(row.versioning)
 		.bind(&row.created_at)
 		.bind(row.deleted)
 		.bind(&row.updated_hlc)
@@ -100,6 +120,12 @@ impl SourceDb {
 		.await?;
 		Ok(result.rows_affected() > 0)
 	}
+}
+
+/// A replica copied from a store its owner has not migrated yet has the
+/// space table without the versioning column.
+fn no_versioning_column(error: &sqlx::Error) -> bool {
+	matches!(error, sqlx::Error::Database(db) if db.message().contains("no such column: versioning"))
 }
 
 /// A store opened read-only runs no DDL, so one written before spaces, or a
@@ -132,6 +158,7 @@ mod tests {
 			kind: "folder".into(),
 			root: "Documents".into(),
 			content_indexing: true,
+			versioning: false,
 			created_at: "2026-11-27T00:00:00Z".into(),
 			deleted: false,
 			updated_hlc: hlc.into(),

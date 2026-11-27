@@ -1,4 +1,5 @@
-//! `spaces.update`: rename a space or turn its content indexing on or off.
+//! `spaces.update`: rename a space, or turn its content indexing or its
+//! versioning on or off.
 
 use std::sync::Arc;
 
@@ -11,7 +12,10 @@ use crate::{
 	domain::Space,
 	infra::action::{error::ActionError, LibraryAction},
 	library::Library,
-	ops::spaces::store,
+	ops::{
+		actors,
+		spaces::{store, versioning},
+	},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -19,6 +23,11 @@ pub struct SpaceUpdateInput {
 	pub id: Uuid,
 	pub name: Option<String>,
 	pub content_indexing: Option<bool>,
+	/// Keep every change's bytes as a version. Turning it on captures the
+	/// files already in the space in the background; turning it off deletes
+	/// the space's versions and snapshots.
+	#[serde(default)]
+	pub versioning: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -73,6 +82,13 @@ impl LibraryAction for SpaceUpdateAction {
 		if let Some(reading) = reading {
 			row.content_indexing = reading;
 		}
+		let versioning = self
+			.input
+			.versioning
+			.filter(|versioning| *versioning != row.versioning);
+		if let Some(versioning) = versioning {
+			row.versioning = versioning;
+		}
 		row.set_stamp(&store::stamp(&context).map_err(ActionError::Internal)?);
 		writable
 			.db()
@@ -85,9 +101,21 @@ impl LibraryAction for SpaceUpdateAction {
 		}
 
 		let root = context.volume_index().source_root(space.source_id);
-		Ok(SpaceUpdateOutput {
-			space: Space::from_row(row, space.source_id, root.as_deref()),
-		})
+		let space = Space::from_row(row, space.source_id, root.as_deref());
+		match versioning {
+			Some(true) => {
+				let person = actors::this_person(&library, &context)
+					.await
+					.map_err(|e| ActionError::Internal(e.to_string()))?;
+				let (context, space) = (context.clone(), space.clone());
+				tokio::spawn(async move {
+					versioning::baseline(&context, &space, person).await;
+				});
+			}
+			Some(false) => versioning::discard(&context, space.source_id, space.id).await,
+			None => {}
+		}
+		Ok(SpaceUpdateOutput { space })
 	}
 
 	fn action_kind(&self) -> &'static str {
