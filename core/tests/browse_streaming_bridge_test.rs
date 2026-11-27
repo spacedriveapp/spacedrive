@@ -22,6 +22,7 @@ use std::path::PathBuf;
 struct BrowseBridgeConfig {
 	/// TCP socket address for daemon connection
 	socket_addr: String,
+	rpc_secret: String,
 	/// Library UUID
 	library_id: String,
 	/// Device slug used by this daemon (must match path_scope in subscriptions)
@@ -65,6 +66,7 @@ async fn test_directory_event_streaming() -> anyhow::Result<()> {
 
 	let bridge_config = BrowseBridgeConfig {
 		socket_addr: socket_addr.clone(),
+		rpc_secret: harness.daemon_rpc_secret(),
 		library_id: harness.library.id().to_string(),
 		device_slug: device_slug.clone(),
 		browsed_dir_path: browsed_dir.clone(),

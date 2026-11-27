@@ -11,12 +11,13 @@ whisper = ["sd-core/whisper"]
 speech-to-text = ["sd-core/speech-to-text"]
 ai = ["sd-core/ai"]
 footage-clips = ["sd-core/footage-clips"]
+fuse = ["sd-core/fuse"]
 
 [dependencies]
 anyhow      = "1"
 bincode     = { version = "2.0.0-rc.3", features = ["serde"] }
 chrono      = { version = "0.4", features = ["serde"] }
-clap        = { version = "4", features = ["derive"] }
+clap        = { version = "4", features = ["derive", "env"] }
 comfy-table = "7.1"
 crossterm   = "0.27"
 dirs        = "5.0"

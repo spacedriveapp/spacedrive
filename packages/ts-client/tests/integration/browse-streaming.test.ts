@@ -21,6 +21,7 @@ import { TcpSocketTransport } from "../../src/transport";
 
 interface BridgeConfig {
 	socket_addr: string;
+	rpc_secret: string;
 	library_id: string;
 	device_slug: string;
 	browsed_dir_path: string;
@@ -42,7 +43,7 @@ beforeAll(async () => {
 
 	console.log(`[TS] Bridge config:`, bridgeConfig);
 
-	client = SpacedriveClient.fromTcpSocket(bridgeConfig.socket_addr);
+	client = SpacedriveClient.fromTcpSocket(bridgeConfig.socket_addr, bridgeConfig.rpc_secret);
 	client.setCurrentLibrary(bridgeConfig.library_id);
 
 	// Use the device slug from the daemon, not hostname() which may differ
@@ -72,7 +73,7 @@ describe("Browse Event Streaming", () => {
 
 		// Step 1: Subscribe FIRST
 		console.log(`[TS] Subscribing to events for: ${browsedPath}`);
-		const transport = new TcpSocketTransport(bridgeConfig.socket_addr);
+		const transport = new TcpSocketTransport(bridgeConfig.socket_addr, bridgeConfig.rpc_secret);
 		const unsubscribe = await transport.subscribe(
 			(event: any) => {
 				console.log(`[TS] EVENT received:`, JSON.stringify(event).slice(0, 200));
@@ -227,7 +228,7 @@ describe("Browse Event Streaming", () => {
 
 		// Step 2: Subscribe AFTER query (late subscriber)
 		const replayedEvents: any[] = [];
-		const transport = new TcpSocketTransport(bridgeConfig.socket_addr);
+		const transport = new TcpSocketTransport(bridgeConfig.socket_addr, bridgeConfig.rpc_secret);
 		const unsubscribe = await transport.subscribe(
 			(event: any) => {
 				console.log(

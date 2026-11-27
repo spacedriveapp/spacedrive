@@ -85,7 +85,7 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, device: Option<String>)
 		.with_writer(std::io::stderr)
 		.init();
 
-	let client = CoreClient::new(socket_addr).with_device(device);
+	let client = CoreClient::new(socket_addr, &data_dir).with_device(device);
 	let server = McpServer::new(client, data_dir);
 	let running = server.serve(rmcp::transport::stdio()).await?;
 	running.waiting().await?;

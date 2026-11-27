@@ -16,6 +16,7 @@ pub mod resource;
 pub mod resource_manager;
 pub mod resource_registry;
 pub mod sidecar;
+pub mod space;
 pub mod tag;
 pub mod volume;
 
@@ -34,6 +35,7 @@ pub use resource_manager::ResourceManager;
 pub use sidecar::{
 	ContentSidecar, ProxyResolution, SidecarFormat, SidecarKind, SidecarStatus, SidecarVariant,
 };
+pub use space::{Space, SpaceKind};
 pub use tag::{Tag, TagError};
 pub use volume::{
 	DiskType as DomainDiskType, FileSystem as DomainFileSystem, MountType as DomainMountType,

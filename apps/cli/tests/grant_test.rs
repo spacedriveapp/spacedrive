@@ -49,7 +49,11 @@ async fn sd(cli_data: &Path, instance: &str, args: &[&str]) -> (bool, String, St
 async fn sd_grant_creates_lists_and_revokes() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 {
 	let temp = TempDir::new()?;
-	let core = Arc::new(Core::new(temp.path().join("core")).await?);
+	// The CLI reads the daemon's RPC secret from its own data directory, so
+	// the core lives where the CLI resolves this instance, as in a real install.
+	let (instance, socket_addr) = free_instance().await;
+	let core =
+		Arc::new(Core::new(temp.path().join("cli").join("instances").join(&instance)).await?);
 	let library = core
 		.libraries
 		.create_library("Grant Library".to_string(), None, core.context.clone())
@@ -75,7 +79,6 @@ async fn sd_grant_creates_lists_and_revokes() -> Result<(), Box<dyn std::error::
 		}
 	}
 
-	let (instance, socket_addr) = free_instance().await;
 	let server_core = core.clone();
 	tokio::spawn(async move {
 		let mut server = sd_core::infra::daemon::rpc::RpcServer::new(socket_addr, server_core);

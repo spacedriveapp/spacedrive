@@ -335,7 +335,7 @@ async fn attempt(
 	println!();
 	println!("Installing updates...");
 
-	let client = sd_client::CoreClient::new(socket_addr);
+	let client = sd_client::CoreClient::new(socket_addr, data_dir);
 	let daemon_was_running = sd_client::is_daemon_running(&client).await;
 	if daemon_was_running {
 		println!("Stopping daemon...");

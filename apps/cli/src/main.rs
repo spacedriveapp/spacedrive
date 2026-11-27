@@ -51,6 +51,7 @@ use crate::domains::{
 	redundancy::{self, RedundancyCmd},
 	search::{self, SearchCmd},
 	source::{self, SourceCmd},
+	space::{self, SpaceCmd},
 	sync::{self, SyncCmd},
 	tag::{self, TagCmd},
 	thumbs::{self, ThumbsCmd},
@@ -257,6 +258,8 @@ enum Commands {
 	/// Mount sources as a read-only directory tree (Linux, FUSE)
 	#[command(subcommand)]
 	Fuse(FuseCmd),
+	/// Mount a folder lent by a grant from any Spacedrive node, read-only
+	Mount(domains::mount::MountArgs),
 	/// Indexing operations
 	#[command(subcommand)]
 	Index(IndexCmd),
@@ -291,6 +294,9 @@ enum Commands {
 	/// Sync operations and metrics
 	#[command(subcommand)]
 	Sync(SyncCmd),
+	/// Spaces: folders people and agents work in
+	#[command(subcommand)]
+	Space(SpaceCmd),
 	/// Tag operations
 	#[command(subcommand)]
 	Tag(TagCmd),
@@ -358,7 +364,7 @@ async fn main() -> Result<()> {
 			crate::ui::print_compact_logo();
 			println!("Starting daemon...");
 
-			let client = CoreClient::new(socket_addr.clone());
+			let client = CoreClient::new(socket_addr.clone(), &data_dir);
 			let current_exe = std::env::current_exe()?;
 			// A link such as /usr/local/bin/sd keeps the daemon beside the real binary.
 			let current_exe = current_exe.canonicalize().unwrap_or(current_exe);
@@ -416,7 +422,7 @@ async fn main() -> Result<()> {
 			}
 
 			println!("Stopping daemon...");
-			let core = CoreClient::new(socket_addr.clone());
+			let core = CoreClient::new(socket_addr.clone(), &data_dir);
 			let stop_result = core
 				.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Shutdown)
 				.await;
@@ -456,7 +462,7 @@ async fn main() -> Result<()> {
 
 			// First, try to stop the daemon if it's running
 			println!("Stopping daemon...");
-			let core = CoreClient::new(socket_addr.clone());
+			let core = CoreClient::new(socket_addr.clone(), &data_dir);
 			let stop_result = core
 				.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Shutdown)
 				.await;
@@ -534,6 +540,11 @@ async fn main() -> Result<()> {
 			// Daemon management doesn't need the client, handle directly
 			daemon::run(data_dir, base_data_dir, instance, cmd).await?;
 		}
+		Commands::Mount(args) => {
+			// The thin client talks to the node in the URL, never to a local
+			// daemon.
+			domains::mount::run(args).await?;
+		}
 		Commands::Mcp => {
 			// Serves without a daemon so an MCP client can list tools; each
 			// call reports the daemon as unreachable until it is started.
@@ -581,7 +592,7 @@ async fn run_client_command(
 		}
 	}
 
-	let core = CoreClient::new(socket_addr.clone()).with_device(device);
+	let core = CoreClient::new(socket_addr.clone(), &data_dir).with_device(device);
 	let mut ctx = Context::new(core, format, data_dir, socket_addr)?;
 
 	ctx.validate_and_fix_library().await?;
@@ -868,6 +879,7 @@ async fn run_client_command(
 		Commands::Redundancy(cmd) => redundancy::run(&ctx, cmd).await?,
 		Commands::Search(cmd) => search::run(&ctx, cmd).await?,
 		Commands::Layouts(cmd) => layouts::exec(cmd, &ctx).await?,
+		Commands::Space(cmd) => space::run(&ctx, cmd).await?,
 		Commands::Tag(cmd) => tag::run(&ctx, cmd).await?,
 		Commands::Volume(cmd) => volume::run(&ctx, cmd).await?,
 		Commands::Cloud => cloud::run(&ctx).await?,
