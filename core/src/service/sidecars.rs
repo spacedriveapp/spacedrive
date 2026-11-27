@@ -482,6 +482,7 @@ impl SidecarRegistry {
 			let Some(target) = target else {
 				continue;
 			};
+			mark(&target.derived, self.library_id).await?;
 			let destination = target
 				.derived
 				.join(sd_sidecar_path::content_directory(&content_uuid));
