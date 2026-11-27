@@ -307,6 +307,15 @@ pub async fn track_and_index(
 		.await
 		.map_err(|e| ActionError::Internal(e.to_string()))?;
 
+	// A home folder tracked now shows its user folders as spaces at once.
+	if let Some(store) = context.volume_index().store_for(&root).await {
+		if let Err(error) =
+			crate::ops::spaces::store::adopt_deep_scope(context, id, &root, &store).await
+		{
+			tracing::warn!(source = %id, %error, "could not turn a source's deep scope into spaces");
+		}
+	}
+
 	// The source stays registered when its walk cannot start: it is marked
 	// unfinished, so the next heal walks it. The caller still has to hear
 	// that nothing is indexing it yet.

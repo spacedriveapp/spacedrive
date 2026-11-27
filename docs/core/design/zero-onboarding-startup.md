@@ -46,10 +46,10 @@ The durable set is a default, not a decision the user must make — removable an
 > Pictures, Movies or Videos, Music, Public, resolved by the platform) and any
 > other source reads its whole root.
 >
-> **Amended 2026-11-28:** the deep scope is now the spaces with content
+> Amended 2026-11-28: the deep scope is now the spaces with content
 > indexing on (`docs/core/design/spaces.md`). The home source's user folders
-> become spaces the first time its spaces are listed, and a list set through
-> the old `sources.deep_scope.update` is turned into spaces the same way.
+> become spaces when it is tracked or its library opens, and a list set
+> through the old `sources.deep_scope.update` is turned into spaces the same way.
 > "Keep indexed" is `spaces.create` or `spaces.update` with content indexing on.
 
 ## The launch sequence

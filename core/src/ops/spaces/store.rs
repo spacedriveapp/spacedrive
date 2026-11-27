@@ -77,14 +77,6 @@ pub async fn all(library: &Library, context: &CoreContext) -> Result<Vec<Space>,
 	let index = context.volume_index();
 	let mut spaces = Vec::new();
 	for source in index.sources_of(library.id()) {
-		if source.attached {
-			if let Some(store) = index.store_for(&source.root).await {
-				if let Err(error) = adopt_deep_scope(context, source.id, &source.root, &store).await
-				{
-					warn!(source = %source.id, %error, "could not turn a source's deep scope into spaces");
-				}
-			}
-		}
 		let Some(db) = index.read_store(source.id).await else {
 			continue;
 		};
@@ -95,6 +87,42 @@ pub async fn all(library: &Library, context: &CoreContext) -> Result<Vec<Space>,
 	}
 	spaces.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
 	Ok(spaces)
+}
+
+/// Adopt the deep scope of every source of `library` on this device as
+/// spaces, when the library opens.
+///
+/// A read-only look decides first, so a source with nothing to adopt is
+/// never opened for writes.
+pub async fn adopt_library(library: &Library, context: &CoreContext) {
+	let index = context.volume_index();
+	for source in index.sources_of(library.id()) {
+		if !source.attached {
+			continue;
+		}
+		let Some(db) = index.read_store(source.id).await else {
+			continue;
+		};
+		let pending = match db.deep_scope().await {
+			Ok(Some(kept)) => !kept.is_empty(),
+			Ok(None) => deep_scope::default_scope(&source.root)
+				.await
+				.is_ok_and(|default| default != [String::new()]),
+			Err(error) => {
+				warn!(source = %source.id, %error, "could not read a source's deep scope");
+				false
+			}
+		};
+		if !pending {
+			continue;
+		}
+		let Some(store) = index.store_for(&source.root).await else {
+			continue;
+		};
+		if let Err(error) = adopt_deep_scope(context, source.id, &source.root, &store).await {
+			warn!(source = %source.id, %error, "could not turn a source's deep scope into spaces");
+		}
+	}
 }
 
 /// Make the folders a source reads by default spaces, once.
