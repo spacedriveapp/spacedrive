@@ -94,16 +94,10 @@ impl LibraryAction for SpaceRestoreAction {
 		let space = store::find(&library, &context, self.input.id)
 			.await
 			.map_err(ActionError::InvalidInput)?;
-		if !space.versioning {
-			return Err(ActionError::InvalidInput(format!(
-				"{} does not keep versions; turn versioning on first",
-				space.name
-			)));
-		}
-		let versions = versioning::open(&context, space.source_id, space.id)
+		let versions = versioning::kept(&context, space.source_id, space.id, space.versioning)
 			.await
 			.ok_or_else(|| {
-				ActionError::Internal("the space's versions are not on this device".to_string())
+				ActionError::InvalidInput(format!("{} has no versions to restore", space.name))
 			})?;
 		let from = match (self.input.version, self.input.snapshot) {
 			(Some(version), _) => RestoreFrom::Version(version),

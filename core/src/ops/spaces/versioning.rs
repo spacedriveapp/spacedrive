@@ -37,7 +37,7 @@ use crate::{
 	context::CoreContext,
 	domain::Space,
 	ops::{
-		agent_write::{restore_in, Fill, WriteError, WriteOutcome, WriteTurn},
+		agent_write::{restore_in, state_of, Fill, PathKind, WriteError, WriteOutcome, WriteTurn},
 		grants::{GrantCap, GrantScope},
 		spaces::events::{self, Attribution, Change, InSpace, Origin, RETENTION_DAYS},
 	},
@@ -94,6 +94,35 @@ pub async fn open(
 	prune(space_id, &versions).await;
 	open.insert(space_id, (versions.clone(), Instant::now()));
 	Some(versions)
+}
+
+/// The versions a space has, whether it keeps versions now (`on`) or was
+/// turned off with versions left, which stay readable and restorable until
+/// they age out or are purged. None when it has none.
+pub async fn kept(
+	context: &CoreContext,
+	source_id: Uuid,
+	space_id: Uuid,
+	on: bool,
+) -> Option<Arc<SpaceVersions>> {
+	if !on && !has_versions(context, source_id, space_id) {
+		return None;
+	}
+	open(context, source_id, space_id).await
+}
+
+/// Whether a space has a version store on this device.
+pub fn has_versions(context: &CoreContext, source_id: Uuid, space_id: Uuid) -> bool {
+	space_dir(context, source_id, space_id)
+		.is_some_and(|dir| dir.join(sd_store::SPACE_VERSIONS_FILE).exists())
+}
+
+/// Stop capturing for a space whose versioning was turned off. Its versions
+/// and snapshots stay on disk.
+pub async fn close(space_id: Uuid) {
+	if let Some((versions, _)) = OPEN.lock().await.remove(&space_id) {
+		versions.close().await;
+	}
 }
 
 async fn prune(space_id: Uuid, versions: &SpaceVersions) {
@@ -178,7 +207,14 @@ async fn capture_watched(context: &CoreContext, path: &Path) {
 	else {
 		return;
 	};
-	let gone = tokio::fs::symlink_metadata(path).await.is_err();
+	let gone = match tokio::fs::symlink_metadata(path).await {
+		Ok(_) => false,
+		Err(error) if error.kind() == std::io::ErrorKind::NotFound => true,
+		Err(error) => {
+			debug!(path = %path.display(), %error, "could not read a changed path; leaving its versions as they are");
+			return;
+		}
+	};
 	let Ok(device) = context.device_manager.device_id() else {
 		return;
 	};
@@ -333,8 +369,16 @@ pub async fn baseline(context: &CoreContext, space: &Space, actor: Uuid) -> usiz
 	captured
 }
 
-/// Delete a space's versions and snapshots, after versioning was turned off
-/// or the space removed. Its event log stays.
+/// Delete every version and snapshot of `space`. A space with versioning
+/// on keeps capturing changes from here. Answers whether it had any.
+pub async fn purge(context: &CoreContext, space: &Space) -> bool {
+	let had = has_versions(context, space.source_id, space.id);
+	discard(context, space.source_id, space.id).await;
+	had
+}
+
+/// Delete a space's versions and snapshots, for a purge or a removed space.
+/// Its event log stays.
 pub async fn discard(context: &CoreContext, source_id: Uuid, space_id: Uuid) {
 	// Holding the open handles until the files are gone keeps a re-enable
 	// from opening the store while it is being deleted.
@@ -432,10 +476,9 @@ pub async fn restore_file(
 	hash: String,
 ) -> Result<Option<WriteOutcome>, WriteError> {
 	let turn = WriteTurn::take(Default::default()).await;
-	let live = sd_store::space_versions::content_hash(&scope.path)
-		.await
-		.map_err(|e| WriteError::Io(format!("read the file to restore over: {e}")))?;
-	if live.as_deref() == Some(hash.as_str()) {
+	// The write path's own reader, which leaves a cloud placeholder unread.
+	let live = state_of(context, &scope.root, &scope.path, Default::default()).await?;
+	if live.kind == Some(PathKind::File) && live.content_hash.as_deref() == Some(hash.as_str()) {
 		return Ok(None);
 	}
 	let fill = Fill::With(Box::new(move |partial: PathBuf| {

@@ -16,7 +16,17 @@ sd space update <space-id> --versioning true
 
 The `spaces.update` op takes the same field, `versioning`. When you turn it on, Spacedrive captures every file already in the space as its baseline, in the background, so the first edit has a version to go back to. Folders inside the space that are spaces of their own are left to their own setting.
 
-When you turn it off, Spacedrive deletes the space's versions and snapshots to free the disk space they took. The space's change log stays.
+When you turn it off, Spacedrive stops capturing changes and keeps what it stored. History, restore, and snapshot list and delete still work on those versions, and they age out under the usual retention. Turning it back on captures a new baseline. Only files that changed since are stored again.
+
+## Delete stored versions
+
+Turning versioning off never deletes data. To free the disk space versions take, purge them:
+
+```bash
+sd space purge-history <space-id>
+```
+
+The op is `spaces.history.purge`. It deletes every version and snapshot of the space. The files themselves and the change log stay. A space with versioning on keeps capturing changes from then on. Deleting a space also deletes its versions.
 
 ## What is kept
 
@@ -28,13 +38,13 @@ Each change inside the space becomes a version:
 
 A change that something overwrote before Spacedrive read it has no version. This can happen when a program outside Spacedrive saves a file twice within a moment. The interface states this next to the history.
 
-Versions are kept for 30 days. The newest version of each file is always kept, and so is every version a snapshot pins.
+Versions are kept for 30 days. The newest version of each file is always kept, and so is every version a snapshot pins. Pruning runs when the versions are opened and hourly while they are in use.
 
 ## How versions are stored
 
 Everything lives in the space's own directory in the source store, `sources/<source>/spaces/<space>/`, beside the change log. Nothing is written inside the folder itself.
 
-- `blobs/` holds file contents cut into chunks with FastCDC, about 1 MiB on average, each stored once and named by its BLAKE3 hash. An edit to part of a large file stores only the chunks it changed.
+- `blobs/` holds file contents cut into chunks with FastCDC, about 64 KiB on average (16 KiB to 256 KiB), each stored once and named by its BLAKE3 hash. An edit to part of a large file stores only the chunks it changed.
 - `versions.db` lists, for each path, what it held from each moment on. This list is the space's manifest kept as a sequence of changes. A version id is a manifest id.
 
 Every chunk and every file is checked against its hash when it is read back, so a damaged chunk is refused, not restored.
@@ -66,7 +76,7 @@ A restore goes through the same write path as an agent write:
 - It appears in the change log with origin `restore` and the person or agent who asked for it, and it becomes a new version.
 - If something takes the name during the restore, both files are kept.
 
-Restoring a snapshot puts every file under the path back as the snapshot held it. Files the snapshot did not have are left alone, and files that already match are not written.
+Restoring a snapshot puts every file under the path back as the snapshot held it. Files the snapshot did not have are left alone. Each file is compared on disk before it is written, so a file that already matches is not written, even when its last change was not captured yet.
 
 ## Snapshots
 
@@ -82,11 +92,12 @@ The ops are `spaces.snapshot.create`, `spaces.snapshot.list` and `spaces.snapsho
 
 ## Agents
 
-Agents reach versions through three MCP tools, each limited to the grant's folder:
+Agents reach versions through four MCP tools, each limited to the grant's folder:
 
 - `history` lists the versions of a file or folder.
 - `restore` writes a version or a snapshot back. It needs a read-write grant, and every file it writes is checked against the grant, so protected names such as `AGENTS.md` stay protected.
-- `snapshot` creates, lists or deletes snapshots. It needs a read-write grant.
+- `snapshot` creates, lists or deletes snapshots. It needs a read-write grant. Creating or deleting one needs a grant on the whole space, because a snapshot pins the whole space.
+- `purge_history` deletes every version and snapshot. It needs a read-write grant on the whole space.
 
 The REST API on the agent endpoint serves the same tools.
 
@@ -96,12 +107,12 @@ Measured on a cloud machine with 4 vCPUs, a 1 GiB space of 544 files (512 of 1 M
 
 | | Versioning off | Versioning on |
 |---|---|---|
-| Agent write, mean | 16.2 ms | 20.9 ms |
-| Agent write, p50 | 11.1 ms | 15.0 ms |
-| Agent write, p95 | 47.4 ms | 62.4 ms |
-| Agent write, p99 | 85.0 ms | 106.3 ms |
-| Version data on disk | 0 | 1,028 MiB baseline, then 933 KiB per edit |
+| Agent write, mean | 16.1 ms | 19.0 ms |
+| Agent write, p50 | 11.6 ms | 13.7 ms |
+| Agent write, p95 | 52.1 ms | 67.1 ms |
+| Agent write, p99 | 85.5 ms | 91.4 ms |
+| Version data on disk | 0 | 1,028 MiB baseline, then 104.7 KiB per edit |
 
-Turning versioning on captured the 1 GiB baseline in 3.3 seconds and stored it at 1.00x the space's size. After the 10,000 edits the space's versions took 10,140 MiB.
+Turning versioning on captured the 1 GiB baseline in 5.0 seconds and stored it at 1.00x the space's size. After the 10,000 edits the space's versions took 2,051 MiB.
 
-Each edit stores about one average chunk, about 1 MiB, whatever the size of the edit. A file of 1 MiB or less is one chunk, so every edit stores the whole file again. Small, frequent edits to many files are the most expensive case. Retention bounds the total to 30 days of edits plus what snapshots pin.
+Each edit stores the one or two chunks it touched, about 64 KiB each, whatever the size of the edit. Small, frequent edits to many files are the most expensive case. Retention bounds the total to 30 days of edits plus what snapshots pin.

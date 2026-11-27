@@ -13,10 +13,11 @@ use sd_core::{
 	ops::spaces::{
 		SpaceCreateInput, SpaceCreateOutput, SpaceDeleteInput, SpaceDeleteOutput,
 		SpaceGetQueryInput, SpaceGetQueryOutput, SpaceHistoryInput, SpaceHistoryOutput,
-		SpaceRestoreInput, SpaceRestoreOutput, SpaceSnapshot, SpaceSnapshotCreateInput,
-		SpaceSnapshotCreateOutput, SpaceSnapshotDeleteInput, SpaceSnapshotDeleteOutput,
-		SpaceSnapshotListInput, SpaceSnapshotListOutput, SpaceUpdateInput, SpaceUpdateOutput,
-		SpacesListQueryInput, SpacesListQueryOutput,
+		SpaceHistoryPurgeInput, SpaceHistoryPurgeOutput, SpaceRestoreInput, SpaceRestoreOutput,
+		SpaceSnapshot, SpaceSnapshotCreateInput, SpaceSnapshotCreateOutput,
+		SpaceSnapshotDeleteInput, SpaceSnapshotDeleteOutput, SpaceSnapshotListInput,
+		SpaceSnapshotListOutput, SpaceUpdateInput, SpaceUpdateOutput, SpacesListQueryInput,
+		SpacesListQueryOutput,
 	},
 };
 
@@ -46,6 +47,8 @@ pub enum SpaceCmd {
 	/// Name, list and remove snapshots of a space
 	#[command(subcommand)]
 	Snapshot(SnapshotCmd),
+	/// Delete every stored version and snapshot of a space; its files stay
+	PurgeHistory { id: Uuid },
 }
 
 #[derive(Args, Debug)]
@@ -278,6 +281,19 @@ pub async fn run(ctx: &Context, cmd: SpaceCmd) -> Result<()> {
 						"Deleted the snapshot"
 					} else {
 						"No such snapshot"
+					}
+				);
+			});
+		}
+		SpaceCmd::PurgeHistory { id } => {
+			let out: SpaceHistoryPurgeOutput = execute_action!(ctx, SpaceHistoryPurgeInput { id });
+			print_output!(ctx, &out, |o: &SpaceHistoryPurgeOutput| {
+				println!(
+					"{}",
+					if o.purged {
+						"Deleted the space's versions and snapshots"
+					} else {
+						"The space had no versions"
 					}
 				);
 			});

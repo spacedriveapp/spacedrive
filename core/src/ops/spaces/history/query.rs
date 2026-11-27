@@ -107,14 +107,11 @@ impl LibraryQuery for SpaceHistoryQuery {
 			versions: Vec::new(),
 			next: start,
 		};
-		if !space.versioning {
+		let Some(versions) =
+			versioning::kept(&context, space.source_id, space.id, space.versioning).await
+		else {
 			return Ok(output);
-		}
-		let versions = versioning::open(&context, space.source_id, space.id)
-			.await
-			.ok_or_else(|| {
-				QueryError::Internal("the space's versions are not on this device".to_string())
-			})?;
+		};
 		let rows = versions
 			.history(
 				self.input.path.as_deref(),

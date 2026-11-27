@@ -5987,6 +5987,14 @@ retention_days: number; versions: SpaceVersion[];
  */
 next: number };
 
+export type SpaceHistoryPurgeInput = { id: string };
+
+export type SpaceHistoryPurgeOutput = { 
+/**
+ * Whether the space had versions to delete.
+ */
+purged: boolean };
+
 /**
  * How a space came to be.
  */
@@ -6051,7 +6059,7 @@ export type SpaceSnapshotListInput = { id: string };
 
 export type SpaceSnapshotListOutput = { 
 /**
- * Oldest first. Empty when the space does not keep versions.
+ * Oldest first. Empty when the space has no versions.
  */
 snapshots: SpaceSnapshot[] };
 
@@ -7561,6 +7569,7 @@ export type LibraryAction =
   |  { type: 'sources.verify'; input: VerifySourceInput; output: VerifySourceOutput }
   |  { type: 'spaces.create'; input: SpaceCreateInput; output: SpaceCreateOutput }
   |  { type: 'spaces.delete'; input: SpaceDeleteInput; output: SpaceDeleteOutput }
+  |  { type: 'spaces.history.purge'; input: SpaceHistoryPurgeInput; output: SpaceHistoryPurgeOutput }
   |  { type: 'spaces.restore'; input: SpaceRestoreInput; output: SpaceRestoreOutput }
   |  { type: 'spaces.snapshot.create'; input: SpaceSnapshotCreateInput; output: SpaceSnapshotCreateOutput }
   |  { type: 'spaces.snapshot.delete'; input: SpaceSnapshotDeleteInput; output: SpaceSnapshotDeleteOutput }
@@ -7811,6 +7820,7 @@ export const WIRE_METHODS = {
     'sources.verify': 'action:sources.verify.input',
     'spaces.create': 'action:spaces.create.input',
     'spaces.delete': 'action:spaces.delete.input',
+    'spaces.history.purge': 'action:spaces.history.purge.input',
     'spaces.restore': 'action:spaces.restore.input',
     'spaces.snapshot.create': 'action:spaces.snapshot.create.input',
     'spaces.snapshot.delete': 'action:spaces.snapshot.delete.input',

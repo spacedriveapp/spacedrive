@@ -40,21 +40,24 @@ pub struct SpaceSnapshot {
 	pub bytes: u64,
 }
 
+/// A space's versions. Creating a snapshot needs versioning on; listing and
+/// deleting work on versions kept after it was turned off.
 async fn versions_of(
 	library: &Library,
 	context: &CoreContext,
 	id: Uuid,
+	creating: bool,
 ) -> Result<(Space, Arc<sd_store::SpaceVersions>), String> {
 	let space = store::find(library, context, id).await?;
-	if !space.versioning {
+	if creating && !space.versioning {
 		return Err(format!(
 			"{} does not keep versions; turn versioning on first",
 			space.name
 		));
 	}
-	let versions = versioning::open(context, space.source_id, space.id)
+	let versions = versioning::kept(context, space.source_id, space.id, space.versioning)
 		.await
-		.ok_or_else(|| "the space's versions are not on this device".to_string())?;
+		.ok_or_else(|| format!("{} has no versions", space.name))?;
 	Ok((space, versions))
 }
 
@@ -111,7 +114,7 @@ impl LibraryAction for SpaceSnapshotCreateAction {
 		library: Arc<Library>,
 		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		let (_, versions) = versions_of(&library, &context, self.input.id)
+		let (_, versions) = versions_of(&library, &context, self.input.id, true)
 			.await
 			.map_err(ActionError::InvalidInput)?;
 		let person = actors::this_person(&library, &context)
@@ -145,7 +148,7 @@ pub struct SpaceSnapshotListInput {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SpaceSnapshotListOutput {
-	/// Oldest first. Empty when the space does not keep versions.
+	/// Oldest first. Empty when the space has no versions.
 	pub snapshots: Vec<SpaceSnapshot>,
 }
 
@@ -179,12 +182,12 @@ impl LibraryQuery for SpaceSnapshotListQuery {
 		let space = store::find(&library, &context, self.input.id)
 			.await
 			.map_err(QueryError::InvalidInput)?;
-		if !space.versioning {
+		if !space.versioning && !versioning::has_versions(&context, space.source_id, space.id) {
 			return Ok(SpaceSnapshotListOutput {
 				snapshots: Vec::new(),
 			});
 		}
-		let (_, versions) = versions_of(&library, &context, space.id)
+		let (_, versions) = versions_of(&library, &context, space.id, false)
 			.await
 			.map_err(QueryError::Internal)?;
 		let names = ActorNames::load(&library, &context)
@@ -237,7 +240,7 @@ impl LibraryAction for SpaceSnapshotDeleteAction {
 		library: Arc<Library>,
 		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		let (_, versions) = versions_of(&library, &context, self.input.id)
+		let (_, versions) = versions_of(&library, &context, self.input.id, false)
 			.await
 			.map_err(ActionError::InvalidInput)?;
 		let deleted = versions

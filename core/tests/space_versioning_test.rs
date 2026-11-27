@@ -24,10 +24,11 @@ use sd_core::{
 		},
 		spaces::{
 			versioning, ChangeOrder, SpaceChangesInput, SpaceChangesQuery, SpaceCreateAction,
-			SpaceCreateInput, SpaceHistoryInput, SpaceHistoryOutput, SpaceHistoryQuery,
-			SpaceRestoreAction, SpaceRestoreInput, SpaceSnapshotCreateAction,
-			SpaceSnapshotCreateInput, SpaceSnapshotDeleteAction, SpaceSnapshotDeleteInput,
-			SpaceSnapshotListInput, SpaceSnapshotListQuery, SpaceUpdateAction, SpaceUpdateInput,
+			SpaceCreateInput, SpaceHistoryInput, SpaceHistoryOutput, SpaceHistoryPurgeAction,
+			SpaceHistoryPurgeInput, SpaceHistoryQuery, SpaceRestoreAction, SpaceRestoreInput,
+			SpaceSnapshotCreateAction, SpaceSnapshotCreateInput, SpaceSnapshotDeleteAction,
+			SpaceSnapshotDeleteInput, SpaceSnapshotListInput, SpaceSnapshotListQuery,
+			SpaceUpdateAction, SpaceUpdateInput,
 		},
 	},
 };
@@ -307,12 +308,31 @@ async fn edits_keep_versions_that_restore_through_the_write_path() -> anyhow::Re
 	);
 	assert!(!tracked.root.join("escape.md").exists());
 
+	// Turning versioning off stops capture and keeps what was stored.
+	let kept = history(&harness, &project, None).await.versions.len();
 	let off = set_versioning(&harness, &project, false).await?;
 	assert!(!off.versioning);
+	write(&harness, &token, "after-off.md", "not captured", None).await?;
+	let seen = history(&harness, &off, None).await;
+	assert!(!seen.versioning);
+	assert_eq!(seen.versions.len(), kept, "nothing captured while off");
+	restore(&harness, &off, Some(notes.versions[0].id), None, None).await?;
+	assert_eq!(
+		tokio::fs::read_to_string(tracked.root.join("project/notes.md")).await?,
+		"second draft",
+		"kept versions still restore"
+	);
+
+	// Purging is the explicit step that deletes them.
+	let purged = SpaceHistoryPurgeAction::from_input(SpaceHistoryPurgeInput { id: off.id })
+		.map_err(anyhow::Error::msg)?
+		.execute(harness.library.clone(), harness.core.context.clone())
+		.await?;
+	assert!(purged.purged);
 	assert!(history(&harness, &off, None).await.versions.is_empty());
 	assert!(
 		!space_dir(&harness, &off).join(sd_store::BLOBS_DIR).exists(),
-		"turning versioning off deletes the stored versions"
+		"a purge deletes the stored versions"
 	);
 	Ok(())
 }

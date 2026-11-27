@@ -112,7 +112,7 @@ impl LibraryAction for SpaceUpdateAction {
 					versioning::baseline(&context, &space, person).await;
 				});
 			}
-			Some(false) => versioning::discard(&context, space.source_id, space.id).await,
+			Some(false) => versioning::close(space.id).await,
 			None => {}
 		}
 		Ok(SpaceUpdateOutput { space })

@@ -7,7 +7,7 @@
 //! Nothing here is written for a space with versioning off, and nothing is
 //! written outside the space's directory.
 //!
-//! A file's bytes are cut into chunks with FastCDC (about 1 MiB on average)
+//! A file's bytes are cut into chunks with FastCDC (about 64 KiB on average)
 //! and each chunk is stored once, named by its BLAKE3 hash, so a version that
 //! changes part of a large file stores only the chunks that changed. A blob
 //! is a file's content: its BLAKE3 hash, the same hash agent write
@@ -50,9 +50,9 @@ pub const BLOBS_DIR: &str = "blobs";
 
 /// FastCDC bounds. The average sets the dedupe grain: an edit costs about
 /// one average chunk plus the bytes it changed.
-pub const CHUNK_MIN: u32 = 256 * 1024;
-pub const CHUNK_AVG: u32 = 1024 * 1024;
-pub const CHUNK_MAX: u32 = 4 * 1024 * 1024;
+pub const CHUNK_MIN: u32 = 16 * 1024;
+pub const CHUNK_AVG: u32 = 64 * 1024;
+pub const CHUNK_MAX: u32 = 256 * 1024;
 
 const HASH_LEN: usize = blake3::OUT_LEN;
 
@@ -637,25 +637,6 @@ fn chunk_path(blobs: &Path, chunk: &[u8; HASH_LEN]) -> PathBuf {
 	blobs.join(&hex[..2]).join(hex.as_str())
 }
 
-/// The content hash a capture would give the file at `path`, or None when
-/// no regular file is there.
-pub async fn content_hash(path: &Path) -> Result<Option<String>> {
-	let path = path.to_path_buf();
-	tokio::task::spawn_blocking(move || {
-		match std::fs::symlink_metadata(&path) {
-			Ok(meta) if meta.is_file() => {}
-			Ok(_) => return Ok(None),
-			Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-			Err(error) => return Err(error.into()),
-		}
-		let mut hasher = blake3::Hasher::new();
-		hasher.update_reader(std::fs::File::open(&path)?)?;
-		Ok(Some(hasher.finalize().to_hex().to_string()))
-	})
-	.await
-	.map_err(|e| Error::Other(format!("hash a file: {e}")))?
-}
-
 /// Cut a file into chunks, store the ones not stored yet, and answer the
 /// blob and its chunk list.
 fn chunk_into(blobs: &Path, file: &Path) -> Result<(StoredBlob, Vec<u8>)> {
@@ -783,7 +764,7 @@ mod tests {
 			.unwrap();
 		assert_eq!(stored.size, bytes.len() as u64);
 		assert_eq!(stored.hash, blake3::hash(&bytes).to_hex().as_str());
-		assert!(stored.chunks > 4, "about 1 MiB per chunk: {stored:?}");
+		assert!(stored.chunks > 128, "about 64 KiB per chunk: {stored:?}");
 
 		assert!(
 			versions
@@ -803,7 +784,7 @@ mod tests {
 			.unwrap();
 		assert!(second > first);
 		assert!(
-			edited.new_chunks <= 2 && edited.new_bytes < 8 * 1024 * 1024,
+			edited.new_chunks <= 2 && edited.new_bytes <= 2 * CHUNK_MAX as u64,
 			"a 100 byte edit stores a chunk or two: {edited:?}"
 		);
 

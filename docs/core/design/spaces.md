@@ -135,7 +135,7 @@ Retention is 30 days by default, configurable per space. With versioning off, a 
 These exist only for spaces with versioning on. They live in the space's directory, beside its event log: `versions.db` and `blobs/`. [space-versioning.mdx](../space-versioning.mdx) describes the built behavior.
 
 ```
-chunk     a FastCDC chunk (about 1 MiB average), stored once in blobs/ under its BLAKE3 hash
+chunk     a FastCDC chunk (about 64 KiB average), stored once in blobs/ under its BLAKE3 hash
 blob      hash (BLAKE3 of the whole file, the precondition hash), size, ordered chunk list
 version   id, path, blob_hash? (none for a delete), size, mode, mtime, at, actor_id, origin, event_seq?
 snapshot  id, name, manifest_id, created_by, at                  # a pinned manifest
@@ -144,7 +144,7 @@ fork      child space_id, parent space_id, base manifest_id       # not built ye
 
 The `version` table is the manifest kept as a delta log. A row says what one path holds from that row on, and its id is a manifest id. The manifest at an id is the newest row per path at or below it, and per-file history is the rows for one path.
 
-Captures follow the event log. An agent write, a restore or an app operation is captured inside the same write turn as its event, from the bytes it just committed. A change seen by the watcher is captured once the path has been quiet for 1.5 seconds, so a burst of saves is one version. A change that was overwritten before that capture read it is lost, and the interface says so. Turning versioning on captures the files already in the space as a baseline. Turning it off deletes the space's versions and snapshots. Chunking keeps versioning of large media affordable when only part of a file changes.
+Captures follow the event log. An agent write, a restore or an app operation is captured inside the same write turn as its event, from the bytes it just committed. A change seen by the watcher is captured once the path has been quiet for 1.5 seconds, so a burst of saves is one version. A change that was overwritten before that capture read it is lost, and the interface says so. Turning versioning on captures the files already in the space as a baseline. Turning it off stops capture and keeps the versions and snapshots, which age out under retention; `spaces.history.purge` deletes them. Chunking keeps versioning of large media affordable when only part of a file changes.
 
 Retention keeps every version newer than 30 days, the newest version of each path, and every version a snapshot's manifest needs. Blobs and chunks that no kept version reaches are then deleted.
 

@@ -87,6 +87,7 @@ pub enum Tool {
 	History,
 	Restore,
 	Snapshot,
+	PurgeHistory,
 	#[cfg(feature = "video-shots")]
 	ListShots,
 	#[cfg(feature = "footage-clips")]
@@ -115,6 +116,7 @@ impl Tool {
 		Self::History,
 		Self::Restore,
 		Self::Snapshot,
+		Self::PurgeHistory,
 		#[cfg(feature = "video-shots")]
 		Self::ListShots,
 		#[cfg(feature = "footage-clips")]
@@ -143,6 +145,7 @@ impl Tool {
 			Self::History => "history",
 			Self::Restore => "restore",
 			Self::Snapshot => "snapshot",
+			Self::PurgeHistory => "purge_history",
 			#[cfg(feature = "video-shots")]
 			Self::ListShots => "list_shots",
 			#[cfg(feature = "footage-clips")]
@@ -166,7 +169,8 @@ impl Tool {
 			| Self::Move
 			| Self::Delete
 			| Self::Restore
-			| Self::Snapshot => GrantCap::ReadWrite,
+			| Self::Snapshot
+			| Self::PurgeHistory => GrantCap::ReadWrite,
 			_ => GrantCap::Read,
 		}
 	}
@@ -513,6 +517,17 @@ pub fn definitions() -> Value {
 			},
 			"annotations": writes("Name the current state", false),
 		},
+		{
+			"name": "purge_history",
+			"title": "Delete all versions",
+			"description": "Deletes every stored version and snapshot of the space, for good. The files themselves and the change log stay. Needs a grant on the whole space. Turning versioning off does not do this; versions kept after that stay readable until they age out or are purged.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {},
+				"additionalProperties": false,
+			},
+			"annotations": writes("Delete all versions", true),
+		},
 	]);
 	#[cfg(feature = "video-shots")]
 	if let Some(list) = tools.as_array_mut() {
@@ -571,6 +586,7 @@ pub async fn call(
 		Tool::History => history(&context, &scope, args(arguments)?).await,
 		Tool::Restore => restore(&context, token, &scope, args(arguments)?).await,
 		Tool::Snapshot => snapshot(&context, &scope, args(arguments)?).await,
+		Tool::PurgeHistory => purge_history(&context, &scope).await,
 		#[cfg(feature = "video-shots")]
 		Tool::ListShots => list_shots(&context, &scope).await,
 		#[cfg(feature = "footage-clips")]
@@ -692,14 +708,11 @@ async fn versioned_space(
 		.await
 		.filter(|at| at.space_id == space_id)
 		.ok_or_else(|| "the grant root is no longer inside its space".to_string())?;
-	if !at.versioning {
-		return Err(
-			"this space does not keep versions; the owner can turn versioning on".to_string(),
-		);
-	}
-	let versions = versioning::open(context, at.source_id, at.space_id)
+	let versions = versioning::kept(context, at.source_id, at.space_id, at.versioning)
 		.await
-		.ok_or_else(|| "the space's versions are not on this device".to_string())?;
+		.ok_or_else(|| {
+			"this space has no versions; the owner can turn versioning on".to_string()
+		})?;
 	Ok((at, versions))
 }
 
@@ -896,6 +909,12 @@ async fn snapshot(
 	match args.action.as_deref().unwrap_or("list") {
 		"create" => {
 			whole_space()?;
+			if !at.versioning {
+				return Err(
+					"this space no longer keeps versions; the owner can turn versioning on"
+						.to_string(),
+				);
+			}
 			let name = name.ok_or_else(|| "name the snapshot".to_string())?;
 			let row = versions
 				.create_snapshot(name, scope.actor_id, &Utc::now().to_rfc3339())
@@ -927,6 +946,18 @@ async fn snapshot(
 			"unknown action {other}; use create, list or delete"
 		)),
 	}
+}
+
+async fn purge_history(context: &CoreContext, scope: &GrantScope) -> Result<Output, String> {
+	let (at, _) = versioned_space(context, scope).await?;
+	if !at.path.is_empty() {
+		return Err(
+			"purging deletes the versions of the whole space; this grant covers only part of it"
+				.to_string(),
+		);
+	}
+	versioning::discard(context, at.source_id, at.space_id).await;
+	Ok(Output::json(json!({ "purged": true })))
 }
 
 /// Drop any spelling of the grant root from a message, so a lower layer's
