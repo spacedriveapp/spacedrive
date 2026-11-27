@@ -181,6 +181,8 @@ pub trait MountFs: Send + Sync + 'static {
 
 	/// Called by a frontend once the kernel has dropped what it cached for a
 	/// path from the change feed, so a backend can wait for that to finish.
+	/// A frontend that subscribes to [`MountFs::changes`] must call it for
+	/// every path it receives, the root included.
 	fn invalidated(&self, _path: &Path) {}
 }
 

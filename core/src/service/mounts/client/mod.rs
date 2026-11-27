@@ -54,10 +54,6 @@ use crate::service::mounts::vfs::{DirEntry, MountError, MountFs, NodeAttr, NodeK
 /// no change feed says otherwise.
 const VALID_FOR: Duration = Duration::from_secs(1);
 
-/// Longest wait for a frontend to report that the kernel dropped its caches
-/// once the grant ended.
-const FLUSH_WAIT: Duration = Duration::from_secs(2);
-
 /// How often an idle mount asks the node whether its grant still holds.
 const GRANT_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -206,15 +202,15 @@ impl RemoteFs {
 	/// Returns once the node refuses the token: the grant was revoked or
 	/// expired. From then on every listing, open and read is refused, and
 	/// the kernel is told to drop everything it cached, so a file opened
-	/// before cannot be read from memory either. It returns only after the
-	/// frontend has done so, or after [`FLUSH_WAIT`] for a frontend that
-	/// never reports. Callers unmount.
+	/// before cannot be read from memory either. It returns only after every
+	/// frontend listening for changes has reported that it did so. Callers
+	/// unmount.
 	pub async fn grant_ended(&self) {
 		let mut ended = self.ended_tx.subscribe();
 		loop {
 			if *ended.borrow_and_update() {
 				let mut flushed = self.flushed_tx.subscribe();
-				let _ = tokio::time::timeout(FLUSH_WAIT, flushed.wait_for(|done| *done)).await;
+				let _ = flushed.wait_for(|done| *done).await;
 				return;
 			}
 			tokio::select! {
