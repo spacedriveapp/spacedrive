@@ -95,7 +95,9 @@ pub struct InSpace {
 }
 
 struct Logs {
-	open: HashMap<Uuid, (Arc<SpaceEventLog>, Instant)>,
+	/// By space: the log, the source whose catalog holds it, and when it
+	/// was last pruned.
+	open: HashMap<Uuid, (Arc<SpaceEventLog>, Uuid, Instant)>,
 }
 
 static SPACES: LazyLock<Mutex<HashMap<Uuid, Arc<Vec<(Uuid, String)>>>>> =
@@ -119,6 +121,29 @@ static WATCHED: LazyLock<Mutex<HashMap<PathBuf, (&'static str, Instant)>>> =
 /// Bumped by every invalidation, so a cache fill that read the rows before
 /// a space changed does not publish them after.
 static GENERATION: AtomicU64 = AtomicU64::new(0);
+
+/// Close the event logs of a source's spaces and forget its spaces, once the
+/// source is retired, so deleting its catalog does not race a log that is
+/// still open inside it.
+pub async fn forget_source(source_id: Uuid) {
+	invalidate(source_id);
+	let closing: Vec<_> = {
+		let mut logs = LOGS.lock().await;
+		let spaces: Vec<Uuid> = logs
+			.open
+			.iter()
+			.filter(|(_, (_, source, _))| *source == source_id)
+			.map(|(space, _)| *space)
+			.collect();
+		spaces
+			.into_iter()
+			.filter_map(|space| logs.open.remove(&space))
+			.collect()
+	};
+	for (log, _, _) in closing {
+		log.close().await;
+	}
+}
 
 /// Forget what is cached about a source's spaces, after one changed.
 pub fn invalidate(source_id: Uuid) {
@@ -295,7 +320,7 @@ pub async fn space_of(
 
 async fn log_for(context: &CoreContext, at: &InSpace) -> Option<Arc<SpaceEventLog>> {
 	let mut logs = LOGS.lock().await;
-	if let Some((log, pruned)) = logs.open.get_mut(&at.space_id) {
+	if let Some((log, _, pruned)) = logs.open.get_mut(&at.space_id) {
 		if pruned.elapsed() >= PRUNE_EVERY {
 			*pruned = Instant::now();
 			prune(log).await;
@@ -315,7 +340,8 @@ async fn log_for(context: &CoreContext, at: &InSpace) -> Option<Arc<SpaceEventLo
 		}
 	};
 	prune(&log).await;
-	logs.open.insert(at.space_id, (log.clone(), Instant::now()));
+	logs.open
+		.insert(at.space_id, (log.clone(), at.source_id, Instant::now()));
 	Some(log)
 }
 
@@ -437,25 +463,25 @@ fn change_of(effect: &Effect) -> Option<Change> {
 	};
 	Some(match effect {
 		Effect::Created { path, subject } => {
-			let is_dir = subject.is_some_and(|s| s.is_dir);
+			let is_dir = subject.as_ref().is_some_and(|s| s.is_dir);
 			let op = if is_dir { "mkdir" } else { "create" };
 			change(
 				op,
 				path,
 				None,
-				subject.filter(|s| !s.is_dir).map(|s| s.size),
+				subject.as_ref().filter(|s| !s.is_dir).map(|s| s.size),
 			)
 		}
 		Effect::Moved { from, to, subject } => change(
 			"move",
 			from,
 			Some(to),
-			subject.filter(|s| !s.is_dir).map(|s| s.size),
+			subject.as_ref().filter(|s| !s.is_dir).map(|s| s.size),
 		),
 		Effect::Trashed { from, .. } => change("delete", from, None, None),
 		Effect::Removed { path } => change("delete", path, None, None),
 		Effect::Replaced { path, subject, .. } => {
-			change("modify", path, None, subject.map(|s| s.size))
+			change("modify", path, None, subject.as_ref().map(|s| s.size))
 		}
 		Effect::Attributes { path, .. } => change("modify", path, None, None),
 	})

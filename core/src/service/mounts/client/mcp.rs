@@ -14,7 +14,7 @@
 //! use sd_core::service::mounts::client::{mcp::McpTransport, Transport};
 //!
 //! let node = McpTransport::connect("http://127.0.0.1:7765", "sdg_...").await?;
-//! let readme = node.read("docs/readme.md", 0, 4096).await?;
+//! let readme = node.read("docs/readme.md", 0, 4096, None).await?;
 //! node.close().await;
 //! # Ok(())
 //! # }
@@ -255,6 +255,7 @@ fn node(value: &Value) -> RemoteNode {
 		modified: time(&value["modified"]),
 		created: time(&value["created"]),
 		accessed: time(&value["accessed"]),
+		etag: None,
 	}
 }
 
@@ -289,7 +290,13 @@ impl Transport for McpTransport {
 		}
 	}
 
-	async fn read(&self, path: &str, offset: u64, len: u64) -> Result<Bytes, MountError> {
+	async fn read(
+		&self,
+		path: &str,
+		offset: u64,
+		len: u64,
+		_etag: Option<&str>,
+	) -> Result<Bytes, MountError> {
 		let len = len.clamp(1, READ_MAX);
 		let called = self
 			.call(

@@ -5966,7 +5966,12 @@ export type Subject = { size: number; mtime_ms: number; is_dir: boolean;
  * moves with every child written into it, so this is what tells a
  * job's folder from one that later took its place.
  */
-created_ms?: number | null };
+created_ms?: number | null; 
+/**
+ * The entity tag of a bucket object, which names its version where a
+ * second-resolution modification time and a size cannot.
+ */
+etag?: string | null };
 
 /**
  * Sync activity types for detailed sync monitoring

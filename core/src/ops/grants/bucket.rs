@@ -16,9 +16,8 @@ use std::{
 };
 
 use super::{scope::Resolved, GrantError, GrantScope};
-use crate::{
-	context::CoreContext,
-	volume::{backend::CloudServiceType, RawDirEntry, VolumeBackend, VolumeError},
+use crate::volume::{
+	backend::CloudServiceType, RawDirEntry, VolumeBackend, VolumeError, VolumeManager,
 };
 
 /// A bucket URL taken apart.
@@ -145,11 +144,10 @@ pub fn of_scope(scope: &GrantScope) -> Option<BucketUrl> {
 
 /// The backend serving `url`'s bucket on this device.
 pub async fn backend(
-	context: &CoreContext,
+	volumes: &VolumeManager,
 	url: &BucketUrl,
 ) -> Result<Arc<dyn VolumeBackend>, GrantError> {
-	context
-		.volume_manager
+	volumes
 		.find_cloud_volume(url.service, &url.bucket)
 		.await
 		.and_then(|volume| volume.backend)

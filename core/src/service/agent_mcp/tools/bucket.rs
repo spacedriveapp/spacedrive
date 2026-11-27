@@ -48,7 +48,7 @@ pub(super) async fn call(
 	) {
 		return None;
 	}
-	let backend = match grant_bucket::backend(context, &url).await {
+	let backend = match grant_bucket::backend(&context.volume_manager, &url).await {
 		Ok(backend) => backend,
 		Err(error) => return Some(Err(error.to_string())),
 	};
