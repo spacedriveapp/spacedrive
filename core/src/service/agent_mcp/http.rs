@@ -394,18 +394,23 @@ impl Request {
 	}
 
 	/// The audit name, the grant-relative path and the capability this
-	/// message needs.
-	fn target(&self) -> (String, String, GrantCap) {
-		match self.method.as_deref() {
+	/// message needs, or why a tool call's arguments do not fit its schema.
+	fn target(&self) -> Result<(String, String, GrantCap), String> {
+		Ok(match self.method.as_deref() {
 			Some("tools/call") => {
 				let name = self.params["name"].as_str().unwrap_or("unknown");
-				let path = self.params["arguments"]["path"].as_str().unwrap_or("");
-				let cap = tools::Tool::parse(name).map_or(GrantCap::Read, tools::Tool::cap);
-				(format!("mcp.{name}"), path.to_string(), cap)
+				let (path, cap) = match tools::Tool::parse(name) {
+					Some(tool) => (
+						tools::target_path(tool, &self.params["arguments"])?,
+						tool.cap(),
+					),
+					None => (String::new(), GrantCap::Read),
+				};
+				(format!("mcp.{name}"), path, cap)
 			}
 			Some(method) => (format!("mcp.{method}"), String::new(), GrantCap::Read),
 			None => ("mcp.response".to_string(), String::new(), GrantCap::Read),
-		}
+		})
 	}
 }
 
@@ -473,7 +478,10 @@ async fn post(
 		}
 	}
 
-	let (op, path, cap) = request.target();
+	let (op, path, cap) = match request.target() {
+		Ok(target) => target,
+		Err(message) => return rpc_result(id, tools::error_result(&message)),
+	};
 	let scope = match check(endpoint, ip, base, token, &op, &path, cap, &id).await {
 		Ok(scope) => scope,
 		Err(response) => return response,

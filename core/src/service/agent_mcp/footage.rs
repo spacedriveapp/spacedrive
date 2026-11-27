@@ -133,6 +133,7 @@ pub fn definitions(path: &dyn Fn(&str) -> Value) -> Vec<Value> {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SearchClipsArgs {
 	query: String,
 	#[serde(default)]
@@ -190,6 +191,7 @@ pub async fn search_clips(
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ReadFootageArgs {
 	#[serde(default)]
 	from: Option<TimeInput>,
@@ -218,6 +220,7 @@ pub async fn read_footage(
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ExportClipArgs {
 	path: String,
 	#[serde(rename = "in")]
@@ -229,6 +232,7 @@ pub struct ExportClipArgs {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ExportTimelineArgs {
 	name: String,
 	clips: Vec<ExportClipArgs>,

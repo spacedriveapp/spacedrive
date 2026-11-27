@@ -737,3 +737,108 @@ async fn rest_block_reads_spend_their_own_byte_budget() -> anyhow::Result<()> {
 	harness.shutdown().await?;
 	Ok(())
 }
+
+/// Run one MCP tool call for `token` and return the JSON-RPC result.
+async fn mcp_call(base: &str, token: &str, name: &str, arguments: Value) -> Value {
+	let http = reqwest::Client::new();
+	let post = |body: Value, session: Option<String>| {
+		let mut request = http
+			.post(format!("{base}/mcp"))
+			.bearer_auth(token)
+			.header(header::ACCEPT, "application/json, text/event-stream")
+			.header(header::CONTENT_TYPE, "application/json")
+			.body(body.to_string());
+		if let Some(session) = session {
+			request = request.header("mcp-session-id", session);
+		}
+		request.send()
+	};
+	let init = post(
+		json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
+			"protocolVersion": "2025-06-18", "capabilities": {},
+			"clientInfo": { "name": "rest", "version": "0" },
+		}}),
+		None,
+	)
+	.await
+	.unwrap();
+	let session = init.headers()["mcp-session-id"]
+		.to_str()
+		.unwrap()
+		.to_string();
+	let bytes = post(
+		json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+			"params": { "name": name, "arguments": arguments } }),
+		Some(session),
+	)
+	.await
+	.unwrap()
+	.bytes()
+	.await
+	.unwrap();
+	let reply: Value = serde_json::from_slice(&bytes).unwrap();
+	reply["result"].clone()
+}
+
+#[tokio::test]
+async fn tool_arguments_are_checked_against_the_schema_on_both_surfaces() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("agent_rest_arguments")
+		.disable_watcher()
+		.build()
+		.await?;
+	let tracked = harness.create_test_dir("tracked").await?;
+	tracked.write_file("project/a.txt", "a").await?;
+	tracked.track().await?;
+	let project = std::fs::canonicalize(harness.temp_path())?.join("tracked/project");
+
+	let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+	let bound = agent_mcp::serve(harness.core.context.clone(), listener, limits())?;
+	let url = format!("http://{bound}");
+	let issued = grant(&harness, &project, GrantCap::ReadWrite).await?;
+	let rest = Rest::new(&url, &issued.token, &issued.grant.id.to_string());
+	let stat = rest.ok("stat", json!({ "path": "a.txt" })).await;
+	let expect = json!({ "content_hash": stat["content_hash"] });
+
+	// A move that names its source `from` is refused, and nothing moves,
+	// rather than the source falling back to the grant root.
+	let misnamed = json!({ "from": "a.txt", "to": "b.txt", "expect": expect });
+	let reply = rest.tool("move", misnamed.clone()).await;
+	assert_eq!(reply.status, StatusCode::BAD_REQUEST, "{}", reply.json());
+	assert_eq!(reply.code(), "invalid");
+	let message = reply.json()["error"]["message"]
+		.as_str()
+		.unwrap()
+		.to_string();
+	assert!(message.contains("unknown field `from`"), "{message}");
+	let result = mcp_call(&url, &issued.token, "move", misnamed).await;
+	assert_eq!(result["isError"], json!(true), "{result}");
+	let text = result["content"][0]["text"].as_str().unwrap();
+	assert!(text.contains("unknown field `from`"), "{text}");
+	assert!(project.join("a.txt").exists() && !project.join("b.txt").exists());
+	assert!(project.exists(), "the grant root stays where it was");
+
+	// A required path that is missing, or not a string, is refused.
+	let reply = rest.tool("read", json!({})).await;
+	assert_eq!(reply.status, StatusCode::BAD_REQUEST);
+	let message = reply.json()["error"]["message"]
+		.as_str()
+		.unwrap()
+		.to_string();
+	assert_eq!(message, "invalid arguments: missing field `path`");
+	let result = mcp_call(&url, &issued.token, "read", json!({})).await;
+	assert_eq!(result["isError"], json!(true), "{result}");
+	assert_eq!(
+		result["content"][0]["text"],
+		json!("invalid arguments: missing field `path`")
+	);
+	let reply = rest.tool("read", json!({ "path": 5 })).await;
+	assert_eq!(reply.status, StatusCode::BAD_REQUEST);
+
+	// An optional path may be left out, and a tool without one refuses it.
+	rest.ok("list_dir", json!({})).await;
+	let reply = rest.tool("get_skill", json!({ "path": "a.txt" })).await;
+	assert_eq!(reply.status, StatusCode::BAD_REQUEST);
+
+	harness.shutdown().await?;
+	Ok(())
+}

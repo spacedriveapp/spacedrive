@@ -458,6 +458,7 @@ pub async fn call(
 	arguments: Value,
 	cancel: Arc<AtomicBool>,
 ) -> Result<Output, String> {
+	target_path(tool, &arguments)?;
 	let root = scope.root.clone();
 	let result = match tool {
 		Tool::GetSkill => Ok(Output {
@@ -496,8 +497,64 @@ fn scrub(message: &str, root: &Path) -> String {
 	message.replace(&format!("{root}/"), "").replace(&root, ".")
 }
 
-fn args<T: for<'de> Deserialize<'de>>(arguments: Value) -> Result<T, String> {
+/// A tool's own arguments. `path` is left out: [`target_path`] checked it,
+/// the transport authorized it, and the tool works on the scope that
+/// resolved, never on the string.
+fn args<T: for<'de> Deserialize<'de>>(mut arguments: Value) -> Result<T, String> {
+	match &mut arguments {
+		Value::Object(fields) => {
+			fields.remove("path");
+		}
+		Value::Null => arguments = json!({}),
+		_ => {}
+	}
 	serde_json::from_value(arguments).map_err(|e| format!("invalid arguments: {e}"))
+}
+
+/// The grant-relative path a call names, after checking the call's fields
+/// against the tool's schema in [`definitions`].
+///
+/// Transports call this before `authorize`, so a misspelled field or a
+/// missing required `path` is refused instead of falling back to the grant
+/// root. A tool whose schema has no `path` gets `""`.
+pub fn target_path(tool: Tool, arguments: &Value) -> Result<String, String> {
+	let definitions = definitions();
+	let schema = definitions
+		.as_array()
+		.and_then(|list| list.iter().find(|entry| entry["name"] == tool.name()))
+		.map(|entry| &entry["inputSchema"]);
+	let properties = schema.and_then(|schema| schema["properties"].as_object());
+	let no_fields = serde_json::Map::new();
+	let fields = match arguments {
+		Value::Null => &no_fields,
+		Value::Object(fields) => fields,
+		_ => return Err("invalid arguments: expected an object".to_string()),
+	};
+	for name in fields.keys() {
+		if properties.is_some_and(|known| known.contains_key(name)) {
+			continue;
+		}
+		let expected: Vec<String> = properties
+			.map(|known| known.keys().map(|key| format!("`{key}`")).collect())
+			.unwrap_or_default();
+		return Err(if expected.is_empty() {
+			format!("invalid arguments: unknown field `{name}`, there are no fields")
+		} else {
+			format!(
+				"invalid arguments: unknown field `{name}`, expected one of {}",
+				expected.join(", ")
+			)
+		});
+	}
+	let required = schema
+		.and_then(|schema| schema["required"].as_array())
+		.is_some_and(|required| required.iter().any(|field| field == "path"));
+	match fields.get("path") {
+		Some(Value::String(path)) => Ok(path.clone()),
+		Some(_) => Err("invalid arguments: invalid type for `path`, expected a string".to_string()),
+		None if required => Err("invalid arguments: missing field `path`".to_string()),
+		None => Ok(String::new()),
+	}
 }
 
 async fn blocking(
@@ -548,6 +605,7 @@ fn page_offset(cursor: Option<&str>) -> Result<usize, String> {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ListArgs {
 	#[serde(default)]
 	limit: Option<u32>,
@@ -607,6 +665,7 @@ fn stat(scope: &GrantScope) -> Result<Output, String> {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ReadArgs {
 	#[serde(default)]
 	offset: Option<u64>,
@@ -843,6 +902,7 @@ fn read_lines(
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct GlobArgs {
 	pattern: String,
 	#[serde(default = "yes")]
@@ -940,6 +1000,7 @@ fn glob(scope: &GrantScope, args: GlobArgs, cancel: &AtomicBool) -> Result<Outpu
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct GrepArgs {
 	pattern: String,
 	#[serde(default)]
@@ -1030,6 +1091,7 @@ fn grep(scope: &GrantScope, args: GrepArgs, cancel: &AtomicBool) -> Result<Outpu
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SearchArgs {
 	query: String,
 	#[serde(default)]
@@ -1139,6 +1201,7 @@ async fn stat_with_precondition(
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct WriteArgs {
 	content: String,
 	#[serde(default)]
@@ -1150,12 +1213,14 @@ struct WriteArgs {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct MoveArgs {
 	to: String,
 	expect: Precondition,
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct DeleteArgs {
 	expect: Precondition,
 }
@@ -1239,6 +1304,7 @@ async fn write(
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SearchContentArgs {
 	query: String,
 	#[serde(default)]

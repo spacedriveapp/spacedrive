@@ -517,16 +517,16 @@ impl Request<'_> {
 				"the body is the tool's arguments object",
 			));
 		}
-		let path = match arguments.get("path") {
-			None => "",
-			Some(Value::String(path)) => path.as_str(),
-			Some(_) => return Err(error(StatusCode::BAD_REQUEST, "path must be a string")),
-		};
-		paths::check(path).map_err(|reason| error(StatusCode::BAD_REQUEST, reason))?;
 		let tool = Tool::parse(name);
+		let path = match tool {
+			Some(tool) => tools::target_path(tool, &arguments)
+				.map_err(|message| error(StatusCode::BAD_REQUEST, &message))?,
+			None => String::new(),
+		};
+		paths::check(&path).map_err(|reason| error(StatusCode::BAD_REQUEST, reason))?;
 		let cap = tool.map_or(GrantCap::Read, Tool::cap);
 		let scope = self
-			.space_scope(space, &format!("rest.tool.{name}"), path, cap)
+			.space_scope(space, &format!("rest.tool.{name}"), &path, cap)
 			.await?;
 		let Some(tool) = tool else {
 			return Err(error(StatusCode::NOT_FOUND, "no such tool"));
