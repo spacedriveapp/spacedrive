@@ -41,8 +41,8 @@ names other than `localhost`, and logs why.
 ## Reach the endpoint from another machine
 
 Keep the endpoint on loopback and put a TLS reverse proxy you already run in
-front of it. Forward only `/mcp`, so the OAuth routes stay unreachable from
-other machines. Add the name clients use to `agent_mcp.host_names`, since the
+front of it. Forward only `/mcp`, and `/v1/` if clients use the REST
+surface, so the OAuth routes stay unreachable from other machines. Add the name clients use to `agent_mcp.host_names`, since the
 endpoint refuses a Host it does not know:
 
 ```bash
@@ -54,7 +54,8 @@ With Caddy:
 
 ```
 nas.example.net {
-	handle /mcp {
+	@agent path /mcp /v1/*
+	handle @agent {
 		reverse_proxy 127.0.0.1:7765
 	}
 	respond 404
@@ -74,6 +75,11 @@ server {
 		proxy_pass http://127.0.0.1:7765;
 		proxy_set_header X-Forwarded-For $remote_addr;
 	}
+	location /v1/ {
+		proxy_pass http://127.0.0.1:7765;
+		proxy_set_header X-Forwarded-For $remote_addr;
+		proxy_buffering off;
+	}
 	location / {
 		return 404;
 	}
@@ -91,7 +97,7 @@ port, and no `Forwarded`, `X-Forwarded-For`, `X-Forwarded-Host` or
 consent page does not ask who you are, so whoever opens it and presses Allow
 gets a grant for the folder they pick. On this machine that person is you;
 through a proxy it could be anyone who reaches the proxy. Forwarding only
-`/mcp` is the main protection, and the header check catches a proxy that
+`/mcp` and `/v1/` is the main protection, and the header check catches a proxy that
 forwards everything.
 
 The endpoint also has keys for listening on another address itself:
@@ -119,6 +125,24 @@ the token itself into the config.
 
 Keep the token out of files you commit. A project-level MCP config that holds a
 literal token is one commit away from a public repository.
+
+### Grant a bucket prefix
+
+An S3 or R2 bucket works the same way once it is connected and tracked:
+
+```bash
+sd cloud                                      # connect the bucket and store its keys
+sd sources track s3://my-bucket/projects      # track a prefix, or the whole bucket
+sd grant create s3://my-bucket/projects/site --read-write --ttl 2h
+```
+
+The agent lists, reads, globs and greps the objects live, and writes with
+the same preconditions as on a local folder. The bucket itself refuses a
+stale write, so a change made outside Spacedrive is caught too. Moves and
+deletes are refused on a bucket, writes have no `undo` id, and `search`
+and `search_content` are not available yet because a bucket source has no
+index. Services that cannot refuse a stale write, such as Google Drive,
+OneDrive and Dropbox, take read grants only.
 
 Manage grants with these commands:
 

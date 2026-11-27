@@ -4,6 +4,7 @@
 //! like emails, notes, bookmarks, etc. from various adapters.
 
 pub mod create;
+pub mod deep_scope;
 pub mod delete;
 pub mod freeze;
 pub mod get;

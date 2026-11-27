@@ -34,8 +34,9 @@ use tracing::{debug, warn};
 use uuid::Uuid;
 
 use super::{
+	events::Feed,
 	limits::{Bucket, ByteWindow, Failures, Limits},
-	oauth, paths, tools, MCP_PATH,
+	oauth, paths, rest, tools, MCP_PATH,
 };
 use crate::{
 	context::CoreContext,
@@ -54,9 +55,10 @@ struct Session {
 	last_seen: Instant,
 }
 
-struct GrantUsage {
-	bucket: Bucket,
-	bytes: ByteWindow,
+pub(super) struct GrantUsage {
+	pub(super) bucket: Bucket,
+	pub(super) bytes: ByteWindow,
+	pub(super) block_bytes: ByteWindow,
 	calls: usize,
 	grep: bool,
 }
@@ -66,10 +68,11 @@ struct GrantUsage {
 pub struct Endpoint {
 	pub(super) context: Arc<CoreContext>,
 	pub(super) oauth: oauth::OAuth,
+	pub(super) feed: Arc<Feed>,
 	bound: SocketAddr,
 	tls: bool,
 	host_names: Vec<String>,
-	limits: Limits,
+	pub(super) limits: Limits,
 	sessions: Mutex<HashMap<String, Session>>,
 	usage: Mutex<HashMap<Uuid, GrantUsage>>,
 	failures: Mutex<HashMap<IpAddr, Failures>>,
@@ -87,6 +90,7 @@ impl Endpoint {
 		Self {
 			oauth: oauth::OAuth::new(context.data_dir.clone()),
 			context,
+			feed: Arc::new(Feed::new()),
 			bound,
 			tls,
 			host_names,
@@ -98,11 +102,12 @@ impl Endpoint {
 		}
 	}
 
-	fn with_usage<T>(&self, grant: Uuid, f: impl FnOnce(&mut GrantUsage) -> T) -> T {
+	pub(super) fn with_usage<T>(&self, grant: Uuid, f: impl FnOnce(&mut GrantUsage) -> T) -> T {
 		let mut usage = self.usage.lock().expect("usage lock");
 		let entry = usage.entry(grant).or_insert_with(|| GrantUsage {
 			bucket: Bucket::full(self.limits.rate_burst),
 			bytes: ByteWindow::new(),
+			block_bytes: ByteWindow::new(),
 			calls: 0,
 			grep: false,
 		});
@@ -176,14 +181,27 @@ impl Endpoint {
 	}
 
 	/// Claim a call slot for `grant`, or say which budget is spent.
-	fn begin_call(self: &Arc<Self>, grant: Uuid, grep: bool) -> Result<CallSlot, String> {
+	///
+	/// `blocks` names a block read, which spends the block byte budget
+	/// instead of the one tools share.
+	pub(super) fn begin_call(
+		self: &Arc<Self>,
+		grant: Uuid,
+		grep: bool,
+		blocks: bool,
+	) -> Result<CallSlot, String> {
 		let total = self
 			.calls
 			.clone()
 			.try_acquire_owned()
 			.map_err(|_| "the endpoint is at its limit of tool calls in flight".to_string())?;
 		self.with_usage(grant, |usage| {
-			if let Some(wait) = usage.bytes.spent(self.limits.bytes_per_hour) {
+			let (window, budget) = if blocks {
+				(&mut usage.block_bytes, self.limits.block_bytes_per_hour)
+			} else {
+				(&mut usage.bytes, self.limits.bytes_per_hour)
+			};
+			if let Some(wait) = window.spent(budget) {
 				return Err(format!(
 					"the grant has returned its hourly byte budget; retry in {} s",
 					wait.as_secs().max(1)
@@ -210,7 +228,7 @@ impl Endpoint {
 
 /// A claimed tool call. Dropping it gives the slot back, whether the call
 /// finished, timed out or its client went away.
-struct CallSlot {
+pub(super) struct CallSlot {
 	endpoint: Arc<Endpoint>,
 	grant: Uuid,
 	grep: bool,
@@ -229,7 +247,7 @@ impl Drop for CallSlot {
 	}
 }
 
-struct CancelOnDrop(Arc<AtomicBool>);
+pub(super) struct CancelOnDrop(pub(super) Arc<AtomicBool>);
 
 impl Drop for CancelOnDrop {
 	fn drop(&mut self) {
@@ -258,6 +276,7 @@ pub fn router(endpoint: Arc<Endpoint>) -> Router {
 		)
 		.route(oauth::TOKEN_PATH, routing::post(oauth::token))
 		.route(oauth::REVOKE_PATH, routing::post(oauth::revoke))
+		.merge(rest::routes())
 		.layer(DefaultBodyLimit::max(body_limit))
 		.with_state(endpoint)
 }
@@ -416,7 +435,7 @@ fn host_allowed(authority: &str, bound: SocketAddr, tls: bool, host_names: &[Str
 	ip == Some(bound.ip()) || named
 }
 
-fn bearer(headers: &HeaderMap) -> Option<&str> {
+pub(super) fn bearer(headers: &HeaderMap) -> Option<&str> {
 	let value = headers.get(header::AUTHORIZATION)?.to_str().ok()?;
 	let (scheme, token) = value.split_once(' ')?;
 	scheme.eq_ignore_ascii_case("bearer").then(|| token.trim())
@@ -455,18 +474,23 @@ impl Request {
 	}
 
 	/// The audit name, the grant-relative path and the capability this
-	/// message needs.
-	fn target(&self) -> (String, String, GrantCap) {
-		match self.method.as_deref() {
+	/// message needs, or why a tool call's arguments do not fit its schema.
+	fn target(&self) -> Result<(String, String, GrantCap), String> {
+		Ok(match self.method.as_deref() {
 			Some("tools/call") => {
 				let name = self.params["name"].as_str().unwrap_or("unknown");
-				let path = self.params["arguments"]["path"].as_str().unwrap_or("");
-				let cap = tools::Tool::parse(name).map_or(GrantCap::Read, tools::Tool::cap);
-				(format!("mcp.{name}"), path.to_string(), cap)
+				let (path, cap) = match tools::Tool::parse(name) {
+					Some(tool) => (
+						tools::target_path(tool, &self.params["arguments"])?,
+						tool.cap(),
+					),
+					None => (String::new(), GrantCap::Read),
+				};
+				(format!("mcp.{name}"), path, cap)
 			}
 			Some(method) => (format!("mcp.{method}"), String::new(), GrantCap::Read),
 			None => ("mcp.response".to_string(), String::new(), GrantCap::Read),
-		}
+		})
 	}
 }
 
@@ -534,7 +558,10 @@ async fn post(
 		}
 	}
 
-	let (op, path, cap) = request.target();
+	let (op, path, cap) = match request.target() {
+		Ok(target) => target,
+		Err(message) => return rpc_result(id, tools::error_result(&message)),
+	};
 	let scope = match check(endpoint, ip, challenge, token, &op, &path, cap, &id).await {
 		Ok(scope) => scope,
 		Err(response) => return response,
@@ -608,7 +635,7 @@ async fn call(
 		.get("arguments")
 		.cloned()
 		.unwrap_or_else(|| json!({}));
-	let slot = match endpoint.begin_call(scope.grant_id, tool.exclusive()) {
+	let slot = match endpoint.begin_call(scope.grant_id, tool.exclusive(), false) {
 		Ok(slot) => slot,
 		Err(reason) => return too_many(id, Duration::from_secs(1), &reason),
 	};
@@ -617,6 +644,8 @@ async fn call(
 	let _cancel_on_drop = CancelOnDrop(cancel.clone());
 	let grant = scope.grant_id;
 	let library = scope.library_id;
+	let root = scope.root.clone();
+	let replaces = arguments.get("expect").is_some();
 	let work = tools::call(
 		endpoint.context.clone(),
 		token,
@@ -633,7 +662,12 @@ async fn call(
 		}
 	};
 	let result = match outcome {
-		Ok(Ok(output)) => output.into_result(),
+		Ok(Ok(output)) => {
+			endpoint
+				.feed
+				.record(tool, &root, replaces, output.structured());
+			output.into_result()
+		}
 		Ok(Err(message)) => tools::error_result(&message),
 		Err(_) => {
 			cancel.store(true, Ordering::Relaxed);
@@ -651,7 +685,7 @@ async fn call(
 
 /// Resolves once the grant is revoked, expires or disappears, polling the
 /// row so a call in flight stops within a poll interval of that.
-async fn ended(endpoint: &Endpoint, library_id: Uuid, grant: Uuid) {
+pub(super) async fn ended(endpoint: &Endpoint, library_id: Uuid, grant: Uuid) {
 	let mut tick = tokio::time::interval(endpoint.limits.revocation_poll);
 	tick.tick().await;
 	loop {
@@ -730,7 +764,7 @@ fn initialize(params: &Value) -> Value {
 }
 
 /// A refusal's message without any host path in it.
-fn refusal_message(refusal: &GrantError) -> &'static str {
+pub(super) fn refusal_message(refusal: &GrantError) -> &'static str {
 	match refusal {
 		GrantError::Escape(_) => "the path is outside the granted folder",
 		GrantError::InvalidPath(_) => "invalid path",

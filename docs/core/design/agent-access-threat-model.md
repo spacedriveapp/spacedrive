@@ -41,7 +41,7 @@ agents.
 | SMB share (`core/src/service/mounts/smb.rs`) | `127.0.0.1`, ephemeral port | One user, random password per start, or `SD_MOUNT_SMB_PASSWORD` | Same as WebDAV |
 | byterange (`core/src/service/network/protocol/byterange.rs`) | Iroh QUIC | Paired node key | Stat, ranged reads (8 MiB per request), snapshots and database exports of attached sources |
 | remote ops (`core/src/service/network/protocol/remote_ops.rs`) | Iroh QUIC | Paired node key | Every op in the registry and the log stream |
-| `sd-server` (`apps/server/src/main.rs`) | `[::]:8080` by default | HTTP Basic from `SD_AUTH`; release builds refuse to start without it unless set to `disabled` | `/rpc` proxies the whole registry, plus sidecars, thumbnails, extension bundles and the share |
+| `sd-server` (`apps/server/src/main.rs`) | `127.0.0.1:8080` by default; `SD_HOST` widens it | HTTP Basic from `SD_AUTH`; release builds refuse to start without it unless set to `disabled` | `/rpc` proxies the whole registry, plus sidecars, thumbnails, extension bundles and the share |
 
 ### Findings
 
@@ -52,18 +52,30 @@ agents.
   ops on every paired node.
 - F2. When a request line fails to parse, `rpc.rs` logs the raw line at error
   level. Anything secret sent on a malformed line ends up in `daemon.log`.
+  Fixed: the daemon logs the error's kind, position and the line's length,
+  never the line, and the desktop app logs a proxied request's kind and method
+  only. `core/tests/rpc_security_test.rs` checks the log after malformed lines
+  that carry a token and a password.
 - F3. byterange's `authorize_path` rejects `..` and checks `starts_with` on
   the raw path, then calls `File::open`, which follows symlinks. A symlink
   inside a source that points outside it is read through. Today only paired
   devices can send these requests, so this is a containment gap, not an open
-  hole. A grant check built the same way would be an open hole.
+  hole. A grant check built the same way would be an open hole. Fixed: every
+  peer path now opens through `common::contain::open_beneath`, which resolves
+  it beneath the source root's handle (`openat2` with `RESOLVE_BENEATH` on
+  Linux) and refuses a link that leaves the root, and reads go through that
+  handle. Thumbnail asks are checked the same way, but the bake reopens by path.
 - F4. The SMB mount URL, password included, is logged at info on every start.
   The password is also accepted from an environment variable, which other
   processes of the same user can read.
 - F5. `sd-server` listens on all interfaces by default over plain HTTP. Basic
   credentials cross the network on every request, and failed logins are not
   rate limited. It is the one surface already exposed to a network, and it
-  exposes more than any grant would.
+  exposes more than any grant would. Fixed: `sd-server` binds `127.0.0.1`
+  unless `SD_HOST` or `--host` says otherwise and warns when it binds beyond
+  loopback. `apps/server/src/login_limit.rs` answers 429 with `Retry-After` for
+  5 minutes after 20 failed logins per TCP peer address (IPv6 per /64) in a
+  minute, correct credentials included.
 - F6. The RPC line protocol happens to refuse browsers: an HTTP request's first
   line is not JSON, so the connection closes before dispatch. Nothing tests
   this, and nothing keeps a future change from adding an HTTP mode.
@@ -158,8 +170,8 @@ Accepted risks: a hard link inside the root to a file outside it is readable,
 since creating one needs write access inside the root; a volume mounted inside
 the root is readable, since it is under the folder the user chose.
 
-F3 should be fixed with the same handle-based check, so byterange and the grant
-verifier share one containment function.
+byterange and the grant verifier share one containment function,
+`core/src/common/contain.rs`.
 
 ## Untrusted content
 
@@ -188,6 +200,7 @@ code change.
 | Tool call wall clock | 30 s, then cancelled |
 | `read` per call | 64 KiB or 2,000 lines by default, 1 MiB maximum |
 | Bytes returned per grant | 256 MiB per hour |
+| Block-read bytes per grant | 8 GiB per hour |
 | `list_dir` and `glob` page | 1,000 entries |
 | `glob` entries visited per call | 100,000 |
 | `grep` pattern length | 1 KiB |
@@ -201,6 +214,11 @@ code change.
 | `search_content` results per page | 200 |
 | Failed authentications per client address | 20 per minute, then 429 for 5 minutes |
 | Idle SSE stream | closed after 60 s |
+
+The block-read budget applies only to the space endpoint's block reads
+(`docs/core/design/space-endpoint.md`). Block reads count against it and
+nothing else; tools, `stat`, `list` and the event stream count against the
+256 MiB budget.
 
 Exceeding a rate or byte budget answers 429 with `Retry-After`. Exceeding a
 size or page limit answers a truncated result that says it was truncated and how
@@ -317,7 +335,7 @@ host or a host-networked container they are not.
 
 Follow-up work, in order:
 
-1. Fix F2 now, since it is small and grants make it matter.
+1. Fix F2 now, since it is small and grants make it matter. Done.
 2. Add a test that an HTTP request to 6969 closes the connection without
    dispatch, so F6 stays true.
 3. Require a per-daemon secret on RPC: a random cookie written to a `0600` file

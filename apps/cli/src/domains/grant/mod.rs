@@ -95,8 +95,11 @@ pub struct GrantAuditArgs {
 pub async fn run(ctx: &Context, cmd: GrantCmd) -> Result<()> {
 	match cmd {
 		GrantCmd::Create(args) => {
-			// A path for another device is that device's to resolve.
+			// A path for another device is that device's to resolve, and a
+			// bucket URL is the daemon's.
+			let bucket = sd_core::ops::grants::bucket::BucketUrl::parse(&args.path).is_some();
 			let path = match ctx.core.device() {
+				_ if bucket => args.path,
 				Some(_) => args.path,
 				None => args
 					.path

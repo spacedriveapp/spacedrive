@@ -96,6 +96,38 @@ Cross-provider copy streams through the byte-provider boundary unless both ends
 share a safe native mechanism. Job progress, retry state, checksums, and errors
 remain visible through the common API.
 
+### Conditional writes
+
+A bucket backend can refuse a write when the object changed since it was read.
+`VolumeBackend::write_if` takes a `WriteCondition`:
+
+- `Matches(etag)` writes only while the object's entity tag is still `etag`.
+  It is sent as `If-Match`.
+- `Absent` writes only when nothing is at the key. It is sent as
+  `If-None-Match: *`.
+
+A refused write returns `VolumeError::PreconditionFailed` and leaves the object
+as it was. `entity_tag` reads the current tag, and `read_if_match` reads the
+bytes only while the tag still matches, so a caller can hash exactly the
+version it is about to replace.
+
+`conditional_writes()` reports whether the service enforces both conditions.
+S3 and R2 do. Services without them answer false and `write_if` refuses with
+`VolumeError::Unsupported` instead of writing unconditionally. Agents treat
+sources on those services as read-only.
+
+An S3-compatible server that ignores the headers would accept a stale write.
+The acceptance suite runs against SeaweedFS to prove the S3 path refuses one.
+
+### Bucket sources for agents
+
+A prefix of a connected bucket is tracked with `sources.track` and a bucket
+URL, `s3://bucket/prefix`. The source is anchored to the bucket's cloud volume
+and keeps its store in the library. It is not walked into an index yet; agents
+list, read and grep it live through the backend. Grants, preconditions and
+refusals for agents on bucket sources are described in
+`docs/core/design/agent-grants.md` and `docs/core/design/agent-writes.md`.
+
 ## Version history
 
 When a provider exposes object versions, the adapter records their identities

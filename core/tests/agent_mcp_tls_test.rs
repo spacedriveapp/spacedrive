@@ -418,6 +418,30 @@ async fn oauth_is_offered_only_to_requests_straight_from_this_machine() -> anyho
 	let (status, _) = challenge(&http, &url, &[("host", "evil.example".to_string())]).await;
 	assert_eq!(status, StatusCode::FORBIDDEN);
 
+	// The REST surface screens Host the same way and never points at OAuth.
+	for (host, expected) in [
+		("nas.example.test".to_string(), StatusCode::UNAUTHORIZED),
+		(
+			format!("127.0.0.1:{}", bound.port()),
+			StatusCode::UNAUTHORIZED,
+		),
+		("evil.example".to_string(), StatusCode::FORBIDDEN),
+	] {
+		let response = http
+			.get(format!("{origin}/v1/spaces"))
+			.header("host", &host)
+			.bearer_auth(format!("sdg_{}", "0".repeat(64)))
+			.send()
+			.await?;
+		assert_eq!(response.status(), expected, "{host}");
+		let value = response
+			.headers()
+			.get(header::WWW_AUTHENTICATE)
+			.map(|v| v.to_str().unwrap().to_string())
+			.unwrap_or_default();
+		assert!(!value.contains("resource_metadata"), "{host}: {value}");
+	}
+
 	// A request a proxy forwarded gets no OAuth, even with a loopback Host.
 	for name in [
 		"forwarded",

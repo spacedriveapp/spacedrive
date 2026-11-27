@@ -25,6 +25,63 @@ export type ActiveProvider = { category: Category; locality: Locality;
  */
 model_id: string | null };
 
+/**
+ * Who made a change.
+ */
+export type ActivityActor = 
+/**
+ * An agent writing through a grant. `grant_id` is `None` for writes
+ * journaled before writes recorded their grant.
+ */
+{ kind: "agent"; grant_id: string | null; label: string | null } | 
+/**
+ * Someone using Spacedrive on this device, through a job such as a copy.
+ */
+{ kind: "person"; device: string; job: string };
+
+/**
+ * One change: an agent write, or a job's whole journal.
+ */
+export type ActivityEntry = { 
+/**
+ * The journal's id. `files.undo` with this id reverses the change.
+ */
+id: string; at: string; actor: ActivityActor; 
+/**
+ * What the last step of the change did, which for an agent write is
+ * the write itself rather than the folders made above it. With a
+ * requested path, the last step under it.
+ */
+kind: ActivityKind; path: string; 
+/**
+ * Where a move went.
+ */
+to_path: string | null; 
+/**
+ * How many paths the change touched, counting only those under the
+ * requested path when one was given.
+ */
+changes: number; 
+/**
+ * Whether `files.undo` can reverse at least part of it.
+ */
+undoable: boolean };
+
+export type ActivityKind = "create" | "make_dir" | "modify" | "move" | "delete" | "attributes";
+
+export type ActivityListInput = { 
+/**
+ * Only changes at or under this path on this device. Every change
+ * when absent.
+ */
+path?: string | null; 
+/**
+ * The most entries to return, newest first. Defaults to 50.
+ */
+limit?: number | null };
+
+export type ActivityListOutput = { entries: ActivityEntry[] };
+
 export type AdapterConfigField = { key: string; name: string; description: string; field_type: string; required: boolean; secret: boolean; default: string | null };
 
 export type AdapterInfo = { id: string; name: string; description: string; version: string; author: string; data_type: string; icon_svg: string | null; update_available: boolean };
@@ -58,13 +115,13 @@ unfiltered?: boolean;
  */
 identify_content?: boolean };
 
-export type AddGroupInput = { space_id: string; name: string; group_type: GroupType };
+export type AddGroupInput = { layout_id: string; name: string; group_type: GroupType };
 
-export type AddGroupOutput = { group: SpaceGroup };
+export type AddGroupOutput = { group: LayoutGroup };
 
-export type AddItemInput = { space_id: string; group_id: string | null; item_type: ItemType };
+export type AddItemInput = { layout_id: string; group_id: string | null; item_type: ItemType };
 
-export type AddItemOutput = { item: SpaceItem };
+export type AddItemOutput = { item: LayoutItem };
 
 /**
  * What one add changes from the library's defaults. Every field absent
@@ -820,7 +877,8 @@ job_receipt?: JobReceipt | null };
 
 export type CreateGrantInput = { 
 /**
- * The directory to grant, on this device.
+ * The directory to grant, on this device, or a bucket prefix such as
+ * `s3://bucket/prefix` inside a tracked bucket source.
  */
 path: string; 
 /**
@@ -1464,7 +1522,7 @@ error_type: string } } | { LibraryStatisticsUpdated: { library_id: string; stati
  */
 state?: VolumeState | null } } | { VolumeError: { fingerprint: VolumeFingerprint; error: string } } | { JobQueued: { job_id: string; job_type: string; device_id: string } } | { JobStarted: { job_id: string; job_type: string; device_id: string } } | { JobProgress: { job_id: string; job_type: string; device_id: string; progress: number; message: string | null; generic_progress: GenericProgress | null } } | { JobCompleted: { job_id: string; job_type: string; device_id: string; output: JobOutput } } | { JobFailed: { job_id: string; job_type: string; device_id: string; error: string } } | { JobCancelled: { job_id: string; job_type: string; device_id: string } } | { JobPaused: { job_id: string; device_id: string } } | { JobResumed: { job_id: string; device_id: string } } | { DeviceConnected: { device_id: string; device_name: string } } | { DeviceDisconnected: { device_id: string } } | { SyncStateChanged: { library_id: string; previous_state: string; new_state: string; timestamp: string } } | { SyncActivity: { library_id: string; peer_device_id: string; activity_type: SyncActivityType; model_type: string | null; count: number; timestamp: string } } | { SyncConnectionChanged: { library_id: string; peer_device_id: string; peer_name: string; connected: boolean; timestamp: string } } | { SyncError: { library_id: string; peer_device_id: string | null; error_type: string; message: string; timestamp: string } } | { ResourceChanged: { 
 /**
- * Resource type identifier (e.g., "file", "space", "device")
+ * Resource type identifier (e.g., "file", "layout", "device")
  */
 resource_type: string; 
 /**
@@ -2346,6 +2404,21 @@ export type GetAdapterConfigInput = { adapter_id: string };
  */
 export type GetAppConfigQueryInput = null;
 
+export type GetDeepScopeInput = { source_id: string };
+
+export type GetDeepScopeOutput = { 
+/**
+ * Subtrees relative to the source root whose contents are read. An
+ * empty path is the whole source; an empty list is none of it.
+ */
+subtrees: string[]; 
+/**
+ * Whether a person chose the list. False means the source's default:
+ * the standard user folders for the home folder, the whole root for
+ * any other source.
+ */
+chosen: boolean };
+
 export type GetFilesByTagInput = { tag_id: string; 
 /**
  * Tagging something `Camera` should find what was tagged
@@ -2688,7 +2761,7 @@ export type GrepSkipped = {
 path: string; reason: GrepSkipReason };
 
 /**
- * Types of groups that can appear in a space
+ * Types of groups that can appear in a layout
  */
 export type GroupType = 
 /**
@@ -3236,6 +3309,134 @@ claimed_by: string };
  * Latency metrics snapshot
  */
 export type LatencySnapshot = { count: number; avg_ms: number; min_ms: number; max_ms: number };
+
+/**
+ * A Layout defines a sidebar layout and filtering context
+ */
+export type Layout = { 
+/**
+ * Unique identifier
+ */
+id: string; 
+/**
+ * Human-friendly name (e.g., "Default", "Work Files")
+ */
+name: string; 
+/**
+ * Icon identifier (Phosphor icon name or emoji)
+ */
+icon: string; 
+/**
+ * Color for visual identification (hex format: #RRGGBB)
+ */
+color: string; 
+/**
+ * Sort order in layout switcher
+ */
+order: number; 
+/**
+ * Timestamps
+ */
+created_at: string; updated_at: string };
+
+export type LayoutCreateInput = { name: string; icon: string; color: string };
+
+export type LayoutCreateOutput = { layout: Layout };
+
+export type LayoutDeleteInput = { layout_id: string };
+
+export type LayoutDeleteOutput = { success: boolean };
+
+export type LayoutGetOutput = { layout: Layout };
+
+export type LayoutGetQueryInput = { layout_id: string };
+
+/**
+ * A LayoutGroup is a collapsible section in the sidebar
+ */
+export type LayoutGroup = { 
+/**
+ * Unique identifier
+ */
+id: string; 
+/**
+ * Layout this group belongs to
+ */
+layout_id: string; 
+/**
+ * Group name (e.g., "Quick Access", "MacBook Pro")
+ */
+name: string; 
+/**
+ * Type of group (determines content and behavior)
+ */
+group_type: GroupType; 
+/**
+ * Whether group is collapsed
+ */
+is_collapsed: boolean; 
+/**
+ * Sort order within layout
+ */
+order: number; 
+/**
+ * Timestamp
+ */
+created_at: string };
+
+/**
+ * A group with its items
+ */
+export type LayoutGroupWithItems = { 
+/**
+ * The group
+ */
+group: LayoutGroup; 
+/**
+ * Items in this group (sorted by order)
+ */
+items: LayoutItem[] };
+
+/**
+ * An item within a layout (can be layout-level or within a group)
+ */
+export type LayoutItem = { 
+/**
+ * Unique identifier
+ */
+id: string; 
+/**
+ * Layout this item belongs to
+ */
+layout_id: string; 
+/**
+ * Group this item belongs to (None = layout-level item)
+ */
+group_id: string | null; 
+/**
+ * Type discriminant (for quick type checking)
+ */
+item_type: ItemType; 
+/**
+ * Sort order within layout or group
+ */
+order: number; 
+/**
+ * Timestamp
+ */
+created_at: string; 
+/**
+ * Resolved file data for Path items (populated by get_sidebar query)
+ */
+resolved_file?: File | null };
+
+export type LayoutUpdateInput = { layout_id: string; name: string | null; icon: string | null; color: string | null };
+
+export type LayoutUpdateOutput = { layout: Layout };
+
+export type LayoutsListOutput = { layouts: Layout[] };
+
+export type LayoutsListQueryInput = null;
 
 export type LeaseSource = 
 /**
@@ -4890,7 +5091,7 @@ export type RenameRule =
  */
 { kind: "template"; pattern: string };
 
-export type ReorderGroupsInput = { space_id: string; group_ids: string[] };
+export type ReorderGroupsInput = { layout_id: string; group_ids: string[] };
 
 export type ReorderItemsInput = { group_id: string | null; item_ids: string[] };
 
@@ -5307,6 +5508,29 @@ start_timecode: string | null;
 out_exclusive: boolean; duration: FramePoint; threshold: number; min_shot_seconds: number; shots: Shot[] };
 
 /**
+ * Complete sidebar layout for a layout
+ */
+export type SidebarLayout = { 
+/**
+ * Unique identifier (same as layout.id for cache matching)
+ */
+id: string; 
+/**
+ * The layout
+ */
+layout: Layout; 
+/**
+ * Layout-level items (pinned shortcuts, no group)
+ */
+layout_items: LayoutItem[]; 
+/**
+ * Groups with their items
+ */
+groups: LayoutGroupWithItems[] };
+
+export type SidebarLayoutQueryInput = { layout_id: string };
+
+/**
  * How a client fetches an artifact.
  */
 export type SidecarAddress = 
@@ -5600,160 +5824,9 @@ data_type?: string | null; limit?: number | null };
 
 export type SourceSearchResult = { id: string; external_id: string; record_type: string; title: string; preview: string; subtitle: string | null; snippet: string | null; rank: number; source_id: string; source_name: string; data_type: string };
 
-/**
- * A Space defines a sidebar layout and filtering context
- */
-export type Space = { 
-/**
- * Unique identifier
- */
-id: string; 
-/**
- * Human-friendly name (e.g., "Default", "Work Files")
- */
-name: string; 
-/**
- * Icon identifier (Phosphor icon name or emoji)
- */
-icon: string; 
-/**
- * Color for visual identification (hex format: #RRGGBB)
- */
-color: string; 
-/**
- * Sort order in space switcher
- */
-order: number; 
-/**
- * Timestamps
- */
-created_at: string; updated_at: string };
-
-export type SpaceCreateInput = { name: string; icon: string; color: string };
-
-export type SpaceCreateOutput = { space: Space };
-
-export type SpaceDeleteInput = { space_id: string };
-
-export type SpaceDeleteOutput = { success: boolean };
-
-export type SpaceGetOutput = { space: Space };
-
-export type SpaceGetQueryInput = { space_id: string };
-
-/**
- * A SpaceGroup is a collapsible section in the sidebar
- */
-export type SpaceGroup = { 
-/**
- * Unique identifier
- */
-id: string; 
-/**
- * Space this group belongs to
- */
-space_id: string; 
-/**
- * Group name (e.g., "Quick Access", "MacBook Pro")
- */
-name: string; 
-/**
- * Type of group (determines content and behavior)
- */
-group_type: GroupType; 
-/**
- * Whether group is collapsed
- */
-is_collapsed: boolean; 
-/**
- * Sort order within space
- */
-order: number; 
-/**
- * Timestamp
- */
-created_at: string };
-
-/**
- * A group with its items
- */
-export type SpaceGroupWithItems = { 
-/**
- * The group
- */
-group: SpaceGroup; 
-/**
- * Items in this group (sorted by order)
- */
-items: SpaceItem[] };
-
-/**
- * An item within a space (can be space-level or within a group)
- */
-export type SpaceItem = { 
-/**
- * Unique identifier
- */
-id: string; 
-/**
- * Space this item belongs to
- */
-space_id: string; 
-/**
- * Group this item belongs to (None = space-level item)
- */
-group_id: string | null; 
-/**
- * Type discriminant (for quick type checking)
- */
-item_type: ItemType; 
-/**
- * Sort order within space or group
- */
-order: number; 
-/**
- * Timestamp
- */
-created_at: string; 
-/**
- * Resolved file data for Path items (populated by get_layout query)
- */
-resolved_file?: File | null };
-
-/**
- * Complete sidebar layout for a space
- */
-export type SpaceLayout = { 
-/**
- * Unique identifier (same as space.id for cache matching)
- */
-id: string; 
-/**
- * The space
- */
-space: Space; 
-/**
- * Space-level items (pinned shortcuts, no group)
- */
-space_items: SpaceItem[]; 
-/**
- * Groups with their items
- */
-groups: SpaceGroupWithItems[] };
-
-export type SpaceLayoutQueryInput = { space_id: string };
-
-export type SpaceUpdateInput = { space_id: string; name: string | null; icon: string | null; color: string | null };
-
-export type SpaceUpdateOutput = { space: Space };
-
 export type SpacedropSendInput = { device_id: string; paths: SdPath[]; sender: string | null };
 
 export type SpacedropSendOutput = { job_id: string | null; session_id: string | null };
-
-export type SpacesListOutput = { spaces: Space[] };
-
-export type SpacesListQueryInput = null;
 
 /**
  * A stretch of a recording, in seconds from its start.
@@ -6464,6 +6537,29 @@ message: string;
  */
 requires_restart: boolean };
 
+export type UpdateDeepScopeInput = { 
+/**
+ * A folder inside a source tracked on this device, or its root. Only a
+ * folder can be kept; releasing takes any path.
+ */
+path: string; 
+/**
+ * Keep the folder's contents read, or stop reading them.
+ */
+keep: boolean };
+
+export type UpdateDeepScopeOutput = { source_id: string; 
+/**
+ * The kept subtrees after the change, relative to the source root. An
+ * empty path is the whole source.
+ */
+subtrees: string[]; 
+/**
+ * The pass that reads a newly kept folder or drops a released one's
+ * text. None when nothing changed or the source does not read contents.
+ */
+job_id: string | null };
+
 /**
  * Input for updating device configuration
  */
@@ -6492,7 +6588,7 @@ slug: string };
 
 export type UpdateGroupInput = { group_id: string; name: string | null; is_collapsed: boolean | null };
 
-export type UpdateGroupOutput = { group: SpaceGroup };
+export type UpdateGroupOutput = { group: LayoutGroup };
 
 /**
  * Input for updating library configuration
@@ -6643,7 +6739,7 @@ outstanding: number };
 /**
  * Video metadata extracted from FFmpeg
  */
-export type VideoMediaData = { uuid: string; width: number; height: number; blurhash: string | null; duration_seconds: number | null; bit_rate: number | null; codec: string | null; pixel_format: string | null; color_space: string | null; color_range: string | null; color_primaries: string | null; color_transfer: string | null; fps_num: number | null; fps_den: number | null; audio_codec: string | null; audio_channels: string | null; audio_sample_rate: number | null; audio_bit_rate: number | null; title: string | null; artist: string | null; album: string | null; creation_time: string | null; date_captured: string | null };
+export type VideoMediaData = { uuid: string; width: number | null; height: number | null; blurhash: string | null; duration_seconds: number | null; bit_rate: number | null; codec: string | null; pixel_format: string | null; color_space: string | null; color_range: string | null; color_primaries: string | null; color_transfer: string | null; fps_num: number | null; fps_den: number | null; audio_codec: string | null; audio_channels: string | null; audio_sample_rate: number | null; audio_bit_rate: number | null; title: string | null; artist: string | null; album: string | null; creation_time: string | null; date_captured: string | null };
 
 /**
  * A volume in Spacedrive - unified model for runtime and database
@@ -7188,6 +7284,16 @@ export type LibraryAction =
   |  { type: 'jobs.cancel'; input: JobCancelInput; output: JobCancelOutput }
   |  { type: 'jobs.pause'; input: JobPauseInput; output: JobPauseOutput }
   |  { type: 'jobs.resume'; input: JobResumeInput; output: JobResumeOutput }
+  |  { type: 'layouts.add_group'; input: AddGroupInput; output: AddGroupOutput }
+  |  { type: 'layouts.add_item'; input: AddItemInput; output: AddItemOutput }
+  |  { type: 'layouts.create'; input: LayoutCreateInput; output: LayoutCreateOutput }
+  |  { type: 'layouts.delete'; input: LayoutDeleteInput; output: LayoutDeleteOutput }
+  |  { type: 'layouts.delete_group'; input: DeleteGroupInput; output: DeleteGroupOutput }
+  |  { type: 'layouts.delete_item'; input: DeleteItemInput; output: DeleteItemOutput }
+  |  { type: 'layouts.reorder_groups'; input: ReorderGroupsInput; output: ReorderOutput }
+  |  { type: 'layouts.reorder_items'; input: ReorderItemsInput; output: ReorderOutput }
+  |  { type: 'layouts.update'; input: LayoutUpdateInput; output: LayoutUpdateOutput }
+  |  { type: 'layouts.update_group'; input: UpdateGroupInput; output: UpdateGroupOutput }
   |  { type: 'libraries.backup'; input: LibraryBackupInput; output: LibraryBackupOutput }
   |  { type: 'libraries.rename'; input: LibraryRenameInput; output: LibraryRenameOutput }
   |  { type: 'media.footage.export'; input: FootageExportInput; output: FootageExportOutput }
@@ -7196,22 +7302,13 @@ export type LibraryAction =
   |  { type: 'search.content.rebuild'; input: RebuildContentIndexInput; output: RebuildContentIndexOutput }
   |  { type: 'sources.assertions.merge'; input: MergeAssertionsInput; output: MergeAssertionsOutput }
   |  { type: 'sources.create'; input: CreateSourceInput; output: CreateSourceOutput }
+  |  { type: 'sources.deep_scope.update'; input: UpdateDeepScopeInput; output: UpdateDeepScopeOutput }
   |  { type: 'sources.delete'; input: DeleteSourceInput; output: DeleteSourceOutput }
   |  { type: 'sources.freeze'; input: FreezeSourceInput; output: FreezeSourceOutput }
   |  { type: 'sources.sync'; input: SyncSourceInput; output: JobReceipt }
   |  { type: 'sources.track'; input: TrackSourceInput; output: TrackSourceOutput }
   |  { type: 'sources.update'; input: UpdateSourceInput; output: UpdateSourceOutput }
   |  { type: 'sources.verify'; input: VerifySourceInput; output: VerifySourceOutput }
-  |  { type: 'spaces.add_group'; input: AddGroupInput; output: AddGroupOutput }
-  |  { type: 'spaces.add_item'; input: AddItemInput; output: AddItemOutput }
-  |  { type: 'spaces.create'; input: SpaceCreateInput; output: SpaceCreateOutput }
-  |  { type: 'spaces.delete'; input: SpaceDeleteInput; output: SpaceDeleteOutput }
-  |  { type: 'spaces.delete_group'; input: DeleteGroupInput; output: DeleteGroupOutput }
-  |  { type: 'spaces.delete_item'; input: DeleteItemInput; output: DeleteItemOutput }
-  |  { type: 'spaces.reorder_groups'; input: ReorderGroupsInput; output: ReorderOutput }
-  |  { type: 'spaces.reorder_items'; input: ReorderItemsInput; output: ReorderOutput }
-  |  { type: 'spaces.update'; input: SpaceUpdateInput; output: SpaceUpdateOutput }
-  |  { type: 'spaces.update_group'; input: UpdateGroupInput; output: UpdateGroupOutput }
   |  { type: 'tags.apply'; input: ApplyTagsInput; output: ApplyTagsOutput }
   |  { type: 'tags.create'; input: CreateTagInput; output: CreateTagOutput }
   |  { type: 'tags.delete'; input: DeleteTagInput; output: DeleteTagOutput }
@@ -7263,7 +7360,8 @@ export type CoreQuery =
 ;
 
 export type LibraryQuery =
-     { type: 'adapters.config'; input: GetAdapterConfigInput; output: [AdapterConfigField] }
+     { type: 'activity.list'; input: ActivityListInput; output: ActivityListOutput }
+  |  { type: 'adapters.config'; input: GetAdapterConfigInput; output: [AdapterConfigField] }
   |  { type: 'adapters.list'; input: ListAdaptersInput; output: [AdapterInfo] }
   |  { type: 'agent.stat'; input: StatInput; output: PathState }
   |  { type: 'ai.providers.list'; input: ListProvidersInput; output: ListProvidersOutput }
@@ -7286,6 +7384,9 @@ export type LibraryQuery =
   |  { type: 'jobs.info'; input: JobInfoQueryInput; output: JobInfoOutput }
   |  { type: 'jobs.journal'; input: JobJournalInput; output: JobJournalOutput }
   |  { type: 'jobs.list'; input: JobListInput; output: JobListOutput }
+  |  { type: 'layouts.get'; input: LayoutGetQueryInput; output: LayoutGetOutput }
+  |  { type: 'layouts.get_sidebar'; input: SidebarLayoutQueryInput; output: SidebarLayout }
+  |  { type: 'layouts.list'; input: LayoutsListQueryInput; output: LayoutsListOutput }
   |  { type: 'libraries.info'; input: LibraryInfoQueryInput; output: Library }
   |  { type: 'media.footage.capabilities'; input: FootageCapabilitiesInput; output: FootageCapabilities }
   |  { type: 'media.footage.status'; input: FootageStatusInput; output: FootageStatusOutput }
@@ -7299,6 +7400,7 @@ export type LibraryQuery =
   |  { type: 'search.files'; input: FileSearchInput; output: FileSearchOutput }
   |  { type: 'search.grep'; input: GrepInput; output: GrepOutput }
   |  { type: 'search.media'; input: MediaSearchInput; output: MediaSearchOutput }
+  |  { type: 'sources.deep_scope.get'; input: GetDeepScopeInput; output: GetDeepScopeOutput }
   |  { type: 'sources.get'; input: GetSourceInput; output: SourceInfo }
   |  { type: 'sources.list'; input: ListSourcesInput; output: [SourceInfo] }
   |  { type: 'sources.list_items'; input: ListSourceItemsInput; output: [SourceItem] }
@@ -7306,9 +7408,6 @@ export type LibraryQuery =
   |  { type: 'sources.media_listing'; input: SourceMediaListingInput; output: SourceMediaListingOutput }
   |  { type: 'sources.search'; input: SourceSearchInput; output: [SourceSearchResult] }
   |  { type: 'sources.validate_path'; input: ValidateSourcePathInput; output: ValidateSourcePathOutput }
-  |  { type: 'spaces.get'; input: SpaceGetQueryInput; output: SpaceGetOutput }
-  |  { type: 'spaces.get_layout'; input: SpaceLayoutQueryInput; output: SpaceLayout }
-  |  { type: 'spaces.list'; input: SpacesListQueryInput; output: SpacesListOutput }
   |  { type: 'sync.activity'; input: GetSyncActivityInput; output: GetSyncActivityOutput }
   |  { type: 'sync.eventLog'; input: GetSyncEventLogInput; output: GetSyncEventLogOutput }
   |  { type: 'sync.metrics'; input: GetSyncMetricsInput; output: GetSyncMetricsOutput }
@@ -7424,6 +7523,16 @@ export const WIRE_METHODS = {
     'jobs.cancel': 'action:jobs.cancel.input',
     'jobs.pause': 'action:jobs.pause.input',
     'jobs.resume': 'action:jobs.resume.input',
+    'layouts.add_group': 'action:layouts.add_group.input',
+    'layouts.add_item': 'action:layouts.add_item.input',
+    'layouts.create': 'action:layouts.create.input',
+    'layouts.delete': 'action:layouts.delete.input',
+    'layouts.delete_group': 'action:layouts.delete_group.input',
+    'layouts.delete_item': 'action:layouts.delete_item.input',
+    'layouts.reorder_groups': 'action:layouts.reorder_groups.input',
+    'layouts.reorder_items': 'action:layouts.reorder_items.input',
+    'layouts.update': 'action:layouts.update.input',
+    'layouts.update_group': 'action:layouts.update_group.input',
     'libraries.backup': 'action:libraries.backup.input',
     'libraries.rename': 'action:libraries.rename.input',
     'media.footage.export': 'action:media.footage.export.input',
@@ -7432,22 +7541,13 @@ export const WIRE_METHODS = {
     'search.content.rebuild': 'action:search.content.rebuild.input',
     'sources.assertions.merge': 'action:sources.assertions.merge.input',
     'sources.create': 'action:sources.create.input',
+    'sources.deep_scope.update': 'action:sources.deep_scope.update.input',
     'sources.delete': 'action:sources.delete.input',
     'sources.freeze': 'action:sources.freeze.input',
     'sources.sync': 'action:sources.sync.input',
     'sources.track': 'action:sources.track.input',
     'sources.update': 'action:sources.update.input',
     'sources.verify': 'action:sources.verify.input',
-    'spaces.add_group': 'action:spaces.add_group.input',
-    'spaces.add_item': 'action:spaces.add_item.input',
-    'spaces.create': 'action:spaces.create.input',
-    'spaces.delete': 'action:spaces.delete.input',
-    'spaces.delete_group': 'action:spaces.delete_group.input',
-    'spaces.delete_item': 'action:spaces.delete_item.input',
-    'spaces.reorder_groups': 'action:spaces.reorder_groups.input',
-    'spaces.reorder_items': 'action:spaces.reorder_items.input',
-    'spaces.update': 'action:spaces.update.input',
-    'spaces.update_group': 'action:spaces.update_group.input',
     'tags.apply': 'action:tags.apply.input',
     'tags.create': 'action:tags.create.input',
     'tags.delete': 'action:tags.delete.input',
@@ -7499,6 +7599,7 @@ export const WIRE_METHODS = {
   },
 
   libraryQueries: {
+    'activity.list': 'query:activity.list',
     'adapters.config': 'query:adapters.config',
     'adapters.list': 'query:adapters.list',
     'agent.stat': 'query:agent.stat',
@@ -7522,6 +7623,9 @@ export const WIRE_METHODS = {
     'jobs.info': 'query:jobs.info',
     'jobs.journal': 'query:jobs.journal',
     'jobs.list': 'query:jobs.list',
+    'layouts.get': 'query:layouts.get',
+    'layouts.get_sidebar': 'query:layouts.get_sidebar',
+    'layouts.list': 'query:layouts.list',
     'libraries.info': 'query:libraries.info',
     'media.footage.capabilities': 'query:media.footage.capabilities',
     'media.footage.status': 'query:media.footage.status',
@@ -7535,6 +7639,7 @@ export const WIRE_METHODS = {
     'search.files': 'query:search.files',
     'search.grep': 'query:search.grep',
     'search.media': 'query:search.media',
+    'sources.deep_scope.get': 'query:sources.deep_scope.get',
     'sources.get': 'query:sources.get',
     'sources.list': 'query:sources.list',
     'sources.list_items': 'query:sources.list_items',
@@ -7542,9 +7647,6 @@ export const WIRE_METHODS = {
     'sources.media_listing': 'query:sources.media_listing',
     'sources.search': 'query:sources.search',
     'sources.validate_path': 'query:sources.validate_path',
-    'spaces.get': 'query:spaces.get',
-    'spaces.get_layout': 'query:spaces.get_layout',
-    'spaces.list': 'query:spaces.list',
     'sync.activity': 'query:sync.activity',
     'sync.eventLog': 'query:sync.eventLog',
     'sync.metrics': 'query:sync.metrics',

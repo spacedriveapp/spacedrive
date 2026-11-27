@@ -103,6 +103,7 @@ Repeat for other datasets:
 | Name | Value | Description |
 |------|-------|-------------|
 | `SD_AUTH` | `admin:CHANGE_THIS_PASSWORD` | Authentication (username:password) |
+| `SD_HOST` | `0.0.0.0` | Bind address. The image sets it. sd-server binds `127.0.0.1` without it, which the mapped port cannot reach |
 
 **Recommended:**
 
@@ -334,7 +335,8 @@ spacedrive.yourdomain.com {
 - **Always set SD_AUTH** - never use `SD_AUTH=disabled` on a network-accessible server
 - **Use strong passwords** - not `admin:changeme`
 - Consider **firewall rules** if exposing to internet
-- Run behind **reverse proxy with HTTPS** for public access
+- Run behind **reverse proxy with HTTPS** for public access. Basic credentials travel in plaintext over plain HTTP
+- After 20 failed logins in a minute, an address gets `429` for 5 minutes, even with the right password. Behind a reverse proxy every client shares the proxy's address
 - **Read-only mounts** for media you don't want Spacedrive to modify
 
 **Network access:**

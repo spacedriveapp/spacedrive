@@ -142,7 +142,7 @@ macro_rules! register_syncable_device_owned {
 ///
 /// Usage in entity file:
 /// ```ignore
-/// register_syncable_shared!(Model, "space", "space");
+/// register_syncable_shared!(Model, "layout", "layout");
 /// ```
 #[macro_export]
 macro_rules! register_syncable_shared {
@@ -294,7 +294,7 @@ pub type SyncDependsOnFn = fn() -> &'static [&'static str];
 
 /// Registry of syncable models
 ///
-/// Maps model_type strings (e.g., "space", "device") to their registration info.
+/// Maps model_type strings (e.g., "layout", "device") to their registration info.
 pub static SYNCABLE_REGISTRY: Lazy<RwLock<HashMap<String, SyncableModelRegistration>>> =
 	Lazy::new(|| {
 		// Initialize registry with all models
@@ -303,7 +303,7 @@ pub static SYNCABLE_REGISTRY: Lazy<RwLock<HashMap<String, SyncableModelRegistrat
 
 /// Registration information for a syncable model
 pub struct SyncableModelRegistration {
-	/// Model type identifier (e.g., "space")
+	/// Model type identifier (e.g., "layout")
 	pub model_type: &'static str,
 
 	/// Table name in database (e.g., "volumes")
@@ -941,10 +941,10 @@ mod tests {
 		assert!(volume_reg.shared_apply_fn.is_none());
 
 		// Verify space is registered as shared
-		assert!(registry.contains_key("space"));
-		let space_reg = registry.get("space").unwrap();
-		assert_eq!(space_reg.model_type, "space");
-		assert_eq!(space_reg.table_name, "spaces");
+		assert!(registry.contains_key("layout"));
+		let space_reg = registry.get("layout").unwrap();
+		assert_eq!(space_reg.model_type, "layout");
+		assert_eq!(space_reg.table_name, "layouts");
 		assert!(!space_reg.is_device_owned);
 		assert!(space_reg.state_apply_fn.is_none());
 		assert!(space_reg.shared_apply_fn.is_some());
@@ -973,11 +973,11 @@ mod tests {
 		let _ = SYNCABLE_REGISTRY.read().await;
 
 		assert_eq!(get_table_name("volume").await, Some("volumes"));
-		assert_eq!(get_table_name("space").await, Some("spaces"));
+		assert_eq!(get_table_name("layout").await, Some("layouts"));
 		assert_eq!(get_table_name("nonexistent").await, None);
 
 		assert!(is_device_owned("volume").await);
-		assert!(!is_device_owned("space").await);
+		assert!(!is_device_owned("layout").await);
 		assert!(!is_device_owned("nonexistent").await); // Returns false for unknown
 	}
 
@@ -986,15 +986,15 @@ mod tests {
 		let order = compute_registry_sync_order().await.unwrap();
 
 		// Every survivor is present, and nothing retired came back.
-		for model in ["device", "volume", "space", "space_group", "space_item"] {
+		for model in ["device", "volume", "layout", "layout_group", "layout_item"] {
 			assert!(order.contains(&model.to_string()), "{model} missing");
 		}
 		assert!(!order.contains(&"entry".to_string()));
 
 		// Space items depend on their space and group.
-		let space_idx = order.iter().position(|m| m == "space").unwrap();
-		let group_idx = order.iter().position(|m| m == "space_group").unwrap();
-		let item_idx = order.iter().position(|m| m == "space_item").unwrap();
+		let space_idx = order.iter().position(|m| m == "layout").unwrap();
+		let group_idx = order.iter().position(|m| m == "layout_group").unwrap();
+		let item_idx = order.iter().position(|m| m == "layout_item").unwrap();
 		assert!(space_idx < item_idx);
 		assert!(group_idx < item_idx);
 	}
