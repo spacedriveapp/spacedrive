@@ -541,6 +541,46 @@ impl JobDb {
 		Ok(())
 	}
 
+	/// Remove a finished job's row, for a run that left nothing worth keeping.
+	pub async fn forget(&self, id: JobId) -> JobResult<()> {
+		self.unsettled.lock().remove(&id.to_string());
+		jobs::Entity::delete_by_id(id.to_string())
+			.exec(&self.conn)
+			.await?;
+		Ok(())
+	}
+
+	/// Keep the `keep` newest finished rows named `name` and remove the
+	/// rest, returning the ids removed. Unfinished rows are never touched, so
+	/// a paused or queued job keeps its state for resume.
+	pub async fn prune_finished(&self, name: &str, keep: u64) -> JobResult<Vec<String>> {
+		let finished = [
+			JobStatus::Completed,
+			JobStatus::Failed,
+			JobStatus::Cancelled,
+		]
+		.map(|status| status.to_string());
+		let ids: Vec<String> = jobs::Entity::find()
+			.select_only()
+			.column(jobs::Column::Id)
+			.filter(jobs::Column::Name.eq(name))
+			.filter(jobs::Column::Status.is_in(finished))
+			.order_by_desc(jobs::Column::CompletedAt)
+			.order_by_desc(jobs::Column::CreatedAt)
+			.limit(i64::MAX as u64)
+			.offset(keep)
+			.into_tuple()
+			.all(&self.conn)
+			.await?;
+		for chunk in ids.chunks(500) {
+			jobs::Entity::delete_many()
+				.filter(jobs::Column::Id.is_in(chunk.iter().cloned()))
+				.exec(&self.conn)
+				.await?;
+		}
+		Ok(ids)
+	}
+
 	/// Clean up old job history
 	pub async fn cleanup_history(&self, older_than: DateTime<Utc>) -> JobResult<u64> {
 		let result = history::Entity::delete_many()

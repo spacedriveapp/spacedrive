@@ -49,6 +49,12 @@ const BATCH_SIZE: usize = 256;
 /// limit is the drive's appetite for concurrent seeks rather than the CPU.
 const CONCURRENCY: usize = 8;
 
+/// Finished rows a background pass kind keeps in the job history, counted per
+/// job name. The watcher and the launch sweep start these passes on their
+/// own, so without a bound they become most of the history. A pass run by
+/// hand counts toward the same bound once it has finished.
+pub(crate) const BACKGROUND_HISTORY: u64 = 20;
+
 /// Hashes the files a source holds that have no content identity yet.
 #[derive(Debug, Serialize, Deserialize, Job)]
 pub struct ContentIdentityJob {
@@ -119,6 +125,16 @@ impl crate::infra::job::traits::DynJob for ContentIdentityJob {
 #[async_trait::async_trait]
 impl JobHandler for ContentIdentityJob {
 	type Output = ContentIdentityOutput;
+
+	/// Unreadable files leave the queue with their reason, so they count as
+	/// work done.
+	fn keep_record(&self, output: &Self::Output) -> bool {
+		!self.background || output.identified + output.unreadable > 0
+	}
+
+	fn finished_rows_kept(&self) -> Option<u64> {
+		self.background.then_some(BACKGROUND_HISTORY)
+	}
 
 	async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
 		// A file read through an unmounted drive's mount point fails and is
