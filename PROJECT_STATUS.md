@@ -36,7 +36,6 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
-<<<<<<< HEAD
 Videos in the explorer (Capy FAN-14815, November 27, beta.1, in PR). Jamie
 decided footage belongs in the explorer, not a page of its own. The Videos
 extension's library view (`ui_manifest.json` and `ui/videos.js`) is gone, so
@@ -51,9 +50,9 @@ query answers shot count, transcript, analysis and duration for every video of
 a listing in one call, keyed through the sampled hash the source store already
 holds, for the Duration (on by default), Shots and Transcript list columns and
 grid badges in View Settings. Filesystem listings carry no video facet, so the
-duration comes from the shot list and is blank until shot detection runs. A Videos sidebar item opens a saved search for
-every video, with Has transcript and Analyzed filters. Next: review and merge.
-=======
+duration comes from the shot list and is blank until shot detection runs. A Videos sidebar item opens a saved search
+for every video, with Has transcript and Analyzed filters. Next: review and merge.
+
 Beta date and where beta.1 is cut (Capy FAN-14810, November 27, in PR). Jamie
 moved the Spacedrive 2.0 Beta target to December 5, 2026 on 2026-11-27.
 beta.1 is tagged from a verified `main` head. The `release/beta.1` branch is
@@ -62,7 +61,6 @@ feature, footage included, ships in beta.1 by merging to `main` before the
 cut. The README, the releases page, the introduction and the launch plan state
 the new date. No workflow names `release/beta.1`. Docs only; no tag, version
 or workflow changed.
->>>>>>> origin/main
 
 Job shutdown deadlock (Capy FAN-12312, November 25, in PR). The Windows unit
 job kept failing on `a_directory_that_never_answers_does_not_hold_up_the_pass`.
