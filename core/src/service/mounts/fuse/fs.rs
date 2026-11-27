@@ -102,6 +102,7 @@ pub async fn mount(fs: Arc<dyn MountFs>, mountpoint: &Path) -> std::io::Result<M
 
 /// Tell the kernel to drop what it cached for each changed path: the file's
 /// attributes and pages, and the name in its parent so a lookup asks again.
+/// The root path stands for every path the kernel holds.
 async fn invalidate(
 	inner: Arc<Inner>,
 	notifier: fuser::Notifier,
@@ -115,6 +116,21 @@ async fn invalidate(
 			Err(RecvError::Lagged(_)) => continue,
 			Err(RecvError::Closed) => break,
 		};
+		if path.as_os_str().is_empty() {
+			let all: Vec<u64> = match inner.inodes.lock() {
+				Ok(inodes) => inodes.nodes.keys().copied().collect(),
+				Err(_) => continue,
+			};
+			let notifier = notifier.clone();
+			let _ = tokio::task::spawn_blocking(move || {
+				for ino in all {
+					let _ = notifier.inval_inode(INodeNo(ino), 0, 0);
+				}
+			})
+			.await;
+			inner.fs.invalidated(&path);
+			continue;
+		}
 		let (ino, parent) = {
 			let Ok(inodes) = inner.inodes.lock() else {
 				continue;
@@ -136,6 +152,7 @@ async fn invalidate(
 			}
 		})
 		.await;
+		inner.fs.invalidated(&path);
 	}
 }
 

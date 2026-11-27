@@ -402,6 +402,13 @@ async fn identify_returned(
 	let Some(store) = index.store_for(root).await else {
 		return;
 	};
+	// A source that was away when its library opened adopts its deep scope
+	// now, before anything reads its contents again.
+	if let Err(error) =
+		crate::ops::spaces::store::adopt_deep_scope(context, source_id, root, &store).await
+	{
+		warn!(source = %source_id, %error, "could not turn a source's deep scope into spaces");
+	}
 	match store.retry_failed_identifications().await {
 		Ok(0) => {}
 		Ok(reset) => {
