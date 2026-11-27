@@ -168,6 +168,9 @@ pub async fn objects_under(
 		let marker = format!("{}/", prefix.key);
 		if !prefix.key.is_empty() && backend.holds_marker(Path::new(&marker)).await? {
 			found.push(marker);
+			if found.len() > limit {
+				return Ok(None);
+			}
 		}
 		for entry in crate::ops::grants::bucket::list(backend, &prefix).await? {
 			let child = prefix.join(&entry.name);

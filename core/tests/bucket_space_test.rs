@@ -26,6 +26,8 @@ use sd_core::{
 	domain::{Space, SpaceKind},
 	infra::{action::LibraryAction, api::SessionContext, query::LibraryQuery},
 	ops::{
+		files::bucket::objects_under,
+		grants::bucket::BucketUrl,
 		grants::{
 			create::{CreateGrantAction, CreateGrantInput},
 			GrantCap,
@@ -424,5 +426,20 @@ async fn a_bucket_prefix_is_a_space_an_agent_works_in() -> anyhow::Result<()> {
 		);
 		tokio::time::sleep(Duration::from_millis(250)).await;
 	}
+
+	// Directory markers count toward the most one move or delete takes.
+	for marker in ["markers/a", "markers/b"] {
+		seed.create_directory(Path::new(&format!("{run}/{marker}")), true)
+			.await?;
+	}
+	let markers = BucketUrl::parse(Path::new(&format!("{base}/markers"))).unwrap();
+	assert_eq!(objects_under(&seed, &markers, 1).await?, None);
+	assert_eq!(
+		objects_under(&seed, &markers, 2).await?,
+		Some(vec![
+			format!("{run}/markers/a/"),
+			format!("{run}/markers/b/")
+		])
+	);
 	Ok(())
 }
