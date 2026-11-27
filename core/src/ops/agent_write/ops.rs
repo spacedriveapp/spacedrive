@@ -571,7 +571,7 @@ async fn finish(
 	conflict: bool,
 	before: Option<String>,
 ) -> Result<WriteOutcome, WriteError> {
-	let undo = journal(context, scope.library_id, id, &effects).await;
+	let undo = journal(context, scope.library_id, scope.grant_id, id, &effects).await;
 	let (state, _) = state::read(context, &scope.root, landed).await?;
 	// Still inside the write's turn, so no other agent write lands between
 	// the journal row and this space's record of the change.
@@ -606,6 +606,7 @@ async fn finish(
 async fn journal(
 	context: &CoreContext,
 	library_id: Uuid,
+	grant_id: Uuid,
 	id: Uuid,
 	effects: &[Effect],
 ) -> Option<Uuid> {
@@ -616,7 +617,7 @@ async fn journal(
 	match library
 		.jobs()
 		.database()
-		.append_journal(JobId(id), effects)
+		.append_journal_for(JobId(id), Some(grant_id), effects)
 		.await
 	{
 		Ok(()) => Some(id),

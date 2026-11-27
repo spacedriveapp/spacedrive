@@ -99,6 +99,8 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		&["--test", "database_migration_test"],
 	),
 	core("Library test", &["--test", "library_test"]),
+	// The RPC server's trust boundary: what it logs and whom it answers.
+	core("RPC security test", &["--test", "rpc_security_test"]),
 	core("Indexing rules test", &["--test", "indexing_rules_test"]),
 	core("Watcher test", &["--test", "watcher_test"]),
 	core("File move test", &["--test", "file_move_test"]),
