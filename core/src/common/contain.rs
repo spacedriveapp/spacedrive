@@ -124,6 +124,9 @@ pub struct Stat {
 	pub accessed: Option<SystemTime>,
 	pub created: Option<SystemTime>,
 	pub readonly: bool,
+	/// The inode on Unix, so two files with the same size and time still
+	/// tell apart; 0 on Windows, where stable Rust does not expose it.
+	pub identity: u64,
 }
 
 impl From<&std::fs::Metadata> for Stat {
@@ -144,6 +147,10 @@ impl From<&std::fs::Metadata> for Stat {
 			accessed: meta.accessed().ok(),
 			created: meta.created().ok(),
 			readonly: meta.permissions().readonly(),
+			#[cfg(unix)]
+			identity: std::os::unix::fs::MetadataExt::ino(meta),
+			#[cfg(not(unix))]
+			identity: 0,
 		}
 	}
 }
@@ -716,6 +723,7 @@ mod imp {
 				accessed: time(raw.st_atime, raw.st_atime_nsec),
 				created,
 				readonly: raw.st_mode & 0o222 == 0,
+				identity: raw.st_ino,
 			})
 		}
 	}
