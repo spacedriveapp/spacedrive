@@ -437,25 +437,25 @@ fn change_of(effect: &Effect) -> Option<Change> {
 	};
 	Some(match effect {
 		Effect::Created { path, subject } => {
-			let is_dir = subject.is_some_and(|s| s.is_dir);
+			let is_dir = subject.as_ref().is_some_and(|s| s.is_dir);
 			let op = if is_dir { "mkdir" } else { "create" };
 			change(
 				op,
 				path,
 				None,
-				subject.filter(|s| !s.is_dir).map(|s| s.size),
+				subject.as_ref().filter(|s| !s.is_dir).map(|s| s.size),
 			)
 		}
 		Effect::Moved { from, to, subject } => change(
 			"move",
 			from,
 			Some(to),
-			subject.filter(|s| !s.is_dir).map(|s| s.size),
+			subject.as_ref().filter(|s| !s.is_dir).map(|s| s.size),
 		),
 		Effect::Trashed { from, .. } => change("delete", from, None, None),
 		Effect::Removed { path } => change("delete", path, None, None),
 		Effect::Replaced { path, subject, .. } => {
-			change("modify", path, None, subject.map(|s| s.size))
+			change("modify", path, None, subject.as_ref().map(|s| s.size))
 		}
 		Effect::Attributes { path, .. } => change("modify", path, None, None),
 	})
