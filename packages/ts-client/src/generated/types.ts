@@ -861,7 +861,8 @@ job_receipt?: JobReceipt | null };
 
 export type CreateGrantInput = { 
 /**
- * The directory to grant, on this device.
+ * The directory to grant, on this device, or a bucket prefix such as
+ * `s3://bucket/prefix` inside a tracked bucket source.
  */
 path: string; 
 /**

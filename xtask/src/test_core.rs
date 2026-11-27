@@ -190,6 +190,13 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Bucket conditional writes test",
 		&["--test", "bucket_conditional_writes_test"],
 	),
+	// Agents on a bucket source: track, grant a prefix, read, grep, and
+	// write with preconditions against the same server.
+	acceptance(
+		"sd-core",
+		"Bucket agent acceptance test",
+		&["--test", "bucket_agent_acceptance_test"],
+	),
 	// OAuth on the agent MCP endpoint (docs/cli/mcp-oauth.mdx): discovery,
 	// registration, the PKCE code flow, refresh rotation and revocation.
 	acceptance(
