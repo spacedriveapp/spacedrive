@@ -26,6 +26,9 @@ wasm = ["dep:wasmer", "dep:wasmer-middlewares"]
 # Read-only FUSE mount of every source on Linux. Mounting needs fusermount3
 # at runtime; the build needs no libfuse headers.
 fuse = ["dep:fuser"]
+# Read-only localhost NFSv3 server that macOS and Linux mount with their
+# built-in NFS client. Pure Rust, so it builds everywhere.
+nfs = ["dep:nfsserve"]
 # Video proxies and speech audio for footage, written with the linked FFmpeg.
 video-proxies = ["ffmpeg"]
 # The provider registry behind ai.infer and the opt-in cloud caption provider.
@@ -299,6 +302,7 @@ libc = "0.2"
 # system openssl headers.
 openssl-sys = { version = "0.9", features = ["vendored"] }
 fuser = { version = "0.19", default-features = false, optional = true }
+nfsserve = { version = "0.11", optional = true }
 
 [target.'cfg(target_env = "musl")'.dependencies]
 # The daemon's global allocator on static musl builds; see src/bin/daemon.rs.

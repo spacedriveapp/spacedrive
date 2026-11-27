@@ -45,10 +45,6 @@ use tokio::task::JoinHandle;
 use tracing::{info, warn};
 use uuid::Uuid;
 
-/// How often a grant-bound mount checks that its grant is still active.
-#[cfg(all(target_os = "linux", feature = "fuse"))]
-const GRANT_CHECK_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
-
 /// A mount the daemon holds.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct FuseMountInfo {
@@ -79,6 +75,18 @@ pub enum FuseError {
 	NoSource,
 	#[error("mount failed: {0}")]
 	Mount(String),
+}
+
+#[cfg(all(target_os = "linux", feature = "fuse"))]
+impl From<super::mountpoint::Refusal> for FuseError {
+	fn from(refusal: super::mountpoint::Refusal) -> Self {
+		use super::mountpoint::Refusal;
+		match refusal {
+			Refusal::Mountpoint(reason) => Self::Mountpoint(reason),
+			Refusal::Grant(err) => Self::Grant(err),
+			Refusal::NoSource => Self::NoSource,
+		}
+	}
 }
 
 #[cfg(all(target_os = "linux", feature = "fuse"))]
@@ -156,8 +164,7 @@ async fn mount_tree(
 	path: PathBuf,
 	grant_token: Option<String>,
 ) -> Result<FuseMountInfo, FuseError> {
-	use crate::ops::grants::{authorize, GrantCap};
-	use tree::{ArenaFs, BoundGrant, LibraryTree, MountRoot};
+	use tree::{ArenaFs, LibraryTree};
 
 	let path = prepare_mountpoint(path).await?;
 	let mut mounts = MOUNTS.lock().await;
@@ -167,26 +174,8 @@ async fn mount_tree(
 
 	let (grant, scope) = match grant_token {
 		Some(token) => {
-			let scope = authorize(
-				&context,
-				&token,
-				"fuse.mount",
-				Path::new(""),
-				GrantCap::Read,
-			)
-			.await?;
-			let sources = context.volume_index().sources();
-			let source = crate::ops::paths::reach::innermost_source(&sources, &scope.root)
-				.ok_or(FuseError::NoSource)?;
-			let grant = BoundGrant {
-				token,
-				root: MountRoot {
-					name: String::new(),
-					source_id: source.id,
-					path: scope.root.clone(),
-					remote: false,
-				},
-			};
+			let (grant, scope) =
+				super::mountpoint::bind_grant(&context, token, "fuse.mount").await?;
 			(Some(grant), Some(scope))
 		}
 		None => (None, None),
@@ -195,6 +184,7 @@ async fn mount_tree(
 	let tree = Arc::new(ArenaFs::new(Arc::new(LibraryTree::new(
 		context.clone(),
 		grant,
+		"fuse",
 	))));
 	let session = fs::mount(tree, &path)
 		.await
@@ -245,24 +235,7 @@ pub async fn prepare_mountpoint(path: PathBuf) -> Result<PathBuf, FuseError> {
 				lazy_unmount(&path);
 			}
 		}
-		let meta = std::fs::metadata(&path)
-			.map_err(|err| FuseError::Mountpoint(format!("{}: {err}", path.display())))?;
-		if !meta.is_dir() {
-			return Err(FuseError::Mountpoint(format!(
-				"{} is not a directory",
-				path.display()
-			)));
-		}
-		let mut entries = std::fs::read_dir(&path)
-			.map_err(|err| FuseError::Mountpoint(format!("{}: {err}", path.display())))?;
-		if entries.next().is_some() {
-			return Err(FuseError::Mountpoint(format!(
-				"{} is not empty",
-				path.display()
-			)));
-		}
-		std::fs::canonicalize(&path)
-			.map_err(|err| FuseError::Mountpoint(format!("{}: {err}", path.display())))
+		Ok(super::mountpoint::empty_dir(&path)?)
 	})
 	.await
 	.map_err(|err| FuseError::Mount(err.to_string()))?
@@ -285,19 +258,7 @@ fn lazy_unmount(path: &Path) {
 /// Each open already checks the grant; this makes the mount itself go away.
 #[cfg(all(target_os = "linux", feature = "fuse"))]
 async fn watch_grant(context: Arc<CoreContext>, path: PathBuf, library_id: Uuid, grant_id: Uuid) {
-	use crate::ops::grants::{store, GrantStatus};
-
-	loop {
-		tokio::time::sleep(GRANT_CHECK_INTERVAL).await;
-		let Some(library) = context.libraries().await.get_library(library_id).await else {
-			break;
-		};
-		match store::by_id(library.db().conn(), grant_id).await {
-			Ok(Some(row)) if store::status(&row, Utc::now()) == GrantStatus::Active => continue,
-			Ok(_) => break,
-			Err(err) => warn!(grant = %grant_id, error = %err, "could not read a mounted grant"),
-		}
-	}
+	super::mountpoint::grant_ended(context, library_id, grant_id).await;
 	info!(path = %path.display(), grant = %grant_id, "grant ended; unmounting");
 	if let Err(err) = take_down(&path, false).await {
 		warn!(path = %path.display(), error = %err, "could not unmount after the grant ended");

@@ -15,6 +15,7 @@ pub mod mcp;
 pub mod media;
 pub mod mount;
 pub mod network;
+pub mod nfs;
 pub mod redundancy;
 pub mod search;
 pub mod source;

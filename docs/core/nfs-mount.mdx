@@ -1,0 +1,143 @@
+---
+title: NFS Mount (macOS)
+description: Browse and read every source as a plain read-only directory through a localhost NFS server
+sidebarTitle: NFS Mount
+---
+
+On macOS the daemon can mount your sources as an ordinary directory without a
+kernel extension. The daemon runs a small NFSv3 server on the loopback
+interface, and the NFS client built into macOS mounts it. Any program that
+reads files can then use plain filesystem calls on files that live on this
+device or on a paired device. The mount is read-only.
+
+The mount shows the same tree as the [FUSE mount](/core/fuse-mount) on
+Linux, and both are served by the same code. Linux can mount it too, but only
+as root, so on Linux use the FUSE mount.
+
+## Requirements
+
+- macOS, which ships `/sbin/mount_nfs`. On Linux, `mount.nfs` from `nfs-common`
+  and root.
+- A daemon built with the `nfs` cargo feature.
+- `mounts.nfs_enabled` set to `true` in the daemon's config. It is off by default.
+
+For a source build, turn the feature on yourself:
+
+```bash
+cargo run --bin sd-daemon --features sd-core/nfs
+sd-cli config set mounts.nfs_enabled true
+```
+
+## Mount and unmount
+
+The mount point must be an existing, empty directory that you own.
+
+```bash
+mkdir -p ~/sd
+sd-cli nfs mount ~/sd
+ls ~/sd
+sd-cli nfs list
+sd-cli nfs unmount ~/sd
+```
+
+The top of the mount holds one directory per source, named as the WebDAV and
+SMB shares name them, such as `Photos-3f9c21` or `footage@studio-a1b2c3`.
+
+Each mount gets its own server. The daemon unmounts every mount and stops its
+server when it shuts down. If the daemon exits without shutting down, the mount
+stays in the kernel's table and returns errors; remove it with
+`umount -f <path>`.
+
+## Mount one granted folder
+
+To give an agent one folder and nothing else, bind the mount to an agent grant
+(`docs/core/design/agent-grants.md`):
+
+```bash
+sd-cli grant create ~/projects/site --read --ttl 1h --label agent
+sd-cli nfs mount ~/agent-view --grant sdg_...
+```
+
+The mount then shows the granted folder's contents at its root. The daemon
+checks the token on every directory listing and every file open, and records
+each check in the grant's audit log as `nfs.list` or `nfs.open`. NFS has no
+open call, so the server keeps a file it opened for up to 10 seconds of
+sequential reads before it checks again. A revoked or expired grant is refused
+with `EACCES`, and the daemon unmounts the mount and stops its server within
+five seconds.
+
+## What it shows
+
+Listings and attributes come from each source's index, and file bytes are read
+only in the ranges a program asks for, through the same providers and block
+cache as the FUSE mount. Symlinks do not appear.
+
+The mount is attached with `actimeo=1`, so the NFS client keeps attributes
+and names for one second. NFSv3 has no way for a server to tell a client that
+something changed, so a change shows up after that second.
+
+## macOS details
+
+The daemon runs this command as its own user:
+
+```bash
+/sbin/mount_nfs -o vers=3,tcp,port=PORT,mountport=PORT,locallocks,rdonly,soft,rdirplus,actimeo=1 127.0.0.1:/ <path>
+```
+
+- `port` and `mountport` point at the one port the server answers both the NFS
+  and the MOUNT programs on, so no portmapper is needed.
+- `locallocks` keeps file locks on this Mac; the server has no lock manager.
+- `soft` makes calls fail with an error instead of hanging if the server stops.
+- `rdirplus` makes the client fetch attributes with each listing, so Finder
+  and `ls -l` do not ask for every entry separately.
+
+On Linux the daemon runs `mount -t nfs` with
+`vers=3,tcp,port=PORT,mountport=PORT,mountproto=tcp,nolock,ro,soft,timeo=50,retrans=2,actimeo=1`,
+through `sudo -n` when it is not root.
+
+## How the server pages listings
+
+The NFS protocol comes from the `nfsserve` crate. Its plain READDIR handler
+answers from the first entry of a directory on every call, ignoring the
+cookie a client sends for the next page. Linux switches from READDIRPLUS to
+READDIR after the first page of a large directory, so such a directory would
+list forever. The server's public port is a small front that reads each RPC
+call, answers READDIR itself from the same paged listing READDIRPLUS uses,
+and passes every other call to `nfsserve` on an internal loopback port.
+
+## Security
+
+NFSv3 has no real authentication. The server trusts whatever user id a client
+claims, and any program running as any user on this machine that finds the port
+can mount it or talk to it directly and read everything the mount shows. This
+is why NFS mounts are off by default and why the server binds only to
+127.0.0.1, on random ports picked by the OS for each mount: the public port
+and the internal port behind the front. Do not turn
+`mounts.nfs_enabled` on for a machine where you do not trust every local user.
+A grant-bound mount narrows what the server shows, but it does not stop another
+local user from reading what that grant lends while the mount is up.
+
+## Errors
+
+| Errno | When |
+| --- | --- |
+| `ENOENT` | The index has no entry at that path, or the file is gone from disk. |
+| `EACCES` | A grant refused the request, or the file is a cloud placeholder that Spacedrive will not download. |
+| `EIO` | The bytes are unreachable now, or the mount's server has stopped. |
+| `EROFS` or `EACCES` | Any write, create, rename or delete. The NFS client checks the read-only mode bits before the read-only mount, so some calls fail with `EACCES`. The server refuses every write with `NFS3ERR_ROFS`. |
+
+## Ops
+
+| Op | Kind | Purpose |
+| --- | --- | --- |
+| `mounts.nfs_mount` | core action | Mount at `path`, optionally with `grant_token` |
+| `mounts.nfs_unmount` | core action | Unmount at `path` |
+| `mounts.nfs_list` | core query | Whether this daemon supports mounts, whether they are on, and the current mounts with their ports |
+
+The implementation lives in `core/src/service/mounts/nfs/`. `nfs::server`
+serves any `MountFs` and needs no daemon, so a client process can serve a
+remote tree with `server::serve` and attach it with `server::mount`. The
+tests are in `core/tests/nfs_mount_test.rs`: two speak the protocol to the
+server without a kernel mount, and one mounts a running daemon's sources with
+the OS's NFS client, lists, stats, reads, binds a grant and revokes it,
+unmounts, and checks shutdown.

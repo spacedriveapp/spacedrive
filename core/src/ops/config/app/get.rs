@@ -90,6 +90,8 @@ pub struct MountsConfigOutput {
 	pub cache_max_bytes: u64,
 	/// Whether FUSE mounts are allowed on this device.
 	pub fuse_enabled: bool,
+	/// Whether localhost NFS mounts are allowed on this device.
+	pub nfs_enabled: bool,
 }
 
 /// Replication configuration output
@@ -155,6 +157,7 @@ impl From<&AppConfig> for AppConfigOutput {
 			mounts: MountsConfigOutput {
 				cache_max_bytes: config.mounts.cache_max_bytes,
 				fuse_enabled: config.mounts.fuse_enabled,
+				nfs_enabled: config.mounts.nfs_enabled,
 			},
 			replication: ReplicationConfigOutput {
 				max_bytes_per_sec: config.replication.max_bytes_per_sec,

@@ -43,6 +43,11 @@ pub struct UpdateAppConfigInput {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub mounts_fuse_enabled: Option<bool>,
 
+	/// Allow localhost NFS mounts. Mounts already up stay up when this is
+	/// turned off; it only refuses new ones.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub mounts_nfs_enabled: Option<bool>,
+
 	/// Ceiling on replica bytes per second, serving and fetching combined;
 	/// zero lifts it. Applies to transfers already in flight.
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -232,6 +237,13 @@ impl CoreAction for UpdateAppConfigAction {
 			if config.mounts.fuse_enabled != fuse_enabled {
 				config.mounts.fuse_enabled = fuse_enabled;
 				changes.push("mounts_fuse_enabled");
+			}
+		}
+
+		if let Some(nfs_enabled) = self.input.mounts_nfs_enabled {
+			if config.mounts.nfs_enabled != nfs_enabled {
+				config.mounts.nfs_enabled = nfs_enabled;
+				changes.push("mounts_nfs_enabled");
 			}
 		}
 
