@@ -84,7 +84,8 @@ pub struct ContentTextOutput {
 	/// Files read with nothing to index: binary, empty, or unparseable.
 	pub skipped: u64,
 	/// Files that could not be opened, or cloud placeholders left unread.
-	/// Left pending for the next pass.
+	/// Each gets a skipped row with its reason, so it is read again only
+	/// once its size or mtime changes.
 	pub unreadable: u64,
 	/// Rows removed because their file is gone.
 	pub pruned: u64,
@@ -121,6 +122,15 @@ impl crate::infra::job::traits::DynJob for ContentTextJob {
 #[async_trait::async_trait]
 impl JobHandler for ContentTextJob {
 	type Output = ContentTextOutput;
+
+	fn keep_record(&self, output: &Self::Output) -> bool {
+		!self.background || output.indexed + output.skipped + output.unreadable + output.pruned > 0
+	}
+
+	fn finished_rows_kept(&self) -> Option<u64> {
+		self.background
+			.then_some(super::content_identity::BACKGROUND_HISTORY)
+	}
 
 	async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
 		let volume_index = ctx.library().core_context().volume_index();
@@ -219,7 +229,8 @@ impl JobHandler for ContentTextJob {
 
 			let (docs, unreadable) = extract_batch(self.root.clone(), batch).await;
 			output.unreadable += unreadable;
-			output.skipped += docs.iter().filter(|doc| doc.skipped.is_some()).count() as u64;
+			output.skipped +=
+				docs.iter().filter(|doc| doc.skipped.is_some()).count() as u64 - unreadable;
 			output.indexed += docs.iter().filter(|doc| doc.skipped.is_none()).count() as u64;
 			index.write(&docs).await.map_err(|e| e.to_string())?;
 
@@ -246,8 +257,11 @@ impl JobHandler for ContentTextJob {
 /// Extract a batch on the background-priority runtime.
 ///
 /// A cloud placeholder is never opened, because opening it downloads it. It
-/// gets no row and is counted unreadable, so it is claimed again once the
-/// file is on this device. A file that cannot be opened is treated the same.
+/// and a file that cannot be opened are counted unreadable and get a skipped
+/// row with the reason, stamped like any other, so they leave the queue until
+/// their size or mtime changes. Without the row every pass and every pending
+/// count would claim them again. A placeholder that downloads without a new
+/// stamp stays skipped, as content identification does (FAN-11220).
 async fn extract_batch(root: PathBuf, batch: Vec<PendingText>) -> (Vec<TextDoc>, u64) {
 	let task = super::content_identity::hashing_runtime().spawn_blocking(move || {
 		let mut docs = Vec::with_capacity(batch.len());
@@ -271,18 +285,21 @@ async fn extract_batch(root: PathBuf, batch: Vec<PendingText>) -> (Vec<TextDoc>,
 				});
 				continue;
 			}
-			if super::metadata::refuse_dataless_blocking(&path).is_err() {
-				unreadable += 1;
-				continue;
-			}
-			let cap = text_extract::text_cap(kind, &file.extension);
-			let (text, truncated, skipped) = match text_extract::extract(&path, kind, cap) {
+			let read = if super::metadata::refuse_dataless_blocking(&path).is_err() {
+				Err(super::metadata::DATALESS_REASON.to_string())
+			} else {
+				text_extract::extract(&path, kind, text_extract::text_cap(kind, &file.extension))
+					.map_err(|error| {
+						tracing::debug!(path = %path.display(), %error, "could not read for the text index");
+						format!("unreadable: {error}")
+					})
+			};
+			let (text, truncated, skipped) = match read {
 				Ok(Extraction::Text { text, truncated }) => (text, truncated, None),
 				Ok(Extraction::Skipped(reason)) => (String::new(), false, Some(reason)),
-				Err(error) => {
-					tracing::debug!(path = %path.display(), %error, "could not read for the text index");
+				Err(reason) => {
 					unreadable += 1;
-					continue;
+					(String::new(), false, Some(reason))
 				}
 			};
 			docs.push(TextDoc {
@@ -339,12 +356,52 @@ mod tests {
 		.await;
 
 		assert_eq!(unreadable, 2, "the placeholder and the missing file");
-		assert_eq!(docs.len(), 2);
+		assert_eq!(docs.len(), 4);
 		assert_eq!(docs[0].text, "local words");
 		assert_eq!(docs[0].kind, "markdown");
 		assert_eq!(docs[0].size, Some(5));
-		assert_eq!(docs[1].skipped.as_deref(), Some("binary"));
+		assert_eq!(
+			docs[1].skipped.as_deref(),
+			Some(super::super::metadata::DATALESS_REASON)
+		);
 		assert!(docs[1].text.is_empty());
+		assert_eq!(docs[2].skipped.as_deref(), Some("binary"));
+		assert!(docs[2].text.is_empty());
+		assert!(docs[3]
+			.skipped
+			.as_deref()
+			.unwrap()
+			.starts_with("unreadable: "));
+	}
+
+	/// A file the pass cannot open is recorded with the stamp it was claimed
+	/// under, so the index stops handing it back until its bytes change.
+	#[cfg(unix)]
+	#[tokio::test]
+	async fn an_unreadable_file_is_recorded_with_its_stamp() {
+		use std::os::unix::fs::PermissionsExt;
+
+		let dir = tempfile::tempdir().unwrap();
+		let locked = dir.path().join("locked.md");
+		std::fs::write(&locked, "private words").unwrap();
+		std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+		if std::fs::read(&locked).is_ok() {
+			// Root reads through permissions, so there is nothing to refuse.
+			return;
+		}
+
+		let (docs, unreadable) =
+			extract_batch(dir.path().to_path_buf(), vec![pending("locked.md")]).await;
+
+		assert_eq!(unreadable, 1);
+		assert_eq!(docs.len(), 1);
+		assert_eq!((docs[0].size, docs[0].mtime), (Some(5), Some(1)));
+		assert!(docs[0].text.is_empty());
+		assert!(docs[0]
+			.skipped
+			.as_deref()
+			.unwrap()
+			.starts_with("unreadable: "));
 	}
 }
 

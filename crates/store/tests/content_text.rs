@@ -283,6 +283,25 @@ async fn a_changed_file_leaves_results_until_it_is_read_again() {
 }
 
 #[tokio::test]
+async fn an_unreadable_file_waits_for_new_bytes_instead_of_every_pass() {
+	let mut f = Fixture::new().await;
+	f.observe(&[("locked.md", 10)]).await;
+	let index = f.index().await;
+	let pending = index.pending(&everywhere(), 0, 100).await.unwrap();
+	index
+		.write(&[TextDoc {
+			skipped: Some("unreadable: permission denied".into()),
+			..doc(&pending[0], "markdown", "")
+		}])
+		.await
+		.unwrap();
+	assert_eq!(index.pending_count(&everywhere()).await.unwrap(), 0);
+
+	f.observe(&[("locked.md", 20)]).await;
+	assert_eq!(index.pending_count(&everywhere()).await.unwrap(), 1);
+}
+
+#[tokio::test]
 async fn a_deleted_file_is_unreachable_and_pruned() {
 	let mut f = Fixture::new().await;
 	let uuids = f.observe(&[("a.md", 10), ("b.md", 11)]).await;

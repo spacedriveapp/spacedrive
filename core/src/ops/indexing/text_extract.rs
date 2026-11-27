@@ -239,8 +239,9 @@ pub enum Extraction {
 /// Read the text of one file with the extractor for `kind`, keeping at most
 /// `cap` bytes of it.
 ///
-/// An error means the file could not be opened or read, which the caller
-/// retries on a later pass. A file that opened but holds nothing usable is an
+/// An error means the file could not be opened or read. The caller records it
+/// as skipped with the error, so it is tried again once its size or mtime
+/// changes rather than on every pass. A file that opened but holds nothing usable is an
 /// [`Extraction::Skipped`], which is recorded so it is not read again until
 /// it changes.
 pub fn extract(path: &Path, kind: TextKind, cap: usize) -> io::Result<Extraction> {

@@ -554,6 +554,19 @@ impl JobManager {
 		}
 	}
 
+	/// Whether dispatching `job` now would join a live job instead of
+	/// starting one.
+	pub async fn has_live<J: Job + DynJob>(&self, job: &J) -> bool {
+		let Some(key) = job.dedup_key() else {
+			return false;
+		};
+		self.running_jobs.read().await.values().any(|existing| {
+			existing.job_name == J::NAME
+				&& existing.dedup_key.as_deref() == Some(key.as_str())
+				&& !existing.handle.status().is_terminal()
+		})
+	}
+
 	/// Dispatch a job with specific priority and optional action context
 	pub async fn dispatch_with_priority<J>(
 		&self,
@@ -2665,5 +2678,204 @@ mod tests {
 			.await
 			.expect("core shutdown finished")
 			.expect("core shutdown");
+	}
+
+	/// A background pass stand-in: keeps its row only when it did work, and
+	/// keeps three finished rows of its kind.
+	#[derive(Debug, Serialize, Deserialize, Job)]
+	struct Upkeep {
+		did_work: bool,
+	}
+
+	impl Job for Upkeep {
+		const NAME: &'static str = "test_upkeep";
+		const RESUMABLE: bool = false;
+	}
+
+	impl DynJob for Upkeep {
+		fn job_name(&self) -> &'static str {
+			Self::NAME
+		}
+	}
+
+	#[async_trait]
+	impl JobHandler for Upkeep {
+		type Output = JobOutput;
+
+		async fn run(&mut self, _ctx: JobContext<'_>) -> JobResult<Self::Output> {
+			Ok(JobOutput::Success)
+		}
+
+		fn keep_record(&self, _output: &Self::Output) -> bool {
+			self.did_work
+		}
+
+		fn finished_rows_kept(&self) -> Option<u64> {
+			Some(3)
+		}
+	}
+
+	static DRAIN_STARTED: Notify = Notify::const_new();
+	static DRAIN_RELEASE: Notify = Notify::const_new();
+
+	/// A pass over one source that runs until the test releases it.
+	#[derive(Debug, Serialize, Deserialize, Job)]
+	struct Drain {
+		root: String,
+	}
+
+	impl Job for Drain {
+		const NAME: &'static str = "test_drain";
+		const RESUMABLE: bool = false;
+	}
+
+	impl DynJob for Drain {
+		fn job_name(&self) -> &'static str {
+			Self::NAME
+		}
+
+		fn dedup_key(&self) -> Option<String> {
+			Some(self.root.clone())
+		}
+	}
+
+	#[async_trait]
+	impl JobHandler for Drain {
+		type Output = JobOutput;
+
+		async fn run(&mut self, _ctx: JobContext<'_>) -> JobResult<Self::Output> {
+			DRAIN_STARTED.notify_one();
+			DRAIN_RELEASE.notified().await;
+			Ok(JobOutput::Success)
+		}
+	}
+
+	async fn rows_named(manager: &JobManager, name: &str) -> usize {
+		use sea_orm::{ColumnTrait, QueryFilter};
+		database::jobs::Entity::find()
+			.filter(database::jobs::Column::Name.eq(name))
+			.all(manager.db.conn())
+			.await
+			.expect("rows")
+			.len()
+	}
+
+	/// A job announces completion before its row is settled, so the row
+	/// count is read until it reaches `expected` or a deadline passes.
+	async fn settled_rows_named(manager: &JobManager, name: &str, expected: usize) -> usize {
+		let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+		loop {
+			let rows = rows_named(manager, name).await;
+			if rows == expected || tokio::time::Instant::now() > deadline {
+				return rows;
+			}
+			tokio::time::sleep(Duration::from_millis(20)).await;
+		}
+	}
+
+	#[tokio::test(flavor = "multi_thread")]
+	async fn a_background_pass_that_did_nothing_leaves_no_row() {
+		let data = tempfile::tempdir().expect("data dir");
+		let core = crate::Core::new(data.path().to_path_buf())
+			.await
+			.expect("core");
+		let library = core
+			.libraries
+			.create_library("Upkeep", None, core.context.clone())
+			.await
+			.expect("library");
+
+		let idle = library
+			.jobs()
+			.dispatch(Upkeep { did_work: false })
+			.await
+			.expect("dispatch");
+		idle.wait().await.expect("idle pass");
+		assert_eq!(settled_rows_named(library.jobs(), Upkeep::NAME, 0).await, 0);
+
+		for _ in 0..5 {
+			library
+				.jobs()
+				.dispatch(Upkeep { did_work: true })
+				.await
+				.expect("dispatch")
+				.wait()
+				.await
+				.expect("pass");
+		}
+		assert_eq!(settled_rows_named(library.jobs(), Upkeep::NAME, 3).await, 3);
+
+		// A backlog left by an older build is trimmed by the next pass, even
+		// one that found nothing to do.
+		for _ in 0..4 {
+			database::jobs::ActiveModel {
+				id: Set(JobId::new().to_string()),
+				name: Set(Upkeep::NAME.to_string()),
+				state: Set(Vec::new()),
+				status: Set(JobStatus::Completed.to_string()),
+				priority: Set(0),
+				progress_type: Set(None),
+				progress_data: Set(None),
+				parent_job_id: Set(None),
+				created_at: Set(Utc::now()),
+				started_at: Set(None),
+				completed_at: Set(Some(Utc::now() - chrono::Duration::days(1))),
+				paused_at: Set(None),
+				error_message: Set(None),
+				warnings: Set(None),
+				non_critical_errors: Set(None),
+				metrics: Set(None),
+				action_context: Set(None),
+				action_type: Set(None),
+			}
+			.insert(library.jobs().db.conn())
+			.await
+			.expect("backlog row");
+		}
+		library
+			.jobs()
+			.dispatch(Upkeep { did_work: false })
+			.await
+			.expect("dispatch")
+			.wait()
+			.await
+			.expect("idle pass");
+		assert_eq!(settled_rows_named(library.jobs(), Upkeep::NAME, 3).await, 3);
+
+		drop(library);
+		core.shutdown().await.expect("core shutdown");
+	}
+
+	#[tokio::test(flavor = "multi_thread")]
+	async fn a_dispatch_while_a_pass_runs_joins_it() {
+		let data = tempfile::tempdir().expect("data dir");
+		let core = crate::Core::new(data.path().to_path_buf())
+			.await
+			.expect("core");
+		let library = core
+			.libraries
+			.create_library("Drain", None, core.context.clone())
+			.await
+			.expect("library");
+		let pass = || Drain {
+			root: "/home/someone".into(),
+		};
+
+		assert!(!library.jobs().has_live(&pass()).await);
+		let first = library.jobs().dispatch(pass()).await.expect("dispatch");
+		DRAIN_STARTED.notified().await;
+		assert!(library.jobs().has_live(&pass()).await);
+		for _ in 0..3 {
+			let joined = library.jobs().dispatch(pass()).await.expect("dispatch");
+			assert_eq!(joined.id, first.id);
+		}
+		assert_eq!(rows_named(library.jobs(), Drain::NAME).await, 1);
+
+		DRAIN_RELEASE.notify_one();
+		first.wait().await.expect("pass");
+		assert!(!library.jobs().has_live(&pass()).await);
+
+		drop(library);
+		core.shutdown().await.expect("core shutdown");
 	}
 }

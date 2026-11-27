@@ -53,6 +53,21 @@ descriptions. A 4.1 GB index upgraded in 26 s on a cold cloud disk using 8 MB
 of extra space. A pass gives freed pages back once they are a quarter of the
 file. Next: merge, then the Settings and "Keep indexed" UI.
 
+Watcher job flood (Capy FAN-12353, November 27, in PR). With the home folder
+watched, a Mac made 1,556 job rows in 26 hours (831 `content_identity`, 676
+`content_text`). Live dispatches were already deduplicated, so every row was a
+new pass that the 30 s hashing nudge started after the last one had finished.
+Each hashing pass then queued a text pass, and the text pass counted files it
+cannot read, such as cloud placeholders, as pending every time. Now each
+source is nudged at most once per 5 minutes while changes keep arriving. A
+change after a quiet spell is still nudged within 30 s, and a source whose pass
+is still live stays dirty instead of getting a second row. A file the text pass
+cannot read gets a skipped row stamped with its size and mtime, so it is read
+again only when it changes. A background pass that did nothing deletes its row
+and log. Each background kind keeps its 20
+newest finished rows. On a 210k-file tree with 5 to 35 edits every 10 s, rows
+went from 360 to 36 an hour and daemon CPU from 13.4% to 4.9%. Next: green CI.
+
 Videos in the explorer (Capy FAN-14815, November 27, beta.1, in PR). Jamie
 decided footage belongs in the explorer, not a page of its own. The Videos
 extension's library view (`ui_manifest.json` and `ui/videos.js`) is gone, so
