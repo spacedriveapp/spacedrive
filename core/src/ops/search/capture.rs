@@ -20,7 +20,7 @@ use uuid::Uuid;
 
 use super::input::{DateField, SearchFilters, SortField, SortOptions};
 use super::output::FileSearchResult;
-use crate::domain::{EntryKind, File, ImageMediaData};
+use crate::domain::{EntryKind, File, ImageMediaData, VideoMediaData};
 use crate::ops::indexing::{SourceStore, VolumeIndex};
 
 /// Whether the request sorts or filters by something only the facet holds,
@@ -91,15 +91,20 @@ pub async fn decorate_results(cache: &VolumeIndex, results: &mut [FileSearchResu
 	decorate_files(cache, &mut files).await;
 	for (result, file) in results.iter_mut().zip(files) {
 		result.file.image_media_data = file.image_media_data;
+		result.file.video_media_data = file.video_media_data;
 	}
 }
 
-/// Give files listed from an arena the image facet their store rows carry.
-/// A file that already has one, because its store built it, is left alone.
+/// Give files listed from an arena the image or video facet their store rows
+/// carry. A file that already has one, because its store built it, is left
+/// alone.
 pub async fn decorate_files(cache: &VolumeIndex, files: &mut [File]) {
 	let mut by_store: HashMap<Uuid, (Arc<SourceStore>, Vec<usize>)> = HashMap::new();
 	for (position, file) in files.iter().enumerate() {
-		if file.kind != EntryKind::File || file.image_media_data.is_some() {
+		if file.kind != EntryKind::File
+			|| file.image_media_data.is_some()
+			|| file.video_media_data.is_some()
+		{
 			continue;
 		}
 		let Some(path) = file.sd_path.as_local_path() else {
@@ -117,7 +122,7 @@ pub async fn decorate_files(cache: &VolumeIndex, files: &mut [File]) {
 
 	for (_, (store, positions)) in by_store {
 		if let Err(error) = decorate_from_db(store.db(), files, &positions).await {
-			tracing::warn!(source = %store.id(), %error, "image facets unavailable for listing");
+			tracing::warn!(source = %store.id(), %error, "media facets unavailable for listing");
 		}
 	}
 }
@@ -134,10 +139,18 @@ pub async fn decorate_from_db(
 			.await?
 			.into_iter()
 			.collect();
+	let videos: HashMap<Uuid, sd_store::VideoFacet> =
+		sd_store::video_facets_for_records(db.pool(), &ids)
+			.await?
+			.into_iter()
+			.collect();
 	for &position in positions {
 		let file = &mut files[position];
 		if let Some(facet) = by_record.get(&file.id) {
 			file.image_media_data = ImageMediaData::from_facet(file.id, facet);
+		}
+		if let Some(facet) = videos.get(&file.id) {
+			file.video_media_data = VideoMediaData::from_facet(file.id, facet);
 		}
 	}
 	Ok(())

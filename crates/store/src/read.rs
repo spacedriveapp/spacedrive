@@ -17,6 +17,7 @@ use std::collections::HashMap;
 use crate::error::Result;
 use crate::file::FileKind;
 use crate::image::ImageFacet;
+use crate::video::VideoFacet;
 use sqlx::{FromRow, SqlitePool};
 use uuid::Uuid;
 
@@ -62,6 +63,9 @@ pub struct FsEntry {
 	/// keyed by other bytes than the record's current content is not
 	/// here: it describes an image the file no longer is.
 	pub image: Option<ImageFacet>,
+	/// The video facet, when the header pass has read these bytes, under
+	/// the same rule as the image facet.
+	pub video: Option<VideoFacet>,
 }
 
 impl FsEntry {
@@ -90,6 +94,14 @@ macro_rules! image_columns {
 	};
 }
 
+/// The video facet's columns, over the alias `v`.
+macro_rules! video_columns {
+	() => {
+		"v.record_uuid IS NOT NULL AS has_video, v.duration_seconds AS video_duration, \
+		 v.width AS video_width, v.height AS video_height, v.codec AS video_codec"
+	};
+}
+
 /// Every column [`FsEntry`] is built from, over the aliases `r` (the record),
 /// `own` and `parent` (its own and its parent's `directory_path` rows), `f`,
 /// `c` and `i`. A directory's path comes from its own row; a file's from its
@@ -106,7 +118,9 @@ macro_rules! entry_columns {
 			 f.content_error AS content_error, c.uuid AS content_uuid, \
 			 c.sampled_hash AS sampled_hash, c.integrity_hash AS integrity_hash, c.kind AS content_kind, \
 			 c.kind_name AS content_kind_name, ",
-			image_columns!()
+			image_columns!(),
+			", ",
+			video_columns!()
 		)
 	};
 }
@@ -123,6 +137,15 @@ macro_rules! image_join {
 	};
 }
 
+/// The video facet joined the same way as [`image_join!`].
+macro_rules! video_join {
+	() => {
+		" LEFT JOIN facet_video v ON v.record_uuid = r.uuid \
+		 AND v.content_hash IS NOT NULL \
+		 AND v.content_hash = COALESCE(c.sampled_hash, c.integrity_hash)"
+	};
+}
+
 const ENTRY_SELECT: &str = concat!(
 	"SELECT ",
 	entry_columns!(),
@@ -131,7 +154,8 @@ const ENTRY_SELECT: &str = concat!(
 	 LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid \
 	 LEFT JOIN facet_file f ON f.record_uuid = r.uuid \
 	 LEFT JOIN content c ON c.id = r.content_id ",
-	image_join!()
+	image_join!(),
+	video_join!()
 );
 
 /// The same columns, driven from the directories: `CROSS JOIN` holds
@@ -145,7 +169,8 @@ const BENEATH_SELECT: &str = concat!(
 	 LEFT JOIN directory_path own ON own.record_uuid = r.uuid \
 	 LEFT JOIN facet_file f ON f.record_uuid = r.uuid \
 	 LEFT JOIN content c ON c.id = r.content_id ",
-	image_join!()
+	image_join!(),
+	video_join!()
 );
 
 #[derive(FromRow)]
@@ -174,6 +199,29 @@ struct EntryRow {
 	content_kind_name: Option<String>,
 	#[sqlx(flatten)]
 	image: ImageRow,
+	#[sqlx(flatten)]
+	video: VideoRow,
+}
+
+/// [`video_columns!`] as sqlx reads them.
+#[derive(FromRow)]
+struct VideoRow {
+	has_video: bool,
+	video_duration: Option<f64>,
+	video_width: Option<i64>,
+	video_height: Option<i64>,
+	video_codec: Option<String>,
+}
+
+impl VideoRow {
+	fn into_facet(self) -> Option<VideoFacet> {
+		self.has_video.then_some(VideoFacet {
+			duration_seconds: self.video_duration,
+			width: self.video_width,
+			height: self.video_height,
+			codec: self.video_codec,
+		})
+	}
 }
 
 /// [`image_columns!`] as sqlx reads them; `has_image` tells a row with no
@@ -258,6 +306,7 @@ fn entry_from_row(row: EntryRow) -> Option<FsEntry> {
 		content_kind_name: row.content_kind_name,
 		content_error: row.content_error,
 		image: row.image.into_facet(),
+		video: row.video.into_facet(),
 	})
 }
 
@@ -293,6 +342,44 @@ pub async fn image_facets_for_records(
 		);
 	}
 	Ok(facets)
+}
+
+/// The video facet of each of `record_uuids` whose row describes its
+/// current bytes, the counterpart of [`image_facets_for_records`].
+pub async fn video_facets_for_records(
+	pool: &SqlitePool,
+	record_uuids: &[Uuid],
+) -> Result<Vec<(Uuid, VideoFacet)>> {
+	let mut facets = Vec::new();
+	for chunk in record_uuids.chunks(2_000) {
+		let sql = format!(
+			"SELECT r.uuid AS uuid, {} FROM record r \
+			 LEFT JOIN content c ON c.id = r.content_id {} \
+			 WHERE v.record_uuid IS NOT NULL AND r.uuid IN ({})",
+			video_columns!(),
+			video_join!(),
+			vec!["?"; chunk.len()].join(", ")
+		);
+		let mut query = sqlx::query_as::<_, VideoFacetRow>(&sql);
+		for id in chunk {
+			query = query.bind(*id);
+		}
+		facets.extend(
+			query
+				.fetch_all(pool)
+				.await?
+				.into_iter()
+				.filter_map(|row| Some((row.uuid, row.video.into_facet()?))),
+		);
+	}
+	Ok(facets)
+}
+
+#[derive(FromRow)]
+struct VideoFacetRow {
+	uuid: Uuid,
+	#[sqlx(flatten)]
+	video: VideoRow,
 }
 
 #[derive(FromRow)]

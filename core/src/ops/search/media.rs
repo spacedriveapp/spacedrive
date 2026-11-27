@@ -548,6 +548,7 @@ mod tests {
 			content_kind_name: None,
 			content_error: None,
 			image: None,
+			video: None,
 		}
 	}
 

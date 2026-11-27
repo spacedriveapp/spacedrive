@@ -61,6 +61,7 @@ pub mod revision;
 pub mod schema;
 pub mod source;
 pub mod tags;
+pub mod video;
 
 use serde::{Deserialize, Serialize};
 
@@ -81,16 +82,19 @@ pub use file::{
 };
 pub use image::{
 	count_files_needing_image_facets, files_needing_image_facets, set_image_facets, ImageFacet,
-	PendingImage,
+	PendingFacet,
 };
 pub use migrate::SCHEMA_VERSION;
-pub use read::{image_facets_for_records, FsEntry, TitleMatches};
+pub use read::{image_facets_for_records, video_facets_for_records, FsEntry, TitleMatches};
 pub use record::{ContentIdentity, Record, RECORD_SCHEMA};
 pub use revision::Revision;
 pub use schema::{DataTypeSchema, FieldType, ModelDef};
 pub use source::SourceManager;
 pub use tags::{
 	normalize_tag_path, slug_for_path, AppliedTag, TagAssertion, TagDefinition, TAG_NAMESPACE,
+};
+pub use video::{
+	count_files_needing_video_facets, files_needing_video_facets, set_video_facets, VideoFacet,
 };
 
 /// How much a source's content is trusted. Adapter manifests declare it and it

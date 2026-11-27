@@ -706,10 +706,12 @@ function OverviewTab({file}: {file: File}) {
 			{/* Video Metadata */}
 			{file.video_media_data && (
 				<Section title="Video Info" icon={Image}>
-					<InfoRow
-						label="Resolution"
-						value={`${file.video_media_data.width} × ${file.video_media_data.height}`}
-					/>
+					{file.video_media_data.width != null && file.video_media_data.height != null && (
+						<InfoRow
+							label="Resolution"
+							value={`${file.video_media_data.width} × ${file.video_media_data.height}`}
+						/>
+					)}
 					{file.video_media_data.duration_seconds && (
 						<InfoRow
 							label="Duration"

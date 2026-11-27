@@ -32,6 +32,7 @@
 mod error;
 pub mod exif;
 pub mod ffmpeg;
+pub mod video;
 
 pub use error::{Error, Result};
 pub use exif::ExifMetadata;

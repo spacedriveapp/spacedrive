@@ -1,23 +1,27 @@
-//! Reading EXIF into the image facet.
+//! Reading EXIF into the image facet and container headers into the video
+//! facet.
 //!
 //! Identification opens every file once and says what kind of bytes it
-//! found. For an image that is enough to know a header read is worth it:
-//! capture time, place, camera and geometry, which `records.exif`, the
+//! found. For an image or a video that is enough to know a header read is
+//! worth it: capture time, place, camera and geometry for a photo, and
+//! duration, frame size and codec for a video, which listings, columns, the
 //! rename resolver and the inspector all want answered from the store rather
-//! than from the file. This pass runs behind identification, claims image
-//! records whose facet row is missing or names other bytes, parses each on
-//! the blocking pool, and writes one row per content hash.
+//! than from the file. This pass runs behind identification, claims records
+//! whose facet row is missing or names other bytes, parses each on the
+//! blocking pool, and writes one row per content hash. A video's header is
+//! read without decoding a frame, so a long recording costs a few seeks.
 //!
-//! The work queue is the store (`sd_store::image`), so the pass resumes for
-//! free, never reads a file twice for the same bytes, and picks up a changed
-//! file as soon as identification has given it a new hash. A source added
-//! without content identification never reaches this pass, since nothing
-//! names its images.
+//! The work queue is the store (`sd_store::image`, `sd_store::video`), so the
+//! pass resumes for free, never reads a file twice for the same bytes, and
+//! picks up a changed file as soon as identification has given it a new
+//! hash. Identification runs only inside a source's deep scope, so this pass
+//! does too: a record outside it has no content hash to be claimed by.
 
 use crate::infra::job::{generic_progress::GenericProgress, prelude::*, types::JobPriority};
 use futures::StreamExt;
 use sd_media_metadata::exif::{ExifMetadata, MediaDate, Orientation};
-use sd_store::{ImageFacet, PendingImage};
+use sd_media_metadata::video::read_header;
+use sd_store::{ImageFacet, PendingFacet, VideoFacet};
 use serde::{Deserialize, Serialize};
 use std::{
 	collections::{HashMap, HashSet},
@@ -36,8 +40,8 @@ const BATCH_SIZE: usize = 256;
 /// few hundred megabytes in flight.
 const CONCURRENCY: usize = 4;
 
-/// Reads EXIF for the image records of a source that have no current
-/// facet row.
+/// Reads EXIF for the image records and container headers for the video
+/// records of a source that have no current facet row.
 #[derive(Debug, Serialize, Deserialize, Job)]
 pub struct ExifEnrichJob {
 	/// The source's root, which is how its store is found.
@@ -60,6 +64,9 @@ pub struct ExifEnrichOutput {
 	pub enriched: u64,
 	/// Of those, how many carried EXIF.
 	pub with_exif: u64,
+	/// Content hashes a video facet row was written for.
+	#[serde(default)]
+	pub videos: u64,
 	/// Files that could not be opened. Left pending for the next pass.
 	pub unreadable: u64,
 }
@@ -73,7 +80,7 @@ impl From<ExifEnrichOutput> for JobOutput {
 impl Job for ExifEnrichJob {
 	const NAME: &'static str = "exif_enrich";
 	const RESUMABLE: bool = true;
-	const DESCRIPTION: Option<&'static str> = Some("Read photo metadata");
+	const DESCRIPTION: Option<&'static str> = Some("Read photo and video metadata");
 }
 
 impl crate::infra::job::traits::DynJob for ExifEnrichJob {
@@ -108,6 +115,7 @@ impl JobHandler for ExifEnrichJob {
 			return Ok(ExifEnrichOutput {
 				enriched: 0,
 				with_exif: 0,
+				videos: 0,
 				unreadable: 0,
 			});
 		};
@@ -115,95 +123,135 @@ impl JobHandler for ExifEnrichJob {
 		// Identities are queued behind the same writer; claim what landed.
 		store.flush().await.map_err(|e| e.to_string())?;
 
-		let outstanding = store
-			.files_needing_image_facets_count()
-			.await
-			.map_err(|e| e.to_string())?;
-		ctx.log(format!("{outstanding} images to read metadata for"));
-
 		let label = super::content_identity::source_label(&self.root);
-		if outstanding > 0 {
-			ctx.progress(Progress::generic(GenericProgress::new(
-				0.0,
-				"Reading photo metadata",
-				format!("{label} — 0 of {outstanding} images"),
-			)));
-		}
-
-		let mut enriched = 0u64;
-		let mut with_exif = 0u64;
-		let mut unreadable = 0u64;
-		let mut done = 0u64;
-		let mut cursor = 0i64;
-		// A record re-identified behind the cursor while this pass runs is
-		// pending again at a row id already passed. One more sweep from the
-		// start picks it up, since a second dispatch deduplicates onto this
-		// job rather than queueing behind it. Rows the first sweep already
-		// attempted under the same hash are skipped, so a file that could
-		// not be opened is neither opened nor counted twice, while one whose
-		// bytes changed presents a new hash and is read again.
-		let mut swept_again = false;
-		let mut attempted: HashSet<(i64, String)> = HashSet::new();
-
-		loop {
-			ctx.check_interrupt().await?;
-
-			let claimed = store
-				.files_needing_image_facets(cursor, BATCH_SIZE)
+		let mut output = ExifEnrichOutput {
+			enriched: 0,
+			with_exif: 0,
+			videos: 0,
+			unreadable: 0,
+		};
+		for media in [Media::Image, Media::Video] {
+			let outstanding = store
+				.files_needing_facets_count(media.kind())
 				.await
 				.map_err(|e| e.to_string())?;
-			let Some(last) = claimed.last() else {
-				if swept_again || cursor == 0 {
-					break;
-				}
-				swept_again = true;
-				cursor = 0;
-				continue;
-			};
-			cursor = last.0.rowid;
-			let batch: Vec<_> = claimed
-				.into_iter()
-				.filter(|(image, _)| attempted.insert((image.rowid, image.content_hash.clone())))
-				.collect();
-			if batch.is_empty() {
+			ctx.log(format!(
+				"{outstanding} {} to read metadata for",
+				media.noun()
+			));
+			if outstanding == 0 {
 				continue;
 			}
-			done += batch.len() as u64;
+			let progress = |done: u64| {
+				Progress::generic(GenericProgress::new(
+					(done as f32 / outstanding as f32).min(1.0),
+					media.title(),
+					format!("{label} — {done} of {outstanding} {}", media.noun()),
+				))
+			};
+			ctx.progress(progress(0));
 
-			let (facets, failed) = read_batch(batch).await;
-			unreadable += failed;
-			enriched += facets.len() as u64;
-			with_exif += facets
-				.iter()
-				.filter(|(_, facet)| *facet != ImageFacet::default())
-				.count() as u64;
-			store.image_facets(facets).await;
+			let mut done = 0u64;
+			let mut cursor = 0i64;
+			// A record re-identified behind the cursor while this pass runs is
+			// pending again at a row id already passed. One more sweep from the
+			// start picks it up, since a second dispatch deduplicates onto this
+			// job rather than queueing behind it. Rows the first sweep already
+			// attempted under the same hash are skipped, so a file that could
+			// not be opened is neither opened nor counted twice, while one whose
+			// bytes changed presents a new hash and is read again.
+			let mut swept_again = false;
+			let mut attempted: HashSet<(i64, String)> = HashSet::new();
 
-			ctx.progress(Progress::generic(GenericProgress::new(
-				if outstanding > 0 {
-					(done as f32 / outstanding as f32).min(1.0)
-				} else {
-					1.0
-				},
-				"Reading photo metadata",
-				format!("{label} — {done} of {outstanding} images"),
-			)));
+			loop {
+				ctx.check_interrupt().await?;
 
-			// The next claim reads the database; a claim that outraces the
-			// writer would hand back rows this pass already wrote.
-			store.flush().await.map_err(|e| e.to_string())?;
+				let claimed = store
+					.files_needing_facets(media.kind(), cursor, BATCH_SIZE)
+					.await
+					.map_err(|e| e.to_string())?;
+				let Some(last) = claimed.last() else {
+					if swept_again || cursor == 0 {
+						break;
+					}
+					swept_again = true;
+					cursor = 0;
+					continue;
+				};
+				cursor = last.0.rowid;
+				let batch: Vec<_> = claimed
+					.into_iter()
+					.filter(|(pending, _)| {
+						attempted.insert((pending.rowid, pending.content_hash.clone()))
+					})
+					.collect();
+				if batch.is_empty() {
+					continue;
+				}
+				done += batch.len() as u64;
+
+				match media {
+					Media::Image => {
+						let (facets, failed) = read_batch(batch, read_image).await;
+						output.unreadable += failed;
+						output.enriched += facets.len() as u64;
+						output.with_exif += facets
+							.iter()
+							.filter(|(_, facet)| *facet != ImageFacet::default())
+							.count() as u64;
+						store.image_facets(facets).await;
+					}
+					Media::Video => {
+						let (facets, failed) = read_batch(batch, read_video).await;
+						output.unreadable += failed;
+						output.videos += facets.len() as u64;
+						store.video_facets(facets).await;
+					}
+				}
+				ctx.progress(progress(done));
+
+				// The next claim reads the database; a claim that outraces the
+				// writer would hand back rows this pass already wrote.
+				store.flush().await.map_err(|e| e.to_string())?;
+			}
 		}
 
 		store.flush().await.map_err(|e| e.to_string())?;
 		ctx.log(format!(
-			"Read metadata for {enriched} distinct images, {with_exif} with EXIF, {unreadable} unreadable"
+			"Read metadata for {} distinct images, {} with EXIF, {} distinct videos, {} unreadable",
+			output.enriched, output.with_exif, output.videos, output.unreadable
 		));
+		Ok(output)
+	}
+}
 
-		Ok(ExifEnrichOutput {
-			enriched,
-			with_exif,
-			unreadable,
-		})
+/// The two kinds of bytes this pass reads a header from.
+#[derive(Clone, Copy)]
+enum Media {
+	Image,
+	Video,
+}
+
+impl Media {
+	fn kind(self) -> crate::domain::ContentKind {
+		match self {
+			Self::Image => crate::domain::ContentKind::Image,
+			Self::Video => crate::domain::ContentKind::Video,
+		}
+	}
+
+	fn noun(self) -> &'static str {
+		match self {
+			Self::Image => "images",
+			Self::Video => "videos",
+		}
+	}
+
+	fn title(self) -> &'static str {
+		match self {
+			Self::Image => "Reading photo metadata",
+			Self::Video => "Reading video metadata",
+		}
 	}
 }
 
@@ -214,12 +262,20 @@ impl JobHandler for ExifEnrichJob {
 /// that hiccuped and harmless for a file the next walk removes. A file with
 /// no EXIF, or EXIF the reader cannot make sense of, gets an empty row so
 /// the bytes are never read again.
-async fn read_batch(batch: Vec<(PendingImage, PathBuf)>) -> (Vec<(String, ImageFacet)>, u64) {
+async fn read_batch<T, F, Fut>(
+	batch: Vec<(PendingFacet, PathBuf)>,
+	read: F,
+) -> (Vec<(String, T)>, u64)
+where
+	F: Fn(PathBuf) -> Fut,
+	Fut: std::future::Future<Output = Option<T>>,
+{
 	let mut by_hash: HashMap<String, PathBuf> = HashMap::new();
-	for (image, path) in batch {
-		by_hash.entry(image.content_hash).or_insert(path);
+	for (pending, path) in batch {
+		by_hash.entry(pending.content_hash).or_insert(path);
 	}
 
+	let read = &read;
 	let results: Vec<_> = futures::stream::iter(by_hash)
 		.map(|(hash, path)| async move {
 			// Unread and unrecorded, so the pass claims it again once the
@@ -230,18 +286,7 @@ async fn read_batch(batch: Vec<(PendingImage, PathBuf)>) -> (Vec<(String, ImageF
 			{
 				return None;
 			}
-			match ExifMetadata::from_path(&path).await {
-				Ok(Some(exif)) => Some((hash, facet_from_exif(&exif))),
-				Ok(None) => Some((hash, ImageFacet::default())),
-				Err(sd_media_metadata::Error::FileIO(error)) => {
-					tracing::debug!(path = %path.display(), %error, "could not open for EXIF");
-					None
-				}
-				Err(error) => {
-					tracing::debug!(path = %path.display(), %error, "EXIF unreadable");
-					Some((hash, ImageFacet::default()))
-				}
-			}
+			Some((hash, read(path).await?))
 		})
 		.buffer_unordered(CONCURRENCY)
 		.collect()
@@ -256,6 +301,57 @@ async fn read_batch(batch: Vec<(PendingImage, PathBuf)>) -> (Vec<(String, ImageF
 		}
 	}
 	(facets, unreadable)
+}
+
+/// An image's facet, or `None` when the file could not be opened.
+async fn read_image(path: PathBuf) -> Option<ImageFacet> {
+	match ExifMetadata::from_path(&path).await {
+		Ok(Some(exif)) => Some(facet_from_exif(&exif)),
+		Ok(None) => Some(ImageFacet::default()),
+		Err(sd_media_metadata::Error::FileIO(error)) => {
+			tracing::debug!(path = %path.display(), %error, "could not open for EXIF");
+			None
+		}
+		Err(error) => {
+			tracing::debug!(path = %path.display(), %error, "EXIF unreadable");
+			Some(ImageFacet::default())
+		}
+	}
+}
+
+/// A video's facet from its container header, or `None` when the file
+/// could not be opened. A header this reader does not know, or one cut
+/// short, records an empty row so the bytes are not read again.
+async fn read_video(path: PathBuf) -> Option<VideoFacet> {
+	let read = tokio::task::spawn_blocking({
+		let path = path.clone();
+		move || read_header(&path)
+	})
+	.await
+	.ok()?;
+	match read {
+		Ok(header) => Some(
+			header.map_or_else(VideoFacet::default, |header| VideoFacet {
+				duration_seconds: header.duration_seconds,
+				width: header.width.map(i64::from),
+				height: header.height.map(i64::from),
+				codec: header.codec,
+			}),
+		),
+		Err(error)
+			if matches!(
+				error.kind(),
+				std::io::ErrorKind::UnexpectedEof | std::io::ErrorKind::InvalidData
+			) =>
+		{
+			tracing::debug!(path = %path.display(), %error, "video header unreadable");
+			Some(VideoFacet::default())
+		}
+		Err(error) => {
+			tracing::debug!(path = %path.display(), %error, "could not open for a video header");
+			None
+		}
+	}
 }
 
 /// The facet columns an EXIF read fills.
@@ -335,13 +431,21 @@ pub async fn enrich_after_identification(
 	let Some(store) = volume_index.store_for(root).await else {
 		return;
 	};
-	match store.files_needing_image_facets_count().await {
-		Ok(0) => return,
-		Ok(_) => {}
-		Err(error) => {
-			tracing::warn!(root = %root.display(), %error, "could not count images needing metadata");
-			return;
+	let mut outstanding = 0;
+	for kind in [
+		crate::domain::ContentKind::Image,
+		crate::domain::ContentKind::Video,
+	] {
+		match store.files_needing_facets_count(kind).await {
+			Ok(count) => outstanding += count,
+			Err(error) => {
+				tracing::warn!(root = %root.display(), %error, "could not count media needing metadata");
+				return;
+			}
 		}
+	}
+	if outstanding == 0 {
+		return;
 	}
 	if let Err(error) = library
 		.jobs()
@@ -352,7 +456,7 @@ pub async fn enrich_after_identification(
 		)
 		.await
 	{
-		tracing::warn!(root = %root.display(), %error, "could not start photo metadata pass");
+		tracing::warn!(root = %root.display(), %error, "could not start the media metadata pass");
 	}
 }
 
@@ -438,7 +542,7 @@ mod tests {
 		std::fs::write(&plain, vec![0xFFu8; 2048]).unwrap();
 		let pending = |name: &str, hash: &str| {
 			(
-				PendingImage {
+				PendingFacet {
 					uuid: uuid::Uuid::now_v7(),
 					rowid: 1,
 					external_id: name.to_string(),
@@ -448,11 +552,14 @@ mod tests {
 			)
 		};
 
-		let (facets, unreadable) = read_batch(vec![
-			pending("plain.jpg", "a"),
-			pending("plain.jpg", "a"),
-			pending("gone.jpg", "b"),
-		])
+		let (facets, unreadable) = read_batch(
+			vec![
+				pending("plain.jpg", "a"),
+				pending("plain.jpg", "a"),
+				pending("gone.jpg", "b"),
+			],
+			read_image,
+		)
 		.await;
 
 		assert_eq!(unreadable, 1);

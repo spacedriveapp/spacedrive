@@ -145,8 +145,29 @@ bound is memory rather than seeks), sweeps once more from the start before
 it exits so a photo re-identified behind its cursor is not left for the next
 pass, and is silent on the event bus when the
 identification it follows was a background one. A source added with content
-identification off is never enriched, since nothing names its images. The
+identification off is never enriched, since nothing names its images or videos. The
 launch sweep backfills stores indexed before the pass existed.
+
+## Video metadata
+
+The same pass reads a video record's container header into the store's
+`facet_video` row: duration, frame size and codec. It reads the header and
+nothing else, so a long recording costs a few seeks and no frame is decoded.
+The reader is pure Rust (`sd_media_metadata::video`) and needs no FFmpeg, so
+every build records it. It knows ISO base media (MP4, MOV, M4V, 3GP), wherever
+the file puts its `moov` box, and Matroska (MKV, WebM), read ahead of the
+first cluster. Any other container, or a header that names nothing, gets an
+empty row and is not read again.
+
+The row follows the image facet's rules. It is keyed by content hash, written
+to every copy of the bytes, re-queued when they change, and joined only while
+its hash is the record's current one. A listing or search hit carries it as
+`video_media_data`, which the inspector's Video Info section and the
+explorer's Duration column read. Footage work (shot detection) still measures a
+duration of its own, and the column falls back to it for a container this
+reader does not know. Identification runs only inside a source's deep scope,
+so this pass does too: a record outside it has no content hash to be claimed
+by.
 
 ## Watchers
 
