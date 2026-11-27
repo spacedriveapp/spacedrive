@@ -1,7 +1,8 @@
 import {ArrowCounterClockwise, Desktop, Robot, User} from '@phosphor-icons/react';
-import type {Actor, Space, SpaceChange} from '@sd/ts-client';
+import type {Actor, Device, ListLibraryDevicesInput, Space, SpaceChange} from '@sd/ts-client';
 import {Button} from '@spacedrive/primitives';
-import {useLibraryQuery} from '../../contexts/SpacedriveContext';
+import {useQuery} from '@tanstack/react-query';
+import {useLibraryQuery, useNormalizedQuery} from '../../contexts/SpacedriveContext';
 import {useUndoDialog} from '../modals/UndoModal';
 
 const REFRESH_MS = 10_000;
@@ -14,15 +15,57 @@ const VERBS: Record<string, string> = {
 	delete: 'deleted'
 };
 
+/** The namespace `actors::this_person` derives the person on a device from. */
+const PERSON_NAMESPACE = '2b8e510c-9347-4d1a-a66f-0e953c71d248';
+
+function uuidBytes(uuid: string): Uint8Array {
+	const hex = uuid.replace(/-/g, '');
+	return Uint8Array.from({length: 16}, (_, i) => parseInt(hex.slice(i * 2, i * 2 + 2), 16));
+}
+
+/** UUID v5 of `name` in `namespace`, as the core's `Uuid::new_v5` computes it. */
+async function uuidV5(namespace: string, name: Uint8Array): Promise<string> {
+	const input = new Uint8Array(16 + name.length);
+	input.set(uuidBytes(namespace));
+	input.set(name, 16);
+	const bytes = new Uint8Array(await crypto.subtle.digest('SHA-1', input)).slice(0, 16);
+	bytes[6] = (bytes[6]! & 0x0f) | 0x50;
+	bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+	const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/** The actor id of the person using this device, so their changes read as "You". */
+function useLocalPersonId() {
+	const {data: devices} = useNormalizedQuery<ListLibraryDevicesInput, Device[]>({
+		query: 'devices.list',
+		input: {include_offline: true, include_details: false},
+		resourceType: 'device'
+	});
+	const deviceId = devices?.find((device) => device.is_current)?.id;
+	return useQuery({
+		queryKey: ['local-person-actor', deviceId],
+		queryFn: () => uuidV5(PERSON_NAMESPACE, uuidBytes(deviceId!)),
+		enabled: !!deviceId,
+		staleTime: Infinity
+	}).data;
+}
+
+function actorName(actor: Actor, you: string | undefined) {
+	return actor.kind === 'person' && actor.id === you ? 'You' : actor.label;
+}
+
 /** The innermost space holding `path` on this device, and `path` relative to its root. */
 function spaceOf(spaces: Space[] | undefined, path: string) {
-	let found: {space: Space; relative: string} | undefined;
+	const target = path.replace(/\\/g, '/');
+	let found: {space: Space; root: string; relative: string} | undefined;
 	for (const space of spaces ?? []) {
-		const root = space.path?.replace(/[\\/]+$/, '');
-		if (!root) continue;
-		const inside = path === root || path.startsWith(`${root}/`) || path.startsWith(`${root}\\`);
-		if (!inside || (found && found.space.path!.length >= root.length)) continue;
-		found = {space, relative: path.slice(root.length + 1).replace(/\\/g, '/')};
+		if (!space.path) continue;
+		// A filesystem root trims to '' so every absolute path still matches its '/' prefix.
+		const root = space.path.replace(/\\/g, '/').replace(/\/+$/, '');
+		const inside = target === root || target.startsWith(`${root}/`);
+		if (!inside || (found && found.root.length >= root.length)) continue;
+		found = {space, root, relative: target.slice(root.length + 1)};
 	}
 	return found;
 }
@@ -32,7 +75,10 @@ function spaceOf(spaces: Space[] | undefined, path: string) {
  * holding it. A path in no space has no log, so `space` is undefined.
  */
 export function useSpaceChanges(path: string, limit: number) {
-	const spaces = useLibraryQuery({type: 'spaces.list', input: {source_id: null}});
+	const spaces = useLibraryQuery(
+		{type: 'spaces.list', input: {source_id: null}},
+		{refetchInterval: REFRESH_MS}
+	);
 	const scope = spaceOf(spaces.data?.spaces, path);
 	const changes = useLibraryQuery(
 		{
@@ -63,13 +109,13 @@ function ActorIcon({actor}: {actor: Actor}) {
 }
 
 /** One line for a change: who did what, or the log's own summary for a change seen on disk. */
-function describe(change: SpaceChange, scope: string) {
+function describe(change: SpaceChange, scope: string, you: string | undefined) {
 	if (change.origin === 'watcher') return change.summary;
 	const verb = VERBS[change.op] ?? change.op;
 	const target = change.to_path
 		? `${shown(change.path, scope)} to ${shown(change.to_path, scope)}`
 		: shown(change.path, scope);
-	return `${change.actor.label} ${verb} ${target}`;
+	return `${actorName(change.actor, you)} ${verb} ${target}`;
 }
 
 /**
@@ -79,6 +125,7 @@ function describe(change: SpaceChange, scope: string) {
 export function ActivityFeed({path}: {path: string}) {
 	const {space, relative, changes, isLoading, refetch} = useSpaceChanges(path, 50);
 	const openUndo = useUndoDialog();
+	const you = useLocalPersonId();
 
 	if (isLoading) {
 		return <p className="text-sidebar-inkDull px-2 pt-2 text-xs">Loading activity…</p>;
@@ -112,7 +159,7 @@ export function ActivityFeed({path}: {path: string}) {
 					</span>
 					<div className="min-w-0 flex-1">
 						<div className="text-sidebar-ink break-words text-xs" title={change.summary}>
-							{describe(change, relative)}
+							{describe(change, relative, you)}
 						</div>
 						<div className="text-sidebar-inkDull mt-0.5 text-[11px]">{ago(change.at)}</div>
 					</div>
@@ -142,7 +189,11 @@ export function ActivityFeed({path}: {path: string}) {
 
 /** The latest change to one file, as a short "who, when" line. */
 export function ChangedBy({change}: {change: SpaceChange}) {
-	const who = change.origin === 'watcher' ? `Outside Spacedrive on ${change.actor.label}` : change.actor.label;
+	const you = useLocalPersonId();
+	const who =
+		change.origin === 'watcher'
+			? `Outside Spacedrive on ${change.actor.label}`
+			: actorName(change.actor, you);
 	return (
 		<span title={`${change.summary}, ${new Date(change.at).toLocaleString()}`}>
 			{who} · {ago(change.at)}
