@@ -168,15 +168,15 @@ Migration behaviour for an alpha.2 library, as the code reads:
 
 ## Known limits
 
-- Inference is not available. The core has no inference provider, so
-  extension calls to `ai.infer` answer `not_available`: no scene
-  classification, face detection or language-model place and moment names
-  (PROJECT_STATUS, Extension host functions phases 1 and 2).
-- Extensions: the WASM extension host is behind the `wasm` cargo feature,
-  which the release builds do not enable (`core/Cargo.toml`; the desktop
-  build runs `cargo build --release --bin sd-daemon` with default features).
-  Decided (Jamie, 2026-11-13): the `wasm` feature stays off in nightly and
-  release builds until after beta, so beta.1 ships no extension runtime.
+- Footage, inference and extensions (updated 2026-11-27 for #3264): the
+  desktop daemon in `release.yml` is built with the sd-core `footage`
+  feature (`ai-local`, `ai-cloud`, `footage-clips`, `speech-to-text`,
+  `video-proxies`, `video-shots`, `wasm`) on macOS arm64 and Linux, and
+  with `footage-without-onnx` (the same without `ai-local`) on Intel macOS.
+  The app bundles the Videos extension. This replaces the 2026-11-13 decision
+  that `wasm` stays off in release builds until after beta. The standalone
+  CLI and daemon binaries build with `fuse` only, and nightly builds keep
+  their own feature set.
 - Live-hardware rows still pending (CI covers the automatable half of each):
   - remote job watch and remote log stream (FDA P4: live only);
   - merge-preview time on a large source and the consuming merge of a real
@@ -385,8 +385,8 @@ and #3156 (a disabled CI workflow) change nothing a user sees.
   platform (Windows gap doc).
 - `ci.yml` runs a gitleaks secrets scan and a license and notices check on
   every PR (#3118).
-- Extensions run under a manifest permission check and are off by default
-  (`wasm` feature).
+- Extensions run under a manifest permission check. The `wasm` feature is
+  off in a default build; the desktop daemon is built with it (#3264).
 - A release fails before building when a signing secret is missing, and a
   macOS job fails unless the app has a Developer ID signature and a stapled
   notarization ticket (#3208).
