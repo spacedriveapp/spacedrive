@@ -299,6 +299,33 @@ async fn agent_audit_records_requests_tallies_floods_and_fails_closed() -> anyho
 	assert_eq!(kept.len(), 10);
 	assert_eq!(kept.last().unwrap().id, newest_id);
 
+	// Ids with gaps, as folded rate-limited rows leave, still keep the newest
+	// rows up to the cap rather than the rows within cap ids of the newest.
+	grant_audit::Entity::insert_many((0..50).map(|_| filler(Utc::now())))
+		.exec(conn)
+		.await?;
+	let sparse: Vec<i32> = grant_audit::Entity::find()
+		.order_by_desc(grant_audit::Column::Id)
+		.all(conn)
+		.await?
+		.iter()
+		.map(|row| row.id)
+		.collect();
+	grant_audit::Entity::delete_many()
+		.filter(grant_audit::Column::Id.is_in(sparse[5..50].to_vec()))
+		.exec(conn)
+		.await?;
+	audit::trim(conn, 10, max_age).await?;
+	let kept: Vec<i32> = grant_audit::Entity::find()
+		.order_by_desc(grant_audit::Column::Id)
+		.all(conn)
+		.await?
+		.iter()
+		.map(|row| row.id)
+		.collect();
+	assert_eq!(kept.len(), 10, "{kept:?}");
+	assert_eq!(kept[..5], sparse[..5]);
+
 	// A request whose audit cannot be written is not served.
 	conn.execute_unprepared("DROP TABLE grant_audit").await?;
 	let (status, body) = client.call("read", json!({ "path": "notes.md" })).await;

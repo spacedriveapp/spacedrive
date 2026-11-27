@@ -18,18 +18,11 @@
 //! See [`tally`].
 //!
 //! Retention is [`RETENTION_DAYS`] days or [`RETENTION_ROWS`] rows, whichever
-//! comes first. [`trim`] runs once every [`TRIM_EVERY`] writes rather than on
-//! each, so the table can briefly hold that many rows over the cap.
+//! comes first. [`trim`] runs on about one write in [`TRIM_EVERY`] to each
+//! library rather than on every write, so a table can briefly hold rows over
+//! the cap.
 
-use std::{
-	collections::HashMap,
-	net::IpAddr,
-	sync::{
-		atomic::{AtomicU64, Ordering},
-		Arc,
-	},
-	time::Duration,
-};
+use std::{collections::HashMap, net::IpAddr, sync::Arc, time::Duration};
 
 use chrono::{DateTime, Utc};
 use sea_orm::{
@@ -56,15 +49,13 @@ use crate::{
 pub const RETENTION_ROWS: i64 = 1_000_000;
 /// The age past which audit rows are removed.
 pub const RETENTION_DAYS: i64 = 30;
-/// Writes between two retention passes.
+/// Writes to one library between two retention passes, on average.
 pub const TRIM_EVERY: u64 = 1000;
 /// How much of a grep or glob pattern a row keeps.
 pub const PATTERN_KEPT_BYTES: usize = 256;
 
 /// The id of an audit row, for [`finish`].
 pub type AuditId = i32;
-
-static WRITES: AtomicU64 = AtomicU64::new(0);
 
 /// What a surface knows about a request beyond the token, op and path.
 ///
@@ -297,8 +288,9 @@ pub async fn fold_rate_limited(
 /// Remove rows older than `max_age` and all but the newest `max_rows` of
 /// each audit table.
 ///
-/// Ids only grow, so the row cap is one indexed range delete below the
-/// newest id rather than a count.
+/// Ids have gaps, from folded rate-limited rows and from tally upserts, so the
+/// cutoff is the id of the newest row past the cap rather than an offset from
+/// the newest id.
 pub async fn trim(
 	db: &impl ConnectionTrait,
 	max_rows: i64,
@@ -314,29 +306,34 @@ pub async fn trim(
 		.exec(db)
 		.await?;
 
-	let newest: Option<i32> = grant_audit::Entity::find()
+	let kept = u64::try_from(max_rows).unwrap_or(0);
+	let cutoff: Option<i32> = grant_audit::Entity::find()
 		.select_only()
-		.column_as(Expr::col(grant_audit::Column::Id).max(), "id")
+		.column(grant_audit::Column::Id)
+		.order_by_desc(grant_audit::Column::Id)
+		.offset(kept)
+		.limit(1)
 		.into_tuple()
 		.one(db)
-		.await?
-		.flatten();
-	if let Some(newest) = newest {
+		.await?;
+	if let Some(cutoff) = cutoff {
 		grant_audit::Entity::delete_many()
-			.filter(grant_audit::Column::Id.lte(i64::from(newest) - max_rows))
+			.filter(grant_audit::Column::Id.lte(cutoff))
 			.exec(db)
 			.await?;
 	}
-	let newest: Option<i32> = grant_audit_tally::Entity::find()
+	let cutoff: Option<i32> = grant_audit_tally::Entity::find()
 		.select_only()
-		.column_as(Expr::col(grant_audit_tally::Column::Id).max(), "id")
+		.column(grant_audit_tally::Column::Id)
+		.order_by_desc(grant_audit_tally::Column::Id)
+		.offset(kept)
+		.limit(1)
 		.into_tuple()
 		.one(db)
-		.await?
-		.flatten();
-	if let Some(newest) = newest {
+		.await?;
+	if let Some(cutoff) = cutoff {
 		grant_audit_tally::Entity::delete_many()
-			.filter(grant_audit_tally::Column::Id.lte(i64::from(newest) - max_rows))
+			.filter(grant_audit_tally::Column::Id.lte(cutoff))
 			.exec(db)
 			.await?;
 	}
@@ -344,7 +341,10 @@ pub async fn trim(
 }
 
 async fn trim_when_due(db: &impl ConnectionTrait) {
-	if (WRITES.fetch_add(1, Ordering::Relaxed) + 1) % TRIM_EVERY != 0 {
+	// A draw per write rather than a shared counter, so each library gets a
+	// pass in proportion to its own writes, whichever libraries the traffic
+	// alternates between.
+	if rand::random::<u64>() % TRIM_EVERY != 0 {
 		return;
 	}
 	// The write it follows already landed, so a failed pass only delays

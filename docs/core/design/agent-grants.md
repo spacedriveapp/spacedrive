@@ -111,7 +111,7 @@ Some requests are counted instead of recorded one by one, so a flood cannot fill
 - `locked_out`: a request from an address locked out after failed authentications, per client address.
 - `rate_limited`: a request over its grant's request rate, per grant. Its decision row is folded into the count.
 
-Retention is 30 days or 1,000,000 rows per table, whichever comes first. The trim runs once every 1,000 audit writes, so a table can hold up to that many rows over the cap between two passes.
+Retention is 30 days or 1,000,000 rows per table, whichever comes first. The trim runs on about one in 1,000 audit writes to each library, so a table can hold some rows over the cap between two passes.
 
 `grants.list` shows the last allowed use and the request count of each grant, both within retention. `grants.audit` returns the rows and the tallies, newest first, for one grant or for all grants.
 
