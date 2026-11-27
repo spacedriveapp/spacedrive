@@ -99,16 +99,37 @@ export class TauriTransport implements Transport {
 }
 
 /**
+ * The daemon's RPC secret, or a function that reads the current one from
+ * rpc.secret in its data directory.
+ */
+export type RpcSecret = string | (() => string | Promise<string>);
+
+/**
  * TCP socket transport for Bun/Node environments
  * Connects to daemon via TCP (e.g., "127.0.0.1:6969")
+ *
+ * The daemon serves a connection only after its first line presents the
+ * secret it wrote to rpc.secret in its data directory at start. The daemon
+ * issues a new secret every time it starts, so a long-lived client passes a
+ * function that reads the file; it is called for every connection.
  */
 export class TcpSocketTransport implements Transport {
-	constructor(private socketAddr: string) {}
+	constructor(
+		private socketAddr: string,
+		private secret: RpcSecret,
+	) {}
+
+	private async authLine(): Promise<string> {
+		const secret =
+			typeof this.secret === "string" ? this.secret : await this.secret();
+		return JSON.stringify({ auth: secret.trim() }) + "\n";
+	}
 
 	async sendRequest(request: any): Promise<any> {
 		// Parse socket address (e.g., "127.0.0.1:6969")
 		const [hostname, portStr] = this.socketAddr.split(":");
 		const port = parseInt(portStr, 10);
+		const authLine = await this.authLine();
 
 		return new Promise((resolve, reject) => {
 			let buffer = "";
@@ -134,7 +155,7 @@ export class TcpSocketTransport implements Transport {
 					},
 					open(socket: any) {
 						const requestLine = JSON.stringify(request) + "\n";
-						socket.write(requestLine);
+						socket.write(authLine + requestLine);
 					},
 					error(_socket: any, error: Error) {
 						reject(error);
@@ -156,6 +177,7 @@ export class TcpSocketTransport implements Transport {
 		// Parse socket address
 		const [hostname, portStr] = this.socketAddr.split(":");
 		const port = parseInt(portStr, 10);
+		const authLine = await this.authLine();
 
 		let socketInstance: any = null;
 		let buffer = "";
@@ -208,7 +230,7 @@ export class TcpSocketTransport implements Transport {
 				},
 				open(socket: any) {
 					// Send subscription request once connected
-					socket.write(JSON.stringify(subscribeRequest) + "\n");
+					socket.write(authLine + JSON.stringify(subscribeRequest) + "\n");
 				},
 				error(_socket: any, error: Error) {
 					console.error("[TcpSocketTransport] Socket error:", error);

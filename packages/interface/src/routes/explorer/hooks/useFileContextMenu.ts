@@ -16,6 +16,7 @@ import {
 	LinkSimple,
 	MagnifyingGlass,
 	Pencil,
+	Planet,
 	Robot,
 	Scissors,
 	ShareNetwork,
@@ -36,6 +37,11 @@ import {useFlattenDialog, useOrganizeDialog} from '../../../components/modals/Re
 import {isArchiveName, useArchiveDialog, useExtractDialog} from '../../../components/modals/ArchiveModal';
 import {useAttributesDialog} from '../../../components/modals/AttributesModal';
 import {useGiveToAgentDialog} from '../../../components/modals/GiveToAgentModal';
+import {
+	useCreateSpaceDialog,
+	useSpaceSettingsDialog
+} from '../../../components/Spaces/SpaceDialogs';
+import {useSpaces} from '../../../components/Spaces/useSpaces';
 import {useAddToLibraryDialog} from '../components/AddToLibraryModal';
 import {usePlatform} from '../../../contexts/PlatformContext';
 import {useLibraryMutation} from '../../../contexts/SpacedriveContext';
@@ -91,6 +97,14 @@ export function useFileContextMenu({
 	const openExtract = useExtractDialog();
 	const openAttributes = useAttributesDialog();
 	const openGiveToAgent = useGiveToAgentDialog();
+	const openCreateSpace = useCreateSpaceDialog();
+	const openSpaceSettings = useSpaceSettingsDialog();
+	const spaces = useSpaces().data?.spaces;
+	const filePath =
+		file && 'Physical' in file.sd_path ? file.sd_path.Physical.path : undefined;
+	const localSpace = filePath
+		? spaces?.find((space) => space.path === filePath)
+		: undefined;
 	const {startRename} = useSelection();
 	const footageCapabilities = useFootageCapabilities().data;
 	const footage = useFootageActions();
@@ -284,6 +298,26 @@ export function useFileContextMenu({
 				onClick: () => {
 					if (!file || !('Physical' in file.sd_path)) return;
 					openGiveToAgent({path: file.sd_path.Physical.path, name: file.name});
+				},
+				condition: () =>
+					!!file &&
+					file.kind === 'Directory' &&
+					file.is_local &&
+					'Physical' in file.sd_path &&
+					getTargetFiles().length === 1 &&
+					!hasVirtualFiles
+			},
+			{
+				icon: Planet,
+				label: localSpace ? 'Space Settings…' : 'Make a Space…',
+				onClick: () => {
+					if (localSpace) return openSpaceSettings(localSpace);
+					if (!file || !('Physical' in file.sd_path)) return;
+					openCreateSpace({
+						kind: 'folder',
+						path: file.sd_path.Physical.path,
+						name: file.name
+					});
 				},
 				condition: () =>
 					!!file &&

@@ -7,6 +7,7 @@ mod extensions;
 mod file_opening;
 mod files;
 mod keybinds;
+mod rpc_auth;
 mod server;
 mod updater;
 mod windows;
@@ -78,6 +79,7 @@ struct DaemonState {
 #[allow(dead_code)]
 struct DaemonConnectionPool {
 	socket_addr: String,
+	data_dir: PathBuf,
 	writer: Arc<tokio::sync::Mutex<Option<tokio::net::tcp::OwnedWriteHalf>>>,
 	subscriptions: Arc<RwLock<HashMap<u64, ()>>>,
 	counter: std::sync::atomic::AtomicU64,
@@ -86,9 +88,10 @@ struct DaemonConnectionPool {
 
 #[allow(dead_code)]
 impl DaemonConnectionPool {
-	fn new(socket_addr: String) -> Self {
+	fn new(socket_addr: String, data_dir: PathBuf) -> Self {
 		Self {
 			socket_addr,
+			data_dir,
 			writer: Arc::new(tokio::sync::Mutex::new(None)),
 			subscriptions: Arc::new(RwLock::new(HashMap::new())),
 			counter: std::sync::atomic::AtomicU64::new(0),
@@ -114,9 +117,8 @@ impl DaemonConnectionPool {
 		tracing::info!("Initializing persistent daemon connection");
 
 		use tokio::io::{AsyncBufReadExt, BufReader};
-		use tokio::net::TcpStream;
 
-		let stream = TcpStream::connect(&self.socket_addr)
+		let stream = rpc_auth::connect(&self.socket_addr, &self.data_dir)
 			.await
 			.map_err(|e| format!("Failed to connect to daemon: {}", e))?;
 
@@ -486,9 +488,8 @@ async fn validate_and_reset_library_if_needed(
 
 	// Use direct TCP communication (same as daemon_request but without Tauri State)
 	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-	use tokio::net::TcpStream;
 
-	let mut stream = TcpStream::connect(&socket_addr)
+	let mut stream = rpc_auth::connect(&socket_addr, data_dir)
 		.await
 		.map_err(|e| format!("Failed to connect to daemon: {}", e))?;
 
@@ -616,9 +617,8 @@ async fn daemon_request(
 
 	// Connect to daemon via TCP
 	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-	use tokio::net::TcpStream;
 
-	let stream = TcpStream::connect(&daemon_state.socket_addr)
+	let stream = rpc_auth::connect(&daemon_state.socket_addr, &daemon_state.data_dir)
 		.await
 		.map_err(|e| format!("Failed to connect to daemon: {}", e))?;
 
@@ -686,10 +686,10 @@ async fn subscribe_to_events(
 	);
 
 	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-	use tokio::net::TcpStream;
 	use tokio::sync::oneshot;
 
 	let socket_addr = daemon_state.socket_addr.clone();
+	let data_dir = daemon_state.data_dir.clone();
 
 	// Create cancellation channel
 	let (cancel_tx, mut cancel_rx) = oneshot::channel::<()>();
@@ -706,7 +706,7 @@ async fn subscribe_to_events(
 			subscription_id = subscription_id,
 			"Creating TCP connection for subscription"
 		);
-		let mut stream = match TcpStream::connect(&socket_addr).await {
+		let mut stream = match rpc_auth::connect(&socket_addr, &data_dir).await {
 			Ok(s) => s,
 			Err(e) => {
 				tracing::error!("Failed to connect for events: {}", e);
@@ -889,7 +889,7 @@ async fn get_daemon_status(
 	state: tauri::State<'_, Arc<RwLock<DaemonState>>>,
 ) -> Result<DaemonStatusResponse, String> {
 	let daemon_state = state.read().await;
-	let is_running = is_daemon_running(&daemon_state.socket_addr).await;
+	let is_running = is_daemon_running(&daemon_state.socket_addr, &daemon_state.data_dir).await;
 
 	Ok(DaemonStatusResponse {
 		is_running,
@@ -914,7 +914,7 @@ async fn start_daemon_process(
 	};
 
 	// Check if already running
-	if is_daemon_running(&socket_addr).await {
+	if is_daemon_running(&socket_addr, &data_dir).await {
 		return Err("Daemon is already running".to_string());
 	}
 
@@ -1133,7 +1133,7 @@ async fn install_daemon_service(
 		tracing::info!("Waiting for daemon to become available...");
 		for i in 0..30 {
 			tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-			if is_daemon_running(&socket_addr).await {
+			if is_daemon_running(&socket_addr, &data_dir).await {
 				tracing::info!("Daemon is running after {} attempts", i + 1);
 				break;
 			}
@@ -1234,7 +1234,7 @@ WantedBy=default.target
 		tracing::info!("Waiting for daemon to become available...");
 		for i in 0..30 {
 			tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-			if is_daemon_running(&socket_addr).await {
+			if is_daemon_running(&socket_addr, &data_dir).await {
 				tracing::info!("Daemon is running after {} attempts", i + 1);
 				break;
 			}
@@ -1381,7 +1381,7 @@ WantedBy=default.target
 		tracing::info!("Waiting for daemon to become available...");
 		for i in 0..30 {
 			tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-			if is_daemon_running(&socket_addr).await {
+			if is_daemon_running(&socket_addr, &data_dir).await {
 				tracing::info!("Daemon is running after {} attempts", i + 1);
 				break;
 			}
@@ -1502,12 +1502,11 @@ async fn open_macos_settings() -> Result<(), String> {
 }
 
 /// Check if daemon is running by trying to connect and send a ping
-async fn is_daemon_running(socket_addr: &str) -> bool {
+async fn is_daemon_running(socket_addr: &str, data_dir: &Path) -> bool {
 	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-	use tokio::net::TcpStream;
 
 	// Try to connect and send a ping request
-	let mut stream = match TcpStream::connect(socket_addr).await {
+	let mut stream = match rpc_auth::connect(socket_addr, data_dir).await {
 		Ok(s) => s,
 		Err(_) => return false,
 	};
@@ -1542,8 +1541,8 @@ async fn is_daemon_running(socket_addr: &str) -> bool {
 	)
 	.await
 	{
-		Ok(Ok(_)) if !response_line.is_empty() => {
-			tracing::debug!("Daemon responded to ping: {}", response_line.trim());
+		Ok(Ok(_)) if response_line.trim() == "\"Pong\"" => {
+			tracing::debug!("Daemon responded to ping");
 			true
 		}
 		_ => {
@@ -1587,7 +1586,7 @@ async fn restart_after_update(
 		None => earlier_bundled_daemon(&daemon_state.data_dir).await,
 	};
 	if let Some(pid) = pid {
-		stop_daemon_for_update(&daemon_state.socket_addr, pid).await;
+		stop_daemon_for_update(&daemon_state.socket_addr, &daemon_state.data_dir, pid).await;
 		forget_spawned_daemon(&daemon_state.data_dir).await;
 	}
 	daemon_state.started_by_us = false;
@@ -1634,7 +1633,7 @@ async fn process_running(pid: u32) -> bool {
 	}
 }
 
-async fn stop_daemon_for_update(socket_addr: &str, pid: u32) {
+async fn stop_daemon_for_update(socket_addr: &str, data_dir: &Path, pid: u32) {
 	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 	// A daemon that already exited no longer owns the socket, and whatever
@@ -1643,7 +1642,7 @@ async fn stop_daemon_for_update(socket_addr: &str, pid: u32) {
 		return;
 	}
 
-	if let Ok(stream) = tokio::net::TcpStream::connect(socket_addr).await {
+	if let Ok(stream) = rpc_auth::connect(socket_addr, data_dir).await {
 		let (reader, mut writer) = stream.into_split();
 		if writer.write_all(b"\"Shutdown\"\n").await.is_ok() {
 			let mut response = String::new();
@@ -1712,7 +1711,7 @@ async fn start_daemon(
 	// Wait for daemon to be ready
 	for i in 0..30 {
 		tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-		if is_daemon_running(socket_addr).await {
+		if is_daemon_running(socket_addr, data_dir).await {
 			tracing::info!("Daemon ready at {}", socket_addr);
 			return Ok(child);
 		}
@@ -1884,13 +1883,13 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
 						// Send request to daemon using the daemon_request logic
 						use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-						use tokio::net::TcpStream;
 
 						let state = daemon_state.read().await;
 						let socket_addr = state.socket_addr.clone();
+						let data_dir = state.data_dir.clone();
 						drop(state);
 
-						match TcpStream::connect(&socket_addr).await {
+						match rpc_auth::connect(&socket_addr, &data_dir).await {
 							Ok(mut stream) => {
 								// Send request
 								let request_line = match serde_json::to_string(&request) {
@@ -2244,7 +2243,10 @@ fn main() {
 			let app_state = AppState {
 				current_library_id: Arc::new(RwLock::new(persisted_library_id)),
 				selected_file_ids: Arc::new(RwLock::new(Vec::new())),
-				connection_pool: Arc::new(DaemonConnectionPool::new(socket_addr.clone())),
+				connection_pool: Arc::new(DaemonConnectionPool::new(
+					socket_addr.clone(),
+					data_dir.clone(),
+				)),
 				subscription_manager: SubscriptionManager::new(),
 			};
 
@@ -2282,10 +2284,10 @@ fn main() {
 				// A daemon loads extensions only at startup, so one that is
 				// already running would keep the old set. Restart a daemon this
 				// app spawned; a service or CLI daemon is not ours to stop.
-				if extensions_changed && is_daemon_running(&socket_addr).await {
+				if extensions_changed && is_daemon_running(&socket_addr, &data_dir_clone).await {
 					match earlier_bundled_daemon(&data_dir_clone).await {
 						Some(pid) => {
-							stop_daemon_for_update(&socket_addr, pid).await;
+							stop_daemon_for_update(&socket_addr, &data_dir_clone, pid).await;
 							forget_spawned_daemon(&data_dir_clone).await;
 						}
 						None => tracing::info!(
@@ -2309,22 +2311,23 @@ fn main() {
 
 				// Ensure daemon directory exists
 
-				let (started_by_us, child_process) = if is_daemon_running(&socket_addr).await {
-					tracing::info!("Daemon already running, connecting to existing instance");
-					(false, None)
-				} else {
-					tracing::info!("No daemon running, starting new instance");
-					match start_daemon(&data_dir_clone, &socket_addr).await {
-						Ok(child) => (
-							true,
-							Some(std::sync::Arc::new(tokio::sync::Mutex::new(Some(child)))),
-						),
-						Err(e) => {
-							tracing::error!("Failed to start daemon: {}", e);
-							return;
+				let (started_by_us, child_process) =
+					if is_daemon_running(&socket_addr, &data_dir_clone).await {
+						tracing::info!("Daemon already running, connecting to existing instance");
+						(false, None)
+					} else {
+						tracing::info!("No daemon running, starting new instance");
+						match start_daemon(&data_dir_clone, &socket_addr).await {
+							Ok(child) => (
+								true,
+								Some(std::sync::Arc::new(tokio::sync::Mutex::new(Some(child)))),
+							),
+							Err(e) => {
+								tracing::error!("Failed to start daemon: {}", e);
+								return;
+							}
 						}
-					}
-				};
+					};
 
 				// Update daemon state
 				let mut state = daemon_state.write().await;

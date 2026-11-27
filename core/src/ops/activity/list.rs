@@ -262,7 +262,7 @@ fn touches(effect: &Effect, scope: &Path) -> bool {
 fn describe(effect: &Effect) -> (ActivityKind, PathBuf, Option<PathBuf>) {
 	match effect {
 		Effect::Created { path, subject } => {
-			let kind = if subject.is_some_and(|subject| subject.is_dir) {
+			let kind = if subject.as_ref().is_some_and(|subject| subject.is_dir) {
 				ActivityKind::MakeDir
 			} else {
 				ActivityKind::Create

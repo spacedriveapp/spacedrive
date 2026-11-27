@@ -69,6 +69,9 @@ fn file_id(path: &Path, version: u64) -> [u8; 16] {
 /// stale block is bounded by the eviction ceiling rather than being served
 /// forever.
 fn version_of(stat: &ByteStat) -> u64 {
+	if let Some(version) = stat.version {
+		return version;
+	}
 	match stat.modified {
 		Some(mtime) => source_version(stat.size, mtime),
 		None => source_version(stat.size, SystemTime::UNIX_EPOCH),
@@ -855,6 +858,7 @@ mod tests {
 			Ok(ByteStat {
 				size: self.data.len() as u64,
 				modified: self.modified,
+				version: None,
 			})
 		}
 
@@ -876,6 +880,17 @@ mod tests {
 
 	fn payload(len: usize) -> Bytes {
 		Bytes::from((0..len).map(|i| (i % 251) as u8).collect::<Vec<u8>>())
+	}
+
+	#[test]
+	fn a_source_version_outranks_size_and_mtime() {
+		let stat = |version| ByteStat {
+			size: 10,
+			modified: Some(SystemTime::UNIX_EPOCH),
+			version,
+		};
+		assert_ne!(version_of(&stat(Some(1))), version_of(&stat(Some(2))));
+		assert_eq!(version_of(&stat(None)), version_of(&stat(None)));
 	}
 
 	fn target() -> ByteTarget {

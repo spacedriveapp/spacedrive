@@ -36,6 +36,7 @@ import React from "react";
 // Bridge configuration from Rust test harness
 interface BridgeConfig {
 	socket_addr: string;
+	rpc_secret: string;
 	library_id: string;
 	device_slug: string;
 	source_path: string;
@@ -60,7 +61,7 @@ beforeAll(async () => {
 	console.log(`[TS] Bridge config:`, bridgeConfig);
 
 	// Connect to daemon via TCP socket
-	client = SpacedriveClient.fromTcpSocket(bridgeConfig.socket_addr);
+	client = SpacedriveClient.fromTcpSocket(bridgeConfig.socket_addr, bridgeConfig.rpc_secret);
 
 	console.log(`[TS] Connected to daemon`);
 
