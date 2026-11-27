@@ -19,6 +19,7 @@ import { isLapsedHandle, usePlanPreviewStore } from "./usePlanPreview";
 import { useVirtualListing } from "./useVirtualListing";
 import {
 	FOOTAGE_SUMMARIES_KEY,
+	assertLibrary,
 	fetchFootageSummaries,
 	footageKey,
 	footagePaths,
@@ -463,15 +464,21 @@ function useFootageSearch(
 		queryKey: [FOOTAGE_SUMMARIES_KEY, libraryId, "search", input, filter],
 		queryFn: async () => {
 			const found: File[] = [];
-			for (let offset = 0; input; offset += SEARCH_PAGE) {
+			for (let offset = 0; input && libraryId; offset += SEARCH_PAGE) {
+				assertLibrary(client, libraryId);
 				const page = await client.execute<FileSearchInput, FileSearchOutput>(
 					WIRE_METHODS.libraryQueries["search.files"],
 					{ ...input, pagination: { limit: SEARCH_PAGE, offset } },
 				);
+				assertLibrary(client, libraryId);
 				found.push(...page.files);
 				if (page.files.length < SEARCH_PAGE) break;
 			}
-			const summaries = await fetchFootageSummaries(client, footagePaths(found));
+			const summaries = await fetchFootageSummaries(
+				client,
+				libraryId!,
+				footagePaths(found),
+			);
 			return found.filter((file) => {
 				const key = footageKey(file);
 				const summary = key ? summaries.get(key) : undefined;

@@ -152,17 +152,34 @@ const NO_SUMMARIES = new Map<string, FootageSummary>();
  * refreshes them all after a footage job writes sidecars. */
 export const FOOTAGE_SUMMARIES_KEY = 'media.footage.summaries';
 
+type Client = ReturnType<typeof useSpacedriveClient>;
+
+/**
+ * Throws when the selected library is no longer the one a read started in.
+ * The client sends every request to the current library, so a read that
+ * spans several requests would otherwise mix two libraries' answers and
+ * cache them under the first one's key.
+ */
+export function assertLibrary(client: Client, libraryId: string) {
+	if (client.getCurrentLibraryId() !== libraryId) {
+		throw new Error('The library changed while footage was being read.');
+	}
+}
+
 /** Footage summaries for any number of videos, in batches the daemon accepts. */
 export async function fetchFootageSummaries(
-	client: ReturnType<typeof useSpacedriveClient>,
+	client: Client,
+	libraryId: string,
 	paths: SdPath[]
 ): Promise<Map<string, FootageSummary>> {
 	const summaries = new Map<string, FootageSummary>();
 	for (let start = 0; start < paths.length; start += SUMMARIES_PER_QUERY) {
+		assertLibrary(client, libraryId);
 		const output = await client.execute<FootageSummariesInput, FootageSummariesOutput>(
 			WIRE_METHODS.libraryQueries[FOOTAGE_SUMMARIES_KEY],
 			{paths: paths.slice(start, start + SUMMARIES_PER_QUERY)}
 		);
+		assertLibrary(client, libraryId);
 		for (const summary of output.summaries) {
 			summaries.set(footagePathKey(summary.path), summary);
 		}
@@ -196,7 +213,7 @@ export function useFootageSummaries(files: File[], enabled: boolean) {
 
 	const {data, isLoading} = useQuery({
 		queryKey: [FOOTAGE_SUMMARIES_KEY, libraryId, paths],
-		queryFn: () => fetchFootageSummaries(client, paths),
+		queryFn: () => fetchFootageSummaries(client, libraryId!, paths),
 		enabled: !!libraryId && paths.length > 0,
 		staleTime: 30_000
 	});

@@ -10,16 +10,21 @@
 //! on another device, is left out.
 //!
 //! ## Example
-//! ```rust,ignore
+//! ```rust
+//! use sd_core::domain::SdPath;
+//! use sd_core::infra::query::LibraryQuery;
 //! use sd_core::ops::media::footage::{FootageSummariesInput, FootageSummariesQuery};
 //!
-//! let query = FootageSummariesQuery::from_input(FootageSummariesInput {
-//! 	paths: vec![video.sd_path.clone()],
-//! })?;
-//! let output = query.execute(context, session).await?;
-//! for summary in output.summaries {
-//! 	tracing::info!(shots = ?summary.shots, transcript = summary.transcript, "footage");
-//! }
+//! let listing = FootageSummariesInput {
+//! 	paths: vec![SdPath::local("/footage/beach-walk.mp4")],
+//! };
+//! assert!(FootageSummariesQuery::from_input(listing).is_ok());
+//!
+//! // A bigger listing is sent in batches.
+//! let too_many = FootageSummariesInput {
+//! 	paths: vec![SdPath::local("/footage/beach-walk.mp4"); 5001],
+//! };
+//! assert!(FootageSummariesQuery::from_input(too_many).is_err());
 //! ```
 
 use std::sync::Arc;
