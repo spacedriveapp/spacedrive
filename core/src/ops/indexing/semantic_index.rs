@@ -550,7 +550,7 @@ mod tests {
 		);
 	}
 
-	#[tokio::test(start_paused = true)]
+	#[tokio::test]
 	async fn a_pass_waits_on_battery_and_resumes_on_mains() {
 		let files = vec![("Documents/a.md".to_string(), "plain words".to_string())];
 		let (_dir, source) = source_with(&files).await;

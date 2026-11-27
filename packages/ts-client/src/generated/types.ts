@@ -5315,6 +5315,115 @@ query: string; limit: number | null };
 
 export type SearchTagsOutput = { tags: Tag[] };
 
+/**
+ * One ranked file.
+ */
+export type SemanticSearchHit = { 
+/**
+ * The file, relative to the scope, with `/` separators.
+ */
+path: string; 
+/**
+ * What the matching text came from.
+ */
+kind: TextKind; 
+/**
+ * The fused score. Larger is better; only the order within one
+ * response means anything.
+ */
+score: number; 
+/**
+ * Cosine similarity of the file's best chunk to the query, when the
+ * file has vectors.
+ */
+similarity: number | null; 
+/**
+ * Whether any of the query's words appear in the file.
+ */
+word_match: boolean; 
+/**
+ * Words around the best word match, with the matches marked, or the
+ * start of the closest chunk when no word matched.
+ */
+snippet: SnippetFragment[]; 
+/**
+ * The moment in a recording the hit is about.
+ */
+time: SpokenTime | null };
+
+/**
+ * Search the files under `scope` by meaning and words.
+ */
+export type SemanticSearchInput = { 
+/**
+ * A directory or file under a source tracked on this device.
+ */
+scope: SdPath; 
+/**
+ * What to find, in plain language.
+ */
+query: string; 
+/**
+ * Only files of these kinds. Empty means every kind.
+ */
+kinds?: TextKind[]; 
+/**
+ * Hits per page. Defaults to 20.
+ */
+max_results?: number | null; 
+/**
+ * The `next_cursor` of the previous page.
+ */
+cursor?: string | null };
+
+/**
+ * One page of hits.
+ */
+export type SemanticSearchOutput = { hits: SemanticSearchHit[]; 
+/**
+ * Pass back as `cursor` to read the next page.
+ */
+next_cursor: string | null; 
+/**
+ * Documents in the source's deep scope still waiting for vectors.
+ * Those are found by their words only until the pass reaches them.
+ */
+pending_documents: number };
+
+/**
+ * Ask whether semantic search can run for the source holding `scope`.
+ */
+export type SemanticStatusInput = { 
+/**
+ * A path under a source tracked on this device.
+ */
+scope: SdPath };
+
+/**
+ * Whether semantic search runs for a source, and how far its index is.
+ */
+export type SemanticStatusOutput = { available: boolean; 
+/**
+ * Why it is unavailable, when it is.
+ */
+reason: string | null; 
+/**
+ * The embedder the source's vectors came from.
+ */
+model: string | null; 
+/**
+ * Documents with vectors.
+ */
+documents: number; chunks: number; 
+/**
+ * Documents in the deep scope still waiting for vectors.
+ */
+pending_documents: number; 
+/**
+ * The vector index's size on disk, in bytes.
+ */
+size_bytes: number };
+
 export type SerializablePairingState = "Idle" | "GeneratingCode" | "Broadcasting" | "Scanning" | "WaitingForConnection" | "Connecting" | "Authenticating" | "ExchangingKeys" | "AwaitingConfirmation" | "EstablishingSession" | "ChallengeReceived" | "ResponsePending" | "ResponseSent" | "Completed" | { Failed: { reason: string } };
 
 /**
@@ -7306,6 +7415,8 @@ export type LibraryQuery =
   |  { type: 'search.files'; input: FileSearchInput; output: FileSearchOutput }
   |  { type: 'search.grep'; input: GrepInput; output: GrepOutput }
   |  { type: 'search.media'; input: MediaSearchInput; output: MediaSearchOutput }
+  |  { type: 'search.semantic'; input: SemanticSearchInput; output: SemanticSearchOutput }
+  |  { type: 'search.semantic.status'; input: SemanticStatusInput; output: SemanticStatusOutput }
   |  { type: 'sources.deep_scope.get'; input: GetDeepScopeInput; output: GetDeepScopeOutput }
   |  { type: 'sources.get'; input: GetSourceInput; output: SourceInfo }
   |  { type: 'sources.list'; input: ListSourcesInput; output: [SourceInfo] }
@@ -7544,6 +7655,8 @@ export const WIRE_METHODS = {
     'search.files': 'query:search.files',
     'search.grep': 'query:search.grep',
     'search.media': 'query:search.media',
+    'search.semantic': 'query:search.semantic',
+    'search.semantic.status': 'query:search.semantic.status',
     'sources.deep_scope.get': 'query:sources.deep_scope.get',
     'sources.get': 'query:sources.get',
     'sources.list': 'query:sources.list',

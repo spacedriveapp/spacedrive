@@ -38,16 +38,16 @@
 //! vectors.use_model("multilingual-e5-small", 384).await?;
 //! let scope = vec![String::new()];
 //! for doc in vectors.pending(&scope, (Origin::Text, 0), 16).await? {
-//! 	let chunks = vectors.chunks(&doc).await?;
-//! 	let embedded: Vec<Vec<f32>> = chunks.iter().map(|c| embed(&c.text)).collect();
-//! 	vectors.write(&doc, &chunks, &embedded).await?;
+//!     let chunks = vectors.chunks(&doc).await?;
+//!     let embedded: Vec<Vec<f32>> = chunks.iter().map(|c| embed(&c.text)).collect();
+//!     vectors.write(&doc, &chunks, &embedded).await?;
 //! }
 //! let hits = sd_store::hybrid_search(&text, &vectors, &HybridSearch {
-//! 	query: "kitchen renovation budget".into(),
-//! 	vector: embed("kitchen renovation budget"),
-//! 	subtrees: scope,
-//! 	limit: 20,
-//! 	..Default::default()
+//!     query: "kitchen renovation budget".into(),
+//!     vector: embed("kitchen renovation budget"),
+//!     subtrees: scope,
+//!     limit: 20,
+//!     ..Default::default()
 //! })
 //! .await?;
 //! # Ok(())
