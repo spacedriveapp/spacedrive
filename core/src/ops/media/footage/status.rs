@@ -1,6 +1,6 @@
 //! `media.footage.status`: what the footage work has already made for a file.
 
-use std::{collections::HashSet, path::Path, sync::Arc};
+use std::{collections::HashSet, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -9,7 +9,10 @@ use uuid::Uuid;
 use super::{local_footage_path, VIDEOS_EXTENSION_ID};
 use crate::{
 	context::CoreContext,
-	domain::{sidecar::content_uuid_of_file, SdPath, SidecarFormat, SidecarKind},
+	domain::{
+		sidecar::{content_uuid_of_file, ContentSidecar},
+		SdPath, SidecarFormat, SidecarKind,
+	},
 	infra::{
 		api::SessionContext,
 		query::{LibraryQuery, QueryError, QueryResult},
@@ -18,6 +21,7 @@ use crate::{
 		files::query::sidecars::{content_sidecars, CORE_PRODUCER},
 		indexing::metadata::refuse_dataless,
 	},
+	service::sidecars::{SidecarFinder, SidecarRegistry},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -75,12 +79,9 @@ impl LibraryQuery for FootageStatusQuery {
 		let content_uuid = content_uuid_of_file(&path).await.map_err(|error| {
 			QueryError::InvalidInput(format!("could not read {}: {error}", path.display()))
 		})?;
-		let library_path = library.path();
-		let sidecars = content_sidecars(library_path, content_uuid)
-			.await
-			.map_err(|error| {
-				QueryError::Internal(format!("could not list the content sidecars: {error}"))
-			})?;
+		let registry = SidecarRegistry::of(&library);
+		let finder = registry.finder();
+		let sidecars = content_sidecars(&registry, content_uuid).await;
 		let core = |kind: &str, format: &str| {
 			sidecars.iter().any(|sidecar| {
 				sidecar.producer == CORE_PRODUCER
@@ -92,16 +93,16 @@ impl LibraryQuery for FootageStatusQuery {
 			content_uuid,
 			transcript: core("transcript", SidecarFormat::Json.extension()),
 			proxy: core("proxy", SidecarFormat::Mp4.extension()),
-			shots: shot_count(library_path, content_uuid).await?,
-			analyzed_shots: analyzed_shots(library_path, content_uuid).await?,
+			shots: shot_count(&finder, content_uuid).await?,
+			analyzed_shots: analyzed_shots(&finder, content_uuid).await?,
 		})
 	}
 }
 
 crate::register_library_query!(FootageStatusQuery, "media.footage.status");
 
-async fn shot_count(library_path: &Path, content_uuid: Uuid) -> QueryResult<Option<u32>> {
-	let list = crate::ops::media::shots::read_shots(library_path, content_uuid)
+async fn shot_count(finder: &SidecarFinder, content_uuid: Uuid) -> QueryResult<Option<u32>> {
+	let list = crate::ops::media::shots::read_shots(finder, content_uuid)
 		.await
 		.map_err(|error| QueryError::Internal(format!("could not read the shot list: {error}")))?;
 	Ok(list.map(|list| u32::try_from(list.shots.len()).unwrap_or(u32::MAX)))
@@ -111,11 +112,11 @@ async fn shot_count(library_path: &Path, content_uuid: Uuid) -> QueryResult<Opti
 /// has. A run with only a face detector writes `faces` and no `scene`, so a
 /// shot counts when either sidecar has it.
 pub(super) async fn analyzed_shots(
-	library_path: &Path,
+	finder: &SidecarFinder,
 	content_uuid: Uuid,
 ) -> QueryResult<Option<u32>> {
-	let scene = read_analyzed(library_path, content_uuid, "scene").await?;
-	let faces = read_analyzed(library_path, content_uuid, "faces").await?;
+	let scene = read_analyzed(finder, content_uuid, "scene").await?;
+	let faces = read_analyzed(finder, content_uuid, "faces").await?;
 	if scene.is_none() && faces.is_none() {
 		return Ok(None);
 	}
@@ -138,10 +139,10 @@ pub struct ShotDescription {
 /// The descriptions the Videos extension wrote for a video's shots, empty
 /// until it has analyzed the video or when it found no caption model.
 pub(crate) async fn shot_descriptions(
-	library_path: &Path,
+	finder: &SidecarFinder,
 	content_uuid: Uuid,
 ) -> QueryResult<Vec<ShotDescription>> {
-	let shots = read_analyzed(library_path, content_uuid, "scene")
+	let shots = read_analyzed(finder, content_uuid, "scene")
 		.await?
 		.unwrap_or_default();
 	Ok(shots
@@ -163,27 +164,20 @@ struct AnalyzedShot {
 	description: Option<String>,
 }
 
-fn analysis_path(
-	library_path: &Path,
-	content_uuid: Uuid,
-	kind: &str,
-) -> QueryResult<std::path::PathBuf> {
-	let kind = SidecarKind::extension(VIDEOS_EXTENSION_ID, kind).map_err(QueryError::Internal)?;
-	Ok(library_path
-		.join("sidecars")
-		.join(sd_sidecar_path::relative_path(
-			&content_uuid,
-			&kind.directory(),
-			"default",
-			SidecarFormat::Json.extension(),
-		)))
+fn analysis_sidecar(content_uuid: Uuid, kind: &str) -> QueryResult<ContentSidecar> {
+	Ok(ContentSidecar {
+		content_uuid,
+		kind: SidecarKind::extension(VIDEOS_EXTENSION_ID, kind).map_err(QueryError::Internal)?,
+		variant: "default".into(),
+		format: SidecarFormat::Json,
+	})
 }
 
 /// The Videos extension's `scene` and `faces` sidecars hold one entry per
 /// shot it has analyzed. Their shape belongs to the extension, so only the
 /// shot id and the description are read, and both are optional.
 async fn read_analyzed(
-	library_path: &Path,
+	finder: &SidecarFinder,
 	content_uuid: Uuid,
 	kind: &str,
 ) -> QueryResult<Option<Vec<AnalyzedShot>>> {
@@ -193,7 +187,9 @@ async fn read_analyzed(
 		shots: Vec<AnalyzedShot>,
 	}
 
-	let path = analysis_path(library_path, content_uuid, kind)?;
+	let Some(path) = finder.find(&analysis_sidecar(content_uuid, kind)?) else {
+		return Ok(None);
+	};
 	let bytes = match tokio::fs::read(&path).await {
 		Ok(bytes) => bytes,
 		Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -216,17 +212,19 @@ mod tests {
 	#[tokio::test]
 	async fn scene_and_faces_sidecars_yield_described_shots_and_the_analyzed_count() {
 		let library = tempfile::tempdir().unwrap();
+		let finder = SidecarFinder::new(vec![library.path().to_path_buf()]);
 		let content_uuid = Uuid::new_v4();
-		assert_eq!(
-			analyzed_shots(library.path(), content_uuid).await.unwrap(),
-			None
-		);
-		assert!(shot_descriptions(library.path(), content_uuid)
+		assert_eq!(analyzed_shots(&finder, content_uuid).await.unwrap(), None);
+		assert!(shot_descriptions(&finder, content_uuid)
 			.await
 			.unwrap()
 			.is_empty());
 
-		let faces = analysis_path(library.path(), content_uuid, "faces").unwrap();
+		let faces = library.path().join(
+			analysis_sidecar(content_uuid, "faces")
+				.unwrap()
+				.relative_path(),
+		);
 		tokio::fs::create_dir_all(faces.parent().unwrap())
 			.await
 			.unwrap();
@@ -237,11 +235,15 @@ mod tests {
 		.await
 		.unwrap();
 		assert_eq!(
-			analyzed_shots(library.path(), content_uuid).await.unwrap(),
+			analyzed_shots(&finder, content_uuid).await.unwrap(),
 			Some(2)
 		);
 
-		let path = analysis_path(library.path(), content_uuid, "scene").unwrap();
+		let path = library.path().join(
+			analysis_sidecar(content_uuid, "scene")
+				.unwrap()
+				.relative_path(),
+		);
 		tokio::fs::create_dir_all(path.parent().unwrap())
 			.await
 			.unwrap();
@@ -256,13 +258,11 @@ mod tests {
 		.unwrap();
 
 		assert_eq!(
-			analyzed_shots(library.path(), content_uuid).await.unwrap(),
+			analyzed_shots(&finder, content_uuid).await.unwrap(),
 			Some(3)
 		);
 		assert_eq!(
-			shot_descriptions(library.path(), content_uuid)
-				.await
-				.unwrap(),
+			shot_descriptions(&finder, content_uuid).await.unwrap(),
 			vec![ShotDescription {
 				shot_id: "a".to_string(),
 				description: "A dog on a beach".to_string(),

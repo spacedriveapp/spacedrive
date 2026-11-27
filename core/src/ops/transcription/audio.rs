@@ -9,10 +9,6 @@
 
 use std::{fs::File, io::BufReader, path::Path};
 
-use uuid::Uuid;
-
-use crate::domain::sidecar::ContentSidecar;
-
 /// The rate every reader here returns.
 pub const SAMPLE_RATE: usize = 16_000;
 
@@ -38,18 +34,13 @@ pub enum Opened {
 	NoAudio,
 }
 
-/// Open the speech audio of `original`: its sidecar under `library_path`
-/// when one exists, otherwise the original decoded.
+/// Open the speech audio of `original`: its `speech` sidecar when one
+/// exists, otherwise the original decoded.
 ///
 /// Runs on a blocking thread; the decoder is not `Send`.
-pub fn open_speech_audio(
-	library_path: &Path,
-	content_uuid: Uuid,
-	original: &Path,
-) -> Result<Opened, String> {
-	let sidecar = ContentSidecar::speech_audio(content_uuid).path_in(library_path);
-	if sidecar.is_file() {
-		match WavAudio::open(&sidecar) {
+pub fn open_speech_audio(speech: Option<&Path>, original: &Path) -> Result<Opened, String> {
+	if let Some(sidecar) = speech {
+		match WavAudio::open(sidecar) {
 			Ok(audio) => return Ok(Opened::Audio(Box::new(audio))),
 			// A sidecar this reader cannot take is not fatal; the original
 			// says the same thing.

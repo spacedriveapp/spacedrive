@@ -16,6 +16,7 @@ pub mod file_sharing;
 pub mod mounts;
 pub mod network;
 pub mod session;
+pub mod sidecars;
 pub mod statistics_listener;
 pub mod sync;
 pub mod thumbs;

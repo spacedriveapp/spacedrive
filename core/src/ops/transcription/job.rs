@@ -33,6 +33,7 @@ use crate::{
 	infra::job::{generic_progress::GenericProgress, prelude::*},
 	ops::indexing::metadata::refuse_dataless,
 	ops::models::whisper::{WhisperModel, WhisperModelManager},
+	service::sidecars::SidecarRegistry,
 };
 
 /// Files claimed per round.
@@ -166,7 +167,7 @@ impl JobHandler for TranscribeJob {
 			ctx.log(format!("Dropped {dropped} transcripts to make them again"));
 		}
 
-		let library_path = ctx.library().path().to_path_buf();
+		let registry = SidecarRegistry::of(ctx.library());
 		let mut engine: Option<Arc<Engine>> = None;
 		let mut done = 0u64;
 		let mut outstanding = index
@@ -207,7 +208,7 @@ impl JobHandler for TranscribeJob {
 					.process(
 						&ctx,
 						&file,
-						&library_path,
+						&registry,
 						&mut engine,
 						&model_path,
 						model,
@@ -279,7 +280,7 @@ impl TranscribeJob {
 		&self,
 		ctx: &JobContext<'_>,
 		file: &PendingTranscript,
-		library_path: &Path,
+		registry: &SidecarRegistry,
 		engine: &mut Option<Arc<Engine>>,
 		model_path: &Path,
 		model: WhisperModel,
@@ -301,7 +302,7 @@ impl TranscribeJob {
 		let _writer = WriterLock::acquire(content_uuid).await;
 
 		if !self.force {
-			if let Ok(Some(transcript)) = read_transcript(library_path, content_uuid).await {
+			if let Ok(Some(transcript)) = read_transcript(&registry.finder(), content_uuid).await {
 				return Ok(Outcome::Reused(transcript));
 			}
 		}
@@ -316,7 +317,7 @@ impl TranscribeJob {
 			}
 		};
 		let transcript = match self
-			.transcribe_one(ctx, engine, library_path, content_uuid, &path, report)
+			.transcribe_one(ctx, engine, registry, content_uuid, &path, report)
 			.await?
 		{
 			Ok(Some(transcript)) => transcript,
@@ -324,7 +325,7 @@ impl TranscribeJob {
 			Err(error) => return Ok(Outcome::Failed(error)),
 		};
 		Ok(
-			match write_sidecars(library_path, content_uuid, &transcript).await {
+			match write_sidecars(registry, &path, content_uuid, &transcript).await {
 				Ok(()) => Outcome::Transcribed(transcript),
 				Err(error) => Outcome::Failed(format!("write the transcript: {error}")),
 			},
@@ -338,7 +339,7 @@ impl TranscribeJob {
 		&self,
 		ctx: &JobContext<'_>,
 		engine: Arc<Engine>,
-		library_path: &Path,
+		registry: &SidecarRegistry,
 		content_uuid: Uuid,
 		path: &Path,
 		report: &(dyn Fn(f32) + Sync),
@@ -347,9 +348,12 @@ impl TranscribeJob {
 		let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<f32>();
 		let task = {
 			let (cancel, language) = (cancel.clone(), self.language.clone());
-			let (library_path, path) = (library_path.to_path_buf(), path.to_path_buf());
+			let speech = registry
+				.finder()
+				.find(&ContentSidecar::speech_audio(content_uuid));
+			let path = path.to_path_buf();
 			tokio::task::spawn_blocking(move || {
-				let mut audio = match open_speech_audio(&library_path, content_uuid, &path)? {
+				let mut audio = match open_speech_audio(speech.as_deref(), &path)? {
 					Opened::NoAudio => return Ok(None),
 					Opened::Audio(audio) => audio,
 				};
@@ -466,10 +470,12 @@ impl Drop for WriterLock {
 /// `.<variant>.partial.<ext>` and a rename under the content's writer lock,
 /// so a reader never sees half a file. The JSON is renamed last: its presence means the set is complete.
 async fn write_sidecars(
-	library_path: &Path,
+	registry: &SidecarRegistry,
+	origin: &Path,
 	content_uuid: Uuid,
 	transcript: &Transcript,
 ) -> std::io::Result<()> {
+	let home = registry.home(content_uuid, Some(origin)).await?;
 	let json = serde_json::to_vec_pretty(transcript)?;
 	for (format, bytes) in [
 		(SidecarFormat::Srt, transcript.to_srt().into_bytes()),
@@ -477,16 +483,11 @@ async fn write_sidecars(
 		(SidecarFormat::Json, json),
 	] {
 		let sidecar = ContentSidecar::transcript(content_uuid, format);
-		let path = sidecar.path_in(library_path);
-		let dir = path.parent().expect("a sidecar path has a directory");
-		tokio::fs::create_dir_all(dir).await?;
-		let partial = dir.join(format!(
-			".{}.partial.{}",
-			sidecar.variant.as_str(),
-			sidecar.format.extension()
-		));
+		let partial = home.partial(&sidecar);
+		tokio::fs::create_dir_all(partial.parent().expect("a sidecar path has a directory"))
+			.await?;
 		tokio::fs::write(&partial, &bytes).await?;
-		tokio::fs::rename(&partial, &path).await?;
+		registry.publish(&home, &sidecar, &partial, None).await?;
 	}
 	Ok(())
 }
