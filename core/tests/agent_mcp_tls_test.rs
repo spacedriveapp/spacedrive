@@ -7,8 +7,10 @@
 //! over TLS, the 401 for a bad token, the 403 for a Host that does not name
 //! the listener, OAuth metadata with https URLs on loopback, and that a plain
 //! HTTP client gets nothing from the TLS port. When the host has a
-//! non-loopback address it also serves plaintext and TLS listeners there and
-//! checks that every OAuth route answers 404 on both.
+//! non-loopback address, it checks that the daemon refuses to listen there and
+//! that a TLS listener there screens Host and answers 404 on every OAuth route.
+//! On loopback it checks that a configured host name passes Host but gets no
+//! OAuth, and that a request carrying a proxy header gets none either.
 
 #![cfg(unix)]
 
@@ -258,60 +260,84 @@ async fn assert_no_oauth(http: &reqwest_rustls::Client, origin: &str) {
 	}
 }
 
+/// The status and `WWW-Authenticate` value of an initialize with an unknown
+/// token and `headers`.
+async fn challenge(
+	http: &reqwest_rustls::Client,
+	url: &str,
+	headers: &[(&str, String)],
+) -> (StatusCode, String) {
+	let mut request = http
+		.post(url)
+		.bearer_auth(format!("sdg_{}", "0".repeat(64)))
+		.header(header::CONTENT_TYPE, "application/json")
+		.body(initialize().to_string());
+	for (name, value) in headers {
+		request = request.header(*name, value);
+	}
+	let response = request.send().await.expect("request");
+	let value = response
+		.headers()
+		.get(header::WWW_AUTHENTICATE)
+		.map(|v| v.to_str().unwrap().to_string())
+		.unwrap_or_default();
+	(response.status(), value)
+}
+
+/// The status of a GET of the authorization server metadata with `headers`.
+async fn metadata_status(
+	http: &reqwest_rustls::Client,
+	origin: &str,
+	headers: &[(&str, String)],
+) -> StatusCode {
+	let mut request = http.get(format!("{origin}/.well-known/oauth-authorization-server"));
+	for (name, value) in headers {
+		request = request.header(*name, value);
+	}
+	request.send().await.expect("request").status()
+}
+
 #[tokio::test]
-async fn non_loopback_listeners_refuse_bad_hosts_and_offer_no_oauth() -> anyhow::Result<()> {
+async fn non_loopback_listeners_are_refused_and_offer_no_oauth() -> anyhow::Result<()> {
 	let Some(ip) = local_non_loopback_ip() else {
 		return Ok(());
 	};
-	let harness = IndexingHarnessBuilder::new("agent_mcp_plaintext")
+	let harness = IndexingHarnessBuilder::new("agent_mcp_non_loopback")
 		.disable_watcher()
 		.build()
 		.await?;
-	let refused = AgentMcpConfig {
-		enabled: true,
-		listen: std::net::SocketAddr::new(ip, 0).to_string(),
-		..AgentMcpConfig::default()
-	};
-	assert!(agent_mcp::start(harness.core.context.clone(), &refused)
-		.await
-		.is_err());
 
-	let config = AgentMcpConfig {
-		plaintext: true,
-		host_names: vec!["nas.example.test".to_string()],
-		..refused
-	};
-	let bound = agent_mcp::start(harness.core.context.clone(), &config).await?;
-	assert_eq!(bound.ip(), ip);
-	let http = reqwest_rustls::Client::new();
-	let url = format!("http://{bound}/mcp");
-	let stranger = format!("sdg_{}", "0".repeat(64));
-
-	// The bound IP and the configured name pass the Host check; loopback does not.
-	for host in [
-		bound.to_string(),
-		format!("nas.example.test:{}", bound.port()),
-	] {
-		let reply = post(&http, &url, &stranger, None, Some(&host), initialize()).await;
-		assert_eq!(reply.status, StatusCode::UNAUTHORIZED, "{host}");
-		let challenge = reply.headers[header::WWW_AUTHENTICATE].to_str()?;
-		assert!(!challenge.contains("resource_metadata"), "{challenge}");
+	// The daemon refuses every non-loopback address until containment lands.
+	let listen = std::net::SocketAddr::new(ip, 0).to_string();
+	let refused = [
+		AgentMcpConfig {
+			enabled: true,
+			listen: listen.clone(),
+			..AgentMcpConfig::default()
+		},
+		AgentMcpConfig {
+			enabled: true,
+			listen: listen.clone(),
+			plaintext: true,
+			..AgentMcpConfig::default()
+		},
+		AgentMcpConfig {
+			enabled: true,
+			listen,
+			tls_cert: Some("cert.pem".into()),
+			tls_key: Some("key.pem".into()),
+			..AgentMcpConfig::default()
+		},
+	];
+	for config in &refused {
+		assert!(agent_mcp::start(harness.core.context.clone(), config)
+			.await
+			.is_err());
 	}
-	let reply = post(
-		&http,
-		&url,
-		&stranger,
-		None,
-		Some(&format!("localhost:{}", bound.port())),
-		initialize(),
-	)
-	.await;
-	assert_eq!(reply.status, StatusCode::FORBIDDEN);
 
-	assert_no_oauth(&http, &format!("http://{bound}")).await;
-
-	// TLS beyond loopback offers no OAuth either.
-	let certified = rcgen::generate_simple_self_signed(vec![ip.to_string()])?;
+	// The listener itself screens Host and offers no OAuth beyond loopback.
+	let certified =
+		rcgen::generate_simple_self_signed(vec![ip.to_string(), "nas.example.test".to_string()])?;
 	let cert_pem = certified.cert.pem();
 	let tls = agent_mcp::tls_config(
 		cert_pem.as_bytes(),
@@ -323,24 +349,100 @@ async fn non_loopback_listeners_refuse_bad_hosts_and_offer_no_oauth() -> anyhow:
 		listener,
 		Limits::default(),
 		tls,
-		Vec::new(),
+		vec!["nas.example.test".to_string()],
 	)?;
+	assert_eq!(bound.ip(), ip);
 	let https = reqwest_rustls::Client::builder()
 		.add_root_certificate(reqwest_rustls::Certificate::from_pem(cert_pem.as_bytes())?)
 		.build()?;
-	let reply = post(
-		&https,
-		&format!("https://{bound}/mcp"),
-		&stranger,
-		None,
-		None,
-		initialize(),
-	)
-	.await;
-	assert_eq!(reply.status, StatusCode::UNAUTHORIZED);
-	let challenge = reply.headers[header::WWW_AUTHENTICATE].to_str()?;
-	assert!(!challenge.contains("resource_metadata"), "{challenge}");
+	let url = format!("https://{bound}/mcp");
+
+	for host in [
+		bound.to_string(),
+		format!("nas.example.test:{}", bound.port()),
+	] {
+		let (status, value) = challenge(&https, &url, &[("host", host.clone())]).await;
+		assert_eq!(status, StatusCode::UNAUTHORIZED, "{host}");
+		assert!(!value.contains("resource_metadata"), "{value}");
+	}
+	for host in [
+		format!("localhost:{}", bound.port()),
+		format!("evil.example:{}", bound.port()),
+		"nas.example.test".to_string(),
+	] {
+		let (status, _) = challenge(&https, &url, &[("host", host.clone())]).await;
+		assert_eq!(status, StatusCode::FORBIDDEN, "{host}");
+	}
 	assert_no_oauth(&https, &format!("https://{bound}")).await;
+
+	harness.shutdown().await?;
+	Ok(())
+}
+
+#[tokio::test]
+async fn oauth_is_offered_only_to_requests_straight_from_this_machine() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("agent_mcp_proxied")
+		.disable_watcher()
+		.build()
+		.await?;
+	let config = AgentMcpConfig {
+		enabled: true,
+		listen: "127.0.0.1:0".to_string(),
+		host_names: vec!["nas.example.test".to_string()],
+		..AgentMcpConfig::default()
+	};
+	let bound = agent_mcp::start(harness.core.context.clone(), &config).await?;
+	let http = reqwest_rustls::Client::new();
+	let origin = format!("http://{bound}");
+	let url = format!("{origin}/mcp");
+
+	// Straight from this machine: OAuth is offered.
+	let (status, value) = challenge(&http, &url, &[]).await;
+	assert_eq!(status, StatusCode::UNAUTHORIZED);
+	assert!(value.contains("resource_metadata"), "{value}");
+	assert_eq!(metadata_status(&http, &origin, &[]).await, StatusCode::OK);
+
+	// A configured host name on a loopback bind passes the Host check, with
+	// any port, so a proxy that keeps Host works, but it gets no OAuth.
+	for host in ["nas.example.test", "nas.example.test:443"] {
+		let headers = [("host", host.to_string())];
+		let (status, value) = challenge(&http, &url, &headers).await;
+		assert_eq!(status, StatusCode::UNAUTHORIZED, "{host}");
+		assert!(!value.contains("resource_metadata"), "{value}");
+		assert_eq!(
+			metadata_status(&http, &origin, &headers).await,
+			StatusCode::NOT_FOUND,
+			"{host}"
+		);
+	}
+	let (status, _) = challenge(&http, &url, &[("host", "evil.example".to_string())]).await;
+	assert_eq!(status, StatusCode::FORBIDDEN);
+
+	// A request a proxy forwarded gets no OAuth, even with a loopback Host.
+	for name in [
+		"forwarded",
+		"x-forwarded-for",
+		"x-forwarded-host",
+		"x-real-ip",
+	] {
+		let headers = [(name, "203.0.113.7".to_string())];
+		let (status, value) = challenge(&http, &url, &headers).await;
+		assert_eq!(status, StatusCode::UNAUTHORIZED, "{name}");
+		assert!(!value.contains("resource_metadata"), "{name}: {value}");
+		assert_eq!(
+			metadata_status(&http, &origin, &headers).await,
+			StatusCode::NOT_FOUND,
+			"{name}"
+		);
+		let status = http
+			.post(format!("{origin}/oauth/register"))
+			.header(name, "203.0.113.7")
+			.body("{}")
+			.send()
+			.await?
+			.status();
+		assert_eq!(status, StatusCode::NOT_FOUND, "{name}");
+	}
 
 	harness.shutdown().await?;
 	Ok(())

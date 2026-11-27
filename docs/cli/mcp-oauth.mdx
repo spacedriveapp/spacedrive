@@ -25,10 +25,11 @@ sd restart
 
 The folder you lend must be inside a source you track. The endpoint listens on
 `127.0.0.1:7765` by default, so the client must run on the same computer as
-the daemon. OAuth is offered on loopback only. The consent page does not ask
-who you are, so whoever presses Allow gets the grant; on loopback that is you.
-When the endpoint listens on another address, with TLS or without, every OAuth
-route answers 404 and remote clients connect with a token from `sd grant`.
+the daemon. OAuth is offered only to requests that come straight from this
+machine. The consent page does not ask who you are, so whoever presses Allow
+gets the grant, and on this machine that is you. A request through a reverse
+proxy, or to a configured host name, gets 404 from every OAuth route, so remote
+clients connect with a token from `sd grant`.
 See [Reach the endpoint from another machine](/docs/cli/agent-access#reach-the-endpoint-from-another-machine).
 
 ## Connect a client

@@ -21,14 +21,16 @@
 //! spec allows. That keeps authentication, session binding and limits in one
 //! handler instead of spread across a framework's layers.
 //!
-//! It is off by default and binds loopback unless the user names another IP.
-//! A non-loopback listener needs a TLS certificate and key, or an explicit
-//! `plaintext` flag for a network that is already encrypted, and it accepts
-//! only Host values naming its own IP or a configured host name. Wildcard
-//! addresses are always refused. OAuth is offered on loopback only, since its
-//! consent page mints a grant for whoever presses Allow without authenticating
-//! the owner; beyond loopback every OAuth route answers 404 and clients use a
-//! token from `sd grant`. The checklist that governs this is in
+//! It is off by default and binds loopback. It can serve TLS from a configured
+//! certificate and key. The config also takes a non-loopback IP with TLS or an
+//! explicit `plaintext` flag, but [`transport`] refuses every non-loopback
+//! address until reads go through handle-based path containment; wildcard
+//! addresses are always refused. Host must name the listener: a loopback name
+//! with the bound port, the bound IP, or a configured host name for a proxy.
+//! OAuth is offered only to a request that comes straight from this machine,
+//! since its consent page mints a grant for whoever presses Allow without
+//! authenticating the owner. Everywhere else every OAuth route answers 404 and
+//! clients use a token from `sd grant`. The checklist that governs this is in
 //! `docs/core/design/agent-access-threat-model.md`.
 //!
 //! ## Example
@@ -85,6 +87,8 @@ pub const SKILL: &str = include_str!("SKILL.md");
 /// How long a client has to finish the TLS handshake, and later to send a
 /// request's headers, before its connection is dropped.
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+
+const NO_CONTAINMENT: &str = "the agent MCP endpoint does not listen beyond loopback yet. That needs handle-based path containment (docs/core/design/agent-access-threat-model.md, item 9), which this build does not have. Keep it on loopback behind a proxy that forwards only /mcp";
 
 const NON_LOOPBACK_PLAIN: &str = "a non-loopback listener needs agent_mcp.tls_cert and agent_mcp.tls_key, or agent_mcp.plaintext set to true for a network that is already encrypted";
 
@@ -162,15 +166,19 @@ pub fn transport(addr: SocketAddr, config: &AgentMcpConfig) -> Result<Transport,
 	for name in &config.host_names {
 		host_name(name)?;
 	}
-	match (&config.tls_cert, &config.tls_key) {
-		(Some(cert), Some(key)) => {
-			return Ok(Transport::Tls {
-				cert: cert.clone(),
-				key: key.clone(),
-			})
-		}
-		(None, None) => {}
+	let tls = match (&config.tls_cert, &config.tls_key) {
+		(Some(cert), Some(key)) => Some(Transport::Tls {
+			cert: cert.clone(),
+			key: key.clone(),
+		}),
+		(None, None) => None,
 		_ => return Err("set both agent_mcp.tls_cert and agent_mcp.tls_key, or neither".into()),
+	};
+	if !addr.ip().is_loopback() {
+		return Err(format!("refusing to listen on {addr}: {NO_CONTAINMENT}"));
+	}
+	if let Some(tls) = tls {
+		return Ok(tls);
 	}
 	if addr.ip().is_loopback() {
 		Ok(Transport::Loopback)
@@ -425,23 +433,25 @@ mod tests {
 	}
 
 	#[test]
-	fn non_loopback_without_tls_or_plaintext_is_refused() {
-		let refused = plan(&config("192.168.1.5:7765")).unwrap_err();
-		assert!(refused.contains("tls_cert"), "{refused}");
-	}
-
-	#[test]
-	fn non_loopback_with_plaintext_is_accepted() {
-		let config = AgentMcpConfig {
+	fn non_loopback_addresses_are_refused_until_containment_lands() {
+		let tls = AgentMcpConfig {
+			tls_cert: Some("cert.pem".into()),
+			tls_key: Some("key.pem".into()),
+			..config("100.64.0.1:7765")
+		};
+		let plaintext = AgentMcpConfig {
 			plaintext: true,
 			..config("100.64.0.1:7765")
 		};
-		assert_eq!(plan(&config), Ok(Transport::Plaintext));
+		for config in [config("192.168.1.5:7765"), tls, plaintext] {
+			let refused = plan(&config).unwrap_err();
+			assert!(refused.contains("containment"), "{refused}");
+		}
 	}
 
 	#[test]
-	fn a_certificate_and_key_mean_tls_on_any_address() {
-		for listen in ["100.64.0.1:7765", DEFAULT_LISTEN] {
+	fn a_certificate_and_key_mean_tls_on_loopback() {
+		for listen in [DEFAULT_LISTEN, "[::1]:7765"] {
 			let config = AgentMcpConfig {
 				tls_cert: Some("cert.pem".into()),
 				tls_key: Some("key.pem".into()),
@@ -461,8 +471,7 @@ mod tests {
 	fn half_a_tls_config_is_refused() {
 		let config = AgentMcpConfig {
 			tls_cert: Some("cert.pem".into()),
-			plaintext: true,
-			..config("100.64.0.1:7765")
+			..config(DEFAULT_LISTEN)
 		};
 		assert!(plan(&config).is_err());
 	}
@@ -484,7 +493,7 @@ mod tests {
 		let config = AgentMcpConfig {
 			plaintext: true,
 			host_names: vec!["bad name".into()],
-			..config("100.64.0.1:7765")
+			..config(DEFAULT_LISTEN)
 		};
 		assert!(plan(&config).is_err());
 	}
@@ -501,29 +510,5 @@ mod tests {
 			url("100.64.0.1:8443", false, &[]),
 			"http://100.64.0.1:8443/mcp"
 		);
-	}
-
-	#[tokio::test]
-	async fn plaintext_binds_a_non_loopback_local_address_when_one_exists() {
-		let Some(ip) = local_non_loopback_ip() else {
-			return;
-		};
-		let config = AgentMcpConfig {
-			plaintext: true,
-			..config(&SocketAddr::new(ip, 0).to_string())
-		};
-		let addr = listen_addr(&config.listen).unwrap();
-		assert_eq!(transport(addr, &config), Ok(Transport::Plaintext));
-		let listener = TcpListener::bind(addr).await.unwrap();
-		assert!(!listener.local_addr().unwrap().ip().is_loopback());
-	}
-
-	/// The address this host routes outward from, found without sending a
-	/// packet, or None on a host with only loopback.
-	fn local_non_loopback_ip() -> Option<IpAddr> {
-		let socket = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
-		socket.connect("192.0.2.1:9").ok()?;
-		let ip = socket.local_addr().ok()?.ip();
-		(!ip.is_loopback() && !ip.is_unspecified()).then_some(ip)
 	}
 }

@@ -336,11 +336,26 @@ impl Endpoint {
 		Ok(())
 	}
 
-	/// Whether this listener runs OAuth. Only on loopback: the consent page
-	/// mints a grant for whoever presses Allow without authenticating the
-	/// owner, so it must not be reachable from another machine.
-	pub(super) fn oauth_offered(&self) -> bool {
+	/// Whether this request may use OAuth.
+	///
+	/// The consent page mints a grant for whoever presses Allow without
+	/// authenticating the owner, so it must only be reachable from this
+	/// machine. That needs a loopback bind, a loopback Host, and no sign of a
+	/// proxy, since a proxy on loopback can carry remote traffic. A configured
+	/// host name in Host is itself a sign of a proxy.
+	pub(super) fn oauth_offered(&self, headers: &HeaderMap) -> bool {
+		const PROXY_HEADERS: [&str; 4] = [
+			"forwarded",
+			"x-forwarded-for",
+			"x-forwarded-host",
+			"x-real-ip",
+		];
 		self.bound.ip().is_loopback()
+			&& headers
+				.get(header::HOST)
+				.and_then(|host| host.to_str().ok())
+				.is_some_and(|host| loopback_authority(host, self.bound, self.tls))
+			&& !PROXY_HEADERS.iter().any(|name| headers.contains_key(*name))
 	}
 
 	pub(super) fn tls(&self) -> bool {
@@ -350,7 +365,7 @@ impl Endpoint {
 	/// The `WWW-Authenticate` value a 401 carries: a pointer to the OAuth
 	/// metadata where OAuth is offered, a bare challenge elsewhere.
 	fn challenge(&self, headers: &HeaderMap) -> String {
-		if self.oauth_offered() {
+		if self.oauth_offered(headers) {
 			oauth::challenge(&oauth::base_url(headers, self.tls))
 		} else {
 			"Bearer realm=\"spacedrive\"".to_string()
@@ -358,36 +373,47 @@ impl Endpoint {
 	}
 }
 
+/// The host and port of a Host header value. A missing port is the scheme's
+/// default, as clients leave it out.
+fn split_authority(authority: &str, tls: bool) -> (&str, u16) {
+	let default_port = if tls { 443 } else { 80 };
+	match authority.rsplit_once(':') {
+		Some((host, port)) if !port.contains(']') => (host, port.parse().unwrap_or(0)),
+		_ => (authority, default_port),
+	}
+}
+
+/// Whether `authority` is `127.0.0.1`, `localhost` or `[::1]` with the port
+/// of the loopback listener at `bound`.
+fn loopback_authority(authority: &str, bound: SocketAddr, tls: bool) -> bool {
+	let (host, port) = split_authority(authority, tls);
+	port == bound.port() && matches!(host, "127.0.0.1" | "localhost" | "[::1]")
+}
+
 /// Whether `authority`, a Host header value, names the listener at `bound`.
 ///
-/// On loopback only `127.0.0.1`, `localhost` and `[::1]` with the bound port
-/// pass, which refuses a page that rebinds its own domain to 127.0.0.1.
-/// Beyond loopback, Host must be the bound IP (IPv6 in brackets) or one of
-/// `host_names`, with the bound port. The port may be left out only when it
-/// is the scheme's default, as clients do.
+/// On loopback, `127.0.0.1`, `localhost` and `[::1]` with the bound port
+/// pass, which refuses a page that rebinds its own domain to 127.0.0.1. So
+/// does any of `host_names` with any port, for a proxy that keeps the Host it
+/// was sent; a rebinding page cannot choose one of those names. Beyond
+/// loopback, Host must be the bound IP (IPv6 in brackets) or one of
+/// `host_names`, with the bound port.
 fn host_allowed(authority: &str, bound: SocketAddr, tls: bool, host_names: &[String]) -> bool {
-	let default_port = if tls { 443 } else { 80 };
-	let (host, port) = match authority.rsplit_once(':') {
-		Some((host, port)) if !port.contains(']') => (host, port.parse::<u16>().ok()),
-		_ => (
-			authority,
-			Some(default_port).filter(|_| bound.port() == default_port),
-		),
-	};
-	if port != Some(bound.port()) {
-		return false;
-	}
+	let (host, port) = split_authority(authority, tls);
+	let named = host_names
+		.iter()
+		.any(|name| name.eq_ignore_ascii_case(host));
 	if bound.ip().is_loopback() {
-		return matches!(host, "127.0.0.1" | "localhost" | "[::1]");
+		return named || loopback_authority(authority, bound, tls);
+	}
+	if port != bound.port() {
+		return false;
 	}
 	let ip = match host.strip_prefix('[').and_then(|h| h.strip_suffix(']')) {
 		Some(inner) => inner.parse::<Ipv6Addr>().ok().map(IpAddr::V6),
 		None => host.parse::<Ipv4Addr>().ok().map(IpAddr::V4),
 	};
-	ip == Some(bound.ip())
-		|| host_names
-			.iter()
-			.any(|name| name.eq_ignore_ascii_case(host))
+	ip == Some(bound.ip()) || named
 }
 
 fn bearer(headers: &HeaderMap) -> Option<&str> {
@@ -804,8 +830,10 @@ mod tests {
 				tls,
 				&[]
 			));
-			// Host names are for non-loopback listeners only.
-			assert!(!host_allowed("nas.example.ts.net:7765", bound, tls, &names));
+			// A configured name passes with any port, for a proxy that keeps Host.
+			assert!(host_allowed("nas.example.ts.net:7765", bound, tls, &names));
+			assert!(host_allowed("nas.example.ts.net", bound, tls, &names));
+			assert!(!host_allowed("nas.example.ts.net", bound, tls, &[]));
 		}
 	}
 

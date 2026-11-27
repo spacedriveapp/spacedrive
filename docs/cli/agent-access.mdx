@@ -40,47 +40,66 @@ names other than `localhost`, and logs why.
 
 ## Reach the endpoint from another machine
 
-Keep the endpoint on loopback and put a TLS proxy you already run in front of
-it. With Tailscale, `tailscale serve --bg 7765` serves the endpoint at your
-machine's tailnet name over HTTPS. A reverse proxy such as Caddy or nginx
-works the same way. Your proxy then handles certificates, and the endpoint
-stays unreachable from anywhere the proxy does not forward.
-
-If you cannot run a proxy, the endpoint can listen on another address itself.
-Set `agent_mcp.listen` to one IP of this machine, with a port, and choose how
-it is protected:
-
-| Key | Value |
-| --- | --- |
-| `agent_mcp.tls_cert` | Path to a PEM certificate chain. The endpoint serves TLS 1.2 and 1.3. |
-| `agent_mcp.tls_key` | Path to the PEM private key for that certificate. |
-| `agent_mcp.plaintext` | `true` serves plain HTTP. Use it only on an address whose network is already encrypted, such as a WireGuard or Tailscale address. The daemon logs a warning at every start. |
-| `agent_mcp.host_names` | Comma-separated names clients may use in the URL, such as the name in your certificate. The bound IP is always accepted. |
-
-Set both `tls_cert` and `tls_key`, or set `plaintext`. If you set neither, the
-daemon does not start the endpoint on a non-loopback address and logs why. A
-certificate and key also turn on TLS on a loopback address.
+Keep the endpoint on loopback and put a TLS reverse proxy you already run in
+front of it. Forward only `/mcp`, so the OAuth routes stay unreachable from
+other machines. Add the name clients use to `agent_mcp.host_names`, since the
+endpoint refuses a Host it does not know:
 
 ```bash
-sd config set agent_mcp.listen 100.101.102.103:7765
-sd config set agent_mcp.tls_cert /etc/spacedrive/endpoint.crt
-sd config set agent_mcp.tls_key /etc/spacedrive/endpoint.key
-sd config set agent_mcp.host_names nas.example.ts.net
+sd config set agent_mcp.host_names nas.example.net
 sd restart
 ```
 
-On a non-loopback address the endpoint answers 403 unless the request's Host
-is the bound IP or one of `agent_mcp.host_names`, with the bound port.
-[OAuth](/docs/cli/mcp-oauth) is not offered on a non-loopback address, with
-TLS or without: every OAuth route answers 404 there. The consent page does
-not ask who you are, so whoever opens it and presses Allow gets a grant for
-the folder they pick. On loopback that person is you. On a network address it
-could be anyone who reaches the port. Remote clients connect with a token from
-`sd grant create` instead. `sd grant create --print-mcp-config` prints an
-`https://` URL with the first host name when TLS is configured.
+With Caddy:
 
-Anyone who can reach the address can still try tokens against it. Choose an
-address that only your own devices can reach.
+```
+nas.example.net {
+	handle /mcp {
+		reverse_proxy 127.0.0.1:7765
+	}
+	respond 404
+}
+```
+
+With nginx:
+
+```
+server {
+	listen 443 ssl;
+	server_name nas.example.net;
+	ssl_certificate     /etc/ssl/nas.example.net.crt;
+	ssl_certificate_key /etc/ssl/nas.example.net.key;
+
+	location = /mcp {
+		proxy_pass http://127.0.0.1:7765;
+		proxy_set_header X-Forwarded-For $remote_addr;
+	}
+	location / {
+		return 404;
+	}
+}
+```
+
+On a loopback bind, a name in `agent_mcp.host_names` is accepted in Host with
+any port, because the port belongs to the proxy. Remote clients then connect to
+`https://nas.example.net/mcp` with a token from `sd grant create`.
+
+OAuth is offered only to a request that comes straight from this machine: a
+loopback bind, a Host of `127.0.0.1`, `localhost` or `[::1]` with the bound
+port, and no `Forwarded`, `X-Forwarded-For`, `X-Forwarded-Host` or
+`X-Real-IP` header. Any other request gets 404 from every OAuth route. The
+consent page does not ask who you are, so whoever opens it and presses Allow
+gets a grant for the folder they pick. On this machine that person is you;
+through a proxy it could be anyone who reaches the proxy. Forwarding only
+`/mcp` is the main protection, and the header check catches a proxy that
+forwards everything.
+
+The endpoint also has keys for listening on another address itself:
+`agent_mcp.tls_cert` and `agent_mcp.tls_key` (PEM files; TLS 1.2 and 1.3),
+and `agent_mcp.plaintext` (`true` for a network that is already encrypted).
+A certificate and key turn on TLS on loopback too. The daemon accepts a
+non-loopback `agent_mcp.listen` in the config but refuses to start the
+endpoint there until reads use handle-based path containment.
 
 ## Create a grant
 
