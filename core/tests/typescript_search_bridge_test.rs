@@ -16,6 +16,7 @@ use std::path::PathBuf;
 struct SearchBridgeConfig {
 	/// TCP socket address for daemon connection (e.g., "127.0.0.1:6969")
 	socket_addr: String,
+	rpc_secret: String,
 	/// Library UUID
 	library_id: String,
 	/// The daemon's device slug, which physical paths are addressed by
@@ -110,6 +111,7 @@ async fn test_typescript_search_tracked_and_browsed() -> anyhow::Result<()> {
 	// Prepare bridge config
 	let bridge_config = SearchBridgeConfig {
 		socket_addr: socket_addr.clone(),
+		rpc_secret: harness.daemon_rpc_secret(),
 		library_id: harness.library.id().to_string(),
 		device_slug: sd_core::device::get_current_device_slug(),
 		source_path: source.path().to_path_buf(),

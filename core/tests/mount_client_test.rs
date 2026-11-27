@@ -95,17 +95,26 @@ async fn eventually(
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn a_thin_client_mounts_a_granted_folder_over_the_endpoint() -> anyhow::Result<()> {
+async fn a_thin_client_mounts_a_granted_folder_over_the_space_endpoint() -> anyhow::Result<()> {
+	scenario("mount_client_endpoint", false).await
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_thin_client_mounts_a_granted_folder_over_mcp() -> anyhow::Result<()> {
+	scenario("mount_client_mcp", true).await
+}
+
+/// Over the space endpoint, changes arrive on its event stream, so they show
+/// well inside the 10 s the client otherwise trusts an answer. Over MCP the
+/// client trusts answers for 1 s.
+async fn scenario(name: &str, over_mcp: bool) -> anyhow::Result<()> {
 	let _ = tracing_subscriber::fmt::try_init();
 	if let Some(reason) = skip_reason() {
 		warn!("Skipping: {reason}");
 		return Ok(());
 	}
 
-	let harness = IndexingHarnessBuilder::new("mount_client")
-		.disable_watcher()
-		.build()
-		.await?;
+	let harness = IndexingHarnessBuilder::new(name).build().await?;
 	let tracked = harness.create_test_dir("tracked").await?;
 	tracked
 		.write_file("shared/readme.md", "hello from the node\n")
@@ -126,7 +135,12 @@ async fn a_thin_client_mounts_a_granted_folder_over_the_endpoint() -> anyhow::Re
 
 	let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
 	let bound = agent_mcp::serve(context.clone(), listener, Limits::default())?;
-	let url = format!("http://{bound}");
+	let url = if over_mcp {
+		format!("http://{bound}/mcp")
+	} else {
+		format!("http://{bound}")
+	};
+	let within = Duration::from_secs(if over_mcp { 10 } else { 5 });
 	let grant = CreateGrantAction::from_input(CreateGrantInput {
 		path: base.join("tracked/shared"),
 		caps: Some(GrantCap::Read),
@@ -140,12 +154,12 @@ async fn a_thin_client_mounts_a_granted_folder_over_the_endpoint() -> anyhow::Re
 	.await?;
 
 	assert!(
-		client::connect(&url, "sdg_not-a-token", Some(base.join("cache")))
+		client::connect(&url, "sdg_not-a-token", None, Some(base.join("cache")))
 			.await
 			.is_err(),
 		"a token the node does not know is refused before mounting"
 	);
-	let fs = client::connect(&url, &grant.token, Some(base.join("cache"))).await?;
+	let fs = client::connect(&url, &grant.token, None, Some(base.join("cache"))).await?;
 	let mnt = base.join("mnt");
 	std::fs::create_dir(&mnt)?;
 	let mounted = fuse::fs::mount(fs.clone(), &mnt).await?;
@@ -212,28 +226,34 @@ async fn a_thin_client_mounts_a_granted_folder_over_the_endpoint() -> anyhow::Re
 	std::fs::write(base.join("tracked/shared/added.txt"), "new")?;
 	std::fs::remove_file(base.join("tracked/shared/deep/notes.txt"))?;
 	{
+		// Checked before any open, since an open asks the node afresh.
 		let mnt = mnt.clone();
 		eventually(
-			Duration::from_secs(10),
-			"the changed file is read again",
+			within,
+			"the changed size shows without reopening",
 			move || {
-				std::fs::read_to_string(mnt.join("readme.md"))
-					.ok()
-					.as_deref() == Some("changed at the origin, longer\n")
+				std::fs::metadata(mnt.join("readme.md"))
+					.map(|meta| meta.len())
+					.ok() == Some("changed at the origin, longer\n".len() as u64)
 			},
 		)
 		.await;
 	}
 	{
 		let mnt = mnt.clone();
-		eventually(
-			Duration::from_secs(10),
-			"the listing follows the origin",
-			move || {
-				names(&mnt) == ["added.txt", "clip.bin", "deep", "readme.md"]
-					&& names(&mnt.join("deep")).is_empty()
-			},
-		)
+		eventually(within, "the changed file is read again", move || {
+			std::fs::read_to_string(mnt.join("readme.md"))
+				.ok()
+				.as_deref() == Some("changed at the origin, longer\n")
+		})
+		.await;
+	}
+	{
+		let mnt = mnt.clone();
+		eventually(within, "the listing follows the origin", move || {
+			names(&mnt) == ["added.txt", "clip.bin", "deep", "readme.md"]
+				&& names(&mnt.join("deep")).is_empty()
+		})
 		.await;
 	}
 
