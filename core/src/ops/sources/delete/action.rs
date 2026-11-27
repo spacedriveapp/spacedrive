@@ -15,6 +15,7 @@ use crate::{
 	infra::action::{error::ActionError, LibraryAction},
 	library::Library,
 	ops::sources::registry,
+	service::sidecars::SidecarRegistry,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -62,6 +63,30 @@ impl LibraryAction for DeleteSourceAction {
 		let source_id = uuid::Uuid::parse_str(&self.input.source_id)
 			.map_err(|e| ActionError::Internal(format!("Invalid source ID: {e}")))?;
 
+		// Content another source still holds moves to that source first,
+		// since the sidecars are one copy for every file with those bytes and
+		// readers stop looking under a source once it is removed. Derived
+		// media goes with the catalog, so a failed move stops a catalog
+		// delete; without one the tree stays on disk with the catalog.
+		let derived = context
+			.volume_index()
+			.source_dirs()
+			.map(|dirs| sd_sidecar_path::derived_root(dirs.root(), &source_id));
+		match SidecarRegistry::of(&library).evacuate(source_id).await {
+			Ok(0) => {}
+			Ok(moved) => {
+				tracing::info!(source = %source_id, moved, "moved shared sidecars to another source")
+			}
+			Err(error) if self.input.delete_catalog => {
+				return Err(ActionError::Internal(format!(
+					"kept the source because its shared sidecars could not be moved: {error}"
+				)))
+			}
+			Err(error) => {
+				tracing::warn!(source = %source_id, %error, "could not move shared sidecars")
+			}
+		}
+
 		// A filesystem source is retired from the volume index first, so no
 		// writer is left open over a directory about to be deleted and a
 		// later add reopens the store under its own registration.
@@ -108,6 +133,19 @@ impl LibraryAction for DeleteSourceAction {
 						.await
 						.map_err(ActionError::Internal)?;
 					catalog_deleted = true;
+				}
+			}
+		}
+
+		if let (true, Some(derived)) = (self.input.delete_catalog, derived) {
+			match tokio::fs::remove_dir_all(&derived).await {
+				Ok(()) => {}
+				Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+				Err(e) => {
+					return Err(ActionError::Internal(format!(
+						"removed the source but could not delete its derived media at {}: {e}",
+						derived.display()
+					)))
 				}
 			}
 		}

@@ -14,7 +14,7 @@
 //! its descriptions: `scene` with `video-shots`, `caption` with
 //! `ai-cloud`, which every build that captions has.
 
-use std::{io, path::Path};
+use std::io;
 
 use serde::Deserialize;
 use uuid::Uuid;
@@ -22,6 +22,7 @@ use uuid::Uuid;
 use crate::{
 	domain::sidecar::{ContentSidecar, SidecarFormat, SidecarKind, SidecarVariant},
 	library::Library,
+	service::sidecars::{SidecarFinder, SidecarRegistry},
 };
 
 /// The extension that writes `scene` sidecars.
@@ -63,8 +64,13 @@ pub async fn index_sidecar(
 		variant: SidecarVariant::new("default"),
 		format: SidecarFormat::Json,
 	};
-	let spans = match tokio::fs::read(sidecar.path_in(library.path())).await {
-		Ok(bytes) => spans_of(library.path(), index_kind, content_uuid, &bytes).await?,
+	let finder = SidecarRegistry::of(library).finder();
+	let read = match finder.find(&sidecar) {
+		Some(path) => tokio::fs::read(path).await,
+		None => Err(io::ErrorKind::NotFound.into()),
+	};
+	let spans = match read {
+		Ok(bytes) => spans_of(&finder, index_kind, content_uuid, &bytes).await?,
 		Err(error) if error.kind() == io::ErrorKind::NotFound => Vec::new(),
 		Err(error) => return Err(error.into()),
 	};
@@ -92,14 +98,14 @@ pub async fn index_sidecar(
 }
 
 async fn spans_of(
-	library_path: &Path,
+	finder: &SidecarFinder,
 	index_kind: &str,
 	content_uuid: Uuid,
 	bytes: &[u8],
 ) -> anyhow::Result<Vec<sd_store::DescriptionSpan>> {
 	match index_kind {
 		#[cfg(feature = "video-shots")]
-		sd_store::SCENE_KIND => scene_spans(library_path, content_uuid, bytes).await,
+		sd_store::SCENE_KIND => scene_spans(finder, content_uuid, bytes).await,
 		#[cfg(feature = "ai-cloud")]
 		sd_store::CAPTION_KIND => {
 			let caption: Caption = serde_json::from_slice(bytes)?;
@@ -110,7 +116,7 @@ async fn spans_of(
 			}])
 		}
 		_ => {
-			let _ = (library_path, content_uuid, bytes);
+			let _ = (finder, content_uuid, bytes);
 			Ok(Vec::new())
 		}
 	}
@@ -143,7 +149,7 @@ struct Caption {
 /// without a range.
 #[cfg(feature = "video-shots")]
 async fn scene_spans(
-	library_path: &Path,
+	finder: &SidecarFinder,
 	content_uuid: Uuid,
 	bytes: &[u8],
 ) -> anyhow::Result<Vec<sd_store::DescriptionSpan>> {
@@ -151,7 +157,7 @@ async fn scene_spans(
 
 	let scene: SceneDoc = serde_json::from_slice(bytes)?;
 	let ranges: HashMap<String, (i64, i64)> =
-		crate::ops::media::shots::read_shots(library_path, content_uuid)
+		crate::ops::media::shots::read_shots(finder, content_uuid)
 			.await
 			.unwrap_or_else(|error| {
 				tracing::warn!(%content_uuid, %error, "scene descriptions indexed without shot times");

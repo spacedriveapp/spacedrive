@@ -1,14 +1,103 @@
-//! The canonical sidecar tree layout:
-//! `content/{h0}/{h1}/{content_uuid}/{kind_dir}/{variant}.{ext}`
-//! where `h0`/`h1` are the first two byte-pairs of the lowercase hex UUID.
+//! The canonical layout of derived media:
+//! `sources/<source>/derived/{h0}/{h1}/{content_uuid}/{kind_dir}/{variant}.{ext}`
+//! under the daemon's data directory, where `h0`/`h1` are the first two
+//! byte-pairs of the lowercase hex UUID.
 //!
-//! Every process that touches the sidecar tree resolves paths through this
-//! crate — the daemon writes with it, and the serving processes (which do not
-//! link the full core) read with it — so the layout cannot drift between
-//! writer and readers.
+//! Each content has one copy, under one of the sources that hold it, so a
+//! reader that knows only the content uuid probes every source's `derived`
+//! directory. Libraries written before the move kept the same tree at
+//! `<library>/sidecars/content`, which readers still probe last until the
+//! daemon has adopted it.
+//!
+//! Every process that touches the tree resolves paths through this crate. The
+//! daemon writes with it, and the serving processes, which do not link the
+//! full core, read with it, so the layout cannot drift between writer and
+//! readers.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
+
+/// The directory under a source's directory that holds its derived media.
+/// Not `sidecars`, which would read as a sibling of the source's thumbnail
+/// store `sidecars.db` rather than a different thing.
+pub const DERIVED_DIR: &str = "derived";
+
+/// The file in a derived directory naming the library it belongs to. A
+/// source's descriptor can live on the source's own drive, so the derived
+/// directory carries its own ownership for readers outside the daemon.
+pub const LIBRARY_MARKER: &str = ".library";
+
+/// A source's derived media directory under the daemon's `sources`
+/// directory.
+pub fn derived_root(sources_dir: &Path, source_id: &Uuid) -> PathBuf {
+	sources_dir
+		.join(source_id.simple().to_string())
+		.join(DERIVED_DIR)
+}
+
+/// Where a library written before the move kept its derived media.
+pub fn legacy_root(library_dir: &Path) -> PathBuf {
+	library_dir.join("sidecars").join("content")
+}
+
+/// The file holding a sidecar, found by probing the derived directory of
+/// every source of `library_id` under `sources_dir` and then the library's
+/// legacy tree.
+///
+/// Sources of other libraries are skipped: two libraries holding the same
+/// bytes keep separate copies, which can differ, for example transcripts made
+/// in different languages.
+pub fn locate(
+	sources_dir: &Path,
+	library_id: &Uuid,
+	library_dir: &Path,
+	relative: &Path,
+) -> Option<PathBuf> {
+	let mut roots: Vec<PathBuf> = std::fs::read_dir(sources_dir)
+		.into_iter()
+		.flatten()
+		.flatten()
+		.map(|entry| entry.path())
+		.filter(|source| belongs_to(source, library_id))
+		.map(|source| source.join(DERIVED_DIR))
+		.collect();
+	roots.sort();
+	roots.push(legacy_root(library_dir));
+	roots
+		.into_iter()
+		.map(|root| root.join(relative))
+		.find(|path| path.is_file())
+}
+
+/// Record which library a derived directory belongs to, creating it.
+pub fn mark_library(derived: &Path, library_id: &Uuid) -> std::io::Result<()> {
+	let marker = derived.join(LIBRARY_MARKER);
+	let id = library_id.to_string();
+	if std::fs::read_to_string(&marker).ok().as_deref() == Some(id.as_str()) {
+		return Ok(());
+	}
+	std::fs::create_dir_all(derived)?;
+	std::fs::write(marker, id)
+}
+
+/// Whether a source directory belongs to `library_id`, by the marker in its
+/// derived directory, else by a `source.json` kept beside it.
+fn belongs_to(source: &Path, library_id: &Uuid) -> bool {
+	let marked = std::fs::read_to_string(source.join(DERIVED_DIR).join(LIBRARY_MARKER))
+		.ok()
+		.and_then(|id| Uuid::parse_str(id.trim()).ok());
+	let owner = marked.or_else(|| {
+		std::fs::read(source.join("source.json"))
+			.ok()
+			.and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+			.and_then(|json| {
+				json.get("library_id")?
+					.as_str()
+					.and_then(|id| Uuid::parse_str(id).ok())
+			})
+	});
+	owner == Some(*library_id)
+}
 
 /// Directory name for a sidecar kind string, or `None` for an unknown kind.
 ///
@@ -65,18 +154,17 @@ pub fn compute_shards(content_uuid: &Uuid) -> (String, String) {
 	(hex[0..2].to_string(), hex[2..4].to_string())
 }
 
-/// Directory of every sidecar of one content uuid, relative to the library's
-/// `sidecars` directory.
+/// Directory of every sidecar of one content uuid, relative to a derived
+/// root.
 pub fn content_directory(content_uuid: &Uuid) -> PathBuf {
 	let (h0, h1) = compute_shards(content_uuid);
-	let mut path = PathBuf::from("content");
-	path.push(h0);
+	let mut path = PathBuf::from(h0);
 	path.push(h1);
 	path.push(content_uuid.to_string());
 	path
 }
 
-/// Path of a sidecar file relative to the library's `sidecars` directory.
+/// Path of a sidecar file relative to a derived root.
 pub fn relative_path(
 	content_uuid: &Uuid,
 	kind_dir: &str,
@@ -104,7 +192,7 @@ mod tests {
 		let uuid = Uuid::parse_str("abcd1234-5678-90ab-cdef-123456789012").unwrap();
 		assert_eq!(
 			relative_path(&uuid, "thumbs", "grid@2x", "webp"),
-			PathBuf::from("content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/thumbs/grid@2x.webp")
+			PathBuf::from("ab/cd/abcd1234-5678-90ab-cdef-123456789012/thumbs/grid@2x.webp")
 		);
 	}
 
@@ -119,9 +207,69 @@ mod tests {
 				"json"
 			),
 			PathBuf::from(
-				"content/ab/cd/abcd1234-5678-90ab-cdef-123456789012/extensions/com.spacedrive.photos/faces/default.json"
+				"ab/cd/abcd1234-5678-90ab-cdef-123456789012/extensions/com.spacedrive.photos/faces/default.json"
 			)
 		);
+	}
+
+	#[test]
+	fn locate_probes_the_library_s_sources_then_its_legacy_tree() {
+		let data = std::env::temp_dir().join(format!("sd-sidecar-path-{}", std::process::id()));
+		let sources = data.join("sources");
+		let library = data.join("libraries").join("a.sdlibrary");
+		let uuid = Uuid::parse_str("abcd1234-5678-90ab-cdef-123456789012").unwrap();
+		let relative = relative_path(&uuid, "proxies", "720p", "mp4");
+		let (a, b, other, on_drive) = (
+			Uuid::from_u128(1),
+			Uuid::from_u128(2),
+			Uuid::from_u128(3),
+			Uuid::from_u128(4),
+		);
+		let (mine, theirs) = (Uuid::from_u128(10), Uuid::from_u128(11));
+		let register = |source: &Uuid, library_id: &Uuid| {
+			let dir = derived_root(&sources, source);
+			std::fs::create_dir_all(&dir).unwrap();
+			std::fs::write(
+				dir.parent().unwrap().join("source.json"),
+				format!("{{\"library_id\":\"{library_id}\"}}"),
+			)
+			.unwrap();
+		};
+		register(&a, &mine);
+		register(&b, &mine);
+		register(&other, &theirs);
+		let foreign = derived_root(&sources, &other).join(&relative);
+		std::fs::create_dir_all(foreign.parent().unwrap()).unwrap();
+		std::fs::write(&foreign, b"theirs").unwrap();
+		assert_eq!(locate(&sources, &mine, &library, &relative), None);
+
+		let legacy = legacy_root(&library).join(&relative);
+		std::fs::create_dir_all(legacy.parent().unwrap()).unwrap();
+		std::fs::write(&legacy, b"old").unwrap();
+		assert_eq!(locate(&sources, &mine, &library, &relative), Some(legacy));
+
+		let adopted = derived_root(&sources, &b).join(&relative);
+		std::fs::create_dir_all(adopted.parent().unwrap()).unwrap();
+		std::fs::write(&adopted, b"new").unwrap();
+		assert_eq!(locate(&sources, &mine, &library, &relative), Some(adopted));
+		assert_eq!(
+			locate(&sources, &theirs, &library, &relative),
+			Some(foreign)
+		);
+
+		// A source whose descriptor lives on its own drive is found by the
+		// marker the daemon leaves in its derived directory.
+		std::fs::remove_file(derived_root(&sources, &b).join(&relative)).unwrap();
+		let marked = derived_root(&sources, &on_drive).join(&relative);
+		std::fs::create_dir_all(marked.parent().unwrap()).unwrap();
+		std::fs::write(&marked, b"on drive").unwrap();
+		assert_eq!(
+			locate(&sources, &mine, &library, &relative),
+			Some(legacy_root(&library).join(&relative))
+		);
+		mark_library(&derived_root(&sources, &on_drive), &mine).unwrap();
+		assert_eq!(locate(&sources, &mine, &library, &relative), Some(marked));
+		std::fs::remove_dir_all(&data).unwrap();
 	}
 
 	#[test]

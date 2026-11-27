@@ -40,7 +40,7 @@ A clip is computed at query time. Nothing stores clips. Each one joins three
 sidecars of the same content uuid, the candidate uuid described under
 [Media sidecars](./virtual-sidecars#media-sidecars):
 
-| Sidecar | Path under `sidecars/content/<h0>/<h1>/<uuid>/` | Written by |
+| Sidecar | Path under `sources/<source>/derived/<h0>/<h1>/<uuid>/` | Written by |
 | --- | --- | --- |
 | Transcript | `transcript/default.json` | `media.transcribe` |
 | Shots | `shots/default.json` | `media.shots.detect` |
@@ -252,8 +252,8 @@ Each file also says whether its name was taken (`conflict`). Without
 
 The files hold absolute `file://` paths, because an editor needs them. That
 is the one place a host path reaches an agent, and it names only videos inside
-the grant, or with `media: proxy`, their proxies in the library's sidecar
-directory.
+the grant, or with `media: proxy`, their proxies in the derived media
+directory of the source that holds them.
 
 The timeline takes the frame rate and picture size of its first clip. Clips
 sit end to end with no gaps, each with its picture and its first audio track.
