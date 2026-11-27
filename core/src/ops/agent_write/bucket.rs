@@ -328,6 +328,7 @@ async fn create(bucket: &Bucket, bytes: Bytes, turn: &WriteTurn) -> Result<Bucke
 		.chain(conflict_names(&wanted, false))
 		.take(CONFLICT_ATTEMPTS);
 	for candidate in candidates {
+		turn.proceed()?;
 		let Some(url) = BucketUrl::parse(&candidate) else {
 			continue;
 		};
@@ -363,6 +364,7 @@ pub(super) async fn make_dir(bucket: Bucket, turn: &WriteTurn) -> Result<WriteOu
 		.chain(conflict_names(&wanted, true))
 		.take(CONFLICT_ATTEMPTS);
 	for candidate in candidates {
+		turn.proceed()?;
 		let Some(url) = BucketUrl::parse(&candidate) else {
 			continue;
 		};
