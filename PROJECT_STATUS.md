@@ -36,6 +36,16 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Bundled command line tool (Capy FAN-14800, November 27, in PR). The desktop
+app ships `sd-cli` beside `sd-daemon` as a Tauri external binary on macOS
+arm64 and Intel and Linux, built in the same cargo run with the same features
+and commit, so `sd` and the daemon can no longer drift apart. Settings,
+General, Command Line links `/usr/local/bin/sd` (administrator prompt, falling
+back to `~/.local/bin/sd`) on macOS and `~/.local/bin/sd` on Linux through the
+`cli.status`, `cli.install` and `cli.uninstall` core ops. `sd update` refuses
+to replace the copy inside the app. The standalone `sd-<platform>` assets
+stay. Next: a signed release dry run, then live install on a Mac.
+
 Job shutdown deadlock (Capy FAN-12312, November 25, in PR). The Windows unit
 job kept failing on `a_directory_that_never_answers_does_not_hold_up_the_pass`.
 The cause was not the reconcile pass but `core.shutdown()` at the end of the

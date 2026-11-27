@@ -86,12 +86,22 @@ gh workflow run release.yml --ref <branch> -f dry_run=true -f sign=true
 A signed dry run fails at the first job if any signing secret is missing. The
 macOS desktop jobs import the Developer ID certificate, print its validity
 dates, sign, notarize and staple the app and then the disk image, and run the
-same signature, stapler and Gatekeeper checks as a release. The macOS CLI jobs
+same signature, stapler and Gatekeeper checks as a release. They also check
+that `sd-daemon` and `sd-cli` inside the app carry a Developer ID signature
+with the hardened runtime and a secure timestamp. The macOS CLI jobs
 sign the standalone `sd` and `sd-daemon` binaries with the hardened runtime
 and a secure timestamp, notarize them as a zip, and run the same checks as a
 release. The release job still never runs.
 
 ## Artifacts
+
+The desktop app bundles `sd-cli` beside `sd-daemon` on every desktop target.
+`ensure-daemon-sidecar.sh` builds both in one cargo run with the same
+features, and the release workflow sets `SD_GIT_SHA` so both print the same
+`--version` line. After the build, each desktop job opens the `.dmg` or
+`.deb`, checks that both binaries are there and built for the target, and
+fails if their versions differ. The standalone `sd` and `sd-daemon` assets
+stay, because `sd update` and machines without the app install from them.
 
 The release pipeline builds:
 

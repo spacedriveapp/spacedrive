@@ -360,6 +360,8 @@ async fn main() -> Result<()> {
 
 			let client = CoreClient::new(socket_addr.clone());
 			let current_exe = std::env::current_exe()?;
+			// A link such as /usr/local/bin/sd keeps the daemon beside the real binary.
+			let current_exe = current_exe.canonicalize().unwrap_or(current_exe);
 			let launch = DaemonLaunchConfig {
 				daemon_path: current_exe
 					.parent()
@@ -488,6 +490,8 @@ async fn main() -> Result<()> {
 			// Start the daemon again
 			println!("Starting daemon...");
 			let current_exe = std::env::current_exe()?;
+			// A link such as /usr/local/bin/sd keeps the daemon beside the real binary.
+			let current_exe = current_exe.canonicalize().unwrap_or(current_exe);
 			let launch = DaemonLaunchConfig {
 				daemon_path: current_exe
 					.parent()

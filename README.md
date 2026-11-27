@@ -244,6 +244,10 @@ types, so every interface shares one contract.
 
 ## Install a nightly
 
+The desktop app includes `sd`. Open Settings, then General, and choose
+Install under Command Line to put it on your `PATH`. The steps below are for
+machines without the app.
+
 The [nightly release](https://github.com/spacedriveapp/spacedrive/releases/tag/nightly)
 carries `sd` and `sd-daemon` for macOS ARM64 (`macos-aarch64`), Linux
 x86-64 (`linux-x86_64`) and Windows x86-64 (`windows-x86_64`, as `.exe`

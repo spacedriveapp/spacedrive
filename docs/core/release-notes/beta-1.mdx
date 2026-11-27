@@ -52,9 +52,11 @@ On Linux, install the package with apt:
 sudo apt install ./Spacedrive-linux-x86_64.deb
 ~~~
 
-The `.deb` needs glibc 2.39 or newer, for example Ubuntu 24.04 or Debian 13. It includes the daemon and the media codecs Spacedrive uses for thumbnails.
+The `.deb` needs glibc 2.39 or newer, for example Ubuntu 24.04 or Debian 13. It includes the daemon, the command line tool and the media codecs Spacedrive uses for thumbnails.
 
 ### CLI and daemon
+
+The desktop app includes the command line tool, built from the same commit and with the same features as the daemon it runs. To put it on your `PATH`, open Settings, then General, and choose Install under Command Line. On macOS this links `/usr/local/bin/sd` to the copy inside `Spacedrive.app` and asks for an administrator password when that folder is not writable. If you decline, it links `~/.local/bin/sd` instead. On Linux it always links `~/.local/bin/sd`. The link follows the app, so updating the app updates `sd`. If you use the desktop app, you do not need the downloads below.
 
 `sd` is the command line client and `sd-daemon` is the background service. Both ship for macOS (`macos-aarch64`, `macos-x86_64`) and Linux (`linux-x86_64`, `linux-aarch64`). Each binary has a `.sha256` file beside it. The Linux binaries need glibc 2.35 or newer.
 

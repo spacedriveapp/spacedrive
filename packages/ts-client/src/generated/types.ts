@@ -260,6 +260,50 @@ export type ChangeKind = { type: "create"; size: number } | { type: "create_dire
  */
 { type: "set_attributes"; attributes: Attributes };
 
+export type CliInstallInput = Record<string, never>;
+
+export type CliInstallOutput = { status: CliInstallStatus; 
+/**
+ * Administrator access was refused, so the link went to `~/.local/bin`
+ * instead of `/usr/local/bin`.
+ */
+fell_back: boolean };
+
+export type CliInstallStatus = { 
+/**
+ * The CLI shipped beside this daemon, absent when this daemon has none,
+ * such as a standalone install.
+ */
+bundled: string | null; link: CliLink; 
+/**
+ * The folder to add to PATH, set when the link is in `~/.local/bin`,
+ * which shells do not search by default.
+ */
+path_hint: string | null };
+
+/**
+ * What is at the place `sd` resolves to.
+ */
+export type CliLink = 
+/**
+ * Nothing at any location the install writes to.
+ */
+{ kind: "not_installed" } | 
+/**
+ * `path` links to the CLI shipped with this daemon.
+ */
+{ kind: "bundled"; path: string } | 
+/**
+ * `path` is another binary or a link to one, such as a standalone
+ * download or a copy of the app somewhere else. `target` is where the
+ * link points, and is absent for a plain file.
+ */
+{ kind: "other"; path: string; target: string | null };
+
+export type CliStatusInput = Record<string, never>;
+
+export type CliUninstallInput = Record<string, never>;
+
 /**
  * Bring-your-own-key image captioning through a cloud service.
  * 
@@ -6933,7 +6977,9 @@ undo: string | null };
 // ===== API Type Unions =====
 
 export type CoreAction =
-     { type: 'config.app.update'; input: UpdateAppConfigInput; output: UpdateAppConfigOutput }
+     { type: 'cli.install'; input: CliInstallInput; output: CliInstallOutput }
+  |  { type: 'cli.uninstall'; input: CliUninstallInput; output: CliInstallStatus }
+  |  { type: 'config.app.update'; input: UpdateAppConfigInput; output: UpdateAppConfigOutput }
   |  { type: 'core.index_reset'; input: IndexResetInput; output: IndexResetOutput }
   |  { type: 'core.reset'; input: ResetDataInput; output: ResetDataOutput }
   |  { type: 'device.update'; input: UpdateDeviceInput; output: UpdateDeviceOutput }
@@ -7040,7 +7086,8 @@ export type LibraryAction =
 ;
 
 export type CoreQuery =
-     { type: 'config.app.get'; input: GetAppConfigQueryInput; output: AppConfigOutput }
+     { type: 'cli.status'; input: CliStatusInput; output: CliInstallStatus }
+  |  { type: 'config.app.get'; input: GetAppConfigQueryInput; output: AppConfigOutput }
   |  { type: 'core.events.list'; input: ListEventsInput; output: ListEventsOutput }
   |  { type: 'core.index_status'; input: IndexStatusInput; output: IndexStatus }
   |  { type: 'core.status'; input: Empty; output: CoreStatus }
@@ -7163,6 +7210,8 @@ export type LibraryPreview =
 
 export const WIRE_METHODS = {
   coreActions: {
+    'cli.install': 'action:cli.install.input',
+    'cli.uninstall': 'action:cli.uninstall.input',
     'config.app.update': 'action:config.app.update.input',
     'core.index_reset': 'action:core.index_reset.input',
     'core.reset': 'action:core.reset.input',
@@ -7270,6 +7319,7 @@ export const WIRE_METHODS = {
   },
 
   coreQueries: {
+    'cli.status': 'query:cli.status',
     'config.app.get': 'query:config.app.get',
     'core.events.list': 'query:core.events.list',
     'core.index_status': 'query:core.index_status',

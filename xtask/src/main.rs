@@ -302,18 +302,25 @@ fn setup(with_native_deps: bool) -> Result<()> {
 		mobile_deps,
 	)?;
 
-	// Build release daemon for Tauri bundler validation
-	// The Tauri config references the release daemon in externalBin, so we need to build it
+	// Build the release daemon and CLI for Tauri bundler validation
+	// The Tauri config references both in externalBin, so we need to build them
 	// once even for dev mode to satisfy Tauri's path validation
 	println!();
 	let target_triple = system.target_triple();
-	let mut args = vec!["build", "--release", "--bin", "sd-daemon"];
+	let mut args = vec![
+		"build",
+		"--release",
+		"--bin",
+		"sd-daemon",
+		"--bin",
+		"sd-cli",
+	];
 
 	if has_native_deps {
-		println!("Building release daemon for Tauri (with ffmpeg,heif features)...");
+		println!("Building release daemon and CLI for Tauri (with ffmpeg,heif features)...");
 		args.extend_from_slice(&["--features", "sd-core/ffmpeg,sd-core/heif"]);
 	} else {
-		println!("Building release daemon for Tauri...");
+		println!("Building release daemon and CLI for Tauri...");
 	}
 
 	args.extend_from_slice(&["--target", &target_triple]);
@@ -322,29 +329,31 @@ fn setup(with_native_deps: bool) -> Result<()> {
 		.args(&args)
 		.current_dir(&project_root)
 		.status()
-		.context("Failed to build release daemon")?;
+		.context("Failed to build release daemon and CLI")?;
 
 	if !status.success() {
-		anyhow::bail!("Failed to build release daemon");
+		anyhow::bail!("Failed to build release daemon and CLI");
 	}
-	println!("   ✓ Release daemon built");
+	println!("   ✓ Release daemon and CLI built");
 
-	// Create target-suffixed daemon binary for Tauri bundler
+	// Create target-suffixed sidecar binaries for Tauri bundler
 	// Tauri's externalBin appends the target triple to binary names
 	let exe_ext = if cfg!(windows) { ".exe" } else { "" };
-	let daemon_source = project_root.join(format!(
-		"target/{}/release/sd-daemon{}",
-		target_triple, exe_ext
-	));
-	let daemon_target = project_root.join(format!(
-		"target/release/sd-daemon-{}{}",
-		target_triple, exe_ext
-	));
+	for name in ["sd-daemon", "sd-cli"] {
+		let source = project_root.join(format!(
+			"target/{}/release/{}{}",
+			target_triple, name, exe_ext
+		));
+		let target = project_root.join(format!(
+			"target/release/{}-{}{}",
+			name, target_triple, exe_ext
+		));
 
-	if daemon_source.exists() {
-		fs::copy(&daemon_source, &daemon_target)
-			.context("Failed to create target-suffixed daemon binary")?;
-		println!("   ✓ Created sd-daemon-{}{}", target_triple, exe_ext);
+		if source.exists() {
+			fs::copy(&source, &target)
+				.with_context(|| format!("Failed to create target-suffixed {name} binary"))?;
+			println!("   ✓ Created {}-{}{}", name, target_triple, exe_ext);
+		}
 	}
 
 	// On Windows, copy DLLs to target directories so executables can find them at runtime
