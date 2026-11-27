@@ -213,22 +213,27 @@ async fn decide_recorded(
 /// The granted directory relative to its source root, `/`-separated, when
 /// the source is on this device.
 ///
-/// A source is rooted at its volume's spelling of a path, which on macOS is
-/// not always the canonical one a grant stores, so both are tried.
-async fn grant_relative(context: &CoreContext, grant: &GrantRecord) -> Option<String> {
-	let root = context.volume_index().source_root(grant.source_id)?;
+/// Containment is decided the way `grants.create` chose the source, so a
+/// canonical subtree and a registered root that differ by a firmlink still
+/// match. The probes run on the blocking pool, since a stalled volume must
+/// not hold an async worker.
+async fn grant_relative(
+	context: &CoreContext,
+	grant: &GrantRecord,
+) -> Result<Option<String>, GrantError> {
+	let Some(registered) = context.volume_index().source_root(grant.source_id) else {
+		return Ok(None);
+	};
 	let subtree = grant.subtree.clone();
-	let spelled = context
-		.volume_manager
-		.locate_path(&subtree)
-		.await
-		.map(|(_, spelled)| spelled);
-	spelled
-		.iter()
-		.map(PathBuf::as_path)
-		.chain(std::iter::once(subtree.as_path()))
-		.find_map(|candidate| candidate.strip_prefix(&root).ok())
-		.map(slash_path)
+	tokio::task::spawn_blocking(move || {
+		let root = std::fs::canonicalize(&registered).ok()?;
+		scope::within(&root, &subtree, |a, b| {
+			same_file::is_same_file(a, b).unwrap_or(false)
+		})
+		.map(|rest| slash_path(&rest))
+	})
+	.await
+	.map_err(|e| GrantError::Internal(format!("locate grant: {e}")))
 }
 
 /// The space a grant lends from, checked against the one a request names.
@@ -350,7 +355,7 @@ async fn decide(
 			let spaces = spaces::all(library, context)
 				.await
 				.map_err(|e| GrantError::Internal(format!("read spaces: {e}")))?;
-			let relative = grant_relative(context, grant).await;
+			let relative = grant_relative(context, grant).await?;
 			space_for(
 				&spaces,
 				grant.grant_id,
