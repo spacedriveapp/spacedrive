@@ -36,6 +36,8 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Thin mount client (Capy FAN-14844, November 27, in PR). Mount frontends serve one path-based `MountFs` trait (`core/src/service/mounts/vfs.rs`); the daemon's FUSE mount serves its sources through `ArenaFs`. Next: `sd mount <url> --token` on Linux FUSE, then a localhost NFSv3 frontend for macOS.
+
 Bundled command line tool (Capy FAN-14800, November 27, in PR). The desktop
 app ships `sd-cli` beside `sd-daemon` as a Tauri external binary on macOS
 arm64 and Intel and Linux, built in the same cargo run with the same features
