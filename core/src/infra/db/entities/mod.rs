@@ -8,6 +8,7 @@ pub mod device_state_tombstone;
 
 pub mod tag_staging;
 
+pub mod actor;
 pub mod agent_grant;
 pub mod agent_grant_spent_refresh;
 pub mod assertion_outbox;
