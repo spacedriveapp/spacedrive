@@ -105,9 +105,6 @@ impl LibraryAction for StartupIndexingAction {
 		}
 
 		let defaults = context.startup_indexing.includes_default_sources();
-		tokio::spawn(crate::ops::sources::rescan::rescan_buckets(Arc::downgrade(
-			&library,
-		)));
 		tokio::spawn(async move {
 			info!(
 				library = %library.id(),
