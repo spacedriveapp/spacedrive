@@ -185,11 +185,11 @@ The stream tells a client which cached blocks and directory listings to drop.
 It is a server-sent event stream, and each event's data is one JSON object:
 
 ```text
-id: 1842
+id: 7f3a9c-1842
 event: change
 data: {"seq":1842,"op":"modify","path":"docs/report.pdf"}
 
-id: 1843
+id: 7f3a9c-1843
 event: change
 data: {"seq":1843,"op":"move","path":"a.txt","to_path":"b/a.txt"}
 ```
@@ -211,8 +211,13 @@ Two more events carry no path:
 
 Resuming:
 
-- A client reconnects with `Last-Event-ID: <seq>`. The server replays every
-  change after that seq, or sends `reset` first when it no longer holds them.
+- An event id is `<log>-<seq>`. `<log>` names the log the seq counts in and
+  changes whenever seqs could repeat, such as a daemon restart for the
+  in-memory feed. Clients treat the whole id as opaque.
+- A client reconnects with `Last-Event-ID` set to the last id it saw. The
+  server replays every change after it when `<log>` matches and it still
+  holds them. Otherwise it sends `reset` first, so a seq from an earlier log
+  never suppresses a reset.
   A first connection with no `Last-Event-ID` starts at the current position
   with no replay.
 - The server closes a stream that has carried no event for 60 seconds, and the
@@ -223,8 +228,8 @@ Resuming:
 Where the changes come from: when a space has an event log, the stream is that
 log read from `seq`, so it resumes across daemon restarts. Before that, the
 stream carries the changes the source's watcher observes under the space root.
-Those are held in memory only, their seqs restart with the daemon, and a
-client whose `Last-Event-ID` the server does not hold gets `reset`. Nothing is
+Those are held in memory only. A daemon start picks a new random `<log>`, so
+a client that reconnects across a restart gets `reset`. Nothing is
 written to disk for the stream.
 
 Events are hints. A client that misses one sees a stale listing or a 412 on its
