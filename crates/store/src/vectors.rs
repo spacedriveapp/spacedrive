@@ -731,29 +731,35 @@ impl VectorIndex {
 			for bind in binds {
 				query = query.bind(bind);
 			}
-			let mut hits: Vec<VectorHit> = query
+			let mut hits: Vec<(i64, VectorHit)> = query
 				.fetch_all(&self.pool)
 				.await?
 				.into_iter()
 				.filter_map(|row| {
+					let chunk: i64 = row.get(0);
 					let text: Option<String> = row.get(6);
-					Some(VectorHit {
-						record_uuid: row.get(1),
-						external_id: address(row.get(2), row.get(3), row.get(4))?,
-						kind: row.get(5),
-						similarity: similarity.get(&row.get::<i64, _>(0)).copied()?,
-						text: text.unwrap_or_default().trim().to_string(),
-						start_ms: row.get(7),
-						end_ms: row.get(8),
-					})
+					Some((
+						chunk,
+						VectorHit {
+							record_uuid: row.get(1),
+							external_id: address(row.get(2), row.get(3), row.get(4))?,
+							kind: row.get(5),
+							similarity: similarity.get(&chunk).copied()?,
+							text: text.unwrap_or_default().trim().to_string(),
+							start_ms: row.get(7),
+							end_ms: row.get(8),
+						},
+					))
 				})
 				.collect();
-			hits.sort_by(|a, b| {
+			// The same order as the ranking, so page boundaries never reorder ties.
+			hits.sort_by(|(a_chunk, a), (b_chunk, b)| {
 				b.similarity
 					.total_cmp(&a.similarity)
+					.then(a_chunk.cmp(b_chunk))
 					.then(a.record_uuid.cmp(&b.record_uuid))
 			});
-			for hit in hits {
+			for (_, hit) in hits {
 				if seen.insert(hit.record_uuid) {
 					out.push(hit);
 					if out.len() == search.limit {

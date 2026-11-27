@@ -643,7 +643,9 @@ async fn tied_scores_page_in_one_order() {
 		.iter()
 		.map(|(p, _)| (p.as_str(), "automobile"))
 		.collect();
-	read_texts(&text, &texts).await;
+	// Later files are read first, so chunk order runs against record order.
+	read_texts(&text, &texts[20..]).await;
+	read_texts(&text, &texts[..20]).await;
 	embed_pass(&vectors, &whole()).await;
 
 	let mut paged = Vec::new();
