@@ -97,7 +97,7 @@ sd_core::ops::grants::authorize(context: &CoreContext, access: &Access<'_>)
 
 `authorize_with` and `authorize_in` remain as wrappers for surfaces that name no space and no epoch. `authorize_in` checks one library's grants only.
 
-`authorize` first verifies the token and finds its grant. It then resolves the grant's space: the innermost space of the grant's source whose root holds the granted directory. A grant outside every space is its own space, with the grant id as its id. A request naming another space is refused with `GrantError::UnknownSpace`, which an HTTP surface answers like a missing space, with 404. The granted directory remains the containment limit even inside a larger space.
+`authorize` first verifies the token and finds its grant. It then resolves the grant's space. A grant row that records a space, as every grant made inside one does, uses it. An older grant belongs to the innermost space of its source whose root holds the granted directory. A grant outside every space is its own space, with the grant id as its id. A request naming another space is refused with `GrantError::UnknownSpace`, which an HTTP surface answers like a missing space, with 404. The granted directory remains the containment limit even inside a larger space.
 
 A write that names an epoch is checked against the space's authority epoch and refused with `GrantError::StaleEpoch { current }` when they differ. An HTTP surface answers 409. Spaces store no epoch yet, so the current epoch is 0: `Some(0)` passes and any other value is stale. `None` is not checked.
 

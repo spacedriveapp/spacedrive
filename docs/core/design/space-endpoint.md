@@ -26,8 +26,9 @@ needs nothing else from the daemon.
 ## Spaces and grants
 
 A space is a directory with a policy. A grant lends a subtree of a space to one
-holder. A grant belongs to the innermost space of its source whose root holds
-the granted directory, and its URLs use that space's id. A grant outside every
+holder. A grant made inside a space records that space, and its URLs use the
+space's id. A grant made before its directory was in a space belongs to the
+innermost space of its source whose root holds the granted directory. A grant outside every
 space is its own space: the space id is the grant id. A request that names any
 other space answers 404, the same as a space that does not exist.
 
