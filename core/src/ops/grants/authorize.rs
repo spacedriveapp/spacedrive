@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use super::{
 	audit::{self, AuditId, Decision, RequestMeta, TallyKind},
-	bucket, scope,
+	bucket, protect, scope,
 	verify::{self, GrantRecord},
 	GrantCap, GrantError, GrantScope, GrantStatus,
 };
@@ -405,10 +405,16 @@ async fn decide(
 	if cap == GrantCap::ReadWrite {
 		// The spelling sent and the spelling it resolved to are both checked,
 		// so neither a link named `notes.md` pointing at AGENTS.md nor an alias
-		// spelling of a protected name gets through.
-		if let Some(name) =
-			scope::protected_component(path).or_else(|| scope::protected_component(&resolved.path))
-		{
+		// spelling of a protected name gets through. Space patterns are read
+		// on every request, like the grant, so a change applies at once.
+		let sent = protect::Protection::builtin(path).find();
+		let name = match sent {
+			Some(name) => Some(name),
+			None => protect::Protection::of(context, &resolved.path, library.id())
+				.await
+				.find(),
+		};
+		if let Some(name) = name {
 			return Err(GrantError::Protected(name));
 		}
 	}
@@ -444,6 +450,7 @@ mod tests {
 			path: None,
 			content_indexing: true,
 			versioning: false,
+			protected: Vec::new(),
 			created_at: Utc::now(),
 		}
 	}

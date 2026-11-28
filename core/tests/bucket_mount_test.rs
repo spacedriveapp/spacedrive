@@ -165,6 +165,7 @@ async fn a_thin_client_mounts_a_bucket_space_and_reads_it() -> anyhow::Result<()
 		kind: SpaceKind::Folder,
 		path: Some(project.clone()),
 		content_indexing: None,
+		protected: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())

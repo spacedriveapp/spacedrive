@@ -33,7 +33,10 @@ use sd_core::{
 			GrantCap,
 		},
 		search::{input::FileSearchInput, query::FileSearchQuery},
-		spaces::{SpaceCreateAction, SpaceCreateInput, SpacesListQuery, SpacesListQueryInput},
+		spaces::{
+			SpaceCreateAction, SpaceCreateInput, SpaceUpdateAction, SpaceUpdateInput,
+			SpacesListQuery, SpacesListQueryInput,
+		},
 		volumes::add_cloud::{CloudStorageConfig, VolumeAddCloudAction, VolumeAddCloudInput},
 	},
 	service::agent_mcp::{self, Limits},
@@ -53,6 +56,7 @@ async fn create(
 		kind,
 		path: Some(PathBuf::from(path)),
 		content_indexing,
+		protected: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())
@@ -428,6 +432,37 @@ async fn a_bucket_prefix_is_a_space_an_agent_works_in() -> anyhow::Result<()> {
 		);
 		tokio::time::sleep(Duration::from_millis(250)).await;
 	}
+
+	// The space's own protected patterns hold inside a bucket too.
+	SpaceUpdateAction::from_input(SpaceUpdateInput {
+		id: space.id,
+		name: None,
+		content_indexing: None,
+		versioning: None,
+		protected: Some(vec!["secrets/**".to_string()]),
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?;
+	let refused = rest
+		.send(
+			rest.http
+				.post(rest.url("tools/write_file"))
+				.header(header::CONTENT_TYPE, "application/json")
+				.body(json!({ "path": "secrets/key.txt", "content": "k" }).to_string()),
+		)
+		.await;
+	assert_ne!(refused.status, StatusCode::OK, "{}", refused.json());
+	assert!(
+		refused.json().to_string().contains("cannot modify"),
+		"{}",
+		refused.json()
+	);
+	assert!(
+		!seed
+			.exists(Path::new(&format!("{run}/project/secrets/key.txt")))
+			.await?
+	);
 
 	// Directory markers count toward the most one move or delete takes.
 	for marker in ["markers/a", "markers/b"] {

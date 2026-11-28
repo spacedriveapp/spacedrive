@@ -1,5 +1,5 @@
-//! `spaces.update`: rename a space, or turn its content indexing or its
-//! versioning on or off.
+//! `spaces.update`: rename a space, turn its content indexing or its
+//! versioning on or off, or replace its protected patterns.
 
 use std::sync::Arc;
 
@@ -29,6 +29,9 @@ pub struct SpaceUpdateInput {
 	/// `spaces.history.purge` deletes them.
 	#[serde(default)]
 	pub versioning: Option<bool>,
+	/// The space's protected patterns, replacing the ones it has. An empty
+	/// list leaves only the built-in protection.
+	pub protected: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -52,6 +55,9 @@ impl LibraryAction for SpaceUpdateAction {
 			.is_some_and(|name| name.trim().is_empty())
 		{
 			return Err("the name cannot be empty".to_string());
+		}
+		if let Some(patterns) = &input.protected {
+			store::protected_patterns(patterns.clone())?;
 		}
 		Ok(Self { input })
 	}
@@ -89,6 +95,10 @@ impl LibraryAction for SpaceUpdateAction {
 			.filter(|versioning| *versioning != row.versioning);
 		if let Some(versioning) = versioning {
 			row.versioning = versioning;
+		}
+		if let Some(patterns) = self.input.protected {
+			row.protected =
+				store::protected_patterns(patterns).map_err(ActionError::InvalidInput)?;
 		}
 		row.set_stamp(&store::stamp(&context).map_err(ActionError::Internal)?);
 		writable

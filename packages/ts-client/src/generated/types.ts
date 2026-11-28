@@ -6050,7 +6050,13 @@ content_indexing: boolean;
 /**
  * Whether every change inside the space keeps its bytes as a version.
  */
-versioning: boolean; created_at: string };
+versioning: boolean; 
+/**
+ * Patterns an agent may not write inside the space, on top of the
+ * built-in list. `/`-anchored patterns start at the space root; others
+ * match at any depth.
+ */
+protected: string[]; created_at: string };
 
 /**
  * One change inside a space.
@@ -6129,7 +6135,12 @@ path: string | null;
  * Whether file contents inside the space are hashed and read. On by
  * default.
  */
-content_indexing: boolean | null };
+content_indexing: boolean | null; 
+/**
+ * Patterns an agent may not write inside the space, on top of the
+ * built-in list. None protects only the built-in list.
+ */
+protected: string[] | null };
 
 export type SpaceCreateOutput = { space: Space };
 
@@ -6253,7 +6264,12 @@ export type SpaceUpdateInput = { id: string; name: string | null; content_indexi
  * capture and keeps the versions and snapshots until they age out or
  * `spaces.history.purge` deletes them.
  */
-versioning?: boolean | null };
+versioning?: boolean | null; 
+/**
+ * The space's protected patterns, replacing the ones it has. An empty
+ * list leaves only the built-in protection.
+ */
+protected: string[] | null };
 
 export type SpaceUpdateOutput = { space: Space };
 

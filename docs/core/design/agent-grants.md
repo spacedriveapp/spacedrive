@@ -140,8 +140,14 @@ A writable grant can never modify:
 
 - `.git` at any depth, and everything under it
 - any file named `AGENTS.md`, `CLAUDE.md` or `SKILL.md`, at any depth
+- anything matching a default pattern, at any depth: `GEMINI.md`, `AGENT.md`, `.cursor/rules/**`, `.github/workflows/**` and `.env*`
+- anything matching a pattern of a space that holds the path
 
 These names are compared the way the most permissive filesystem compares them: case-folded, with the Unicode code points that HFS+ ignores removed, with trailing dots and spaces that Windows drops removed, with an NTFS stream suffix removed, and including the 8.3 short names `GIT~1`, `AGENTS~1.MD` and `CLAUDE~1.MD`. Both the spelling the agent sent and the resolved path are checked. So a symlink named `notes.md` that points at `AGENTS.md` is refused for writing.
+
+Patterns are globs over `/`-separated paths. A pattern that starts with `/` is anchored at the space root. Any other pattern matches at every depth, so `*.pem` covers `keys/id.pem`. A match covers everything under it, and `dir/**` also covers `dir` itself. Names are folded as above before they are compared, and patterns are lowercased. The 8.3 short names of pattern matches are caught through the resolved path, which names the long form.
+
+A space's patterns are set with `spaces.create` or `spaces.update` (`sd space create --protect`). They live on the space in its source store, and `authorize` reads them on every request, so a change applies to the next one. Every space that holds a path contributes its patterns, so a nested space can add protection but never remove it. Moving or deleting a directory checks every path under it against the same lists.
 
 Reads of these files are allowed.
 

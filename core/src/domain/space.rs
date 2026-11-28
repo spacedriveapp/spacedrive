@@ -59,6 +59,10 @@ pub struct Space {
 	pub content_indexing: bool,
 	/// Whether every change inside the space keeps its bytes as a version.
 	pub versioning: bool,
+	/// Patterns an agent may not write inside the space, on top of the
+	/// built-in list. `/`-anchored patterns start at the space root; others
+	/// match at any depth.
+	pub protected: Vec<String>,
 	pub created_at: DateTime<Utc>,
 }
 
@@ -80,6 +84,7 @@ impl Space {
 			path,
 			content_indexing: row.content_indexing,
 			versioning: row.versioning,
+			protected: serde_json::from_str(&row.protected).unwrap_or_default(),
 			created_at: DateTime::parse_from_rfc3339(&row.created_at)
 				.map(|at| at.with_timezone(&Utc))
 				.unwrap_or_default(),

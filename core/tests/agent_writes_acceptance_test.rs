@@ -14,6 +14,7 @@ use std::{path::Path, time::Duration};
 
 use helpers::*;
 use sd_core::{
+	domain::SpaceKind,
 	infra::{action::LibraryAction, job::output::JobOutput},
 	ops::{
 		agent_write::{
@@ -26,6 +27,7 @@ use sd_core::{
 			create::{CreateGrantAction, CreateGrantInput},
 			GrantCap, GrantError,
 		},
+		spaces::{SpaceCreateAction, SpaceCreateInput, SpaceUpdateAction, SpaceUpdateInput},
 	},
 };
 use uuid::Uuid;
@@ -577,4 +579,188 @@ fn walk(dir: &Path) -> Vec<std::path::PathBuf> {
 		out.push(path);
 	}
 	out
+}
+
+#[tokio::test]
+async fn space_patterns_protect_paths_inside_the_space() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("agent_writes_space_protected")
+		.disable_watcher()
+		.build()
+		.await?;
+	let tracked = harness.create_test_dir("tracked").await?;
+	for (path, content) in [
+		("project/notes.md", "notes"),
+		("project/secrets/key.txt", "key"),
+		("project/keys/id.pem", "pem"),
+		("project/docs/secrets/ok.md", "ok"),
+		("project/.github/workflows/ci.yml", "on: push"),
+	] {
+		tracked.write_file(path, content).await?;
+	}
+	tracked.track().await?;
+	let project = std::fs::canonicalize(harness.temp_path())?.join("tracked/project");
+	let space = SpaceCreateAction::from_input(SpaceCreateInput {
+		name: None,
+		kind: SpaceKind::Folder,
+		path: Some(project.clone()),
+		content_indexing: Some(false),
+		protected: Some(vec!["/secrets/**".into(), "*.pem".into()]),
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?
+	.space;
+	assert_eq!(space.protected, ["/secrets/**", "*.pem"]);
+	assert!(SpaceCreateAction::from_input(SpaceCreateInput {
+		name: None,
+		kind: SpaceKind::Folder,
+		path: Some(project.clone()),
+		content_indexing: None,
+		protected: Some(vec!["a[b".into()]),
+	})
+	.is_err());
+	let agent = Agent {
+		token: grant(&harness, &project, GrantCap::ReadWrite).await?,
+		harness: &harness,
+	};
+
+	// The space's patterns and the default list are refused before anything
+	// is touched, whichever operation reaches them.
+	let key = agent.stat("secrets/key.txt").await;
+	for result in [
+		agent
+			.write("secrets/key.txt", "leaked", None, Some(hash(&key)))
+			.await,
+		agent.write("secrets/new.txt", "x", None, None).await,
+		agent.write("keys/other.PEM", "x", None, None).await,
+		agent.make_dir("secrets/sub").await,
+		agent
+			.move_to("notes.md", "notes.pem", hash(&agent.stat("notes.md").await))
+			.await,
+		agent
+			.move_to("secrets", "moved", hash(&agent.stat("secrets").await))
+			.await,
+		agent.delete("keys", hash(&agent.stat("keys").await)).await,
+		agent
+			.write(".github/workflows/ci.yml", "on: pull_request", None, None)
+			.await,
+		agent.write("app/.env.local", "TOKEN=x", None, None).await,
+		agent.write("GEMINI.md", "rules", None, None).await,
+		agent
+			.write(".cursor/rules/style.mdc", "rules", None, None)
+			.await,
+	] {
+		assert!(
+			matches!(result, Err(WriteError::Grant(GrantError::Protected(_)))),
+			"{result:?}"
+		);
+	}
+	assert_eq!(read(&project.join("secrets/key.txt")), "key");
+	assert_eq!(read(&project.join("keys/id.pem")), "pem");
+	assert!(!project.join("secrets/sub").exists());
+
+	// An anchored pattern holds only at the space root.
+	let ok = agent.stat("docs/secrets/ok.md").await;
+	agent
+		.write("docs/secrets/ok.md", "still ok", None, Some(hash(&ok)))
+		.await?;
+	assert_eq!(read(&project.join("docs/secrets/ok.md")), "still ok");
+
+	// Patterns are read on every request, so clearing them applies at once;
+	// the default list stays.
+	SpaceUpdateAction::from_input(SpaceUpdateInput {
+		id: space.id,
+		name: None,
+		content_indexing: None,
+		versioning: None,
+		protected: Some(Vec::new()),
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?;
+	agent
+		.write("secrets/key.txt", "rotated", None, Some(hash(&key)))
+		.await?;
+	assert_eq!(read(&project.join("secrets/key.txt")), "rotated");
+	assert!(matches!(
+		agent.write("app/.env", "TOKEN=x", None, None).await,
+		Err(WriteError::Grant(GrantError::Protected(_)))
+	));
+	Ok(())
+}
+
+#[tokio::test]
+async fn protection_reaches_nested_spaces_nested_sources_and_move_destinations(
+) -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("agent_writes_space_nesting")
+		.disable_watcher()
+		.build()
+		.await?;
+	let tracked = harness.create_test_dir("tracked").await?;
+	for (path, content) in [
+		("work/notes.md", "notes"),
+		("work/apps/project/key.pem", "pem"),
+		("work/staging/key.pem", "pem"),
+	] {
+		tracked.write_file(path, content).await?;
+	}
+	tracked.track().await?;
+	let work = std::fs::canonicalize(harness.temp_path())?.join("tracked/work");
+	let space = |kind, path: std::path::PathBuf, patterns: &[&str]| {
+		SpaceCreateAction::from_input(SpaceCreateInput {
+			name: None,
+			kind,
+			path: Some(path),
+			content_indexing: Some(false),
+			protected: Some(patterns.iter().map(|p| p.to_string()).collect()),
+		})
+	};
+	for (kind, path, patterns) in [
+		(SpaceKind::Folder, work.clone(), &["*.secret"][..]),
+		(SpaceKind::Folder, work.join("apps/project"), &["*.pem"][..]),
+		(SpaceKind::Workspace, work.join("ws"), &[][..]),
+	] {
+		space(kind, path, patterns)
+			.map_err(anyhow::Error::msg)?
+			.execute(harness.library.clone(), harness.core.context.clone())
+			.await?;
+	}
+	let agent = Agent {
+		token: grant(&harness, &work, GrantCap::ReadWrite).await?,
+		harness: &harness,
+	};
+
+	for result in [
+		// A space nested below the directory being moved or deleted.
+		agent.delete("apps", hash(&agent.stat("apps").await)).await,
+		agent
+			.move_to("apps", "old-apps", hash(&agent.stat("apps").await))
+			.await,
+		// A directory moved into a space that protects what it holds.
+		agent
+			.move_to(
+				"staging",
+				"apps/project/imported",
+				hash(&agent.stat("staging").await),
+			)
+			.await,
+		// A workspace is its own source inside the outer one, and the outer
+		// space's patterns still hold inside it.
+		agent.write("ws/token.secret", "x", None, None).await,
+	] {
+		assert!(
+			matches!(result, Err(WriteError::Grant(GrantError::Protected(_)))),
+			"{result:?}"
+		);
+	}
+	assert_eq!(read(&work.join("apps/project/key.pem")), "pem");
+	assert!(!work.join("apps/project/imported").exists());
+	assert!(!work.join("ws/token.secret").exists());
+
+	// Outside any space that protects it, the same tree moves.
+	agent
+		.move_to("staging", "elsewhere", hash(&agent.stat("staging").await))
+		.await?;
+	assert_eq!(read(&work.join("elsewhere/key.pem")), "pem");
+	Ok(())
 }
