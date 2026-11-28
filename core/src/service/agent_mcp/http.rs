@@ -10,7 +10,7 @@
 
 use std::{
 	collections::HashMap,
-	net::{IpAddr, SocketAddr},
+	net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
 	path::Path,
 	sync::{
 		atomic::{AtomicBool, Ordering},
@@ -70,6 +70,8 @@ pub struct Endpoint {
 	pub(super) oauth: oauth::OAuth,
 	pub(super) feed: Arc<Feed>,
 	bound: SocketAddr,
+	tls: bool,
+	host_names: Vec<String>,
 	pub(super) limits: Limits,
 	sessions: Mutex<HashMap<String, Session>>,
 	usage: Mutex<HashMap<Uuid, GrantUsage>>,
@@ -78,12 +80,20 @@ pub struct Endpoint {
 }
 
 impl Endpoint {
-	pub fn new(context: Arc<CoreContext>, bound: SocketAddr, limits: Limits) -> Self {
+	pub fn new(
+		context: Arc<CoreContext>,
+		bound: SocketAddr,
+		limits: Limits,
+		tls: bool,
+		host_names: Vec<String>,
+	) -> Self {
 		Self {
 			oauth: oauth::OAuth::new(context.data_dir.clone()),
 			context,
 			feed: Arc::new(Feed::new()),
 			bound,
+			tls,
+			host_names,
 			calls: Arc::new(Semaphore::new(limits.calls_total)),
 			limits,
 			sessions: Mutex::default(),
@@ -282,10 +292,10 @@ async fn handle(
 	if let Err(refusal) = screen(&endpoint, &headers, &uri) {
 		return refusal;
 	}
-	let base = oauth::base_url(&headers);
+	let challenge = endpoint.challenge(&headers);
 	match method {
-		Method::POST => post(&endpoint, peer.ip(), &base, &headers, &body).await,
-		Method::DELETE => delete(&endpoint, peer.ip(), &base, &headers).await,
+		Method::POST => post(&endpoint, peer.ip(), &challenge, &headers, &body).await,
+		Method::DELETE => delete(&endpoint, peer.ip(), &challenge, &headers).await,
 		Method::GET => {
 			let mut response = plain(
 				StatusCode::METHOD_NOT_ALLOWED,
@@ -302,8 +312,7 @@ async fn handle(
 
 /// Checks that need nothing but the request line and headers.
 ///
-/// Host must name loopback with the bound port, which refuses a page that
-/// rebinds its own domain to 127.0.0.1. Any Origin is refused, since MCP
+/// Host must name the listener with its port, see [`host_allowed`]. Any Origin is refused, since MCP
 /// clients outside a browser send none, and the endpoint sends no CORS
 /// headers. A token in the query string is refused before it can be used.
 fn screen(endpoint: &Endpoint, headers: &HeaderMap, uri: &Uri) -> Result<(), Response> {
@@ -339,20 +348,91 @@ impl Endpoint {
 		let host_ok = headers
 			.get(header::HOST)
 			.and_then(|host| host.to_str().ok())
-			.is_some_and(|host| loopback_host(host, self.bound.port()));
+			.is_some_and(|host| host_allowed(host, self.bound, self.tls, &self.host_names));
 		if !host_ok {
-			return Err(plain(StatusCode::FORBIDDEN, "not a loopback host"));
+			return Err(plain(StatusCode::FORBIDDEN, "host not allowed"));
 		}
 		Ok(())
 	}
+
+	/// Whether this request may use OAuth.
+	///
+	/// The consent page mints a grant for whoever presses Allow without
+	/// authenticating the owner, so it must only be reachable from this
+	/// machine. That needs a loopback bind, a loopback Host, and no sign of a
+	/// proxy, since a proxy on loopback can carry remote traffic. A configured
+	/// host name in Host is itself a sign of a proxy.
+	pub(super) fn oauth_offered(&self, headers: &HeaderMap) -> bool {
+		const PROXY_HEADERS: [&str; 4] = [
+			"forwarded",
+			"x-forwarded-for",
+			"x-forwarded-host",
+			"x-real-ip",
+		];
+		self.bound.ip().is_loopback()
+			&& headers
+				.get(header::HOST)
+				.and_then(|host| host.to_str().ok())
+				.is_some_and(|host| loopback_authority(host, self.bound, self.tls))
+			&& !PROXY_HEADERS.iter().any(|name| headers.contains_key(*name))
+	}
+
+	pub(super) fn tls(&self) -> bool {
+		self.tls
+	}
+
+	/// The `WWW-Authenticate` value a 401 carries: a pointer to the OAuth
+	/// metadata where OAuth is offered, a bare challenge elsewhere.
+	fn challenge(&self, headers: &HeaderMap) -> String {
+		if self.oauth_offered(headers) {
+			oauth::challenge(&oauth::base_url(headers, self.tls))
+		} else {
+			"Bearer realm=\"spacedrive\"".to_string()
+		}
+	}
 }
 
-/// Whether `authority` is a loopback name with `port`.
-fn loopback_host(authority: &str, port: u16) -> bool {
-	let Some((host, given)) = authority.rsplit_once(':') else {
+/// The host and port of a Host header value. A missing port is the scheme's
+/// default, as clients leave it out.
+fn split_authority(authority: &str, tls: bool) -> (&str, u16) {
+	let default_port = if tls { 443 } else { 80 };
+	match authority.rsplit_once(':') {
+		Some((host, port)) if !port.contains(']') => (host, port.parse().unwrap_or(0)),
+		_ => (authority, default_port),
+	}
+}
+
+/// Whether `authority` is `127.0.0.1`, `localhost` or `[::1]` with the port
+/// of the loopback listener at `bound`.
+fn loopback_authority(authority: &str, bound: SocketAddr, tls: bool) -> bool {
+	let (host, port) = split_authority(authority, tls);
+	port == bound.port() && matches!(host, "127.0.0.1" | "localhost" | "[::1]")
+}
+
+/// Whether `authority`, a Host header value, names the listener at `bound`.
+///
+/// On loopback, `127.0.0.1`, `localhost` and `[::1]` with the bound port
+/// pass, which refuses a page that rebinds its own domain to 127.0.0.1. So
+/// does any of `host_names` with any port, for a proxy that keeps the Host it
+/// was sent; a rebinding page cannot choose one of those names. Beyond
+/// loopback, Host must be the bound IP (IPv6 in brackets) or one of
+/// `host_names`, with the bound port.
+fn host_allowed(authority: &str, bound: SocketAddr, tls: bool, host_names: &[String]) -> bool {
+	let (host, port) = split_authority(authority, tls);
+	let named = host_names
+		.iter()
+		.any(|name| name.eq_ignore_ascii_case(host));
+	if bound.ip().is_loopback() {
+		return named || loopback_authority(authority, bound, tls);
+	}
+	if port != bound.port() {
 		return false;
+	}
+	let ip = match host.strip_prefix('[').and_then(|h| h.strip_suffix(']')) {
+		Some(inner) => inner.parse::<Ipv6Addr>().ok().map(IpAddr::V6),
+		None => host.parse::<Ipv4Addr>().ok().map(IpAddr::V4),
 	};
-	given.parse::<u16>() == Ok(port) && matches!(host, "127.0.0.1" | "localhost" | "[::1]")
+	ip == Some(bound.ip()) || named
 }
 
 pub(super) fn bearer(headers: &HeaderMap) -> Option<&str> {
@@ -419,7 +499,7 @@ impl Request {
 async fn check(
 	endpoint: &Endpoint,
 	ip: IpAddr,
-	base: &str,
+	challenge: &str,
 	token: &str,
 	op: &str,
 	path: &str,
@@ -430,7 +510,7 @@ async fn check(
 		Ok(scope) => Ok(scope),
 		Err(refusal) if refusal.is_credential() => {
 			endpoint.auth_failed(ip);
-			Err(unauthorized(id.clone(), base))
+			Err(unauthorized(id.clone(), challenge))
 		}
 		Err(GrantError::Internal(reason)) => {
 			warn!(%reason, "agent MCP request could not be authorized");
@@ -448,7 +528,7 @@ async fn check(
 async fn post(
 	endpoint: &Arc<Endpoint>,
 	ip: IpAddr,
-	base: &str,
+	challenge: &str,
 	headers: &HeaderMap,
 	body: &[u8],
 ) -> Response {
@@ -457,7 +537,7 @@ async fn post(
 	}
 	let Some(token) = bearer(headers) else {
 		endpoint.auth_failed(ip);
-		return unauthorized(Value::Null, base);
+		return unauthorized(Value::Null, challenge);
 	};
 	let request = match Request::parse(body) {
 		Ok(request) => request,
@@ -482,7 +562,7 @@ async fn post(
 		Ok(target) => target,
 		Err(message) => return rpc_result(id, tools::error_result(&message)),
 	};
-	let scope = match check(endpoint, ip, base, token, &op, &path, cap, &id).await {
+	let scope = match check(endpoint, ip, challenge, token, &op, &path, cap, &id).await {
 		Ok(scope) => scope,
 		Err(response) => return response,
 	};
@@ -533,14 +613,14 @@ async fn post(
 	match request.method.as_deref() {
 		Some("ping") => rpc_result(id, json!({})),
 		Some("tools/list") => rpc_result(id, json!({ "tools": tools::definitions() })),
-		Some("tools/call") => call(endpoint, base, token, scope, request).await,
+		Some("tools/call") => call(endpoint, challenge, token, scope, request).await,
 		_ => rpc_error(StatusCode::OK, id, -32601, "method not found"),
 	}
 }
 
 async fn call(
 	endpoint: &Arc<Endpoint>,
-	base: &str,
+	challenge: &str,
 	token: &str,
 	scope: GrantScope,
 	request: Request,
@@ -578,7 +658,7 @@ async fn call(
 		outcome = tokio::time::timeout(endpoint.limits.call_timeout, work) => outcome,
 		_ = ended(endpoint, library, grant) => {
 			debug!(%grant, "cancelled a tool call whose grant ended");
-			return unauthorized(id, base);
+			return unauthorized(id, challenge);
 		}
 	};
 	let result = match outcome {
@@ -627,18 +707,23 @@ pub(super) async fn ended(endpoint: &Endpoint, library_id: Uuid, grant: Uuid) {
 	}
 }
 
-async fn delete(endpoint: &Arc<Endpoint>, ip: IpAddr, base: &str, headers: &HeaderMap) -> Response {
+async fn delete(
+	endpoint: &Arc<Endpoint>,
+	ip: IpAddr,
+	challenge: &str,
+	headers: &HeaderMap,
+) -> Response {
 	if let Some(wait) = endpoint.locked_out(ip) {
 		return too_many(Value::Null, wait, "too many failed authentications");
 	}
 	let Some(token) = bearer(headers) else {
 		endpoint.auth_failed(ip);
-		return unauthorized(Value::Null, base);
+		return unauthorized(Value::Null, challenge);
 	};
 	let scope = match check(
 		endpoint,
 		ip,
-		base,
+		challenge,
 		token,
 		"mcp.session.end",
 		"",
@@ -720,16 +805,16 @@ fn rpc_error(status: StatusCode, id: Value, code: i64, message: &str) -> Respons
 }
 
 /// The one answer for an unknown, expired or revoked token, so the response
-/// never tells them apart. The challenge points an OAuth client at the
+/// never tells them apart. Where OAuth is offered the challenge points a client at the
 /// metadata it needs to get a new token.
-fn unauthorized(id: Value, base: &str) -> Response {
+fn unauthorized(id: Value, challenge: &str) -> Response {
 	let mut response = rpc_error(
 		StatusCode::UNAUTHORIZED,
 		id,
 		REFUSED,
 		"invalid, expired or revoked grant token",
 	);
-	if let Ok(value) = HeaderValue::from_str(&oauth::challenge(base)) {
+	if let Ok(value) = HeaderValue::from_str(challenge) {
 		response
 			.headers_mut()
 			.insert(header::WWW_AUTHENTICATE, value);
@@ -758,15 +843,97 @@ fn plain(status: StatusCode, message: &'static str) -> Response {
 mod tests {
 	use super::*;
 
+	fn addr(text: &str) -> SocketAddr {
+		text.parse().unwrap()
+	}
+
 	#[test]
 	fn hosts_must_be_loopback_with_the_bound_port() {
-		assert!(loopback_host("127.0.0.1:7765", 7765));
-		assert!(loopback_host("localhost:7765", 7765));
-		assert!(loopback_host("[::1]:7765", 7765));
-		assert!(!loopback_host("127.0.0.1:80", 7765));
-		assert!(!loopback_host("evil.example:7765", 7765));
-		assert!(!loopback_host("127.0.0.1", 7765));
-		assert!(!loopback_host("127.0.0.1.evil.example:7765", 7765));
+		let bound = addr("127.0.0.1:7765");
+		let names = ["nas.example.ts.net".to_string()];
+		for tls in [false, true] {
+			assert!(host_allowed("127.0.0.1:7765", bound, tls, &[]));
+			assert!(host_allowed("localhost:7765", bound, tls, &[]));
+			assert!(host_allowed("[::1]:7765", bound, tls, &[]));
+			assert!(!host_allowed("127.0.0.1:80", bound, tls, &[]));
+			assert!(!host_allowed("evil.example:7765", bound, tls, &[]));
+			assert!(!host_allowed("127.0.0.1", bound, tls, &[]));
+			assert!(!host_allowed(
+				"127.0.0.1.evil.example:7765",
+				bound,
+				tls,
+				&[]
+			));
+			// A configured name passes with any port, for a proxy that keeps Host.
+			assert!(host_allowed("nas.example.ts.net:7765", bound, tls, &names));
+			assert!(host_allowed("nas.example.ts.net", bound, tls, &names));
+			assert!(!host_allowed("nas.example.ts.net", bound, tls, &[]));
+		}
+	}
+
+	#[test]
+	fn non_loopback_hosts_must_name_the_bound_ip_or_a_host_name() {
+		let bound = addr("100.64.0.1:8443");
+		let names = ["nas.example.ts.net".to_string()];
+		assert!(host_allowed("100.64.0.1:8443", bound, true, &[]));
+		assert!(host_allowed("nas.example.ts.net:8443", bound, true, &names));
+		assert!(host_allowed("NAS.Example.ts.net:8443", bound, true, &names));
+		assert!(!host_allowed("nas.example.ts.net:8443", bound, true, &[]));
+		assert!(!host_allowed("100.64.0.1:7765", bound, true, &names));
+		assert!(!host_allowed("100.64.0.1", bound, true, &names));
+		assert!(!host_allowed("100.64.0.2:8443", bound, true, &names));
+		assert!(!host_allowed("127.0.0.1:8443", bound, true, &names));
+		assert!(!host_allowed("localhost:8443", bound, true, &names));
+		assert!(!host_allowed("evil.example:8443", bound, true, &names));
+		assert!(!host_allowed(
+			"nas.example.ts.net.evil.example:8443",
+			bound,
+			true,
+			&names
+		));
+	}
+
+	#[test]
+	fn ipv6_hosts_are_bracketed() {
+		let bound = addr("[fd7a:115c:a1e0::1]:8443");
+		assert!(host_allowed("[fd7a:115c:a1e0::1]:8443", bound, true, &[]));
+		assert!(host_allowed(
+			"[FD7A:115C:A1E0:0:0:0:0:1]:8443",
+			bound,
+			true,
+			&[]
+		));
+		assert!(!host_allowed("fd7a:115c:a1e0::1:8443", bound, true, &[]));
+		assert!(!host_allowed("[fd7a:115c:a1e0::2]:8443", bound, true, &[]));
+	}
+
+	#[test]
+	fn the_port_may_be_left_out_only_when_it_is_the_default() {
+		let names = ["nas.example.ts.net".to_string()];
+		assert!(host_allowed(
+			"nas.example.ts.net",
+			addr("100.64.0.1:443"),
+			true,
+			&names
+		));
+		assert!(!host_allowed(
+			"nas.example.ts.net",
+			addr("100.64.0.1:443"),
+			false,
+			&names
+		));
+		assert!(host_allowed(
+			"100.64.0.1",
+			addr("100.64.0.1:80"),
+			false,
+			&[]
+		));
+		assert!(!host_allowed(
+			"nas.example.ts.net",
+			addr("100.64.0.1:8443"),
+			true,
+			&names
+		));
 	}
 
 	#[test]

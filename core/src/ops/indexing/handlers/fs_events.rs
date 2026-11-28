@@ -242,10 +242,14 @@ impl FsEventHandler {
 						}
 						if let Err(e) = Self::handle_event(&context, &event, rule_toggles).await {
 							error!("Error handling filesystem event: {}", e);
-						} else if let Some(root) =
-							context.volume_index().source_root_for(&event.path)
-						{
-							schedule_for_events.lock().unwrap().mark(root);
+						} else {
+							// Inside a space this logs who changed what; anywhere
+							// else it is one lookup and writes nothing.
+							crate::ops::spaces::events::record_watched(&context, &event).await;
+							if let Some(root) = context.volume_index().source_root_for(&event.path)
+							{
+								schedule_for_events.lock().unwrap().mark(root);
+							}
 						}
 					}
 					Err(broadcast::error::RecvError::Lagged(n)) => {

@@ -18,7 +18,10 @@ use crate::infra::job::{
 	prelude::*,
 	types::JobId,
 };
-use crate::ops::files::trash;
+use crate::ops::{
+	files::{bucket as files_bucket, trash},
+	grants::bucket::{backend, BucketUrl},
+};
 
 #[derive(Debug, Serialize, Deserialize, Job)]
 pub struct UndoJob {
@@ -100,7 +103,8 @@ impl JobHandler for UndoJob {
 			self.job,
 			journal.len()
 		));
-		let steps = reversals(&journal, self.effects.as_deref()).await;
+		let volumes = ctx.volume_manager();
+		let steps = reversals(&journal, self.effects.as_deref(), volumes.as_deref()).await;
 		let total = steps.len() as u64;
 		let mut output = UndoOutput::default();
 		let mut handled = 0u64;
@@ -178,8 +182,12 @@ impl JobHandler for UndoJob {
 
 /// Apply one step, answering with what it did for this job's journal.
 async fn apply(ctx: &JobContext<'_>, step: Step) -> std::io::Result<Vec<Effect>> {
+	if let Some(effects) = apply_in_bucket(ctx, &step).await {
+		return effects;
+	}
 	match step {
 		Step::Trash { path, .. } => {
+			crate::ops::spaces::events::claim(&[&path]);
 			let location = trash::trash(&path, ctx.volume_manager().as_deref(), ctx.id()).await?;
 			let subject = match &location {
 				Some(location) => tokio::fs::symlink_metadata(location).await.ok(),
@@ -188,7 +196,9 @@ async fn apply(ctx: &JobContext<'_>, step: Step) -> std::io::Result<Vec<Effect>>
 			Ok(vec![Effect::trashed(path, location, subject.as_ref())])
 		}
 		Step::MoveBack { from, to, .. } => {
+			crate::ops::spaces::events::claim(&[&from, &to]);
 			if let Some(parent) = to.parent() {
+				crate::ops::spaces::events::claim_missing(parent).await;
 				tokio::fs::create_dir_all(parent).await?;
 			}
 			move_back(&from, &to).await?;
@@ -196,6 +206,7 @@ async fn apply(ctx: &JobContext<'_>, step: Step) -> std::io::Result<Vec<Effect>>
 			Ok(vec![Effect::moved(from, to, subject.as_ref())])
 		}
 		Step::Restore { path, previous, .. } => {
+			crate::ops::spaces::events::claim(&[&path, &previous]);
 			let location = trash::trash(&path, ctx.volume_manager().as_deref(), ctx.id()).await?;
 			let stashed = match &location {
 				Some(location) => tokio::fs::symlink_metadata(location).await.ok(),
@@ -209,6 +220,7 @@ async fn apply(ctx: &JobContext<'_>, step: Step) -> std::io::Result<Vec<Effect>>
 			])
 		}
 		Step::Attributes { path, to } => {
+			crate::ops::spaces::events::claim(&[&path]);
 			let from = crate::ops::files::attributes_action::fs::read(&path).await?;
 			crate::ops::files::attributes_action::fs::apply(&path, &to).await?;
 			Ok(vec![Effect::Attributes {
@@ -222,6 +234,80 @@ async fn apply(ctx: &JobContext<'_>, step: Step) -> std::io::Result<Vec<Effect>>
 			}])
 		}
 	}
+}
+
+/// Apply a step on a bucket object, or `None` for a step on the filesystem.
+///
+/// A trashed object goes back with a copy that replaces nothing and a delete
+/// of the trash copy, and a created one goes to the bucket's trash, so undo
+/// loses no version either.
+async fn apply_in_bucket(
+	ctx: &JobContext<'_>,
+	step: &Step,
+) -> Option<std::io::Result<Vec<Effect>>> {
+	let (source, destination, etag) = match step {
+		Step::Trash { path, etag, .. } => (BucketUrl::parse(path)?, None, etag.clone()),
+		Step::MoveBack { from, to, etag, .. } => (
+			BucketUrl::parse(from)?,
+			Some(BucketUrl::parse(to)?),
+			etag.clone(),
+		),
+		_ => return None,
+	};
+	Some(
+		async {
+			let volumes = ctx
+				.volume_manager()
+				.ok_or_else(|| std::io::Error::other("no volume manager"))?;
+			let backend = backend(&volumes, &source)
+				.await
+				.map_err(|error| std::io::Error::other(error.to_string()))?;
+			let backend = backend.as_ref();
+			if !backend
+				.deletes_are_recoverable()
+				.await
+				.map_err(|error| std::io::Error::other(error.to_string()))?
+			{
+				return Err(std::io::Error::other(format!(
+					"{} needs object versioning before undo can move objects in it",
+					source.volume()
+				)));
+			}
+			let object = files_bucket::object(backend, &source.key)
+				.await
+				.map_err(|error| std::io::Error::other(error.to_string()))?
+				.filter(|object| etag.is_none() || etag.as_ref() == Some(&object.etag))
+				.ok_or_else(|| {
+					std::io::Error::other(format!("{} changed since it was checked", source.key))
+				})?;
+			let refused =
+				|refusal: files_bucket::Refusal| std::io::Error::other(refusal.to_string());
+			match destination {
+				None => {
+					let copy = files_bucket::trash(backend, &object, ctx.id().0)
+						.await
+						.map_err(refused)?;
+					Ok(vec![Effect::Trashed {
+						from: source.path(),
+						to: Some(files_bucket::path(&source, &copy.key)),
+						subject: Some(copy.subject()),
+					}])
+				}
+				Some(destination) => {
+					let subject = files_bucket::relocate(backend, &object, &destination.key)
+						.await
+						.map_err(refused)
+						.map(|copy| Some(copy.subject()))?;
+					Ok(vec![Effect::Moved {
+						from: source.path(),
+						to: destination.path(),
+						subject,
+					}])
+				}
+			}
+		}
+		.await,
+	)
 }
 
 /// The trash's restore, which is a rename where the item sits at its

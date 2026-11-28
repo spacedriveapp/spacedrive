@@ -43,8 +43,8 @@ pub struct Library {
 	/// Root directory of the library (the .sdlibrary folder)
 	path: PathBuf,
 
-	/// Copied out of the config so reading it never waits on, or fails
-	/// beside, a config write.
+	/// Copied out of the config so reading it never waits on, or races, a
+	/// config write held across a save.
 	id: Uuid,
 
 	/// Library configuration

@@ -193,7 +193,7 @@ pub(crate) async fn insert(
 ) -> Result<Minted, ActionError> {
 	if let Some(url) = BucketUrl::parse(&mint.target.subtree) {
 		if mint.caps == GrantCap::ReadWrite {
-			let backend = bucket::backend(context, &url)
+			let backend = bucket::backend(&context.volume_manager, &url)
 				.await
 				.map_err(|e| ActionError::InvalidInput(e.to_string()))?;
 			bucket::writable(&url, backend.as_ref())
@@ -210,6 +210,20 @@ pub(crate) async fn insert(
 	let refresh = mint.oauth_client.as_ref().map(|_| token::mint_refresh());
 	let id = Uuid::now_v7();
 	let now = Utc::now();
+	// Every grant is lent to its own new agent, so that agent's history is
+	// one actor whichever paths it touches.
+	let actor = crate::ops::actors::new_agent(
+		library,
+		context,
+		mint.label.clone().unwrap_or_else(|| "Agent".to_string()),
+		mint.oauth_client.clone(),
+	)
+	.await
+	.map_err(ActionError::Internal)?;
+	let space =
+		crate::ops::spaces::events::space_of(context, &mint.target.subtree, Some(library.id()))
+			.await
+			.map(|at| at.space_id);
 	agent_grant::Entity::insert(agent_grant::ActiveModel {
 		uuid: Set(id),
 		token_hash: Set(token_hash),
@@ -223,6 +237,8 @@ pub(crate) async fn insert(
 		revoked_at: Set(None),
 		oauth_client: Set(mint.oauth_client),
 		refresh_hash: Set(refresh.as_ref().map(|(_, hash)| hash.clone())),
+		space_id: Set(space),
+		actor_id: Set(Some(actor)),
 		..Default::default()
 	})
 	.exec(db)

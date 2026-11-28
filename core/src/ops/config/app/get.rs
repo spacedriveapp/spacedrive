@@ -116,6 +116,14 @@ pub struct AgentMcpConfigOutput {
 	pub enabled: bool,
 	/// The address it listens on when enabled.
 	pub listen: String,
+	/// PEM certificate chain served when TLS is on.
+	pub tls_cert: Option<PathBuf>,
+	/// PEM private key for `tls_cert`.
+	pub tls_key: Option<PathBuf>,
+	/// Whether a non-loopback listener may serve plain HTTP.
+	pub plaintext: bool,
+	/// Names a non-loopback listener accepts in Host besides its IP.
+	pub host_names: Vec<String>,
 }
 
 /// Logging configuration output
@@ -166,6 +174,10 @@ impl From<&AppConfig> for AppConfigOutput {
 			agent_mcp: AgentMcpConfigOutput {
 				enabled: config.agent_mcp.enabled,
 				listen: config.agent_mcp.listen.clone(),
+				tls_cert: config.agent_mcp.tls_cert.clone(),
+				tls_key: config.agent_mcp.tls_key.clone(),
+				plaintext: config.agent_mcp.plaintext,
+				host_names: config.agent_mcp.host_names.clone(),
 			},
 			services: ServiceConfigOutput {
 				networking_enabled: config.services.networking_enabled,

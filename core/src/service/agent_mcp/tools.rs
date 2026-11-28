@@ -8,9 +8,13 @@
 //! keep their bodies and schemas in `footage.rs`.
 //!
 //! Every tool takes a path relative to the grant root and works on the
-//! [`GrantScope::path`] the grant check resolved, never on the path it was
-//! sent. Walkers do not follow links. Every path in a result is relative to
-//! the grant root, and error messages carry no host path.
+//! [`GrantScope::relative`] the grant check resolved, never on the path it was
+//! sent. File bytes and metadata are read only through handles that
+//! `common::contain` opened beneath the grant root, so a symlink swapped in
+//! after the grant check cannot point a read outside it. Walkers do not
+//! follow links, and every path they yield is confirmed beneath the root
+//! before it is shown. Every path in a result is relative to the grant root,
+//! and error messages carry no host path.
 
 use std::{
 	fs::{File, Metadata},
@@ -35,6 +39,7 @@ mod bucket;
 use super::footage;
 use super::{limits::*, paths, SKILL};
 use crate::{
+	common::contain::{self, Directory, Kind, Stat},
 	context::CoreContext,
 	domain::addressing::SdPath,
 	infra::{
@@ -56,6 +61,7 @@ use crate::{
 			content::{ContentSearchInput, ContentSearchQuery},
 			grep::{scan, GrepOptions},
 			input::{PaginationOptions, SearchFilters, SortDirection, SortField, SortOptions},
+			semantic::{SemanticSearchInput, SemanticSearchQuery},
 		},
 	},
 };
@@ -69,11 +75,13 @@ pub enum Tool {
 	Grep,
 	Search,
 	SearchContent,
+	SearchSemantic,
 	GetSkill,
 	WriteFile,
 	MakeDir,
 	Move,
 	Delete,
+	ListChanges,
 	#[cfg(feature = "video-shots")]
 	ListShots,
 	#[cfg(feature = "footage-clips")]
@@ -94,10 +102,12 @@ impl Tool {
 		Self::Grep,
 		Self::Search,
 		Self::SearchContent,
+		Self::SearchSemantic,
 		Self::WriteFile,
 		Self::MakeDir,
 		Self::Move,
 		Self::Delete,
+		Self::ListChanges,
 		#[cfg(feature = "video-shots")]
 		Self::ListShots,
 		#[cfg(feature = "footage-clips")]
@@ -117,11 +127,13 @@ impl Tool {
 			Self::Grep => "grep",
 			Self::Search => "search",
 			Self::SearchContent => "search_content",
+			Self::SearchSemantic => "search_semantic",
 			Self::GetSkill => "get_skill",
 			Self::WriteFile => "write_file",
 			Self::MakeDir => "make_dir",
 			Self::Move => "move",
 			Self::Delete => "delete",
+			Self::ListChanges => "list_changes",
 			#[cfg(feature = "video-shots")]
 			Self::ListShots => "list_shots",
 			#[cfg(feature = "footage-clips")]
@@ -368,6 +380,28 @@ pub fn definitions() -> Value {
 			"annotations": annotations("Search the text of files"),
 		},
 		{
+			"name": "search_semantic",
+			"title": "Search files by meaning",
+			"description": "Finds files under 'path' that are about what the query describes, even when they use other words, and returns them ranked with a snippet. Write the query as a phrase or question, such as 'notes on the kitchen renovation budget'. Ranking combines the meaning of the text with its words, so a file that also contains the query's words ranks higher; word_match says whether it did. It covers extracted document text, transcripts, and scene and caption descriptions, only in the folders the source indexes contents for. Recording hits carry start_seconds and end_seconds. It answers from an index that can lag the disk; pending_documents counts documents not embedded yet, which are still found by their words. It fails with the reason when this device has no text embedding model. Use search_content for exact words and grep for patterns.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"query": { "type": "string", "maxLength": SEMANTIC_QUERY_MAX_BYTES, "description": "What to find, in plain language." },
+					"path": path("The directory or file to search"),
+					"kinds": {
+						"type": "array",
+						"items": { "type": "string", "enum": ["text", "markdown", "csv", "json", "code", "pdf", "docx", "transcript", "scene", "caption"] },
+						"description": "Only files of these kinds. Empty or absent means every kind.",
+					},
+					"max_results": { "type": "integer", "minimum": 1, "maximum": SEMANTIC_PAGE_MAX, "default": CONTENT_PAGE_DEFAULT },
+					"cursor": cursor,
+				},
+				"required": ["query"],
+				"additionalProperties": false,
+			},
+			"annotations": annotations("Search files by meaning"),
+		},
+		{
 			"name": "write_file",
 			"title": "Write a file",
 			"description": "Writes a whole file, or content at a byte offset of an existing one. To change an existing file, pass expect with the content_hash (or revision) that stat returned; if the file changed since, the call fails as stale and names the current values. Without expect the call creates the file and never replaces anything: if the name is taken, the file is written beside it as 'name (agent conflict N).ext'. Missing parent directories are created. The result has the new content_hash to pass to the next write, and an undo id.",
@@ -428,6 +462,20 @@ pub fn definitions() -> Value {
 			},
 			"annotations": writes("Move to the trash", true),
 		},
+		{
+			"name": "list_changes",
+			"title": "List recent changes",
+			"description": "Returns what changed under the grant root, oldest first: each change's op (create, mkdir, modify, move or delete), path, who made it (you, another agent, the person in the app, or someone outside Spacedrive), and the content hashes before and after when known. Changes are kept for 30 days. Pass next_cursor back as cursor to read only what changed since your last call.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"limit": { "type": "integer", "minimum": 1, "maximum": PAGE_MAX, "default": PAGE_DEFAULT, "description": "Changes per page." },
+					"cursor": cursor,
+				},
+				"additionalProperties": false,
+			},
+			"annotations": annotations("List recent changes"),
+		},
 	]);
 	#[cfg(feature = "video-shots")]
 	if let Some(list) = tools.as_array_mut() {
@@ -474,6 +522,7 @@ pub async fn call(
 		}),
 		Tool::Search => search(&context, &scope, args(arguments)?).await,
 		Tool::SearchContent => search_content(&context, &scope, args(arguments)?).await,
+		Tool::SearchSemantic => search_semantic(&context, &scope, args(arguments)?).await,
 		Tool::ListDir => blocking(move || list_dir(&scope, args(arguments)?)).await,
 		Tool::Stat => stat_with_precondition(&context, scope, cancel).await,
 		Tool::Read => blocking(move || read(&scope, args(arguments)?, &cancel)).await,
@@ -482,6 +531,7 @@ pub async fn call(
 		Tool::WriteFile | Tool::MakeDir | Tool::Move | Tool::Delete => {
 			write(context.clone(), token, tool, &scope, arguments, cancel).await
 		}
+		Tool::ListChanges => list_changes(&context, &scope, args(arguments)?).await,
 		#[cfg(feature = "video-shots")]
 		Tool::ListShots => list_shots(&context, &scope).await,
 		#[cfg(feature = "footage-clips")]
@@ -492,6 +542,99 @@ pub async fn call(
 		Tool::ExportTimeline => footage::export_timeline(&context, token, &scope, args(arguments)?).await,
 	};
 	result.map_err(|message| scrub(&message, &root))
+}
+
+#[derive(Deserialize)]
+struct ListChangesArgs {
+	#[serde(default)]
+	limit: Option<u32>,
+	#[serde(default)]
+	cursor: Option<String>,
+}
+
+/// The changes of the grant's space that fall under the grant root, with
+/// paths relative to that root.
+async fn list_changes(
+	context: &CoreContext,
+	scope: &GrantScope,
+	args: ListChangesArgs,
+) -> Result<Output, String> {
+	let Some(space_id) = scope.space_id else {
+		return Err("this grant has no change log because it predates spaces; ask the owner for a new grant".to_string());
+	};
+	let since = match args.cursor.as_deref() {
+		Some(cursor) => cursor
+			.parse::<i64>()
+			.map_err(|_| "invalid cursor".to_string())?,
+		None => 0,
+	};
+	let at = crate::ops::spaces::events::space_of(context, &scope.root, Some(scope.library_id))
+		.await
+		.filter(|at| at.space_id == space_id)
+		.ok_or_else(|| "the grant root is no longer inside its space".to_string())?;
+	let library = context
+		.libraries()
+		.await
+		.get_library(scope.library_id)
+		.await
+		.ok_or_else(|| "the library is not open".to_string())?;
+	let limit = args.limit.unwrap_or(PAGE_DEFAULT).clamp(1, PAGE_MAX);
+	let page = crate::ops::spaces::page(
+		&library,
+		context,
+		at.source_id,
+		space_id,
+		sd_store::EventQuery {
+			cursor: Some(since),
+			newest: false,
+			path: Some(at.path.clone()),
+			limit,
+		},
+	)
+	.await?;
+	let under = |path: &str| -> Option<String> {
+		if at.path.is_empty() {
+			return Some(path.to_string());
+		}
+		if path == at.path {
+			return Some(String::new());
+		}
+		path.strip_prefix(at.path.as_str())
+			.and_then(|rest| rest.strip_prefix('/'))
+			.map(str::to_string)
+	};
+	let changes: Vec<Value> = page
+		.changes
+		.into_iter()
+		.filter_map(|change| {
+			let path = under(&change.path);
+			let to_path = change.to_path.as_deref().and_then(under);
+			if path.is_none() && to_path.is_none() {
+				return None;
+			}
+			let by = if change.actor.id == scope.actor_id {
+				"you".to_string()
+			} else {
+				change.actor.label.clone()
+			};
+			Some(json!({
+				"at": change.at,
+				"op": change.op,
+				"path": path,
+				"to_path": to_path,
+				"by": by,
+				"actor_kind": change.actor.kind,
+				"origin": change.origin,
+				"before_hash": change.before_hash,
+				"after_hash": change.after_hash,
+				"size": change.size,
+			}))
+		})
+		.collect();
+	Ok(Output::json(json!({
+		"changes": changes,
+		"next_cursor": page.next.to_string(),
+	})))
 }
 
 /// Drop any spelling of the grant root from a message, so a lower layer's
@@ -583,21 +726,17 @@ pub(super) fn io_message(error: &std::io::Error) -> String {
 	}
 }
 
-fn kind(meta: &Metadata) -> &'static str {
-	let file_type = meta.file_type();
-	if file_type.is_symlink() {
-		"symlink"
-	} else if file_type.is_dir() {
-		"dir"
-	} else if file_type.is_file() {
-		"file"
-	} else {
-		"other"
+fn kind(stat: &Stat) -> &'static str {
+	match stat.kind {
+		Kind::Symlink => "symlink",
+		Kind::Dir => "dir",
+		Kind::File => "file",
+		Kind::Other => "other",
 	}
 }
 
-fn time(at: std::io::Result<SystemTime>) -> Option<String> {
-	at.ok().map(|at| DateTime::<Utc>::from(at).to_rfc3339())
+fn time(at: Option<SystemTime>) -> Option<String> {
+	at.map(|at| DateTime::<Utc>::from(at).to_rfc3339())
 }
 
 fn page_limit(limit: Option<u32>, default: u32, max: u32) -> usize {
@@ -621,14 +760,8 @@ struct ListArgs {
 }
 
 fn list_dir(scope: &GrantScope, args: ListArgs) -> Result<Output, String> {
-	let meta = std::fs::metadata(&scope.path).map_err(|e| io_message(&e))?;
-	if !meta.is_dir() {
-		return Err("not a directory".to_string());
-	}
-	let mut names: Vec<_> = std::fs::read_dir(&scope.path)
-		.map_err(|e| io_message(&e))?
-		.filter_map(|entry| entry.ok().map(|entry| entry.file_name()))
-		.collect();
+	let dir = Directory::open(&scope.root, &scope.relative).map_err(|e| io_message(&e))?;
+	let mut names = dir.names().map_err(|e| io_message(&e))?;
 	names.sort_by(|a, b| a.as_encoded_bytes().cmp(b.as_encoded_bytes()));
 
 	let offset = page_offset(args.cursor.as_deref())?;
@@ -638,14 +771,14 @@ fn list_dir(scope: &GrantScope, args: ListArgs) -> Result<Output, String> {
 		.skip(offset)
 		.take(limit)
 		.map(|name| {
-			let meta = std::fs::symlink_metadata(scope.path.join(name)).ok();
+			let meta = dir.stat(name).ok();
 			let shown = name.to_string_lossy();
 			json!({
 				"name": shown,
 				"path": paths::joined(&scope.relative, &shown),
 				"type": meta.as_ref().map(kind).unwrap_or("other"),
-				"size": meta.as_ref().map(Metadata::len),
-				"modified": meta.as_ref().and_then(|m| time(m.modified())),
+				"size": meta.as_ref().map(|m| m.len),
+				"modified": meta.as_ref().and_then(|m| time(m.modified)),
 			})
 		})
 		.collect();
@@ -658,16 +791,18 @@ fn list_dir(scope: &GrantScope, args: ListArgs) -> Result<Output, String> {
 	})))
 }
 
+/// The grant check resolved every link in the path, so a link found here was
+/// swapped in since; it is described as a link and not followed.
 fn stat(scope: &GrantScope) -> Result<Output, String> {
-	let meta = std::fs::metadata(&scope.path).map_err(|e| io_message(&e))?;
+	let meta = contain::stat_beneath(&scope.root, &scope.relative).map_err(|e| io_message(&e))?;
 	Ok(Output::json(json!({
 		"path": paths::shown(&scope.relative),
 		"type": kind(&meta),
-		"size": meta.len(),
-		"modified": time(meta.modified()),
-		"created": time(meta.created()),
-		"accessed": time(meta.accessed()),
-		"readonly": meta.permissions().readonly(),
+		"size": meta.len,
+		"modified": time(meta.modified),
+		"created": time(meta.created),
+		"accessed": time(meta.accessed),
+		"readonly": meta.readonly,
 	})))
 }
 
@@ -686,18 +821,15 @@ struct ReadArgs {
 	max_bytes: Option<u64>,
 }
 
-/// Open a regular file without following a final symlink, which closes the
-/// gap between the grant check and the open. A FIFO opened non-blocking
-/// cannot stall the call.
-pub(super) fn open_file(path: &Path) -> Result<(File, Metadata), String> {
-	let mut options = std::fs::OpenOptions::new();
-	options.read(true);
-	#[cfg(unix)]
-	{
-		use std::os::unix::fs::OpenOptionsExt;
-		options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+/// Open the scope's regular file beneath the grant root, which closes the
+/// gap between the grant check and the open. The handle is non-blocking, so a
+/// FIFO cannot stall the call, and it is checked for a regular file only once
+/// it is open.
+pub(super) fn open_file(scope: &GrantScope) -> Result<(File, Metadata), String> {
+	if scope.relative.as_os_str().is_empty() {
+		return Err("not a regular file".to_string());
 	}
-	let file = options.open(path).map_err(|e| io_message(&e))?;
+	let file = contain::open_beneath(&scope.root, &scope.relative).map_err(|e| io_message(&e))?;
 	let meta = file.metadata().map_err(|e| io_message(&e))?;
 	if !meta.is_file() {
 		return Err("not a regular file".to_string());
@@ -741,7 +873,7 @@ fn read(scope: &GrantScope, args: ReadArgs, cancel: &AtomicBool) -> Result<Outpu
 			"the file is a cloud placeholder ({DATALESS_REASON}); it is not read so it is not downloaded"
 		));
 	}
-	let (mut file, meta) = open_file(&scope.path)?;
+	let (mut file, meta) = open_file(scope)?;
 	let size = meta.len();
 	let path = paths::shown(&scope.relative);
 
@@ -937,12 +1069,7 @@ fn glob(scope: &GrantScope, args: GlobArgs, cancel: &AtomicBool) -> Result<Outpu
 		.build()
 		.map_err(|e| format!("invalid glob: {}", e.kind()))?
 		.compile_matcher();
-	if !std::fs::metadata(&scope.path)
-		.map_err(|e| io_message(&e))?
-		.is_dir()
-	{
-		return Err("not a directory".to_string());
-	}
+	Directory::open(&scope.root, &scope.relative).map_err(|e| io_message(&e))?;
 	let offset = page_offset(args.cursor.as_deref())?;
 	let limit = page_limit(args.limit, PAGE_DEFAULT, PAGE_MAX);
 
@@ -977,20 +1104,20 @@ fn glob(scope: &GrantScope, args: GlobArgs, cancel: &AtomicBool) -> Result<Outpu
 		if !matcher.is_match(relative) {
 			continue;
 		}
+		// The walk lists by path, so a directory swapped for a link out of the
+		// root mid-walk yields names from outside it. Each match is described
+		// again through a handle beneath the root and dropped when that fails.
+		let Ok(meta) = contain::stat_beneath(&scope.root, &scope.relative.join(relative)) else {
+			continue;
+		};
 		if seen >= offset {
 			if matches.len() == limit {
 				more = true;
 				break;
 			}
-			let file_type = entry.file_type();
 			matches.push(json!({
 				"path": paths::joined(&scope.relative, &paths::shown(relative)),
-				"type": match file_type {
-					Some(t) if t.is_symlink() => "symlink",
-					Some(t) if t.is_dir() => "dir",
-					Some(t) if t.is_file() => "file",
-					_ => "other",
-				},
+				"type": kind(&meta),
 			}));
 		}
 		seen += 1;
@@ -1066,7 +1193,9 @@ fn grep(scope: &GrantScope, args: GrepArgs, cancel: &AtomicBool) -> Result<Outpu
 		other => other.to_string(),
 	})?;
 	// A file scope names its matches by file name, so they join to its parent.
-	let base = if scope.path.is_file() {
+	let file_scope = contain::stat_beneath(&scope.root, &scope.relative)
+		.is_ok_and(|meta| meta.kind == Kind::File);
+	let base = if file_scope {
 		scope.relative.parent().unwrap_or(Path::new(""))
 	} else {
 		scope.relative.as_path()
@@ -1198,13 +1327,104 @@ async fn stat_with_precondition(
 	cancel: Arc<AtomicBool>,
 ) -> Result<Output, String> {
 	let (root, path) = (scope.root.clone(), scope.path.clone());
-	let Output { mut structured, .. } = blocking(move || stat(&scope)).await?;
-	let state = agent_write::state_of(context, &root, &path, cancel)
-		.await
-		.map_err(|e| e.to_string())?;
-	structured["content_hash"] = json!(state.content_hash);
-	structured["revision"] = json!(state.revision);
+	let hash_cancel = cancel.clone();
+	let (Output { mut structured, .. }, contained) = tokio::task::spawn_blocking(move || {
+		let stat = stat(&scope)?;
+		let contained = match stat.structured["type"].as_str() {
+			Some("file") => Some(file_hash(&scope, &hash_cancel)?),
+			Some("dir") => Some(Some(listing_hash(&scope)?)),
+			_ => None,
+		};
+		Ok::<_, String>((stat, contained))
+	})
+	.await
+	.map_err(|_| "the call failed".to_string())??;
+	let Some(content_hash) = contained else {
+		// Only a link swapped in since the grant check, or a special file,
+		// lands here; agent_write's state is cheap for both and gives the
+		// link its hash of the target string.
+		let state = agent_write::state_of(context, &root, &path, cancel)
+			.await
+			.map_err(|e| e.to_string())?;
+		structured["content_hash"] = json!(state.content_hash);
+		structured["revision"] = json!(state.revision);
+		return Ok(Output::json(structured));
+	};
+	structured["content_hash"] = json!(content_hash);
+	structured["revision"] = json!(revision(context, &path).await);
 	Ok(Output::json(structured))
+}
+
+/// The revision of the store that ingests `path`, in the `store_id:value`
+/// form a write's precondition compares.
+async fn revision(context: &CoreContext, path: &Path) -> Option<String> {
+	let index = context.volume_index();
+	let db = index.read_store(index.source_id_for(path)?).await?;
+	let revision = db.revision().await.ok()?;
+	Some(format!("{}:{}", revision.store_id.simple(), revision.value))
+}
+
+/// The BLAKE3 hash of the scope's file, hex, read through a handle beneath
+/// the grant root, or `None` for a cloud placeholder, which is not read. It is
+/// the hash `agent_write` compares a write's `content_hash` with.
+fn file_hash(scope: &GrantScope, cancel: &AtomicBool) -> Result<Option<String>, String> {
+	if refuse_dataless_blocking(&scope.path).is_err() {
+		return Ok(None);
+	}
+	let (mut file, _) = open_file(scope)?;
+	let mut hasher = blake3::Hasher::new();
+	let mut buffer = vec![0u8; 256 * 1024];
+	loop {
+		if cancel.load(Ordering::Relaxed) {
+			return Err("cancelled".to_string());
+		}
+		let read = file.read(&mut buffer).map_err(|e| io_message(&e))?;
+		if read == 0 {
+			break;
+		}
+		hasher.update(&buffer[..read]);
+	}
+	Ok(Some(hasher.finalize().to_hex().to_string()))
+}
+
+/// The hash `agent_write` gives the scope's directory, from a listing read
+/// through a handle beneath the grant root: each child's name, kind, size and
+/// modification time, sorted by name, with links described and not followed.
+fn listing_hash(scope: &GrantScope) -> Result<String, String> {
+	let dir = Directory::open(&scope.root, &scope.relative).map_err(|e| io_message(&e))?;
+	let mut children: Vec<(Vec<u8>, String)> = dir
+		.names()
+		.map_err(|e| io_message(&e))?
+		.into_iter()
+		.map(|name| {
+			let line = match dir.stat(&name) {
+				Ok(meta) => format!(
+					"{}:{}:{}",
+					match meta.kind {
+						Kind::Dir => "d",
+						Kind::Symlink => "l",
+						Kind::File | Kind::Other => "f",
+					},
+					if meta.kind == Kind::Dir { 0 } else { meta.len },
+					meta.modified
+						.and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok())
+						.map(|at| at.as_nanos())
+						.unwrap_or(0)
+				),
+				Err(_) => "gone".to_string(),
+			};
+			(name.as_encoded_bytes().to_vec(), line)
+		})
+		.collect();
+	children.sort();
+	let mut hasher = blake3::Hasher::new();
+	for (name, line) in children {
+		hasher.update(&name);
+		hasher.update(b"\0");
+		hasher.update(line.as_bytes());
+		hasher.update(b"\n");
+	}
+	Ok(hasher.finalize().to_hex().to_string())
 }
 
 #[derive(Deserialize)]
@@ -1387,12 +1607,76 @@ async fn search_content(
 	})))
 }
 
+#[derive(Deserialize)]
+struct SearchSemanticArgs {
+	query: String,
+	#[serde(default)]
+	kinds: Vec<TextKind>,
+	#[serde(default)]
+	max_results: Option<u32>,
+	#[serde(default)]
+	cursor: Option<String>,
+}
+
+async fn search_semantic(
+	context: &Arc<CoreContext>,
+	scope: &GrantScope,
+	args: SearchSemanticArgs,
+) -> Result<Output, String> {
+	let in_source = text_index_path(context, scope).await?;
+	let session = session(context, scope)?;
+	let found = SemanticSearchQuery::from_input(SemanticSearchInput {
+		scope: SdPath::local(in_source),
+		query: args.query,
+		kinds: args.kinds,
+		max_results: args.max_results,
+		cursor: args.cursor,
+	})
+	.map_err(content_error)?
+	.execute(context.clone(), session)
+	.await
+	.map_err(content_error)?;
+
+	let names: Vec<String> = found.hits.iter().map(|hit| hit.path.clone()).collect();
+	let placed = place(scope, names).await?;
+	let results: Vec<Value> = found
+		.hits
+		.into_iter()
+		.zip(placed)
+		.filter_map(|(hit, relative)| {
+			let relative = relative?;
+			let snippet: String = hit.snippet.iter().map(|part| part.text.as_str()).collect();
+			let mut result = json!({
+				"path": paths::shown(&relative),
+				"kind": hit.kind.as_str(),
+				"score": hit.score,
+				"similarity": hit.similarity,
+				"word_match": hit.word_match,
+				"snippet": snippet,
+			});
+			if let Some(time) = hit.time {
+				result["start_seconds"] = json!(time.start_seconds);
+				result["end_seconds"] = json!(time.end_seconds);
+			}
+			Some(result)
+		})
+		.collect();
+	Ok(Output::json(json!({
+		"results": results,
+		"next_cursor": found.next_cursor,
+		"pending_documents": found.pending_documents,
+		"note": "Semantic search ranks by meaning from Spacedrive's index, which can lag the disk and covers only the start of a long document. Confirm a hit with read.",
+	})))
+}
+
 #[cfg(feature = "video-shots")]
 async fn list_shots(context: &Arc<CoreContext>, scope: &GrantScope) -> Result<Output, String> {
-	let meta = tokio::fs::metadata(&scope.path)
+	let (root, relative) = (scope.root.clone(), scope.relative.clone());
+	let meta = tokio::task::spawn_blocking(move || contain::stat_beneath(&root, &relative))
 		.await
+		.map_err(|_| "the call failed".to_string())?
 		.map_err(|e| io_message(&e))?;
-	if !meta.is_file() {
+	if meta.kind != Kind::File {
 		return Err("list_shots takes a video file, not a directory".to_string());
 	}
 	if crate::ops::indexing::metadata::refuse_dataless(&scope.path)
@@ -1566,6 +1850,8 @@ mod tests {
 		std::fs::write(root.join("cloud.txt"), "not here").unwrap();
 		let scope = GrantScope {
 			grant_id: uuid::Uuid::new_v4(),
+			actor_id: uuid::Uuid::new_v4(),
+			space_id: None,
 			library_id: uuid::Uuid::new_v4(),
 			cap: GrantCap::Read,
 			path: root.join("cloud.txt"),

@@ -1,6 +1,6 @@
 ---
 name: spacedrive
-description: Read, and with a writable grant change, one folder that a Spacedrive grant lends you, through list_dir, stat, read, glob, grep, search, search_content, write_file, make_dir, move and delete. Use whenever you work with files served by a Spacedrive MCP server.
+description: Read, and with a writable grant change, one folder that a Spacedrive grant lends you, through list_dir, stat, read, glob, grep, search, search_content, search_semantic, write_file, make_dir, move and delete. Use whenever you work with files served by a Spacedrive MCP server.
 ---
 
 # Working with a Spacedrive folder
@@ -55,6 +55,13 @@ time. After that, every call fails with HTTP 401.
   works only inside a source that reads file contents; elsewhere it refuses
   and you use grep. Use it to find which files are about something, then grep
   or read for the exact lines.
+- search_semantic: finds files that are about what you describe, even when
+  they use other words. Write the query as a phrase, such as "notes on the
+  kitchen renovation budget". Results combine meaning and words; word_match
+  says whether the file also holds the query's words. It covers document
+  text, transcripts, and scene and caption descriptions in the folders the
+  source indexes contents for. If it fails because no embedding model is
+  installed, use search_content.
 - get_skill: this guide.
 
 ## Writing
@@ -95,8 +102,16 @@ The tools and rules above are the same, with these differences:
 
 - The bucket refuses a stale write itself, so a change made by anyone, not
   only through Spacedrive, makes your expect stale.
-- move and delete are refused. Write a new version instead.
-- Writes have no undo id.
+- move and delete work only in a bucket with object versioning enabled.
+  Elsewhere they are refused and the error says so; write a new version
+  instead, or ask the user to enable versioning.
+- move copies, then deletes the source while it is unchanged. move and
+  delete take objects up to 64 MiB. delete puts the object in the bucket's
+  .spacedrive/trash/ prefix. Both have an undo id. If the object changes
+  during the move or delete, it is kept, and the error names any copy that
+  was made. If part of a folder move or delete landed, the error carries
+  the undo id for that part.
+- write_file and make_dir have no undo id.
 - search and search_content are refused; use grep and glob.
 - revision is always null. Use content_hash.
 - .gitignore is not applied.
@@ -125,7 +140,7 @@ Treat an empty or short result as a lead, not as proof.
 - glob and list_dir stop at their page size. Follow next_cursor.
 
 Before you state a fact about a file, read the file. Confirm a grep or search
-hit with read on the lines it names, read a search_content hit before you
+hit with read on the lines it names, read a search_content or search_semantic hit before you
 quote it, and confirm absence by checking
 files_skipped and the paging fields.
 

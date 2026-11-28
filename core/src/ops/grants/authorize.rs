@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use super::{audit, bucket, scope, store, token, GrantCap, GrantError, GrantScope, GrantStatus};
 use crate::{
+	common::contain,
 	context::CoreContext,
 	infra::db::entities::{agent_grant, source},
 };
@@ -94,6 +95,42 @@ pub async fn authorize_in(
 	decision
 }
 
+/// Confirms by handle what [`scope::resolve`] decided by path.
+///
+/// `resolve` follows links with `canonicalize`, which a link swapped in
+/// afterwards defeats, so the deepest existing part of the resolved path is
+/// opened again beneath the root, without reading it. An existing target is
+/// that part; a create's is the parent it will be made in. Anything that
+/// resolves outside the root, or that cannot be confirmed, is refused.
+fn reachable(resolved: &scope::Resolved, requested: &Path) -> Result<(), GrantError> {
+	for candidate in resolved.relative.ancestors() {
+		if candidate.as_os_str().is_empty() {
+			return Ok(());
+		}
+		match contain::reach_beneath(&resolved.root, candidate) {
+			Ok(()) => return Ok(()),
+			// A create names a parent that is missing or a file; the write
+			// itself refuses the second.
+			Err(error)
+				if matches!(
+					error.kind(),
+					std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+				) =>
+			{
+				continue
+			}
+			Err(error) if error.kind() == std::io::ErrorKind::InvalidInput => {
+				return Err(GrantError::InvalidPath(requested.display().to_string()));
+			}
+			Err(error) => {
+				debug!(%error, "a resolved path did not open beneath its root");
+				return Err(GrantError::Escape(requested.display().to_string()));
+			}
+		}
+	}
+	Ok(())
+}
+
 async fn decide(
 	context: &CoreContext,
 	db: &DatabaseConnection,
@@ -129,16 +166,20 @@ async fn decide(
 		Some(url) => {
 			let resolved = bucket::resolve(&url, path)?;
 			if cap == GrantCap::ReadWrite {
-				let backend = bucket::backend(context, &url).await?;
+				let backend = bucket::backend(&context.volume_manager, &url).await?;
 				bucket::writable(&url, backend.as_ref())?;
 			}
 			resolved
 		}
 		None => {
 			let requested = path.to_path_buf();
-			tokio::task::spawn_blocking(move || scope::resolve(&root, &requested))
-				.await
-				.map_err(|e| GrantError::Internal(format!("resolve: {e}")))??
+			tokio::task::spawn_blocking(move || {
+				let resolved = scope::resolve(&root, &requested)?;
+				reachable(&resolved, &requested)?;
+				Ok::<_, GrantError>(resolved)
+			})
+			.await
+			.map_err(|e| GrantError::Internal(format!("resolve: {e}")))??
 		}
 	};
 
@@ -155,6 +196,8 @@ async fn decide(
 
 	Ok(GrantScope {
 		grant_id: grant.uuid,
+		actor_id: grant.actor_id.unwrap_or(grant.uuid),
+		space_id: grant.space_id,
 		library_id,
 		cap,
 		root: resolved.root,
