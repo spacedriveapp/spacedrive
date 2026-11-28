@@ -26,7 +26,7 @@ export function SpaceInspectorSection({file}: {file: File}) {
 				label="Content indexing"
 				value={space.content_indexing ? 'On' : 'Off'}
 			/>
-			<InfoRow label="Versioning" value="Off" />
+			<InfoRow label="Versioning" value={space.versioning ? 'On' : 'Off'} />
 			<Button
 				type="button"
 				variant="gray"
