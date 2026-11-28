@@ -40,6 +40,7 @@ async fn space(harness: &IndexingHarness, kind: SpaceKind, path: Option<PathBuf>
 		kind,
 		path,
 		content_indexing: None,
+		protected: None,
 	})
 	.expect("space input")
 	.execute(harness.library.clone(), harness.core.context.clone())
