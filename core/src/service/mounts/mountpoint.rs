@@ -16,7 +16,9 @@ use tracing::warn;
 use uuid::Uuid;
 
 use crate::context::CoreContext;
-use crate::ops::grants::{authorize, create::owning_source, GrantCap, GrantError, GrantScope};
+use crate::ops::grants::{
+	authorize, create::owning_source, Access, GrantCap, GrantError, GrantScope,
+};
 use crate::service::mounts::tree::{BoundGrant, MountRoot};
 
 /// How often a grant-bound mount checks that its grant is still active.
@@ -62,9 +64,11 @@ pub(crate) async fn bind_grant(
 	token: String,
 	op: &str,
 ) -> Result<(BoundGrant, GrantScope), Refusal> {
-	let scope = authorize(context, &token, op, Path::new(""), GrantCap::Read)
+	let access = Access::new(&token, op, Path::new(""), GrantCap::Read);
+	let scope = authorize(context, &access)
 		.await
-		.map_err(Refusal::Grant)?;
+		.map_err(Refusal::Grant)?
+		.scope;
 	// The grant keeps the directory's canonical spelling, which on macOS can
 	// differ from the source's by a firmlink, and the tree answers only to
 	// the source's spelling. A bucket grant has no directory to compare, so

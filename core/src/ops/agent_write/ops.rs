@@ -35,7 +35,7 @@ use crate::{
 	ops::{
 		files::trash,
 		grants::{
-			authorize, bucket::BucketUrl, protect::Protection, scope, GrantCap, GrantError,
+			authorize, bucket::BucketUrl, protect::Protection, scope, Access, GrantCap, GrantError,
 			GrantScope,
 		},
 		spaces::events::{self as space_events, Attribution, Origin},
@@ -88,14 +88,8 @@ impl WriteTurn {
 
 /// A path's state: the values a precondition names.
 pub async fn stat(context: &CoreContext, input: StatInput) -> Result<PathState, WriteError> {
-	let scope = authorize(
-		context,
-		&input.token,
-		"agent.stat",
-		&input.path,
-		GrantCap::Read,
-	)
-	.await?;
+	let access = Access::new(&input.token, "agent.stat", &input.path, GrantCap::Read);
+	let scope = authorize(context, &access).await?.scope;
 	if let Some(bucket) = Bucket::of(context, &scope).await? {
 		return bucket::state(&bucket, &AtomicBool::new(false)).await;
 	}
@@ -451,7 +445,9 @@ async fn writable(
 	op: &str,
 	path: &Path,
 ) -> Result<GrantScope, WriteError> {
-	let scope = authorize(context, token, op, path, GrantCap::ReadWrite).await?;
+	let scope = authorize(context, &Access::new(token, op, path, GrantCap::ReadWrite))
+		.await?
+		.scope;
 	if scope.relative.as_os_str().is_empty() {
 		return Err(WriteError::Invalid(
 			"name a path inside the granted directory".to_string(),

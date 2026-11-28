@@ -9,7 +9,7 @@
 //! simulated peer source without a second device.
 
 use crate::context::CoreContext;
-use crate::ops::grants::{authorize, GrantCap};
+use crate::ops::grants::{authorize, Access, GrantCap};
 use crate::ops::indexing::arena::Arena;
 use crate::ops::indexing::metadata::EntryMetadata;
 use crate::ops::indexing::state::EntryKind;
@@ -117,8 +117,8 @@ impl LibraryTree {
 			return Ok(abs.to_path_buf());
 		};
 		let op = format!("{}.{op}", self.frontend);
-		let scope = authorize(&self.context, &grant.token, &op, abs, GrantCap::Read).await?;
-		Ok(scope.path)
+		let access = Access::new(&grant.token, &op, abs, GrantCap::Read);
+		Ok(authorize(&self.context, &access).await?.scope.path)
 	}
 }
 

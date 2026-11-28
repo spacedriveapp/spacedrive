@@ -25,12 +25,13 @@
 //! ## Example
 //! ```rust,no_run
 //! # async fn demo(context: &sd_core::context::CoreContext) {
-//! use sd_core::ops::grants::{authorize, GrantCap};
+//! use sd_core::ops::grants::{authorize, Access, GrantCap};
 //! use std::path::Path;
 //!
 //! let token = "sdg_...";
-//! match authorize(context, token, "read", Path::new("notes/today.md"), GrantCap::Read).await {
-//! 	Ok(scope) => tracing::debug!(path = %scope.path.display(), "serve"),
+//! let access = Access::new(token, "read", Path::new("notes/today.md"), GrantCap::Read);
+//! match authorize(context, &access).await {
+//! 	Ok(authorized) => tracing::debug!(path = %authorized.scope.path.display(), "serve"),
 //! 	Err(refusal) => tracing::warn!(%refusal, "refused"),
 //! }
 //! # }
@@ -61,7 +62,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 pub use audit::{AuditId, AuditResult, RequestMeta};
-pub use authorize::{authorize, authorize_in, authorize_with};
+pub use authorize::{authorize, authorize_in, authorize_with, Access, Authorized};
 pub(crate) use verify::{verified, GrantRecord};
 
 /// The shortest lifetime a grant can be created or extended with.
@@ -234,9 +235,12 @@ pub struct GrantScope {
 	pub grant_id: Uuid,
 	/// Who the grant was lent to. A grant made before actors is its own actor.
 	pub actor_id: Uuid,
-	/// The space the grant lends a part of, for grants made since spaces.
-	pub space_id: Option<Uuid>,
 	pub library_id: Uuid,
+	/// The space the grant lends from. A grant outside every space is its
+	/// own space, and this is the grant id.
+	pub space_id: Uuid,
+	/// The space's authority epoch. Spaces carry no epoch yet, so this is 0.
+	pub authority_epoch: u64,
 	pub cap: GrantCap,
 	/// The granted directory, canonical now.
 	pub root: PathBuf,
@@ -251,7 +255,10 @@ pub struct GrantScope {
 ///
 /// The first four mean the token is not usable at all, which an HTTP surface
 /// answers with 401. The rest mean this one request is outside the grant,
-/// which it answers with 403. [`GrantError::is_credential`] tells them apart.
+/// which it answers with 403, except a request naming another space, which
+/// it answers like a missing space with 404, and a write against an old
+/// authority epoch, which it answers with 409.
+/// [`GrantError::is_credential`] tells the two groups apart.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum GrantError {
 	#[error("unknown grant token")]
@@ -274,6 +281,13 @@ pub enum GrantError {
 	NoConditionalWrites(String),
 	#[error("invalid path: {0}")]
 	InvalidPath(String),
+	/// The request names a space other than the grant's. Surfaces answer it
+	/// like a space that does not exist.
+	#[error("no such space")]
+	UnknownSpace,
+	/// A write named an authority epoch the space has moved past.
+	#[error("the space's authority epoch is now {current}")]
+	StaleEpoch { current: u64 },
 	#[error("internal error: {0}")]
 	Internal(String),
 }
