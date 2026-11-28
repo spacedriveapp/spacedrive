@@ -111,11 +111,12 @@ agents.
   handle is the file id followed by a 16-byte BLAKE3 tag keyed with a
   per-mount secret. A handle with a wrong tag gets `NFS3ERR_STALE`, and one of
   the wrong shape gets `NFS3ERR_BADHANDLE`, on both the front port and the
-  nfsserve port behind it. That port is reachable on loopback too, so its
-  own export is a second random path that nobody is told. Both ports are
-  picked by the OS, and the server stops when the mount ends.
+  nfsserve port behind it. That port is reachable on loopback too, and
+  nfsserve's EXPORT there names its export, so the adapter refuses every path
+  nfsserve's own MNT asks for. Both ports are picked by the OS, and the
+  server stops when the mount ends.
   `core/tests/nfs_mount_test.rs` checks that a MOUNT for a wrong or reused
-  export is refused, that untagged and forged handles are refused, and that
+  export is refused, that MNT on the internal port is refused, that untagged and forged handles are refused, and that
   the export path reaches no log at trace level.
   What is left: the path is in the mount command's arguments while
   `mount_nfs` runs, so a local user who polls the process list in that

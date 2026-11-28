@@ -672,6 +672,13 @@ impl NFSFileSystem for NfsAdapter {
 		})
 	}
 
+	/// Refuse every path. nfsserve's MNT is the only caller, on the internal
+	/// port, where any local user can connect and read its export name with
+	/// EXPORT; the front answers MOUNT itself and never needs this.
+	async fn path_to_id(&self, _path: &[u8]) -> Result<fileid3, nfsstat3> {
+		Err(nfsstat3::NFS3ERR_ACCES)
+	}
+
 	/// The file id followed by a tag keyed with this server's secret. A
 	/// client that never got the handle from a MOUNT or LOOKUP reply cannot
 	/// make one, so knowing the root is always 1 is not enough.
@@ -714,6 +721,7 @@ impl NFSFileSystem for NfsAdapter {
 /// A running NFS server. Dropping it stops serving.
 pub struct NfsServer {
 	addr: SocketAddr,
+	backend: SocketAddr,
 	adapter: NfsAdapter,
 	export: Arc<Export>,
 	stop: watch::Sender<bool>,
@@ -728,6 +736,13 @@ impl NfsServer {
 
 	pub fn addr(&self) -> SocketAddr {
 		self.addr
+	}
+
+	/// The internal port nfsserve answers on behind the front. Any local
+	/// user can reach it too, which the security tests check.
+	#[doc(hidden)]
+	pub fn backend_addr(&self) -> SocketAddr {
+		self.backend
 	}
 
 	/// The secret export path a client must MOUNT, once. Never log it.
@@ -766,10 +781,9 @@ pub async fn serve(fs: Arc<dyn MountFs>) -> std::io::Result<NfsServer> {
 	let export = Arc::new(Export::new());
 	// nfsserve answers on an internal port; the front owns the public one
 	// and answers MOUNT itself. The internal port is reachable by any local
-	// user, so its own export is a second secret that nobody is ever told.
-	let mut backend =
+	// user, so the adapter refuses nfsserve's own MNT whatever path it names.
+	let backend =
 		NFSTcpListener::bind(&format!("{}:0", Ipv4Addr::LOCALHOST), adapter.clone()).await?;
-	backend.with_export_name(hex::encode(secret::<16>()));
 	let backend_addr = SocketAddr::from((backend.get_listen_ip(), backend.get_listen_port()));
 	let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await?;
 	let addr = listener.local_addr()?;
@@ -810,6 +824,7 @@ pub async fn serve(fs: Arc<dyn MountFs>) -> std::io::Result<NfsServer> {
 	info!(%addr, "NFS server up");
 	Ok(NfsServer {
 		addr,
+		backend: backend_addr,
 		adapter,
 		export,
 		stop,

@@ -595,6 +595,7 @@ async fn the_server_speaks_nfs_and_mount_over_tcp() {
 	let nfs = server::serve(tree()).await.unwrap();
 	assert!(nfs.addr().ip().is_loopback());
 	let addr = nfs.addr();
+	let backend = nfs.backend_addr();
 	let export = nfs.export_path().to_string();
 	assert_eq!(export.len(), 33, "a slash and 128 bits in hex");
 	tokio::task::spawn_blocking(move || {
@@ -628,6 +629,29 @@ async fn the_server_speaks_nfs_and_mount_over_tcp() {
 		let truncated = &export.as_bytes()[..export.len() - 1];
 		for wrong in [&b"/"[..], b"/elsewhere", truncated] {
 			assert_eq!(mnt(&mut client, wrong), Err(13), "MNT3ERR_ACCES");
+		}
+		// The internal nfsserve port is on loopback too. It names an export
+		// when asked, but MNT there is refused for that name and for the real
+		// export alike.
+		{
+			let stream = TcpStream::connect(backend).unwrap();
+			stream
+				.set_read_timeout(Some(Duration::from_secs(10)))
+				.unwrap();
+			let mut direct = RpcClient { stream, xid: 0 };
+			let mut reply = direct.call(MOUNT_PROGRAM, 5, &[]);
+			let named = (reply.u32() == 1).then(|| reply.opaque());
+			for path in named
+				.iter()
+				.map(Vec::as_slice)
+				.chain([&b"/"[..], export.as_bytes()])
+			{
+				assert_ne!(
+					mnt(&mut direct, path).err(),
+					None,
+					"MNT on the internal port is refused"
+				);
+			}
 		}
 		let root = mnt(&mut client, export.as_bytes()).expect("MNT3_OK");
 		assert_eq!(

@@ -104,7 +104,7 @@ jobs:
         run: |
           cargo build --release --locked \
             -p sd-cli -p sd-core --bin sd-cli --bin sd-daemon \
-            --features "sd-core/fuse${{ contains(matrix.settings.target, 'apple') && ',sd-core/nfs' || '' }}" \
+            --features "sd-cli/fuse${{ contains(matrix.settings.target, 'apple') && ',sd-cli/nfs' || '' }}" \
             --target ${{ matrix.settings.target }}
 
       # Names are <binary>-<platform>, plus .exe on Windows; the updater
