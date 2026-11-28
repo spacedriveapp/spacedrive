@@ -2,6 +2,7 @@
 //! read, what a search returns, and how both follow the records.
 
 use sd_store::file::{FileKind, FileWrite, Ledger, Observation};
+use sd_store::DeepScope;
 use sd_store::{
 	count_files_needing_content, files_needing_content, filesystem_schema, match_expression,
 	ContentTextIndex, DescriptionDoc, DescriptionSpan, PendingText, SourceDb, SourceManager, Stamp,
@@ -17,7 +18,7 @@ fn everywhere() -> TextFilter {
 
 fn only_under(subtrees: &[&str]) -> TextFilter {
 	TextFilter {
-		subtrees: subtrees.iter().map(|s| s.to_string()).collect(),
+		scope: DeepScope::only(subtrees),
 		..everywhere()
 	}
 }
@@ -878,31 +879,38 @@ async fn hashing_claims_only_files_in_the_deep_scope() {
 	])
 	.await;
 	let pool = f.db.pool();
-	let claimed = |subtrees: &[&str]| {
-		let subtrees: Vec<String> = subtrees.iter().map(|s| s.to_string()).collect();
-		async move {
-			let mut paths: Vec<String> = files_needing_content(pool, 100, &subtrees)
-				.await
-				.unwrap()
-				.into_iter()
-				.map(|file| file.external_id)
-				.collect();
-			paths.sort();
-			(
-				paths,
-				count_files_needing_content(pool, &subtrees).await.unwrap(),
-			)
-		}
+	let claimed = |scope: DeepScope| async move {
+		let mut paths: Vec<String> = files_needing_content(pool, 100, &scope)
+			.await
+			.unwrap()
+			.into_iter()
+			.map(|file| file.external_id)
+			.collect();
+		paths.sort();
+		(
+			paths,
+			count_files_needing_content(pool, &scope).await.unwrap(),
+		)
 	};
 	assert_eq!(
-		claimed(&["Documents"]).await,
+		claimed(DeepScope::only(&["Documents"])).await,
 		(
 			vec!["Documents/.hidden/b.bin".into(), "Documents/a.pdf".into()],
 			2
 		)
 	);
-	assert_eq!(claimed(&[""]).await.1, 4);
-	assert_eq!(claimed(&[]).await, (vec![], 0));
+	assert_eq!(claimed(DeepScope::whole()).await.1, 4);
+	assert_eq!(claimed(DeepScope::default()).await, (vec![], 0));
+	// A folder skipped inside the scope is not read, and a folder read
+	// inside a skipped one is.
+	let skipping = DeepScope {
+		read: vec!["".into(), "Library/Caches".into()],
+		skip: vec!["Documents".into(), "Library".into()],
+	};
+	assert_eq!(
+		claimed(skipping).await,
+		(vec!["Library/Caches/c.bin".into(), "top.bin".into()], 2)
+	);
 }
 
 #[tokio::test]

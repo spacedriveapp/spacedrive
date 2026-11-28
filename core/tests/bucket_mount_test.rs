@@ -173,6 +173,8 @@ async fn a_thin_client_mounts_a_bucket_space_and_reads_it() -> anyhow::Result<()
 		path: project,
 		caps: Some(GrantCap::Read),
 		ttl_seconds: None,
+		kind: None,
+		token_format: None,
 		label: Some("bucket mount".to_string()),
 		kind: None,
 		token_format: None,

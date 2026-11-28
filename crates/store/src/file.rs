@@ -33,6 +33,7 @@ use indexmap::IndexMap;
 use uuid::Uuid;
 
 use crate::db::SourceDb;
+use crate::deep_scope::DeepScope;
 use crate::error::Result;
 use crate::record::{insert_record_query, Record};
 use crate::schema::{
@@ -778,26 +779,26 @@ const PENDING_CONTENT: &str = "\
 	WHERE r.content_id IS NULL AND r.type = 'file' AND f.size > 0 \
 	AND f.content_error IS NULL";
 
-/// How many files under `subtrees` are still waiting. What a progress bar
+/// How many files in `scope` are still waiting. What a progress bar
 /// needs, once.
 pub async fn count_files_needing_content(
 	pool: &sqlx::SqlitePool,
-	subtrees: &[String],
+	scope: &DeepScope,
 ) -> Result<i64> {
 	Ok(
-		sqlx::query_scalar(&format!("SELECT COUNT(*) {}", pending_content(subtrees)))
+		sqlx::query_scalar(&format!("SELECT COUNT(*) {}", pending_content(scope)))
 			.fetch_one(pool)
 			.await?,
 	)
 }
 
-/// [`PENDING_CONTENT`] narrowed to `subtrees`.
+/// [`PENDING_CONTENT`] narrowed to `scope`.
 ///
 /// Narrowed, the query is driven from the folders in scope: the unary `+`
 /// keeps SQLite off the `content_id` and `type` indexes, which on a home
 /// folder lead through every unidentified record outside the scope.
-fn pending_content(subtrees: &[String]) -> String {
-	if crate::deep_scope::whole(subtrees) {
+fn pending_content(scope: &DeepScope) -> String {
+	if scope.is_whole() {
 		return PENDING_CONTENT.to_string();
 	}
 	format!(
@@ -806,7 +807,7 @@ fn pending_content(subtrees: &[String]) -> String {
 			"r.content_id IS NULL AND r.type = 'file'",
 			"+r.content_id IS NULL AND +r.type = 'file'"
 		),
-		crate::deep_scope::subtree_condition(subtrees, "r.parent_uuid")
+		scope.condition("r.parent_uuid")
 	)
 }
 
@@ -821,8 +822,8 @@ pub struct PendingContent {
 	pub size: i64,
 }
 
-/// Files under `subtrees` with no content identity, oldest record first.
-/// A file outside them is never claimed: reading its bytes is what the
+/// Files in `scope` with no content identity, oldest record first.
+/// A file outside it is never claimed: reading its bytes is what the
 /// source's deep scope leaves out.
 ///
 /// A file is addressed through its parent and its name, so the path is rebuilt
@@ -835,11 +836,11 @@ pub struct PendingContent {
 pub async fn files_needing_content(
 	pool: &sqlx::SqlitePool,
 	batch_size: usize,
-	subtrees: &[String],
+	scope: &DeepScope,
 ) -> Result<Vec<PendingContent>> {
 	let rows: Vec<PendingContentRow> = sqlx::query_as(&format!(
 		"SELECT r.uuid, r.parent_uuid, d.path, r.title, f.size {} ORDER BY r.rowid LIMIT ?",
-		pending_content(subtrees)
+		pending_content(scope)
 	))
 	.bind(batch_size as i64)
 	.fetch_all(pool)

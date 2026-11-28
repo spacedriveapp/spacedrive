@@ -55,6 +55,94 @@ impl SourceDb {
 	}
 }
 
+/// The subtrees of a source whose contents are read.
+///
+/// A path is read when the innermost entry holding it is in `read`: a
+/// folder in `skip` inside a read folder is left out, and a read folder
+/// inside a skipped one is read again. That is how a space with content
+/// indexing off sits inside the standard folders, and a space with it on
+/// sits inside that one.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DeepScope {
+	/// `/`-separated folders relative to the source root. An empty path
+	/// is the whole source; none means no file is read.
+	pub read: Vec<String>,
+	pub skip: Vec<String>,
+}
+
+impl DeepScope {
+	/// The whole source.
+	pub fn whole() -> Self {
+		Self {
+			read: vec![String::new()],
+			skip: Vec::new(),
+		}
+	}
+
+	/// Only these folders, with nothing skipped inside them.
+	pub fn only(read: &[&str]) -> Self {
+		Self {
+			read: read.iter().map(|s| s.to_string()).collect(),
+			skip: Vec::new(),
+		}
+	}
+
+	/// Whether no file is read.
+	pub fn is_empty(&self) -> bool {
+		self.read.is_empty()
+	}
+
+	/// Whether every file is read, so a query needs no condition and keeps
+	/// its usual plan.
+	pub(crate) fn is_whole(&self) -> bool {
+		self.skip.is_empty() && self.read.iter().any(|s| s.trim_matches('/').is_empty())
+	}
+
+	/// A condition that holds for a record, whose parent column is
+	/// `parent`, that this scope reads. A file at the source root has no
+	/// parent row, so a skip test on it is false rather than null.
+	pub(crate) fn condition(&self, parent: &str) -> String {
+		if self.is_whole() {
+			return "1".to_string();
+		}
+		if self.read.is_empty() {
+			return "0".to_string();
+		}
+		let skips: Vec<&str> = self.skip.iter().map(|s| s.trim_matches('/')).collect();
+		let clauses: Vec<String> = self
+			.read
+			.iter()
+			.map(|read| {
+				let read = read.trim_matches('/');
+				let inside: Vec<String> = skips
+					.iter()
+					.filter(|skip| **skip != read && within(read, skip))
+					.map(|skip| skip.to_string())
+					.collect();
+				let held = subtree_condition(&[read.to_string()], parent);
+				if inside.is_empty() {
+					held
+				} else {
+					format!(
+						"({held} AND NOT IFNULL({}, 0))",
+						subtree_condition(&inside, parent)
+					)
+				}
+			})
+			.collect();
+		format!("({})", clauses.join(" OR "))
+	}
+}
+
+/// Whether `inner` is `outer` or below it.
+fn within(outer: &str, inner: &str) -> bool {
+	outer.is_empty()
+		|| inner == outer
+		|| inner
+			.strip_prefix(outer)
+			.is_some_and(|rest| rest.starts_with('/'))
+}
+
 /// A condition that holds for a record, whose parent column is `parent`,
 /// that sits in one of the folders `subtrees` names or anywhere below them.
 ///
@@ -63,7 +151,7 @@ impl SourceDb {
 /// folder most records are outside, and they never leave the pending set.
 /// The subtrees are written as quoted literals rather than binds, so a
 /// caller's query keeps its own bind order.
-pub(crate) fn subtree_condition(subtrees: &[String], parent: &str) -> String {
+fn subtree_condition(subtrees: &[String], parent: &str) -> String {
 	let subtrees: Vec<&str> = subtrees.iter().map(|s| s.trim_matches('/')).collect();
 	if subtrees.contains(&"") {
 		return "1".to_string();
@@ -90,12 +178,6 @@ pub(crate) fn subtree_condition(subtrees: &[String], parent: &str) -> String {
 	)
 }
 
-/// Whether `subtrees` covers the whole source, so a query needs no
-/// subtree condition and keeps its usual plan.
-pub(crate) fn whole(subtrees: &[String]) -> bool {
-	subtrees.iter().any(|s| s.trim_matches('/').is_empty())
-}
-
 fn literal(text: &str) -> String {
 	format!("'{}'", text.replace('\'', "''"))
 }
@@ -103,6 +185,28 @@ fn literal(text: &str) -> String {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn the_innermost_folder_decides() {
+		let scope = DeepScope {
+			read: vec!["".into(), "Documents/private/shared".into()],
+			skip: vec!["Documents/private".into()],
+		};
+		assert_eq!(
+			scope.condition("p"),
+			"((1 AND NOT IFNULL(p IN (SELECT record_uuid FROM directory_path WHERE \
+			 path = 'Documents/private' OR (path > 'Documents/private/' AND path < 'Documents/private0')), 0)) \
+			 OR p IN (SELECT record_uuid FROM directory_path WHERE path = 'Documents/private/shared' \
+			 OR (path > 'Documents/private/shared/' AND path < 'Documents/private/shared0')))"
+		);
+		assert_eq!(DeepScope::whole().condition("p"), "1");
+		assert_eq!(DeepScope::default().condition("p"), "0");
+		let skipped_elsewhere = DeepScope {
+			read: vec!["Desktop".into()],
+			skip: vec!["Documents".into()],
+		};
+		assert!(!skipped_elsewhere.condition("p").contains("NOT"));
+	}
 
 	#[test]
 	fn a_subtree_matches_its_folder_and_below_and_quotes_are_literal() {
