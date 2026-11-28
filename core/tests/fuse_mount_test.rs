@@ -220,6 +220,8 @@ async fn a_daemon_mounts_lists_reads_and_unmounts() -> anyhow::Result<()> {
 		caps: Some(GrantCap::Read),
 		ttl_seconds: None,
 		label: Some("fuse".to_string()),
+		kind: None,
+		token_format: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), context.clone())

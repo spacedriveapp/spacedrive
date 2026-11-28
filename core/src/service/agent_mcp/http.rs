@@ -677,7 +677,7 @@ async fn call(
 	);
 	let outcome = tokio::select! {
 		outcome = tokio::time::timeout(endpoint.limits.call_timeout, work) => outcome,
-		_ = ended(endpoint, library, grant) => {
+		_ = ended(endpoint, library, token) => {
 			debug!(%grant, "cancelled a tool call whose grant ended");
 			return unauthorized(id, challenge);
 		}
@@ -704,26 +704,17 @@ async fn call(
 	json_response(StatusCode::OK, response)
 }
 
-/// Resolves once the grant is revoked, expires or disappears, polling the
-/// row so a call in flight stops within a poll interval of that.
-pub(super) async fn ended(endpoint: &Endpoint, library_id: Uuid, grant: Uuid) {
+/// Resolves once the grant is revoked, expires or disappears, verifying the
+/// token again so a call in flight stops within a poll interval of that.
+pub(super) async fn ended(endpoint: &Endpoint, library_id: Uuid, token: &str) {
 	let mut tick = tokio::time::interval(endpoint.limits.revocation_poll);
 	tick.tick().await;
 	loop {
 		tick.tick().await;
-		let Some(library) = endpoint
-			.context
-			.libraries()
-			.await
-			.get_library(library_id)
-			.await
-		else {
-			return;
-		};
-		match store::by_id(library.db().conn(), grant).await {
-			Ok(Some(row)) if store::status(&row, chrono::Utc::now()) == GrantStatus::Active => {}
-			Ok(_) => return,
-			Err(e) => warn!(%grant, error = %e, "could not re-check a grant during a call"),
+		match crate::ops::grants::verified(&endpoint.context, library_id, token).await {
+			Ok(grant) if grant.status(chrono::Utc::now()) == GrantStatus::Active => {}
+			Ok(_) | Err(GrantError::UnknownToken) => return,
+			Err(e) => warn!(error = %e, "could not re-check a grant during a call"),
 		}
 	}
 }

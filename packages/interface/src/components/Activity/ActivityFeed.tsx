@@ -1,106 +1,137 @@
-import {ArrowCounterClockwise, Robot, User} from '@phosphor-icons/react';
-import type {ActivityActor, ActivityEntry, ActivityKind} from '@sd/ts-client';
+import {ArrowCounterClockwise, Desktop, Robot, User} from '@phosphor-icons/react';
+import type {Actor, Space, SpaceChange} from '@sd/ts-client';
 import {Button} from '@spacedrive/primitives';
 import {useLibraryQuery} from '../../contexts/SpacedriveContext';
 import {useUndoDialog} from '../modals/UndoModal';
 
 const REFRESH_MS = 10_000;
 
-const VERBS: Record<ActivityKind, string> = {
+const VERBS: Record<string, string> = {
 	create: 'created',
-	make_dir: 'made folder',
+	mkdir: 'made folder',
 	modify: 'edited',
 	move: 'moved',
-	delete: 'deleted',
-	attributes: 'changed attributes of'
+	delete: 'deleted'
 };
 
-/** Changes at or under `path`, newest first, from `activity.list`. */
-export function useActivity(path: string, limit: number) {
-	return useLibraryQuery(
-		{type: 'activity.list', input: {path, limit}},
-		{refetchInterval: REFRESH_MS}
-	);
+/** The actor id of the person using this device, so their changes read as "You". */
+function useLocalPersonId() {
+	return useLibraryQuery({type: 'actors.me', input: {}}, {staleTime: Infinity}).data?.actor.id;
 }
 
-export function actorName(actor: ActivityActor): string {
-	if (actor.kind === 'agent') return actor.label || 'An agent';
-	return actor.device ? `You on ${actor.device}` : 'You';
+function actorName(actor: Actor, you: string | undefined) {
+	return actor.kind === 'person' && actor.id === you ? 'You' : actor.label;
+}
+
+/** The innermost space holding `path` on this device, and `path` relative to its root. */
+function spaceOf(spaces: Space[] | undefined, path: string) {
+	const target = path.replace(/\\/g, '/');
+	let found: {space: Space; root: string; relative: string} | undefined;
+	for (const space of spaces ?? []) {
+		if (!space.path) continue;
+		// A filesystem root trims to '' so every absolute path still matches its '/' prefix.
+		const root = space.path.replace(/\\/g, '/').replace(/\/+$/, '');
+		const inside = target === root || target.startsWith(`${root}/`);
+		if (!inside || (found && found.root.length >= root.length)) continue;
+		found = {space, root, relative: target.slice(root.length + 1)};
+	}
+	return found;
 }
 
 /**
- * Who changed what under a folder, or to one file. Agent changes carry an
- * Undo that reverses the write from its journal.
+ * The newest changes at or under `path`, from the event log of the space
+ * holding it. A path in no space has no log, so `space` is undefined.
+ */
+export function useSpaceChanges(path: string, limit: number) {
+	const spaces = useLibraryQuery(
+		{type: 'spaces.list', input: {source_id: null}},
+		{refetchInterval: REFRESH_MS}
+	);
+	const scope = spaceOf(spaces.data?.spaces, path);
+	const changes = useLibraryQuery(
+		{
+			type: 'spaces.changes',
+			input: {
+				id: scope?.space.id ?? '',
+				order: 'newest',
+				path: scope?.relative || null,
+				limit
+			}
+		},
+		{enabled: !!scope, refetchInterval: REFRESH_MS}
+	);
+	return {
+		space: scope?.space,
+		relative: scope?.relative ?? '',
+		changes: changes.data?.changes ?? [],
+		isLoading: spaces.isLoading || (!!scope && changes.isLoading),
+		refetch: changes.refetch
+	};
+}
+
+function ActorIcon({actor}: {actor: Actor}) {
+	if (actor.kind === 'agent')
+		return <Robot size={15} weight="bold" className="text-accent" />;
+	if (actor.kind === 'device') return <Desktop size={15} weight="bold" />;
+	return <User size={15} weight="bold" />;
+}
+
+/** One line for a change: who did what, or the log's own summary for a change seen on disk. */
+function describe(change: SpaceChange, scope: string, you: string | undefined) {
+	if (change.origin === 'watcher') return change.summary;
+	const verb = VERBS[change.op] ?? change.op;
+	const target = change.to_path
+		? `${shown(change.path, scope)} to ${shown(change.to_path, scope)}`
+		: shown(change.path, scope);
+	return `${actorName(change.actor, you)} ${verb} ${target}`;
+}
+
+/**
+ * Who changed what under a folder, or to one file, from its space's event
+ * log. Agent changes carry an Undo that reverses the write from its journal.
  */
 export function ActivityFeed({path}: {path: string}) {
-	const activity = useActivity(path, 50);
+	const {space, relative, changes, isLoading, refetch} = useSpaceChanges(path, 50);
 	const openUndo = useUndoDialog();
-	const entries = activity.data?.entries ?? [];
+	const you = useLocalPersonId();
 
-	if (activity.isLoading) {
+	if (isLoading) {
+		return <p className="text-sidebar-inkDull px-2 pt-2 text-xs">Loading activity…</p>;
+	}
+	if (!space) {
 		return (
 			<p className="text-sidebar-inkDull px-2 pt-2 text-xs">
-				Loading activity…
+				Changes are recorded inside spaces. Make this folder, or one
+				above it, a space to see who changes what here.
 			</p>
 		);
 	}
-	if (entries.length === 0) {
+	if (changes.length === 0) {
 		return (
 			<p className="text-sidebar-inkDull px-2 pt-2 text-xs">
-				No changes made through Spacedrive here yet. Agent writes and
-				file operations show up here with who made them.
+				No changes in {space.name} here yet. Edits by you, your agents
+				and other apps show up here with who made them.
 			</p>
 		);
 	}
 
 	return (
 		<div className="space-y-0.5">
-			{entries.map((entry) => (
+			{changes.map((change) => (
 				<div
-					key={entry.id}
+					key={change.seq}
 					className="hover:bg-app-box/40 flex items-start gap-2.5 rounded-lg p-2 transition-colors"
 				>
 					<span className="text-sidebar-inkDull mt-0.5 shrink-0">
-						{entry.actor.kind === 'agent' ? (
-							<Robot
-								size={15}
-								weight="bold"
-								className="text-accent"
-							/>
-						) : (
-							<User size={15} weight="bold" />
-						)}
+						<ActorIcon actor={change.actor} />
 					</span>
 					<div className="min-w-0 flex-1">
-						<div className="text-sidebar-ink text-xs">
-							<span className="font-medium">
-								{actorName(entry.actor)}
-							</span>{' '}
-							{VERBS[entry.kind]}{' '}
-							<span className="font-medium" title={entry.path}>
-								{shown(entry.path, path)}
-							</span>
-							{entry.to_path && (
-								<>
-									{' '}
-									to{' '}
-									<span
-										className="font-medium"
-										title={entry.to_path}
-									>
-										{shown(entry.to_path, path)}
-									</span>
-								</>
-							)}
+						<div className="text-sidebar-ink break-words text-xs" title={change.summary}>
+							{describe(change, relative, you)}
 						</div>
-						<div className="text-sidebar-inkDull mt-0.5 text-[11px]">
-							{ago(entry.at)}
-							{entry.actor.kind === 'person' &&
-								` · ${jobLabel(entry.actor.job)}`}
-							{entry.changes > 1 && ` · ${entry.changes} changes`}
-						</div>
+						<div className="text-sidebar-inkDull mt-0.5 text-[11px]">{ago(change.at)}</div>
 					</div>
-					{entry.actor.kind === 'agent' && entry.undoable && (
+					{change.origin === 'agent_write' && change.undo_id && (
 						<Button
 							type="button"
 							size="xs"
@@ -108,16 +139,13 @@ export function ActivityFeed({path}: {path: string}) {
 							className="shrink-0"
 							onClick={() =>
 								openUndo({
-									job: entry.id,
-									label: `${actorName(entry.actor)}'s change to ${baseName(entry.path)}`,
-									onComplete: () => void activity.refetch()
+									job: change.undo_id!,
+									label: `${change.actor.label}'s change to ${baseName(change.to_path ?? change.path)}`,
+									onComplete: () => void refetch()
 								})
 							}
 						>
-							<ArrowCounterClockwise
-								size={12}
-								className="mr-1 inline"
-							/>
+							<ArrowCounterClockwise size={12} className="mr-1 inline" />
 							Undo
 						</Button>
 					)}
@@ -128,30 +156,28 @@ export function ActivityFeed({path}: {path: string}) {
 }
 
 /** The latest change to one file, as a short "who, when" line. */
-export function ChangedBy({entry}: {entry: ActivityEntry}) {
+export function ChangedBy({change}: {change: SpaceChange}) {
+	const you = useLocalPersonId();
+	const who =
+		change.origin === 'watcher'
+			? `Outside Spacedrive on ${change.actor.label}`
+			: actorName(change.actor, you);
 	return (
-		<span
-			title={`${VERBS[entry.kind]} ${new Date(entry.at).toLocaleString()}`}
-		>
-			{actorName(entry.actor)} · {ago(entry.at)}
+		<span title={`${change.summary}, ${new Date(change.at).toLocaleString()}`}>
+			{who} · {ago(change.at)}
 		</span>
 	);
 }
 
 function shown(path: string, scope: string): string {
+	if (!scope) return path;
 	if (path === scope) return baseName(path);
-	const prefix = scope.endsWith('/') ? scope : `${scope}/`;
-	return path.startsWith(prefix) ? path.slice(prefix.length) : baseName(path);
+	return path.startsWith(`${scope}/`) ? path.slice(scope.length + 1) : path;
 }
 
 function baseName(path: string): string {
-	const parts = path.split(/[\\/]/).filter(Boolean);
+	const parts = path.split('/').filter(Boolean);
 	return parts[parts.length - 1] ?? path;
-}
-
-function jobLabel(job: string): string {
-	const words = job.replace(/_/g, ' ');
-	return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 function ago(iso: string): string {
@@ -159,8 +185,5 @@ function ago(iso: string): string {
 	if (seconds < 60) return 'just now';
 	if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
 	if (seconds < 86_400) return `${Math.floor(seconds / 3600)} h ago`;
-	return new Date(iso).toLocaleDateString(undefined, {
-		month: 'short',
-		day: 'numeric'
-	});
+	return new Date(iso).toLocaleDateString(undefined, {month: 'short', day: 'numeric'});
 }
