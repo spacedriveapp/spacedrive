@@ -41,6 +41,6 @@ The new space has a new id. Version ids, snapshot names and the order of the cha
 
 ## The file
 
-An `.sdspace` file is one SQLite database. `meta` holds the format version (1) and the space record as JSON. `space_event`, `version`, `snapshot` and `blob` have the same columns as a space's `events.db` and `versions.db`. `chunk` holds the chunk bytes the version store keeps as files.
+An `.sdspace` file is one SQLite database. `meta` holds the format version (1) and the space record as JSON: its name, content indexing, versioning and protected patterns. `space_event`, `version`, `snapshot` and `blob` have the same columns as a space's `events.db` and `versions.db`. `chunk` holds the chunk bytes the version store keeps as files.
 
 Spacedrive checks every chunk and every file against its BLAKE3 hash when it reads them back, and refuses a damaged file. It refuses a file from a newer format, and a file that names a path outside the space, including a path with a drive letter or a backslash.

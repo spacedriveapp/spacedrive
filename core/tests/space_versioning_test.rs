@@ -646,7 +646,18 @@ async fn a_space_round_trips_through_an_sdspace_file() -> anyhow::Result<()> {
 		}
 	};
 
-	// The whole space: files, change log, every version and the snapshot.
+	// The whole space: files, change log, every version, the snapshot and
+	// its protected patterns.
+	SpaceUpdateAction::from_input(SpaceUpdateInput {
+		id: project.id,
+		name: None,
+		content_indexing: None,
+		versioning: None,
+		protected: Some(vec!["secrets/**".to_string()]),
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?;
 	let full = out.path().join("project.sdspace");
 	let exported = export(project.id, full.clone(), false).await?;
 	let full_bytes = exported.summary.bytes;
@@ -661,6 +672,7 @@ async fn a_space_round_trips_through_an_sdspace_file() -> anyhow::Result<()> {
 	let copy = import(full.clone(), out.path().join("copy")).await?;
 	assert_ne!(copy.space.id, project.id);
 	assert!(copy.space.versioning);
+	assert_eq!(copy.space.protected, ["secrets/**"]);
 	assert_eq!(copy.summary.versions, 3);
 	let folder = copy.space.path.clone().expect("a folder");
 	assert_eq!(tokio::fs::read_to_string(folder.join("a.md")).await?, "a2");
@@ -814,6 +826,7 @@ async fn a_space_round_trips_through_an_sdspace_file() -> anyhow::Result<()> {
 		kind: SpaceKind::Workspace,
 		path: Some(reused.clone()),
 		content_indexing: None,
+		protected: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())
@@ -850,6 +863,7 @@ async fn a_space_round_trips_through_an_sdspace_file() -> anyhow::Result<()> {
 		kind: SpaceKind::Workspace,
 		path: Some(adopted.clone()),
 		content_indexing: None,
+		protected: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())
@@ -887,6 +901,7 @@ async fn a_space_round_trips_through_an_sdspace_file() -> anyhow::Result<()> {
 		kind: SpaceKind::Workspace,
 		path: Some(adopted.clone()),
 		content_indexing: None,
+		protected: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())

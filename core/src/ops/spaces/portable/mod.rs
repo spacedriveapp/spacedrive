@@ -102,6 +102,9 @@ struct Record {
 	name: String,
 	content_indexing: bool,
 	versioning: bool,
+	/// Absent from files written before spaces had protected patterns.
+	#[serde(default)]
+	protected: Vec<String>,
 	created_at: String,
 }
 
@@ -188,6 +191,7 @@ async fn export(
 		name: space.name.clone(),
 		content_indexing: space.content_indexing,
 		versioning: space.versioning,
+		protected: space.protected.clone(),
 		created_at: space.created_at.to_rfc3339(),
 	};
 	let set = |key: &'static str, value: String| {
@@ -418,6 +422,7 @@ impl LibraryAction for SpaceImportAction {
 				kind: SpaceKind::Workspace,
 				path: Some(destination.clone()),
 				content_indexing: Some(record.content_indexing),
+				protected: (!record.protected.is_empty()).then(|| record.protected.clone()),
 			})
 			.map_err(ActionError::InvalidInput)?,
 		)
@@ -531,6 +536,7 @@ async fn publish(
 		name: None,
 		content_indexing: None,
 		versioning: Some(true),
+		protected: None,
 	})
 	.map_err(ActionError::Internal)?
 	.execute(library.clone(), context.clone())
