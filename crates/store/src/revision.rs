@@ -30,7 +30,7 @@ use crate::schema::DataTypeSchema;
 
 /// Tables whose rows a delivered copy carries, beside the data type's facet
 /// tables.
-const TRACKED_TABLES: [&str; 7] = [
+const TRACKED_TABLES: [&str; 9] = [
 	"record",
 	"directory_path",
 	"content",
@@ -38,6 +38,8 @@ const TRACKED_TABLES: [&str; 7] = [
 	"record_overlay",
 	"tag_definition",
 	"tag_assertion",
+	"space",
+	"deep_scope",
 ];
 
 /// `(table, column)` pairs a writer restamps on rows it did not otherwise
