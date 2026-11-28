@@ -240,6 +240,7 @@ impl VolumeBackend for LocalBackend {
 				uid,
 				gid,
 				link_target,
+				etag: None,
 			});
 		}
 

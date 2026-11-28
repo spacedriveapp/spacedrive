@@ -149,7 +149,9 @@ pub struct SpaceUpdateArgs {
 pub async fn run(ctx: &Context, cmd: SpaceCmd) -> Result<()> {
 	match cmd {
 		SpaceCmd::Create(args) => {
+			// A bucket URL names a prefix, not a path relative to here.
 			let path = match args.path {
+				Some(path) if path.to_string_lossy().contains("://") => Some(path),
 				Some(path) => Some(std::path::absolute(path)?),
 				None => None,
 			};
@@ -160,7 +162,7 @@ pub async fn run(ctx: &Context, cmd: SpaceCmd) -> Result<()> {
 					KindArg::Workspace => SpaceKind::Workspace,
 				},
 				path,
-				content_indexing: Some(!args.no_content_indexing),
+				content_indexing: args.no_content_indexing.then_some(false),
 			};
 			let out: SpaceCreateOutput = execute_action!(ctx, input);
 			print_output!(ctx, &out, |o: &SpaceCreateOutput| print_space(&o.space));
