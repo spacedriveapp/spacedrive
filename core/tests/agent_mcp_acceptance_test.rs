@@ -38,6 +38,8 @@ async fn grant(harness: &IndexingHarness, path: &Path) -> anyhow::Result<CreateG
 		caps: Some(GrantCap::Read),
 		ttl_seconds: None,
 		label: Some("mcp acceptance".to_string()),
+		kind: None,
+		token_format: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())

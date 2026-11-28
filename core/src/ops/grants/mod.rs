@@ -50,6 +50,7 @@ pub mod setup;
 pub mod signed;
 pub mod store;
 pub mod token;
+mod verify;
 
 use std::path::PathBuf;
 
@@ -60,6 +61,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 pub use authorize::{authorize, authorize_in};
+pub(crate) use verify::{verified, GrantRecord};
 
 /// The shortest lifetime a grant can be created or extended with.
 pub const MIN_TTL_SECONDS: u32 = 5 * 60;
@@ -68,17 +70,93 @@ pub const MAX_TTL_SECONDS: u32 = 12 * 60 * 60;
 /// The lifetime a grant gets when the caller names none.
 pub const DEFAULT_TTL_SECONDS: u32 = 60 * 60;
 
-/// The lifetime a caller asked for, checked against the bounds.
+/// The longest lifetime of a standing grant, measured the same way.
+pub const MAX_STANDING_TTL_SECONDS: u32 = 30 * 24 * 60 * 60;
+
+/// The lifetime a caller asked for a task grant, checked against the bounds.
 pub(crate) fn ttl(seconds: Option<u32>) -> Result<Duration, String> {
-	let seconds = seconds.unwrap_or(DEFAULT_TTL_SECONDS);
-	if !(MIN_TTL_SECONDS..=MAX_TTL_SECONDS).contains(&seconds) {
-		return Err(format!(
-			"a grant lives between {} minutes and {} hours, not {seconds} seconds",
-			MIN_TTL_SECONDS / 60,
-			MAX_TTL_SECONDS / 3600
-		));
+	ttl_for(GrantKind::Task, seconds)
+}
+
+/// The lifetime a caller asked for a grant of `kind`, checked against its
+/// bounds. A standing grant with no lifetime named gets the longest one,
+/// since it exists to outlast any one task.
+pub(crate) fn ttl_for(kind: GrantKind, seconds: Option<u32>) -> Result<Duration, String> {
+	let (default, max) = match kind {
+		GrantKind::Task => (DEFAULT_TTL_SECONDS, MAX_TTL_SECONDS),
+		GrantKind::Standing => (MAX_STANDING_TTL_SECONDS, MAX_STANDING_TTL_SECONDS),
+	};
+	let seconds = seconds.unwrap_or(default);
+	if !(MIN_TTL_SECONDS..=max).contains(&seconds) {
+		return Err(match kind {
+			GrantKind::Task => format!(
+				"a grant lives between {} minutes and {} hours, not {seconds} seconds",
+				MIN_TTL_SECONDS / 60,
+				MAX_TTL_SECONDS / 3600
+			),
+			GrantKind::Standing => format!(
+				"a standing grant lives between {} minutes and {} days, not {seconds} seconds",
+				MIN_TTL_SECONDS / 60,
+				MAX_STANDING_TTL_SECONDS / 86_400
+			),
+		});
 	}
 	Ok(Duration::seconds(seconds.into()))
+}
+
+/// How long a grant is meant to last.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum GrantKind {
+	/// One piece of work: 5 minutes to 12 hours.
+	Task,
+	/// An agent's own workspace: up to 30 days, only on a workspace space.
+	Standing,
+}
+
+impl GrantKind {
+	pub fn as_str(self) -> &'static str {
+		match self {
+			Self::Task => "task",
+			Self::Standing => "standing",
+		}
+	}
+
+	/// An unknown value can only come from a newer build; read it as the
+	/// shorter-lived kind.
+	pub fn parse(value: &str) -> Self {
+		match value {
+			"standing" => Self::Standing,
+			_ => Self::Task,
+		}
+	}
+}
+
+/// How a grant's token is checked.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum TokenFormat {
+	/// `sdg_` and 64 hex characters, checked by hash on the minting device.
+	Opaque,
+	/// `sdg_s.` and signed claims, checked by any node holding the space's
+	/// store. See [`signed`].
+	Signed,
+}
+
+impl TokenFormat {
+	pub fn as_str(self) -> &'static str {
+		match self {
+			Self::Opaque => "opaque",
+			Self::Signed => "signed",
+		}
+	}
+
+	pub fn parse(value: &str) -> Self {
+		match value {
+			"signed" => Self::Signed,
+			_ => Self::Opaque,
+		}
+	}
 }
 
 /// What a grant lets its holder do.
@@ -128,6 +206,10 @@ pub struct GrantInfo {
 	/// The granted directory, canonical at creation.
 	pub subtree: PathBuf,
 	pub caps: GrantCap,
+	/// The space the grant lends a part of, for grants made since spaces.
+	pub space_id: Option<Uuid>,
+	pub kind: GrantKind,
+	pub token_format: TokenFormat,
 	pub label: Option<String>,
 	/// The device that minted the grant.
 	pub created_by: String,

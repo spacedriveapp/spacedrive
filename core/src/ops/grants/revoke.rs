@@ -1,8 +1,10 @@
 //! End a grant now.
 //!
-//! [`super::authorize`] reads the row on every request, so the holder's next
-//! request after this returns is refused. Revoking twice keeps the first
-//! revocation time.
+//! The revocation is set on the grant row and, for a grant in a space,
+//! recorded as an assertion in the space's store. [`super::authorize`] reads
+//! both on every request, so the holder's next request after this returns is
+//! refused here, and on any other node as soon as the store reaches it.
+//! Revoking twice keeps the first revocation time.
 
 use std::sync::Arc;
 
@@ -44,7 +46,7 @@ impl LibraryAction for RevokeGrantAction {
 	async fn execute(
 		self,
 		library: Arc<Library>,
-		_context: Arc<CoreContext>,
+		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
 		let db = library.db().conn();
 		let id = self.input.id;
@@ -58,6 +60,19 @@ impl LibraryAction for RevokeGrantAction {
 		store::revoke(db, id)
 			.await
 			.map_err(|e| ActionError::Internal(format!("revoke grant: {e}")))?;
+		let row = store::by_id(db, id)
+			.await
+			.map_err(|e| ActionError::Internal(e.to_string()))?
+			.ok_or_else(|| ActionError::Internal(format!("grant {id} vanished")))?;
+		// The grant is already refused here. Revoking again retries the
+		// assertion, so other nodes learn of it once the store is writable.
+		store::publish_revocation(&context, &row)
+			.await
+			.map_err(|e| {
+				ActionError::Internal(format!(
+					"grant {id} is revoked on this device, but the revocation could not be recorded in its space: {e}"
+				))
+			})?;
 		info!(grant = %id, "grant revoked");
 		let grant = store::info_by_id(db, id)
 			.await
