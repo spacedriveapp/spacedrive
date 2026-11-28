@@ -6023,7 +6023,13 @@ path: string | null;
 /**
  * Whether file contents inside the space are hashed and read.
  */
-content_indexing: boolean; created_at: string };
+content_indexing: boolean; 
+/**
+ * Patterns an agent may not write inside the space, on top of the
+ * built-in list. `/`-anchored patterns start at the space root; others
+ * match at any depth.
+ */
+protected: string[]; created_at: string };
 
 /**
  * One change inside a space.
@@ -6102,7 +6108,12 @@ path: string | null;
  * Whether file contents inside the space are hashed and read. On by
  * default.
  */
-content_indexing: boolean | null };
+content_indexing: boolean | null; 
+/**
+ * Patterns an agent may not write inside the space, on top of the
+ * built-in list. None protects only the built-in list.
+ */
+protected: string[] | null };
 
 export type SpaceCreateOutput = { space: Space };
 
@@ -6127,7 +6138,12 @@ export type SpaceKind =
  */
 "workspace";
 
-export type SpaceUpdateInput = { id: string; name: string | null; content_indexing: boolean | null };
+export type SpaceUpdateInput = { id: string; name: string | null; content_indexing: boolean | null; 
+/**
+ * The space's protected patterns, replacing the ones it has. An empty
+ * list leaves only the built-in protection.
+ */
+protected: string[] | null };
 
 export type SpaceUpdateOutput = { space: Space };
 

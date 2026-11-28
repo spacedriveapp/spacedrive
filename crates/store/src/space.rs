@@ -1,8 +1,8 @@
 //! # Spaces
 //!
 //! A space is a folder inside a source that people and agents work in, plus
-//! the policy that goes with it: whether its file contents are read, and later
-//! which names an agent may not write and how long its change log is kept.
+//! the policy that goes with it: whether its file contents are read, which
+//! paths an agent may not write, and later how long its change log is kept.
 //! `docs/core/design/spaces.md` carries the model.
 //!
 //! A space is a person's choice, so it lives in the assertion half of the
@@ -30,6 +30,9 @@ pub struct SpaceRow {
 	pub root: String,
 	/// Whether file contents inside the space are hashed and read.
 	pub content_indexing: bool,
+	/// JSON array of the patterns an agent may not write inside the space,
+	/// on top of the built-in list.
+	pub protected: String,
 	/// RFC 3339 time the space was created.
 	pub created_at: String,
 	pub deleted: bool,
@@ -46,14 +49,18 @@ impl SpaceRow {
 	}
 }
 
-const COLUMNS: &str =
-	"uuid, name, kind, root, content_indexing, created_at, deleted, updated_hlc, origin_device";
+const COLUMNS: &str = "uuid, name, kind, root, content_indexing, protected, created_at, deleted, 	updated_hlc, origin_device";
+
+/// What a store read before protected patterns selects instead: a replica
+/// copied from an owner that has not migrated has no such column.
+const LEGACY_COLUMNS: &str = "uuid, name, kind, root, content_indexing, '[]' AS protected, 	created_at, deleted, updated_hlc, origin_device";
 
 impl SourceDb {
 	/// Every space this store holds that has not been deleted, by root.
 	pub async fn spaces(&self) -> Result<Vec<SpaceRow>> {
+		let columns = self.space_columns().await?;
 		let rows = sqlx::query_as(&format!(
-			"SELECT {COLUMNS} FROM space WHERE deleted = 0 ORDER BY root, name"
+			"SELECT {columns} FROM space WHERE deleted = 0 ORDER BY root, name"
 		))
 		.fetch_all(self.pool())
 		.await;
@@ -62,7 +69,8 @@ impl SourceDb {
 
 	/// One space by id, deleted or not.
 	pub async fn space(&self, uuid: Uuid) -> Result<Option<SpaceRow>> {
-		let row = sqlx::query_as(&format!("SELECT {COLUMNS} FROM space WHERE uuid = ?"))
+		let columns = self.space_columns().await?;
+		let row = sqlx::query_as(&format!("SELECT {columns} FROM space WHERE uuid = ?"))
 			.bind(uuid)
 			.fetch_optional(self.pool())
 			.await;
@@ -73,12 +81,13 @@ impl SourceDb {
 	/// stamp. Returns whether the row changed.
 	pub async fn put_space(&self, row: &SpaceRow) -> Result<bool> {
 		let result = sqlx::query(&format!(
-			"INSERT INTO space ({COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			"INSERT INTO space ({COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			 ON CONFLICT (uuid) DO UPDATE SET
 				name = excluded.name,
 				kind = excluded.kind,
 				root = excluded.root,
 				content_indexing = excluded.content_indexing,
+				protected = excluded.protected,
 				created_at = excluded.created_at,
 				deleted = excluded.deleted,
 				updated_hlc = excluded.updated_hlc,
@@ -92,6 +101,7 @@ impl SourceDb {
 		.bind(&row.kind)
 		.bind(&row.root)
 		.bind(row.content_indexing)
+		.bind(&row.protected)
 		.bind(&row.created_at)
 		.bind(row.deleted)
 		.bind(&row.updated_hlc)
@@ -99,6 +109,18 @@ impl SourceDb {
 		.execute(self.pool())
 		.await?;
 		Ok(result.rows_affected() > 0)
+	}
+
+	async fn space_columns(&self) -> Result<&'static str> {
+		let current: Option<i64> =
+			sqlx::query_scalar("SELECT 1 FROM pragma_table_info('space') WHERE name = 'protected'")
+				.fetch_optional(self.pool())
+				.await?;
+		Ok(if current.is_some() {
+			COLUMNS
+		} else {
+			LEGACY_COLUMNS
+		})
 	}
 }
 
@@ -132,6 +154,7 @@ mod tests {
 			kind: "folder".into(),
 			root: "Documents".into(),
 			content_indexing: true,
+			protected: r#"["secrets/**"]"#.into(),
 			created_at: "2026-11-27T00:00:00Z".into(),
 			deleted: false,
 			updated_hlc: hlc.into(),
@@ -163,5 +186,27 @@ mod tests {
 			.unwrap();
 		assert!(db.spaces().await.unwrap().is_empty());
 		assert!(db.space(Uuid::from_u128(1)).await.unwrap().is_none());
+	}
+
+	#[tokio::test]
+	async fn protected_patterns_round_trip_and_an_unmigrated_replica_has_none() {
+		let (_dir, db) = store().await;
+		assert!(db.put_space(&row("0001", "Docs")).await.unwrap());
+		assert_eq!(db.spaces().await.unwrap()[0].protected, r#"["secrets/**"]"#);
+
+		// A replica from before migration 3 never had revision triggers naming the column.
+		for suffix in ["insert", "update", "delete"] {
+			sqlx::query(&format!("DROP TRIGGER IF EXISTS space_revision_{suffix}"))
+				.execute(db.pool())
+				.await
+				.unwrap();
+		}
+		sqlx::query("ALTER TABLE space DROP COLUMN protected")
+			.execute(db.pool())
+			.await
+			.unwrap();
+		let read = db.space(Uuid::from_u128(1)).await.unwrap().unwrap();
+		assert_eq!(read.protected, "[]");
+		assert_eq!(read.name, "Docs");
 	}
 }

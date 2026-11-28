@@ -182,6 +182,7 @@ pub async fn adopt_deep_scope(
 			kind: SpaceKind::Folder.as_str().to_string(),
 			root: subtree,
 			content_indexing: true,
+			protected: "[]".to_string(),
 			created_at: Utc::now().to_rfc3339(),
 			deleted: false,
 			updated_hlc: stamp.hlc.clone(),
@@ -267,6 +268,17 @@ pub fn slash_path(path: &Path) -> String {
 		.map(|component| component.as_os_str().to_string_lossy())
 		.collect::<Vec<_>>()
 		.join("/")
+}
+
+/// Check a space's protected patterns and give them in the store's
+/// spelling, a JSON array with each pattern trimmed.
+pub fn protected_patterns(patterns: Vec<String>) -> Result<String, String> {
+	let patterns: Vec<String> = patterns
+		.into_iter()
+		.map(|pattern| pattern.trim().to_string())
+		.collect();
+	crate::ops::grants::protect::compile(&patterns)?;
+	serde_json::to_string(&patterns).map_err(|e| e.to_string())
 }
 
 /// The stamp for a space written on this device.

@@ -44,6 +44,7 @@ async fn create(
 		kind,
 		path,
 		content_indexing: None,
+		protected: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())
@@ -91,6 +92,7 @@ async fn a_folder_in_a_source_becomes_a_space_and_stops_being_one() -> anyhow::R
 		id: space.id,
 		name: Some("Notes".into()),
 		content_indexing: Some(false),
+		protected: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())
@@ -272,6 +274,7 @@ async fn a_deep_scope_set_before_spaces_becomes_spaces_that_decide_what_is_read(
 		id: archive.id,
 		name: None,
 		content_indexing: Some(false),
+		protected: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())
@@ -319,6 +322,7 @@ async fn a_space_with_content_indexing_off_is_not_read_inside_a_read_source() ->
 		kind: SpaceKind::Folder,
 		path: Some(tracked.root.join("Private")),
 		content_indexing: Some(false),
+		protected: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())
@@ -330,6 +334,7 @@ async fn a_space_with_content_indexing_off_is_not_read_inside_a_read_source() ->
 		id: private.id,
 		name: None,
 		content_indexing: Some(true),
+		protected: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())

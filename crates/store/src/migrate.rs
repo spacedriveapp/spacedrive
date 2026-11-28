@@ -32,7 +32,9 @@ use crate::error::{Error, Result};
 ///    nullable and never backfilled, and an index over the lowercase file
 ///    extension so a reidentification pass by extension does not walk the
 ///    facet table.
-pub const SCHEMA_VERSION: i64 = 2;
+/// 3. `space.protected`, the JSON array of patterns an agent may not write
+///    inside the space, `[]` for every space that predates it.
+pub const SCHEMA_VERSION: i64 = 3;
 
 /// The version a store carries. `0` for a store written before versions
 /// existed.
@@ -81,6 +83,7 @@ async fn apply(pool: &SqlitePool, next: i64) -> Result<()> {
 	match next {
 		1 => content_rows_own_their_hash(pool).await,
 		2 => content_rows_name_their_kind(pool).await,
+		3 => spaces_name_protected_patterns(pool).await,
 		_ => Err(Error::Other(format!(
 			"no migration defined for schema version {next}"
 		))),
@@ -114,6 +117,27 @@ const CONTENT_V1_INDEXES: [&str; 4] = [
 /// open path for a fresh one; `IF NOT EXISTS` makes both idempotent.
 pub const FACET_FILE_EXTENSION_INDEX: &str =
 	"CREATE INDEX IF NOT EXISTS idx_facet_file_extension ON facet_file(lower(extension))";
+
+/// Migration 3: `space.protected`. A store from before spaces has no
+/// `space` table yet, and the record DDL that follows creates it whole.
+async fn spaces_name_protected_patterns(pool: &SqlitePool) -> Result<()> {
+	let mut conn = pool.acquire().await?;
+	let mut tx = conn.begin().await?;
+	let has_space: Option<i64> =
+		sqlx::query_scalar("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'space'")
+			.fetch_optional(&mut *tx)
+			.await?;
+	if has_space.is_some() {
+		sqlx::query("ALTER TABLE space ADD COLUMN protected TEXT NOT NULL DEFAULT '[]'")
+			.execute(&mut *tx)
+			.await?;
+	}
+	sqlx::query("PRAGMA user_version = 3")
+		.execute(&mut *tx)
+		.await?;
+	tx.commit().await?;
+	Ok(())
+}
 
 /// Migration 2: `content.kind_name`, nullable, with no backfill. Before this
 /// no row carried a kind at all; the kind was derived from the file name on

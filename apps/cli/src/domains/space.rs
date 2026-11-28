@@ -55,6 +55,10 @@ pub struct SpaceCreateArgs {
 	/// Do not hash or read file contents inside the space
 	#[arg(long)]
 	pub no_content_indexing: bool,
+	/// A pattern agents may not write inside the space, on top of the
+	/// built-in list. Repeat for more; start with / to anchor it at the root
+	#[arg(long = "protect", value_name = "PATTERN")]
+	pub protect: Vec<String>,
 }
 
 #[derive(Args, Debug)]
@@ -65,6 +69,16 @@ pub struct SpaceUpdateArgs {
 	/// Turn content indexing on or off
 	#[arg(long)]
 	pub content_indexing: Option<bool>,
+	/// Replace the space's protected patterns. Repeat for more
+	#[arg(
+		long = "protect",
+		value_name = "PATTERN",
+		conflicts_with = "no_protect"
+	)]
+	pub protect: Vec<String>,
+	/// Remove every protected pattern, leaving the built-in list
+	#[arg(long)]
+	pub no_protect: bool,
 }
 
 pub async fn run(ctx: &Context, cmd: SpaceCmd) -> Result<()> {
@@ -84,6 +98,7 @@ pub async fn run(ctx: &Context, cmd: SpaceCmd) -> Result<()> {
 				},
 				path,
 				content_indexing: args.no_content_indexing.then_some(false),
+				protected: (!args.protect.is_empty()).then_some(args.protect),
 			};
 			let out: SpaceCreateOutput = execute_action!(ctx, input);
 			print_output!(ctx, &out, |o: &SpaceCreateOutput| print_space(&o.space));
@@ -120,6 +135,11 @@ pub async fn run(ctx: &Context, cmd: SpaceCmd) -> Result<()> {
 				id: args.id,
 				name: args.name,
 				content_indexing: args.content_indexing,
+				protected: if args.no_protect {
+					Some(Vec::new())
+				} else {
+					(!args.protect.is_empty()).then_some(args.protect)
+				},
 			};
 			let out: SpaceUpdateOutput = execute_action!(ctx, input);
 			print_output!(ctx, &out, |o: &SpaceUpdateOutput| print_space(&o.space));
@@ -157,4 +177,7 @@ fn print_space(space: &Space) {
 		"  content indexing: {}",
 		if space.content_indexing { "on" } else { "off" }
 	);
+	if !space.protected.is_empty() {
+		println!("  protected:        {}", space.protected.join(", "));
+	}
 }

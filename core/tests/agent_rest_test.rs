@@ -941,6 +941,7 @@ async fn requests_route_by_the_space_a_grant_resolves_to() -> anyhow::Result<()>
 		kind: SpaceKind::Folder,
 		path: Some(base.join("project")),
 		content_indexing: None,
+		protected: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())
