@@ -150,7 +150,8 @@ async fn rotate(
 	let recorded = audit::record(
 		db,
 		audit::Decision {
-			grant: &row,
+			grant_id: row.uuid,
+			label: row.label.as_deref(),
 			op: "oauth.refresh",
 			path: "",
 			meta: &audit::RequestMeta::default(),

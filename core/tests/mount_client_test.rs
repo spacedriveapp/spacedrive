@@ -146,6 +146,8 @@ async fn scenario(name: &str, over_mcp: bool) -> anyhow::Result<()> {
 		caps: Some(GrantCap::Read),
 		ttl_seconds: None,
 		label: Some("thin mount".to_string()),
+		kind: None,
+		token_format: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), context.clone())

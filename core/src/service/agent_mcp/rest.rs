@@ -377,7 +377,13 @@ async fn serve(
 				.get("last-event-id")
 				.and_then(|value| value.to_str().ok())
 				.map(str::to_string);
-			Ok(events::open(endpoint.clone(), scope, last_event_id).await)
+			Ok(events::open(
+				endpoint.clone(),
+				scope,
+				request.token.to_string(),
+				last_event_id,
+			)
+			.await)
 		}
 	}
 }
@@ -589,7 +595,7 @@ impl Request<'_> {
 					),
 				)),
 			},
-			_ = http::ended(self.endpoint, library, grant) => Err(unauthorized()),
+			_ = http::ended(self.endpoint, library, self.token) => Err(unauthorized()),
 		}
 	}
 
@@ -598,28 +604,20 @@ impl Request<'_> {
 			.authorize("rest.spaces", "", GrantCap::Read, None)
 			.await?;
 		self.take_rate(scope.grant_id)?;
-		let unavailable = || {
-			error(
-				StatusCode::SERVICE_UNAVAILABLE,
-				"the grant could not be read; try again",
-			)
-		};
-		let library = self
-			.endpoint
-			.context
-			.libraries()
-			.await
-			.get_library(scope.library_id)
-			.await
-			.ok_or_else(unavailable)?;
-		let row = store::by_id(library.db().conn(), scope.grant_id)
-			.await
-			.map_err(|e| {
-				warn!(error = %e, "could not read a grant for the space list");
-				unavailable()
-			})?
-			.ok_or_else(unauthorized)?;
-		let name = row
+		let grant =
+			crate::ops::grants::verified(&self.endpoint.context, scope.library_id, self.token)
+				.await
+				.map_err(|e| match e {
+					GrantError::Internal(e) => {
+						warn!(error = %e, "could not read a grant for the space list");
+						error(
+							StatusCode::SERVICE_UNAVAILABLE,
+							"the grant could not be read; try again",
+						)
+					}
+					_ => unauthorized(),
+				})?;
+		let name = grant
 			.label
 			.filter(|label| !label.trim().is_empty())
 			.or_else(|| {
@@ -632,8 +630,8 @@ impl Request<'_> {
 		Ok(json_ok(json!([{
 			"id": scope.grant_id,
 			"name": name,
-			"caps": row.caps,
-			"expires_at": timestamp(row.expires_at),
+			"caps": grant.caps.as_str(),
+			"expires_at": timestamp(grant.expires_at),
 		}])))
 	}
 
@@ -705,7 +703,7 @@ impl Request<'_> {
 		);
 		let outcome = tokio::select! {
 			outcome = tokio::time::timeout(endpoint.limits.call_timeout, work) => outcome,
-			_ = http::ended(endpoint, library, grant) => {
+			_ = http::ended(endpoint, library, self.token) => {
 				debug!(%grant, "cancelled a REST tool call whose grant ended");
 				return Err(unauthorized());
 			}

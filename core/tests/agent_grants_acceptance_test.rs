@@ -53,6 +53,8 @@ async fn create(
 		caps: Some(caps),
 		ttl_seconds,
 		label: Some("acceptance".to_string()),
+		kind: None,
+		token_format: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())
@@ -234,11 +236,15 @@ async fn grants_scope_expire_revoke_and_protect() -> anyhow::Result<()> {
 		);
 	}
 
-	// Extension is measured from now and bounded by 12 hours.
+	// Extension is measured from now and bounded by 12 hours. The bound
+	// depends on the grant's kind, so the action decides it.
 	assert!(ExtendGrantAction::from_input(ExtendGrantInput {
 		id: write.grant.id,
 		ttl_seconds: Some(13 * 3600),
 	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await
 	.is_err());
 	let before = Utc::now();
 	let extended = ExtendGrantAction::from_input(ExtendGrantInput {

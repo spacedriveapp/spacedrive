@@ -40,7 +40,7 @@ use super::GrantError;
 use crate::{
 	context::CoreContext,
 	infra::{
-		db::entities::{agent_grant, grant_audit, grant_audit_tally},
+		db::entities::{grant_audit, grant_audit_tally},
 		query::{LibraryQuery, QueryError, QueryResult},
 	},
 };
@@ -138,7 +138,8 @@ impl TallyKind {
 
 /// One decision of [`super::authorize`], to record.
 pub(crate) struct Decision<'a> {
-	pub grant: &'a agent_grant::Model,
+	pub grant_id: Uuid,
+	pub label: Option<&'a str>,
 	pub op: &'a str,
 	pub path: &'a str,
 	pub meta: &'a RequestMeta,
@@ -157,7 +158,8 @@ pub(crate) async fn record(
 	decision: Decision<'_>,
 ) -> Result<AuditId, DbErr> {
 	let Decision {
-		grant,
+		grant_id,
+		label,
 		op,
 		path,
 		meta,
@@ -170,13 +172,13 @@ pub(crate) async fn record(
 		Err(_) => AuditResult::Denied,
 	};
 	let inserted = grant_audit::Entity::insert(grant_audit::ActiveModel {
-		grant_id: Set(grant.uuid),
+		grant_id: Set(grant_id),
 		op: Set(op.to_string()),
 		path: Set(path.to_string()),
 		allowed: Set(outcome.is_ok()),
 		reason: Set(outcome.err().map(ToString::to_string)),
 		at: Set(Utc::now()),
-		grant_label: Set(grant.label.clone()),
+		grant_label: Set(label.map(str::to_string)),
 		client: Set(meta.client.map(|ip| ip.to_string())),
 		session: Set(meta.session.clone()),
 		pattern: Set(meta.pattern.as_deref().map(|p| clip(p).to_string())),
