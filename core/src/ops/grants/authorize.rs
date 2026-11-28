@@ -14,7 +14,7 @@ use super::{
 	audit::{self, AuditId, Decision, RequestMeta, TallyKind},
 	bucket, protect, scope,
 	verify::{self, GrantRecord},
-	GrantCap, GrantError, GrantScope, GrantStatus,
+	GrantCap, GrantError, GrantScope, GrantStatus, TokenFormat,
 };
 use crate::{
 	common::contain,
@@ -275,6 +275,74 @@ fn space_for(
 	named(resolved, requested)
 }
 
+/// The space a grant lends from and that space's stored authority epoch,
+/// which is 0 for a grant outside every space.
+async fn epoch_of(
+	context: &CoreContext,
+	library: &Library,
+	grant: &GrantRecord,
+	requested: Option<Uuid>,
+) -> Result<(Uuid, u64), GrantError> {
+	let spaces = spaces::all(library, context)
+		.await
+		.map_err(|e| GrantError::Internal(format!("read spaces: {e}")))?;
+	// A grant made inside a space names it. Older grants are placed by
+	// their directory.
+	let space_id = match grant.space_id {
+		Some(stored) => named(stored, requested)?,
+		None => {
+			let relative = grant_relative(context, grant).await?;
+			space_for(
+				&spaces,
+				grant.grant_id,
+				grant.source_id,
+				relative.as_deref(),
+				requested,
+			)?
+		}
+	};
+	let authority_epoch = spaces
+		.iter()
+		.find(|space| space.id == space_id)
+		.map_or(0, |space| space.authority_epoch);
+	Ok((space_id, authority_epoch))
+}
+
+/// Refuse a signed grant minted under an older epoch than its space's. A
+/// signed token carries the epoch it was minted under and any replica
+/// accepts it without a lookup, so a hand-over has to retire it here.
+fn retire(grant: &GrantRecord, authority_epoch: u64) -> Result<(), GrantError> {
+	if grant.token_format == TokenFormat::Signed
+		&& u64::try_from(grant.epoch).unwrap_or_default() < authority_epoch
+	{
+		return Err(GrantError::Superseded {
+			current: authority_epoch,
+		});
+	}
+	Ok(())
+}
+
+/// Refuse a grant its space's epoch has retired. A call in flight and an open
+/// event stream poll this beside the grant's status, so a hand-over ends them
+/// the way a revocation does.
+pub(crate) async fn retired(
+	context: &CoreContext,
+	library_id: Uuid,
+	grant: &GrantRecord,
+) -> Result<(), GrantError> {
+	if grant.token_format != TokenFormat::Signed {
+		return Ok(());
+	}
+	let library = context
+		.libraries()
+		.await
+		.get_library(library_id)
+		.await
+		.ok_or(GrantError::UnknownToken)?;
+	let (_, authority_epoch) = epoch_of(context, &library, grant, None).await?;
+	retire(grant, authority_epoch)
+}
+
 /// `resolved`, unless the request names another space.
 fn named(resolved: Uuid, requested: Option<Uuid>) -> Result<Uuid, GrantError> {
 	match requested {
@@ -283,11 +351,8 @@ fn named(resolved: Uuid, requested: Option<Uuid>) -> Result<Uuid, GrantError> {
 	}
 }
 
-/// Refuse a write against an authority epoch the space has moved past.
-///
-/// Spaces store no epoch yet, so `current` is 0: a write naming 0 passes
-/// and one naming anything else is stale. A request naming no epoch is not
-/// checked.
+/// Refuse a write against an authority epoch other than the space's
+/// current one. A request naming no epoch is not checked.
 fn fence(epoch: Option<u64>, current: u64) -> Result<(), GrantError> {
 	match epoch {
 		Some(epoch) if epoch != current => Err(GrantError::StaleEpoch { current }),
@@ -355,25 +420,8 @@ async fn decide(
 		return Err(GrantError::SourceGone);
 	}
 
-	// A grant made inside a space names it. Older grants are placed by
-	// their directory.
-	let space_id = match grant.space_id {
-		Some(stored) => named(stored, access.space)?,
-		None => {
-			let spaces = spaces::all(library, context)
-				.await
-				.map_err(|e| GrantError::Internal(format!("read spaces: {e}")))?;
-			let relative = grant_relative(context, grant).await?;
-			space_for(
-				&spaces,
-				grant.grant_id,
-				grant.source_id,
-				relative.as_deref(),
-				access.space,
-			)?
-		}
-	};
-	let authority_epoch = 0;
+	let (space_id, authority_epoch) = epoch_of(context, library, grant, access.space).await?;
+	retire(grant, authority_epoch)?;
 	fence(access.epoch, authority_epoch)?;
 
 	if !grant.caps.allows(cap) {

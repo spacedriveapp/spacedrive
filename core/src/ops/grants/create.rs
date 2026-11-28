@@ -272,7 +272,7 @@ pub(crate) async fn insert(
 	let now = DateTime::from_timestamp(Utc::now().timestamp(), 0)
 		.ok_or_else(|| ActionError::Internal("clock out of range".to_string()))?;
 	let expires_at = now + mint.lifetime;
-	let epoch = 0;
+	let epoch = space_row.as_ref().map_or(0, |row| row.authority_epoch);
 	let (token, token_hash, signer) = match (mint.token_format, &space) {
 		(TokenFormat::Signed, Some(at)) => {
 			let master = context
