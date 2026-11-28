@@ -84,11 +84,22 @@ pub struct BoundGrant {
 pub struct LibraryTree {
 	context: Arc<CoreContext>,
 	grant: Option<BoundGrant>,
+	/// Names the frontend in the grant's audit log, as `fuse.open` or
+	/// `nfs.open`.
+	frontend: &'static str,
 }
 
 impl LibraryTree {
-	pub fn new(context: Arc<CoreContext>, grant: Option<BoundGrant>) -> Self {
-		Self { context, grant }
+	pub fn new(
+		context: Arc<CoreContext>,
+		grant: Option<BoundGrant>,
+		frontend: &'static str,
+	) -> Self {
+		Self {
+			context,
+			grant,
+			frontend,
+		}
 	}
 
 	fn local_source(&self, source: Uuid) -> Option<SourceStatus> {
@@ -100,12 +111,13 @@ impl LibraryTree {
 	}
 
 	/// The path the grant allows for `abs`, recorded in the grant's audit
-	/// log under `op`. Without a grant every path is allowed as it is.
+	/// log under `op` prefixed with the frontend. Without a grant every path is allowed as it is.
 	async fn authorized(&self, op: &str, abs: &Path) -> Result<PathBuf, MountError> {
 		let Some(grant) = &self.grant else {
 			return Ok(abs.to_path_buf());
 		};
-		let access = Access::new(&grant.token, op, abs, GrantCap::Read);
+		let op = format!("{}.{op}", self.frontend);
+		let access = Access::new(&grant.token, &op, abs, GrantCap::Read);
 		Ok(authorize(&self.context, &access).await?.scope.path)
 	}
 }
@@ -152,11 +164,11 @@ impl MountTree for LibraryTree {
 	}
 
 	async fn may_list(&self, _source: Uuid, abs: &Path) -> Result<(), MountError> {
-		self.authorized("fuse.list", abs).await.map(drop)
+		self.authorized("list", abs).await.map(drop)
 	}
 
 	async fn open(&self, source: Uuid, abs: &Path) -> Result<Arc<dyn ByteProvider>, MountError> {
-		let path = self.authorized("fuse.open", abs).await?;
+		let path = self.authorized("open", abs).await?;
 		let target = match self.local_source(source) {
 			Some(status) => MountTarget::Local(status, path),
 			None => {
