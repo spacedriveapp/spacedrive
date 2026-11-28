@@ -15,11 +15,11 @@ const VERBS: Record<string, string> = {
 };
 
 /** The actor id of the person using this device, so their changes read as "You". */
-function useLocalPersonId() {
+export function useLocalPersonId() {
 	return useLibraryQuery({type: 'actors.me', input: {}}, {staleTime: Infinity}).data?.actor.id;
 }
 
-function actorName(actor: Actor, you: string | undefined) {
+export function actorName(actor: Actor, you: string | undefined) {
 	return actor.kind === 'person' && actor.id === you ? 'You' : actor.label;
 }
 
@@ -38,16 +38,21 @@ function spaceOf(spaces: Space[] | undefined, path: string) {
 	return found;
 }
 
+/** The innermost space holding `path` on this device, refreshed so new spaces show up. */
+export function useSpaceScope(path: string) {
+	const spaces = useLibraryQuery(
+		{type: 'spaces.list', input: {source_id: null}},
+		{refetchInterval: REFRESH_MS}
+	);
+	return {scope: spaceOf(spaces.data?.spaces, path), isLoading: spaces.isLoading};
+}
+
 /**
  * The newest changes at or under `path`, from the event log of the space
  * holding it. A path in no space has no log, so `space` is undefined.
  */
 export function useSpaceChanges(path: string, limit: number) {
-	const spaces = useLibraryQuery(
-		{type: 'spaces.list', input: {source_id: null}},
-		{refetchInterval: REFRESH_MS}
-	);
-	const scope = spaceOf(spaces.data?.spaces, path);
+	const {scope, isLoading} = useSpaceScope(path);
 	const changes = useLibraryQuery(
 		{
 			type: 'spaces.changes',
@@ -64,7 +69,7 @@ export function useSpaceChanges(path: string, limit: number) {
 		space: scope?.space,
 		relative: scope?.relative ?? '',
 		changes: changes.data?.changes ?? [],
-		isLoading: spaces.isLoading || (!!scope && changes.isLoading),
+		isLoading: isLoading || (!!scope && changes.isLoading),
 		refetch: changes.refetch
 	};
 }
@@ -180,7 +185,7 @@ function baseName(path: string): string {
 	return parts[parts.length - 1] ?? path;
 }
 
-function ago(iso: string): string {
+export function ago(iso: string): string {
 	const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
 	if (seconds < 60) return 'just now';
 	if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
