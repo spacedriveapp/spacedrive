@@ -6,8 +6,8 @@
 //! the analyser see everything; reading bytes stays where a person keeps
 //! things.
 //!
-//! The scope is the roots of the source's spaces with content indexing on
-//! (`docs/core/design/spaces.md`), plus the source's default while it has
+//! The scope is the roots of the source's spaces with content indexing on,
+//! less the roots of those with it off (`docs/core/design/spaces.md`), plus the source's default while it has
 //! one. The home folder's default is its standard user folders, which
 //! [`crate::ops::spaces::store::adopt_deep_scope`] turns into spaces; any other
 //! source reads its whole root, because a source someone added by hand was
@@ -15,21 +15,31 @@
 //! assertion, is the default until it is adopted the same way. A drive that
 //! startup only maps has no store, so nothing reads its contents.
 
-use std::path::{Path, PathBuf};
+use std::{
+	collections::BTreeMap,
+	path::{Path, PathBuf},
+};
 
-/// The subtrees of the source at `root` whose contents are read, as
-/// `/`-separated paths relative to it. An empty path is the whole source.
-pub async fn deep_subtrees(db: &sd_store::SourceDb, root: &Path) -> sd_store::Result<Vec<String>> {
+use sd_store::DeepScope;
+
+/// What the source at `root` reads: its default or kept subtrees, then every
+/// space's root, read or skipped as its content indexing says. A space
+/// decides for its own folder even where the default would read it.
+pub async fn deep_scope(db: &sd_store::SourceDb, root: &Path) -> sd_store::Result<DeepScope> {
 	let base = match db.deep_scope().await? {
 		Some(kept) => kept,
 		None => default_scope(root).await?,
 	};
-	Ok(db
-		.spaces()
-		.await?
-		.into_iter()
-		.filter(|space| space.content_indexing)
-		.fold(base, |scope, space| keep(&scope, &space.root)))
+	let mut marked: BTreeMap<String, bool> =
+		base.into_iter().map(|subtree| (subtree, true)).collect();
+	for space in db.spaces().await? {
+		marked.insert(space.root, space.content_indexing);
+	}
+	let (read, skip): (Vec<_>, Vec<_>) = marked.into_iter().partition(|(_, read)| *read);
+	Ok(DeepScope {
+		read: read.into_iter().map(|(subtree, _)| subtree).collect(),
+		skip: skip.into_iter().map(|(subtree, _)| subtree).collect(),
+	})
 }
 
 /// What the source at `root` reads before its spaces say otherwise.
