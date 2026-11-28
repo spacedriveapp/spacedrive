@@ -11,6 +11,7 @@ use sd_core::ops::search::{
 	grep::GrepOutput,
 	output::FileSearchOutput,
 	query::FileSearchQuery,
+	semantic::SemanticSearchOutput,
 };
 
 use self::args::*;
@@ -23,6 +24,8 @@ pub enum SearchCmd {
 	Grep(GrepArgs),
 	/// Search the indexed text of documents and code under a path
 	Content(ContentSearchArgs),
+	/// Find files by what they mean, ranked together with their words
+	Semantic(SemanticSearchArgs),
 	/// Drop a source's text index and read every file again
 	ReindexContent(ReindexContentArgs),
 }
@@ -64,6 +67,49 @@ pub async fn run(ctx: &Context, cmd: SearchCmd) -> Result<()> {
 				eprintln!("{} hits", o.hits.len());
 				if o.pending_files > 0 {
 					eprintln!("{} files are not indexed yet", o.pending_files);
+				}
+				if let Some(cursor) = &o.next_cursor {
+					eprintln!("More hits: --cursor {cursor}");
+				}
+			});
+		}
+		SearchCmd::Semantic(args) => {
+			let path = args.path.clone().unwrap_or_else(|| ".".into());
+			let path = crate::domains::file::requested_path(ctx, &path)?;
+			let input = args.into_input(path)?;
+			let out: SemanticSearchOutput = execute_query!(ctx, input);
+			print_output!(ctx, &out, |o: &SemanticSearchOutput| {
+				for hit in &o.hits {
+					let snippet: String = hit
+						.snippet
+						.iter()
+						.map(|part| {
+							if part.matched {
+								format!("[{}]", part.text)
+							} else {
+								part.text.clone()
+							}
+						})
+						.collect();
+					let at = hit
+						.time
+						.map(|time| format!(" @ {}", clock(time.start_seconds)))
+						.unwrap_or_default();
+					match hit.similarity {
+						Some(similarity) => println!("{}{at}  ({similarity:.2})", hit.path),
+						None => println!("{}{at}  (words only)", hit.path),
+					}
+					println!(
+						"    {}",
+						snippet.split_whitespace().collect::<Vec<_>>().join(" ")
+					);
+				}
+				eprintln!("{} hits", o.hits.len());
+				if o.pending_documents > 0 {
+					eprintln!(
+						"{} documents are not embedded yet and match by words only",
+						o.pending_documents
+					);
 				}
 				if let Some(cursor) = &o.next_cursor {
 					eprintln!("More hits: --cursor {cursor}");

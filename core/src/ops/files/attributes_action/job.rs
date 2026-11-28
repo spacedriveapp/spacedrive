@@ -80,6 +80,7 @@ impl JobHandler for AttributesJob {
 				continue;
 			}
 			let to = fs::changing(&before, &self.input.attributes);
+			crate::ops::spaces::events::claim(&[local]);
 			match fs::apply(local, &to).await {
 				Ok(()) => {
 					let from = fs::changing(&to, &before);

@@ -250,6 +250,8 @@ impl JobHandler for ContentTextJob {
 			"Indexed {} files, {} with nothing to index, {} unreadable, {reclaimed} bytes given back",
 			output.indexed, output.skipped, output.unreadable
 		));
+		super::semantic_index::index_vectors_soon(&ctx.library_arc(), &self.root, self.background)
+			.await;
 		Ok(output)
 	}
 }
@@ -430,7 +432,12 @@ pub async fn index_text_soon(
 		(Err(error), _) | (_, Err(error)) => Err(sd_store::Error::Other(error.to_string())),
 	};
 	match pending {
-		Ok(0) => return,
+		// Nothing to read can still leave text to embed: a model downloaded
+		// after the text was read, or an upgrade that predates the vectors.
+		Ok(0) => {
+			super::semantic_index::index_vectors_soon(library, root, background).await;
+			return;
+		}
 		Ok(_) => {}
 		Err(error) => {
 			tracing::warn!(root = %root.display(), %error, "could not count files waiting for the text index");

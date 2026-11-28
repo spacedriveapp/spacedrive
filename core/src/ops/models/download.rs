@@ -110,6 +110,7 @@ impl JobHandler for ModelDownloadJob {
 		}
 
 		ctx.log("Model download complete");
+		crate::ops::indexing::semantic_index::index_library_vectors_soon(&ctx.library_arc()).await;
 
 		Ok(ModelDownloadOutput {
 			model_id: self.state.model_id.clone(),

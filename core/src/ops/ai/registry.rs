@@ -41,7 +41,13 @@ pub trait SceneClassifier: Send + Sync {
 }
 
 pub trait TextEmbedder: Send + Sync {
+	/// Vectors for queries, or for text compared with text of its own kind.
 	fn embed(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, AiError>;
+	/// Vectors for documents a query is searched against. Models trained
+	/// with separate query and passage roles embed these differently.
+	fn embed_passages(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, AiError> {
+		self.embed(texts)
+	}
 }
 
 #[async_trait]

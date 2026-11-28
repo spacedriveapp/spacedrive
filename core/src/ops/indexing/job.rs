@@ -125,11 +125,11 @@ impl IndexerJobConfig {
 	/// absence as deletion, which is sound only when the walk would have seen
 	/// the file had it been there — so it rules out a browse, which stops at
 	/// one directory, and every walk that applies rules, which hide files on
-	/// purpose. In practice this is archiving a removable drive, and that is
-	/// also the one case where the origin goes in a drawer and absence is the
-	/// only signal there will ever be.
+	/// purpose. In practice this is archiving a removable drive, where the
+	/// origin goes in a drawer, and listing a bucket, which sends no events:
+	/// in both, absence is the only signal there will ever be.
 	pub fn enumerates_whole_source(&self) -> bool {
-		self.is_volume_indexing
+		(self.is_volume_indexing || self.path.is_cloud())
 			&& self.scope == IndexScope::Recursive
 			&& self.max_depth.is_none()
 			&& self.rule_toggles == super::rules::RuleToggles::none()
@@ -217,11 +217,9 @@ impl IndexerJob {
 
 		let state = self.state.as_mut().unwrap();
 
-		let root_path_buf = if let Some(p) = self.config.path.as_local_path() {
-			p.to_path_buf()
-		} else if let Some(cloud_path) = self.config.path.cloud_path() {
-			PathBuf::from(cloud_path)
-		} else {
+		// A bucket walks under its full URL, which is how its source store and
+		// the volume index key its objects.
+		let Some(root_path_buf) = self.config.path.index_key() else {
 			return Err(JobError::execution(
 				"Index root path is not local".to_string(),
 			));
@@ -486,7 +484,8 @@ impl JobHandler for IndexerJob {
 		// indexed serves a partial arena as if it were complete.
 		let mut snapshot_failure = None;
 		{
-			if let Some(local_path) = self.config.path.as_local_path() {
+			if let Some(local_path) = self.config.path.index_key() {
+				let local_path = local_path.as_path();
 				let cache = ctx.library().core_context().volume_index();
 				match &result {
 					Ok(_) => cache.mark_indexing_complete(local_path),
@@ -525,8 +524,14 @@ impl JobHandler for IndexerJob {
 							ctx.log(format!("Saved snapshot for: {}", local_path.display()));
 						}
 
-						// Watch what was walked, so changes reach the index as they happen
-						if let Some(watcher) = ctx.library().core_context().get_fs_watcher().await {
+						// Watch what was walked, so changes reach the index as
+						// they happen. A bucket has no events to watch, and is
+						// listed again instead.
+						let watcher = match self.config.path.is_cloud() {
+							true => None,
+							false => ctx.library().core_context().get_fs_watcher().await,
+						};
+						if let Some(watcher) = watcher {
 							if let Err(e) = watcher.watch_root(local_path.to_path_buf()).await {
 								ctx.add_warning(format!(
 									"Failed to add watch for {}: {}",

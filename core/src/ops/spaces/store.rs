@@ -193,6 +193,7 @@ pub async fn adopt_deep_scope(
 	db.set_deep_scope(&[], &stamp)
 		.await
 		.map_err(|e| e.to_string())?;
+	invalidate(source_id);
 	Ok(())
 }
 
@@ -252,6 +253,12 @@ pub async fn writable(context: &CoreContext, space: &Space) -> Result<Arc<Source
 		.store_for(&root)
 		.await
 		.ok_or_else(|| "the source holding this space has no store on this device".to_string())
+}
+
+/// Forget the cached spaces of a source after one of them changed, so the
+/// event log sees the change at once.
+pub fn invalidate(source_id: Uuid) {
+	super::events::invalidate(source_id);
 }
 
 /// A relative path in the store's spelling: `/`-separated on every platform.

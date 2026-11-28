@@ -12,6 +12,7 @@ pub mod media;
 pub mod output;
 pub mod pipeline;
 pub mod query;
+pub mod semantic;
 pub mod store_search;
 pub mod tag_scope;
 

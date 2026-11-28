@@ -196,6 +196,8 @@ async fn decide(
 
 	Ok(GrantScope {
 		grant_id: grant.uuid,
+		actor_id: grant.actor_id.unwrap_or(grant.uuid),
+		space_id: grant.space_id,
 		library_id,
 		cap,
 		root: resolved.root,

@@ -1,0 +1,160 @@
+---
+title: Semantic Search
+description: Find files by what they mean, ranked together with their words, from an index on the device that owns them
+sidebarTitle: Semantic Search
+---
+
+[Content search](/docs/core/content-search) finds files that contain the
+words you type. Semantic search finds files that are about what you describe,
+even when they use other words. A query such as "notes on the kitchen
+renovation budget" finds a document titled "Reno costs" that never says
+"kitchen".
+
+`search.semantic` ranks files by two signals at once:
+
+- Word relevance: BM25 over the [content text index](/docs/core/content-search),
+  matching any of the query's words.
+- Meaning: cosine similarity between the query's embedding and the
+  embeddings of the file's text.
+
+The two rankings are fused by reciprocal rank. A file found by both ranks
+above a file found by either alone. A file whose embeddings are not written
+yet is still found by its words.
+
+## What is embedded
+
+Semantic search reuses the text Spacedrive already extracts. Nothing is read
+from disk again. The index covers:
+
+- Document and code text from `text.db`, with the same caps as content search.
+- Transcripts of audio and video files.
+- Scene descriptions of video shots and captions of photos.
+
+Only files inside the source's deep scope are embedded: the spaces with
+content indexing on, plus the source's default (see
+[content search](/docs/core/content-search)). Turning a space's content
+indexing off with `spaces.update` removes its embeddings on the next pass.
+
+Each document is cut into chunks of about 1,000 characters. Neighbouring
+chunks share 150 characters, and each chunk ends at the strongest break near
+its end: a blank line, a line end, a sentence end, or a space. A document gets
+at most 64 chunks, so only the first 64 KB or so of a long document is
+embedded. The rest is still found by its words. Transcript segments are
+grouped into chunks of the same size and keep the time of their first and
+last segment. Each scene or caption is its own chunk.
+
+## Where the index lives
+
+Each source keeps `vectors.db` beside `text.db` in its store directory. Like
+the text index, it is rebuildable generation: every vector is computed from
+rows of `text.db`. A chunk records where its text is in `text.db`, not the
+text itself.
+
+Vectors are stored as signed bytes with one scale per vector, 384 bytes for
+the shipped model. A search scans every vector of the source in memory. At
+the sizes a deep scope holds this takes milliseconds, so there is no
+approximate index and no native SQLite extension.
+
+## The model
+
+Embeddings come from Multilingual E5 small, a 384-dimension model that covers
+about 100 languages. It runs on the device through ONNX Runtime, so text never
+leaves the device. Download it from the Models page or with
+`ai.models.download`. Until it is installed, no embedding pass runs and
+`search.semantic` answers with the reason.
+
+Builds without local inference cannot embed. This includes the Intel Mac
+daemon, because ONNX Runtime publishes no build for it. There,
+`search.semantic.status` reports semantic search as unavailable and content
+search keeps working.
+
+Changing the model drops the source's vectors and embeds everything again,
+because vectors from two models cannot be compared.
+
+## How the index stays current
+
+An embedding pass follows the passes that change `text.db`:
+
+- the text pass, when it finishes;
+- the transcription job, when it finishes;
+- sidecar descriptions, after five minutes without another one for the same
+  source.
+
+A pass is started only when the model is installed and a document is pending.
+A document is pending when it has no vectors, or its text row was rewritten
+after its vectors were made. There is one pass per source at a time. A
+background pass that embeds nothing leaves no job row, and each source keeps
+its 20 newest background rows.
+
+## CPU use
+
+The pass is built to stay out of your way:
+
+- The model runs on one thread by default. Set `SD_SEMANTIC_THREADS` to use
+  more, up to the number of cores. Two threads embed about 1.8 times faster.
+- The pass runs on the background runtime the hashing reads use. Its threads
+  run at low priority: nice 10 on Linux and background QoS on macOS. Windows
+  keeps normal priority.
+- The pass embeds four chunks a call, so it checks for a pause or a stop
+  often.
+- While the device runs on battery the pass waits, and checks the power
+  source every 30 seconds. It reads `/sys/class/power_supply` on Linux,
+  `pmset -g batt` on macOS and `GetSystemPowerStatus` on Windows. A device
+  that reports no battery counts as on mains power.
+
+A query from `search.semantic` embeds on a normal-priority thread. With one
+thread the model computes on the calling thread, so a query runs at normal
+priority while the pass stays at low priority. With more threads, the
+model's extra threads keep the low priority of the runtime that loaded it.
+
+A file that changed since its text was read is left out of results until its
+new text is embedded, the same rule content search follows.
+
+## Query
+
+| Field | Meaning |
+|---|---|
+| `scope` | A directory or file under a source tracked on this device. |
+| `query` | What to find, in plain language. At most 1 KiB. |
+| `kinds` | Only these kinds: `text`, `markdown`, `csv`, `json`, `code`, `pdf`, `docx`, `transcript`, `scene`, `caption`. Empty means every kind. |
+| `max_results` | Hits per page, 20 by default and 100 at most. |
+| `cursor` | The `next_cursor` of the previous page. Paging stops after 500 hits. |
+
+Each hit has the file's path relative to the scope, its kind, the fused
+score, the similarity of its best chunk, `word_match`, a snippet and, for a
+recording, the moment it is about. The snippet marks matched words when any
+matched. Otherwise it is the start of the closest chunk.
+`pending_documents` counts documents in the deep scope still waiting for
+embeddings.
+
+`search.semantic.status` takes a `scope` and returns whether semantic search
+is available, the reason when it is not, the model, the number of documents
+and chunks embedded, the documents pending, and the size of `vectors.db`.
+
+## From an agent
+
+The agent endpoint exposes this search as the `search_semantic` MCP tool. It
+takes the same query, kinds, page size and cursor, searches only inside the
+grant's folder, and returns `similarity`, `word_match`, a plain-text
+snippet and `start_seconds` and `end_seconds` for recordings.
+
+## Cost
+
+Measured on a 4-core cloud machine (Linux x86_64) with the 8-bit model, over
+1,000 files of this repository's Markdown and Rust source (7.3 MB of text).
+"Cores busy" is the process's CPU time divided by the time the pass took.
+
+| | 1 thread (default) | 2 threads |
+|---|---|---|
+| Chunks | 9,769 (about 10 a document) | 9,769 |
+| Embedding time | 804 s, 82 ms a chunk | 446 s, 46 ms a chunk |
+| Cores busy | 1.0 of 4 | 1.95 of 4 |
+| `vectors.db` | 4.2 MB, about 430 bytes a chunk | 4.6 MB |
+| A pass with nothing pending | 17 ms | 19 ms |
+| Vector search, first after a write | 57 ms | 64 ms |
+| Vector search, cached | 30 ms | 28 ms |
+
+Cost scales with the text, not the file count. A deep scope with 10,000
+text documents of this size takes about two and a quarter hours of
+background time on one thread of such a machine, and about 45 MB of disk. The benchmark is the ignored
+test `semantic_benchmark` in `core/src/ops/indexing/semantic_index.rs`.

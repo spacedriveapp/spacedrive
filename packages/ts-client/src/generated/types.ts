@@ -82,6 +82,23 @@ limit?: number | null };
 
 export type ActivityListOutput = { entries: ActivityEntry[] };
 
+export type Actor = { id: string; kind: ActorKind; label: string; harness: string | null };
+
+export type ActorKind = "person" | "device" | "agent";
+
+export type ActorsListInput = Record<string, never>;
+
+export type ActorsListOutput = { actors: Actor[] };
+
+export type ActorsMeInput = Record<string, never>;
+
+export type ActorsMeOutput = { 
+/**
+ * The person using this device. Changes made through the app here are
+ * attributed to this actor.
+ */
+actor: Actor };
+
 export type AdapterConfigField = { key: string; name: string; description: string; field_type: string; required: boolean; secret: boolean; default: string | null };
 
 export type AdapterInfo = { id: string; name: string; description: string; version: string; author: string; data_type: string; icon_svg: string | null; update_available: boolean };
@@ -332,6 +349,19 @@ export type ChangeKind = { type: "create"; size: number } | { type: "create_dire
  * The filesystem attributes that change, each absent where it stays.
  */
 { type: "set_attributes"; attributes: Attributes };
+
+/**
+ * Which end of a space's history a page starts from.
+ */
+export type ChangeOrder = 
+/**
+ * Oldest first, for catching up from a cursor.
+ */
+"oldest" | 
+/**
+ * Newest first, for a feed or the last change to one file.
+ */
+"newest";
 
 export type CliInstallInput = Record<string, never>;
 
@@ -5420,6 +5450,115 @@ query: string; limit: number | null };
 
 export type SearchTagsOutput = { tags: Tag[] };
 
+/**
+ * One ranked file.
+ */
+export type SemanticSearchHit = { 
+/**
+ * The file, relative to the scope, with `/` separators.
+ */
+path: string; 
+/**
+ * What the matching text came from.
+ */
+kind: TextKind; 
+/**
+ * The fused score. Larger is better; only the order within one
+ * response means anything.
+ */
+score: number; 
+/**
+ * Cosine similarity of the file's best chunk to the query, when the
+ * file has vectors.
+ */
+similarity: number | null; 
+/**
+ * Whether any of the query's words appear in the file.
+ */
+word_match: boolean; 
+/**
+ * Words around the best word match, with the matches marked, or the
+ * start of the closest chunk when no word matched.
+ */
+snippet: SnippetFragment[]; 
+/**
+ * The moment in a recording the hit is about.
+ */
+time: SpokenTime | null };
+
+/**
+ * Search the files under `scope` by meaning and words.
+ */
+export type SemanticSearchInput = { 
+/**
+ * A directory or file under a source tracked on this device.
+ */
+scope: SdPath; 
+/**
+ * What to find, in plain language.
+ */
+query: string; 
+/**
+ * Only files of these kinds. Empty means every kind.
+ */
+kinds?: TextKind[]; 
+/**
+ * Hits per page. Defaults to 20.
+ */
+max_results?: number | null; 
+/**
+ * The `next_cursor` of the previous page.
+ */
+cursor?: string | null };
+
+/**
+ * One page of hits.
+ */
+export type SemanticSearchOutput = { hits: SemanticSearchHit[]; 
+/**
+ * Pass back as `cursor` to read the next page.
+ */
+next_cursor: string | null; 
+/**
+ * Documents in the source's deep scope still waiting for vectors.
+ * Those are found by their words only until the pass reaches them.
+ */
+pending_documents: number };
+
+/**
+ * Ask whether semantic search can run for the source holding `scope`.
+ */
+export type SemanticStatusInput = { 
+/**
+ * A path under a source tracked on this device.
+ */
+scope: SdPath };
+
+/**
+ * Whether semantic search runs for a source, and how far its index is.
+ */
+export type SemanticStatusOutput = { available: boolean; 
+/**
+ * Why it is unavailable, when it is.
+ */
+reason: string | null; 
+/**
+ * The embedder the source's vectors came from.
+ */
+model: string | null; 
+/**
+ * Documents with vectors.
+ */
+documents: number; chunks: number; 
+/**
+ * Documents in the deep scope still waiting for vectors.
+ */
+pending_documents: number; 
+/**
+ * The vector index's size on disk, in bytes.
+ */
+size_bytes: number };
+
 export type SerializablePairingState = "Idle" | "GeneratingCode" | "Broadcasting" | "Scanning" | "WaitingForConnection" | "Connecting" | "Authenticating" | "ExchangingKeys" | "AwaitingConfirmation" | "EstablishingSession" | "ChallengeReceived" | "ResponsePending" | "ResponseSent" | "Completed" | { Failed: { reason: string } };
 
 /**
@@ -5873,6 +6012,68 @@ path: string | null;
  * Whether file contents inside the space are hashed and read.
  */
 content_indexing: boolean; created_at: string };
+
+/**
+ * One change inside a space.
+ */
+export type SpaceChange = { seq: number; 
+/**
+ * RFC 3339.
+ */
+at: string; actor: Actor; grant_id: string | null; 
+/**
+ * `agent_write`, `app_op` or `watcher`.
+ */
+origin: string; 
+/**
+ * `create`, `mkdir`, `modify`, `move` or `delete`.
+ */
+op: string; 
+/**
+ * Relative to the space root, `/`-separated.
+ */
+path: string; to_path: string | null; before_hash: string | null; after_hash: string | null; size: number | null; 
+/**
+ * The job whose undo reverses the change.
+ */
+undo_id: string | null; 
+/**
+ * One line for a person, such as "changed outside Spacedrive on Studio".
+ */
+summary: string };
+
+export type SpaceChangesInput = { id: string; 
+/**
+ * Defaults to oldest first.
+ */
+order?: ChangeOrder | null; 
+/**
+ * Oldest first: the `next` of the previous page. Omit to start at the
+ * oldest change still kept.
+ */
+since?: number | null; 
+/**
+ * Newest first: the `next` of the previous page. Omit to start at the
+ * newest change.
+ */
+before?: number | null; 
+/**
+ * Only changes to this path or inside it, relative to the space root
+ * and `/`-separated. A move counts for both its source and its target.
+ */
+path?: string | null; 
+/**
+ * Defaults to 100, at most 500.
+ */
+limit?: number | null };
+
+export type SpaceChangesOutput = { changes: SpaceChange[]; 
+/**
+ * Pass as `since` (oldest first) or `before` (newest first) to read
+ * the next page in the same order. It stays the same at the end of the
+ * history.
+ */
+next: number };
 
 export type SpaceCreateInput = { 
 /**
@@ -7455,6 +7656,8 @@ export type CoreQuery =
 
 export type LibraryQuery =
      { type: 'activity.list'; input: ActivityListInput; output: ActivityListOutput }
+  |  { type: 'actors.list'; input: ActorsListInput; output: ActorsListOutput }
+  |  { type: 'actors.me'; input: ActorsMeInput; output: ActorsMeOutput }
   |  { type: 'adapters.config'; input: GetAdapterConfigInput; output: [AdapterConfigField] }
   |  { type: 'adapters.list'; input: ListAdaptersInput; output: [AdapterInfo] }
   |  { type: 'agent.stat'; input: StatInput; output: PathState }
@@ -7494,6 +7697,8 @@ export type LibraryQuery =
   |  { type: 'search.files'; input: FileSearchInput; output: FileSearchOutput }
   |  { type: 'search.grep'; input: GrepInput; output: GrepOutput }
   |  { type: 'search.media'; input: MediaSearchInput; output: MediaSearchOutput }
+  |  { type: 'search.semantic'; input: SemanticSearchInput; output: SemanticSearchOutput }
+  |  { type: 'search.semantic.status'; input: SemanticStatusInput; output: SemanticStatusOutput }
   |  { type: 'sources.get'; input: GetSourceInput; output: SourceInfo }
   |  { type: 'sources.list'; input: ListSourcesInput; output: [SourceInfo] }
   |  { type: 'sources.list_items'; input: ListSourceItemsInput; output: [SourceItem] }
@@ -7501,6 +7706,7 @@ export type LibraryQuery =
   |  { type: 'sources.media_listing'; input: SourceMediaListingInput; output: SourceMediaListingOutput }
   |  { type: 'sources.search'; input: SourceSearchInput; output: [SourceSearchResult] }
   |  { type: 'sources.validate_path'; input: ValidateSourcePathInput; output: ValidateSourcePathOutput }
+  |  { type: 'spaces.changes'; input: SpaceChangesInput; output: SpaceChangesOutput }
   |  { type: 'spaces.get'; input: SpaceGetQueryInput; output: SpaceGetQueryOutput }
   |  { type: 'spaces.list'; input: SpacesListQueryInput; output: SpacesListQueryOutput }
   |  { type: 'sync.activity'; input: GetSyncActivityInput; output: GetSyncActivityOutput }
@@ -7700,6 +7906,8 @@ export const WIRE_METHODS = {
 
   libraryQueries: {
     'activity.list': 'query:activity.list',
+    'actors.list': 'query:actors.list',
+    'actors.me': 'query:actors.me',
     'adapters.config': 'query:adapters.config',
     'adapters.list': 'query:adapters.list',
     'agent.stat': 'query:agent.stat',
@@ -7739,6 +7947,8 @@ export const WIRE_METHODS = {
     'search.files': 'query:search.files',
     'search.grep': 'query:search.grep',
     'search.media': 'query:search.media',
+    'search.semantic': 'query:search.semantic',
+    'search.semantic.status': 'query:search.semantic.status',
     'sources.get': 'query:sources.get',
     'sources.list': 'query:sources.list',
     'sources.list_items': 'query:sources.list_items',
@@ -7746,6 +7956,7 @@ export const WIRE_METHODS = {
     'sources.media_listing': 'query:sources.media_listing',
     'sources.search': 'query:sources.search',
     'sources.validate_path': 'query:sources.validate_path',
+    'spaces.changes': 'query:spaces.changes',
     'spaces.get': 'query:spaces.get',
     'spaces.list': 'query:spaces.list',
     'sync.activity': 'query:sync.activity',

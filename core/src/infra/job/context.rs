@@ -212,6 +212,27 @@ impl<'a> JobContext<'a> {
 				let _ = logger.log("WARN", &format!("Could not record effects: {error}"));
 			}
 		}
+		let context = self.library.core_context();
+		match crate::ops::actors::this_person(&self.library, context).await {
+			Ok(person) => {
+				crate::ops::spaces::events::record_effects(
+					context,
+					crate::ops::spaces::events::Attribution {
+						origin: crate::ops::spaces::events::Origin::AppOp,
+						actor: person,
+						grant: None,
+						undo: Some(self.id.0),
+						library: Some(self.library.id()),
+					},
+					&effects,
+					None,
+				)
+				.await
+			}
+			Err(error) => {
+				warn!(job_id = %self.id, "Could not attribute effects to a person: {error}")
+			}
+		}
 	}
 
 	/// Log a message

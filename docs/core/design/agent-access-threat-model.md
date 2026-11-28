@@ -229,6 +229,8 @@ code change.
 | `search` results per page | 100 |
 | `search_content` query length | 1 KiB |
 | `search_content` results per page | 200 |
+| `search_semantic` query length | 1 KiB |
+| `search_semantic` results per page | 100 |
 | Failed authentications per client address | 20 per minute, then 429 for 5 minutes |
 | Event stream | heartbeat every 15 s; closed when a write fails or stalls for 30 s, when the grant ends, or when the grant opens a fifth stream (oldest closes) |
 | Idle MCP session | closed after 30 min |

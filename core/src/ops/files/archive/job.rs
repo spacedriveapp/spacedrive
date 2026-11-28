@@ -131,6 +131,7 @@ impl JobHandler for ArchiveJob {
 			)));
 		}
 		let partial = partial_name(&destination);
+		let _held = crate::ops::spaces::events::hold(&[&partial, &destination]);
 		let _ = tokio::fs::remove_file(&partial).await;
 
 		ctx.progress(Progress::Indeterminate("Listing the sources".to_string()));
@@ -232,6 +233,7 @@ impl JobHandler for ArchiveJob {
 				let Some(path) = source.as_local_path() else {
 					continue;
 				};
+				crate::ops::spaces::events::claim(&[path]);
 				match trash::trash(path, ctx.volume_manager().as_deref(), ctx.id()).await {
 					Ok(location) => {
 						let subject = match &location {
@@ -606,6 +608,7 @@ impl JobHandler for ExtractJob {
 				}
 				ChangeKind::Replace { .. } => {
 					if decision.entry.index >= self.next {
+						crate::ops::spaces::events::claim(&[path]);
 						match trash::trash(path, ctx.volume_manager().as_deref(), ctx.id()).await {
 							Ok(location) => {
 								previous.insert(decision.entry.index, location);
