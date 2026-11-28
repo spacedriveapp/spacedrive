@@ -85,6 +85,7 @@ impl From<super::mountpoint::Refusal> for FuseError {
 			Refusal::Mountpoint(reason) => Self::Mountpoint(reason),
 			Refusal::Grant(err) => Self::Grant(err),
 			Refusal::NoSource => Self::NoSource,
+			Refusal::Lookup(reason) => Self::Mount(reason),
 		}
 	}
 }
@@ -175,8 +176,8 @@ async fn mount_tree(
 	let (grant, scope) = match grant_token {
 		Some(token) => {
 			let (grant, scope) =
-				super::mountpoint::bind_grant(&context, token, "fuse.mount").await?;
-			(Some(grant), Some(scope))
+				super::mountpoint::bind_grant(&context, token.clone(), "fuse.mount").await?;
+			(Some(grant), Some((scope, token)))
 		}
 		None => (None, None),
 	};
@@ -192,17 +193,18 @@ async fn mount_tree(
 
 	let info = FuseMountInfo {
 		path: path.clone(),
-		grant_id: scope.as_ref().map(|scope| scope.grant_id),
-		granted_path: scope.as_ref().map(|scope| scope.root.clone()),
-		expires_at: scope.as_ref().map(|scope| scope.expires_at),
+		grant_id: scope.as_ref().map(|(scope, _)| scope.grant_id),
+		granted_path: scope.as_ref().map(|(scope, _)| scope.root.clone()),
+		expires_at: scope.as_ref().map(|(scope, _)| scope.expires_at),
 		mounted_at: Utc::now(),
 	};
-	let watch = scope.map(|scope| {
+	let watch = scope.map(|(scope, token)| {
 		tokio::spawn(watch_grant(
 			context.clone(),
 			path.clone(),
 			scope.library_id,
 			scope.grant_id,
+			token,
 		))
 	});
 	info!(path = %path.display(), grant = ?info.grant_id, "FUSE mount up");
@@ -257,8 +259,14 @@ fn lazy_unmount(path: &Path) {
 /// Take the mount down once its grant is revoked, expires, or disappears.
 /// Each open already checks the grant; this makes the mount itself go away.
 #[cfg(all(target_os = "linux", feature = "fuse"))]
-async fn watch_grant(context: Arc<CoreContext>, path: PathBuf, library_id: Uuid, grant_id: Uuid) {
-	super::mountpoint::grant_ended(context, library_id, grant_id).await;
+async fn watch_grant(
+	context: Arc<CoreContext>,
+	path: PathBuf,
+	library_id: Uuid,
+	grant_id: Uuid,
+	token: String,
+) {
+	super::mountpoint::grant_ended(context, library_id, grant_id, token).await;
 	info!(path = %path.display(), grant = %grant_id, "grant ended; unmounting");
 	if let Err(err) = take_down(&path, false).await {
 		warn!(path = %path.display(), error = %err, "could not unmount after the grant ended");

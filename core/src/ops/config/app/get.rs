@@ -122,10 +122,10 @@ pub struct AgentMcpConfigOutput {
 	pub tls_cert: Option<PathBuf>,
 	/// PEM private key for `tls_cert`.
 	pub tls_key: Option<PathBuf>,
-	/// Whether a non-loopback listener may serve plain HTTP.
-	pub plaintext: bool,
 	/// Names a non-loopback listener accepts in Host besides its IP.
 	pub host_names: Vec<String>,
+	/// Bytes block reads may return per grant per hour.
+	pub block_bytes_per_hour: u64,
 }
 
 /// Logging configuration output
@@ -179,8 +179,8 @@ impl From<&AppConfig> for AppConfigOutput {
 				listen: config.agent_mcp.listen.clone(),
 				tls_cert: config.agent_mcp.tls_cert.clone(),
 				tls_key: config.agent_mcp.tls_key.clone(),
-				plaintext: config.agent_mcp.plaintext,
 				host_names: config.agent_mcp.host_names.clone(),
+				block_bytes_per_hour: config.agent_mcp.block_bytes_per_hour,
 			},
 			services: ServiceConfigOutput {
 				networking_enabled: config.services.networking_enabled,

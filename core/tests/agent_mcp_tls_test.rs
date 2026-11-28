@@ -7,8 +7,11 @@
 //! over TLS, the 401 for a bad token, the 403 for a Host that does not name
 //! the listener, OAuth metadata with https URLs on loopback, and that a plain
 //! HTTP client gets nothing from the TLS port. When the host has a
-//! non-loopback address, it checks that the daemon refuses to listen there and
-//! that a TLS listener there screens Host and answers 404 on every OAuth route.
+//! non-loopback address, it checks that the daemon refuses to listen there
+//! without TLS, and that with TLS it serves MCP and REST reads, refuses every
+//! write tool with 403 while the same grant writes over loopback, screens Host
+//! and answers 404 on every OAuth route. On loopback it checks that a write
+//! through a configured host name or with any proxy header gets the same 403.
 //! On loopback it checks that a configured host name passes Host but gets no
 //! OAuth, and that a request carrying a proxy header gets none either.
 
@@ -31,12 +34,18 @@ use sd_core::{
 };
 use serde_json::{json, Value};
 
-async fn grant(harness: &IndexingHarness, path: &Path) -> anyhow::Result<CreateGrantOutput> {
+async fn grant(
+	harness: &IndexingHarness,
+	path: &Path,
+	caps: GrantCap,
+) -> anyhow::Result<CreateGrantOutput> {
 	Ok(CreateGrantAction::from_input(CreateGrantInput {
 		path: path.to_path_buf(),
-		caps: Some(GrantCap::Read),
+		caps: Some(caps),
 		ttl_seconds: None,
 		label: Some("mcp tls".to_string()),
+		kind: None,
+		token_format: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())
@@ -105,7 +114,7 @@ async fn agent_mcp_serves_grants_over_tls() -> anyhow::Result<()> {
 		.await?;
 	tracked.track().await?;
 	let project = std::fs::canonicalize(harness.temp_path())?.join("tracked/project");
-	let granted = grant(&harness, &project).await?;
+	let granted = grant(&harness, &project, GrantCap::Read).await?;
 
 	let certified =
 		rcgen::generate_simple_self_signed(vec!["localhost".to_string(), "127.0.0.1".to_string()])?;
@@ -297,66 +306,192 @@ async fn metadata_status(
 	request.send().await.expect("request").status()
 }
 
+/// A `tools/call` of `name` with `arguments` in `session`.
+fn tool_call(id: u64, name: &str, arguments: Value) -> Value {
+	json!({
+		"jsonrpc": "2.0",
+		"id": id,
+		"method": "tools/call",
+		"params": { "name": name, "arguments": arguments },
+	})
+}
+
+/// An MCP session on `url`: initialize, then the initialized notification.
+async fn open_session(http: &reqwest_rustls::Client, url: &str, token: &str) -> String {
+	let reply = post(http, url, token, None, None, initialize()).await;
+	assert_eq!(reply.status, StatusCode::OK, "{}", reply.body);
+	assert_eq!(reply.body["result"]["serverInfo"]["name"], "spacedrive");
+	let session = reply.headers["mcp-session-id"]
+		.to_str()
+		.expect("session id")
+		.to_string();
+	let reply = post(
+		http,
+		url,
+		token,
+		Some(&session),
+		None,
+		json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }),
+	)
+	.await;
+	assert_eq!(reply.status, StatusCode::ACCEPTED);
+	session
+}
+
+/// A REST tool call of `name` on `space` at `origin`, with extra `headers`.
+async fn rest_tool(
+	http: &reqwest_rustls::Client,
+	origin: &str,
+	token: &str,
+	space: &str,
+	name: &str,
+	arguments: Value,
+	headers: &[(&str, String)],
+) -> (StatusCode, Value) {
+	let mut request = http
+		.post(format!("{origin}/v1/spaces/{space}/tools/{name}"))
+		.bearer_auth(token)
+		.header(header::CONTENT_TYPE, "application/json")
+		.body(arguments.to_string());
+	for (name, value) in headers {
+		request = request.header(*name, value);
+	}
+	let response = request.send().await.expect("request");
+	let status = response.status();
+	let body = response.json().await.unwrap_or(Value::Null);
+	(status, body)
+}
+
+const NETWORK_WRITES_OFF: &str = "writes over the network are off until the security review";
+
 #[tokio::test]
-async fn non_loopback_listeners_are_refused_and_offer_no_oauth() -> anyhow::Result<()> {
+async fn non_loopback_listeners_need_tls_and_serve_reads_only() -> anyhow::Result<()> {
 	let Some(ip) = local_non_loopback_ip() else {
+		eprintln!("skipping: this host has no non-loopback address to listen on");
 		return Ok(());
 	};
 	let harness = IndexingHarnessBuilder::new("agent_mcp_non_loopback")
 		.disable_watcher()
 		.build()
 		.await?;
-
-	// The daemon refuses every non-loopback address until containment lands.
+	let tracked = harness.create_test_dir("tracked").await?;
+	tracked
+		.write_file("project/readme.md", "# Over the network\n")
+		.await?;
+	tracked.track().await?;
+	let project = std::fs::canonicalize(harness.temp_path())?.join("tracked/project");
+	let granted = grant(&harness, &project, GrantCap::ReadWrite).await?;
+	let token = granted.token.as_str();
+	let space = granted.grant.id.to_string();
 	let listen = std::net::SocketAddr::new(ip, 0).to_string();
-	let refused = [
-		AgentMcpConfig {
-			enabled: true,
-			listen: listen.clone(),
-			..AgentMcpConfig::default()
-		},
-		AgentMcpConfig {
-			enabled: true,
-			listen: listen.clone(),
-			plaintext: true,
-			..AgentMcpConfig::default()
-		},
-		AgentMcpConfig {
-			enabled: true,
-			listen,
-			tls_cert: Some("cert.pem".into()),
-			tls_key: Some("key.pem".into()),
-			..AgentMcpConfig::default()
-		},
-	];
-	for config in &refused {
-		assert!(agent_mcp::start(harness.core.context.clone(), config)
-			.await
-			.is_err());
-	}
 
-	// The listener itself screens Host and offers no OAuth beyond loopback.
+	// Without TLS the daemon refuses the address.
+	let plain = AgentMcpConfig {
+		enabled: true,
+		listen: listen.clone(),
+		..AgentMcpConfig::default()
+	};
+	let refused = agent_mcp::start(harness.core.context.clone(), &plain)
+		.await
+		.unwrap_err();
+	assert!(refused.to_string().contains("tls_cert"), "{refused}");
+
+	// With TLS files it starts, and a client that trusts only that
+	// certificate completes the handshake.
 	let certified =
 		rcgen::generate_simple_self_signed(vec![ip.to_string(), "nas.example.test".to_string()])?;
 	let cert_pem = certified.cert.pem();
-	let tls = agent_mcp::tls_config(
-		cert_pem.as_bytes(),
-		certified.signing_key.serialize_pem().as_bytes(),
-	)?;
-	let listener = tokio::net::TcpListener::bind(std::net::SocketAddr::new(ip, 0)).await?;
-	let bound = agent_mcp::serve_tls(
-		harness.core.context.clone(),
-		listener,
-		Limits::default(),
-		tls,
-		vec!["nas.example.test".to_string()],
-	)?;
+	let cert_path = harness.temp_path().join("agent-mcp-cert.pem");
+	let key_path = harness.temp_path().join("agent-mcp-key.pem");
+	std::fs::write(&cert_path, &cert_pem)?;
+	std::fs::write(&key_path, certified.signing_key.serialize_pem())?;
+	let config = AgentMcpConfig {
+		enabled: true,
+		listen,
+		tls_cert: Some(cert_path),
+		tls_key: Some(key_path),
+		host_names: vec!["nas.example.test".to_string()],
+		..AgentMcpConfig::default()
+	};
+	let bound = agent_mcp::start(harness.core.context.clone(), &config).await?;
 	assert_eq!(bound.ip(), ip);
 	let https = reqwest_rustls::Client::builder()
 		.add_root_certificate(reqwest_rustls::Certificate::from_pem(cert_pem.as_bytes())?)
 		.build()?;
-	let url = format!("https://{bound}/mcp");
+	let origin = format!("https://{bound}");
+	let url = format!("{origin}/mcp");
 
+	// MCP: the handshake and a read work.
+	let session = open_session(&https, &url, token).await;
+	let reply = post(
+		&https,
+		&url,
+		token,
+		Some(&session),
+		None,
+		tool_call(2, "read", json!({ "path": "readme.md" })),
+	)
+	.await;
+	assert_eq!(reply.status, StatusCode::OK);
+	let result = &reply.body["result"];
+	assert_eq!(result["isError"], json!(false), "{result}");
+	assert!(
+		result.to_string().contains("# Over the network"),
+		"{result}"
+	);
+
+	// MCP: a write tool is refused before it runs, even on a writable grant.
+	let reply = post(
+		&https,
+		&url,
+		token,
+		Some(&session),
+		None,
+		tool_call(
+			3,
+			"write_file",
+			json!({ "path": "mcp.txt", "content": "x" }),
+		),
+	)
+	.await;
+	assert_eq!(reply.status, StatusCode::FORBIDDEN, "{}", reply.body);
+	assert_eq!(reply.body["error"]["message"], NETWORK_WRITES_OFF);
+	assert!(!project.join("mcp.txt").exists());
+
+	// REST: the space list and a block read work.
+	let response = https
+		.get(format!("{origin}/v1/spaces"))
+		.bearer_auth(token)
+		.send()
+		.await?;
+	assert_eq!(response.status(), StatusCode::OK);
+	let spaces: Value = response.json().await?;
+	assert!(spaces.to_string().contains(&space), "{spaces}");
+	let response = https
+		.get(format!("{origin}/v1/spaces/{space}/blocks/readme.md"))
+		.bearer_auth(token)
+		.header(header::RANGE, "bytes=0-1")
+		.send()
+		.await?;
+	assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+	assert_eq!(&response.bytes().await?[..], b"# ");
+
+	// REST: a write tool is refused the same way.
+	let (status, body) = rest_tool(
+		&https,
+		&origin,
+		token,
+		&space,
+		"write_file",
+		json!({ "path": "rest.txt", "content": "x" }),
+		&[],
+	)
+	.await;
+	assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+	assert_eq!(body["error"]["message"], NETWORK_WRITES_OFF);
+	assert!(!project.join("rest.txt").exists());
+
+	// Host must name the listener, and no OAuth route answers.
 	for host in [
 		bound.to_string(),
 		format!("nas.example.test:{}", bound.port()),
@@ -373,7 +508,52 @@ async fn non_loopback_listeners_are_refused_and_offer_no_oauth() -> anyhow::Resu
 		let (status, _) = challenge(&https, &url, &[("host", host.clone())]).await;
 		assert_eq!(status, StatusCode::FORBIDDEN, "{host}");
 	}
-	assert_no_oauth(&https, &format!("https://{bound}")).await;
+	assert_no_oauth(&https, &origin).await;
+
+	// The same grant on a loopback listener keeps read-write.
+	let loopback = AgentMcpConfig {
+		enabled: true,
+		listen: "127.0.0.1:0".to_string(),
+		..AgentMcpConfig::default()
+	};
+	let local = agent_mcp::start(harness.core.context.clone(), &loopback).await?;
+	let http = reqwest_rustls::Client::new();
+	let origin = format!("http://{local}");
+	let url = format!("{origin}/mcp");
+	let session = open_session(&http, &url, token).await;
+	let reply = post(
+		&http,
+		&url,
+		token,
+		Some(&session),
+		None,
+		tool_call(
+			2,
+			"write_file",
+			json!({ "path": "mcp.txt", "content": "x" }),
+		),
+	)
+	.await;
+	assert_eq!(reply.status, StatusCode::OK, "{}", reply.body);
+	assert_eq!(
+		reply.body["result"]["isError"],
+		json!(false),
+		"{}",
+		reply.body
+	);
+	assert!(project.join("mcp.txt").exists());
+	let (status, body) = rest_tool(
+		&http,
+		&origin,
+		token,
+		&space,
+		"write_file",
+		json!({ "path": "rest.txt", "content": "x" }),
+		&[],
+	)
+	.await;
+	assert_eq!(status, StatusCode::OK, "{body}");
+	assert!(project.join("rest.txt").exists());
 
 	harness.shutdown().await?;
 	Ok(())
@@ -467,6 +647,125 @@ async fn oauth_is_offered_only_to_requests_straight_from_this_machine() -> anyho
 			.status();
 		assert_eq!(status, StatusCode::NOT_FOUND, "{name}");
 	}
+
+	harness.shutdown().await?;
+	Ok(())
+}
+
+/// An MCP `write_file` of `path` in `session`, with extra `headers`.
+async fn mcp_write(
+	http: &reqwest_rustls::Client,
+	url: &str,
+	token: &str,
+	session: &str,
+	path: &str,
+	headers: &[(&str, String)],
+) -> (StatusCode, Value) {
+	let mut request = http
+		.post(url)
+		.bearer_auth(token)
+		.header(header::ACCEPT, "application/json, text/event-stream")
+		.header(header::CONTENT_TYPE, "application/json")
+		.header("mcp-session-id", session)
+		.body(tool_call(9, "write_file", json!({ "path": path, "content": "x" })).to_string());
+	for (name, value) in headers {
+		request = request.header(*name, value);
+	}
+	let response = request.send().await.expect("request");
+	let status = response.status();
+	(status, response.json().await.unwrap_or(Value::Null))
+}
+
+#[tokio::test]
+async fn writes_need_a_direct_local_request() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("agent_mcp_local_writes")
+		.disable_watcher()
+		.build()
+		.await?;
+	let tracked = harness.create_test_dir("tracked").await?;
+	tracked.write_file("project/readme.md", "# Local\n").await?;
+	tracked.track().await?;
+	let project = std::fs::canonicalize(harness.temp_path())?.join("tracked/project");
+	let granted = grant(&harness, &project, GrantCap::ReadWrite).await?;
+	let token = granted.token.as_str();
+	let space = granted.grant.id.to_string();
+	let config = AgentMcpConfig {
+		enabled: true,
+		listen: "127.0.0.1:0".to_string(),
+		host_names: vec!["nas.example.test".to_string()],
+		..AgentMcpConfig::default()
+	};
+	let bound = agent_mcp::start(harness.core.context.clone(), &config).await?;
+	let http = reqwest_rustls::Client::new();
+	let origin = format!("http://{bound}");
+	let url = format!("{origin}/mcp");
+	let session = open_session(&http, &url, token).await;
+
+	// A configured host name, or any proxy header, means the request may have
+	// come from another machine, so a write is refused on both surfaces.
+	let mut refused: Vec<(&str, String)> = vec![("host", "nas.example.test".to_string())];
+	for name in [
+		"forwarded",
+		"x-forwarded-for",
+		"x-forwarded-host",
+		"x-real-ip",
+	] {
+		refused.push((name, "203.0.113.7".to_string()));
+	}
+	for (index, header) in refused.iter().enumerate() {
+		let headers = [header.clone()];
+		let path = format!("mcp-{index}.txt");
+		let (status, body) = mcp_write(&http, &url, token, &session, &path, &headers).await;
+		assert_eq!(status, StatusCode::FORBIDDEN, "{}: {body}", header.0);
+		assert_eq!(body["error"]["message"], NETWORK_WRITES_OFF, "{}", header.0);
+		assert!(!project.join(&path).exists(), "{}", header.0);
+
+		let path = format!("rest-{index}.txt");
+		let (status, body) = rest_tool(
+			&http,
+			&origin,
+			token,
+			&space,
+			"write_file",
+			json!({ "path": path, "content": "x" }),
+			&headers,
+		)
+		.await;
+		assert_eq!(status, StatusCode::FORBIDDEN, "{}: {body}", header.0);
+		assert_eq!(body["error"]["message"], NETWORK_WRITES_OFF, "{}", header.0);
+		assert!(!project.join(&path).exists(), "{}", header.0);
+	}
+
+	// Reads still work through the proxy name.
+	let (status, body) = rest_tool(
+		&http,
+		&origin,
+		token,
+		&space,
+		"read",
+		json!({ "path": "readme.md" }),
+		&[("host", "nas.example.test".to_string())],
+	)
+	.await;
+	assert_eq!(status, StatusCode::OK, "{body}");
+
+	// Straight from this machine, the same writes succeed.
+	let (status, body) = mcp_write(&http, &url, token, &session, "mcp.txt", &[]).await;
+	assert_eq!(status, StatusCode::OK, "{body}");
+	assert_eq!(body["result"]["isError"], json!(false), "{body}");
+	assert!(project.join("mcp.txt").exists());
+	let (status, body) = rest_tool(
+		&http,
+		&origin,
+		token,
+		&space,
+		"write_file",
+		json!({ "path": "rest.txt", "content": "x" }),
+		&[],
+	)
+	.await;
+	assert_eq!(status, StatusCode::OK, "{body}");
+	assert!(project.join("rest.txt").exists());
 
 	harness.shutdown().await?;
 	Ok(())

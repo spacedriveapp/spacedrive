@@ -25,63 +25,6 @@ export type ActiveProvider = { category: Category; locality: Locality;
  */
 model_id: string | null };
 
-/**
- * Who made a change.
- */
-export type ActivityActor = 
-/**
- * An agent writing through a grant. `grant_id` is `None` for writes
- * journaled before writes recorded their grant.
- */
-{ kind: "agent"; grant_id: string | null; label: string | null } | 
-/**
- * Someone using Spacedrive on this device, through a job such as a copy.
- */
-{ kind: "person"; device: string; job: string };
-
-/**
- * One change: an agent write, or a job's whole journal.
- */
-export type ActivityEntry = { 
-/**
- * The journal's id. `files.undo` with this id reverses the change.
- */
-id: string; at: string; actor: ActivityActor; 
-/**
- * What the last step of the change did, which for an agent write is
- * the write itself rather than the folders made above it. With a
- * requested path, the last step under it.
- */
-kind: ActivityKind; path: string; 
-/**
- * Where a move went.
- */
-to_path: string | null; 
-/**
- * How many paths the change touched, counting only those under the
- * requested path when one was given.
- */
-changes: number; 
-/**
- * Whether `files.undo` can reverse at least part of it.
- */
-undoable: boolean };
-
-export type ActivityKind = "create" | "make_dir" | "modify" | "move" | "delete" | "attributes";
-
-export type ActivityListInput = { 
-/**
- * Only changes at or under this path on this device. Every change
- * when absent.
- */
-path?: string | null; 
-/**
- * The most entries to return, newest first. Defaults to 50.
- */
-limit?: number | null };
-
-export type ActivityListOutput = { entries: ActivityEntry[] };
-
 export type Actor = { id: string; kind: ActorKind; label: string; harness: string | null };
 
 export type ActorKind = "person" | "device" | "agent";
@@ -167,13 +110,13 @@ tls_cert: string | null;
  */
 tls_key: string | null; 
 /**
- * Whether a non-loopback listener may serve plain HTTP.
- */
-plaintext: boolean; 
-/**
  * Names a non-loopback listener accepts in Host besides its IP.
  */
-host_names: string[] };
+host_names: string[]; 
+/**
+ * Bytes block reads may return per grant per hour.
+ */
+block_bytes_per_hour: number };
 
 /**
  * Per-library inference settings.
@@ -916,9 +859,20 @@ path: string;
  */
 caps?: GrantCap | null; 
 /**
- * Lifetime in seconds, from 5 minutes to 12 hours. Defaults to 1 hour.
+ * Lifetime in seconds. A task grant lives from 5 minutes to 12 hours,
+ * 1 hour by default; a standing grant up to 30 days, 30 days by default.
  */
 ttl_seconds?: number | null; 
+/**
+ * Defaults to a task grant. A standing grant must be on a workspace
+ * space.
+ */
+kind?: GrantKind | null; 
+/**
+ * Defaults to signed for a standing grant and opaque for a task grant.
+ * A signed token needs the folder to be inside a space.
+ */
+token_format?: TokenFormat | null; 
 /**
  * A name for the owner's list, such as the agent it was made for.
  */
@@ -926,8 +880,8 @@ label?: string | null };
 
 export type CreateGrantOutput = { grant: GrantInfo; 
 /**
- * The bearer token. This is the only time it is shown; Spacedrive keeps
- * only its hash.
+ * The bearer token, `sdg_` for an opaque token or `sdg_s.` for a signed
+ * one. This is the only time it is shown; Spacedrive keeps only its hash.
  */
 token: string };
 
@@ -1672,8 +1626,9 @@ export type ExportMedia = "original" |
 
 export type ExtendGrantInput = { id: string; 
 /**
- * The new lifetime in seconds from now, from 5 minutes to 12 hours.
- * Defaults to 1 hour.
+ * The new lifetime in seconds from now: 5 minutes to 12 hours for a task
+ * grant, 1 hour by default; up to 30 days for a standing grant, 30 days
+ * by default.
  */
 ttl_seconds?: number | null };
 
@@ -2591,7 +2546,11 @@ export type GrantInfo = { id: string; source_id: string;
 /**
  * The granted directory, canonical at creation.
  */
-subtree: string; caps: GrantCap; label: string | null; 
+subtree: string; caps: GrantCap; 
+/**
+ * The space the grant lends a part of, for grants made since spaces.
+ */
+space_id: string | null; kind: GrantKind; token_format: TokenFormat; label: string | null; 
 /**
  * The device that minted the grant.
  */
@@ -2600,6 +2559,19 @@ created_by: string; created_at: string; expires_at: string; revoked_at: string |
  * When the grant last authorized a request, from the audit log.
  */
 last_used_at: string | null };
+
+/**
+ * How long a grant is meant to last.
+ */
+export type GrantKind = 
+/**
+ * One piece of work: 5 minutes to 12 hours.
+ */
+"task" | 
+/**
+ * An agent's own workspace: up to 30 days, only on a workspace space.
+ */
+"standing";
 
 export type GrantSetupInput = Record<string, never>;
 
@@ -6485,6 +6457,20 @@ export type TimelineFormat =
 "otio";
 
 /**
+ * How a grant's token is checked.
+ */
+export type TokenFormat = 
+/**
+ * `sdg_` and 64 hex characters, checked by hash on the minting device.
+ */
+"opaque" | 
+/**
+ * `sdg_s.` and signed claims, checked by any node holding the space's
+ * store. See [`signed`].
+ */
+"signed";
+
+/**
  * A feature made runnable by an external tool.
  */
 export type ToolCapability = "video_thumbnail" | "video_thumbstrip" | "media_metadata";
@@ -6779,15 +6765,15 @@ agent_mcp_tls_cert?: string | null;
  */
 agent_mcp_tls_key?: string | null; 
 /**
- * Let a non-loopback agent MCP listener serve plain HTTP. Applies at
- * restart.
- */
-agent_mcp_plaintext?: boolean | null; 
-/**
  * Host names a non-loopback agent MCP listener accepts besides its IP;
  * an empty list clears them. Applies at restart.
  */
 agent_mcp_host_names?: string[] | null; 
+/**
+ * Bytes the space endpoint's block reads may return per grant per hour.
+ * Must be greater than 0. Applies at restart.
+ */
+agent_mcp_block_bytes_per_hour?: number | null; 
 /**
  * Whether networking is enabled
  */
@@ -7655,8 +7641,7 @@ export type CoreQuery =
 ;
 
 export type LibraryQuery =
-     { type: 'activity.list'; input: ActivityListInput; output: ActivityListOutput }
-  |  { type: 'actors.list'; input: ActorsListInput; output: ActorsListOutput }
+     { type: 'actors.list'; input: ActorsListInput; output: ActorsListOutput }
   |  { type: 'actors.me'; input: ActorsMeInput; output: ActorsMeOutput }
   |  { type: 'adapters.config'; input: GetAdapterConfigInput; output: [AdapterConfigField] }
   |  { type: 'adapters.list'; input: ListAdaptersInput; output: [AdapterInfo] }
@@ -7905,7 +7890,6 @@ export const WIRE_METHODS = {
   },
 
   libraryQueries: {
-    'activity.list': 'query:activity.list',
     'actors.list': 'query:actors.list',
     'actors.me': 'query:actors.me',
     'adapters.config': 'query:adapters.config',

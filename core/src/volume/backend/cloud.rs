@@ -393,6 +393,7 @@ impl VolumeBackend for CloudBackend {
 				uid: None,
 				gid: None,
 				link_target: None,
+				etag: metadata.etag().map(str::to_string),
 			});
 		}
 
@@ -556,6 +557,22 @@ impl VolumeBackend for CloudBackend {
 		Ok(data.to_bytes())
 	}
 
+	async fn read_range_if_match(
+		&self,
+		path: &Path,
+		range: std::ops::Range<u64>,
+		etag: &str,
+	) -> Result<Bytes, VolumeError> {
+		let data = self
+			.operator
+			.read_with(&self.to_cloud_path(path))
+			.range(range)
+			.if_match(etag)
+			.await
+			.map_err(changed)?;
+		Ok(data.to_bytes())
+	}
+
 	async fn delete_if_match(&self, path: &Path, etag: &str) -> Result<(), VolumeError> {
 		// OpenDAL sends no If-Match on an S3 DeleteObject, so the tag is
 		// checked just before the delete instead.
@@ -567,6 +584,37 @@ impl VolumeBackend for CloudBackend {
 		}
 		self.operator
 			.delete(&self.to_cloud_path(path))
+			.await
+			.map_err(volume_error)
+	}
+
+	async fn holds_marker(&self, path: &Path) -> Result<bool, VolumeError> {
+		let cloud_path = self.to_cloud_path(path);
+		// A flat listing returns keys in order, so a marker is the first key.
+		let mut lister = self
+			.operator
+			.lister_with(&cloud_path)
+			.recursive(true)
+			.limit(1)
+			.await
+			.map_err(volume_error)?;
+		Ok(match lister.try_next().await.map_err(volume_error)? {
+			Some(entry) => entry.path() == cloud_path,
+			None => false,
+		})
+	}
+
+	async fn delete_marker(&self, path: &Path) -> Result<(), VolumeError> {
+		let cloud_path = self.to_cloud_path(path);
+		if !cloud_path.ends_with('/') {
+			return Err(VolumeError::Unsupported(format!(
+				"{cloud_path} is not a directory marker"
+			)));
+		}
+		// Operator::delete removes the one key; remove_all would take the
+		// objects below it too.
+		self.operator
+			.delete(&cloud_path)
 			.await
 			.map_err(volume_error)
 	}

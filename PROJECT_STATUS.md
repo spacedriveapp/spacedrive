@@ -1,7 +1,7 @@
 # Project Status
 
-> Last updated: 2026-11-27
-> Code baseline: `b1a58be`
+> Last updated: 2026-11-28
+> Code baseline: `02d68eb`
 > Branch of record: `main` (fast-forwarded from `sources` on 2026-10-05)
 > Purpose: short-term working context across development sessions while
 > `.tasks/` is frozen.
@@ -36,19 +36,92 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
-Video duration at indexing (Capy SPAC-129 follow-up, November 27, beta.1, in
-PR). Jamie decided a video's duration belongs in the record, so the Duration
+Spaces (Capy FAN-14842, November 27 to 28, landed in #3299, #3306, #3315 and
+#3333; design in #3300). The sidebar's Space is now a Layout: `layouts.*` ops,
+`sd layouts` and the layout tables renamed in place, with no `spaces.*`
+alias. A space is any folder or an empty workspace, stored as a `space`
+assertion in each source store, with `spaces.create/list/get/update/delete` and
+`sd space`. Content indexing on a space replaces #3286's deep scope. Actors,
+grant attribution and a per-space `space_event` log answer who changed what
+through `spaces.changes` and MCP `list_changes`. Space and deep scope changes
+move the store revision, so a current replica carries the same spaces.
+`docs/core/design/spaces.md` is the design. Next: per-space protected
+patterns, then per-file preconditions with authority epochs.
+
+Signed grant tokens and grant assertions (roadmap 1.8, November 27, layer 1 of
+2 landed in #3321). `space_grant`, `grant_revocation` and `grant_issuer`
+tables sit in the assertion half of `data.db` and hold no token or token hash.
+`sdg_s.` tokens are signed with Ed25519, so a replica can check a token it
+never minted. No surface authorizes with them yet. Next: layer 2 wires
+`grants.create`, `grants.revoke` and `authorize` to them.
+
+Space endpoint (Capy FAN-14843, November 27, landed in #3293, #3301, #3311,
+#3303, #3325 and #3329). `docs/core/design/space-endpoint.md` is the spec. The agent
+endpoint serves REST at `/v1/spaces/<space>/...` from the MCP tool registry,
+1 MiB block reads with etags and an SSE invalidation stream. Agent MCP tools
+and `authorize` read through handle-based containment. A non-loopback listen
+is an explicit opt-in with TLS only, Host screening and loopback-only OAuth,
+and is read-only for anything but a direct local request; it stays off by
+default. The block-read budget is configurable. Event streams send a
+heartbeat every 15 s, close on a failed or stalled write and evict the oldest
+stream at the cap.
+
+Thin mount client (Capy FAN-14844, November 27, landed in #3295, #3305 and
+#3319). Mount frontends serve one path-based `MountFs` trait. `sd mount <url>
+--token` mounts a granted folder read-only on Linux FUSE over the space
+endpoint, with etag-pinned block reads, event-stream invalidation and an MCP
+fallback. Next: a localhost NFSv3 frontend for macOS.
+
+Bucket sources for agents (Capy FAN-14846 and SPAC-135, November 27 to 28,
+landed in #3294, #3308, #3314, #3320 and #3324). `CloudBackend::write_if` sends
+If-Match or If-None-Match, and services without them refuse. You can track
+`s3://bucket/prefix` and grant a prefix, and agents read, grep and write with
+preconditions. Moves and deletes copy then delete, through a trash prefix with
+undo. Tracking lists the bucket into the source store, so `search.files` finds
+its objects; a rescan runs every 15 minutes and right after an agent changes
+the bucket. A bucket prefix can be the home of a space, granted and served
+like a folder space.
+
+Semantic search (Capy FAN-14845, November 27 to 28, landed in #3309 and
+#3317). Each source
+gets a `vectors.db`, filled by a low-priority embedding pass over the deep
+scope. `search.semantic`, `sd search semantic` and MCP `search_semantic` rank
+with hybrid BM25 and vectors. Explorer search has a Meaning toggle for it.
+
+Threat model fixes (Capy FAN-14847 and SPAC-136, November 27, landed). F1
+(#3310): every RPC connection presents the per-daemon secret in `rpc.secret`
+as its first line. F2 (#3297): malformed RPC lines and desktop proxy payloads
+are no longer logged. F4 (#3323): credentials stay out of logs and job
+records. F5 (#3296): `sd-server` binds `127.0.0.1` by default, the Docker
+image sets `SD_HOST=0.0.0.0`, and 20 failed logins per peer in a minute lock
+the address out for 5 minutes. byterange reads stay inside their source
+through `common::contain::open_beneath` (#3298).
+
+Agent UI (Capy SPAC-137, November 27, landed in #3302, #3307 and #3316). A
+folder's context menu gives it to an agent: it mints a grant and shows Claude
+Code, Codex, `.mcp.json`, stdio and skill setup through `grants.setup`, with
+extend and revoke. The activity feed lists agent writes through
+`activity.list` with Undo, and the inspector shows a Changed by row. The
+sidebar lists spaces, with Make a Space, workspace spaces and space settings.
+
+Deep scope and the text index size (Capy FAN-14801, November 27, landed in
+#3286). Hashing and text extraction read only each source's deep scope, the
+text index is capped per kind, and old `text.db` files upgrade in place
+without free space in proportion to their size.
+
+Video duration at indexing (Capy SPAC-129 follow-up, November 27, beta.1, landed
+in #3291). Jamie decided a video's duration belongs in the record, so the Duration
 column fills in without analysis. The media metadata pass that reads EXIF now
 also reads each identified video's container header into `facet_video`:
 duration, frame size and codec. `sd_media_metadata::video` is a pure-Rust
 header reader with no FFmpeg and no decoding. It covers MP4/MOV with `moov`
 anywhere in the file, and MKV/WebM ahead of the first cluster. Rows are keyed
 by content hash like the image facet and reach listings, search hits and the
-inspector as `video_media_data`. The pass claims only identified records; once
-#3286 lands, identification and this pass run only in the deep scope. Next: review and merge.
+inspector as `video_media_data`. The pass claims only identified records, and since
+#3286 identification and this pass run only in the deep scope.
 
 Content sidecars have a registry and live in their source (Capy FAN-14816,
-November 27, in PR, stacked on the Sidecars tab PR). Every derived file other
+November 27, landed in #3292). Every derived file other
 than thumbnail tiles and scrub sheets is published through
 `SidecarRegistry::publish`, which renames it into
 `sources/<id>/derived/<h0>/<h1>/<content_uuid>/` and writes a `content_sidecar`
@@ -61,7 +134,7 @@ tree after moving shared content to another holder. Library statistics sum the
 rows. Thumbnail tiles, `thumbs.pvcache` and thumbstrips are unchanged. Convergence
 item 4 is done; availability and peer replication (step D) are next.
 
-Bundled command line tool (Capy FAN-14800, November 27, in PR). The desktop
+Bundled command line tool (Capy FAN-14800, November 27, landed in #3285). The desktop
 app ships `sd-cli` beside `sd-daemon` as a Tauri external binary on macOS
 arm64 and Intel and Linux, built in the same cargo run with the same features
 and commit, so `sd` and the daemon can no longer drift apart. Settings,
@@ -71,7 +144,8 @@ back to `~/.local/bin/sd`) on macOS and `~/.local/bin/sd` on Linux through the
 to replace the copy inside the app. The standalone `sd-<platform>` assets
 stay. Next: a signed release dry run, then live install on a Mac.
 
-Sidecars tab lists what a file has again (Capy FAN-14816, November 27, in PR).
+Sidecars tab lists what a file has again (Capy FAN-14816, November 27, landed in
+#3290).
 `File.sidecars` was always empty after the entries drop, so the inspector's
 Sidecars tab never showed anything. The new library query `files.sidecars`
 takes one file and lists every artifact derived from it: the media sidecars in
@@ -80,12 +154,10 @@ documents), the thumbnail tile in the source's `sidecars.db` and the
 thumbstrip under the volume, each with kind, variant, format, size, producer,
 how to fetch it and the file that holds it. It generates nothing.
 `media.sidecars` and `media.footage.status` read through it. `File.sidecars`,
-the file `Sidecar` type and the client branches that read them are gone. There
-is still no sidecar registry: a `content_sidecar` table in the source store,
-one writer for every producer, and moving the tree into the source wait on
-Jamie (`docs/plans/2026-08-22-source-convergence.md` item 4).
+the file `Sidecar` type and the client branches that read them are gone. The
+sidecar registry followed in #3292.
 
-Watcher job flood (Capy FAN-12353, November 27, in PR). With the home folder
+Watcher job flood (Capy FAN-12353, November 27, landed in #3289). With the home folder
 watched, a Mac made 1,556 job rows in 26 hours (831 `content_identity`, 676
 `content_text`). Live dispatches were already deduplicated, so every row was a
 new pass that the 30 s hashing nudge started after the last one had finished.
@@ -98,9 +170,9 @@ cannot read gets a skipped row stamped with its size and mtime, so it is read
 again only when it changes. A background pass that did nothing deletes its row
 and log. Each background kind keeps its 20
 newest finished rows. On a 210k-file tree with 5 to 35 edits every 10 s, rows
-went from 360 to 36 an hour and daemon CPU from 13.4% to 4.9%. Next: green CI.
+went from 360 to 36 an hour and daemon CPU from 13.4% to 4.9%.
 
-Videos in the explorer (Capy FAN-14815, November 27, beta.1, in PR). Jamie
+Videos in the explorer (Capy FAN-14815, November 27, beta.1, landed in #3288). Jamie
 decided footage belongs in the explorer, not a page of its own. The Videos
 extension's library view (`ui_manifest.json` and `ui/videos.js`) is gone, so
 the sidebar's Extensions section is empty and hidden; the extension still runs
@@ -117,7 +189,7 @@ grid badges in View Settings. Filesystem listings carry no video facet, so the
 duration comes from the shot list and is blank until shot detection runs. A
 Videos sidebar item opens a saved search for every video, with Has transcript
 and Analyzed filters that page through the whole search and count faces-only
-analysis. Next: review and merge.
+analysis.
 
 Beta date and where beta.1 is cut (Capy FAN-14810, November 27, landed in #3284). Jamie
 moved the Spacedrive 2.0 Beta target to December 5, 2026 on 2026-11-27.
@@ -127,7 +199,7 @@ feature, footage included, ships in beta.1 by merging to `main` before the
 cut. The README, the releases page, the introduction and the launch plan state
 the new date. No workflow names `release/beta.1`. Docs only; no tag, version
 or workflow changed.
-A follow-up docs PR brings the footage docs in line with #3264: the release
+A follow-up docs PR (#3287) brings the footage docs in line with #3264: the release
 desktop daemon is built with `footage` (`footage-without-onnx` on Intel
 Macs), so transcription, proxies, shots, clips and timeline export,
 inference and the extension runtime are in beta.1. The release notes, fact

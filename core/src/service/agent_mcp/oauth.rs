@@ -53,7 +53,7 @@ use crate::{
 	ops::grants::{
 		create::{self, Mint},
 		oauth::{self as grant_oauth, RefreshError},
-		store, ttl, GrantCap,
+		store, ttl, GrantCap, GrantKind, TokenFormat,
 	},
 };
 
@@ -204,7 +204,7 @@ enum Origin {
 }
 
 fn guard(endpoint: &Endpoint, headers: &HeaderMap, origin: Origin) -> Result<String, Response> {
-	if !endpoint.oauth_offered(headers) {
+	if !endpoint.direct_local_request(headers) {
 		return Err(StatusCode::NOT_FOUND.into_response());
 	}
 	endpoint.screen_host(headers)?;
@@ -670,6 +670,8 @@ async fn mint(endpoint: &Endpoint, pending: &Pending, choice: &Choice) -> Result
 				target,
 				caps,
 				lifetime,
+				kind: GrantKind::Task,
+				token_format: TokenFormat::Opaque,
 				label: Some(format!("{} (OAuth)", pending.client_name)),
 				oauth_client: Some(pending.client_id.clone()),
 			},

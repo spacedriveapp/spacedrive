@@ -20,7 +20,8 @@ pub enum ConfigCmd {
 		/// update.channel, replication.max_bytes_per_sec, replication.paused,
 		/// backup.restore_trash_keep, mounts.fuse_enabled, mounts.nfs_enabled,
 		/// agent_mcp.enabled, agent_mcp.listen, agent_mcp.tls_cert,
-		/// agent_mcp.tls_key, agent_mcp.plaintext, agent_mcp.host_names
+		/// agent_mcp.tls_key, agent_mcp.host_names,
+		/// agent_mcp.block_bytes_per_hour
 		key: String,
 	},
 	/// Set a configuration value
@@ -31,8 +32,10 @@ pub enum ConfigCmd {
 		/// mounts.fuse_enabled (true/false), mounts.nfs_enabled (true/false),
 		/// agent_mcp.enabled (true/false), agent_mcp.listen (IP address and
 		/// port), agent_mcp.tls_cert and agent_mcp.tls_key (PEM file paths,
-		/// empty to clear), agent_mcp.plaintext (true/false),
-		/// agent_mcp.host_names (comma-separated, empty to clear)
+		/// empty to clear),
+		/// agent_mcp.host_names (comma-separated, empty to clear),
+		/// agent_mcp.block_bytes_per_hour (bytes, or K/M/G suffix, greater
+		/// than 0)
 		key: String,
 		/// Configuration value
 		value: String,
@@ -51,8 +54,8 @@ const AGENT_MCP_ENABLED: &str = "agent_mcp.enabled";
 const AGENT_MCP_LISTEN: &str = "agent_mcp.listen";
 const AGENT_MCP_TLS_CERT: &str = "agent_mcp.tls_cert";
 const AGENT_MCP_TLS_KEY: &str = "agent_mcp.tls_key";
-const AGENT_MCP_PLAINTEXT: &str = "agent_mcp.plaintext";
 const AGENT_MCP_HOST_NAMES: &str = "agent_mcp.host_names";
+const AGENT_MCP_BLOCK_BYTES_PER_HOUR: &str = "agent_mcp.block_bytes_per_hour";
 
 fn show_path(path: &Option<PathBuf>) -> String {
 	path.as_ref()
@@ -153,12 +156,12 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 					&show_path(&daemon.agent_mcp.tls_key),
 				]);
 				table.add_row(vec![
-					AGENT_MCP_PLAINTEXT,
-					&daemon.agent_mcp.plaintext.to_string(),
-				]);
-				table.add_row(vec![
 					AGENT_MCP_HOST_NAMES,
 					&daemon.agent_mcp.host_names.join(","),
+				]);
+				table.add_row(vec![
+					AGENT_MCP_BLOCK_BYTES_PER_HOUR,
+					&daemon.agent_mcp.block_bytes_per_hour.to_string(),
 				]);
 			}
 
@@ -225,16 +228,16 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 						.agent_mcp
 						.tls_key,
 				),
-				AGENT_MCP_PLAINTEXT => daemon_config(&socket_addr, &data_dir)
-					.await?
-					.agent_mcp
-					.plaintext
-					.to_string(),
 				AGENT_MCP_HOST_NAMES => daemon_config(&socket_addr, &data_dir)
 					.await?
 					.agent_mcp
 					.host_names
 					.join(","),
+				AGENT_MCP_BLOCK_BYTES_PER_HOUR => daemon_config(&socket_addr, &data_dir)
+					.await?
+					.agent_mcp
+					.block_bytes_per_hour
+					.to_string(),
 				_ => return Err(anyhow::anyhow!("Unknown config key: {}", key)),
 			};
 			println!("{}", value);
@@ -310,15 +313,30 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 				}
 				println!("Set {} = {}", key, enabled);
 			}
-			AGENT_MCP_ENABLED | AGENT_MCP_LISTEN | AGENT_MCP_TLS_CERT | AGENT_MCP_TLS_KEY
-			| AGENT_MCP_PLAINTEXT | AGENT_MCP_HOST_NAMES => {
+			AGENT_MCP_ENABLED
+			| AGENT_MCP_LISTEN
+			| AGENT_MCP_TLS_CERT
+			| AGENT_MCP_TLS_KEY
+			| AGENT_MCP_HOST_NAMES
+			| AGENT_MCP_BLOCK_BYTES_PER_HOUR => {
 				let mut input = UpdateAppConfigInput::default();
 				match key.as_str() {
 					AGENT_MCP_ENABLED => input.agent_mcp_enabled = Some(parse_bool(&value)?),
 					AGENT_MCP_LISTEN => input.agent_mcp_listen = Some(value.trim().to_string()),
 					AGENT_MCP_TLS_CERT => input.agent_mcp_tls_cert = Some(value.trim().to_string()),
 					AGENT_MCP_TLS_KEY => input.agent_mcp_tls_key = Some(value.trim().to_string()),
-					AGENT_MCP_PLAINTEXT => input.agent_mcp_plaintext = Some(parse_bool(&value)?),
+					AGENT_MCP_BLOCK_BYTES_PER_HOUR => {
+						let bytes = parse_byte_rate(&value).map_err(|_| {
+							anyhow::anyhow!(
+								"'{}' is not a byte count (e.g. 1073741824, 512M, 8G)",
+								value.trim()
+							)
+						})?;
+						if bytes == 0 {
+							return Err(anyhow::anyhow!("{key} must be greater than 0"));
+						}
+						input.agent_mcp_block_bytes_per_hour = Some(bytes);
+					}
 					_ => input.agent_mcp_host_names = Some(parse_host_names(&value)),
 				}
 				let core = CoreClient::new(socket_addr.clone(), &data_dir);

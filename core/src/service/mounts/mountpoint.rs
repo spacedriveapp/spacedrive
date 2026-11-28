@@ -16,7 +16,7 @@ use tracing::warn;
 use uuid::Uuid;
 
 use crate::context::CoreContext;
-use crate::ops::grants::{authorize, GrantCap, GrantError, GrantScope};
+use crate::ops::grants::{authorize, create::owning_source, GrantCap, GrantError, GrantScope};
 use crate::service::mounts::tree::{BoundGrant, MountRoot};
 
 /// How often a grant-bound mount checks that its grant is still active.
@@ -28,6 +28,7 @@ pub(crate) enum Refusal {
 	Mountpoint(String),
 	Grant(GrantError),
 	NoSource,
+	Lookup(String),
 }
 
 /// `path`, absolute and canonical, once it is known to be an empty
@@ -64,30 +65,20 @@ pub(crate) async fn bind_grant(
 	let scope = authorize(context, &token, op, Path::new(""), GrantCap::Read)
 		.await
 		.map_err(Refusal::Grant)?;
-	// macOS reaches one directory as /Users/me and as
-	// /System/Volumes/Data/Users/me, and a source keeps whichever spelling
-	// it was tracked under, so the granted directory is looked up under each
-	// and the mount lists it in the source's spelling, the one its arena
-	// knows.
-	let root = scope.root.clone();
-	let spellings = tokio::task::spawn_blocking(move || crate::config::path_spellings(&root))
-		.await
-		.unwrap_or_else(|_| vec![scope.root.clone()]);
+	// The grant keeps the directory's canonical spelling, which on macOS can
+	// differ from the source's by a firmlink, and the tree answers only to
+	// the source's spelling. A bucket grant has no directory to compare, so
+	// its URL is matched by prefix.
 	let sources = context.volume_index().sources();
-	let (source, path) = spellings
-		.into_iter()
-		.filter_map(|spelling| {
-			let source = crate::ops::paths::reach::innermost_source(&sources, &spelling)?;
-			let depth = spelling
-				.strip_prefix(&source.root)
-				.ok()?
-				.components()
-				.count();
-			Some((depth, source.id, spelling))
-		})
-		.min_by_key(|(depth, _, _)| *depth)
-		.map(|(_, source, path)| (source, path))
-		.ok_or(Refusal::NoSource)?;
+	let (source, path) = match owning_source(context, scope.library_id, &scope.root)
+		.await
+		.map_err(Refusal::Lookup)?
+	{
+		Some(found) => found,
+		None => crate::ops::paths::reach::innermost_source(&sources, &scope.root)
+			.map(|source| (source.id, scope.root.clone()))
+			.ok_or(Refusal::NoSource)?,
+	};
 	let grant = BoundGrant {
 		token,
 		root: MountRoot {
@@ -102,18 +93,21 @@ pub(crate) async fn bind_grant(
 
 /// Return once the grant is revoked, expires, or disappears. Each open
 /// already checks the grant; the caller uses this to take the mount itself
-/// down.
-pub(crate) async fn grant_ended(context: Arc<CoreContext>, library_id: Uuid, grant_id: Uuid) {
-	use crate::ops::grants::{store, GrantStatus};
+/// down. The token is verified rather than the grant looked up by id,
+/// because a signed grant can be valid without a row in this library.
+pub(crate) async fn grant_ended(
+	context: Arc<CoreContext>,
+	library_id: Uuid,
+	grant_id: Uuid,
+	token: String,
+) {
+	use crate::ops::grants::{verified, GrantStatus};
 
 	loop {
 		tokio::time::sleep(GRANT_CHECK_INTERVAL).await;
-		let Some(library) = context.libraries().await.get_library(library_id).await else {
-			return;
-		};
-		match store::by_id(library.db().conn(), grant_id).await {
-			Ok(Some(row)) if store::status(&row, Utc::now()) == GrantStatus::Active => continue,
-			Ok(_) => return,
+		match verified(&context, library_id, &token).await {
+			Ok(grant) if grant.status(Utc::now()) == GrantStatus::Active => continue,
+			Ok(_) | Err(GrantError::UnknownToken) => return,
 			Err(err) => warn!(grant = %grant_id, error = %err, "could not read a mounted grant"),
 		}
 	}

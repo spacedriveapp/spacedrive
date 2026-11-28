@@ -77,15 +77,15 @@ pub struct UpdateAppConfigInput {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub agent_mcp_tls_key: Option<String>,
 
-	/// Let a non-loopback agent MCP listener serve plain HTTP. Applies at
-	/// restart.
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub agent_mcp_plaintext: Option<bool>,
-
 	/// Host names a non-loopback agent MCP listener accepts besides its IP;
 	/// an empty list clears them. Applies at restart.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub agent_mcp_host_names: Option<Vec<String>>,
+
+	/// Bytes the space endpoint's block reads may return per grant per hour.
+	/// Must be greater than 0. Applies at restart.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub agent_mcp_block_bytes_per_hour: Option<u64>,
 
 	/// Whether networking is enabled
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -195,6 +195,9 @@ impl CoreAction for UpdateAppConfigAction {
 			for name in names {
 				crate::service::agent_mcp::host_name(name)?;
 			}
+		}
+		if input.agent_mcp_block_bytes_per_hour == Some(0) {
+			return Err("agent_mcp.block_bytes_per_hour must be greater than 0".to_string());
 		}
 
 		if input.proxy_pairing_vouch_signature_max_age == Some(0) {
@@ -324,18 +327,18 @@ impl CoreAction for UpdateAppConfigAction {
 			}
 		}
 
-		if let Some(plaintext) = self.input.agent_mcp_plaintext {
-			if config.agent_mcp.plaintext != plaintext {
-				config.agent_mcp.plaintext = plaintext;
-				changes.push("agent_mcp_plaintext");
-				requires_restart = true;
-			}
-		}
-
 		if let Some(ref names) = self.input.agent_mcp_host_names {
 			if config.agent_mcp.host_names != *names {
 				config.agent_mcp.host_names = names.clone();
 				changes.push("agent_mcp_host_names");
+				requires_restart = true;
+			}
+		}
+
+		if let Some(bytes) = self.input.agent_mcp_block_bytes_per_hour {
+			if config.agent_mcp.block_bytes_per_hour != bytes {
+				config.agent_mcp.block_bytes_per_hour = bytes;
+				changes.push("agent_mcp_block_bytes_per_hour");
 				requires_restart = true;
 			}
 		}

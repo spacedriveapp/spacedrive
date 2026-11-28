@@ -126,6 +126,25 @@ pub async fn object(backend: &dyn VolumeBackend, key: &str) -> Result<Option<Obj
 	}))
 }
 
+/// Whether `url` names a directory: the bucket itself, a prefix with objects
+/// under it, or an empty prefix held open by its `key/` marker, which is
+/// what making a directory writes.
+pub async fn is_directory(
+	backend: &dyn VolumeBackend,
+	url: &BucketUrl,
+) -> Result<bool, VolumeError> {
+	if url.key.is_empty()
+		|| !crate::ops::grants::bucket::list(backend, url)
+			.await?
+			.is_empty()
+	{
+		return Ok(true);
+	}
+	backend
+		.holds_marker(Path::new(&format!("{}/", url.key)))
+		.await
+}
+
 /// Whether anything sits at `key`: an object, or objects below it.
 pub async fn occupied(backend: &dyn VolumeBackend, url: &BucketUrl) -> Result<bool, VolumeError> {
 	if backend.entity_tag(Path::new(&url.key)).await?.is_some() {
@@ -136,8 +155,9 @@ pub async fn occupied(backend: &dyn VolumeBackend, url: &BucketUrl) -> Result<bo
 		.is_empty())
 }
 
-/// Every object below the prefix `url` names, by key, in key order.
-/// Directory markers are left out; they hold no bytes.
+/// Every object below the prefix `url` names, by key, in key order, with
+/// the directory markers (`a/b/`) that keep empty directories, the prefix's
+/// own included. `None` past `limit` keys.
 pub async fn objects_under(
 	backend: &dyn VolumeBackend,
 	url: &BucketUrl,
@@ -146,6 +166,13 @@ pub async fn objects_under(
 	let mut found = Vec::new();
 	let mut pending = vec![url.clone()];
 	while let Some(prefix) = pending.pop() {
+		let marker = format!("{}/", prefix.key);
+		if !prefix.key.is_empty() && backend.holds_marker(Path::new(&marker)).await? {
+			found.push(marker);
+			if found.len() > limit {
+				return Ok(None);
+			}
+		}
 		for entry in crate::ops::grants::bucket::list(backend, &prefix).await? {
 			let child = prefix.join(&entry.name);
 			if entry.kind == EntryKind::Directory {

@@ -1007,6 +1007,8 @@ mod kernel {
 			caps: Some(GrantCap::Read),
 			ttl_seconds: None,
 			label: Some("nfs".to_string()),
+			kind: None,
+			token_format: None,
 		})
 		.map_err(anyhow::Error::msg)?
 		.execute(harness.library.clone(), context.clone())

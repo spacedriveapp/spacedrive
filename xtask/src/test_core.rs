@@ -204,6 +204,13 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Bucket index test",
 		&["--test", "bucket_index_test"],
 	),
+	// A bucket prefix as a folder or workspace space, granted to an agent
+	// that works in it through the space endpoint and its event stream.
+	acceptance(
+		"sd-core",
+		"Bucket space test",
+		&["--test", "bucket_space_test"],
+	),
 	// OAuth on the agent MCP endpoint (docs/cli/mcp-oauth.mdx): discovery,
 	// registration, the PKCE code flow, refresh rotation and revocation.
 	acceptance(
@@ -412,6 +419,16 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		name: "FUSE mount test",
 		package: "sd-core",
 		test_args: &["--test", "fuse_mount_test"],
+		features: Some("fuse"),
+		group: Group::Acceptance,
+	},
+	// A bucket space mounted through the thin client and read: prefix
+	// directories, empty directory markers, block-edge reads, and an object
+	// read afresh after it changes in the bucket.
+	TestSuite {
+		name: "Bucket mount test",
+		package: "sd-core",
+		test_args: &["--test", "bucket_mount_test"],
 		features: Some("fuse"),
 		group: Group::Acceptance,
 	},

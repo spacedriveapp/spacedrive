@@ -1,6 +1,6 @@
 # Agent Grants
 
-> **Status:** Built (grants core). The HTTP surface that consumes grants is separate work.
+> **Status:** Built (grants core, signed tokens, standing grants, grants as space assertions). The HTTP surface that consumes grants is separate work.
 > **Narrows:** `docs/core/design/shares-and-remote-libraries.md`, phase 1, for agent recipients.
 > **Code:** `core/src/ops/grants/`, `apps/cli/src/domains/grant/`
 
@@ -10,17 +10,30 @@ A grant lends one directory of one tracked source to an agent, for a bounded tim
 
 ```
 grant:
-  id          uuid
-  source_id   the filesystem source holding the directory
-  subtree     canonical absolute path of the directory
-  caps        read | read_write
-  expires_at  5 minutes to 12 hours after creation, 1 hour by default
-  revoked_at  set once by grants.revoke
-  created_by  the device that minted it
-  label       the owner's name for it
+  id            uuid
+  source_id     the filesystem source holding the directory
+  subtree       canonical absolute path of the directory
+  space_id      the space holding the directory, for grants made since spaces
+  actor_id      the agent the grant acts as
+  kind          task | standing
+  token_format  opaque | signed
+  epoch         the space's authority epoch at minting
+  caps          read | read_write
+  expires_at    see Lifetime
+  revoked_at    set once by grants.revoke
+  created_by    the device that minted it
+  label         the owner's name for it
 ```
 
-The row lives in `library.db` in the `agent_grant` table. It is small shared state under the rules in `AGENTS.md`: no ingest can rebuild it, and it has no place in a source store. In this version a grant stays on the node that minted it and does not sync.
+The minting device keeps the row in `library.db` in the `agent_grant` table, with the token hash and, for OAuth grants, the refresh hash. Those secrets never leave the device.
+
+A grant inside a space is also an assertion in the space's source store (`data.db`), in three tables beside `space`:
+
+- `space_grant` holds the grant: space, actor, kind, token format, subtree relative to the space root, caps, issuer device, epoch and expiry. It holds no token and no token hash. The later HLC stamp wins the whole row, so an extension made on one device reaches the others.
+- `grant_revocation` holds one row per revoked grant. It is separate from the grant row, so no merge order can undo a revocation. Two revocations of one grant converge on the earlier stamp.
+- `grant_issuer` holds the Ed25519 public key each minting device signs tokens with.
+
+The rows merge by the assertion rules in `source-durability.md`, not through `Syncable`. Any node that holds the store knows which grants exist on the space and which are revoked, without asking the minting device.
 
 The directory must be inside a source tracked by the same library: a filesystem source, or a bucket source. A bucket grant names a prefix as a URL, `s3://bucket/prefix`, and the prefix must sit inside a bucket source of the library. See "Bucket prefixes" below. A grant is a scope over something Spacedrive already tracks, not a way to reach arbitrary folders on the node. Removing the source revokes every grant on it. A kept catalog keeps the source id, so without the revocation, re-adding the same scope would revive the old tokens.
 
@@ -34,9 +47,34 @@ Spacedrive stores only the SHA-256 of the token. `grants.create` returns the tok
 
 Lookup is by hash. A string without the prefix or of the wrong length never reaches the database.
 
+### Signed tokens
+
+An opaque token means something only to the device that holds its hash. A signed token carries its own claims, so any node that holds the space's store can check it:
+
+```
+sdg_s.<claims>.<signature>
+claims     {v, grant_id, space_id, subtree, caps, exp, epoch, iss} as JSON, base64url
+signature  Ed25519 over "spacedrive grant token v1\0" followed by the claims bytes, base64url
+```
+
+`subtree` is relative to the space root, so it means the same folder on every node that holds the space. `iss` is the minting device. The signature covers the bytes as sent, so no re-serialization can disagree about what was signed. The domain label keeps a grant signature from being mistaken for any other signature the key makes. The prefix starts with `sdg_`, so every URL check, log filter and secret scanner that matches opaque tokens matches signed ones. `token::hash` never accepts one.
+
+The signing key is derived from the device master key with its own HKDF label. It is never stored and is separate from the network identity key. Minting a signed grant publishes the device's public key in the space's store.
+
+A signed grant needs a space. Its expiry is in its claims, so it cannot be extended; the owner creates a new grant. A token over 4,096 bytes is never signed or accepted.
+
 ## Lifetime
 
-A grant lives between 5 minutes and 12 hours, and 1 hour by default. `grants.extend` sets a new expiry measured from now, with the same bounds. So no sequence of extensions keeps a grant alive more than 12 hours past its last extension. A revoked or expired grant cannot be extended. The owner creates a new grant instead.
+A grant has one of two kinds:
+
+| Kind | Lifetime | Default | Where | Default token |
+| --- | --- | --- | --- | --- |
+| `task` | 5 minutes to 12 hours | 1 hour | any granted folder | opaque |
+| `standing` | 5 minutes to 30 days | 30 days | inside a `workspace` space only | signed |
+
+A standing grant is for an agent's own workspace, a folder Spacedrive created empty for it. It lets a harness hold one credential across tasks without reaching anything the person keeps elsewhere. `grants.create` refuses a standing grant on a folder space or on a folder in no space.
+
+`grants.extend` sets a new expiry measured from now, with the bounds of the grant's kind. So no sequence of extensions keeps a task grant alive more than 12 hours past its last extension, or a standing grant more than 30 days. A revoked or expired grant cannot be extended, and neither can a signed one. The owner creates a new grant instead. An extension of a grant in a space is written to its assertion too.
 
 ## The enforcement point
 
@@ -56,7 +94,12 @@ sd_core::ops::grants::authorize(
 
 On success, `GrantScope` carries the grant id, the library id, the canonical root, and the resolved `path` the surface must open. The surface never opens the path the agent sent. `GrantScope::path` is spelled under the grant root whatever spelling the request used.
 
-`authorize` reads the grant row on every call and caches nothing. A revocation or expiry refuses the next request.
+`authorize` has one verifier, a private step that turns a token into the grant it is a credential for:
+
+- An opaque token is looked up by hash in each open library's `agent_grant` table.
+- A signed token names its space and issuer. The verifier finds the store that holds the space among the library's sources, reads the issuer's public key from that store's `grant_issuer`, and checks the signature. A malformed token, an altered byte, another key, or a space whose store never published the issuer all answer `UnknownToken`. A genuine token past its `exp` answers `Expired` and is audited against its grant.
+
+For both formats the verifier reads the revocation on every call: the grant row's `revoked_at` and, for a grant in a space, the `grant_revocation` assertion. A revocation made on another device and merged into the store refuses the next request here. Nothing is cached. The rest of `authorize` (path resolution, protected names and the audit) is the same for both formats.
 
 `GrantError::is_credential` separates refusals of the token (unknown, expired, revoked, source removed) from refusals of one request (read-only grant, path outside the grant, protected file). An HTTP surface answers the first group with 401 and the second with 403.
 
@@ -109,25 +152,27 @@ A token that matches no grant has no grant and no library to record against. Tha
 
 | Op | Kind | Does |
 | --- | --- | --- |
-| `grants.create` | library action | Grant a directory. Returns the grant and its token, once. |
+| `grants.create` | library action | Grant a directory, as a task or standing grant, with an opaque or signed token. Returns the grant and its token, once. |
 | `grants.list` | library query | Active grants, or all with `include_inactive`. Never returns tokens. |
 | `grants.revoke` | library action | End a grant now. |
 | `grants.extend` | library action | Set a new expiry from now. |
 | `grants.audit` | library query | The audit log, newest first. |
 
 ```
-sd grant create <path> [--read | --read-write] [--ttl 1h] [--label name]
+sd grant create <path> [--read | --read-write] [--ttl 1h] [--standing] [--signed | --opaque] [--label name]
 sd grant list [--all]
 sd grant revoke <id>
 sd grant extend <id> [--ttl 1h]
 sd grant audit [<id>] [--limit 50]
 ```
 
-The CLI binary is `sd-cli`. `--ttl` takes values such as `30m`, `1h` or `2h30m`.
+The CLI binary is `sd-cli`. `--ttl` takes values such as `30m`, `1h`, `2h30m` or `7d`.
 
 ## Known limits
 
 - **Time of check and time of use.** `authorize` resolves the path, then the surface opens it. A process that can create symlinks inside the directory could swap one in between. A read-only grant cannot create links, so this matters only for writes. The write path resolves the request again just before its rename and refuses a path that no longer resolves to the same place, which narrows the window to the rename itself. See [agent-writes.md](agent-writes.md).
 - **Hard links.** A hard link to a protected file under another name is a different name for the same bytes. It is not detected, and it does not need to be: agent writes never modify a file in place. They stage new bytes and rename them over the name, so the other name keeps the old bytes. Git does not create hard links into a working tree, and no agent surface can create one.
-- **No sync.** A grant exists on one node. Grants that follow a library between devices need the assertion-layer sync rules in `source-durability.md`.
-- **One verifier.** Tokens are opaque and stored hashed. Signed tokens, which a node could verify without a lookup, can be added behind `token::hash` without changing `authorize`.
+- **Sync transport.** Grant assertions merge by the rules in `source-durability.md`, but no transport carries assertions between devices yet. Until one does, a replica honours a signed grant only once it holds a copy of the space's store with the grant's issuer key, and learns of a revocation only when the store reaches it.
+- **Opaque tokens stay on the minting device.** Their hash never leaves `library.db`, so only that device can check one. Use a signed token for a grant another node must honour.
+- **Issuer trust is the store's.** A replica trusts whichever issuer keys the space's store publishes. Anyone who can write that store can already change its grants, so this adds no new writer, but a store must only be merged from devices of the library.
+- **Authority epoch.** Grants record the space's authority epoch, which is 0 until hand-over exists. Refusing grants minted under an older epoch is the endpoint's check.

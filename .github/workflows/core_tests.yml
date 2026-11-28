@@ -192,7 +192,23 @@ jobs:
         run: |
           sudo apt-get install -y nfs-common
           SD_REQUIRE_NFS=1 RUST_LOG=sd_core=info cargo test -p sd-core --features nfs --test nfs_mount_test -- --test-threads=1 --nocapture
-          SD_REQUIRE_FUSE=1 RUST_LOG=sd_core=info cargo test -p sd-core --features fuse --test mount_client_test -- --test-threads=1 --nocapture
+
+      # The bucket mount suite needs FUSE and an S3-compatible server at once,
+      # and only this runner has FUSE, so it gets its own SeaweedFS here.
+      - name: Run the bucket mount suite
+        env:
+          SD_TEST_S3_ENDPOINT: http://127.0.0.1:8333
+          SD_TEST_S3_BUCKET: spacedrive-test
+          SD_REQUIRE_S3: "1"
+          SD_REQUIRE_FUSE: "1"
+        run: |
+          docker run -d --name seaweedfs -p 8333:8333 chrislusf/seaweedfs:4.55 server -s3
+          for _ in $(seq 1 60); do
+            curl -sf -X PUT http://127.0.0.1:8333/spacedrive-test && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8333/spacedrive-test > /dev/null
+          RUST_LOG=sd_core=info cargo test -p sd-core --features fuse --test bucket_mount_test -- --test-threads=1 --nocapture
 
   # The NFS mount is the macOS mount frontend, so its suite runs on macOS,
   # where mount_nfs mounts as the runner's unprivileged user.

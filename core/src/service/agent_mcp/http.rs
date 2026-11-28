@@ -49,6 +49,7 @@ const SESSION_HEADER: &str = "mcp-session-id";
 const VERSION_HEADER: &str = "mcp-protocol-version";
 /// JSON-RPC error code for refusals by the server rather than the protocol.
 const REFUSED: i64 = -32001;
+const NETWORK_WRITES_OFF: &str = "writes over the network are off until the security review";
 
 struct Session {
 	grant: Uuid,
@@ -100,6 +101,22 @@ impl Endpoint {
 			usage: Mutex::default(),
 			failures: Mutex::default(),
 		}
+	}
+
+	/// Why a request that needs `cap` is refused, if it is.
+	///
+	/// Writable grants over the network wait for the outside security review
+	/// (threat model gate 2), so a write must be a [`Self::direct_local_request`].
+	/// That covers a listener bound beyond loopback and a loopback listener
+	/// behind a proxy alike. Callers check this after `authorize` so the
+	/// attempt is audited.
+	pub(super) fn network_write_refused(
+		&self,
+		cap: GrantCap,
+		headers: &HeaderMap,
+	) -> Option<&'static str> {
+		(cap == GrantCap::ReadWrite && !self.direct_local_request(headers))
+			.then_some(NETWORK_WRITES_OFF)
 	}
 
 	pub(super) fn with_usage<T>(&self, grant: Uuid, f: impl FnOnce(&mut GrantUsage) -> T) -> T {
@@ -355,14 +372,15 @@ impl Endpoint {
 		Ok(())
 	}
 
-	/// Whether this request may use OAuth.
+	/// Whether this request comes straight from this machine.
 	///
-	/// The consent page mints a grant for whoever presses Allow without
-	/// authenticating the owner, so it must only be reachable from this
-	/// machine. That needs a loopback bind, a loopback Host, and no sign of a
-	/// proxy, since a proxy on loopback can carry remote traffic. A configured
-	/// host name in Host is itself a sign of a proxy.
-	pub(super) fn oauth_offered(&self, headers: &HeaderMap) -> bool {
+	/// OAuth and writes need it. The consent page mints a grant for whoever
+	/// presses Allow without authenticating the owner, and writes over the
+	/// network wait for the security review, so both must only be reachable
+	/// from this machine. That needs a loopback bind, a loopback Host, and no
+	/// sign of a proxy, since a proxy on loopback can carry remote traffic. A
+	/// configured host name in Host is itself a sign of a proxy.
+	pub(super) fn direct_local_request(&self, headers: &HeaderMap) -> bool {
 		const PROXY_HEADERS: [&str; 4] = [
 			"forwarded",
 			"x-forwarded-for",
@@ -384,7 +402,7 @@ impl Endpoint {
 	/// The `WWW-Authenticate` value a 401 carries: a pointer to the OAuth
 	/// metadata where OAuth is offered, a bare challenge elsewhere.
 	fn challenge(&self, headers: &HeaderMap) -> String {
-		if self.oauth_offered(headers) {
+		if self.direct_local_request(headers) {
 			oauth::challenge(&oauth::base_url(headers, self.tls))
 		} else {
 			"Bearer realm=\"spacedrive\"".to_string()
@@ -566,6 +584,9 @@ async fn post(
 		Ok(scope) => scope,
 		Err(response) => return response,
 	};
+	if let Some(reason) = endpoint.network_write_refused(cap, headers) {
+		return forbidden(id, reason);
+	}
 	if let Err(reason) = paths::check(&path) {
 		return forbidden(id, reason);
 	}
@@ -656,7 +677,7 @@ async fn call(
 	);
 	let outcome = tokio::select! {
 		outcome = tokio::time::timeout(endpoint.limits.call_timeout, work) => outcome,
-		_ = ended(endpoint, library, grant) => {
+		_ = ended(endpoint, library, token) => {
 			debug!(%grant, "cancelled a tool call whose grant ended");
 			return unauthorized(id, challenge);
 		}
@@ -683,26 +704,17 @@ async fn call(
 	json_response(StatusCode::OK, response)
 }
 
-/// Resolves once the grant is revoked, expires or disappears, polling the
-/// row so a call in flight stops within a poll interval of that.
-pub(super) async fn ended(endpoint: &Endpoint, library_id: Uuid, grant: Uuid) {
+/// Resolves once the grant is revoked, expires or disappears, verifying the
+/// token again so a call in flight stops within a poll interval of that.
+pub(super) async fn ended(endpoint: &Endpoint, library_id: Uuid, token: &str) {
 	let mut tick = tokio::time::interval(endpoint.limits.revocation_poll);
 	tick.tick().await;
 	loop {
 		tick.tick().await;
-		let Some(library) = endpoint
-			.context
-			.libraries()
-			.await
-			.get_library(library_id)
-			.await
-		else {
-			return;
-		};
-		match store::by_id(library.db().conn(), grant).await {
-			Ok(Some(row)) if store::status(&row, chrono::Utc::now()) == GrantStatus::Active => {}
-			Ok(_) => return,
-			Err(e) => warn!(%grant, error = %e, "could not re-check a grant during a call"),
+		match crate::ops::grants::verified(&endpoint.context, library_id, token).await {
+			Ok(grant) if grant.status(chrono::Utc::now()) == GrantStatus::Active => {}
+			Ok(_) | Err(GrantError::UnknownToken) => return,
+			Err(e) => warn!(error = %e, "could not re-check a grant during a call"),
 		}
 	}
 }

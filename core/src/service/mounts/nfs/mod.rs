@@ -89,6 +89,7 @@ impl From<super::mountpoint::Refusal> for NfsError {
 			Refusal::Mountpoint(reason) => Self::Mountpoint(reason),
 			Refusal::Grant(err) => Self::Grant(err),
 			Refusal::NoSource => Self::NoSource,
+			Refusal::Lookup(reason) => Self::Mount(reason),
 		}
 	}
 }
@@ -181,8 +182,9 @@ async fn mount_tree(
 
 	let (grant, scope) = match grant_token {
 		Some(token) => {
-			let (grant, scope) = mountpoint::bind_grant(&context, token, "nfs.mount").await?;
-			(Some(grant), Some(scope))
+			let (grant, scope) =
+				mountpoint::bind_grant(&context, token.clone(), "nfs.mount").await?;
+			(Some(grant), Some((scope, token)))
 		}
 		None => (None, None),
 	};
@@ -202,16 +204,16 @@ async fn mount_tree(
 	let info = NfsMountInfo {
 		path: path.clone(),
 		port: session.port(),
-		grant_id: scope.as_ref().map(|scope| scope.grant_id),
-		granted_path: scope.as_ref().map(|scope| scope.root.clone()),
-		expires_at: scope.as_ref().map(|scope| scope.expires_at),
+		grant_id: scope.as_ref().map(|(scope, _)| scope.grant_id),
+		granted_path: scope.as_ref().map(|(scope, _)| scope.root.clone()),
+		expires_at: scope.as_ref().map(|(scope, _)| scope.expires_at),
 		mounted_at: Utc::now(),
 	};
-	let watch = scope.map(|scope| {
+	let watch = scope.map(|(scope, token)| {
 		let context = context.clone();
 		let path = path.clone();
 		tokio::spawn(async move {
-			mountpoint::grant_ended(context, scope.library_id, scope.grant_id).await;
+			mountpoint::grant_ended(context, scope.library_id, scope.grant_id, token).await;
 			info!(path = %path.display(), grant = %scope.grant_id, "grant ended; unmounting");
 			if let Err(err) = take_down(&path, false).await {
 				warn!(path = %path.display(), error = %err, "could not unmount after the grant ended");
