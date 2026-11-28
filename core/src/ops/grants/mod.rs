@@ -288,6 +288,9 @@ pub enum GrantError {
 	/// A write named an authority epoch the space has moved past.
 	#[error("the space's authority epoch is now {current}")]
 	StaleEpoch { current: u64 },
+	/// A signed grant minted before the space last changed hands.
+	#[error("the grant was minted before the space's authority epoch became {current}")]
+	Superseded { current: u64 },
 	#[error("internal error: {0}")]
 	Internal(String),
 }
@@ -297,7 +300,11 @@ impl GrantError {
 	pub fn is_credential(&self) -> bool {
 		matches!(
 			self,
-			Self::UnknownToken | Self::Expired | Self::Revoked | Self::SourceGone
+			Self::UnknownToken
+				| Self::Expired
+				| Self::Revoked
+				| Self::SourceGone
+				| Self::Superseded { .. }
 		)
 	}
 }

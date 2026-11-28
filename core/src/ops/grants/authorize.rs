@@ -14,7 +14,7 @@ use super::{
 	audit::{self, AuditId, Decision, RequestMeta, TallyKind},
 	bucket, protect, scope,
 	verify::{self, GrantRecord},
-	GrantCap, GrantError, GrantScope, GrantStatus,
+	GrantCap, GrantError, GrantScope, GrantStatus, TokenFormat,
 };
 use crate::{
 	common::contain,
@@ -283,11 +283,8 @@ fn named(resolved: Uuid, requested: Option<Uuid>) -> Result<Uuid, GrantError> {
 	}
 }
 
-/// Refuse a write against an authority epoch the space has moved past.
-///
-/// Spaces store no epoch yet, so `current` is 0: a write naming 0 passes
-/// and one naming anything else is stale. A request naming no epoch is not
-/// checked.
+/// Refuse a write against an authority epoch other than the space's
+/// current one. A request naming no epoch is not checked.
 fn fence(epoch: Option<u64>, current: u64) -> Result<(), GrantError> {
 	match epoch {
 		Some(epoch) if epoch != current => Err(GrantError::StaleEpoch { current }),
@@ -355,14 +352,14 @@ async fn decide(
 		return Err(GrantError::SourceGone);
 	}
 
+	let spaces = spaces::all(library, context)
+		.await
+		.map_err(|e| GrantError::Internal(format!("read spaces: {e}")))?;
 	// A grant made inside a space names it. Older grants are placed by
 	// their directory.
 	let space_id = match grant.space_id {
 		Some(stored) => named(stored, access.space)?,
 		None => {
-			let spaces = spaces::all(library, context)
-				.await
-				.map_err(|e| GrantError::Internal(format!("read spaces: {e}")))?;
 			let relative = grant_relative(context, grant).await?;
 			space_for(
 				&spaces,
@@ -373,7 +370,19 @@ async fn decide(
 			)?
 		}
 	};
-	let authority_epoch = 0;
+	let authority_epoch = spaces
+		.iter()
+		.find(|space| space.id == space_id)
+		.map_or(0, |space| space.authority_epoch);
+	// A signed token carries the epoch it was minted under and any replica
+	// accepts it without a lookup, so a hand-over has to retire it here.
+	if grant.token_format == TokenFormat::Signed
+		&& u64::try_from(grant.epoch).unwrap_or_default() < authority_epoch
+	{
+		return Err(GrantError::Superseded {
+			current: authority_epoch,
+		});
+	}
 	fence(access.epoch, authority_epoch)?;
 
 	if !grant.caps.allows(cap) {

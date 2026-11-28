@@ -28,7 +28,7 @@ use sd_core::{
 			store::revoke_for_source,
 			Access, GrantCap, GrantError, GrantKind, TokenFormat,
 		},
-		spaces::{SpaceCreateAction, SpaceCreateInput},
+		spaces::{store::advance_authority_epoch, SpaceCreateAction, SpaceCreateInput},
 	},
 };
 use sea_orm::{sea_query::Expr, ColumnTrait, EntityTrait, QueryFilter};
@@ -400,5 +400,62 @@ async fn grants_without_an_assertion_extend_and_source_removal_revokes_in_the_st
 		check(&harness, &signed.token, "notes.md").await,
 		Err(GrantError::Revoked)
 	);
+	Ok(())
+}
+
+async fn write_at(
+	harness: &IndexingHarness,
+	token: &str,
+	epoch: Option<u64>,
+) -> Result<(), GrantError> {
+	let mut access = Access::new(token, "test", Path::new("notes.md"), GrantCap::ReadWrite);
+	access.epoch = epoch;
+	authorize(&harness.core.context, &access).await.map(|_| ())
+}
+
+/// Raising a space's authority epoch fences writes naming the old epoch and
+/// retires the signed grants minted under it, while an opaque grant, which
+/// only this device can check, keeps working at the new epoch.
+#[tokio::test]
+async fn a_raised_epoch_fences_old_writes_and_retires_old_signed_grants() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("signed_grants_epoch")
+		.disable_watcher()
+		.build()
+		.await?;
+	let tracked = harness.create_test_dir("tracked").await?;
+	tracked.write_file("docs/notes.md", "notes").await?;
+	tracked.track().await?;
+	let docs = std::fs::canonicalize(harness.temp_path())?.join("tracked/docs");
+	let docs_space = space(&harness, SpaceKind::Folder, Some(docs.clone())).await;
+
+	let old_signed = grant(&harness, &docs, None, Some(TokenFormat::Signed), None).await?;
+	let opaque = grant(&harness, &docs, None, None, None).await?;
+	assert_eq!(write_at(&harness, &old_signed.token, Some(0)).await, Ok(()));
+
+	assert_eq!(
+		advance_authority_epoch(&harness.core.context, &docs_space)
+			.await
+			.map_err(anyhow::Error::msg)?,
+		1
+	);
+	assert_eq!(
+		write_at(&harness, &old_signed.token, None).await,
+		Err(GrantError::Superseded { current: 1 })
+	);
+	assert_eq!(
+		write_at(&harness, &opaque.token, Some(0)).await,
+		Err(GrantError::StaleEpoch { current: 1 })
+	);
+	assert_eq!(write_at(&harness, &opaque.token, Some(1)).await, Ok(()));
+	assert_eq!(write_at(&harness, &opaque.token, None).await, Ok(()));
+
+	let new_signed = grant(&harness, &docs, None, Some(TokenFormat::Signed), None).await?;
+	assert_eq!(write_at(&harness, &new_signed.token, Some(1)).await, Ok(()));
+	let row = agent_grant::Entity::find()
+		.filter(agent_grant::Column::Uuid.eq(new_signed.grant.id))
+		.one(harness.library.db().conn())
+		.await?
+		.expect("the new grant's row");
+	assert_eq!(row.epoch, 1);
 	Ok(())
 }
