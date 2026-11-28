@@ -119,7 +119,7 @@ jobs:
 
       - name: Build server and CLI binaries
         run: |
-          cargo build --release --bin sd-server --bin sd-cli --features sd-core/heif,sd-core/ffmpeg,sd-core/ai,sd-core/fuse --target ${{ matrix.settings.target }}
+          cargo build --release --bin sd-server --bin sd-cli --features sd-core/heif,sd-core/ffmpeg,sd-core/ai,sd-cli/fuse --target ${{ matrix.settings.target }}
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
@@ -204,7 +204,7 @@ jobs:
         run: |
           cargo build --release --locked \
             -p sd-cli -p sd-core --bin sd-cli --bin sd-daemon \
-            --features sd-core/fuse \
+            --features "sd-cli/fuse${{ contains(matrix.settings.target, 'apple') && ',sd-cli/nfs' || '' }}" \
             --target ${{ matrix.settings.target }}
 
       - name: Prepare binaries
