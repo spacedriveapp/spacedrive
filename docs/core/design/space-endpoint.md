@@ -239,10 +239,14 @@ Resuming:
   never suppresses a reset.
   A first connection with no `Last-Event-ID` starts at the current position
   with no replay.
-- The server closes a stream that has carried no event for 60 seconds, and the
-  client reconnects at once with `Last-Event-ID`. A comment line (`: keep`)
-  every 15 seconds keeps intermediaries from closing it sooner.
-- A grant may hold 4 streams at once, the same as its MCP session limit.
+- A stream has no idle timeout. A comment line (`: keep`) goes out every 15
+  seconds so intermediaries keep a quiet stream open.
+- The server closes a stream when a write to it fails or cannot complete
+  within 30 seconds, which covers a client that went away or stopped reading.
+  The client reconnects with `Last-Event-ID` when its connection drops.
+- A grant may hold 4 streams at once, the same as its MCP session limit. A
+  fifth stream evicts the grant's oldest one, which gets `reset` and then
+  closes, so a stream the client abandoned never locks the grant out.
 
 Where the changes come from: when a space has an event log, the stream is that
 log read from `seq`, so it resumes across daemon restarts. Before that, the

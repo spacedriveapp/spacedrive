@@ -66,9 +66,24 @@ pub struct AgentMcpConfig {
 	/// Whether the daemon serves the endpoint. Off until the user turns it on.
 	#[serde(default)]
 	pub enabled: bool,
-	/// The address to listen on. Only loopback addresses are accepted.
+	/// The address to listen on. Loopback unless the user names another IP;
+	/// a non-loopback address also needs TLS or `plaintext`.
 	#[serde(default = "default_agent_mcp_listen")]
 	pub listen: String,
+	/// PEM certificate chain served when TLS is on. Needs `tls_key`.
+	#[serde(default)]
+	pub tls_cert: Option<PathBuf>,
+	/// PEM private key for `tls_cert`.
+	#[serde(default)]
+	pub tls_key: Option<PathBuf>,
+	/// Serve plain HTTP on a non-loopback address, for a network that is
+	/// already encrypted such as a WireGuard or Tailscale address.
+	#[serde(default)]
+	pub plaintext: bool,
+	/// Names clients may send in Host on a non-loopback listener, besides the
+	/// bound IP, such as the name in the certificate.
+	#[serde(default)]
+	pub host_names: Vec<String>,
 }
 
 fn default_agent_mcp_listen() -> String {
@@ -80,6 +95,10 @@ impl Default for AgentMcpConfig {
 		Self {
 			enabled: false,
 			listen: default_agent_mcp_listen(),
+			tls_cert: None,
+			tls_key: None,
+			plaintext: false,
+			host_names: Vec::new(),
 		}
 	}
 }

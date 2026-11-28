@@ -1,6 +1,6 @@
 //! Update app configuration action
 
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -58,10 +58,29 @@ pub struct UpdateAppConfigInput {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub agent_mcp_enabled: Option<bool>,
 
-	/// The loopback address the agent MCP endpoint listens on. Applies at
-	/// restart.
+	/// The address the agent MCP endpoint listens on. Applies at restart.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub agent_mcp_listen: Option<String>,
+
+	/// PEM certificate chain the agent MCP endpoint serves TLS with; an empty
+	/// string clears it. Applies at restart.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub agent_mcp_tls_cert: Option<String>,
+
+	/// PEM private key for the agent MCP certificate; an empty string clears
+	/// it. Applies at restart.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub agent_mcp_tls_key: Option<String>,
+
+	/// Let a non-loopback agent MCP listener serve plain HTTP. Applies at
+	/// restart.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub agent_mcp_plaintext: Option<bool>,
+
+	/// Host names a non-loopback agent MCP listener accepts besides its IP;
+	/// an empty list clears them. Applies at restart.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub agent_mcp_host_names: Option<Vec<String>>,
 
 	/// Whether networking is enabled
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -167,6 +186,11 @@ impl CoreAction for UpdateAppConfigAction {
 		if let Some(listen) = &input.agent_mcp_listen {
 			crate::service::agent_mcp::listen_addr(listen)?;
 		}
+		if let Some(names) = &input.agent_mcp_host_names {
+			for name in names {
+				crate::service::agent_mcp::host_name(name)?;
+			}
+		}
 
 		if input.proxy_pairing_vouch_signature_max_age == Some(0) {
 			return Err("Signature max age must be greater than 0".to_string());
@@ -262,6 +286,44 @@ impl CoreAction for UpdateAppConfigAction {
 			if config.agent_mcp.listen != *listen {
 				config.agent_mcp.listen = listen.clone();
 				changes.push("agent_mcp_listen");
+				requires_restart = true;
+			}
+		}
+
+		if let Some(ref cert) = self.input.agent_mcp_tls_cert {
+			let cert = Some(cert.trim())
+				.filter(|c| !c.is_empty())
+				.map(PathBuf::from);
+			if config.agent_mcp.tls_cert != cert {
+				config.agent_mcp.tls_cert = cert;
+				changes.push("agent_mcp_tls_cert");
+				requires_restart = true;
+			}
+		}
+
+		if let Some(ref key) = self.input.agent_mcp_tls_key {
+			let key = Some(key.trim())
+				.filter(|k| !k.is_empty())
+				.map(PathBuf::from);
+			if config.agent_mcp.tls_key != key {
+				config.agent_mcp.tls_key = key;
+				changes.push("agent_mcp_tls_key");
+				requires_restart = true;
+			}
+		}
+
+		if let Some(plaintext) = self.input.agent_mcp_plaintext {
+			if config.agent_mcp.plaintext != plaintext {
+				config.agent_mcp.plaintext = plaintext;
+				changes.push("agent_mcp_plaintext");
+				requires_restart = true;
+			}
+		}
+
+		if let Some(ref names) = self.input.agent_mcp_host_names {
+			if config.agent_mcp.host_names != *names {
+				config.agent_mcp.host_names = names.clone();
+				changes.push("agent_mcp_host_names");
 				requires_restart = true;
 			}
 		}

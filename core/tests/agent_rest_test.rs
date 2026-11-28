@@ -518,6 +518,24 @@ impl Stream {
 		)
 	}
 
+	/// Read for `span` and count the heartbeat comments, failing if the
+	/// stream closes or carries an event.
+	async fn heartbeats_for(&mut self, span: Duration) -> usize {
+		let deadline = tokio::time::Instant::now() + span;
+		while let Ok(chunk) = tokio::time::timeout_at(deadline, self.body.next()).await {
+			let chunk = chunk.expect("the stream stays open").expect("a chunk");
+			self.buffer.push_str(&String::from_utf8_lossy(&chunk));
+		}
+		let beats = self.buffer.matches(": keep\n\n").count();
+		assert_eq!(
+			self.buffer.replace(": keep\n\n", ""),
+			"",
+			"only heartbeats arrive"
+		);
+		self.buffer.clear();
+		beats
+	}
+
 	/// The next event, skipping comments, or `None` when the stream closed.
 	async fn next(&mut self) -> Option<Event> {
 		loop {
@@ -618,16 +636,22 @@ async fn rest_event_stream_carries_writes_resets_and_ends() -> anyhow::Result<()
 		assert_eq!(event.name, "reset", "{id}");
 	}
 
-	// A grant holds at most four streams at once.
+	// A grant holds four streams at once; a fifth evicts the oldest, which
+	// gets reset and then closes.
 	let mut held = Vec::new();
 	for _ in 0..4 {
 		let (status, stream) = Stream::open(&rest, None).await;
 		assert_eq!(status, StatusCode::OK);
 		held.push(stream.unwrap());
 	}
-	let (status, _) = Stream::open(&rest, None).await;
-	assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
-	held.truncate(1);
+	let (status, newest) = Stream::open(&rest, None).await;
+	assert_eq!(status, StatusCode::OK);
+	let mut oldest = held.remove(0);
+	let event = oldest.next().await.expect("reset");
+	assert_eq!(event.name, "reset");
+	assert!(oldest.next().await.is_none(), "the evicted stream closes");
+	held.push(newest.unwrap());
+	held.drain(..held.len() - 1);
 
 	// Revoking the grant ends the stream.
 	let mut stream = held.pop().unwrap();
@@ -640,6 +664,55 @@ async fn rest_event_stream_carries_writes_resets_and_ends() -> anyhow::Result<()
 	let event = stream.next().await.expect("end");
 	assert_eq!(event.name, "end");
 	assert!(stream.next().await.is_none(), "the stream closes after end");
+
+	harness.shutdown().await?;
+	Ok(())
+}
+
+/// A mount that is up but not reading must keep its invalidations, so a quiet
+/// stream has no idle close and stays open on heartbeats alone.
+/// A client that stops reading is closed after the write timeout; that path is
+/// unit-tested in `events.rs`, since stalling a real socket means filling the
+/// kernel's buffers first.
+#[tokio::test]
+async fn rest_event_stream_stays_open_without_events() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("agent_rest_quiet")
+		.disable_watcher()
+		.build()
+		.await?;
+	let tracked = harness.create_test_dir("tracked").await?;
+	tracked.write_file("project/a.txt", "a").await?;
+	tracked.track().await?;
+	let project = std::fs::canonicalize(harness.temp_path())?.join("tracked/project");
+
+	let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+	let bound = agent_mcp::serve(
+		harness.core.context.clone(),
+		listener,
+		Limits {
+			stream_heartbeat: Duration::from_millis(200),
+			..limits()
+		},
+	)?;
+	let issued = grant(&harness, &project, GrantCap::ReadWrite).await?;
+	let rest = Rest::new(
+		&format!("http://{bound}"),
+		&issued.token,
+		&issued.grant.id.to_string(),
+	);
+	let (status, stream) = Stream::open(&rest, None).await;
+	assert_eq!(status, StatusCode::OK);
+	let mut stream = stream.unwrap();
+
+	let beats = stream.heartbeats_for(Duration::from_secs(3)).await;
+	assert!(beats >= 10, "a heartbeat every 200 ms, got {beats}");
+	rest.ok(
+		"write_file",
+		json!({ "path": "late.txt", "content": "late" }),
+	)
+	.await;
+	let event = stream.next().await.expect("a change on the quiet stream");
+	assert_eq!(event.data["path"], json!("late.txt"));
 
 	harness.shutdown().await?;
 	Ok(())

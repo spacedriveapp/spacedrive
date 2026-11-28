@@ -91,6 +91,7 @@ impl LibraryAction for DeleteSourceAction {
 		// writer is left open over a directory about to be deleted and a
 		// later add reopens the store under its own registration.
 		let filesystem = context.volume_index().forget_source(source_id).await;
+		crate::ops::spaces::events::forget_source(source_id).await;
 		let catalog_path = match &filesystem {
 			Some((_, dir)) => dir.clone(),
 			None => None,

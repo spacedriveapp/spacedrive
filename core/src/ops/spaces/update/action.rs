@@ -79,6 +79,7 @@ impl LibraryAction for SpaceUpdateAction {
 			.put_space(&row)
 			.await
 			.map_err(|e| ActionError::Internal(format!("could not save the space: {e}")))?;
+		store::invalidate(space.source_id);
 		if let Some(reading) = reading {
 			store::reread(&library, &context, space.source_id, reading).await?;
 		}

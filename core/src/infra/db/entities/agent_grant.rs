@@ -36,6 +36,10 @@ pub struct Model {
 	/// move to `agent_grant_spent_refresh`.
 	#[sea_orm(unique)]
 	pub refresh_hash: Option<String>,
+	/// The space the grant lends a part of. Unset on grants made before spaces.
+	pub space_id: Option<Uuid>,
+	/// The actor the grant was lent to. Unset on grants made before actors.
+	pub actor_id: Option<Uuid>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

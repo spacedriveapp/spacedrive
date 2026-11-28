@@ -1,4 +1,5 @@
-//! The RPC server's trust boundary (threat model F1, F2 and F6).
+//! The RPC server's trust boundary and what the daemon logs (threat model F1,
+//! F2, F4 and F6).
 //!
 //! Each test starts a core with its RPC server in this process and talks to it
 //! over raw TCP, the way any local process could.
@@ -220,4 +221,43 @@ async fn malformed_rpc_lines_are_not_logged() {
 		!log.contains(&secret(&daemon).await),
 		"the RPC secret reached the log"
 	);
+}
+
+/// F4: the daemon logs where its SMB share listens but not the login a host
+/// client mounts it with.
+#[tokio::test(flavor = "multi_thread")]
+async fn smb_share_password_is_not_logged() {
+	let _daemon = start_daemon().await;
+
+	let mut log = String::new();
+	for _ in 0..100 {
+		log = String::from_utf8_lossy(&captured_log().0.lock().unwrap()).into_owned();
+		if log.contains("Mounts SMB share at") {
+			break;
+		}
+		tokio::time::sleep(Duration::from_millis(100)).await;
+	}
+	assert!(
+		log.contains("Mounts SMB share at smb://***@127.0.0.1:"),
+		"the share address was logged with its login masked:\n{log}"
+	);
+
+	let url = sd_core::service::mounts::smb::mount_url().expect("the SMB share is running");
+	let password = url
+		.strip_prefix("smb://spacedrive:")
+		.and_then(|rest| rest.split('@').next())
+		.expect("the mount URL carries the login");
+	assert!(!password.is_empty(), "the mount URL carries a password");
+	assert!(
+		!log.contains(&format!(":{password}@")),
+		"the SMB login reached the log:\n{log}"
+	);
+	// A pinned password can be an ordinary word found elsewhere in the log;
+	// a generated one cannot.
+	if std::env::var_os("SD_MOUNT_SMB_PASSWORD").is_none() {
+		assert!(
+			!log.contains(password),
+			"the SMB password reached the log:\n{log}"
+		);
+	}
 }

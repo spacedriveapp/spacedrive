@@ -66,6 +66,7 @@ impl DeleteStrategy for LocalDeleteStrategy {
 
 					let size = self.get_path_size(local_path).await.unwrap_or(0);
 
+					let _held = crate::ops::spaces::events::hold(&[local_path]);
 					let deletion_result = match mode {
 						DeleteMode::Trash => {
 							self.move_to_trash(local_path, ctx).await.map(|location| {

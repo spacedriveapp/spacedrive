@@ -532,6 +532,21 @@ impl JobHandler for FileCopyJob {
 				None => false,
 			};
 
+			// Held until this source is done, so the watcher sees this copy as
+			// the person's own even when it outlasts a claim's few seconds. A
+			// copy only reads its source, so only a move holds it, and a folder
+			// already at the destination holds files this copy may not touch,
+			// so a merge into it holds each entry instead.
+			let dest_is_new_or_file = existing.as_ref().is_none_or(|there| !there.is_dir());
+			let _held = crate::ops::spaces::events::hold(
+				&source_path
+					.iter()
+					.filter(|_| is_move)
+					.chain(dest_path.iter().filter(|_| dest_is_new_or_file))
+					.map(PathBuf::as_path)
+					.collect::<Vec<_>>(),
+			);
+
 			if let (Some(there), Some(source_path), Some(dest_path)) =
 				(existing.as_ref(), &source_path, &dest_path)
 			{
@@ -650,6 +665,12 @@ impl JobHandler for FileCopyJob {
 				}
 				_ => final_destination,
 			};
+
+			// A numbered name beside the existing file is not under the held
+			// destination.
+			let _held_landing = final_destination
+				.as_local_path()
+				.map(|landing| crate::ops::spaces::events::hold(&[landing]));
 
 			// 2. Execute the strategy with progress callback
 			match strategy

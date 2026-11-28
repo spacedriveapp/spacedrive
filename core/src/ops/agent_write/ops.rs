@@ -35,6 +35,7 @@ use crate::{
 	ops::{
 		files::trash,
 		grants::{authorize, bucket::BucketUrl, scope, GrantCap, GrantError, GrantScope},
+		spaces::events::{self as space_events, Attribution, Origin},
 	},
 	service::network::protocol::staged_receive::{rename_noreplace, StagedReceive, JOURNAL_DIR},
 };
@@ -199,6 +200,7 @@ pub async fn write_file_in(
 			}
 			still_inside(&scope).await?;
 			turn.proceed()?;
+			space_events::claim(&[&scope.path]);
 			let previous = trash::trash(&scope.path, Some(&context.volume_manager), JobId(id))
 				.await
 				.map_err(|e| WriteError::Io(format!("set the previous bytes aside: {e}")))?;
@@ -235,7 +237,8 @@ pub async fn write_file_in(
 		}
 	};
 
-	finish(context, &scope, id, effects, &landed, conflict).await
+	let before = current.content_hash.clone();
+	finish(context, &scope, id, effects, &landed, conflict, before).await
 }
 
 /// Create a directory and any missing parents.
@@ -265,7 +268,7 @@ pub async fn make_dir_in(
 		state::read_until(context, &scope.root, &scope.path, turn.cancel.clone()).await?;
 	let id = Uuid::now_v7();
 	if current.kind == Some(PathKind::Directory) {
-		return finish(context, &scope, id, Vec::new(), &scope.path, false).await;
+		return finish(context, &scope, id, Vec::new(), &scope.path, false, None).await;
 	}
 	let mut wanted = if current.exists() {
 		conflict_name(&scope.path, true)
@@ -276,6 +279,7 @@ pub async fn make_dir_in(
 	let mut effects = make_parents(&scope.root, &wanted).await?;
 	still_inside(&scope).await?;
 	loop {
+		space_events::claim(&[&wanted]);
 		match tokio::fs::create_dir(&wanted).await {
 			Ok(()) => break,
 			Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
@@ -287,7 +291,7 @@ pub async fn make_dir_in(
 	let meta = std::fs::symlink_metadata(&wanted).ok();
 	effects.push(Effect::created(wanted.clone(), meta.as_ref()));
 	let conflict = wanted != scope.path;
-	finish(context, &scope, id, effects, &wanted, conflict).await
+	finish(context, &scope, id, effects, &wanted, conflict, None).await
 }
 
 /// Move or rename a path within the grant, on one volume.
@@ -356,6 +360,7 @@ pub async fn move_path_in(
 	still_inside(&to).await?;
 	loop {
 		let (source, target) = (from.path.clone(), wanted.clone());
+		space_events::claim(&[&source, &target]);
 		let renamed = tokio::task::spawn_blocking(move || rename_noreplace(&source, &target))
 			.await
 			.map_err(|e| WriteError::Io(format!("move: {e}")))?;
@@ -379,7 +384,8 @@ pub async fn move_path_in(
 		meta.as_ref(),
 	));
 	let conflict = wanted != to.path;
-	let mut outcome = finish(context, &to, id, effects, &wanted, conflict).await?;
+	let before = current.content_hash.clone();
+	let mut outcome = finish(context, &to, id, effects, &wanted, conflict, before).await?;
 	outcome.requested = state::shown(&to.root, &to.path);
 	Ok(outcome)
 }
@@ -423,6 +429,7 @@ pub async fn delete_in(
 	still_inside(&scope).await?;
 	let id = Uuid::now_v7();
 	turn.proceed()?;
+	space_events::claim(&[&scope.path]);
 	let location = trash::trash(&scope.path, Some(&context.volume_manager), JobId(id))
 		.await
 		.map_err(|e| WriteError::Io(format!("trash: {e}")))?;
@@ -431,7 +438,8 @@ pub async fn delete_in(
 		location,
 		Some(&metadata),
 	)];
-	finish(context, &scope, id, effects, &scope.path, false).await
+	let before = current.content_hash.clone();
+	finish(context, &scope, id, effects, &scope.path, false, before).await
 }
 
 async fn writable(
@@ -556,6 +564,7 @@ async fn make_parents(root: &Path, path: &Path) -> Result<Vec<Effect>, WriteErro
 	}
 	let mut effects = Vec::new();
 	for dir in missing.into_iter().rev() {
+		space_events::claim(&[&dir]);
 		match tokio::fs::create_dir(&dir).await {
 			Ok(()) => {
 				let meta = std::fs::symlink_metadata(&dir).ok();
@@ -603,6 +612,7 @@ async fn write_bytes(
 /// something took `wanted` meanwhile. Answers where it landed.
 async fn commit(staged: &mut StagedReceive, mut wanted: PathBuf) -> Result<PathBuf, WriteError> {
 	loop {
+		space_events::claim(&[&wanted]);
 		match staged.commit_new(&wanted).await {
 			Ok(()) => return Ok(wanted),
 			Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
@@ -621,9 +631,25 @@ async fn finish(
 	effects: Vec<Effect>,
 	landed: &Path,
 	conflict: bool,
+	before: Option<String>,
 ) -> Result<WriteOutcome, WriteError> {
 	let undo = journal(context, scope.library_id, scope.grant_id, id, &effects).await;
 	let (state, _) = state::read(context, &scope.root, landed).await?;
+	// Still inside the write's turn, so no other agent write lands between
+	// the journal row and this space's record of the change.
+	space_events::record_effects(
+		context,
+		Attribution {
+			origin: Origin::AgentWrite,
+			actor: scope.actor_id,
+			grant: Some(scope.grant_id),
+			undo,
+			library: Some(scope.library_id),
+		},
+		&effects,
+		Some((landed, before, state.content_hash.clone())),
+	)
+	.await;
 	info!(
 		grant = %scope.grant_id,
 		path = %state.path,

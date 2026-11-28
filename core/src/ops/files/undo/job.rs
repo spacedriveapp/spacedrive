@@ -195,6 +195,7 @@ async fn apply(ctx: &JobContext<'_>, step: Step) -> std::io::Result<Vec<Effect>>
 	}
 	match step {
 		Step::Trash { path, .. } => {
+			crate::ops::spaces::events::claim(&[&path]);
 			let location = trash::trash(&path, ctx.volume_manager().as_deref(), ctx.id()).await?;
 			let subject = match &location {
 				Some(location) => tokio::fs::symlink_metadata(location).await.ok(),
@@ -203,7 +204,9 @@ async fn apply(ctx: &JobContext<'_>, step: Step) -> std::io::Result<Vec<Effect>>
 			Ok(vec![Effect::trashed(path, location, subject.as_ref())])
 		}
 		Step::MoveBack { from, to, .. } => {
+			crate::ops::spaces::events::claim(&[&from, &to]);
 			if let Some(parent) = to.parent() {
+				crate::ops::spaces::events::claim_missing(parent).await;
 				tokio::fs::create_dir_all(parent).await?;
 			}
 			move_back(&from, &to).await?;
@@ -211,6 +214,7 @@ async fn apply(ctx: &JobContext<'_>, step: Step) -> std::io::Result<Vec<Effect>>
 			Ok(vec![Effect::moved(from, to, subject.as_ref())])
 		}
 		Step::Restore { path, previous, .. } => {
+			crate::ops::spaces::events::claim(&[&path, &previous]);
 			let location = trash::trash(&path, ctx.volume_manager().as_deref(), ctx.id()).await?;
 			let stashed = match &location {
 				Some(location) => tokio::fs::symlink_metadata(location).await.ok(),
@@ -224,6 +228,7 @@ async fn apply(ctx: &JobContext<'_>, step: Step) -> std::io::Result<Vec<Effect>>
 			])
 		}
 		Step::Attributes { path, to } => {
+			crate::ops::spaces::events::claim(&[&path]);
 			let from = crate::ops::files::attributes_action::fs::read(&path).await?;
 			crate::ops::files::attributes_action::fs::apply(&path, &to).await?;
 			Ok(vec![Effect::Attributes {
