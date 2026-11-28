@@ -83,7 +83,9 @@ pub struct Authorized {
 /// every open library's unknown-token tally for `meta.client`, one row per
 /// address per minute, since nothing tells which library it was aimed at. A
 /// surface with no client address only logs it. A count that cannot be
-/// written answers [`GrantError::Internal`].
+/// written is logged and the token still answers
+/// [`GrantError::UnknownToken`], so the per-address lockout never depends on
+/// the audit table.
 pub async fn authorize(
 	context: &CoreContext,
 	access: &Access<'_>,
@@ -95,7 +97,7 @@ pub async fn authorize(
 			Err(refusal) => return Err(refusal),
 		}
 	}
-	refuse_unknown(context, access).await?;
+	refuse_unknown(context, access).await;
 	Err(GrantError::UnknownToken)
 }
 
@@ -147,14 +149,19 @@ pub async fn authorize_in(
 	.map(|authorized| authorized.scope)
 }
 
-async fn refuse_unknown(context: &CoreContext, access: &Access<'_>) -> Result<(), GrantError> {
+/// Count an unknown token against its client in every open library.
+///
+/// The count is best-effort: a write that fails is logged, and the request
+/// still answers as an unknown token, so the surface's per-address lockout
+/// keeps counting probes while the audit table cannot be written.
+async fn refuse_unknown(context: &CoreContext, access: &Access<'_>) {
 	let meta = &access.meta;
 	warn!(op = access.op, client = ?meta.client, "refused a request carrying an unknown grant token");
 	let Some(client) = meta.client else {
-		return Ok(());
+		return;
 	};
 	for library in context.libraries().await.list().await {
-		audit::tally(
+		if let Err(e) = audit::tally(
 			library.db().conn(),
 			TallyKind::UnknownToken,
 			&client.to_string(),
@@ -162,9 +169,10 @@ async fn refuse_unknown(context: &CoreContext, access: &Access<'_>) -> Result<()
 			Some(client),
 		)
 		.await
-		.map_err(|e| GrantError::Internal(format!("audit: {e}")))?;
+		{
+			warn!(library = %library.id(), error = %e, "could not count an unknown grant token");
+		}
 	}
-	Ok(())
 }
 
 async fn decide_recorded(

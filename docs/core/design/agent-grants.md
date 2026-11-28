@@ -163,7 +163,7 @@ A record never holds the token, file contents or match text.
 
 Some requests are counted instead of recorded one by one, so a flood cannot fill the table. They go to `grant_audit_tally`, one row per kind, subject and minute with a count:
 
-- `unknown_token`: a token that matches no grant, per client address. Nothing says which library the token was meant for, so the count goes to every open library.
+- `unknown_token`: a token that matches no grant, per client address. Nothing says which library the token was meant for, so the count goes to every open library. This count is best-effort: if it cannot be written, the failure is logged and the request still answers 401, so the per-address lockout keeps counting.
 - `locked_out`: a request from an address locked out after failed authentications, per client address.
 - `rate_limited`: a request over its grant's request rate, per grant. Its decision row is folded into the count.
 

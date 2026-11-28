@@ -373,6 +373,13 @@ async fn agent_audit_records_requests_tallies_floods_and_fails_closed() -> anyho
 	assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
 	assert!(!body.to_string().contains(SECRET));
 
+	// The unknown-token count is best-effort: with its table gone, an unknown
+	// token still answers 401, so the address keeps counting toward lockout.
+	conn.execute_unprepared("DROP TABLE grant_audit_tally")
+		.await?;
+	let mut stranger = Client::new(&url, &format!("sdg_{}", "8".repeat(64)));
+	assert_eq!(stranger.initialize().await, StatusCode::UNAUTHORIZED);
+
 	harness.shutdown().await?;
 	Ok(())
 }
