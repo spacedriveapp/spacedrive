@@ -889,25 +889,24 @@ async fn restore(
 					Err(_) => AuditResult::Error,
 				};
 				// Each file's own audit row is completed here, since the
-				// transport only completes the row of the restore call.
-				if let Some(library) = context
+				// transport only completes the row of the restore call. A row
+				// that cannot be completed stops the restore unanswered, as any
+				// other surface refuses a request it cannot record.
+				let library = context
 					.libraries()
 					.await
 					.get_library(scope.library_id)
 					.await
-				{
-					if let Err(error) = audit::finish(
-						library.db().conn(),
-						allowed.audit,
-						None,
-						result,
-						started.elapsed(),
-					)
-					.await
-					{
-						tracing::warn!(%error, "could not complete the audit row of a restored file");
-					}
-				}
+					.ok_or_else(|| "the grant's audit log is unavailable".to_string())?;
+				audit::finish(
+					library.db().conn(),
+					allowed.audit,
+					None,
+					result,
+					started.elapsed(),
+				)
+				.await
+				.map_err(|e| format!("the grant's audit log is unavailable: {e}"))?;
 				written
 			}
 			Err(error) => Err(error.to_string()),
