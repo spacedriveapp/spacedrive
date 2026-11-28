@@ -1,4 +1,10 @@
-import { CaretDown, CaretRight, FilmStrip, Image } from "@phosphor-icons/react";
+import {
+	CaretDown,
+	CaretRight,
+	FileText,
+	FilmStrip,
+	Image,
+} from "@phosphor-icons/react";
 import type { File, FileByPathQuery, SpokenTime, TextKind } from "@sd/ts-client";
 import { WIRE_METHODS } from "@sd/ts-client";
 import { toast } from "@spacedrive/primitives";
@@ -77,7 +83,7 @@ export function ContentHits() {
 	);
 }
 
-function ContentFileRow({
+export function ContentFileRow({
 	file,
 	onOpen,
 }: {
@@ -89,7 +95,11 @@ function ContentFileRow({
 		? file.moments
 		: file.moments.slice(0, COLLAPSED_MOMENTS);
 	const hidden = file.moments.length - moments.length;
-	const Icon = file.kinds.includes("caption") ? Image : FilmStrip;
+	const Icon = file.kinds.includes("caption")
+		? Image
+		: file.kinds.some((kind) => kind === "transcript" || kind === "scene")
+			? FilmStrip
+			: FileText;
 
 	return (
 		<li className="hover:bg-app-hover/50 rounded-md px-2 py-1.5">
@@ -175,7 +185,7 @@ function MomentRow({
  * cleared first, because the preview follows a single selected file and would
  * otherwise switch straight back to it.
  */
-function useOpenContentHit() {
+export function useOpenContentHit() {
 	const client = useSpacedriveClient();
 	const { openQuickPreview } = useExplorer();
 	const { clearSelection } = useSelection();
