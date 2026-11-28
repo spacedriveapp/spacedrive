@@ -51,7 +51,9 @@ use crate::{
 			self, ContentEncoding, DeleteInput, MakeDirInput, MoveInput, Precondition,
 			WriteFileInput,
 		},
-		grants::{authorize, create::owning_source, GrantCap, GrantScope},
+		grants::{
+			audit, authorize, create::owning_source, Access, AuditResult, GrantCap, GrantScope,
+		},
 		indexing::{
 			metadata::{refuse_dataless_blocking, DATALESS_REASON},
 			text_extract::TextKind,
@@ -734,12 +736,10 @@ async fn versioned_space(
 	context: &CoreContext,
 	scope: &GrantScope,
 ) -> Result<(InSpace, Arc<sd_store::SpaceVersions>), String> {
-	let Some(space_id) = scope.space_id else {
-		return Err(
-			"this grant has no versions because it predates spaces; ask the owner for a new grant"
-				.to_string(),
-		);
-	};
+	if scope.space_id == scope.grant_id {
+		return Err("this grant has no versions because its folder is in no space".to_string());
+	}
+	let space_id = scope.space_id;
 	let at = space_events::space_of(context, &scope.root, Some(scope.library_id))
 		.await
 		.filter(|at| at.space_id == space_id)
@@ -872,19 +872,43 @@ async fn restore(
 		let shown = under_root(&at.path, &path).unwrap_or_else(|| path.clone());
 		// Each file is checked against the grant on its own, so a snapshot
 		// cannot restore a protected name inside a folder.
+		let started = std::time::Instant::now();
 		let written = match authorize(
 			context,
-			token,
-			"mcp.restore",
-			Path::new(&shown),
-			GrantCap::ReadWrite,
+			&Access::new(token, "mcp.restore", Path::new(&shown), GrantCap::ReadWrite),
 		)
 		.await
 		{
-			Ok(file_scope) => {
-				versioning::restore_file(context, versions.clone(), &file_scope, who, hash)
+			Ok(allowed) => {
+				let written =
+					versioning::restore_file(context, versions.clone(), &allowed.scope, who, hash)
+						.await
+						.map_err(|e| e.to_string());
+				let result = match written {
+					Ok(_) => AuditResult::Ok,
+					Err(_) => AuditResult::Error,
+				};
+				// Each file's own audit row is completed here, since the
+				// transport only completes the row of the restore call.
+				if let Some(library) = context
+					.libraries()
 					.await
-					.map_err(|e| e.to_string())
+					.get_library(scope.library_id)
+					.await
+				{
+					if let Err(error) = audit::finish(
+						library.db().conn(),
+						allowed.audit,
+						None,
+						result,
+						started.elapsed(),
+					)
+					.await
+					{
+						tracing::warn!(%error, "could not complete the audit row of a restored file");
+					}
+				}
+				written
 			}
 			Err(error) => Err(error.to_string()),
 		};

@@ -547,7 +547,8 @@ pub async fn person_scope(
 	Ok(GrantScope {
 		grant_id: Uuid::nil(),
 		actor_id: actor,
-		space_id: Some(space.id),
+		space_id: space.id,
+		authority_epoch: 0,
 		library_id,
 		cap: GrantCap::ReadWrite,
 		path: root.join(&relative),

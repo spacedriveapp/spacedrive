@@ -174,6 +174,8 @@ async fn a_thin_client_mounts_a_bucket_space_and_reads_it() -> anyhow::Result<()
 		caps: Some(GrantCap::Read),
 		ttl_seconds: None,
 		label: Some("bucket mount".to_string()),
+		kind: None,
+		token_format: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())

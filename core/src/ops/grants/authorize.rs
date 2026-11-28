@@ -443,6 +443,7 @@ mod tests {
 			root: root.to_string(),
 			path: None,
 			content_indexing: true,
+			versioning: false,
 			created_at: Utc::now(),
 		}
 	}
