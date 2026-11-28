@@ -59,6 +59,7 @@ const SESSION_HEADER: &str = "mcp-session-id";
 const VERSION_HEADER: &str = "mcp-protocol-version";
 /// JSON-RPC error code for refusals by the server rather than the protocol.
 const REFUSED: i64 = -32001;
+const NETWORK_WRITES_OFF: &str = "writes over the network are off until the security review";
 
 struct Session {
 	grant: Uuid,
@@ -110,6 +111,22 @@ impl Endpoint {
 			usage: Mutex::default(),
 			failures: Mutex::default(),
 		}
+	}
+
+	/// Why a request that needs `cap` is refused, if it is.
+	///
+	/// Writable grants over the network wait for the outside security review
+	/// (threat model gate 2), so a write must be a [`Self::direct_local_request`].
+	/// That covers a listener bound beyond loopback and a loopback listener
+	/// behind a proxy alike. Callers check this after `authorize` so the
+	/// attempt is audited.
+	pub(super) fn network_write_refused(
+		&self,
+		cap: GrantCap,
+		headers: &HeaderMap,
+	) -> Option<&'static str> {
+		(cap == GrantCap::ReadWrite && !self.direct_local_request(headers))
+			.then_some(NETWORK_WRITES_OFF)
 	}
 
 	pub(super) fn with_usage<T>(&self, grant: Uuid, f: impl FnOnce(&mut GrantUsage) -> T) -> T {
@@ -365,14 +382,15 @@ impl Endpoint {
 		Ok(())
 	}
 
-	/// Whether this request may use OAuth.
+	/// Whether this request comes straight from this machine.
 	///
-	/// The consent page mints a grant for whoever presses Allow without
-	/// authenticating the owner, so it must only be reachable from this
-	/// machine. That needs a loopback bind, a loopback Host, and no sign of a
-	/// proxy, since a proxy on loopback can carry remote traffic. A configured
-	/// host name in Host is itself a sign of a proxy.
-	pub(super) fn oauth_offered(&self, headers: &HeaderMap) -> bool {
+	/// OAuth and writes need it. The consent page mints a grant for whoever
+	/// presses Allow without authenticating the owner, and writes over the
+	/// network wait for the security review, so both must only be reachable
+	/// from this machine. That needs a loopback bind, a loopback Host, and no
+	/// sign of a proxy, since a proxy on loopback can carry remote traffic. A
+	/// configured host name in Host is itself a sign of a proxy.
+	pub(super) fn direct_local_request(&self, headers: &HeaderMap) -> bool {
 		const PROXY_HEADERS: [&str; 4] = [
 			"forwarded",
 			"x-forwarded-for",
@@ -394,7 +412,7 @@ impl Endpoint {
 	/// The `WWW-Authenticate` value a 401 carries: a pointer to the OAuth
 	/// metadata where OAuth is offered, a bare challenge elsewhere.
 	fn challenge(&self, headers: &HeaderMap) -> String {
-		if self.oauth_offered(headers) {
+		if self.direct_local_request(headers) {
 			oauth::challenge(&oauth::base_url(headers, self.tls))
 		} else {
 			"Bearer realm=\"spacedrive\"".to_string()
@@ -589,6 +607,10 @@ async fn post(
 			Ok(authorized) => authorized,
 			Err(response) => return response,
 		};
+	if let Some(reason) = endpoint.network_write_refused(cap, headers) {
+		let refused = (forbidden(id.clone(), reason), AuditResult::Denied);
+		return endpoint.finish(&scope, row, started, refused, &id).await;
+	}
 	if let Err(reason) = paths::check(&path) {
 		let refused = (forbidden(id.clone(), reason), AuditResult::Denied);
 		return endpoint.finish(&scope, row, started, refused, &id).await;

@@ -167,13 +167,13 @@ tls_cert: string | null;
  */
 tls_key: string | null; 
 /**
- * Whether a non-loopback listener may serve plain HTTP.
- */
-plaintext: boolean; 
-/**
  * Names a non-loopback listener accepts in Host besides its IP.
  */
-host_names: string[] };
+host_names: string[]; 
+/**
+ * Bytes block reads may return per grant per hour.
+ */
+block_bytes_per_hour: number };
 
 /**
  * Per-library inference settings.
@@ -6786,15 +6786,15 @@ agent_mcp_tls_cert?: string | null;
  */
 agent_mcp_tls_key?: string | null; 
 /**
- * Let a non-loopback agent MCP listener serve plain HTTP. Applies at
- * restart.
- */
-agent_mcp_plaintext?: boolean | null; 
-/**
  * Host names a non-loopback agent MCP listener accepts besides its IP;
  * an empty list clears them. Applies at restart.
  */
 agent_mcp_host_names?: string[] | null; 
+/**
+ * Bytes the space endpoint's block reads may return per grant per hour.
+ * Must be greater than 0. Applies at restart.
+ */
+agent_mcp_block_bytes_per_hour?: number | null; 
 /**
  * Whether networking is enabled
  */

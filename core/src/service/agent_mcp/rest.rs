@@ -297,6 +297,7 @@ async fn serve(
 		ip,
 		token: &token,
 		audit,
+		headers,
 	};
 	match route {
 		Route::Spaces => request.spaces().await,
@@ -408,6 +409,7 @@ struct Request<'a> {
 	ip: IpAddr,
 	token: &'a str,
 	audit: &'a Audit,
+	headers: &'a HeaderMap,
 }
 
 impl Request<'_> {
@@ -658,6 +660,9 @@ impl Request<'_> {
 				arguments["pattern"].as_str().map(str::to_string),
 			)
 			.await?;
+		if let Some(reason) = self.endpoint.network_write_refused(cap, self.headers) {
+			return Err(error(StatusCode::FORBIDDEN, reason));
+		}
 		let Some(tool) = tool else {
 			return Err(error(StatusCode::NOT_FOUND, "no such tool"));
 		};
