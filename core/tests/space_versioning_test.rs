@@ -112,6 +112,8 @@ async fn grant(harness: &IndexingHarness, path: &Path) -> anyhow::Result<CreateG
 		path: path.to_path_buf(),
 		caps: Some(GrantCap::ReadWrite),
 		ttl_seconds: None,
+		kind: None,
+		token_format: None,
 		label: Some("builder".to_string()),
 	})
 	.map_err(anyhow::Error::msg)?
