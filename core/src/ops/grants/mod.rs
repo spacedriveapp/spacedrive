@@ -62,6 +62,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 pub use audit::{AuditId, AuditResult, RequestMeta};
+pub(crate) use authorize::retired;
 pub use authorize::{authorize, authorize_in, authorize_with, Access, Authorized};
 pub(crate) use verify::{verified, GrantRecord};
 

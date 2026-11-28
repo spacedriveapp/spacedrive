@@ -775,16 +775,25 @@ async fn call(
 	(json_response(StatusCode::OK, response), audited)
 }
 
-/// Resolves once the grant is revoked, expires or disappears, verifying the
-/// token again so a call in flight stops within a poll interval of that.
+/// Resolves once the grant is revoked, expires, disappears or is retired by
+/// its space's epoch, verifying the token again so a call in flight stops
+/// within a poll interval of that.
 pub(super) async fn ended(endpoint: &Endpoint, library_id: Uuid, token: &str) {
 	let mut tick = tokio::time::interval(endpoint.limits.revocation_poll);
 	tick.tick().await;
 	loop {
 		tick.tick().await;
-		match crate::ops::grants::verified(&endpoint.context, library_id, token).await {
-			Ok(grant) if grant.status(chrono::Utc::now()) == GrantStatus::Active => {}
-			Ok(_) | Err(GrantError::UnknownToken) => return,
+		let context = &endpoint.context;
+		let live = match crate::ops::grants::verified(context, library_id, token).await {
+			Ok(grant) if grant.status(chrono::Utc::now()) == GrantStatus::Active => {
+				crate::ops::grants::retired(context, library_id, &grant).await
+			}
+			Ok(_) => return,
+			Err(e) => Err(e),
+		};
+		match live {
+			Ok(()) => {}
+			Err(GrantError::UnknownToken | GrantError::Superseded { .. }) => return,
 			Err(e) => warn!(error = %e, "could not re-check a grant during a call"),
 		}
 	}
