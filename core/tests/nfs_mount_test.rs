@@ -595,6 +595,9 @@ async fn the_server_speaks_nfs_and_mount_over_tcp() {
 	let nfs = server::serve(tree()).await.unwrap();
 	assert!(nfs.addr().ip().is_loopback());
 	let addr = nfs.addr();
+	let backend = nfs.backend_addr();
+	let export = nfs.export_path().to_string();
+	assert_eq!(export.len(), 33, "a slash and 128 bits in hex");
 	tokio::task::spawn_blocking(move || {
 		let stream = TcpStream::connect(addr).unwrap();
 		stream
@@ -607,16 +610,55 @@ async fn the_server_speaks_nfs_and_mount_over_tcp() {
 		assert_eq!(reply.at, reply.data.len());
 		client.call(MOUNT_PROGRAM, 0, &[]);
 
-		// MNT the export.
-		let mut args = Vec::new();
-		put_opaque(&mut args, b"/");
-		let mut reply = client.call(MOUNT_PROGRAM, 1, &args);
-		assert_eq!(reply.u32(), 0, "MNT3_OK");
-		let root = reply.opaque();
-		let mut args = Vec::new();
-		put_opaque(&mut args, b"/elsewhere");
-		let mut reply = client.call(MOUNT_PROGRAM, 1, &args);
-		assert_ne!(reply.u32(), 0, "an unknown export is refused");
+		// Nothing on the port says what to mount.
+		let mut reply = client.call(MOUNT_PROGRAM, 5, &[]);
+		assert_eq!(reply.u32(), 0, "EXPORT lists no exports");
+		let mut reply = client.call(MOUNT_PROGRAM, 2, &[]);
+		assert_eq!(reply.u32(), 0, "DUMP lists no mounts");
+
+		// MNT for anything but the secret export is refused.
+		let mnt = |client: &mut RpcClient, path: &[u8]| {
+			let mut args = Vec::new();
+			put_opaque(&mut args, path);
+			let mut reply = client.call(MOUNT_PROGRAM, 1, &args);
+			match reply.u32() {
+				0 => Ok(reply.opaque()),
+				status => Err(status),
+			}
+		};
+		let truncated = &export.as_bytes()[..export.len() - 1];
+		for wrong in [&b"/"[..], b"/elsewhere", truncated] {
+			assert_eq!(mnt(&mut client, wrong), Err(13), "MNT3ERR_ACCES");
+		}
+		// The internal nfsserve port is on loopback too. It names an export
+		// when asked, but MNT there is refused for that name and for the real
+		// export alike.
+		{
+			let stream = TcpStream::connect(backend).unwrap();
+			stream
+				.set_read_timeout(Some(Duration::from_secs(10)))
+				.unwrap();
+			let mut direct = RpcClient { stream, xid: 0 };
+			let mut reply = direct.call(MOUNT_PROGRAM, 5, &[]);
+			let named = (reply.u32() == 1).then(|| reply.opaque());
+			for path in named
+				.iter()
+				.map(Vec::as_slice)
+				.chain([&b"/"[..], export.as_bytes()])
+			{
+				assert_ne!(
+					mnt(&mut direct, path).err(),
+					None,
+					"MNT on the internal port is refused"
+				);
+			}
+		}
+		let root = mnt(&mut client, export.as_bytes()).expect("MNT3_OK");
+		assert_eq!(
+			mnt(&mut client, export.as_bytes()),
+			Err(13),
+			"the export is handed out once"
+		);
 
 		let lookup = |client: &mut RpcClient, dir: &[u8], name: &[u8]| {
 			let mut args = Vec::new();
@@ -643,11 +685,42 @@ async fn the_server_speaks_nfs_and_mount_over_tcp() {
 		);
 
 		// GETATTR.
-		let mut args = Vec::new();
-		put_opaque(&mut args, &readme);
-		let mut reply = client.call(NFS_PROGRAM, 1, &args);
-		assert_eq!(reply.u32(), 0);
-		assert_eq!(reply.fattr(), (1, 15, readme_id));
+		let getattr = |client: &mut RpcClient, handle: &[u8]| {
+			let mut args = Vec::new();
+			put_opaque(&mut args, handle);
+			let mut reply = client.call(NFS_PROGRAM, 1, &args);
+			match reply.u32() {
+				0 => Ok(reply.fattr()),
+				status => Err(status),
+			}
+		};
+		assert_eq!(getattr(&mut client, &readme), Ok((1, 15, readme_id)));
+
+		// A handle the server did not hand out is refused, on the calls
+		// nfsserve answers and on the READDIR the front answers. The root is
+		// always file id 1, so the untagged handle nfsserve would make for it,
+		// and the real id with a guessed tag, are what a scanner would try.
+		let mut untagged = Vec::new();
+		untagged.extend_from_slice(&0u64.to_le_bytes());
+		untagged.extend_from_slice(&1u64.to_le_bytes());
+		let mut forged = root.clone();
+		*forged.last_mut().unwrap() ^= 1;
+		let mut moved = root.clone();
+		moved[..8].copy_from_slice(&readme_id.to_le_bytes());
+		for (handle, status, what) in [
+			(&untagged, 10001, "an untagged handle is NFS3ERR_BADHANDLE"),
+			(&forged, 70, "a wrong tag is NFS3ERR_STALE"),
+			(&moved, 70, "a tag moved to another file is NFS3ERR_STALE"),
+		] {
+			assert_eq!(getattr(&mut client, handle).err(), Some(status), "{what}");
+			let mut args = Vec::new();
+			put_opaque(&mut args, handle);
+			put_u64(&mut args, 0);
+			put_u64(&mut args, 0);
+			put_u32(&mut args, 4096);
+			let mut reply = client.call(NFS_PROGRAM, 16, &args);
+			assert_eq!(reply.u32(), status, "READDIR: {what}");
+		}
 
 		// READ a range, then to the end.
 		let read = |client: &mut RpcClient, offset: u64, count: u32| {
@@ -721,6 +794,73 @@ async fn the_server_speaks_nfs_and_mount_over_tcp() {
 	.await
 	.unwrap();
 	nfs.shutdown();
+}
+
+/// Collects everything a test's subscriber writes.
+#[derive(Clone, Default)]
+struct Captured(Arc<std::sync::Mutex<Vec<u8>>>);
+
+impl Write for Captured {
+	fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+		self.0.lock().unwrap().extend_from_slice(buf);
+		Ok(buf.len())
+	}
+
+	fn flush(&mut self) -> std::io::Result<()> {
+		Ok(())
+	}
+}
+
+/// The export path is the only thing that lets a local client MOUNT, so it
+/// must not reach a log at any level, nfsserve's included.
+#[test]
+fn the_export_path_is_never_logged() {
+	let logs = Captured::default();
+	let subscriber = tracing_subscriber::fmt()
+		.with_max_level(tracing::Level::TRACE)
+		.with_ansi(false)
+		.with_writer({
+			let logs = logs.clone();
+			move || logs.clone()
+		})
+		.finish();
+	// A current-thread runtime keeps every server task under this subscriber.
+	let export = tracing::subscriber::with_default(subscriber, || {
+		let runtime = tokio::runtime::Builder::new_current_thread()
+			.enable_all()
+			.build()
+			.unwrap();
+		runtime.block_on(async {
+			let nfs = server::serve(tree()).await.unwrap();
+			let export = nfs.export_path().to_string();
+			let addr = nfs.addr();
+			let path = export.clone();
+			tokio::task::spawn_blocking(move || {
+				let stream = TcpStream::connect(addr).unwrap();
+				stream
+					.set_read_timeout(Some(Duration::from_secs(10)))
+					.unwrap();
+				let mut client = RpcClient { stream, xid: 0 };
+				for attempt in [path.as_bytes(), path.as_bytes(), b"/"] {
+					let mut args = Vec::new();
+					put_opaque(&mut args, attempt);
+					client.call(MOUNT_PROGRAM, 1, &args);
+				}
+				client.call(NFS_PROGRAM, 0, &[]);
+			})
+			.await
+			.unwrap();
+			nfs.shutdown();
+			export
+		})
+	});
+	let logs = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+	assert!(
+		logs.contains("NFS server up"),
+		"the subscriber saw the server"
+	);
+	let token = export.trim_start_matches('/');
+	assert!(!logs.contains(token), "the export path was logged");
 }
 
 #[cfg(unix)]

@@ -46,11 +46,12 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use nfsserve::nfs::{
-	cookieverf3, fattr3, fileid3, filename3, fsinfo3, ftype3, nfspath3, nfsstat3, nfstime3,
-	post_op_attr, sattr3, specdata3,
+	cookieverf3, fattr3, fileid3, filename3, fsinfo3, ftype3, nfs_fh3, nfspath3, nfsstat3,
+	nfstime3, post_op_attr, sattr3, specdata3,
 };
 use nfsserve::tcp::{NFSTcp, NFSTcpListener};
 use nfsserve::vfs::{DirEntry, NFSFileSystem, ReadDirResult, VFSCapabilities};
+use rand::RngCore;
 use tokio::net::TcpListener;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
@@ -58,7 +59,7 @@ use tracing::{debug, info};
 
 use crate::service::mounts::vfs::{plain, MountError, MountFs, NodeAttr, NodeKind, OpenedFile};
 
-const ROOT: fileid3 = 1;
+pub(super) const ROOT: fileid3 = 1;
 /// Open files kept between reads. Sequential readers touch one or two files
 /// at a time; the bound keeps providers from piling up.
 const OPEN_FILES: usize = 16;
@@ -73,6 +74,57 @@ const FSID: u64 = 0x5344_4d4e_5446_5331;
 /// Largest read and preferred read size the client is offered. Large reads
 /// mean fewer round trips for a peer's file.
 const READ_MAX: u32 = 1024 * 1024;
+/// Bytes of keyed tag after the file id in every file handle.
+const HANDLE_TAG: usize = 16;
+
+/// Random bytes from the OS, for the per-server secrets.
+fn secret<const N: usize>() -> [u8; N] {
+	let mut bytes = [0u8; N];
+	rand::rngs::OsRng.fill_bytes(&mut bytes);
+	bytes
+}
+
+/// The one export path a server answers MOUNT for: 128 random bits that
+/// exist only in this process and in the mount command. The path also shows
+/// in the OS's mount table, so the front honors it once and refuses every
+/// later MOUNT, whoever sends it.
+pub(super) struct Export {
+	path: String,
+	claimed: AtomicBool,
+}
+
+impl Export {
+	fn new() -> Self {
+		Self {
+			path: format!("/{}", hex::encode(secret::<16>())),
+			claimed: AtomicBool::new(false),
+		}
+	}
+
+	/// Whether a MOUNT for `path` may have the root handle. Only the first
+	/// MOUNT for the right path gets it.
+	pub(super) fn claim(&self, path: &[u8]) -> bool {
+		let wanted = self.path.trim_start_matches('/').as_bytes();
+		let asked = trim_slashes(path);
+		let matches = asked.len() == wanted.len()
+			&& asked
+				.iter()
+				.zip(wanted)
+				.fold(0u8, |diff, (a, b)| diff | (a ^ b))
+				== 0;
+		matches && !self.claimed.swap(true, Ordering::SeqCst)
+	}
+}
+
+fn trim_slashes(mut path: &[u8]) -> &[u8] {
+	while let [b'/', rest @ ..] = path {
+		path = rest;
+	}
+	while let [rest @ .., b'/'] = path {
+		path = rest;
+	}
+	path
+}
 
 /// Ids the server has handed out, both ways.
 struct Ids {
@@ -143,6 +195,9 @@ struct Inner {
 	uid: u32,
 	gid: u32,
 	started: SystemTime,
+	/// Keys the tag on every file handle, so a handle is only good if this
+	/// server handed it out.
+	handle_key: [u8; 32],
 }
 
 /// A [`MountFs`] answering NFSv3 calls, read-only.
@@ -216,6 +271,7 @@ impl NfsAdapter {
 				uid,
 				gid,
 				started: SystemTime::now(),
+				handle_key: secret(),
 			}),
 		}
 	}
@@ -252,6 +308,13 @@ impl NfsAdapter {
 		if let Ok(mut files) = self.inner.files.lock() {
 			files.retain(|(id, _)| !ids.contains(id));
 		}
+	}
+
+	fn handle_tag(&self, id: fileid3) -> [u8; HANDLE_TAG] {
+		let hash = blake3::keyed_hash(&self.inner.handle_key, &id.to_le_bytes());
+		let mut tag = [0u8; HANDLE_TAG];
+		tag.copy_from_slice(&hash.as_bytes()[..HANDLE_TAG]);
+		tag
 	}
 
 	fn open_for_calls(&self) -> Result<(), nfsstat3> {
@@ -465,12 +528,14 @@ impl NFSFileSystem for NfsAdapter {
 
 	async fn getattr(&self, id: fileid3) -> Result<fattr3, nfsstat3> {
 		let path = self.path(id)?;
-		let node = self
-			.inner
-			.fs
-			.stat(&path)
-			.await
-			.map_err(|err| nfs_error(&err))?;
+		let node = match self.inner.fs.stat(&path).await {
+			Ok(node) => node,
+			// A client that cannot stat the mount root reports a stale handle
+			// rather than the refusal, so the root keeps its attributes and
+			// the listing itself carries the refusal.
+			Err(MountError::Denied(_)) if id == ROOT => NodeAttr::directory(Duration::ZERO),
+			Err(err) => return Err(nfs_error(&err)),
+		};
 		Ok(self.attr(id, &node))
 	}
 
@@ -607,6 +672,42 @@ impl NFSFileSystem for NfsAdapter {
 		})
 	}
 
+	/// Refuse every path. nfsserve's MNT is the only caller, on the internal
+	/// port, where any local user can connect and read its export name with
+	/// EXPORT; the front answers MOUNT itself and never needs this.
+	async fn path_to_id(&self, _path: &[u8]) -> Result<fileid3, nfsstat3> {
+		Err(nfsstat3::NFS3ERR_ACCES)
+	}
+
+	/// The file id followed by a tag keyed with this server's secret. A
+	/// client that never got the handle from a MOUNT or LOOKUP reply cannot
+	/// make one, so knowing the root is always 1 is not enough.
+	fn id_to_fh(&self, id: fileid3) -> nfs_fh3 {
+		let mut data = id.to_le_bytes().to_vec();
+		data.extend_from_slice(&self.handle_tag(id));
+		nfs_fh3 { data }
+	}
+
+	fn fh_to_id(&self, fh: &nfs_fh3) -> Result<fileid3, nfsstat3> {
+		let (id, tag) = fh
+			.data
+			.split_first_chunk::<8>()
+			.filter(|(_, tag)| tag.len() == HANDLE_TAG)
+			.ok_or(nfsstat3::NFS3ERR_BADHANDLE)?;
+		let id = u64::from_le_bytes(*id);
+		let expected = self.handle_tag(id);
+		// Compare every byte so the time taken says nothing about the tag.
+		let diff = expected
+			.iter()
+			.zip(tag)
+			.fold(0u8, |diff, (a, b)| diff | (a ^ b));
+		if diff != 0 {
+			// Also what a client sees after the daemon restarts with a new key.
+			return Err(nfsstat3::NFS3ERR_STALE);
+		}
+		Ok(id)
+	}
+
 	fn serverid(&self) -> cookieverf3 {
 		let started = self
 			.inner
@@ -620,7 +721,9 @@ impl NFSFileSystem for NfsAdapter {
 /// A running NFS server. Dropping it stops serving.
 pub struct NfsServer {
 	addr: SocketAddr,
+	backend: SocketAddr,
 	adapter: NfsAdapter,
+	export: Arc<Export>,
 	stop: watch::Sender<bool>,
 	tasks: Vec<JoinHandle<()>>,
 }
@@ -633,6 +736,18 @@ impl NfsServer {
 
 	pub fn addr(&self) -> SocketAddr {
 		self.addr
+	}
+
+	/// The internal port nfsserve answers on behind the front. Any local
+	/// user can reach it too, which the security tests check.
+	#[doc(hidden)]
+	pub fn backend_addr(&self) -> SocketAddr {
+		self.backend
+	}
+
+	/// The secret export path a client must MOUNT, once. Never log it.
+	pub fn export_path(&self) -> &str {
+		&self.export.path
 	}
 
 	/// Refuse every call from now on while the server keeps running, for a
@@ -658,12 +773,15 @@ impl Drop for NfsServer {
 }
 
 /// Serve `fs` over NFSv3 on 127.0.0.1, on a port the OS picks. The export
-/// is `/`, and the MOUNT program answers on the same port, so a client
-/// needs no portmapper.
+/// is a random path (see [`NfsServer::export_path`]), and the MOUNT program
+/// answers on the same port, so a client needs no portmapper.
 pub async fn serve(fs: Arc<dyn MountFs>) -> std::io::Result<NfsServer> {
 	let changes = fs.changes();
 	let adapter = NfsAdapter::new(fs.clone());
-	// nfsserve answers on an internal port; the front owns the public one.
+	let export = Arc::new(Export::new());
+	// nfsserve answers on an internal port; the front owns the public one
+	// and answers MOUNT itself. The internal port is reachable by any local
+	// user, so the adapter refuses nfsserve's own MNT whatever path it names.
 	let backend =
 		NFSTcpListener::bind(&format!("{}:0", Ipv4Addr::LOCALHOST), adapter.clone()).await?;
 	let backend_addr = SocketAddr::from((backend.get_listen_ip(), backend.get_listen_port()));
@@ -680,6 +798,7 @@ pub async fn serve(fs: Arc<dyn MountFs>) -> std::io::Result<NfsServer> {
 			listener,
 			backend_addr,
 			adapter.clone(),
+			export.clone(),
 			stopped,
 		)),
 	];
@@ -705,7 +824,9 @@ pub async fn serve(fs: Arc<dyn MountFs>) -> std::io::Result<NfsServer> {
 	info!(%addr, "NFS server up");
 	Ok(NfsServer {
 		addr,
+		backend: backend_addr,
 		adapter,
+		export,
 		stop,
 		tasks,
 	})
@@ -746,15 +867,16 @@ fn privileged(program: &str) -> tokio::process::Command {
 	command
 }
 
+/// Run `command`, naming it by `program` alone on failure: the arguments
+/// of a mount carry the secret export path.
 #[cfg(unix)]
-async fn run(mut command: tokio::process::Command) -> std::io::Result<()> {
+async fn run(program: &str, mut command: tokio::process::Command) -> std::io::Result<()> {
 	let out = command.output().await?;
 	if out.status.success() {
 		return Ok(());
 	}
 	Err(std::io::Error::other(format!(
-		"{:?} failed: {}",
-		command.as_std(),
+		"{program} failed: {}",
 		String::from_utf8_lossy(&out.stderr).trim()
 	)))
 }
@@ -767,17 +889,17 @@ async fn run(mut command: tokio::process::Command) -> std::io::Result<()> {
 /// exists for tests.
 #[cfg(unix)]
 pub async fn mount(server: &NfsServer, dir: &Path) -> std::io::Result<()> {
-	let source = format!("{}:/", Ipv4Addr::LOCALHOST);
+	let source = format!("{}:{}", Ipv4Addr::LOCALHOST, server.export_path());
 	let options = options(server.port());
-	let mut command = if cfg!(target_os = "macos") {
-		tokio::process::Command::new("/sbin/mount_nfs")
+	let (program, mut command) = if cfg!(target_os = "macos") {
+		("mount_nfs", tokio::process::Command::new("/sbin/mount_nfs"))
 	} else {
 		let mut command = privileged("mount");
 		command.arg("-t").arg("nfs");
-		command
+		("mount", command)
 	};
 	command.arg("-o").arg(&options).arg(&source).arg(dir);
-	run(command).await?;
+	run(program, command).await?;
 	info!(dir = %dir.display(), port = server.port(), "NFS mount up");
 	Ok(())
 }
@@ -788,7 +910,7 @@ pub async fn mount(server: &NfsServer, dir: &Path) -> std::io::Result<()> {
 pub async fn unmount(dir: &Path) -> std::io::Result<()> {
 	let mut plain = privileged("umount");
 	plain.arg(dir);
-	let Err(err) = run(plain).await else {
+	let Err(err) = run("umount", plain).await else {
 		return Ok(());
 	};
 	debug!(dir = %dir.display(), error = %err, "unmount refused; forcing");
@@ -799,7 +921,7 @@ pub async fn unmount(dir: &Path) -> std::io::Result<()> {
 		forced.arg("-f").arg("-l");
 	}
 	forced.arg(dir);
-	run(forced).await
+	run("umount", forced).await
 }
 
 #[cfg(test)]

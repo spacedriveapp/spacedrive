@@ -6,10 +6,14 @@
 //! it, is refused writes, sees changes made at the origin, and is refused
 //! once the grant is revoked.
 //!
-//! Needs `/dev/fuse` and `fusermount3`. Without them the test skips with the
-//! reason, unless `SD_REQUIRE_FUSE` is set, in which case it fails.
+//! Each scenario runs through the frontend `sd mount` uses on Linux, FUSE,
+//! and the one it uses on macOS, a localhost NFS server the system mounts.
+//! FUSE needs `/dev/fuse` and `fusermount3`; NFS needs `/sbin/mount_nfs` on
+//! macOS, or `mount.nfs` and root or passwordless sudo on Linux. Without them
+//! a scenario skips with the reason, unless `SD_REQUIRE_FUSE` or
+//! `SD_REQUIRE_NFS` is set, in which case it fails.
 
-#![cfg(all(target_os = "linux", feature = "fuse"))]
+#![cfg(any(all(target_os = "linux", feature = "fuse"), all(unix, feature = "nfs")))]
 
 mod helpers;
 
@@ -28,7 +32,7 @@ use sd_core::{
 	},
 	service::{
 		agent_mcp::{self, Limits},
-		mounts::{client, fuse},
+		mounts::{client, client::RemoteFs},
 	},
 };
 use tracing::warn;
@@ -37,7 +41,90 @@ const EROFS: i32 = 30;
 const EACCES: i32 = 13;
 const EIO: i32 = 5;
 
-fn skip_reason() -> Option<String> {
+/// The kernel-facing frontend a scenario mounts through.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Front {
+	#[cfg(all(target_os = "linux", feature = "fuse"))]
+	Fuse,
+	#[cfg(feature = "nfs")]
+	Nfs,
+}
+
+enum Mounted {
+	#[cfg(all(target_os = "linux", feature = "fuse"))]
+	Fuse(sd_core::service::mounts::fuse::fs::Mounted),
+	#[cfg(feature = "nfs")]
+	Nfs(sd_core::service::mounts::nfs::server::NfsServer),
+}
+
+impl Front {
+	fn skip_reason(self) -> Option<String> {
+		match self {
+			#[cfg(all(target_os = "linux", feature = "fuse"))]
+			Front::Fuse => fuse_skip_reason(),
+			#[cfg(feature = "nfs")]
+			Front::Nfs => nfs_skip_reason(),
+		}
+	}
+
+	async fn mount(self, fs: Arc<RemoteFs>, dir: &Path) -> anyhow::Result<Mounted> {
+		Ok(match self {
+			#[cfg(all(target_os = "linux", feature = "fuse"))]
+			Front::Fuse => Mounted::Fuse(sd_core::service::mounts::fuse::fs::mount(fs, dir).await?),
+			#[cfg(feature = "nfs")]
+			Front::Nfs => {
+				use sd_core::service::mounts::nfs::server;
+				let nfs = server::serve(fs).await?;
+				server::mount(&nfs, dir).await?;
+				Mounted::Nfs(nfs)
+			}
+		})
+	}
+}
+
+impl Mounted {
+	async fn unmount(self, dir: &Path) -> anyhow::Result<()> {
+		match self {
+			#[cfg(all(target_os = "linux", feature = "fuse"))]
+			Mounted::Fuse(mounted) => blocking(move || mounted.umount_and_join()).await?,
+			#[cfg(feature = "nfs")]
+			Mounted::Nfs(nfs) => {
+				sd_core::service::mounts::nfs::server::unmount(dir).await?;
+				nfs.shutdown();
+			}
+		}
+		Ok(())
+	}
+}
+
+#[cfg(feature = "nfs")]
+fn nfs_skip_reason() -> Option<String> {
+	let works = |program: &str, args: &[&str]| {
+		std::process::Command::new(program)
+			.args(args)
+			.output()
+			.is_ok_and(|out| out.status.success())
+	};
+	let reason = if cfg!(target_os = "macos") {
+		if Path::new("/sbin/mount_nfs").exists() {
+			return None;
+		}
+		"/sbin/mount_nfs is missing".to_string()
+	} else if !Path::new("/sbin/mount.nfs").exists() && !Path::new("/usr/sbin/mount.nfs").exists() {
+		"mount.nfs is not installed (apt install nfs-common)".to_string()
+	} else if unsafe { libc::geteuid() } != 0 && !works("sudo", &["-n", "true"]) {
+		"mounting NFS on Linux needs root or passwordless sudo".to_string()
+	} else {
+		return None;
+	};
+	if std::env::var_os("SD_REQUIRE_NFS").is_some() {
+		panic!("SD_REQUIRE_NFS is set but {reason}");
+	}
+	Some(reason)
+}
+
+#[cfg(all(target_os = "linux", feature = "fuse"))]
+fn fuse_skip_reason() -> Option<String> {
 	let reason = if let Err(err) = std::fs::OpenOptions::new()
 		.read(true)
 		.write(true)
@@ -72,6 +159,17 @@ fn names(dir: &Path) -> Vec<String> {
 	names
 }
 
+/// The error a listing of `dir` fails with. An NFS mount root stays
+/// openable after a revoke, so the refusal can arrive with the first entry.
+fn listing_error(dir: &Path) -> Option<i32> {
+	match std::fs::read_dir(dir) {
+		Err(err) => err.raw_os_error(),
+		Ok(mut entries) => entries
+			.find_map(Result::err)
+			.and_then(|err| err.raw_os_error()),
+	}
+}
+
 fn os_error<T: std::fmt::Debug>(result: std::io::Result<T>) -> Option<i32> {
 	result.expect_err("expected an error").raw_os_error()
 }
@@ -94,22 +192,30 @@ async fn eventually(
 	}
 }
 
+#[cfg(all(target_os = "linux", feature = "fuse"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_thin_client_mounts_a_granted_folder_over_the_space_endpoint() -> anyhow::Result<()> {
-	scenario("mount_client_endpoint", false).await
+	scenario("mount_client_endpoint", false, Front::Fuse).await
 }
 
+#[cfg(all(target_os = "linux", feature = "fuse"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_thin_client_mounts_a_granted_folder_over_mcp() -> anyhow::Result<()> {
-	scenario("mount_client_mcp", true).await
+	scenario("mount_client_mcp", true, Front::Fuse).await
+}
+
+#[cfg(feature = "nfs")]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_thin_client_mounts_a_granted_folder_over_nfs() -> anyhow::Result<()> {
+	scenario("mount_client_nfs", false, Front::Nfs).await
 }
 
 /// Over the space endpoint, changes arrive on its event stream, so they show
 /// well inside the 10 s the client otherwise trusts an answer. Over MCP the
 /// client trusts answers for 1 s.
-async fn scenario(name: &str, over_mcp: bool) -> anyhow::Result<()> {
+async fn scenario(name: &str, over_mcp: bool, front: Front) -> anyhow::Result<()> {
 	let _ = tracing_subscriber::fmt::try_init();
-	if let Some(reason) = skip_reason() {
+	if let Some(reason) = front.skip_reason() {
 		warn!("Skipping: {reason}");
 		return Ok(());
 	}
@@ -140,7 +246,15 @@ async fn scenario(name: &str, over_mcp: bool) -> anyhow::Result<()> {
 	} else {
 		format!("http://{bound}")
 	};
-	let within = Duration::from_secs(if over_mcp { 10 } else { 5 });
+	// The macOS watcher holds a file modified again within 10 seconds until
+	// it settles, and readme.md is written at setup and again below.
+	let within = Duration::from_secs(if cfg!(target_os = "macos") {
+		15
+	} else if over_mcp {
+		10
+	} else {
+		5
+	});
 	let grant = CreateGrantAction::from_input(CreateGrantInput {
 		path: base.join("tracked/shared"),
 		caps: Some(GrantCap::Read),
@@ -162,10 +276,21 @@ async fn scenario(name: &str, over_mcp: bool) -> anyhow::Result<()> {
 	let fs = client::connect(&url, &grant.token, None, Some(base.join("cache"))).await?;
 	let mnt = base.join("mnt");
 	std::fs::create_dir(&mnt)?;
-	let mounted = fuse::fs::mount(fs.clone(), &mnt).await?;
+	let mnt = std::fs::canonicalize(&mnt)?;
+	let mounted = front.mount(fs.clone(), &mnt).await?;
+	// The NFS client checks mode bits before the read-only flag, so a
+	// refused write can surface as either.
+	#[cfg(feature = "nfs")]
+	let write_refusals: &[i32] = if front == Front::Nfs {
+		&[EROFS, EACCES]
+	} else {
+		&[EROFS]
+	};
+	#[cfg(not(feature = "nfs"))]
+	let write_refusals: &[i32] = &[EROFS];
 
 	{
-		let (mnt, clip) = (mnt.clone(), clip.clone());
+		let (mnt, clip, write_refusals) = (mnt.clone(), clip.clone(), write_refusals.to_vec());
 		blocking(move || {
 			assert_eq!(names(&mnt), ["clip.bin", "deep", "readme.md"]);
 			assert_eq!(names(&mnt.join("deep")), ["notes.txt"]);
@@ -197,21 +322,24 @@ async fn scenario(name: &str, over_mcp: bool) -> anyhow::Result<()> {
 				std::fs::metadata(mnt.join("absent.md")).unwrap_err().kind(),
 				std::io::ErrorKind::NotFound
 			);
-			assert_eq!(
-				os_error(std::fs::write(mnt.join("new.md"), "x")),
-				Some(EROFS)
-			);
-			assert_eq!(
+			let refused = |what: &str, errno: Option<i32>| {
+				assert!(
+					errno.is_some_and(|errno| write_refusals.contains(&errno)),
+					"{what} is refused: {errno:?}"
+				)
+			};
+			refused("create", os_error(std::fs::write(mnt.join("new.md"), "x")));
+			refused(
+				"append",
 				os_error(
 					std::fs::OpenOptions::new()
 						.append(true)
-						.open(mnt.join("readme.md"))
+						.open(mnt.join("readme.md")),
 				),
-				Some(EROFS)
 			);
-			assert_eq!(
+			refused(
+				"remove",
 				os_error(std::fs::remove_file(mnt.join("readme.md"))),
-				Some(EROFS)
 			);
 		})
 		.await;
@@ -227,17 +355,23 @@ async fn scenario(name: &str, over_mcp: bool) -> anyhow::Result<()> {
 	std::fs::remove_file(base.join("tracked/shared/deep/notes.txt"))?;
 	{
 		// Checked before any open, since an open asks the node afresh.
-		let mnt = mnt.clone();
-		eventually(
-			within,
-			"the changed size shows without reopening",
-			move || {
-				std::fs::metadata(mnt.join("readme.md"))
-					.map(|meta| meta.len())
-					.ok() == Some("changed at the origin, longer\n".len() as u64)
-			},
-		)
-		.await;
+		let want = "changed at the origin, longer\n".len() as u64;
+		let deadline = tokio::time::Instant::now() + within;
+		loop {
+			let path = mnt.join("readme.md");
+			let seen = blocking(move || std::fs::metadata(path).map(|meta| meta.len()).ok()).await;
+			if seen == Some(want) {
+				break;
+			}
+			if tokio::time::Instant::now() >= deadline {
+				use sd_core::service::mounts::vfs::MountFs;
+				let node = fs.stat(Path::new("readme.md")).await.map(|attr| attr.size);
+				panic!(
+					"the changed size shows without reopening: the mount reports {seen:?}, the client's view of the node {node:?}"
+				);
+			}
+			tokio::time::sleep(Duration::from_millis(200)).await;
+		}
 	}
 	{
 		let mnt = mnt.clone();
@@ -291,8 +425,17 @@ async fn scenario(name: &str, over_mcp: bool) -> anyhow::Result<()> {
 	tokio::time::timeout(Duration::from_secs(15), ended)
 		.await
 		.expect("the client sees the grant end within its check interval")?;
+	// NFSv3 has no way to take pages back from a client, so only FUSE can
+	// refuse bytes a descriptor already holds; `sd mount` unmounts instead.
+	#[cfg(feature = "nfs")]
+	let check_held = front != Front::Nfs;
+	#[cfg(not(feature = "nfs"))]
+	let check_held = true;
 	let held = blocking(move || {
 		let mut held = held;
+		if !check_held {
+			return held;
+		}
 		held.seek(SeekFrom::Start(0)).unwrap();
 		let mut head = vec![0u8; 4096];
 		// Some kernels read through the page cache and report any refused
@@ -307,15 +450,23 @@ async fn scenario(name: &str, over_mcp: bool) -> anyhow::Result<()> {
 	.await;
 	drop(held);
 	{
+		// The NFS client may answer from its attribute cache for a second
+		// before it asks the server again.
 		let mnt = mnt.clone();
-		blocking(move || {
-			assert_eq!(os_error(std::fs::read(mnt.join("added.txt"))), Some(EACCES));
-			assert_eq!(os_error(std::fs::read_dir(&mnt)), Some(EACCES));
-		})
+		eventually(
+			Duration::from_secs(5),
+			"a revoked grant is refused",
+			move || {
+				std::fs::read(mnt.join("added.txt"))
+					.err()
+					.and_then(|err| err.raw_os_error())
+					== Some(EACCES) && listing_error(&mnt) == Some(EACCES)
+			},
+		)
 		.await;
 	}
 
-	blocking(move || mounted.umount_and_join()).await?;
+	mounted.unmount(&mnt).await?;
 	fs.close().await;
 	assert!(
 		names(&mnt).is_empty(),

@@ -39,6 +39,7 @@ agents.
 | `sd mcp` (`apps/cli/src/domains/mcp.rs`) | stdio, forwards to RPC | None of its own | The whole registry as tools, destructive actions included |
 | WebDAV share (`core/src/service/mounts/webdav.rs`) | `127.0.0.1:7764` or ephemeral | None; Host must be a loopback authority, CORS only for Tauri and loopback origins | Read access to every attached source, local and replicated |
 | SMB share (`core/src/service/mounts/smb.rs`) | `127.0.0.1`, ephemeral port | One user, random password per start, or `SD_MOUNT_SMB_PASSWORD` | Same as WebDAV |
+| NFS mount (`core/src/service/mounts/nfs/`) | `127.0.0.1`, two ephemeral ports per mount (the front and nfsserve behind it) | A random export path per mount, honored for one MOUNT, and file handles tagged with a per-mount key | Read access to what the mount shows: every source, or the one folder a grant lends |
 | byterange (`core/src/service/network/protocol/byterange.rs`) | Iroh QUIC | Paired node key | Stat, ranged reads (8 MiB per request), snapshots and database exports of attached sources |
 | remote ops (`core/src/service/network/protocol/remote_ops.rs`) | Iroh QUIC | Paired node key | Every op in the registry and the log stream |
 | `sd-server` (`apps/server/src/main.rs`) | `127.0.0.1:8080` by default; `SD_HOST` widens it | HTTP Basic from `SD_AUTH`; release builds refuse to start without it unless set to `disabled` | `/rpc` proxies the whole registry, plus sidecars, thumbnails, extension bundles and the share |
@@ -96,6 +97,36 @@ agents.
   this, and nothing keeps a future change from adding an HTTP mode. Now
   tested: an HTTP request is refused by the secret check before any dispatch
   (`rpc_security_test`).
+- F7. NFSv3 has no authentication. The server believes whatever user id a
+  call claims, and the mount table that every local user can read shows the
+  mount's source. With the export at `/` and nfsserve's handles (a generation
+  number from the start time and the file id, with the root always id 1), any
+  local user could MOUNT the port, or forge the root handle without asking,
+  and read what an `sd mount` or `sd-cli nfs mount` shows.
+  Fixed: each mount's server takes a random 128-bit export path, used only in
+  the mount command and never logged. The front port answers the MOUNT program
+  itself, so nfsserve never sees the path. MNT returns the root handle for the
+  first call that names the path and refuses every later one, so the path that
+  stays in the mount table is spent. EXPORT and DUMP list nothing. Every file
+  handle is the file id followed by a 16-byte BLAKE3 tag keyed with a
+  per-mount secret. A handle with a wrong tag gets `NFS3ERR_STALE`, and one of
+  the wrong shape gets `NFS3ERR_BADHANDLE`, on both the front port and the
+  nfsserve port behind it. That port is reachable on loopback too, and
+  nfsserve's EXPORT there names its export, so the adapter refuses every path
+  nfsserve's own MNT asks for. Both ports are picked by the OS, and the
+  server stops when the mount ends.
+  `core/tests/nfs_mount_test.rs` checks that a MOUNT for a wrong or reused
+  export is refused, that MNT on the internal port is refused, that untagged and forged handles are refused, and that
+  the export path reaches no log at trace level.
+  What is left: the path is in the mount command's arguments while
+  `mount_nfs` runs, so a local user who polls the process list in that
+  window could MOUNT first. The real mount then fails and `sd mount` exits
+  with an error, but that user holds the root handle until the server
+  stops. A user with root on the machine can read everything anyway.
+  Checking the peer's user id cannot close this gap. The kernel's NFS client
+  opens the TCP connection, not the user's process, and the user id inside
+  each call is whatever the client claims. macOS `LOCAL_PEERCRED` works only
+  on Unix domain sockets, and `mount_nfs` speaks TCP or UDP.
 
 The WebDAV `loopback_only` middleware is the pattern to reuse: it refuses a
 non-loopback Host, which stops DNS rebinding, and answers CORS only for local
