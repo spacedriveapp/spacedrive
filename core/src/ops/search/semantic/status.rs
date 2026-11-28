@@ -38,13 +38,13 @@ impl LibraryQuery for SemanticStatusQuery {
 		let store = source_indexes(&context, &scope).await?;
 		let internal = |e: anyhow::Error| QueryError::Internal(e.to_string());
 		let vectors = store.vector_index().await.map_err(internal)?;
-		let subtrees = store.deep_subtrees().await.map_err(internal)?;
+		let scope = store.deep_scope().await.map_err(internal)?;
 		let counts = vectors
 			.counts()
 			.await
 			.map_err(|e| QueryError::Internal(e.to_string()))?;
 		let pending_documents = vectors
-			.pending_count(&subtrees)
+			.pending_count(&scope)
 			.await
 			.map_err(|e| QueryError::Internal(e.to_string()))?;
 		let size_bytes = tokio::fs::metadata(vectors.path())
