@@ -18,9 +18,10 @@ pub enum ConfigCmd {
 	Get {
 		/// Configuration key: current_library_id, update.repo,
 		/// update.channel, replication.max_bytes_per_sec, replication.paused,
-		/// backup.restore_trash_keep, mounts.fuse_enabled, agent_mcp.enabled,
-		/// agent_mcp.listen, agent_mcp.tls_cert, agent_mcp.tls_key,
-		/// agent_mcp.host_names, agent_mcp.block_bytes_per_hour
+		/// backup.restore_trash_keep, mounts.fuse_enabled, mounts.nfs_enabled,
+		/// agent_mcp.enabled, agent_mcp.listen, agent_mcp.tls_cert,
+		/// agent_mcp.tls_key, agent_mcp.host_names,
+		/// agent_mcp.block_bytes_per_hour
 		key: String,
 	},
 	/// Set a configuration value
@@ -28,9 +29,10 @@ pub enum ConfigCmd {
 		/// Configuration key: update.repo, update.channel,
 		/// replication.max_bytes_per_sec (bytes, or K/M/G suffix),
 		/// replication.paused (true/false), backup.restore_trash_keep (count),
-		/// mounts.fuse_enabled (true/false), agent_mcp.enabled (true/false),
-		/// agent_mcp.listen (IP address and port), agent_mcp.tls_cert and
-		/// agent_mcp.tls_key (PEM file paths, empty to clear),
+		/// mounts.fuse_enabled (true/false), mounts.nfs_enabled (true/false),
+		/// agent_mcp.enabled (true/false), agent_mcp.listen (IP address and
+		/// port), agent_mcp.tls_cert and agent_mcp.tls_key (PEM file paths,
+		/// empty to clear),
 		/// agent_mcp.host_names (comma-separated, empty to clear),
 		/// agent_mcp.block_bytes_per_hour (bytes, or K/M/G suffix, greater
 		/// than 0)
@@ -47,6 +49,7 @@ const REPLICATION_MAX_BYTES_PER_SEC: &str = "replication.max_bytes_per_sec";
 const REPLICATION_PAUSED: &str = "replication.paused";
 const BACKUP_RESTORE_TRASH_KEEP: &str = "backup.restore_trash_keep";
 const MOUNTS_FUSE_ENABLED: &str = "mounts.fuse_enabled";
+const MOUNTS_NFS_ENABLED: &str = "mounts.nfs_enabled";
 const AGENT_MCP_ENABLED: &str = "agent_mcp.enabled";
 const AGENT_MCP_LISTEN: &str = "agent_mcp.listen";
 const AGENT_MCP_TLS_CERT: &str = "agent_mcp.tls_cert";
@@ -136,6 +139,10 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 					&daemon.mounts.fuse_enabled.to_string(),
 				]);
 				table.add_row(vec![
+					MOUNTS_NFS_ENABLED,
+					&daemon.mounts.nfs_enabled.to_string(),
+				]);
+				table.add_row(vec![
 					AGENT_MCP_ENABLED,
 					&daemon.agent_mcp.enabled.to_string(),
 				]);
@@ -192,6 +199,11 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 					.await?
 					.mounts
 					.fuse_enabled
+					.to_string(),
+				MOUNTS_NFS_ENABLED => daemon_config(&socket_addr, &data_dir)
+					.await?
+					.mounts
+					.nfs_enabled
 					.to_string(),
 				AGENT_MCP_ENABLED => daemon_config(&socket_addr, &data_dir)
 					.await?
@@ -282,13 +294,15 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 				}
 				println!("Set {} = {}", BACKUP_RESTORE_TRASH_KEEP, keep);
 			}
-			MOUNTS_FUSE_ENABLED => {
+			MOUNTS_FUSE_ENABLED | MOUNTS_NFS_ENABLED => {
 				let enabled = parse_bool(&value)?;
 				let core = CoreClient::new(socket_addr.clone(), &data_dir);
-				let input = UpdateAppConfigInput {
-					mounts_fuse_enabled: Some(enabled),
-					..UpdateAppConfigInput::default()
-				};
+				let mut input = UpdateAppConfigInput::default();
+				if key == MOUNTS_FUSE_ENABLED {
+					input.mounts_fuse_enabled = Some(enabled);
+				} else {
+					input.mounts_nfs_enabled = Some(enabled);
+				}
 				let out: UpdateAppConfigOutput = serde_json::from_value(
 					core.action(&input, None)
 						.await
@@ -297,7 +311,7 @@ pub async fn run(data_dir: PathBuf, socket_addr: String, cmd: ConfigCmd) -> Resu
 				if !out.success {
 					return Err(anyhow::anyhow!(out.message));
 				}
-				println!("Set {} = {}", MOUNTS_FUSE_ENABLED, enabled);
+				println!("Set {} = {}", key, enabled);
 			}
 			AGENT_MCP_ENABLED
 			| AGENT_MCP_LISTEN

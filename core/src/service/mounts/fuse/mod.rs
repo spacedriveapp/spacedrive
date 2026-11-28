@@ -32,7 +32,7 @@ pub use super::tree;
 
 use crate::config::AppConfig;
 use crate::context::CoreContext;
-use crate::ops::grants::{create::owning_source, GrantError};
+use crate::ops::grants::GrantError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -44,10 +44,6 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tracing::{info, warn};
 use uuid::Uuid;
-
-/// How often a grant-bound mount checks that its grant is still active.
-#[cfg(all(target_os = "linux", feature = "fuse"))]
-const GRANT_CHECK_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
 
 /// A mount the daemon holds.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -79,6 +75,19 @@ pub enum FuseError {
 	NoSource,
 	#[error("mount failed: {0}")]
 	Mount(String),
+}
+
+#[cfg(all(target_os = "linux", feature = "fuse"))]
+impl From<super::mountpoint::Refusal> for FuseError {
+	fn from(refusal: super::mountpoint::Refusal) -> Self {
+		use super::mountpoint::Refusal;
+		match refusal {
+			Refusal::Mountpoint(reason) => Self::Mountpoint(reason),
+			Refusal::Grant(err) => Self::Grant(err),
+			Refusal::NoSource => Self::NoSource,
+			Refusal::Lookup(reason) => Self::Mount(reason),
+		}
+	}
 }
 
 #[cfg(all(target_os = "linux", feature = "fuse"))]
@@ -156,8 +165,7 @@ async fn mount_tree(
 	path: PathBuf,
 	grant_token: Option<String>,
 ) -> Result<FuseMountInfo, FuseError> {
-	use crate::ops::grants::{authorize, GrantCap};
-	use tree::{ArenaFs, BoundGrant, LibraryTree, MountRoot};
+	use tree::{ArenaFs, LibraryTree};
 
 	let path = prepare_mountpoint(path).await?;
 	let mut mounts = MOUNTS.lock().await;
@@ -167,37 +175,8 @@ async fn mount_tree(
 
 	let (grant, scope) = match grant_token {
 		Some(token) => {
-			let scope = authorize(
-				&context,
-				&token,
-				"fuse.mount",
-				Path::new(""),
-				GrantCap::Read,
-			)
-			.await?;
-			// The grant keeps the directory's canonical spelling, which on
-			// macOS can differ from the source's by a firmlink, and the tree
-			// answers only to the source's spelling. A bucket grant has no
-			// directory to compare, so its URL is matched by prefix.
-			let sources = context.volume_index().sources();
-			let (source_id, path) = match owning_source(&context, scope.library_id, &scope.root)
-				.await
-				.map_err(FuseError::Mount)?
-			{
-				Some(found) => found,
-				None => crate::ops::paths::reach::innermost_source(&sources, &scope.root)
-					.map(|source| (source.id, scope.root.clone()))
-					.ok_or(FuseError::NoSource)?,
-			};
-			let grant = BoundGrant {
-				token: token.clone(),
-				root: MountRoot {
-					name: String::new(),
-					source_id,
-					path,
-					remote: false,
-				},
-			};
+			let (grant, scope) =
+				super::mountpoint::bind_grant(&context, token.clone(), "fuse.mount").await?;
 			(Some(grant), Some((scope, token)))
 		}
 		None => (None, None),
@@ -206,6 +185,7 @@ async fn mount_tree(
 	let tree = Arc::new(ArenaFs::new(Arc::new(LibraryTree::new(
 		context.clone(),
 		grant,
+		"fuse",
 	))));
 	let session = fs::mount(tree, &path)
 		.await
@@ -257,24 +237,7 @@ pub async fn prepare_mountpoint(path: PathBuf) -> Result<PathBuf, FuseError> {
 				lazy_unmount(&path);
 			}
 		}
-		let meta = std::fs::metadata(&path)
-			.map_err(|err| FuseError::Mountpoint(format!("{}: {err}", path.display())))?;
-		if !meta.is_dir() {
-			return Err(FuseError::Mountpoint(format!(
-				"{} is not a directory",
-				path.display()
-			)));
-		}
-		let mut entries = std::fs::read_dir(&path)
-			.map_err(|err| FuseError::Mountpoint(format!("{}: {err}", path.display())))?;
-		if entries.next().is_some() {
-			return Err(FuseError::Mountpoint(format!(
-				"{} is not empty",
-				path.display()
-			)));
-		}
-		std::fs::canonicalize(&path)
-			.map_err(|err| FuseError::Mountpoint(format!("{}: {err}", path.display())))
+		Ok(super::mountpoint::empty_dir(&path)?)
 	})
 	.await
 	.map_err(|err| FuseError::Mount(err.to_string()))?
@@ -303,16 +266,7 @@ async fn watch_grant(
 	grant_id: Uuid,
 	token: String,
 ) {
-	use crate::ops::grants::{verified, GrantError, GrantStatus};
-
-	loop {
-		tokio::time::sleep(GRANT_CHECK_INTERVAL).await;
-		match verified(&context, library_id, &token).await {
-			Ok(grant) if grant.status(Utc::now()) == GrantStatus::Active => continue,
-			Ok(_) | Err(GrantError::UnknownToken) => break,
-			Err(err) => warn!(grant = %grant_id, error = %err, "could not read a mounted grant"),
-		}
-	}
+	super::mountpoint::grant_ended(context, library_id, grant_id, token).await;
 	info!(path = %path.display(), grant = %grant_id, "grant ended; unmounting");
 	if let Err(err) = take_down(&path, false).await {
 		warn!(path = %path.display(), error = %err, "could not unmount after the grant ended");

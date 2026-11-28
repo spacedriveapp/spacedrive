@@ -157,6 +157,11 @@ pub struct MountsConfig {
 	/// source to any process running as the daemon's user.
 	#[serde(default)]
 	pub fuse_enabled: bool,
+	/// Allow localhost NFS mounts. Off by default: NFSv3 has no real
+	/// authentication, so any local user who finds the server's port can
+	/// read what the mount shows.
+	#[serde(default)]
+	pub nfs_enabled: bool,
 }
 
 fn default_cache_max_bytes() -> u64 {
@@ -168,6 +173,7 @@ impl Default for MountsConfig {
 		Self {
 			cache_max_bytes: default_cache_max_bytes(),
 			fuse_enabled: false,
+			nfs_enabled: false,
 		}
 	}
 }

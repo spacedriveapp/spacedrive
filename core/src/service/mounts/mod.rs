@@ -16,6 +16,9 @@ pub mod attach;
 pub mod cache;
 pub mod client;
 pub mod fuse;
+#[cfg(any(all(target_os = "linux", feature = "fuse"), all(unix, feature = "nfs")))]
+mod mountpoint;
+pub mod nfs;
 pub mod offline;
 pub mod peer;
 pub mod provider;

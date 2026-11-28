@@ -24,6 +24,7 @@
 		"filesystems",
 		"fuse-mount",
 		"mount-client",
+		"nfs-mount",
 		"file-copy-operations",
 		"tagging",
 		"virtual-sidecars",
