@@ -48,6 +48,7 @@ use crate::domains::{
 	library::{self, LibraryCmd},
 	logs::{self, LogsCmd},
 	network::{self, NetworkCmd},
+	nfs::{self, NfsCmd},
 	redundancy::{self, RedundancyCmd},
 	search::{self, SearchCmd},
 	source::{self, SourceCmd},
@@ -260,6 +261,9 @@ enum Commands {
 	Fuse(FuseCmd),
 	/// Mount a folder lent by a grant from any Spacedrive node, read-only
 	Mount(domains::mount::MountArgs),
+	/// Mount sources as a read-only directory tree through a localhost NFS server
+	#[command(subcommand)]
+	Nfs(NfsCmd),
 	/// Indexing operations
 	#[command(subcommand)]
 	Index(IndexCmd),
@@ -867,6 +871,7 @@ async fn run_client_command(
 		Commands::File(cmd) => file::run(&ctx, cmd).await?,
 		Commands::Grant(cmd) => grant::run(&ctx, cmd).await?,
 		Commands::Fuse(cmd) => fuse::run(&ctx, cmd).await?,
+		Commands::Nfs(cmd) => nfs::run(&ctx, cmd).await?,
 		Commands::Index(cmd) => index::run(&ctx, cmd).await?,
 		Commands::Thumbs(cmd) => thumbs::run(&ctx, cmd).await?,
 		#[cfg(feature = "footage-clips")]

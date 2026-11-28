@@ -88,6 +88,7 @@ pub use content_text::{
 	TRANSCRIPT_KIND,
 };
 pub use db::{ItemRow, OverlayEvidence, SourceDb, Stamp};
+pub use deep_scope::DeepScope;
 pub use error::{Error, Result};
 pub use file::{
 	clear_content_errors, content_of, copies_of_content, count_files_needing_content,
