@@ -26,7 +26,7 @@ use sd_core::{
 			revoke::{RevokeGrantAction, RevokeGrantInput},
 			signed,
 			store::revoke_for_source,
-			GrantCap, GrantError, GrantKind, TokenFormat,
+			Access, GrantCap, GrantError, GrantKind, TokenFormat,
 		},
 		spaces::{SpaceCreateAction, SpaceCreateInput},
 	},
@@ -40,6 +40,7 @@ async fn space(harness: &IndexingHarness, kind: SpaceKind, path: Option<PathBuf>
 		kind,
 		path,
 		content_indexing: None,
+		protected: None,
 	})
 	.expect("space input")
 	.execute(harness.library.clone(), harness.core.context.clone())
@@ -69,15 +70,10 @@ async fn grant(
 }
 
 async fn check(harness: &IndexingHarness, token: &str, path: &str) -> Result<PathBuf, GrantError> {
-	authorize(
-		&harness.core.context,
-		token,
-		"test",
-		Path::new(path),
-		GrantCap::Read,
-	)
-	.await
-	.map(|scope| scope.path)
+	let access = Access::new(token, "test", Path::new(path), GrantCap::Read);
+	authorize(&harness.core.context, &access)
+		.await
+		.map(|authorized| authorized.scope.path)
 }
 
 async fn signing_key(harness: &IndexingHarness) -> ed25519_dalek::SigningKey {
@@ -212,16 +208,10 @@ async fn signed_tokens_verify_against_their_space_and_honour_revocation() -> any
 	let token = made.token.clone();
 	let id = made.grant.id;
 	assert_eq!(made.grant.token_format, TokenFormat::Signed);
-	let scope = authorize(
-		&harness.core.context,
-		&token,
-		"test",
-		Path::new("main.rs"),
-		GrantCap::ReadWrite,
-	)
-	.await?;
+	let access = Access::new(&token, "test", Path::new("main.rs"), GrantCap::ReadWrite);
+	let scope = authorize(&harness.core.context, &access).await?.scope;
 	assert_eq!(scope.path, root.join("src/main.rs"));
-	assert_eq!(scope.space_id, Some(workspace.id));
+	assert_eq!(scope.space_id, workspace.id);
 	// The subtree is part of what was signed: the space root is outside it.
 	assert!(matches!(
 		check(&harness, &token, "../plan.md").await,

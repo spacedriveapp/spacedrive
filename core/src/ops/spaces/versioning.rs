@@ -312,7 +312,11 @@ fn join(relative: &str, below: &str) -> String {
 /// The folders of the spaces inside `space_id`, which its captures leave out.
 async fn nested_roots(context: &CoreContext, source_id: Uuid, space_id: Uuid) -> Vec<PathBuf> {
 	let spaces = events::spaces_of(context, source_id).await;
-	let Some((_, own, _)) = spaces.iter().find(|(id, ..)| *id == space_id) else {
+	let Some(own) = spaces
+		.iter()
+		.find(|space| space.id == space_id)
+		.map(|space| &space.root)
+	else {
 		return Vec::new();
 	};
 	let Some(base) = context.volume_index().source_root(source_id) else {
@@ -321,10 +325,12 @@ async fn nested_roots(context: &CoreContext, source_id: Uuid, space_id: Uuid) ->
 	let inside = format!("{own}/");
 	spaces
 		.iter()
-		.filter(|(id, inner, _)| {
-			*id != space_id && !inner.is_empty() && (own.is_empty() || inner.starts_with(&inside))
+		.filter(|space| {
+			space.id != space_id
+				&& !space.root.is_empty()
+				&& (own.is_empty() || space.root.starts_with(&inside))
 		})
-		.map(|(_, inner, _)| base.join(inner))
+		.map(|space| base.join(&space.root))
 		.collect()
 }
 
@@ -559,7 +565,8 @@ pub async fn person_scope(
 	Ok(GrantScope {
 		grant_id: Uuid::nil(),
 		actor_id: actor,
-		space_id: Some(space.id),
+		space_id: space.id,
+		authority_epoch: 0,
 		library_id,
 		cap: GrantCap::ReadWrite,
 		path: root.join(&relative),

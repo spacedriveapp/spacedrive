@@ -48,6 +48,7 @@ async fn space(harness: &IndexingHarness, path: &Path) -> anyhow::Result<Space> 
 		kind: SpaceKind::Folder,
 		path: Some(path.to_path_buf()),
 		content_indexing: None,
+		protected: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())
@@ -64,6 +65,7 @@ async fn set_versioning(
 		id: space.id,
 		name: None,
 		content_indexing: None,
+		protected: None,
 		versioning: Some(on),
 	})
 	.map_err(anyhow::Error::msg)?

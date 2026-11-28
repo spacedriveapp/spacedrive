@@ -260,6 +260,23 @@ modified_ms: number | null; hidden: boolean | null };
 export type AudioMediaData = { uuid: string; duration_seconds: number | null; bit_rate: number | null; sample_rate: number | null; channels: string | null; codec: string | null; title: string | null; artist: string | null; album: string | null; album_artist: string | null; genre: string | null; year: number | null; track_number: number | null; disc_number: number | null; composer: string | null; publisher: string | null; copyright: string | null };
 
 /**
+ * How a recorded request ended.
+ */
+export type AuditResult = "ok" | 
+/**
+ * Refused by the grant or the endpoint.
+ */
+"denied" | 
+/**
+ * Refused by a per-grant limit.
+ */
+"limited" | 
+/**
+ * The request failed, or could not be decided.
+ */
+"error";
+
+/**
  * Backup configuration output
  */
 export type BackupConfigOutput = { 
@@ -2520,19 +2537,38 @@ tag_id: string | null };
 
 export type GetTagChildrenOutput = { tags: Tag[] };
 
-export type GrantAuditEntry = { grant_id: string; op: string; path: string; allowed: boolean; reason: string | null; at: string };
+export type GrantAuditEntry = { grant_id: string; grant_label: string | null; op: string; path: string; allowed: boolean; reason: string | null; at: string; client: string | null; session: string | null; pattern: string | null; bytes: number | null; 
+/**
+ * Absent on rows recorded before results were kept.
+ */
+result: AuditResult | null; duration_ms: number | null };
 
 export type GrantAuditInput = { 
 /**
- * Only this grant's requests. Every grant's when absent.
+ * Only this grant's requests. Every grant's, and the unknown-token
+ * tallies, when absent.
  */
 grant_id: string | null; 
 /**
- * At most this many entries, newest first. Defaults to 100.
+ * At most this many entries and this many tallies, newest first.
+ * Defaults to 100.
  */
 limit: number | null };
 
-export type GrantAuditOutput = { entries: GrantAuditEntry[] };
+export type GrantAuditOutput = { entries: GrantAuditEntry[]; tallies: GrantAuditTally[] };
+
+/**
+ * Requests of one kind from one subject in one minute.
+ */
+export type GrantAuditTally = { kind: TallyKind; 
+/**
+ * The client address, or the grant id for rate-limited requests.
+ */
+subject: string; grant_id: string | null; 
+/**
+ * The client address of the latest request counted.
+ */
+client: string | null; minute: string; count: number; last_at: string };
 
 /**
  * What a grant lets its holder do.
@@ -2558,7 +2594,11 @@ created_by: string; created_at: string; expires_at: string; revoked_at: string |
 /**
  * When the grant last authorized a request, from the audit log.
  */
-last_used_at: string | null };
+last_used_at: string | null; 
+/**
+ * Requests recorded against the grant within the audit's retention.
+ */
+request_count: number };
 
 /**
  * How long a grant is meant to last.
@@ -4379,7 +4419,11 @@ export type MountsConfigOutput = { cache_max_bytes: number;
 /**
  * Whether FUSE mounts are allowed on this device.
  */
-fuse_enabled: boolean };
+fuse_enabled: boolean; 
+/**
+ * Whether localhost NFS mounts are allowed on this device.
+ */
+nfs_enabled: boolean };
 
 export type MountsReadTrace = { 
 /**
@@ -4494,6 +4538,48 @@ export type NetworkStatusQueryInput = null;
 export type NetworkStopInput = Record<string, never>;
 
 export type NetworkStopOutput = { stopped: boolean };
+
+export type NfsListInput = Record<string, never>;
+
+export type NfsListOutput = { 
+/**
+ * This daemon was built with NFS support and runs on macOS or Linux.
+ */
+supported: boolean; 
+/**
+ * The daemon's config allows mounts.
+ */
+enabled: boolean; mounts: NfsMountInfo[] };
+
+/**
+ * An NFS mount the daemon holds.
+ */
+export type NfsMountInfo = { path: string; 
+/**
+ * The loopback port the mount's server answers on.
+ */
+port: number; 
+/**
+ * The grant the mount is bound to, when it shows only one directory.
+ */
+grant_id: string | null; 
+/**
+ * The granted directory the mount shows.
+ */
+granted_path: string | null; expires_at: string | null; mounted_at: string };
+
+export type NfsMountInput = { 
+/**
+ * An existing, empty directory to mount at.
+ */
+path: string; 
+/**
+ * Show only the directory this grant lends, checking the grant on
+ * every listing and open. Without one, every source is shown.
+ */
+grant_token?: string | null };
+
+export type NfsUnmountInput = { path: string };
 
 /**
  * A source's offline copy as `sources.list` reports it.
@@ -5964,7 +6050,13 @@ content_indexing: boolean;
 /**
  * Whether every change inside the space keeps its bytes as a version.
  */
-versioning: boolean; created_at: string };
+versioning: boolean; 
+/**
+ * Patterns an agent may not write inside the space, on top of the
+ * built-in list. `/`-anchored patterns start at the space root; others
+ * match at any depth.
+ */
+protected: string[]; created_at: string };
 
 /**
  * One change inside a space.
@@ -6043,7 +6135,12 @@ path: string | null;
  * Whether file contents inside the space are hashed and read. On by
  * default.
  */
-content_indexing: boolean | null };
+content_indexing: boolean | null; 
+/**
+ * Patterns an agent may not write inside the space, on top of the
+ * built-in list. None protects only the built-in list.
+ */
+protected: string[] | null };
 
 export type SpaceCreateOutput = { space: Space };
 
@@ -6209,7 +6306,12 @@ export type SpaceUpdateInput = { id: string; name: string | null; content_indexi
  * capture and keeps the versions and snapshots until they age out or
  * `spaces.history.purge` deletes them.
  */
-versioning?: boolean | null };
+versioning?: boolean | null; 
+/**
+ * The space's protected patterns, replacing the ones it has. An empty
+ * list leaves only the built-in protection.
+ */
+protected: string[] | null };
 
 export type SpaceUpdateOutput = { space: Space };
 
@@ -6506,6 +6608,24 @@ export type TagTargets =
 { type: "File"; ids: string[] };
 
 export type Tally = { files: number; bytes: number };
+
+/**
+ * What a tally row counts.
+ */
+export type TallyKind = 
+/**
+ * Requests whose token matched no grant, per client address.
+ */
+"unknown_token" | 
+/**
+ * Requests refused because their client address is locked out after
+ * failed authentications, per client address.
+ */
+"locked_out" | 
+/**
+ * Requests over a grant's request rate, per grant.
+ */
+"rate_limited";
 
 /**
  * Text highlighting information
@@ -6891,6 +7011,11 @@ mounts_cache_max_bytes?: number | null;
  * turned off; it only refuses new ones.
  */
 mounts_fuse_enabled?: boolean | null; 
+/**
+ * Allow localhost NFS mounts. Mounts already up stay up when this is
+ * turned off; it only refuses new ones.
+ */
+mounts_nfs_enabled?: boolean | null; 
 /**
  * Ceiling on replica bytes per second, serving and fetching combined;
  * zero lifts it. Applies to transfers already in flight.
@@ -7661,6 +7786,8 @@ export type CoreAction =
   |  { type: 'mounts.cache_clear'; input: MountsCacheClearInput; output: MountsCacheClearOutput }
   |  { type: 'mounts.fuse_mount'; input: FuseMountInput; output: FuseMountInfo }
   |  { type: 'mounts.fuse_unmount'; input: FuseUnmountInput; output: FuseMountInfo }
+  |  { type: 'mounts.nfs_mount'; input: NfsMountInput; output: NfsMountInfo }
+  |  { type: 'mounts.nfs_unmount'; input: NfsUnmountInput; output: NfsMountInfo }
   |  { type: 'mounts.replication_set_paused'; input: MountsReplicationSetPausedInput; output: MountsReplicationSetPausedOutput }
   |  { type: 'mounts.sync_peers'; input: MountsSyncPeersInput; output: MountsSyncPeersOutput }
   |  { type: 'mounts.trace_set'; input: MountsTraceSetInput; output: MountsTraceSetOutput }
@@ -7784,6 +7911,7 @@ export type CoreQuery =
   |  { type: 'models.whisper.list'; input: ListWhisperModelsInput; output: ListWhisperModelsOutput }
   |  { type: 'mounts.cache_status'; input: MountsCacheStatusInput; output: MountsCacheStatus }
   |  { type: 'mounts.fuse_list'; input: FuseListInput; output: FuseListOutput }
+  |  { type: 'mounts.nfs_list'; input: NfsListInput; output: NfsListOutput }
   |  { type: 'mounts.read_trace'; input: MountsReadTraceInput; output: MountsReadTrace }
   |  { type: 'mounts.replication_status'; input: MountsReplicationStatusInput; output: ReplicationStatus }
   |  { type: 'mounts.status'; input: MountsStatusInput; output: MountsStatus }
@@ -7915,6 +8043,8 @@ export const WIRE_METHODS = {
     'mounts.cache_clear': 'action:mounts.cache_clear.input',
     'mounts.fuse_mount': 'action:mounts.fuse_mount.input',
     'mounts.fuse_unmount': 'action:mounts.fuse_unmount.input',
+    'mounts.nfs_mount': 'action:mounts.nfs_mount.input',
+    'mounts.nfs_unmount': 'action:mounts.nfs_unmount.input',
     'mounts.replication_set_paused': 'action:mounts.replication_set_paused.input',
     'mounts.sync_peers': 'action:mounts.sync_peers.input',
     'mounts.trace_set': 'action:mounts.trace_set.input',
@@ -8038,6 +8168,7 @@ export const WIRE_METHODS = {
     'models.whisper.list': 'query:models.whisper.list',
     'mounts.cache_status': 'query:mounts.cache_status',
     'mounts.fuse_list': 'query:mounts.fuse_list',
+    'mounts.nfs_list': 'query:mounts.nfs_list',
     'mounts.read_trace': 'query:mounts.read_trace',
     'mounts.replication_status': 'query:mounts.replication_status',
     'mounts.status': 'query:mounts.status',

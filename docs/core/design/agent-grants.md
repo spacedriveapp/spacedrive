@@ -81,18 +81,27 @@ A standing grant is for an agent's own workspace, a folder Spacedrive created em
 Every agent-facing surface checks every request with one function:
 
 ```rust
-sd_core::ops::grants::authorize(
-	context: &CoreContext,
-	token: &str,
-	op: &str,       // the surface's name for the request, recorded in the audit
-	path: &Path,    // relative to the grant root, or absolute
-	cap: GrantCap,  // Read or ReadWrite
-) -> Result<GrantScope, GrantError>
+pub struct Access<'a> {
+	pub token: &'a str,
+	pub op: &'a str,          // the surface's name for the request, recorded in the audit
+	pub space: Option<Uuid>,  // the space the request names; None means the grant's own
+	pub path: &'a Path,       // relative to the grant root, or absolute
+	pub cap: GrantCap,        // Read or ReadWrite
+	pub epoch: Option<u64>,   // the authority epoch a write was made against; None for reads
+	pub meta: RequestMeta,    // client address, session and pattern, for the audit
+}
+
+sd_core::ops::grants::authorize(context: &CoreContext, access: &Access<'_>)
+	-> Result<Authorized, GrantError>  // Authorized { scope: GrantScope, audit: AuditId }
 ```
 
-`authorize_in` does the same against one library's database.
+`authorize_with` and `authorize_in` remain as wrappers for surfaces that name no space and no epoch. `authorize_in` checks one library's grants only.
 
-On success, `GrantScope` carries the grant id, the library id, the canonical root, and the resolved `path` the surface must open. The surface never opens the path the agent sent. `GrantScope::path` is spelled under the grant root whatever spelling the request used.
+`authorize` first verifies the token and finds its grant. It then resolves the grant's space. A grant row that records a space, as every grant made inside one does, uses it. An older grant belongs to the innermost space of its source whose root holds the granted directory. A grant outside every space is its own space, with the grant id as its id. A request naming another space is refused with `GrantError::UnknownSpace`, which an HTTP surface answers like a missing space, with 404. The granted directory remains the containment limit even inside a larger space.
+
+A write that names an epoch is checked against the space's authority epoch and refused with `GrantError::StaleEpoch { current }` when they differ. An HTTP surface answers 409. Spaces store no epoch yet, so the current epoch is 0: `Some(0)` passes and any other value is stale. `None` is not checked.
+
+On success, `GrantScope` carries the grant id, the library id, the space id and its authority epoch, the canonical root, and the resolved `path` the surface must open. The surface never opens the path the agent sent. `GrantScope::path` is spelled under the grant root whatever spelling the request used.
 
 `authorize` has one verifier, a private step that turns a token into the grant it is a credential for:
 
@@ -101,7 +110,7 @@ On success, `GrantScope` carries the grant id, the library id, the canonical roo
 
 For both formats the verifier reads the revocation on every call: the grant row's `revoked_at` and, for a grant in a space, the `grant_revocation` assertion. A revocation made on another device and merged into the store refuses the next request here. Nothing is cached. The rest of `authorize` (path resolution, protected names and the audit) is the same for both formats.
 
-`GrantError::is_credential` separates refusals of the token (unknown, expired, revoked, source removed) from refusals of one request (read-only grant, path outside the grant, protected file). An HTTP surface answers the first group with 401 and the second with 403.
+`GrantError::is_credential` separates refusals of the token (unknown, expired, revoked, source removed) from refusals of one request (read-only grant, path outside the grant, protected file, another space, a stale epoch). An HTTP surface answers the first group with 401 and the second with 403, except 404 for another space and 409 for a stale epoch.
 
 The local RPC socket does not use grants. It stays as trusted as before. Grants apply only to surfaces built for agents.
 
@@ -131,8 +140,14 @@ A writable grant can never modify:
 
 - `.git` at any depth, and everything under it
 - any file named `AGENTS.md`, `CLAUDE.md` or `SKILL.md`, at any depth
+- anything matching a default pattern, at any depth: `GEMINI.md`, `AGENT.md`, `.cursor/rules/**`, `.github/workflows/**` and `.env*`
+- anything matching a pattern of a space that holds the path
 
 These names are compared the way the most permissive filesystem compares them: case-folded, with the Unicode code points that HFS+ ignores removed, with trailing dots and spaces that Windows drops removed, with an NTFS stream suffix removed, and including the 8.3 short names `GIT~1`, `AGENTS~1.MD` and `CLAUDE~1.MD`. Both the spelling the agent sent and the resolved path are checked. So a symlink named `notes.md` that points at `AGENTS.md` is refused for writing.
+
+Patterns are globs over `/`-separated paths. A pattern that starts with `/` is anchored at the space root. Any other pattern matches at every depth, so `*.pem` covers `keys/id.pem`. A match covers everything under it, and `dir/**` also covers `dir` itself. Names are folded as above before they are compared, and patterns are lowercased. The 8.3 short names of pattern matches are caught through the resolved path, which names the long form.
+
+A space's patterns are set with `spaces.create` or `spaces.update` (`sd space create --protect`). They live on the space in its source store, and `authorize` reads them on every request, so a change applies to the next one. Every space that holds a path contributes its patterns, so a nested space can add protection but never remove it. Moving or deleting a directory checks every path under it against the same lists.
 
 Reads of these files are allowed.
 
@@ -140,13 +155,27 @@ A surface that changes a directory as a whole, such as a recursive delete or mov
 
 ## Audit
 
-Each decision against a known grant is recorded in the `grant_audit` table, whether the request was allowed or refused. A record holds the grant id, the operation, the path as the agent sent it, the result, the reason for a refusal, and the time.
+Each decision against a known grant is recorded in the `grant_audit` table, whether the request was allowed or refused, before the request is answered. A record holds:
 
-The table keeps the newest 10,000 rows and trims the oldest on every write. If the audit row for an allowed request cannot be written, the request is refused. Nothing is served without a record.
+- the time, the grant id and the grant's label
+- the client address and the MCP session id, on surfaces reached over the network
+- the operation, such as `mcp.read`, and the path as the agent sent it
+- the grep or glob pattern, cut to its first 256 bytes
+- the bytes of the response body, the result (`ok`, `denied`, `limited` or `error`), the duration, and the reason for a refusal
 
-A token that matches no grant has no grant and no library to record against. That refusal is logged through `tracing`.
+A record never holds the token, file contents or match text.
 
-`grants.list` shows the last allowed use of each grant from the audit. `grants.audit` returns the log, newest first, for one grant or for all grants.
+`authorize` writes the decision. A surface that knows more about the request calls `authorize_with` with a `RequestMeta` (client address, session, pattern). It gets back the scope and the id of the row, and calls `audit::finish` with the bytes, result and duration once it has the response body and before it sends it. If either write fails, the request is not served. The agent endpoint answers 503, on its MCP and REST routes alike.
+
+Some requests are counted instead of recorded one by one, so a flood cannot fill the table. They go to `grant_audit_tally`, one row per kind, subject and minute with a count:
+
+- `unknown_token`: a token that matches no grant, per client address. Nothing says which library the token was meant for, so the count goes to every open library. This count is best-effort: if it cannot be written, the failure is logged and the request still answers 401, so the per-address lockout keeps counting.
+- `locked_out`: a request from an address locked out after failed authentications, per client address.
+- `rate_limited`: a request over its grant's request rate, per grant. Its decision row is folded into the count.
+
+Retention is 30 days or 1,000,000 rows per table, whichever comes first. The trim runs on about one in 1,000 audit writes to each library, so a table can hold some rows over the cap between two passes.
+
+`grants.list` shows the last allowed use and the request count of each grant, both within retention. `grants.audit` returns the rows and the tallies, newest first, for one grant or for all grants.
 
 ## Ops and CLI
 
@@ -156,14 +185,14 @@ A token that matches no grant has no grant and no library to record against. Tha
 | `grants.list` | library query | Active grants, or all with `include_inactive`. Never returns tokens. |
 | `grants.revoke` | library action | End a grant now. |
 | `grants.extend` | library action | Set a new expiry from now. |
-| `grants.audit` | library query | The audit log, newest first. |
+| `grants.audit` | library query | The audit rows and tallies, newest first. |
 
 ```
 sd grant create <path> [--read | --read-write] [--ttl 1h] [--standing] [--signed | --opaque] [--label name]
 sd grant list [--all]
 sd grant revoke <id>
 sd grant extend <id> [--ttl 1h]
-sd grant audit [<id>] [--limit 50]
+sd grant audit [<id>] [--limit 50]   # also: sd grant log <id>
 ```
 
 The CLI binary is `sd-cli`. `--ttl` takes values such as `30m`, `1h`, `2h30m` or `7d`.

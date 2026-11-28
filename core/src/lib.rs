@@ -608,6 +608,7 @@ impl Core {
 		// The share's server stops with this process, so its mount goes first.
 		crate::service::mounts::attach::detach(&self.context.data_dir).await;
 		crate::service::mounts::fuse::unmount_all().await;
+		crate::service::mounts::nfs::unmount_all().await;
 
 		// Networking service is stopped by services.stop_all()
 

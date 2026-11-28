@@ -80,7 +80,7 @@ impl LibraryQuery for SemanticSearchQuery {
 		let internal = |e: anyhow::Error| QueryError::Internal(e.to_string());
 		let text = store.text_index().await.map_err(internal)?;
 		let vectors = store.vector_index().await.map_err(internal)?;
-		let subtrees = store.deep_subtrees().await.map_err(internal)?;
+		let deep = store.deep_scope().await.map_err(internal)?;
 
 		let query = self.input.query.clone();
 		let vector = {
@@ -102,7 +102,7 @@ impl LibraryQuery for SemanticSearchQuery {
 				query: self.input.query.clone(),
 				vector,
 				under: under.clone(),
-				subtrees: subtrees.clone(),
+				scope: deep.clone(),
 				kinds: self
 					.input
 					.kinds
@@ -141,7 +141,7 @@ impl LibraryQuery for SemanticSearchQuery {
 			})
 			.collect();
 		let pending_documents = vectors
-			.pending_count(&subtrees)
+			.pending_count(&deep)
 			.await
 			.map_err(|e| QueryError::Internal(e.to_string()))?;
 		Ok(SemanticSearchOutput {

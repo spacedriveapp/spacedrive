@@ -350,6 +350,7 @@ async fn spaces_and_the_deep_scope_move_the_revision() {
 		root: "Documents".into(),
 		content_indexing: true,
 		versioning: false,
+		protected: "[]".into(),
 		created_at: "2026-11-27T00:00:00Z".into(),
 		deleted: false,
 		updated_hlc: hlc(1),

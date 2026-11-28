@@ -347,14 +347,15 @@ async fn agent_mcp_reads_only_beneath_the_grant_root() -> anyhow::Result<()> {
 	// `swap` is a real directory, swap it for a link out of the root, then open
 	// what the check resolved. The handle is refused; a path open would read
 	// the outside file.
-	let scope = grants::authorize(
-		&harness.core.context,
+	let access = grants::Access::new(
 		&issued.token,
 		"containment",
 		Path::new("swap/secret.txt"),
 		GrantCap::Read,
-	)
-	.await?;
+	);
+	let scope = grants::authorize(&harness.core.context, &access)
+		.await?
+		.scope;
 	std::fs::rename(project.join("swap"), project.join(".swap.real"))?;
 	std::fs::rename(project.join(".swap.link"), project.join("swap"))?;
 	assert!(std::fs::read_to_string(&scope.path)?.contains(OUTSIDE_MARKER));

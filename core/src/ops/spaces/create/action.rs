@@ -47,6 +47,9 @@ pub struct SpaceCreateInput {
 	/// Whether file contents inside the space are hashed and read. On by
 	/// default.
 	pub content_indexing: Option<bool>,
+	/// Patterns an agent may not write inside the space, on top of the
+	/// built-in list. None protects only the built-in list.
+	pub protected: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -80,6 +83,9 @@ impl LibraryAction for SpaceCreateAction {
 			.is_some_and(|name| name.trim().is_empty())
 		{
 			return Err("the name cannot be empty".to_string());
+		}
+		if let Some(patterns) = &input.protected {
+			store::protected_patterns(patterns.clone())?;
 		}
 		Ok(Self { input })
 	}
@@ -241,6 +247,8 @@ pub(crate) async fn create(
 		)));
 	}
 
+	let protected = store::protected_patterns(input.protected.unwrap_or_default())
+		.map_err(ActionError::InvalidInput)?;
 	let stamp = store::stamp(&context).map_err(ActionError::Internal)?;
 	let row = sd_store::SpaceRow {
 		uuid: id,
@@ -249,6 +257,7 @@ pub(crate) async fn create(
 		root: relative,
 		content_indexing: input.content_indexing.unwrap_or(bucket.is_none()),
 		versioning: false,
+		protected,
 		created_at: Utc::now().to_rfc3339(),
 		deleted: false,
 		updated_hlc: stamp.hlc,
@@ -261,10 +270,11 @@ pub(crate) async fn create(
 		.map_err(|e| ActionError::Internal(format!("could not save the space: {e}")))?;
 	store::invalidate(source_id);
 	drop(one_create);
-	// A source tracked just now is already being read; an existing one
-	// reads the new space's files if they were outside what it read.
-	if row.content_indexing && !tracked {
-		store::reread(&library, &context, source_id, true).await?;
+	// A source tracked just now is already being read. An existing one
+	// reads the new space's files if they were outside what it read, or
+	// drops their text if the space turns reading off inside it.
+	if !tracked {
+		store::reread(&library, &context, source_id, row.content_indexing).await?;
 	}
 
 	Ok(Created {

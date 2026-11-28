@@ -35,7 +35,10 @@ use crate::{
 	},
 	ops::{
 		files::trash,
-		grants::{authorize, bucket::BucketUrl, scope, GrantCap, GrantError, GrantScope},
+		grants::{
+			authorize, bucket::BucketUrl, protect::Protection, scope, Access, GrantCap, GrantError,
+			GrantScope,
+		},
 		spaces::events::{self as space_events, Attribution, Origin},
 	},
 	service::network::protocol::staged_receive::{rename_noreplace, StagedReceive, JOURNAL_DIR},
@@ -86,14 +89,8 @@ impl WriteTurn {
 
 /// A path's state: the values a precondition names.
 pub async fn stat(context: &CoreContext, input: StatInput) -> Result<PathState, WriteError> {
-	let scope = authorize(
-		context,
-		&input.token,
-		"agent.stat",
-		&input.path,
-		GrantCap::Read,
-	)
-	.await?;
+	let access = Access::new(&input.token, "agent.stat", &input.path, GrantCap::Read);
+	let scope = authorize(context, &access).await?.scope;
 	if let Some(bucket) = Bucket::of(context, &scope).await? {
 		return bucket::state(&bucket, &AtomicBool::new(false)).await;
 	}
@@ -469,7 +466,7 @@ pub async fn move_path_in(
 	};
 	unchanged(context, &from, &current, &metadata, &turn).await?;
 	if is_dir {
-		no_protected_descendant(&from, &turn).await?;
+		no_protected_descendant(context, &from, Some(&wanted), &turn).await?;
 	}
 	turn.proceed()?;
 	let mut effects = make_parents(&to.root, &wanted).await?;
@@ -551,7 +548,7 @@ pub async fn delete_in(
 	let metadata = metadata.ok_or_else(|| stale(current.clone()))?;
 	unchanged(context, &scope, &current, &metadata, &turn).await?;
 	if metadata.is_dir() {
-		no_protected_descendant(&scope, &turn).await?;
+		no_protected_descendant(context, &scope, None, &turn).await?;
 	}
 	still_inside(&scope).await?;
 	let id = Uuid::now_v7();
@@ -585,7 +582,9 @@ async fn writable(
 	op: &str,
 	path: &Path,
 ) -> Result<GrantScope, WriteError> {
-	let scope = authorize(context, token, op, path, GrantCap::ReadWrite).await?;
+	let scope = authorize(context, &Access::new(token, op, path, GrantCap::ReadWrite))
+		.await?
+		.scope;
 	if scope.relative.as_os_str().is_empty() {
 		return Err(WriteError::Invalid(
 			"name a path inside the granted directory".to_string(),
@@ -625,9 +624,21 @@ async fn unchanged(
 
 /// Refuse to move or delete a directory that holds a path the grant
 /// protects, since authorizing the directory does not authorize what is in
-/// it. Links are not followed: a link is moved or trashed as itself.
-async fn no_protected_descendant(scope: &GrantScope, turn: &WriteTurn) -> Result<(), WriteError> {
+/// it. A move also checks where each path would land, under `landing`.
+/// Links are not followed: a link is moved or trashed as itself.
+async fn no_protected_descendant(
+	context: &CoreContext,
+	scope: &GrantScope,
+	landing: Option<&Path>,
+	turn: &WriteTurn,
+) -> Result<(), WriteError> {
+	let protection = Protection::of(context, &scope.path, scope.library_id).await;
+	let landing = match landing {
+		Some(landing) => Some(Protection::of(context, landing, scope.library_id).await),
+		None => None,
+	};
 	let (root, dir) = (scope.root.clone(), scope.path.clone());
+	let top = dir.clone();
 	let cancel = turn.cancel.clone();
 	let found = tokio::task::spawn_blocking(move || -> Result<Option<String>, WriteError> {
 		let mut pending = vec![dir];
@@ -640,7 +651,12 @@ async fn no_protected_descendant(scope: &GrantScope, turn: &WriteTurn) -> Result
 			for entry in entries {
 				let entry = entry.map_err(|e| WriteError::Io(format!("list: {e}")))?;
 				let path = entry.path();
-				if scope::protected_component(Path::new(&entry.file_name())).is_some() {
+				let below = path.strip_prefix(&top).unwrap_or(&path);
+				let protected = protection.find_below(below).is_some()
+					|| landing
+						.as_ref()
+						.is_some_and(|landing| landing.find_below(below).is_some());
+				if protected {
 					return Ok(Some(state::shown(&root, &path)));
 				}
 				if entry.file_type().is_ok_and(|kind| kind.is_dir()) {

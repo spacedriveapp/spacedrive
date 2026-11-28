@@ -190,7 +190,8 @@ fn is_protected(folded: &str) -> bool {
 	})
 }
 
-fn fold(name: &str) -> String {
+/// A name as the most permissive filesystem compares it.
+pub(crate) fn fold(name: &str) -> String {
 	let name = name.split(':').next().unwrap_or(name);
 	let kept: String = name.chars().filter(|c| !hfs_ignorable(*c)).collect();
 	kept.trim_end_matches(['.', ' ']).to_lowercase()

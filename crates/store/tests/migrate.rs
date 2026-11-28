@@ -126,6 +126,7 @@ async fn downgrade_to_v0(path: &Path) -> SqlitePool {
 		CONTENT_V0,
 		"CREATE INDEX idx_content_uuid ON content(uuid)",
 		"CREATE INDEX idx_content_integrity ON content(integrity_hash)",
+		"ALTER TABLE space DROP COLUMN protected",
 		"PRAGMA user_version = 0",
 	] {
 		sqlx::query(sql).execute(&pool).await.expect(sql);
@@ -484,6 +485,7 @@ async fn downgrade_to_v1(path: &Path) -> SqlitePool {
 		"CREATE INDEX idx_content_uuid ON content(uuid)",
 		"CREATE INDEX idx_content_candidate_uuid ON content(candidate_uuid)",
 		"DROP INDEX IF EXISTS idx_facet_file_extension",
+		"ALTER TABLE space DROP COLUMN protected",
 		"PRAGMA user_version = 1",
 	] {
 		sqlx::query(sql).execute(&pool).await.expect(sql);
@@ -633,24 +635,19 @@ async fn a_version_1_replica_reads_with_an_empty_kind_name() {
 	);
 }
 
-/// Migration 3 on a version 2 store that already holds a space: the space
+/// Migration 4 on a version 3 store that already holds a space: the space
 /// gains the versioning column, off.
 #[tokio::test]
-async fn migration_3_adds_versioning_to_spaces_off() {
+async fn migration_4_adds_versioning_to_spaces_off() {
 	let fixture = Fixture::new().await;
-	let pool = SqlitePool::connect(&format!("sqlite://{}", fixture.db_path().display()))
-		.await
-		.expect("open the file");
-	for statement in [
+	let pool = raw(&fixture.db_path()).await;
+	for sql in [
 		"ALTER TABLE space DROP COLUMN versioning",
-		"INSERT INTO space (uuid, name, kind, root, content_indexing, created_at, updated_hlc, origin_device)
-		 VALUES (X'01', 'Docs', 'folder', 'Documents', 1, '2026-11-27T00:00:00Z', '0001', X'09')",
-		"PRAGMA user_version = 2",
+		"INSERT INTO space (uuid, name, kind, root, content_indexing, created_at, deleted, updated_hlc, origin_device) \
+		 VALUES (X'01', 'Docs', 'folder', 'Documents', 1, '2026-11-27T00:00:00Z', 0, '0001', X'09')",
+		"PRAGMA user_version = 3",
 	] {
-		sqlx::query(statement)
-			.execute(&pool)
-			.await
-			.expect(statement);
+		sqlx::query(sql).execute(&pool).await.expect(sql);
 	}
 	pool.close().await;
 
@@ -659,10 +656,77 @@ async fn migration_3_adds_versioning_to_spaces_off() {
 		.open("source-1")
 		.await
 		.expect("open migrates");
-	assert_eq!(db.schema_version(), SCHEMA_VERSION);
+	assert_eq!(
+		migrate::version(db.pool()).await.expect("version"),
+		SCHEMA_VERSION
+	);
 	let versioning: Vec<bool> = sqlx::query_scalar("SELECT versioning FROM space")
 		.fetch_all(db.pool())
 		.await
 		.expect("the column");
 	assert_eq!(versioning, [false]);
+}
+
+/// A store already at this version whose `space` table lacks the versioning
+/// column, as a development store can after another branch's migration
+/// took the same number, gains it on open.
+#[tokio::test]
+async fn a_current_store_without_versioning_gains_it() {
+	let fixture = Fixture::new().await;
+	let pool = raw(&fixture.db_path()).await;
+	for sql in [
+		"ALTER TABLE space DROP COLUMN versioning",
+		"INSERT INTO space (uuid, name, kind, root, content_indexing, created_at, deleted, updated_hlc, origin_device) \
+		 VALUES (X'01', 'Docs', 'folder', 'Documents', 1, '2026-11-27T00:00:00Z', 0, '0001', X'09')",
+	] {
+		sqlx::query(sql).execute(&pool).await.expect(sql);
+	}
+	assert_eq!(
+		migrate::version(&pool).await.expect("version"),
+		SCHEMA_VERSION
+	);
+	pool.close().await;
+
+	let db = fixture
+		.manager
+		.open("source-1")
+		.await
+		.expect("open repairs");
+	let versioning: Vec<bool> = sqlx::query_scalar("SELECT versioning FROM space")
+		.fetch_all(db.pool())
+		.await
+		.expect("the column");
+	assert_eq!(versioning, [false]);
+}
+
+/// Migration 3 on a version 2 store: every space gains an empty protected
+/// list and keeps the rest of its row.
+#[tokio::test]
+async fn migration_3_gives_every_space_an_empty_protected_list() {
+	let fixture = Fixture::new().await;
+	let pool = raw(&fixture.db_path()).await;
+	for sql in [
+		"ALTER TABLE space DROP COLUMN protected",
+		"INSERT INTO space (uuid, name, kind, root, content_indexing, created_at, deleted, updated_hlc, origin_device) \
+		 VALUES (X'01', 'Docs', 'folder', 'Documents', 1, '2026-11-27T00:00:00Z', 0, '0001', X'09')",
+		"PRAGMA user_version = 2",
+	] {
+		sqlx::query(sql).execute(&pool).await.expect(sql);
+	}
+	pool.close().await;
+
+	let db = fixture
+		.manager
+		.open("source-1")
+		.await
+		.expect("open migrates");
+	assert_eq!(
+		migrate::version(db.pool()).await.expect("version"),
+		SCHEMA_VERSION
+	);
+	let row: (String, String, String) = sqlx::query_as("SELECT name, root, protected FROM space")
+		.fetch_one(db.pool())
+		.await
+		.expect("space row");
+	assert_eq!(row, ("Docs".into(), "Documents".into(), "[]".into()));
 }

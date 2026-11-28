@@ -465,6 +465,6 @@ pub async fn text_filter(store: &super::store::SourceStore) -> anyhow::Result<Te
 			.into_iter()
 			.map(String::from)
 			.collect(),
-		subtrees: store.deep_subtrees().await?,
+		scope: store.deep_scope().await?,
 	})
 }

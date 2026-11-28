@@ -16,11 +16,15 @@ use futures::StreamExt;
 use helpers::*;
 use reqwest::{header, StatusCode};
 use sd_core::{
+	domain::SpaceKind,
 	infra::action::LibraryAction,
-	ops::grants::{
-		create::{CreateGrantAction, CreateGrantInput, CreateGrantOutput},
-		revoke::{RevokeGrantAction, RevokeGrantInput},
-		GrantCap,
+	ops::{
+		grants::{
+			create::{CreateGrantAction, CreateGrantInput, CreateGrantOutput},
+			revoke::{RevokeGrantAction, RevokeGrantInput},
+			GrantCap,
+		},
+		spaces::{SpaceCreateAction, SpaceCreateInput},
 	},
 	service::agent_mcp::{self, Limits},
 };
@@ -913,6 +917,133 @@ async fn tool_arguments_are_checked_against_the_schema_on_both_surfaces() -> any
 	rest.ok("list_dir", json!({})).await;
 	let reply = rest.tool("get_skill", json!({ "path": "a.txt" })).await;
 	assert_eq!(reply.status, StatusCode::BAD_REQUEST);
+
+	harness.shutdown().await?;
+	Ok(())
+}
+
+#[tokio::test]
+async fn requests_route_by_the_space_a_grant_resolves_to() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("agent_rest_spaces")
+		.disable_watcher()
+		.build()
+		.await?;
+	let tracked = harness.create_test_dir("tracked").await?;
+	tracked.write_file("project/docs/a.txt", "a").await?;
+	tracked.write_file("loose/b.txt", "b").await?;
+	tracked.track().await?;
+	let base = std::fs::canonicalize(harness.temp_path())?.join("tracked");
+	// Made before the space, so the grant row names no space and the grant is
+	// placed by its directory.
+	let early = grant(&harness, &base.join("project/docs"), GrantCap::Read).await?;
+	let space = SpaceCreateAction::from_input(SpaceCreateInput {
+		name: Some("Project".to_string()),
+		kind: SpaceKind::Folder,
+		path: Some(base.join("project")),
+		content_indexing: None,
+		protected: None,
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?
+	.space;
+
+	let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+	let bound = agent_mcp::serve(harness.core.context.clone(), listener, limits())?;
+	let url = format!("http://{bound}");
+	let spaces_of = |token: &str| {
+		let rest = Rest::new(&url, token, "");
+		async move {
+			rest.send(rest.http.get(format!("{}/v1/spaces", rest.base)))
+				.await
+		}
+	};
+
+	// A grant inside a space lends from that space and is reached by its id.
+	let inside = grant(&harness, &base.join("project/docs"), GrantCap::ReadWrite).await?;
+	let listed = spaces_of(&inside.token).await;
+	assert_eq!(listed.status, StatusCode::OK, "{}", listed.json());
+	assert_eq!(listed.json()[0]["id"], json!(space.id.to_string()));
+	assert_eq!(listed.json()[0]["name"], json!("Project"));
+	let rest = Rest::new(&url, &inside.token, &space.id.to_string());
+	let read = rest.ok("read", json!({ "path": "a.txt" })).await;
+	assert_eq!(read["content"], json!("a"));
+	assert_eq!(rest.get("stat/a.txt").await.status, StatusCode::OK);
+
+	let listed = spaces_of(&early.token).await;
+	assert_eq!(listed.json()[0]["id"], json!(space.id.to_string()));
+	let early_rest = Rest::new(&url, &early.token, &space.id.to_string());
+	assert_eq!(early_rest.get("stat/a.txt").await.status, StatusCode::OK);
+
+	// The grant id no longer names a space.
+	let by_grant = Rest::new(&url, &inside.token, &inside.grant.id.to_string());
+	let reply = by_grant.tool("read", json!({ "path": "a.txt" })).await;
+	assert_eq!(reply.status, StatusCode::NOT_FOUND, "{}", reply.json());
+	assert_eq!(reply.code(), "not_found");
+	assert_eq!(
+		by_grant.get("stat/a.txt").await.status,
+		StatusCode::NOT_FOUND
+	);
+
+	// Writes name the epoch they were made against. Spaces carry no epoch
+	// yet, so only 0 is current.
+	let reply = rest
+		.tool(
+			"write_file",
+			json!({ "path": "stale.txt", "content": "x", "epoch": 3 }),
+		)
+		.await;
+	assert_eq!(reply.status, StatusCode::CONFLICT, "{}", reply.json());
+	assert_eq!(reply.code(), "stale_epoch");
+	assert_eq!(reply.json()["error"]["epoch"], json!(0));
+	assert!(!base.join("project/docs/stale.txt").exists());
+	let result = mcp_call(
+		&url,
+		&inside.token,
+		"write_file",
+		json!({ "path": "stale.txt", "content": "x", "epoch": 3 }),
+	)
+	.await;
+	assert_eq!(result["isError"], json!(true), "{result}");
+	let text = result["content"][0]["text"].as_str().unwrap();
+	assert!(
+		text.starts_with("stale_epoch") && text.contains('0'),
+		"{text}"
+	);
+	assert!(!base.join("project/docs/stale.txt").exists());
+	rest.ok(
+		"write_file",
+		json!({ "path": "current.txt", "content": "x", "epoch": 0 }),
+	)
+	.await;
+	rest.ok(
+		"write_file",
+		json!({ "path": "unfenced.txt", "content": "x" }),
+	)
+	.await;
+	let reply = rest
+		.tool(
+			"write_file",
+			json!({ "path": "bad.txt", "content": "x", "epoch": "zero" }),
+		)
+		.await;
+	assert_eq!(reply.status, StatusCode::BAD_REQUEST, "{}", reply.json());
+
+	// A grant outside every space is its own space, named by the grant id.
+	let outside = grant(&harness, &base.join("loose"), GrantCap::Read).await?;
+	let listed = spaces_of(&outside.token).await;
+	assert_eq!(listed.json()[0]["id"], json!(outside.grant.id.to_string()));
+	assert_eq!(listed.json()[0]["name"], json!("rest acceptance"));
+	let rest = Rest::new(&url, &outside.token, &outside.grant.id.to_string());
+	assert_eq!(
+		rest.ok("read", json!({ "path": "b.txt" })).await["content"],
+		json!("b")
+	);
+	let elsewhere = Rest::new(&url, &outside.token, &space.id.to_string());
+	assert_eq!(
+		elsewhere.get("stat/b.txt").await.status,
+		StatusCode::NOT_FOUND
+	);
 
 	harness.shutdown().await?;
 	Ok(())

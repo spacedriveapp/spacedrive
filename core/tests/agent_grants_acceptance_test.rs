@@ -26,13 +26,13 @@ use sd_core::{
 	},
 	ops::{
 		grants::{
-			audit::{GrantAuditInput, GrantAuditQuery, AUDIT_CAPACITY},
+			audit::{self, GrantAuditInput, GrantAuditQuery},
 			authorize,
 			create::{CreateGrantAction, CreateGrantInput, CreateGrantOutput},
 			extend::{ExtendGrantAction, ExtendGrantInput},
 			list::{ListGrantsInput, ListGrantsQuery},
 			revoke::{RevokeGrantAction, RevokeGrantInput},
-			GrantCap, GrantError, GrantStatus,
+			Access, GrantCap, GrantError, GrantStatus,
 		},
 		sources::delete::action::{DeleteSourceAction, DeleteSourceInput},
 	},
@@ -76,9 +76,10 @@ async fn check(
 	path: impl AsRef<Path>,
 	cap: GrantCap,
 ) -> Result<PathBuf, GrantError> {
-	authorize(&harness.core.context, token, "test", path.as_ref(), cap)
+	let access = Access::new(token, "test", path.as_ref(), cap);
+	authorize(&harness.core.context, &access)
 		.await
-		.map(|scope| scope.path)
+		.map(|authorized| authorized.scope.path)
 }
 
 fn escapes(result: Result<PathBuf, GrantError>) -> bool {
@@ -343,9 +344,11 @@ async fn grants_scope_expire_revoke_and_protect() -> anyhow::Result<()> {
 		.iter()
 		.any(|e| e.path == "notes/new.md" && e.allowed));
 
-	// The audit is bounded.
+	// The audit is bounded by row count; a lower cap than the daemon's keeps
+	// the filler small.
+	let cap = 500;
 	let conn = harness.library.db().conn();
-	let filler = (0..AUDIT_CAPACITY).map(|_| grant_audit::ActiveModel {
+	let filler = (0..cap * 2).map(|_| grant_audit::ActiveModel {
 		grant_id: Set(read.grant.id),
 		op: Set("filler".to_string()),
 		path: Set(String::new()),
@@ -363,10 +366,8 @@ async fn grants_scope_expire_revoke_and_protect() -> anyhow::Result<()> {
 	check(&harness, &live.token, "docs/readme.md", GrantCap::Read)
 		.await
 		.unwrap();
-	assert_eq!(
-		grant_audit::Entity::find().count(conn).await?,
-		AUDIT_CAPACITY as u64
-	);
+	audit::trim(conn, cap, chrono::Duration::days(audit::RETENTION_DAYS)).await?;
+	assert_eq!(grant_audit::Entity::find().count(conn).await?, cap as u64);
 
 	// Removing the source ends every grant on it, and re-adding the scope,
 	// which adopts the kept catalog under the same source id, revives none.

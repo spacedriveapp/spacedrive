@@ -32,8 +32,10 @@ use crate::error::{Error, Result};
 ///    nullable and never backfilled, and an index over the lowercase file
 ///    extension so a reidentification pass by extension does not walk the
 ///    facet table.
-/// 3. `space.versioning`, off for every space that predates it.
-pub const SCHEMA_VERSION: i64 = 3;
+/// 3. `space.protected`, the JSON array of patterns an agent may not write
+///    inside the space, `[]` for every space that predates it.
+/// 4. `space.versioning`, off for every space that predates it.
+pub const SCHEMA_VERSION: i64 = 4;
 
 /// The version a store carries. `0` for a store written before versions
 /// existed.
@@ -55,7 +57,7 @@ pub(crate) async fn run(pool: &SqlitePool) -> Result<()> {
 		)));
 	}
 	if current == SCHEMA_VERSION {
-		return Ok(());
+		return add_space_versioning(&mut *pool.acquire().await?).await;
 	}
 
 	let has_record: Option<i64> =
@@ -82,7 +84,8 @@ async fn apply(pool: &SqlitePool, next: i64) -> Result<()> {
 	match next {
 		1 => content_rows_own_their_hash(pool).await,
 		2 => content_rows_name_their_kind(pool).await,
-		3 => spaces_say_whether_they_keep_versions(pool).await,
+		3 => spaces_name_protected_patterns(pool).await,
+		4 => spaces_say_whether_they_keep_versions(pool).await,
 		_ => Err(Error::Other(format!(
 			"no migration defined for schema version {next}"
 		))),
@@ -117,22 +120,17 @@ const CONTENT_V1_INDEXES: [&str; 4] = [
 pub const FACET_FILE_EXTENSION_INDEX: &str =
 	"CREATE INDEX IF NOT EXISTS idx_facet_file_extension ON facet_file(lower(extension))";
 
-/// Migration 3: `space.versioning`, off by default. A store from before
-/// spaces has no table yet; the record DDL that follows creates it with the
-/// column.
-async fn spaces_say_whether_they_keep_versions(pool: &SqlitePool) -> Result<()> {
+/// Migration 3: `space.protected`. A store from before spaces has no
+/// `space` table yet, and the record DDL that follows creates it whole.
+async fn spaces_name_protected_patterns(pool: &SqlitePool) -> Result<()> {
 	let mut conn = pool.acquire().await?;
 	let mut tx = conn.begin().await?;
 	let has_space: Option<i64> =
 		sqlx::query_scalar("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'space'")
 			.fetch_optional(&mut *tx)
 			.await?;
-	let present: Option<i64> =
-		sqlx::query_scalar("SELECT 1 FROM pragma_table_info('space') WHERE name = 'versioning'")
-			.fetch_optional(&mut *tx)
-			.await?;
-	if has_space.is_some() && present.is_none() {
-		sqlx::query("ALTER TABLE space ADD COLUMN versioning INTEGER NOT NULL DEFAULT 0")
+	if has_space.is_some() {
+		sqlx::query("ALTER TABLE space ADD COLUMN protected TEXT NOT NULL DEFAULT '[]'")
 			.execute(&mut *tx)
 			.await?;
 	}
@@ -140,6 +138,42 @@ async fn spaces_say_whether_they_keep_versions(pool: &SqlitePool) -> Result<()> 
 		.execute(&mut *tx)
 		.await?;
 	tx.commit().await?;
+	Ok(())
+}
+
+/// Migration 4: `space.versioning`, off by default.
+async fn spaces_say_whether_they_keep_versions(pool: &SqlitePool) -> Result<()> {
+	let mut conn = pool.acquire().await?;
+	let mut tx = conn.begin().await?;
+	add_space_versioning(&mut tx).await?;
+	sqlx::query("PRAGMA user_version = 4")
+		.execute(&mut *tx)
+		.await?;
+	tx.commit().await?;
+	Ok(())
+}
+
+/// Add `space.versioning` to a store whose `space` table lacks it. A store
+/// from before spaces has no table yet; the record DDL that follows creates
+/// it with the column.
+///
+/// This checks the column rather than the version, and also runs on a store
+/// already at [`SCHEMA_VERSION`]: a development store can carry another
+/// branch's migration under the same number without this column.
+async fn add_space_versioning(conn: &mut sqlx::SqliteConnection) -> Result<()> {
+	let has_space: Option<i64> =
+		sqlx::query_scalar("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'space'")
+			.fetch_optional(&mut *conn)
+			.await?;
+	let present: Option<i64> =
+		sqlx::query_scalar("SELECT 1 FROM pragma_table_info('space') WHERE name = 'versioning'")
+			.fetch_optional(&mut *conn)
+			.await?;
+	if has_space.is_some() && present.is_none() {
+		sqlx::query("ALTER TABLE space ADD COLUMN versioning INTEGER NOT NULL DEFAULT 0")
+			.execute(&mut *conn)
+			.await?;
+	}
 	Ok(())
 }
 

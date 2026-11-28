@@ -18,6 +18,13 @@ use sd_core::{
 use std::path::PathBuf;
 use uuid::Uuid;
 
+fn scope(read: &[&str], skip: &[&str]) -> sd_store::DeepScope {
+	sd_store::DeepScope {
+		read: read.iter().map(|s| s.to_string()).collect(),
+		skip: skip.iter().map(|s| s.to_string()).collect(),
+	}
+}
+
 fn session(harness: &IndexingHarness) -> SessionContext {
 	let device_id = sd_core::device::get_current_device_id();
 	let device_name = sd_core::device::get_current_device_slug();
@@ -37,6 +44,7 @@ async fn create(
 		kind,
 		path,
 		content_indexing: None,
+		protected: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())
@@ -85,6 +93,7 @@ async fn a_folder_in_a_source_becomes_a_space_and_stops_being_one() -> anyhow::R
 		name: Some("Notes".into()),
 		content_indexing: Some(false),
 		versioning: None,
+		protected: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())
@@ -231,7 +240,7 @@ async fn a_deep_scope_set_before_spaces_becomes_spaces_that_decide_what_is_read(
 			&sd_core::ops::tags::stamp::assertion_stamp(device),
 		)
 		.await?;
-	assert_eq!(store.deep_subtrees().await?, ["Projects"]);
+	assert_eq!(store.deep_scope().await?, scope(&["Projects"], &[]));
 	assert!(list(&harness).await.is_empty(), "listing changes nothing");
 
 	// What opening the library does.
@@ -247,7 +256,7 @@ async fn a_deep_scope_set_before_spaces_becomes_spaces_that_decide_what_is_read(
 		Some(Vec::new()),
 		"the old list is marked adopted"
 	);
-	assert_eq!(store.deep_subtrees().await?, ["Projects"]);
+	assert_eq!(store.deep_scope().await?, scope(&["Projects"], &[]));
 	sd_core::ops::spaces::store::adopt_library(&harness.library, &harness.core.context).await;
 	assert_eq!(list(&harness).await, spaces, "adopting happens once");
 
@@ -258,25 +267,82 @@ async fn a_deep_scope_set_before_spaces_becomes_spaces_that_decide_what_is_read(
 		None,
 	)
 	.await?;
-	assert_eq!(store.deep_subtrees().await?, ["Archive", "Projects"]);
+	assert_eq!(
+		store.deep_scope().await?,
+		scope(&["Archive", "Projects"], &[])
+	);
 	SpaceUpdateAction::from_input(SpaceUpdateInput {
 		id: archive.id,
 		name: None,
 		content_indexing: Some(false),
 		versioning: None,
+		protected: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())
 	.await?;
-	assert_eq!(store.deep_subtrees().await?, ["Projects"]);
+	assert_eq!(
+		store.deep_scope().await?,
+		scope(&["Projects"], &["Archive"]),
+		"a space with content indexing off is skipped"
+	);
 	SpaceDeleteAction::from_input(SpaceDeleteInput { id: projects.id })
 		.map_err(anyhow::Error::msg)?
 		.execute(harness.library.clone(), harness.core.context.clone())
 		.await?;
 	assert!(
-		store.deep_subtrees().await?.is_empty(),
+		store.deep_scope().await?.is_empty(),
 		"a deleted space's folder is no longer read, and the old list stays adopted"
 	);
+
+	harness.shutdown().await?;
+	Ok(())
+}
+
+#[tokio::test]
+async fn a_space_with_content_indexing_off_is_not_read_inside_a_read_source() -> anyhow::Result<()>
+{
+	let harness = IndexingHarnessBuilder::new("spaces_reading_off")
+		.disable_watcher()
+		.build()
+		.await?;
+	let dir = harness.create_test_dir("drive").await?;
+	dir.write_file("notes.md", "notes").await?;
+	dir.write_file("Private/diary.md", "diary").await?;
+	let tracked = dir.track().await?;
+	let store = harness
+		.core
+		.context
+		.volume_index()
+		.store_for(&tracked.root)
+		.await
+		.expect("the source has a store");
+	assert_eq!(store.deep_scope().await?, scope(&[""], &[]));
+
+	let private = SpaceCreateAction::from_input(SpaceCreateInput {
+		name: None,
+		kind: SpaceKind::Folder,
+		path: Some(tracked.root.join("Private")),
+		content_indexing: Some(false),
+		protected: None,
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?
+	.space;
+	assert_eq!(store.deep_scope().await?, scope(&[""], &["Private"]));
+
+	SpaceUpdateAction::from_input(SpaceUpdateInput {
+		id: private.id,
+		name: None,
+		content_indexing: Some(true),
+		versioning: None,
+		protected: None,
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?;
+	assert_eq!(store.deep_scope().await?, scope(&["", "Private"], &[]));
 
 	harness.shutdown().await?;
 	Ok(())

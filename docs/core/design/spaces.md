@@ -163,7 +163,7 @@ The agent write path (`core/src/ops/agent_write/`) becomes the single write path
 - **Per-file preconditions.** An agent write may carry a per-file `after_hash` precondition, the hash of the path's last event. A precondition does not go stale when unrelated files in the source change. `content_hash` and the store `revision` keep working as they do today.
 - **Authority epoch fencing.** A space carries `authority_epoch`. Every write names the epoch. A node that is not the current authority refuses the write and points to the authority. For now a space has a single authority node.
 - **Event before commit.** The `space_event` row, and the blobs when versioning is on, are written in the same critical section as the journal row.
-- **Protected patterns per space.** The built-in list in `grants/scope.rs` is extended with `GEMINI.md`, `AGENT.md`, `.cursor/rules/**`, `.github/workflows/**` and `.env*`. It is merged with the per-space `protected` list. Normalization is the same as today.
+- **Protected patterns per space.** The built-in names in `grants/scope.rs` are joined by the default patterns in `grants/protect.rs`: `GEMINI.md`, `AGENT.md`, `.cursor/rules/**`, `.github/workflows/**` and `.env*`. Every space holding a path adds its own `protected` list. Names are folded the same way as the built-in names. `docs/core/design/agent-grants.md` has the matching rules.
 - **Conditional writes on buckets.** `CloudBackend::write` gains `If-Match` and `If-None-Match` where the service supports them, so bucket-backed spaces refuse stale writes. Services without conditional writes are read-only for agents.
 
 ## Hosted replicas
