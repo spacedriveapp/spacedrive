@@ -246,7 +246,15 @@ async fn scenario(name: &str, over_mcp: bool, front: Front) -> anyhow::Result<()
 	} else {
 		format!("http://{bound}")
 	};
-	let within = Duration::from_secs(if over_mcp { 10 } else { 5 });
+	// The macOS watcher holds a file modified again within 10 seconds until
+	// it settles, and readme.md is written at setup and again below.
+	let within = Duration::from_secs(if cfg!(target_os = "macos") {
+		15
+	} else if over_mcp {
+		10
+	} else {
+		5
+	});
 	let grant = CreateGrantAction::from_input(CreateGrantInput {
 		path: base.join("tracked/shared"),
 		caps: Some(GrantCap::Read),
