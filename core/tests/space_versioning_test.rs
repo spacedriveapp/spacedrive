@@ -811,9 +811,72 @@ async fn a_space_round_trips_through_an_sdspace_file() -> anyhow::Result<()> {
 			.await?;
 		pool.close().await;
 	}
-	assert!(import(malformed_again, reused.clone()).await.is_err());
+	assert!(import(malformed_again.clone(), reused.clone())
+		.await
+		.is_err());
 	assert_eq!(sources().await?, with_reused, "the registered source stays");
 	assert!(reused.exists(), "the folder that was there stays");
+
+	// A folder whose source was removed but whose catalog was kept is adopted
+	// again on import, and a failed import gives the catalog back untouched.
+	let adopted = out.path().join("adopted");
+	let first = SpaceCreateAction::from_input(SpaceCreateInput {
+		name: None,
+		kind: SpaceKind::Workspace,
+		path: Some(adopted.clone()),
+		content_indexing: None,
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?
+	.space;
+	sd_core::ops::spaces::SpaceDeleteAction::from_input(sd_core::ops::spaces::SpaceDeleteInput {
+		id: first.id,
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?;
+	let catalog = sd_core::ops::sources::delete::action::DeleteSourceAction::from_input(
+		sd_core::ops::sources::delete::action::DeleteSourceInput {
+			source_id: first.source_id.to_string(),
+			delete_catalog: false,
+		},
+	)
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?
+	.catalog_path
+	.expect("a kept catalog has a path");
+	let without_adopted = sources().await?;
+	let malformed_adopted = out.path().join("malformed-adopted.sdspace");
+	tokio::fs::copy(&malformed_again, &malformed_adopted).await?;
+	assert!(import(malformed_adopted, adopted.clone()).await.is_err());
+	assert_eq!(
+		sources().await?,
+		without_adopted,
+		"the registration the import made is gone"
+	);
+	assert!(catalog.exists(), "the adopted catalog stays");
+	let again = SpaceCreateAction::from_input(SpaceCreateInput {
+		name: None,
+		kind: SpaceKind::Workspace,
+		path: Some(adopted.clone()),
+		content_indexing: None,
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?
+	.space;
+	assert_eq!(
+		again.source_id, first.source_id,
+		"the catalog is adopted again"
+	);
+	sd_core::ops::spaces::SpaceDeleteAction::from_input(sd_core::ops::spaces::SpaceDeleteInput {
+		id: again.id,
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?;
 	let spaces_after = SpacesListQuery::from_input(SpacesListQueryInput { source_id: None })
 		.expect("input")
 		.execute(harness.core.context.clone(), session(&harness))

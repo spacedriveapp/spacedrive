@@ -74,7 +74,7 @@ use crate::{
 		actors::{self, Actor},
 		sources::{DeleteSourceAction, DeleteSourceInput},
 		spaces::{
-			events, store, versioning, SpaceCreateAction, SpaceCreateInput, SpaceDeleteAction,
+			create, events, store, versioning, SpaceCreateInput, SpaceDeleteAction,
 			SpaceDeleteInput, SpaceUpdateAction, SpaceUpdateInput,
 		},
 	},
@@ -405,22 +405,30 @@ impl LibraryAction for SpaceImportAction {
 			}
 		}
 		let existed = tokio::fs::symlink_metadata(destination).await.is_ok();
-		// Tracking an already registered folder reuses its source, and that
-		// source's catalog is not the import's to delete on failure.
+		// A source already registered stays registered on failure, and a
+		// catalog adopted from an earlier registration stays on disk.
 		let registered = store::locate(&library, &context, destination)
 			.await
 			.map(|located| located.source_id);
-
-		let space = SpaceCreateAction::from_input(SpaceCreateInput {
-			name: Some(self.input.name.clone().unwrap_or(record.name.clone())),
-			kind: SpaceKind::Workspace,
-			path: Some(destination.clone()),
-			content_indexing: Some(record.content_indexing),
-		})
-		.map_err(ActionError::InvalidInput)?
-		.execute(library.clone(), context.clone())
-		.await?
-		.space;
+		let created = create::create(
+			library.clone(),
+			context.clone(),
+			SpaceCreateInput {
+				name: Some(self.input.name.clone().unwrap_or(record.name.clone())),
+				kind: SpaceKind::Workspace,
+				path: Some(destination.clone()),
+				content_indexing: Some(record.content_indexing),
+			},
+		)
+		.await?;
+		let space = created.space;
+		let claim = if registered == Some(space.source_id) {
+			Claim::Registered
+		} else if created.catalog_reused {
+			Claim::Adopted
+		} else {
+			Claim::Fresh
+		};
 		let result = publish(
 			&library,
 			&context,
@@ -436,16 +444,7 @@ impl LibraryAction for SpaceImportAction {
 				space,
 			}),
 			Err(error) => {
-				let owns_source = registered != Some(space.source_id);
-				unwind(
-					&library,
-					&context,
-					&space,
-					owns_source,
-					destination,
-					existed,
-				)
-				.await;
+				unwind(&library, &context, &space, claim, destination, existed).await;
 				Err(error)
 			}
 		}
@@ -539,44 +538,59 @@ async fn publish(
 	Ok((space, imported.len() as u64, counts))
 }
 
-/// Take back a failed import: the space, its versions, the source when the
-/// import registered it, and the files it moved in. A destination that
+/// How a failed import's space came by its source, which decides how much
+/// of that source the import may take back.
+#[derive(Clone, Copy)]
+enum Claim {
+	/// The source was registered before the import, so only the space goes.
+	Registered,
+	/// The import registered the source over a catalog already on disk, so
+	/// the registration goes and the catalog stays.
+	Adopted,
+	/// The import made the source and its catalog, so both go.
+	Fresh,
+}
+
+/// Take back a failed import: the space, its versions, what the import
+/// added to the source, and the files it moved in. A destination that
 /// existed before stays, empty, as it was.
 async fn unwind(
 	library: &Arc<Library>,
 	context: &Arc<CoreContext>,
 	space: &Space,
-	owns_source: bool,
+	claim: Claim,
 	destination: &Path,
 	existed: bool,
 ) {
-	// A source the import registered goes whole, with its store and the
-	// space's versions in it. A source that was already registered keeps its
-	// catalog, and only the space and its versions go.
-	let removed = if owns_source {
+	if matches!(claim, Claim::Fresh) {
 		versioning::close(space.id).await;
-		match DeleteSourceAction::from_input(DeleteSourceInput {
+	} else if let Err(error) = versioning::discard(context, space.source_id, space.id).await {
+		warn!(space = %space.id, %error, "could not delete the versions of a failed import");
+	}
+	// A catalog that stays must not keep the space's row, so the space is
+	// deleted from it before the registration goes.
+	let mut removed = Ok(());
+	if !matches!(claim, Claim::Fresh) {
+		removed = match SpaceDeleteAction::from_input(SpaceDeleteInput { id: space.id }) {
+			Ok(action) => action
+				.execute(library.clone(), context.clone())
+				.await
+				.map(drop),
+			Err(error) => Err(ActionError::Internal(error)),
+		};
+	}
+	if !matches!(claim, Claim::Registered) && removed.is_ok() {
+		removed = match DeleteSourceAction::from_input(DeleteSourceInput {
 			source_id: space.source_id.to_string(),
-			delete_catalog: true,
+			delete_catalog: matches!(claim, Claim::Fresh),
 		}) {
 			Ok(action) => action
 				.execute(library.clone(), context.clone())
 				.await
 				.map(drop),
 			Err(error) => Err(ActionError::Internal(error)),
-		}
-	} else {
-		if let Err(error) = versioning::discard(context, space.source_id, space.id).await {
-			warn!(space = %space.id, %error, "could not delete the versions of a failed import");
-		}
-		match SpaceDeleteAction::from_input(SpaceDeleteInput { id: space.id }) {
-			Ok(action) => action
-				.execute(library.clone(), context.clone())
-				.await
-				.map(drop),
-			Err(error) => Err(ActionError::Internal(error)),
-		}
-	};
+		};
+	}
 	if let Err(error) = removed {
 		warn!(space = %space.id, ?error, "could not remove the space of a failed import");
 	}
