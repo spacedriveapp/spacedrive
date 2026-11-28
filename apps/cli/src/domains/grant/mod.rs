@@ -340,8 +340,8 @@ mod tests {
 			listen: listen.to_string(),
 			tls_cert: None,
 			tls_key: None,
-			plaintext: false,
 			host_names: Vec::new(),
+			block_bytes_per_hour: sd_core::service::agent_mcp::DEFAULT_BLOCK_BYTES_PER_HOUR,
 		}
 	}
 
@@ -354,11 +354,6 @@ mod tests {
 			..endpoint("100.64.0.1:8443")
 		};
 		assert_eq!(mcp_url(&tls), "https://nas.example.ts.net:8443/mcp");
-		let plaintext = AgentMcpConfigOutput {
-			plaintext: true,
-			..endpoint("100.64.0.1:8443")
-		};
-		assert_eq!(mcp_url(&plaintext), "http://100.64.0.1:8443/mcp");
 	}
 
 	#[test]

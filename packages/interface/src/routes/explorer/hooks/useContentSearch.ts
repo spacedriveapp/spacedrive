@@ -41,34 +41,33 @@ export interface ContentSearchResult {
 	pendingFiles: number;
 }
 
-function joinPath(root: string, relative: string): string {
+export function joinPath(root: string, relative: string): string {
 	const separator = root.includes("\\") && !root.includes("/") ? "\\" : "/";
 	const trimmed = root.endsWith(separator) ? root.slice(0, -1) : root;
 	return trimmed + separator + relative.split("/").join(separator);
 }
 
 /**
- * Runs search.content beside the explorer's file search, over the same
- * scope, and groups its hits by file.
- *
- * The content index lives in each source's store on the device that owns
- * it, so a library-wide search asks every filesystem source this device
- * reads the contents of, one query each. A scope with no text index, or on
- * another device, answers with an error and contributes no hits.
+ * The scopes a search over the explorer's scope asks, one per source that
+ * keeps a text index on this device, and the trimmed query. With `always`,
+ * scopes are listed before anything is typed.
  */
-export function useContentSearch(): ContentSearchResult {
-	const client = useSpacedriveClient();
+export function useSearchScopes({ always }: { always: boolean }): {
+	scopes: { path: SdPath; root: string }[];
+	query: string;
+} {
 	const searchInput = useSearchInput();
 	const query = searchInput?.query.trim() ?? "";
 	const isLibraryScope = searchInput?.scope === "Library";
+	const wanted = always || !!query;
 
 	const { data: sources } = useLibraryQuery(
 		{ type: "sources.list", input: { data_type: null } },
-		{ enabled: !!query && isLibraryScope },
+		{ enabled: wanted && isLibraryScope },
 	);
 
 	const scopes = useMemo<{ path: SdPath; root: string }[]>(() => {
-		if (!searchInput || !query) return [];
+		if (!searchInput || !wanted) return [];
 		if (searchInput.scope !== "Library") {
 			const path = searchInput.scope.Path.path;
 			return "Physical" in path ? [{ path, root: path.Physical.path }] : [];
@@ -89,7 +88,23 @@ export function useContentSearch(): ContentSearchResult {
 					]
 				: [],
 		);
-	}, [searchInput, query, sources]);
+	}, [searchInput, wanted, sources]);
+
+	return { scopes, query };
+}
+
+/**
+ * Runs search.content beside the explorer's file search, over the same
+ * scope, and groups its hits by file.
+ *
+ * The content index lives in each source's store on the device that owns
+ * it, so a library-wide search asks every filesystem source this device
+ * reads the contents of, one query each. A scope with no text index, or on
+ * another device, answers with an error and contributes no hits.
+ */
+export function useContentSearch(): ContentSearchResult {
+	const client = useSpacedriveClient();
+	const { scopes, query } = useSearchScopes({ always: false });
 
 	const libraryId = client.getCurrentLibraryId();
 	return useQueries({

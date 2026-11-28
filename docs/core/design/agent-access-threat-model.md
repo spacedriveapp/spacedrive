@@ -280,10 +280,14 @@ Bind:
 TLS:
 
 - Loopback: plain HTTP.
-- Any other address: the daemon serves TLS from `--tls-cert` and `--tls-key`,
-  or the user passes `--plaintext` to state that the network itself is
-  encrypted, such as a WireGuard or Tailscale address. The daemon logs a warning
-  at every start with `--plaintext`.
+- Any other address: the daemon starts only with `--tls-cert` and `--tls-key`
+  and serves TLS from them. Without both it refuses the address and logs why.
+- Non-loopback listening is Linux and macOS only for now. On Windows, grep and
+  directory listings still open by pathname rather than through contained
+  handles, so the daemon refuses any non-loopback address there.
+- 2026-11-27: the `--plaintext` opt-in for networks that are already
+  encrypted was dropped. A WireGuard or Tailscale address needs TLS like any
+  other non-loopback address.
 - The documented remote setup is the endpoint on loopback behind a TLS reverse
   proxy the user already runs, such as `tailscale serve`.
 
@@ -371,6 +375,14 @@ Off by default stays the rule. Two levels of exposure need different bars.
 Opt-in listening beyond loopback (`--listen`) is blocked until every M1
 checklist item below passes, F2 is fixed, and this document is merged.
 
+As of 2026-11-27 the M1 items are met, F2 is fixed, and opt-in listening is
+on: a non-loopback address starts with TLS. That listening is read-only.
+Writes need a direct local request, the same test OAuth uses: a loopback bind,
+a loopback Host with the bound port, and no proxy header. Every other request
+that needs a writable grant answers 403, after the grant check records it and
+before the tool runs, until the outside security review below passes. That
+covers a non-loopback listener and a loopback listener behind a proxy alike.
+
 Exposure by default (an endpoint that listens beyond loopback without the user
 choosing an address, a toggle that is on by default in the app, or relay
 serving that makes a node reachable from the internet) is blocked until:
@@ -393,8 +405,7 @@ Each item needs a test or a recorded manual check in the M1 PR.
 
 1. The endpoint is off by default, binds `127.0.0.1` when enabled without an
    address, and refuses wildcard binds.
-2. A non-loopback bind starts only with `--tls-cert` and `--tls-key` or with
-   `--plaintext`, and `--plaintext` logs a warning at start.
+2. A non-loopback bind starts only with `--tls-cert` and `--tls-key`.
 3. The endpoint has no route into the op registry and does not connect to RPC.
 4. Tokens are 32 random bytes with the `sdg_` prefix, stored as SHA-256,
    shown once, and accepted only from `Authorization: Bearer`. A token in the

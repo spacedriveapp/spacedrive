@@ -209,6 +209,7 @@ async fn serve(
 		endpoint,
 		ip,
 		token: &token,
+		headers,
 	};
 	match route {
 		Route::Spaces => request.spaces().await,
@@ -335,6 +336,7 @@ struct Request<'a> {
 	endpoint: &'a Arc<Endpoint>,
 	ip: IpAddr,
 	token: &'a str,
+	headers: &'a HeaderMap,
 }
 
 impl Request<'_> {
@@ -543,6 +545,9 @@ impl Request<'_> {
 		let scope = self
 			.space_scope(space, &format!("rest.tool.{name}"), &path, cap)
 			.await?;
+		if let Some(reason) = self.endpoint.network_write_refused(cap, self.headers) {
+			return Err(error(StatusCode::FORBIDDEN, reason));
+		}
 		let Some(tool) = tool else {
 			return Err(error(StatusCode::NOT_FOUND, "no such tool"));
 		};
