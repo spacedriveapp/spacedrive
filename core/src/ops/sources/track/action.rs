@@ -354,8 +354,9 @@ pub async fn track_and_index(
 /// The bucket has to be connected first with `volumes.add_cloud`, which holds
 /// its credentials; the source is anchored to that cloud volume so it follows
 /// the volume's identity. A bucket cannot hold a SQLite store, so the store
-/// always lives in the library. The source is not walked: agents list, read
-/// and grep a bucket live through its backend.
+/// always lives in the library. Tracking lists the prefix into the store so
+/// search reaches its objects; agents still list, read and grep a bucket live
+/// through its backend.
 async fn track_bucket(
 	library: &Arc<Library>,
 	context: &Arc<CoreContext>,
@@ -433,6 +434,9 @@ async fn track_bucket(
 			"the bucket does not keep object versions, so agents cannot move or delete in it until versioning is enabled"
 		);
 	}
+	let job_id = dispatch_source_walk(library, context, id, root.clone(), url.key.is_empty(), true)
+		.await
+		.map_err(|e| ActionError::Internal(format!("could not start the bucket's listing: {e}")))?;
 	Ok(TrackSourceOutput {
 		id,
 		name: context.volume_index().source_name(id).unwrap_or_default(),
@@ -442,7 +446,7 @@ async fn track_bucket(
 		settings,
 		store_path: context.volume_index().store_dir(id),
 		catalog_reused: existed,
-		job_id: None,
+		job_id: Some(job_id),
 	})
 }
 
@@ -519,10 +523,7 @@ pub(crate) async fn dispatch_source_walk(
 		tracing::debug!(source = %id, cleared, "cleared stale entries before re-indexing");
 	}
 
-	let sd_path = SdPath::Physical {
-		device_slug: crate::device::get_current_device_slug(),
-		path: root.clone(),
-	};
+	let sd_path = SdPath::indexed(&crate::device::get_current_device_slug(), root.clone());
 
 	let mut config = crate::ops::indexing::job::IndexerJobConfig::new(
 		sd_path,
@@ -530,7 +531,9 @@ pub(crate) async fn dispatch_source_walk(
 		whole_volume,
 	);
 	config.announce = announce;
-	if unfiltered {
+	// A bucket is listed unfiltered, so the listing sees every object and an
+	// object it misses is one that is gone.
+	if unfiltered || config.path.is_cloud() {
 		config.rule_toggles = RuleToggles::none();
 	}
 	// What the rules hold back is still on the drive, and a source that reports

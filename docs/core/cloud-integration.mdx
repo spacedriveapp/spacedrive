@@ -123,13 +123,34 @@ The acceptance suite runs against SeaweedFS to prove the S3 path refuses one.
 
 A prefix of a connected bucket is tracked with `sources.track` and a bucket
 URL, `s3://bucket/prefix`. The source is anchored to the bucket's cloud volume
-and keeps its store in the library. It is not walked into an index yet; agents
-list, read and grep it live through the backend. Agent moves and deletes run
+and keeps its store in the library. Agents list, read and grep it live through
+the backend. Agent moves and deletes run
 only in a bucket with object versioning enabled. They copy and then delete, and a delete keeps its copy under `.spacedrive/trash/` at the
 bucket's root so `files.undo` can restore it. That prefix is never emptied by
 Spacedrive; set a lifecycle rule on it to expire old copies. Grants,
 preconditions and refusals for agents on bucket sources are described in
 `docs/core/design/agent-grants.md` and `docs/core/design/agent-writes.md`.
+
+### Indexing a bucket source
+
+Tracking a bucket prefix lists it into the source's store, so search reaches
+its objects by name. Each object becomes a record keyed by its URL, such as
+`s3://bucket/prefix/photos/beach.jpg`, with the size and modification time the
+listing reports. The `.spacedrive/` prefix, which holds the trash, is never
+listed.
+
+A bucket sends no change events, so Spacedrive lists the source again:
+
+- every 15 minutes, for each bucket source of an open library;
+- two seconds after an agent writes, moves or deletes in it, or after
+  `files.undo` changes it.
+
+Each listing reads the whole source and applies no indexing rules, so an
+object the listing does not return is removed from the store. A listing costs
+one `ListObjectsV2` request for every 1,000 entries in each directory, and
+reads no object bytes. Content
+identification and the content text index are off for bucket sources, since
+they would download every object.
 
 ## Version history
 

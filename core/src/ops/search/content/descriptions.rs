@@ -92,6 +92,7 @@ pub async fn index_sidecar(
 			continue;
 		}
 		index.write_descriptions(&doc).await?;
+		crate::ops::indexing::semantic_index::index_vectors_after_sidecars(library, &source.root);
 		written += 1;
 	}
 	Ok(written)

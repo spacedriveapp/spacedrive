@@ -157,7 +157,23 @@ enabled: boolean;
 /**
  * The address it listens on when enabled.
  */
-listen: string };
+listen: string; 
+/**
+ * PEM certificate chain served when TLS is on.
+ */
+tls_cert: string | null; 
+/**
+ * PEM private key for `tls_cert`.
+ */
+tls_key: string | null; 
+/**
+ * Whether a non-loopback listener may serve plain HTTP.
+ */
+plaintext: boolean; 
+/**
+ * Names a non-loopback listener accepts in Host besides its IP.
+ */
+host_names: string[] };
 
 /**
  * Per-library inference settings.
@@ -5411,6 +5427,115 @@ query: string; limit: number | null };
 
 export type SearchTagsOutput = { tags: Tag[] };
 
+/**
+ * One ranked file.
+ */
+export type SemanticSearchHit = { 
+/**
+ * The file, relative to the scope, with `/` separators.
+ */
+path: string; 
+/**
+ * What the matching text came from.
+ */
+kind: TextKind; 
+/**
+ * The fused score. Larger is better; only the order within one
+ * response means anything.
+ */
+score: number; 
+/**
+ * Cosine similarity of the file's best chunk to the query, when the
+ * file has vectors.
+ */
+similarity: number | null; 
+/**
+ * Whether any of the query's words appear in the file.
+ */
+word_match: boolean; 
+/**
+ * Words around the best word match, with the matches marked, or the
+ * start of the closest chunk when no word matched.
+ */
+snippet: SnippetFragment[]; 
+/**
+ * The moment in a recording the hit is about.
+ */
+time: SpokenTime | null };
+
+/**
+ * Search the files under `scope` by meaning and words.
+ */
+export type SemanticSearchInput = { 
+/**
+ * A directory or file under a source tracked on this device.
+ */
+scope: SdPath; 
+/**
+ * What to find, in plain language.
+ */
+query: string; 
+/**
+ * Only files of these kinds. Empty means every kind.
+ */
+kinds?: TextKind[]; 
+/**
+ * Hits per page. Defaults to 20.
+ */
+max_results?: number | null; 
+/**
+ * The `next_cursor` of the previous page.
+ */
+cursor?: string | null };
+
+/**
+ * One page of hits.
+ */
+export type SemanticSearchOutput = { hits: SemanticSearchHit[]; 
+/**
+ * Pass back as `cursor` to read the next page.
+ */
+next_cursor: string | null; 
+/**
+ * Documents in the source's deep scope still waiting for vectors.
+ * Those are found by their words only until the pass reaches them.
+ */
+pending_documents: number };
+
+/**
+ * Ask whether semantic search can run for the source holding `scope`.
+ */
+export type SemanticStatusInput = { 
+/**
+ * A path under a source tracked on this device.
+ */
+scope: SdPath };
+
+/**
+ * Whether semantic search runs for a source, and how far its index is.
+ */
+export type SemanticStatusOutput = { available: boolean; 
+/**
+ * Why it is unavailable, when it is.
+ */
+reason: string | null; 
+/**
+ * The embedder the source's vectors came from.
+ */
+model: string | null; 
+/**
+ * Documents with vectors.
+ */
+documents: number; chunks: number; 
+/**
+ * Documents in the deep scope still waiting for vectors.
+ */
+pending_documents: number; 
+/**
+ * The vector index's size on disk, in bytes.
+ */
+size_bytes: number };
+
 export type SerializablePairingState = "Idle" | "GeneratingCode" | "Broadcasting" | "Scanning" | "WaitingForConnection" | "Connecting" | "Authenticating" | "ExchangingKeys" | "AwaitingConfirmation" | "EstablishingSession" | "ChallengeReceived" | "ResponsePending" | "ResponseSent" | "Completed" | { Failed: { reason: string } };
 
 /**
@@ -6754,10 +6879,29 @@ backup_restore_trash_keep?: number | null;
  */
 agent_mcp_enabled?: boolean | null; 
 /**
- * The loopback address the agent MCP endpoint listens on. Applies at
- * restart.
+ * The address the agent MCP endpoint listens on. Applies at restart.
  */
 agent_mcp_listen?: string | null; 
+/**
+ * PEM certificate chain the agent MCP endpoint serves TLS with; an empty
+ * string clears it. Applies at restart.
+ */
+agent_mcp_tls_cert?: string | null; 
+/**
+ * PEM private key for the agent MCP certificate; an empty string clears
+ * it. Applies at restart.
+ */
+agent_mcp_tls_key?: string | null; 
+/**
+ * Let a non-loopback agent MCP listener serve plain HTTP. Applies at
+ * restart.
+ */
+agent_mcp_plaintext?: boolean | null; 
+/**
+ * Host names a non-loopback agent MCP listener accepts besides its IP;
+ * an empty list clears them. Applies at restart.
+ */
+agent_mcp_host_names?: string[] | null; 
 /**
  * Whether networking is enabled
  */
@@ -7668,6 +7812,8 @@ export type LibraryQuery =
   |  { type: 'search.files'; input: FileSearchInput; output: FileSearchOutput }
   |  { type: 'search.grep'; input: GrepInput; output: GrepOutput }
   |  { type: 'search.media'; input: MediaSearchInput; output: MediaSearchOutput }
+  |  { type: 'search.semantic'; input: SemanticSearchInput; output: SemanticSearchOutput }
+  |  { type: 'search.semantic.status'; input: SemanticStatusInput; output: SemanticStatusOutput }
   |  { type: 'sources.get'; input: GetSourceInput; output: SourceInfo }
   |  { type: 'sources.list'; input: ListSourcesInput; output: [SourceInfo] }
   |  { type: 'sources.list_items'; input: ListSourceItemsInput; output: [SourceItem] }
@@ -7919,6 +8065,8 @@ export const WIRE_METHODS = {
     'search.files': 'query:search.files',
     'search.grep': 'query:search.grep',
     'search.media': 'query:search.media',
+    'search.semantic': 'query:search.semantic',
+    'search.semantic.status': 'query:search.semantic.status',
     'sources.get': 'query:sources.get',
     'sources.list': 'query:sources.list',
     'sources.list_items': 'query:sources.list_items',
