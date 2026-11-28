@@ -259,10 +259,15 @@ impl Feed {
 		)
 	}
 
-	/// `change` as one SSE event for a stream rooted at `root`, or `None`
-	/// when it happened outside the root.
-	fn frame(&self, change: &Change, root: &Path) -> Option<String> {
-		let inside = |path: &Path| path.strip_prefix(root).ok().map(paths::shown);
+	/// `change` as one SSE event for a stream rooted at `roots`, every
+	/// spelling of one directory, or `None` when it happened outside it.
+	fn frame(&self, change: &Change, roots: &[PathBuf]) -> Option<String> {
+		let inside = |path: &Path| {
+			roots
+				.iter()
+				.find_map(|root| path.strip_prefix(root).ok())
+				.map(paths::shown)
+		};
 		let from = inside(&change.path);
 		let to = change.to_path.as_deref().and_then(inside);
 		let (op, path, to_path) = match (change.op, from, to) {
@@ -330,10 +335,23 @@ pub(super) async fn open(
 
 	let (tx, rx) = mpsc::channel::<Result<Bytes, Infallible>>(64);
 	let (library, grant) = (scope.library_id, scope.grant_id);
+	// Only spellings that reach the granted directory itself, so an alias
+	// that names some other directory cannot widen the stream.
+	let root = scope.root.clone();
+	let roots = tokio::task::spawn_blocking(move || {
+		crate::config::path_spellings(&root)
+			.into_iter()
+			.filter(|spelling| same_file::is_same_file(spelling, &root).unwrap_or(false))
+			.collect::<Vec<_>>()
+	})
+	.await
+	.ok()
+	.filter(|roots| !roots.is_empty())
+	.unwrap_or_else(|| vec![scope.root.clone()]);
 	let stream = Stream {
 		feed,
 		slot,
-		root: scope.root,
+		roots,
 		live,
 		reset,
 		replay,
@@ -359,7 +377,10 @@ pub(super) async fn open(
 struct Stream {
 	feed: Arc<Feed>,
 	slot: StreamSlot,
-	root: PathBuf,
+	/// The grant root under each spelling, since the watcher reports the
+	/// spelling the kernel uses, such as /System/Volumes/Data on macOS,
+	/// while the grant keeps the one it was made with.
+	roots: Vec<PathBuf>,
 	live: broadcast::Receiver<Signal>,
 	reset: bool,
 	replay: Vec<Arc<Change>>,
@@ -375,7 +396,7 @@ impl Stream {
 		let Self {
 			feed,
 			mut slot,
-			root,
+			roots,
 			mut live,
 			reset,
 			replay,
@@ -415,7 +436,7 @@ impl Stream {
 			deliver!(RESET);
 		}
 		for change in &replay {
-			if let Some(frame) = feed.frame(change, &root) {
+			if let Some(frame) = feed.frame(change, &roots) {
 				deliver!(frame);
 			}
 		}
@@ -440,7 +461,7 @@ impl Stream {
 				signal = live.recv() => match signal {
 					Ok(Signal::Change(change)) if change.seq > sent => {
 						sent = change.seq;
-						match feed.frame(&change, &root) {
+						match feed.frame(&change, &roots) {
 							Some(frame) => frame,
 							None => continue,
 						}
@@ -488,7 +509,7 @@ mod tests {
 		Stream {
 			feed: feed.clone(),
 			slot,
-			root: PathBuf::from("/r"),
+			roots: vec![PathBuf::from("/r")],
 			live: feed.live.subscribe(),
 			reset: false,
 			replay: Vec::new(),
@@ -551,7 +572,7 @@ mod tests {
 	#[test]
 	fn frames_are_relative_to_the_stream_root() {
 		let feed = Feed::new();
-		let root = Path::new("/r");
+		let root = &[PathBuf::from("/r")][..];
 		let change = |op, path: &str, to: Option<&str>| Change {
 			seq: 7,
 			op,
@@ -581,5 +602,27 @@ mod tests {
 			.frame(&change(Op::Move, "/r/a", Some("/r/b/a")), root)
 			.unwrap();
 		assert!(frame.contains(r#""to_path":"b/a""#), "{frame}");
+	}
+
+	#[test]
+	fn frames_match_the_root_under_any_spelling() {
+		let feed = Feed::new();
+		let roots = [
+			PathBuf::from("/Users/me/granted"),
+			PathBuf::from("/System/Volumes/Data/Users/me/granted"),
+		];
+		for path in [
+			"/Users/me/granted/docs/a.txt",
+			"/System/Volumes/Data/Users/me/granted/docs/a.txt",
+		] {
+			let change = Change {
+				seq: 1,
+				op: Op::Modify,
+				path: PathBuf::from(path),
+				to_path: None,
+			};
+			let frame = feed.frame(&change, &roots).unwrap();
+			assert!(frame.contains(r#""path":"docs/a.txt""#), "{frame}");
+		}
 	}
 }

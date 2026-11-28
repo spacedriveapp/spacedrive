@@ -32,7 +32,7 @@ pub use super::tree;
 
 use crate::config::AppConfig;
 use crate::context::CoreContext;
-use crate::ops::grants::GrantError;
+use crate::ops::grants::{create::owning_source, GrantError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -175,15 +175,26 @@ async fn mount_tree(
 				GrantCap::Read,
 			)
 			.await?;
+			// The grant keeps the directory's canonical spelling, which on
+			// macOS can differ from the source's by a firmlink, and the tree
+			// answers only to the source's spelling. A bucket grant has no
+			// directory to compare, so its URL is matched by prefix.
 			let sources = context.volume_index().sources();
-			let source = crate::ops::paths::reach::innermost_source(&sources, &scope.root)
-				.ok_or(FuseError::NoSource)?;
+			let (source_id, path) = match owning_source(&context, scope.library_id, &scope.root)
+				.await
+				.map_err(FuseError::Mount)?
+			{
+				Some(found) => found,
+				None => crate::ops::paths::reach::innermost_source(&sources, &scope.root)
+					.map(|source| (source.id, scope.root.clone()))
+					.ok_or(FuseError::NoSource)?,
+			};
 			let grant = BoundGrant {
 				token: token.clone(),
 				root: MountRoot {
 					name: String::new(),
-					source_id: source.id,
-					path: scope.root.clone(),
+					source_id,
+					path,
 					remote: false,
 				},
 			};
