@@ -56,12 +56,13 @@ never minted. No surface authorizes with them yet. Next: layer 2 wires
 `grants.create`, `grants.revoke` and `authorize` to them.
 
 Space endpoint (Capy FAN-14843, November 27, landed in #3293, #3301, #3311,
-#3303 and #3325). `docs/core/design/space-endpoint.md` is the spec. The agent
+#3303, #3325 and #3329). `docs/core/design/space-endpoint.md` is the spec. The agent
 endpoint serves REST at `/v1/spaces/<space>/...` from the MCP tool registry,
 1 MiB block reads with etags and an SSE invalidation stream. Agent MCP tools
 and `authorize` read through handle-based containment. A non-loopback listen
-is an explicit opt-in with TLS or a plaintext overlay opt-in, Host screening
-and loopback-only OAuth; it stays off by default. Event streams send a
+is an explicit opt-in with TLS only, Host screening and loopback-only OAuth,
+and is read-only for anything but a direct local request; it stays off by
+default. The block-read budget is configurable. Event streams send a
 heartbeat every 15 s, close on a failed or stalled write and evict the oldest
 stream at the cap.
 
@@ -72,18 +73,20 @@ endpoint, with etag-pinned block reads, event-stream invalidation and an MCP
 fallback. Next: a localhost NFSv3 frontend for macOS.
 
 Bucket sources for agents (Capy FAN-14846 and SPAC-135, November 27 to 28,
-landed in #3294, #3308, #3314 and #3320). `CloudBackend::write_if` sends
+landed in #3294, #3308, #3314, #3320 and #3324). `CloudBackend::write_if` sends
 If-Match or If-None-Match, and services without them refuse. You can track
 `s3://bucket/prefix` and grant a prefix, and agents read, grep and write with
 preconditions. Moves and deletes copy then delete, through a trash prefix with
 undo. Tracking lists the bucket into the source store, so `search.files` finds
 its objects; a rescan runs every 15 minutes and right after an agent changes
-the bucket.
+the bucket. A bucket prefix can be the home of a space, granted and served
+like a folder space.
 
-Semantic search (Capy FAN-14845, November 27, landed in #3309). Each source
+Semantic search (Capy FAN-14845, November 27 to 28, landed in #3309 and
+#3317). Each source
 gets a `vectors.db`, filled by a low-priority embedding pass over the deep
 scope. `search.semantic`, `sd search semantic` and MCP `search_semantic` rank
-with hybrid BM25 and vectors. Next: the explorer toggle in its own PR.
+with hybrid BM25 and vectors. Explorer search has a Meaning toggle for it.
 
 Threat model fixes (Capy FAN-14847 and SPAC-136, November 27, landed). F1
 (#3310): every RPC connection presents the per-daemon secret in `rpc.secret`
