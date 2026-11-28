@@ -43,8 +43,9 @@ argument: the epoch the client wrote against. A write naming an epoch other
 than the current one answers 409 with code `stale_epoch` and the current epoch
 in `error.epoch`; over MCP it is a tool error whose text starts with
 `stale_epoch` and names the current epoch. A write that names no epoch is not
-checked. Spaces store no epoch yet, so the current epoch is 0: a write naming 0
-passes and any other value is stale.
+checked. The current epoch is the one the space stores; it starts at 0 and
+only grows. A signed grant minted under an older epoch is refused like an
+expired one, with 401.
 
 A client learns its space ids from `GET /v1/spaces`. It never builds one from
 anything else.

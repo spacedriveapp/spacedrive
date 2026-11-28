@@ -22,9 +22,9 @@ use sd_core::{
 		grants::{
 			create::{CreateGrantAction, CreateGrantInput, CreateGrantOutput},
 			revoke::{RevokeGrantAction, RevokeGrantInput},
-			GrantCap,
+			GrantCap, TokenFormat,
 		},
-		spaces::{SpaceCreateAction, SpaceCreateInput},
+		spaces::{store::advance_authority_epoch, SpaceCreateAction, SpaceCreateInput},
 	},
 	service::agent_mcp::{self, Limits},
 };
@@ -670,6 +670,67 @@ async fn rest_event_stream_carries_writes_resets_and_ends() -> anyhow::Result<()
 	let event = stream.next().await.expect("end");
 	assert_eq!(event.name, "end");
 	assert!(stream.next().await.is_none(), "the stream closes after end");
+
+	harness.shutdown().await?;
+	Ok(())
+}
+
+/// Raising a space's epoch retires a signed grant minted before it, and an
+/// event stream that grant already holds open ends the way a revoked one does.
+#[tokio::test]
+async fn a_raised_epoch_ends_an_open_signed_stream() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("agent_rest_epoch_stream")
+		.disable_watcher()
+		.build()
+		.await?;
+	let tracked = harness.create_test_dir("tracked").await?;
+	tracked.write_file("project/a.txt", "a").await?;
+	tracked.track().await?;
+	let project = std::fs::canonicalize(harness.temp_path())?.join("tracked/project");
+	let space = SpaceCreateAction::from_input(SpaceCreateInput {
+		name: Some("Project".to_string()),
+		kind: SpaceKind::Folder,
+		path: Some(project.clone()),
+		content_indexing: None,
+		protected: None,
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?
+	.space;
+	let issued = CreateGrantAction::from_input(CreateGrantInput {
+		path: project,
+		caps: Some(GrantCap::ReadWrite),
+		ttl_seconds: None,
+		label: Some("rest epoch".to_string()),
+		kind: None,
+		token_format: Some(TokenFormat::Signed),
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?;
+
+	let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+	let bound = agent_mcp::serve(harness.core.context.clone(), listener, limits())?;
+	let rest = Rest::new(
+		&format!("http://{bound}"),
+		&issued.token,
+		&space.id.to_string(),
+	);
+	let (status, stream) = Stream::open(&rest, None).await;
+	assert_eq!(status, StatusCode::OK);
+	let mut stream = stream.unwrap();
+
+	advance_authority_epoch(&harness.core.context, &space)
+		.await
+		.map_err(anyhow::Error::msg)?;
+	let event = tokio::time::timeout(Duration::from_secs(10), stream.next())
+		.await?
+		.expect("end");
+	assert_eq!(event.name, "end");
+	assert!(stream.next().await.is_none(), "the stream closes after end");
+	let (status, _) = Stream::open(&rest, None).await;
+	assert_eq!(status, StatusCode::UNAUTHORIZED);
 
 	harness.shutdown().await?;
 	Ok(())

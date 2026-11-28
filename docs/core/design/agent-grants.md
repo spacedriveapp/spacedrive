@@ -99,7 +99,7 @@ sd_core::ops::grants::authorize(context: &CoreContext, access: &Access<'_>)
 
 `authorize` first verifies the token and finds its grant. It then resolves the grant's space. A grant row that records a space, as every grant made inside one does, uses it. An older grant belongs to the innermost space of its source whose root holds the granted directory. A grant outside every space is its own space, with the grant id as its id. A request naming another space is refused with `GrantError::UnknownSpace`, which an HTTP surface answers like a missing space, with 404. The granted directory remains the containment limit even inside a larger space.
 
-A write that names an epoch is checked against the space's authority epoch and refused with `GrantError::StaleEpoch { current }` when they differ. An HTTP surface answers 409. Spaces store no epoch yet, so the current epoch is 0: `Some(0)` passes and any other value is stale. `None` is not checked.
+A write that names an epoch is checked against the space's authority epoch and refused with `GrantError::StaleEpoch { current }` when they differ. An HTTP surface answers 409. The current epoch is the `authority_epoch` the space's store holds, which starts at 0 and only grows. `None` is not checked. A signed grant minted under an epoch older than the current one is refused with `GrantError::Superseded { current }` before any path is resolved, because a replica would otherwise accept it without a lookup.
 
 On success, `GrantScope` carries the grant id, the library id, the space id and its authority epoch, the canonical root, and the resolved `path` the surface must open. The surface never opens the path the agent sent. `GrantScope::path` is spelled under the grant root whatever spelling the request used.
 
@@ -110,7 +110,7 @@ On success, `GrantScope` carries the grant id, the library id, the space id and 
 
 For both formats the verifier reads the revocation on every call: the grant row's `revoked_at` and, for a grant in a space, the `grant_revocation` assertion. A revocation made on another device and merged into the store refuses the next request here. Nothing is cached. The rest of `authorize` (path resolution, protected names and the audit) is the same for both formats.
 
-`GrantError::is_credential` separates refusals of the token (unknown, expired, revoked, source removed) from refusals of one request (read-only grant, path outside the grant, protected file, another space, a stale epoch). An HTTP surface answers the first group with 401 and the second with 403, except 404 for another space and 409 for a stale epoch.
+`GrantError::is_credential` separates refusals of the token (unknown, expired, revoked, source removed, superseded) from refusals of one request (read-only grant, path outside the grant, protected file, another space, a stale epoch). An HTTP surface answers the first group with 401 and the second with 403, except 404 for another space and 409 for a stale epoch.
 
 The local RPC socket does not use grants. It stays as trusted as before. Grants apply only to surfaces built for agents.
 
@@ -204,4 +204,4 @@ The CLI binary is `sd-cli`. `--ttl` takes values such as `30m`, `1h`, `2h30m` or
 - **Sync transport.** Grant assertions merge by the rules in `source-durability.md`, but no transport carries assertions between devices yet. Until one does, a replica honours a signed grant only once it holds a copy of the space's store with the grant's issuer key, and learns of a revocation only when the store reaches it.
 - **Opaque tokens stay on the minting device.** Their hash never leaves `library.db`, so only that device can check one. Use a signed token for a grant another node must honour.
 - **Issuer trust is the store's.** A replica trusts whichever issuer keys the space's store publishes. Anyone who can write that store can already change its grants, so this adds no new writer, but a store must only be merged from devices of the library.
-- **Authority epoch.** Grants record the space's authority epoch, which is 0 until hand-over exists. Refusing grants minted under an older epoch is the endpoint's check.
+- **Authority epoch.** Grants record the space's authority epoch when they are minted. Raising the epoch retires every signed grant minted before it. An opaque grant stays valid, since only its minting device can check it.

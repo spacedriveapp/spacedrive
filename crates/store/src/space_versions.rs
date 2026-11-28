@@ -461,6 +461,22 @@ impl SpaceVersions {
 		chunk_path(&self.blobs, chunk)
 	}
 
+	/// Keep prunes off for as long as the guard lives, so the rows, blobs and
+	/// chunks a reader is copying stay. Captures still run.
+	pub async fn hold_prunes(&self) -> tokio::sync::OwnedRwLockReadGuard<()> {
+		self.collect.clone().read_owned().await
+	}
+
+	/// Store one chunk the caller already checked against `hash`, for an
+	/// import into an empty store.
+	pub async fn put_chunk(&self, hash: &[u8; HASH_LEN], data: &[u8]) -> Result<()> {
+		let (blobs, hash, data) = (self.blobs.clone(), *hash, data.to_vec());
+		tokio::task::spawn_blocking(move || write_chunk(&blobs, &hash, &data))
+			.await
+			.map_err(|e| Error::Other(format!("store a chunk: {e}")))??;
+		Ok(())
+	}
+
 	/// Pin the newest manifest under `name`.
 	pub async fn create_snapshot(
 		&self,
