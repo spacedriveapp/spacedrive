@@ -16,13 +16,16 @@
 //! tag_definition  the tags this source uses, named, colored, hierarchical
 //! tag_assertion   which tags apply to which records and content
 //! deep_scope      which subtrees content-reading passes cover
+//! space           folders people and agents work in, with their policy
+//! space_grant     grants on those spaces, their revocations and signers
 //! search_index    FTS5 over the fields the search contract names
 //! ```
 //!
 //! Beside `data.db` sits `text.db`, the content text index
 //! ([`content_text`]): FTS5 over text extracted from the files. It is part of
 //! the generation, kept in its own file so its writes never hold the record
-//! store's lock.
+//! store's lock. Beside that sits `vectors.db` ([`vectors`]): embeddings of
+//! the text index's chunks for semantic search, also generation.
 //!
 //! One shape is the point. Every question across sources reads each store and
 //! joins on it; two shapes would mean two of everything downstream.
@@ -38,7 +41,8 @@
 //! rebuilt for as long as its origin still answers. `record_overlay` and the
 //! tag tables hold what no ingest produced, so nothing rebuilds them on any
 //! day, for any source. Nor does anything rebuild `deep_scope`, the part of
-//! the source a person chose to have its contents read.
+//! the source a person chose to have its contents read, or the spaces and
+//! the grants lent on them.
 //!
 //! Whether the origin still answers varies per source, varies over time, and
 //! changes without an event: a detached drive, a revoked token, a closed
@@ -58,6 +62,7 @@ pub mod deep_scope;
 pub mod error;
 pub mod file;
 pub mod fts;
+pub mod grants;
 pub mod image;
 pub mod migrate;
 pub mod read;
@@ -70,6 +75,7 @@ pub mod space_events;
 pub mod space_file;
 pub mod space_versions;
 pub mod tags;
+pub mod vectors;
 pub mod video;
 
 use serde::{Deserialize, Serialize};
@@ -77,9 +83,10 @@ use serde::{Deserialize, Serialize};
 pub use content::{uuid_for, ContentId, CONTENT_NAMESPACE};
 pub use content_sidecar::{ContentSidecarKey, ContentSidecarRow};
 pub use content_text::{
-	match_expression, ContentTextIndex, DescriptionDoc, DescriptionSpan, PendingText,
-	PendingTranscript, SnippetPart, TextDoc, TextFilter, TextHit, TextIndexCounts, TextSearch,
-	TranscriptDoc, TranscriptSpan, CAPTION_KIND, SCENE_KIND, TEXT_INDEX_FILE, TRANSCRIPT_KIND,
+	any_word_expression, match_expression, ContentTextIndex, DescriptionDoc, DescriptionSpan,
+	PendingText, PendingTranscript, SnippetPart, TextDoc, TextFilter, TextHit, TextIndexCounts,
+	TextSearch, TranscriptDoc, TranscriptSpan, CAPTION_KIND, SCENE_KIND, TEXT_INDEX_FILE,
+	TRANSCRIPT_KIND,
 };
 pub use db::{ItemRow, OverlayEvidence, SourceDb, Stamp};
 pub use error::{Error, Result};
@@ -90,6 +97,7 @@ pub use file::{
 	name_content_kind_by_extension, ContentCopy, FileKind, FileWrite, Ledger, Observation,
 	PendingContent, PendingVerification, Resolution, SubtreeRename, Watermark,
 };
+pub use grants::{GrantAssertions, GrantIssuer, GrantRevocation, GrantRow};
 pub use image::{
 	count_files_needing_image_facets, files_needing_image_facets, set_image_facets, ImageFacet,
 	PendingFacet,
@@ -107,6 +115,11 @@ pub use space_versions::{
 };
 pub use tags::{
 	normalize_tag_path, slug_for_path, AppliedTag, TagAssertion, TagDefinition, TAG_NAMESPACE,
+};
+pub use vectors::{
+	chunk_spans, chunk_text, fuse, hybrid_search, Chunk, HybridHit, HybridSearch, Origin,
+	PendingVectors, Span, VectorHit, VectorIndex, VectorIndexCounts, VectorSearch,
+	VECTOR_INDEX_FILE,
 };
 pub use video::{
 	count_files_needing_video_facets, files_needing_video_facets, set_video_facets, VideoFacet,

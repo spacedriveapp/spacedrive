@@ -17,6 +17,7 @@
 		"---File Management---",
 		"indexing",
 		"content-search",
+		"semantic-search",
 		"space-versioning",
 		"space-export",
 		"transcription",

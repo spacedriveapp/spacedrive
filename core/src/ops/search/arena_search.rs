@@ -46,12 +46,18 @@ pub async fn search_arena(
 	cache: &VolumeIndex,
 	file_type_registry: &FileTypeRegistry,
 ) -> Result<SearchPage, QueryError> {
-	let SdPath::Physical {
-		path: local_path,
-		device_slug,
-	} = path_scope
-	else {
-		return Ok(SearchPage::empty());
+	let bucket;
+	let here;
+	let (local_path, device_slug) = match path_scope {
+		SdPath::Physical { path, device_slug } => (path, device_slug),
+		// The index keys a bucket's objects by URL, on the device that
+		// tracks it.
+		SdPath::Cloud { .. } => {
+			bucket = path_scope.cloud_url().expect("a cloud path");
+			here = crate::device::get_current_device_slug();
+			(&bucket, &here)
+		}
+		_ => return Ok(SearchPage::empty()),
 	};
 
 	let tag_scope =
@@ -290,7 +296,7 @@ pub async fn search_every_index(
 		seen.extend(
 			partition
 				.iter()
-				.filter_map(|result| result.file.sd_path.as_local_path().map(Path::to_path_buf)),
+				.filter_map(|result| result.file.sd_path.index_key()),
 		);
 		pipeline::narrow(&mut partition, sort, window);
 		candidates.extend(partition);
@@ -368,8 +374,8 @@ pub async fn search_every_index(
 		let mut partition = store_partition.results;
 		retain_tagged(&mut partition, tag_scope.as_ref());
 		crate::ops::search::capture::retain_matching(&mut partition, filters);
-		partition.retain(|result| match result.file.sd_path.as_local_path() {
-			Some(path) => seen.insert(path.to_path_buf()),
+		partition.retain(|result| match result.file.sd_path.index_key() {
+			Some(path) => seen.insert(path),
 			None => true,
 		});
 		approximate |= store_partition.truncated;
@@ -473,10 +479,7 @@ async fn collect_results(
 			// Get or assign UUID (lazy generation)
 			let uuid = index.get_or_assign_uuid(&path);
 
-			let sd_path = SdPath::Physical {
-				device_slug: device_slug.to_string(),
-				path: path.clone(),
-			};
+			let sd_path = SdPath::indexed(device_slug, path.clone());
 
 			let content_kind = index.get_content_kind(&path);
 
