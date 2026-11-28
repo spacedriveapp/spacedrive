@@ -439,4 +439,5 @@ fn print_space(space: &Space) {
 	if !space.protected.is_empty() {
 		println!("  protected:        {}", space.protected.join(", "));
 	}
+	println!("  authority epoch:  {}", space.authority_epoch);
 }
