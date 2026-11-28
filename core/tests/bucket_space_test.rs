@@ -279,6 +279,8 @@ async fn a_bucket_prefix_is_a_space_an_agent_works_in() -> anyhow::Result<()> {
 		caps: Some(GrantCap::ReadWrite),
 		ttl_seconds: None,
 		label: Some("bucket space".to_string()),
+		kind: None,
+		token_format: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())

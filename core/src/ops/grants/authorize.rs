@@ -449,6 +449,7 @@ mod tests {
 			root: root.to_string(),
 			path: None,
 			content_indexing: true,
+			protected: Vec::new(),
 			created_at: Utc::now(),
 		}
 	}
