@@ -179,6 +179,23 @@ bytes.
 
 The etag is opaque. Clients compare it for equality and never parse it.
 
+In a space homed in a bucket, the etag is the object's entity tag from the
+service, which changes with every write to the object. `list` carries it from
+the bucket listing without a request per object. A block read sends the tag
+with the ranged GET, so a write that lands between the stat and the read
+answers 412 rather than mixing versions.
+
+### Bucket spaces
+
+A space whose folder is a bucket prefix, `s3://bucket/prefix`, answers the
+same routes. A prefix is a `directory` when an object sits under it, and the
+space's own root is always one, even before anything is written to it. Objects
+are `file`s; buckets have no symlinks. `.spacedrive/`, which holds the trash,
+is never listed. The event stream carries the writes agents make through this
+endpoint. A bucket sends no change events, so writes made outside Spacedrive
+reach the index when the source is listed again, every 15 minutes, and do not
+appear on the stream.
+
 ## Event stream
 
 `GET /v1/spaces/<space>/events` with `Accept: text/event-stream`.
