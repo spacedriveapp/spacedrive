@@ -67,7 +67,7 @@ pub struct AgentMcpConfig {
 	#[serde(default)]
 	pub enabled: bool,
 	/// The address to listen on. Loopback unless the user names another IP;
-	/// a non-loopback address also needs TLS or `plaintext`.
+	/// a non-loopback address also needs `tls_cert` and `tls_key`.
 	#[serde(default = "default_agent_mcp_listen")]
 	pub listen: String,
 	/// PEM certificate chain served when TLS is on. Needs `tls_key`.
@@ -76,18 +76,22 @@ pub struct AgentMcpConfig {
 	/// PEM private key for `tls_cert`.
 	#[serde(default)]
 	pub tls_key: Option<PathBuf>,
-	/// Serve plain HTTP on a non-loopback address, for a network that is
-	/// already encrypted such as a WireGuard or Tailscale address.
-	#[serde(default)]
-	pub plaintext: bool,
 	/// Names clients may send in Host on a non-loopback listener, besides the
 	/// bound IP, such as the name in the certificate.
 	#[serde(default)]
 	pub host_names: Vec<String>,
+	/// Bytes the space endpoint's block reads may return per grant per
+	/// hour. Must be greater than 0.
+	#[serde(default = "default_agent_mcp_block_bytes_per_hour")]
+	pub block_bytes_per_hour: u64,
 }
 
 fn default_agent_mcp_listen() -> String {
 	crate::service::agent_mcp::DEFAULT_LISTEN.to_string()
+}
+
+fn default_agent_mcp_block_bytes_per_hour() -> u64 {
+	crate::service::agent_mcp::DEFAULT_BLOCK_BYTES_PER_HOUR
 }
 
 impl Default for AgentMcpConfig {
@@ -97,8 +101,8 @@ impl Default for AgentMcpConfig {
 			listen: default_agent_mcp_listen(),
 			tls_cert: None,
 			tls_key: None,
-			plaintext: false,
 			host_names: Vec::new(),
+			block_bytes_per_hour: default_agent_mcp_block_bytes_per_hour(),
 		}
 	}
 }
