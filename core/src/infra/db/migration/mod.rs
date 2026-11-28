@@ -50,6 +50,7 @@ mod m20260918_000001_drop_entries_world;
 mod m20261119_000001_create_agent_grants;
 mod m20261121_000001_agent_grant_oauth;
 mod m20261127_000001_rename_spaces_to_layouts;
+mod m20261128_000001_create_actors;
 
 pub struct Migrator;
 
@@ -105,6 +106,7 @@ impl MigratorTrait for Migrator {
 			Box::new(m20261119_000001_create_agent_grants::Migration),
 			Box::new(m20261121_000001_agent_grant_oauth::Migration),
 			Box::new(m20261127_000001_rename_spaces_to_layouts::Migration),
+			Box::new(m20261128_000001_create_actors::Migration),
 		]
 	}
 }

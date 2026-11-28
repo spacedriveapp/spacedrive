@@ -175,6 +175,7 @@ impl LibraryAction for SpaceCreateAction {
 			.put_space(&row)
 			.await
 			.map_err(|e| ActionError::Internal(format!("could not save the space: {e}")))?;
+		store::invalidate(source_id);
 		drop(one_create);
 		// A source tracked just now is already being read. An existing one
 		// reads the new space's files if they were outside what it read, or

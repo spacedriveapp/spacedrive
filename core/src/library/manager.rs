@@ -575,6 +575,7 @@ impl LibraryManager {
 
 		// Create library instance
 		let library = Arc::new(Library {
+			id: config.id,
 			path: path.to_path_buf(),
 			config: Arc::new(RwLock::new(config.clone())),
 			core_context: context.clone(),
@@ -694,6 +695,10 @@ impl LibraryManager {
 		});
 
 		info!("Opened library {} at {:?}", library.id(), path);
+
+		tokio::spawn(crate::ops::sources::rescan::rescan_buckets(Arc::downgrade(
+			&library,
+		)));
 
 		Ok(library)
 	}

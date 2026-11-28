@@ -64,6 +64,7 @@ impl LibraryAction for SpaceDeleteAction {
 			.put_space(&row)
 			.await
 			.map_err(|e| ActionError::Internal(format!("could not delete the space: {e}")))?;
+		store::invalidate(space.source_id);
 		// Its folder falls back to what the source reads around it: a space
 		// that was read may leave it unread, so its text is dropped, and one
 		// that was skipped may leave it read, so its files are read.

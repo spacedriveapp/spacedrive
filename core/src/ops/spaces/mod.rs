@@ -6,13 +6,16 @@
 //! source and merges by HLC like a tag definition. See
 //! [`crate::domain::space`] and `docs/core/design/spaces.md`.
 
+pub mod changes;
 pub mod create;
 pub mod delete;
+pub mod events;
 pub mod get;
 pub mod list;
 pub mod store;
 pub mod update;
 
+pub use changes::*;
 pub use create::*;
 pub use delete::*;
 pub use get::*;

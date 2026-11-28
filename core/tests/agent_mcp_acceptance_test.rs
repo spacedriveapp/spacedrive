@@ -226,6 +226,7 @@ async fn agent_mcp_serves_a_grant_and_refuses_everything_else() -> anyhow::Resul
 		"make_dir",
 		"move",
 		"delete",
+		"list_changes",
 	] {
 		assert!(names.contains(&tool), "{tool} missing from {names:?}");
 	}
