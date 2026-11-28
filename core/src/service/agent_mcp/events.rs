@@ -334,10 +334,19 @@ pub(super) async fn open(
 
 	let (tx, rx) = mpsc::channel::<Result<Bytes, Infallible>>(64);
 	let (library, grant) = (scope.library_id, scope.grant_id);
+	// Only spellings that reach the granted directory itself, so an alias
+	// that names some other directory cannot widen the stream.
 	let root = scope.root.clone();
-	let roots = tokio::task::spawn_blocking(move || crate::config::path_spellings(&root))
-		.await
-		.unwrap_or_else(|_| vec![scope.root.clone()]);
+	let roots = tokio::task::spawn_blocking(move || {
+		crate::config::path_spellings(&root)
+			.into_iter()
+			.filter(|spelling| same_file::is_same_file(spelling, &root).unwrap_or(false))
+			.collect::<Vec<_>>()
+	})
+	.await
+	.ok()
+	.filter(|roots| !roots.is_empty())
+	.unwrap_or_else(|| vec![scope.root.clone()]);
 	let stream = Stream {
 		feed,
 		slot,
