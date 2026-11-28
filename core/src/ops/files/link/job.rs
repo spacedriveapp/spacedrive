@@ -65,6 +65,7 @@ impl JobHandler for LinkJob {
 				at.display()
 			)));
 		}
+		crate::ops::spaces::events::claim(&[&at]);
 		let made = match self.input.kind {
 			LinkKind::Symlink => symlink(&target, &at).await,
 			LinkKind::Hardlink => tokio::fs::hard_link(&target, &at).await,

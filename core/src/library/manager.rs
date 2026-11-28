@@ -575,6 +575,7 @@ impl LibraryManager {
 
 		// Create library instance
 		let library = Arc::new(Library {
+			id: config.id,
 			path: path.to_path_buf(),
 			config: Arc::new(RwLock::new(config.clone())),
 			core_context: context.clone(),
