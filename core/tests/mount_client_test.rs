@@ -347,17 +347,23 @@ async fn scenario(name: &str, over_mcp: bool, front: Front) -> anyhow::Result<()
 	std::fs::remove_file(base.join("tracked/shared/deep/notes.txt"))?;
 	{
 		// Checked before any open, since an open asks the node afresh.
-		let mnt = mnt.clone();
-		eventually(
-			within,
-			"the changed size shows without reopening",
-			move || {
-				std::fs::metadata(mnt.join("readme.md"))
-					.map(|meta| meta.len())
-					.ok() == Some("changed at the origin, longer\n".len() as u64)
-			},
-		)
-		.await;
+		let want = "changed at the origin, longer\n".len() as u64;
+		let deadline = tokio::time::Instant::now() + within;
+		loop {
+			let path = mnt.join("readme.md");
+			let seen = blocking(move || std::fs::metadata(path).map(|meta| meta.len()).ok()).await;
+			if seen == Some(want) {
+				break;
+			}
+			if tokio::time::Instant::now() >= deadline {
+				use sd_core::service::mounts::vfs::MountFs;
+				let node = fs.stat(Path::new("readme.md")).await.map(|attr| attr.size);
+				panic!(
+					"the changed size shows without reopening: the mount reports {seen:?}, the client's view of the node {node:?}"
+				);
+			}
+			tokio::time::sleep(Duration::from_millis(200)).await;
+		}
 	}
 	{
 		let mnt = mnt.clone();
