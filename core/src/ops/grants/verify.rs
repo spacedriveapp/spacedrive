@@ -31,6 +31,7 @@ pub(crate) struct GrantRecord {
 	/// The granted directory on this node.
 	pub subtree: PathBuf,
 	pub caps: GrantCap,
+	pub label: Option<String>,
 	pub expires_at: DateTime<Utc>,
 	pub revoked: bool,
 	pub space_id: Option<Uuid>,
@@ -82,6 +83,7 @@ pub(crate) async fn verify(
 		source_id: row.source_id,
 		subtree: PathBuf::from(&row.subtree),
 		caps: GrantCap::parse(&row.caps).unwrap_or(GrantCap::Read),
+		label: row.label,
 		expires_at: row.expires_at,
 		revoked,
 		space_id: row.space_id,
@@ -90,6 +92,25 @@ pub(crate) async fn verify(
 		token_format: TokenFormat::parse(&row.token_format),
 		epoch: row.epoch,
 	})
+}
+
+/// [`verify`] in a library named by id, for the checks that run after
+/// [`super::authorize`] already answered: a call, stream or mount polling
+/// whether its grant ended, and the REST space listing. They read the same
+/// credential the request was let in on, so a signed grant served from a
+/// copied store is never mistaken for a missing one.
+pub(crate) async fn verified(
+	context: &CoreContext,
+	library_id: Uuid,
+	token: &str,
+) -> Result<GrantRecord, GrantError> {
+	let library = context
+		.libraries()
+		.await
+		.get_library(library_id)
+		.await
+		.ok_or(GrantError::UnknownToken)?;
+	verify(context, library.db().conn(), library_id, token).await
 }
 
 async fn verify_signed(
@@ -154,6 +175,7 @@ async fn verify_signed(
 		source_id,
 		subtree,
 		caps: claims.caps,
+		label: assertion.as_ref().and_then(|row| row.label.clone()),
 		expires_at: claims.expires_at(),
 		revoked,
 		space_id: Some(claims.space_id),

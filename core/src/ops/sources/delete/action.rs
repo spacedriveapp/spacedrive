@@ -87,6 +87,14 @@ impl LibraryAction for DeleteSourceAction {
 			}
 		}
 
+		// A removed source keeps its uuid in a kept catalog, and re-adding the
+		// scope adopts it, so its grants are ended for good rather than left to
+		// wake up with the source. This runs while the store is still open so
+		// the revocations reach the catalog too.
+		crate::ops::grants::store::revoke_for_source(&context, library.db().conn(), source_id)
+			.await
+			.map_err(|e| ActionError::Internal(format!("Failed to revoke grants: {e}")))?;
+
 		// A filesystem source is retired from the volume index first, so no
 		// writer is left open over a directory about to be deleted and a
 		// later add reopens the store under its own registration.
@@ -150,13 +158,6 @@ impl LibraryAction for DeleteSourceAction {
 				}
 			}
 		}
-
-		// A removed source keeps its uuid in a kept catalog, and re-adding the
-		// scope adopts it, so its grants are ended for good rather than left to
-		// wake up with the source.
-		crate::ops::grants::store::revoke_for_source(library.db().conn(), source_id)
-			.await
-			.map_err(|e| ActionError::Internal(format!("Failed to revoke grants: {e}")))?;
 
 		registry::unregister(library.db().conn(), source_id)
 			.await

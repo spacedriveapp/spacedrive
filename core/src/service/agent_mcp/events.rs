@@ -313,6 +313,7 @@ const KEEP: &str = ": keep\n\n";
 pub(super) async fn open(
 	endpoint: Arc<Endpoint>,
 	scope: GrantScope,
+	token: String,
 	last_event_id: Option<String>,
 ) -> Response {
 	let feed = endpoint.feed.clone();
@@ -341,7 +342,7 @@ pub(super) async fn open(
 		write_timeout: endpoint.limits.stream_write_timeout,
 	};
 	tokio::spawn(async move {
-		stream.run(http::ended(&endpoint, library, grant)).await;
+		stream.run(http::ended(&endpoint, library, &token)).await;
 	});
 
 	let mut response = (StatusCode::OK, Body::from_stream(ReceiverStream::new(rx))).into_response();

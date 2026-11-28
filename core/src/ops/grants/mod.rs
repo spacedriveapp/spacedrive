@@ -60,6 +60,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 pub use authorize::{authorize, authorize_in};
+pub(crate) use verify::{verified, GrantRecord};
 
 /// The shortest lifetime a grant can be created or extended with.
 pub const MIN_TTL_SECONDS: u32 = 5 * 60;

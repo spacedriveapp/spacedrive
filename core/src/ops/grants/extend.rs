@@ -9,7 +9,8 @@
 
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
+use sd_store::GrantRow;
 use sea_orm::{sea_query::Expr, ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -89,6 +90,21 @@ impl LibraryAction for ExtendGrantAction {
 		}
 
 		let expires_at = now + lifetime;
+		// The space's record is read, or recreated for a grant made before
+		// grants were asserted, before the local expiry moves, so a grant the
+		// space cannot record is never left half extended.
+		let assertion = match row.space_id {
+			Some(space) => Some(
+				space_assertion(&context, &library, &row, space)
+					.await
+					.map_err(|e| {
+						ActionError::Internal(format!(
+							"grant {id} cannot be extended in its space: {e}"
+						))
+					})?,
+			),
+			None => None,
+		};
 		// The revoked filter closes the window between the status read and the
 		// write, so a concurrent revoke is never overwritten into a live grant.
 		let updated = agent_grant::Entity::update_many()
@@ -103,14 +119,24 @@ impl LibraryAction for ExtendGrantAction {
 				"grant {id} was revoked; create a new one"
 			)));
 		}
-		if let Some(space) = row.space_id {
-			extend_assertion(&context, row.source_id, space, id, expires_at)
-				.await
-				.map_err(|e| {
-					ActionError::Internal(format!(
-						"grant {id} is extended on this device, but not in its space: {e}"
-					))
-				})?;
+		if let Some((store, mut assertion)) = assertion {
+			let written = match crate::ops::spaces::store::stamp(&context) {
+				Ok(stamp) => {
+					assertion.expires_at = expires_at.to_rfc3339();
+					assertion.set_stamp(&stamp);
+					store
+						.db()
+						.put_grant(&assertion)
+						.await
+						.map_err(|e| e.to_string())
+				}
+				Err(e) => Err(e),
+			};
+			written.map_err(|e| {
+				ActionError::Internal(format!(
+					"grant {id} is extended on this device, but not in its space: {e}"
+				))
+			})?;
 		}
 		info!(grant = %id, %expires_at, "grant extended");
 		let grant = store::info_by_id(db, id)
@@ -124,29 +150,57 @@ impl LibraryAction for ExtendGrantAction {
 	}
 }
 
-/// Carry a new expiry to the grant's assertion, so other nodes holding the
-/// space's store see the extension.
-async fn extend_assertion(
+/// The space store holding a grant and the grant's assertion in it.
+///
+/// A grant created before grants were recorded in their space has a
+/// `space_id` but no assertion; it is rebuilt here from the local row.
+async fn space_assertion(
 	context: &CoreContext,
-	source_id: Uuid,
+	library: &Library,
+	row: &agent_grant::Model,
 	space: Uuid,
-	id: Uuid,
-	expires_at: DateTime<Utc>,
-) -> Result<(), String> {
-	let store = super::create::space_store(context, source_id)
+) -> Result<(Arc<crate::ops::indexing::store::SourceStore>, GrantRow), String> {
+	let store = super::create::space_store(context, row.source_id)
 		.await
 		.map_err(|e| e.to_string())?;
-	let Some(mut row) = store.db().grant(id).await.map_err(|e| e.to_string())? else {
-		return Err(format!("the space {space} holds no record of the grant"));
-	};
-	row.expires_at = expires_at.to_rfc3339();
-	row.set_stamp(&crate::ops::spaces::store::stamp(context)?);
-	store
+	if let Some(assertion) = store
 		.db()
-		.put_grant(&row)
+		.grant(row.uuid)
 		.await
-		.map_err(|e| e.to_string())?;
-	Ok(())
+		.map_err(|e| e.to_string())?
+	{
+		return Ok((store, assertion));
+	}
+	let at = crate::ops::spaces::events::space_of(
+		context,
+		std::path::Path::new(&row.subtree),
+		Some(library.id()),
+	)
+	.await
+	.filter(|at| at.space_id == space)
+	.ok_or_else(|| format!("the grant's folder is no longer in space {space}"))?;
+	let issuer = Uuid::parse_str(&row.created_by)
+		.map_err(|e| format!("the grant's issuer is not a device id: {e}"))?;
+	let stamp = crate::ops::spaces::store::stamp(context)?;
+	Ok((
+		store,
+		GrantRow {
+			uuid: row.uuid,
+			space_uuid: space,
+			actor_uuid: row.actor_id,
+			kind: row.kind.clone(),
+			token_format: row.token_format.clone(),
+			subtree: at.path,
+			caps: row.caps.clone(),
+			label: row.label.clone(),
+			issuer,
+			epoch: row.epoch,
+			created_at: row.created_at.to_rfc3339(),
+			expires_at: row.expires_at.to_rfc3339(),
+			updated_hlc: stamp.hlc,
+			origin_device: stamp.device_uuid,
+		},
+	))
 }
 
 crate::register_library_action!(ExtendGrantAction, "grants.extend");

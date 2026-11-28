@@ -116,23 +116,64 @@ pub async fn publish_revocation(
 	Ok(())
 }
 
-/// End every live grant on a source. Returns how many were ended.
+/// End every live grant on a source. Returns how many local grants ended.
+///
+/// The source's store also gets a revocation for every grant it asserts, so
+/// a signed grant served from a copy of that store is refused there too.
+/// Call it while the store is still open; a store not on this device is
+/// skipped with a warning, since the source is being removed regardless.
 pub async fn revoke_for_source(
+	context: &CoreContext,
 	db: &DatabaseConnection,
 	source_id: Uuid,
-) -> Result<u64, sea_orm::DbErr> {
+) -> Result<u64, String> {
+	let now = Utc::now();
 	let ended = agent_grant::Entity::update_many()
 		.col_expr(
 			agent_grant::Column::RevokedAt,
-			sea_orm::sea_query::Expr::value(Utc::now()),
+			sea_orm::sea_query::Expr::value(now),
 		)
 		.filter(agent_grant::Column::SourceId.eq(source_id))
 		.filter(agent_grant::Column::RevokedAt.is_null())
 		.exec(db)
-		.await?
+		.await
+		.map_err(|e| e.to_string())?
 		.rows_affected;
 	if ended > 0 {
 		tracing::info!(source = %source_id, ended, "grants revoked with their source");
+	}
+
+	let index = context.volume_index();
+	let root = index.source_root(source_id);
+	let store = match &root {
+		Some(root) => index.store_for(root).await,
+		None => None,
+	};
+	let Some(store) = store else {
+		tracing::warn!(source = %source_id, "no store to record the source's grant revocations in");
+		return Ok(ended);
+	};
+	let held = store
+		.db()
+		.grant_assertions()
+		.await
+		.map_err(|e| e.to_string())?;
+	let stamp = crate::ops::spaces::store::stamp(context)?;
+	for grant in held
+		.grants
+		.iter()
+		.filter(|grant| !held.revocations.iter().any(|r| r.grant_uuid == grant.uuid))
+	{
+		store
+			.db()
+			.revoke_grant(&sd_store::GrantRevocation {
+				grant_uuid: grant.uuid,
+				revoked_at: now.to_rfc3339(),
+				hlc: stamp.hlc.clone(),
+				origin_device: stamp.device_uuid,
+			})
+			.await
+			.map_err(|e| e.to_string())?;
 	}
 	Ok(ended)
 }

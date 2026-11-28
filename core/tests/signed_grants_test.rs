@@ -17,18 +17,21 @@ use chrono::{Duration, Utc};
 use helpers::*;
 use sd_core::{
 	domain::{Space, SpaceKind},
-	infra::action::LibraryAction,
+	infra::{action::LibraryAction, db::entities::agent_grant},
 	ops::{
 		grants::{
 			authorize,
 			create::{CreateGrantAction, CreateGrantInput, CreateGrantOutput},
 			extend::{ExtendGrantAction, ExtendGrantInput},
 			revoke::{RevokeGrantAction, RevokeGrantInput},
-			signed, GrantCap, GrantError, GrantKind, TokenFormat,
+			signed,
+			store::revoke_for_source,
+			GrantCap, GrantError, GrantKind, TokenFormat,
 		},
 		spaces::{SpaceCreateAction, SpaceCreateInput},
 	},
 };
+use sea_orm::{sea_query::Expr, ColumnTrait, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
 async fn space(harness: &IndexingHarness, kind: SpaceKind, path: Option<PathBuf>) -> Space {
@@ -348,5 +351,64 @@ async fn signed_tokens_verify_against_their_space_and_honour_revocation() -> any
 			"{format:?}"
 		);
 	}
+	Ok(())
+}
+
+#[tokio::test]
+async fn grants_without_an_assertion_extend_and_source_removal_revokes_in_the_store(
+) -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("signed_grants_backfill")
+		.disable_watcher()
+		.build()
+		.await?;
+	let tracked = harness.create_test_dir("tracked").await?;
+	tracked.write_file("docs/notes.md", "notes").await?;
+	tracked.track().await?;
+	let base = std::fs::canonicalize(harness.temp_path())?;
+	let docs = base.join("tracked/docs");
+
+	// A grant made before grants were asserted: it names a space, but the
+	// space's store has no record of it.
+	let old = grant(&harness, &docs, None, Some(TokenFormat::Opaque), None).await?;
+	let folder = space(&harness, SpaceKind::Folder, Some(docs.clone())).await;
+	agent_grant::Entity::update_many()
+		.col_expr(agent_grant::Column::SpaceId, Expr::value(Some(folder.id)))
+		.filter(agent_grant::Column::Uuid.eq(old.grant.id))
+		.exec(harness.library.db().conn())
+		.await?;
+	let store = store_of(&harness, &folder).await;
+	assert!(store.grant(old.grant.id).await?.is_none());
+
+	let extended = ExtendGrantAction::from_input(ExtendGrantInput {
+		id: old.grant.id,
+		ttl_seconds: Some(7200),
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?;
+	let row = store
+		.grant(old.grant.id)
+		.await?
+		.expect("grant assertion rebuilt");
+	assert_eq!(row.space_uuid, folder.id);
+	assert_eq!(row.subtree, "");
+	assert_eq!(row.expires_at, extended.grant.expires_at.to_rfc3339());
+
+	// Removing the source revokes every grant its store asserts, so a copy
+	// of the store refuses them too.
+	let signed = grant(&harness, &docs, None, Some(TokenFormat::Signed), None).await?;
+	revoke_for_source(
+		&harness.core.context,
+		harness.library.db().conn(),
+		folder.source_id,
+	)
+	.await
+	.map_err(anyhow::Error::msg)?;
+	assert!(store.grant_revocation(old.grant.id).await?.is_some());
+	assert!(store.grant_revocation(signed.grant.id).await?.is_some());
+	assert_eq!(
+		check(&harness, &signed.token, "notes.md").await,
+		Err(GrantError::Revoked)
+	);
 	Ok(())
 }
