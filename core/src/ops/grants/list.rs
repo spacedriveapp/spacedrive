@@ -54,11 +54,11 @@ impl LibraryQuery for ListGrantsQuery {
 			.all(db)
 			.await
 			.map_err(internal)?;
-		let mut last_used = audit::last_used(db).await.map_err(internal)?;
+		let mut usage = audit::usage(db).await.map_err(internal)?;
 		let grants = rows
 			.into_iter()
 			.map(|row| {
-				let used = last_used.remove(&row.uuid);
+				let used = usage.remove(&row.uuid).unwrap_or_default();
 				store::info(row, used)
 			})
 			.filter(|grant| self.input.include_inactive || grant.status == GrantStatus::Active)

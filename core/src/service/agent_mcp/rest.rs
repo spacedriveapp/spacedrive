@@ -11,6 +11,13 @@
 //! the grant's rate and call budgets. Every answer outside 2xx is the JSON
 //! error shape of the spec, and no message carries a host path.
 //!
+//! Every request that reaches `authorize` is audited like an MCP request:
+//! its row carries the client address and any grep or glob pattern, and it
+//! is completed with the response's size, result and duration before the
+//! response is sent. A rate-limited request is folded into its grant's
+//! per-minute tally, and a request from a locked-out address is tallied. A
+//! write that fails answers 503 instead.
+//!
 //! Until spaces exist, a space is a grant and its id is the grant id;
 //! [`space_scope`] is the one place that mapping lives.
 
@@ -20,13 +27,13 @@ use std::{
 	path::Path,
 	sync::{
 		atomic::{AtomicBool, Ordering},
-		Arc,
+		Arc, Mutex,
 	},
-	time::{Duration, SystemTime},
+	time::{Duration, Instant, SystemTime},
 };
 
 use axum::{
-	body::Bytes,
+	body::{Bytes, HttpBody},
 	extract::{rejection::BytesRejection, ConnectInfo, State},
 	http::{header, HeaderMap, HeaderValue, Method, StatusCode, Uri},
 	response::{IntoResponse, Response},
@@ -53,7 +60,10 @@ use crate::{
 	context::CoreContext,
 	ops::{
 		files::bucket as files_bucket,
-		grants::{self, authorize, bucket::BucketUrl, store, GrantCap, GrantError, GrantScope},
+		grants::{
+			self, authorize_with, bucket::BucketUrl, store, AuditId, AuditResult, GrantCap,
+			GrantError, GrantScope, RequestMeta,
+		},
 		indexing::{metadata::refuse_dataless_blocking, state::EntryKind},
 	},
 	volume::{VolumeBackend, VolumeError},
@@ -171,8 +181,81 @@ async fn handle(
 	headers: HeaderMap,
 	body: Result<Bytes, BytesRejection>,
 ) -> Response {
-	match serve(&endpoint, peer.ip(), method, &uri, &headers, body).await {
+	let started = Instant::now();
+	let ip = peer.ip();
+	let audit = Audit::default();
+	let response = match serve(&endpoint, ip, method, &uri, &headers, body, &audit).await {
 		Ok(response) | Err(response) => response,
+	};
+	audit.complete(&endpoint, ip, started, response).await
+}
+
+/// The audit row a request's authorization wrote, completed once its
+/// response exists.
+#[derive(Default)]
+struct Audit {
+	row: Mutex<Option<Audited>>,
+	rate_limited: AtomicBool,
+}
+
+#[derive(Clone, Copy)]
+struct Audited {
+	library: Uuid,
+	grant: Uuid,
+	row: AuditId,
+}
+
+impl Audit {
+	/// Finish the row with how `response` ends the request, or fold it into
+	/// the grant's tally when the request was over its rate. A write that
+	/// fails replaces the response with 503.
+	async fn complete(
+		&self,
+		endpoint: &Endpoint,
+		ip: IpAddr,
+		started: Instant,
+		response: Response,
+	) -> Response {
+		let audited = *self.row.lock().expect("audit lock");
+		let Some(Audited {
+			library,
+			grant,
+			row,
+		}) = audited
+		else {
+			return response;
+		};
+		let written = if self.rate_limited.load(Ordering::Relaxed) {
+			endpoint
+				.audit_fold_rate_limited(library, row, grant, ip)
+				.await
+		} else {
+			let bytes = response.body().size_hint().exact();
+			let result = audit_result(response.status());
+			endpoint
+				.audit_finish(library, row, bytes, result, started)
+				.await
+		};
+		match written {
+			Ok(()) => response,
+			Err(reason) => {
+				warn!(%grant, %reason, "refused a space request whose audit could not be completed");
+				error(
+					StatusCode::SERVICE_UNAVAILABLE,
+					"the request could not be recorded; try again",
+				)
+			}
+		}
+	}
+}
+
+/// How a response ends its request in the audit.
+fn audit_result(status: StatusCode) -> AuditResult {
+	match status {
+		StatusCode::TOO_MANY_REQUESTS => AuditResult::Limited,
+		StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => AuditResult::Denied,
+		status if status.is_client_error() || status.is_server_error() => AuditResult::Error,
+		_ => AuditResult::Ok,
 	}
 }
 
@@ -183,9 +266,17 @@ async fn serve(
 	uri: &Uri,
 	headers: &HeaderMap,
 	body: Result<Bytes, BytesRejection>,
+	audit: &Audit,
 ) -> Result<Response, Response> {
 	screen(endpoint, &method, headers, uri)?;
 	if let Some(wait) = endpoint.locked_out(ip) {
+		if let Err(reason) = endpoint.tally_locked_out(ip).await {
+			warn!(client = %ip, %reason, "could not tally a locked-out request");
+			return Err(error(
+				StatusCode::SERVICE_UNAVAILABLE,
+				"the request could not be recorded; try again",
+			));
+		}
 		return Err(too_many(wait, "too many failed authentications"));
 	}
 	let Some(token) = http::bearer(headers).map(str::to_string) else {
@@ -209,20 +300,21 @@ async fn serve(
 		endpoint,
 		ip,
 		token: &token,
+		audit,
 		headers,
 	};
 	match route {
 		Route::Spaces => request.spaces().await,
 		Route::Tools { space } => {
 			request
-				.space_scope(&space, "rest.tools", "", GrantCap::Read)
+				.space_scope(&space, "rest.tools", "", GrantCap::Read, None)
 				.await?;
 			Ok(json_ok(json!({ "tools": tools::definitions() })))
 		}
 		Route::Tool { space, name } => request.tool(&space, &name, body).await,
 		Route::Stat { space, path } => {
 			let scope = request
-				.space_scope(&space, "rest.stat", &path, GrantCap::Read)
+				.space_scope(&space, "rest.stat", &path, GrantCap::Read, None)
 				.await?;
 			let (grant, library) = (scope.grant_id, scope.library_id);
 			let context = endpoint.context.clone();
@@ -239,7 +331,7 @@ async fn serve(
 		Route::List { space, path } => {
 			let (cursor, limit) = list_query(uri)?;
 			let scope = request
-				.space_scope(&space, "rest.list", &path, GrantCap::Read)
+				.space_scope(&space, "rest.list", &path, GrantCap::Read, None)
 				.await?;
 			let (grant, library) = (scope.grant_id, scope.library_id);
 			let context = endpoint.context.clone();
@@ -255,7 +347,7 @@ async fn serve(
 		}
 		Route::Blocks { space, path } => {
 			let scope = request
-				.space_scope(&space, "rest.blocks", &path, GrantCap::Read)
+				.space_scope(&space, "rest.blocks", &path, GrantCap::Read, None)
 				.await?;
 			let range = parse_range(headers)?;
 			let if_match = headers
@@ -279,7 +371,7 @@ async fn serve(
 		}
 		Route::Events { space } => {
 			let scope = request
-				.space_scope(&space, "rest.events", "", GrantCap::Read)
+				.space_scope(&space, "rest.events", "", GrantCap::Read, None)
 				.await?;
 			let last_event_id = headers
 				.get("last-event-id")
@@ -342,14 +434,45 @@ struct Request<'a> {
 	endpoint: &'a Arc<Endpoint>,
 	ip: IpAddr,
 	token: &'a str,
+	audit: &'a Audit,
 	headers: &'a HeaderMap,
 }
 
 impl Request<'_> {
 	/// Run `authorize` and turn a refusal into the spec's answer.
-	async fn authorize(&self, op: &str, path: &str, cap: GrantCap) -> Result<GrantScope, Response> {
-		match authorize(&self.endpoint.context, self.token, op, Path::new(path), cap).await {
-			Ok(scope) => Ok(scope),
+	///
+	/// An allowed request's audit row is kept on the request, so the answer
+	/// completes it whichever route produced it.
+	async fn authorize(
+		&self,
+		op: &str,
+		path: &str,
+		cap: GrantCap,
+		pattern: Option<String>,
+	) -> Result<GrantScope, Response> {
+		let meta = RequestMeta {
+			client: Some(self.ip),
+			session: None,
+			pattern,
+		};
+		let authorized = authorize_with(
+			&self.endpoint.context,
+			self.token,
+			op,
+			Path::new(path),
+			cap,
+			&meta,
+		)
+		.await;
+		match authorized {
+			Ok((scope, row)) => {
+				*self.audit.row.lock().expect("audit lock") = Some(Audited {
+					library: scope.library_id,
+					grant: scope.grant_id,
+					row,
+				});
+				Ok(scope)
+			}
 			Err(refusal) if refusal.is_credential() => {
 				self.endpoint.auth_failed(self.ip);
 				Err(unauthorized())
@@ -384,8 +507,9 @@ impl Request<'_> {
 		op: &str,
 		path: &str,
 		cap: GrantCap,
+		pattern: Option<String>,
 	) -> Result<GrantScope, Response> {
-		let scope = self.authorize(op, path, cap).await?;
+		let scope = self.authorize(op, path, cap, pattern).await?;
 		if Uuid::parse_str(space).ok() != Some(scope.grant_id) {
 			return Err(error(StatusCode::NOT_FOUND, "no such space"));
 		}
@@ -399,7 +523,10 @@ impl Request<'_> {
 			.with_usage(grant, |usage| {
 				usage.bucket.take(limits.rate_per_second, limits.rate_burst)
 			})
-			.map_err(|wait| too_many(wait, "the grant is over its request rate"))
+			.map_err(|wait| {
+				self.audit.rate_limited.store(true, Ordering::Relaxed);
+				too_many(wait, "the grant is over its request rate")
+			})
 	}
 
 	/// Count `bytes` returned against the grant's hourly budget.
@@ -473,7 +600,9 @@ impl Request<'_> {
 	}
 
 	async fn spaces(&self) -> Result<Response, Response> {
-		let scope = self.authorize("rest.spaces", "", GrantCap::Read).await?;
+		let scope = self
+			.authorize("rest.spaces", "", GrantCap::Read, None)
+			.await?;
 		self.take_rate(scope.grant_id)?;
 		let grant =
 			crate::ops::grants::verified(&self.endpoint.context, scope.library_id, self.token)
@@ -541,7 +670,13 @@ impl Request<'_> {
 		paths::check(&path).map_err(|reason| error(StatusCode::BAD_REQUEST, reason))?;
 		let cap = tool.map_or(GrantCap::Read, Tool::cap);
 		let scope = self
-			.space_scope(space, &format!("rest.tool.{name}"), &path, cap)
+			.space_scope(
+				space,
+				&format!("rest.tool.{name}"),
+				&path,
+				cap,
+				arguments["pattern"].as_str().map(str::to_string),
+			)
 			.await?;
 		if let Some(reason) = self.endpoint.network_write_refused(cap, self.headers) {
 			return Err(error(StatusCode::FORBIDDEN, reason));

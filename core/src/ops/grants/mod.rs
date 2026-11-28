@@ -15,8 +15,8 @@
 //! land on the directory they really name. Writable grants additionally refuse
 //! instruction files and git internals, see [`scope::protected_component`].
 //!
-//! Every allowed or refused request against a known grant is written to a
-//! bounded audit table, [`audit`]. Removing a source revokes every grant on
+//! Every allowed or refused request against a known grant is written to an
+//! audit table bounded by age and row count, [`audit`], before it is answered. Removing a source revokes every grant on
 //! it, so re-adding the same scope never revives an old token.
 //!
 //! The local RPC socket does not go through grants: it stays as trusted as it
@@ -60,7 +60,8 @@ use specta::Type;
 use thiserror::Error;
 use uuid::Uuid;
 
-pub use authorize::{authorize, authorize_in};
+pub use audit::{AuditId, AuditResult, RequestMeta};
+pub use authorize::{authorize, authorize_in, authorize_with};
 pub(crate) use verify::{verified, GrantRecord};
 
 /// The shortest lifetime a grant can be created or extended with.
@@ -219,6 +220,8 @@ pub struct GrantInfo {
 	pub status: GrantStatus,
 	/// When the grant last authorized a request, from the audit log.
 	pub last_used_at: Option<DateTime<Utc>>,
+	/// Requests recorded against the grant within the audit's retention.
+	pub request_count: u64,
 }
 
 /// What an authorized request may touch.

@@ -201,15 +201,33 @@ async fn sd_grant_creates_lists_and_revokes() -> Result<(), Box<dyn std::error::
 	assert!(ok);
 	let listed: Value = serde_json::from_str(&stdout)?;
 	assert_eq!(listed["grants"][0]["status"], "revoked", "{listed}");
+	assert!(
+		listed["grants"][0]["request_count"].as_u64() >= Some(2),
+		"{listed}"
+	);
 
-	// The audit shows the allowed request and the refused one.
+	// The audit shows the allowed request and the refused one, under both
+	// names of the command.
 	let (ok, stdout, stderr) = sd(&cli_data, &instance, &["grant", "audit", &id]).await;
 	assert!(ok, "audit failed: {stderr}");
+	assert!(stdout.contains("the grant was revoked"), "{stdout}");
+	assert!(stdout.contains("denied"), "{stdout}");
+	let (ok, stdout, stderr) = sd(
+		&cli_data,
+		&instance,
+		&["--format", "json", "grant", "log", &id],
+	)
+	.await;
+	assert!(ok, "log failed: {stderr}");
+	let log: Value = serde_json::from_str(&stdout)?;
+	let entries = log["entries"].as_array().expect("entries");
 	assert!(
-		stdout.contains("refused: the grant was revoked"),
-		"{stdout}"
+		entries
+			.iter()
+			.any(|e| e["result"] == "denied" && e["reason"] == "the grant was revoked"),
+		"{log}"
 	);
-	assert!(stdout.contains("allowed"), "{stdout}");
+	assert!(entries.iter().any(|e| e["result"] == "ok"), "{log}");
 
 	core.shutdown().await?;
 	Ok(())

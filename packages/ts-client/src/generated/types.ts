@@ -260,6 +260,23 @@ modified_ms: number | null; hidden: boolean | null };
 export type AudioMediaData = { uuid: string; duration_seconds: number | null; bit_rate: number | null; sample_rate: number | null; channels: string | null; codec: string | null; title: string | null; artist: string | null; album: string | null; album_artist: string | null; genre: string | null; year: number | null; track_number: number | null; disc_number: number | null; composer: string | null; publisher: string | null; copyright: string | null };
 
 /**
+ * How a recorded request ended.
+ */
+export type AuditResult = "ok" | 
+/**
+ * Refused by the grant or the endpoint.
+ */
+"denied" | 
+/**
+ * Refused by a per-grant limit.
+ */
+"limited" | 
+/**
+ * The request failed, or could not be decided.
+ */
+"error";
+
+/**
  * Backup configuration output
  */
 export type BackupConfigOutput = { 
@@ -2520,19 +2537,38 @@ tag_id: string | null };
 
 export type GetTagChildrenOutput = { tags: Tag[] };
 
-export type GrantAuditEntry = { grant_id: string; op: string; path: string; allowed: boolean; reason: string | null; at: string };
+export type GrantAuditEntry = { grant_id: string; grant_label: string | null; op: string; path: string; allowed: boolean; reason: string | null; at: string; client: string | null; session: string | null; pattern: string | null; bytes: number | null; 
+/**
+ * Absent on rows recorded before results were kept.
+ */
+result: AuditResult | null; duration_ms: number | null };
 
 export type GrantAuditInput = { 
 /**
- * Only this grant's requests. Every grant's when absent.
+ * Only this grant's requests. Every grant's, and the unknown-token
+ * tallies, when absent.
  */
 grant_id: string | null; 
 /**
- * At most this many entries, newest first. Defaults to 100.
+ * At most this many entries and this many tallies, newest first.
+ * Defaults to 100.
  */
 limit: number | null };
 
-export type GrantAuditOutput = { entries: GrantAuditEntry[] };
+export type GrantAuditOutput = { entries: GrantAuditEntry[]; tallies: GrantAuditTally[] };
+
+/**
+ * Requests of one kind from one subject in one minute.
+ */
+export type GrantAuditTally = { kind: TallyKind; 
+/**
+ * The client address, or the grant id for rate-limited requests.
+ */
+subject: string; grant_id: string | null; 
+/**
+ * The client address of the latest request counted.
+ */
+client: string | null; minute: string; count: number; last_at: string };
 
 /**
  * What a grant lets its holder do.
@@ -2558,7 +2594,11 @@ created_by: string; created_at: string; expires_at: string; revoked_at: string |
 /**
  * When the grant last authorized a request, from the audit log.
  */
-last_used_at: string | null };
+last_used_at: string | null; 
+/**
+ * Requests recorded against the grant within the audit's retention.
+ */
+request_count: number };
 
 /**
  * How long a grant is meant to last.
@@ -6315,6 +6355,24 @@ export type TagTargets =
 { type: "File"; ids: string[] };
 
 export type Tally = { files: number; bytes: number };
+
+/**
+ * What a tally row counts.
+ */
+export type TallyKind = 
+/**
+ * Requests whose token matched no grant, per client address.
+ */
+"unknown_token" | 
+/**
+ * Requests refused because their client address is locked out after
+ * failed authentications, per client address.
+ */
+"locked_out" | 
+/**
+ * Requests over a grant's request rate, per grant.
+ */
+"rate_limited";
 
 /**
  * Text highlighting information

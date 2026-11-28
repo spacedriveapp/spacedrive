@@ -29,7 +29,7 @@ pub fn status(row: &agent_grant::Model, now: DateTime<Utc>) -> GrantStatus {
 }
 
 /// The owner's view of a row.
-pub fn info(row: agent_grant::Model, last_used_at: Option<DateTime<Utc>>) -> GrantInfo {
+pub fn info(row: agent_grant::Model, usage: audit::Usage) -> GrantInfo {
 	GrantInfo {
 		status: status(&row, Utc::now()),
 		id: row.uuid,
@@ -46,7 +46,8 @@ pub fn info(row: agent_grant::Model, last_used_at: Option<DateTime<Utc>>) -> Gra
 		created_at: row.created_at,
 		expires_at: row.expires_at,
 		revoked_at: row.revoked_at,
-		last_used_at,
+		last_used_at: usage.last_used_at,
+		request_count: usage.requests,
 	}
 }
 
@@ -66,8 +67,8 @@ pub async fn info_by_id(db: &DatabaseConnection, id: Uuid) -> Result<GrantInfo, 
 	let row = by_id(db, id)
 		.await?
 		.ok_or_else(|| sea_orm::DbErr::RecordNotFound(format!("no grant {id}")))?;
-	let last_used = audit::last_used(db).await?.remove(&id);
-	Ok(info(row, last_used))
+	let usage = audit::usage(db).await?.remove(&id).unwrap_or_default();
+	Ok(info(row, usage))
 }
 
 /// End one grant now. Revoking twice keeps the first revocation time.
