@@ -158,6 +158,27 @@ impl SdPath {
 		}
 	}
 
+	/// The path of a file a source store or the volume index holds.
+	///
+	/// Both key a bucket's objects by URL, like `s3://bucket/key`, so a
+	/// URL with a cloud scheme is a cloud path and anything else is a file
+	/// on `device_slug`.
+	pub fn indexed(device_slug: &str, path: PathBuf) -> Self {
+		match path.to_str().map(Self::from_uri) {
+			Some(Ok(cloud @ Self::Cloud { .. })) => cloud,
+			_ => Self::physical(device_slug.to_string(), path),
+		}
+	}
+
+	/// The path this device's source stores and volume index key this file
+	/// by, the inverse of [`SdPath::indexed`].
+	pub fn index_key(&self) -> Option<PathBuf> {
+		match self {
+			Self::Cloud { .. } => self.cloud_url(),
+			_ => self.as_local_path().map(Path::to_path_buf),
+		}
+	}
+
 	/// Create a cloud storage SdPath
 	pub fn cloud(
 		service: crate::volume::backend::CloudServiceType,
@@ -642,6 +663,17 @@ impl SdPath {
 	}
 
 	/// Try to get as a Cloud path, returning service, identifier, and path
+	/// A cloud path as the URL the volume index and source stores key it by:
+	/// `s3://bucket/key`, or `s3://bucket` for the bucket itself.
+	pub fn cloud_url(&self) -> Option<PathBuf> {
+		let (service, identifier, path) = self.as_cloud()?;
+		let base = format!("{}://{identifier}", service.scheme());
+		Some(match path.trim_matches('/') {
+			"" => PathBuf::from(base),
+			key => PathBuf::from(format!("{base}/{key}")),
+		})
+	}
+
 	pub fn as_cloud(&self) -> Option<(crate::volume::backend::CloudServiceType, &str, &str)> {
 		match self {
 			Self::Cloud {

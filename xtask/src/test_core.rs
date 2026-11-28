@@ -197,6 +197,13 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		"Bucket agent acceptance test",
 		&["--test", "bucket_agent_acceptance_test"],
 	),
+	// Tracking a bucket prefix lists it into the source store, search finds
+	// its objects, and a listing again picks up added and deleted ones.
+	acceptance(
+		"sd-core",
+		"Bucket index test",
+		&["--test", "bucket_index_test"],
+	),
 	// OAuth on the agent MCP endpoint (docs/cli/mcp-oauth.mdx): discovery,
 	// registration, the PKCE code flow, refresh rotation and revocation.
 	acceptance(
