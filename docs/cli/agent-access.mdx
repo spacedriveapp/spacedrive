@@ -100,12 +100,43 @@ through a proxy it could be anyone who reaches the proxy. Forwarding only
 `/mcp` and `/v1/` is the main protection, and the header check catches a proxy that
 forwards everything.
 
-The endpoint also has keys for listening on another address itself:
-`agent_mcp.tls_cert` and `agent_mcp.tls_key` (PEM files; TLS 1.2 and 1.3),
-and `agent_mcp.plaintext` (`true` for a network that is already encrypted).
-A certificate and key turn on TLS on loopback too. The daemon accepts a
-non-loopback `agent_mcp.listen` in the config but refuses to start the
-endpoint there until reads use handle-based path containment.
+### Listen on another address
+
+The endpoint can also listen on a non-loopback address itself, such as a
+Tailscale or LAN IP. It needs TLS: set `agent_mcp.tls_cert` and
+`agent_mcp.tls_key` to PEM files (TLS 1.2 and 1.3). Without both the daemon
+refuses the address and logs why. A certificate and key turn on TLS on
+loopback too. Listening beyond loopback works on Linux and macOS only for now;
+on Windows the daemon refuses a non-loopback address.
+
+```bash
+sd config set agent_mcp.listen 100.64.0.1:7765
+sd config set agent_mcp.tls_cert /etc/ssl/nas.example.net.crt
+sd config set agent_mcp.tls_key /etc/ssl/nas.example.net.key
+sd config set agent_mcp.host_names nas.example.net
+sd restart
+```
+
+Writes need a direct local request: a loopback bind, a Host of `127.0.0.1`,
+`localhost` or `[::1]` with the bound port, and no `Forwarded`,
+`X-Forwarded-For`, `X-Forwarded-Host` or `X-Real-IP` header. This is the same
+test OAuth uses. Any other request to a write tool (`write_file`, `make_dir`,
+`move`, `delete`), over MCP or REST, answers 403 with "writes over the network
+are off until the security review", even with a writable grant. So a listener
+on a non-loopback address serves reads only, and so does a loopback listener
+reached through a reverse proxy. This holds until an outside security review
+passes.
+
+### Block-read budget
+
+Block reads through the REST surface spend their own budget per grant, 8 GiB
+per hour by default. Change it with a byte count or a K, M or G suffix. It must
+be greater than 0 and applies at restart:
+
+```bash
+sd config set agent_mcp.block_bytes_per_hour 16G
+sd restart
+```
 
 ## Create a grant
 

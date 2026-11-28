@@ -54,6 +54,8 @@ A space is a pointer at a directory plus policy. Creating a `folder` space on an
 
 Creating a `workspace` space makes an empty directory under the workspaces root and tracks it as a source if no source covers it. The default root is `<data dir>/spaces/<id>/`. A person can choose another folder.
 
+The folder can be a prefix of a connected bucket, `s3://bucket/prefix`. A bucket `folder` space needs at least one object under the prefix. A bucket `workspace` space needs an empty prefix and writes a directory marker object for it. The prefix is tracked as a bucket source when no source covers it. `content_indexing` is off for bucket spaces and cannot be turned on, because reading contents would download every object.
+
 ### Content indexing replaces deep scope
 
 Content indexing is a property of a space. It replaces the per-source deep scope from #3286, where subtrees of a source opted in to hashing and text extraction. There is one system for subtrees with policy, and it is spaces. The home source's standard user folders (Documents, Desktop, Downloads, and similar) appear as spaces with content indexing on. Files outside any space with content indexing on are not hashed or text-indexed by default, so a home source does not grow a large text database.
