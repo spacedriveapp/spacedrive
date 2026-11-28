@@ -61,6 +61,7 @@ use crate::{
 			content::{ContentSearchInput, ContentSearchQuery},
 			grep::{scan, GrepOptions},
 			input::{PaginationOptions, SearchFilters, SortDirection, SortField, SortOptions},
+			semantic::{SemanticSearchInput, SemanticSearchQuery},
 		},
 	},
 };
@@ -74,11 +75,13 @@ pub enum Tool {
 	Grep,
 	Search,
 	SearchContent,
+	SearchSemantic,
 	GetSkill,
 	WriteFile,
 	MakeDir,
 	Move,
 	Delete,
+	ListChanges,
 	#[cfg(feature = "video-shots")]
 	ListShots,
 	#[cfg(feature = "footage-clips")]
@@ -99,10 +102,12 @@ impl Tool {
 		Self::Grep,
 		Self::Search,
 		Self::SearchContent,
+		Self::SearchSemantic,
 		Self::WriteFile,
 		Self::MakeDir,
 		Self::Move,
 		Self::Delete,
+		Self::ListChanges,
 		#[cfg(feature = "video-shots")]
 		Self::ListShots,
 		#[cfg(feature = "footage-clips")]
@@ -122,11 +127,13 @@ impl Tool {
 			Self::Grep => "grep",
 			Self::Search => "search",
 			Self::SearchContent => "search_content",
+			Self::SearchSemantic => "search_semantic",
 			Self::GetSkill => "get_skill",
 			Self::WriteFile => "write_file",
 			Self::MakeDir => "make_dir",
 			Self::Move => "move",
 			Self::Delete => "delete",
+			Self::ListChanges => "list_changes",
 			#[cfg(feature = "video-shots")]
 			Self::ListShots => "list_shots",
 			#[cfg(feature = "footage-clips")]
@@ -373,6 +380,28 @@ pub fn definitions() -> Value {
 			"annotations": annotations("Search the text of files"),
 		},
 		{
+			"name": "search_semantic",
+			"title": "Search files by meaning",
+			"description": "Finds files under 'path' that are about what the query describes, even when they use other words, and returns them ranked with a snippet. Write the query as a phrase or question, such as 'notes on the kitchen renovation budget'. Ranking combines the meaning of the text with its words, so a file that also contains the query's words ranks higher; word_match says whether it did. It covers extracted document text, transcripts, and scene and caption descriptions, only in the folders the source indexes contents for. Recording hits carry start_seconds and end_seconds. It answers from an index that can lag the disk; pending_documents counts documents not embedded yet, which are still found by their words. It fails with the reason when this device has no text embedding model. Use search_content for exact words and grep for patterns.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"query": { "type": "string", "maxLength": SEMANTIC_QUERY_MAX_BYTES, "description": "What to find, in plain language." },
+					"path": path("The directory or file to search"),
+					"kinds": {
+						"type": "array",
+						"items": { "type": "string", "enum": ["text", "markdown", "csv", "json", "code", "pdf", "docx", "transcript", "scene", "caption"] },
+						"description": "Only files of these kinds. Empty or absent means every kind.",
+					},
+					"max_results": { "type": "integer", "minimum": 1, "maximum": SEMANTIC_PAGE_MAX, "default": CONTENT_PAGE_DEFAULT },
+					"cursor": cursor,
+				},
+				"required": ["query"],
+				"additionalProperties": false,
+			},
+			"annotations": annotations("Search files by meaning"),
+		},
+		{
 			"name": "write_file",
 			"title": "Write a file",
 			"description": "Writes a whole file, or content at a byte offset of an existing one. To change an existing file, pass expect with the content_hash (or revision) that stat returned; if the file changed since, the call fails as stale and names the current values. Without expect the call creates the file and never replaces anything: if the name is taken, the file is written beside it as 'name (agent conflict N).ext'. Missing parent directories are created. The result has the new content_hash to pass to the next write, and an undo id.",
@@ -433,6 +462,20 @@ pub fn definitions() -> Value {
 			},
 			"annotations": writes("Move to the trash", true),
 		},
+		{
+			"name": "list_changes",
+			"title": "List recent changes",
+			"description": "Returns what changed under the grant root, oldest first: each change's op (create, mkdir, modify, move or delete), path, who made it (you, another agent, the person in the app, or someone outside Spacedrive), and the content hashes before and after when known. Changes are kept for 30 days. Pass next_cursor back as cursor to read only what changed since your last call.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"limit": { "type": "integer", "minimum": 1, "maximum": PAGE_MAX, "default": PAGE_DEFAULT, "description": "Changes per page." },
+					"cursor": cursor,
+				},
+				"additionalProperties": false,
+			},
+			"annotations": annotations("List recent changes"),
+		},
 	]);
 	#[cfg(feature = "video-shots")]
 	if let Some(list) = tools.as_array_mut() {
@@ -479,6 +522,7 @@ pub async fn call(
 		}),
 		Tool::Search => search(&context, &scope, args(arguments)?).await,
 		Tool::SearchContent => search_content(&context, &scope, args(arguments)?).await,
+		Tool::SearchSemantic => search_semantic(&context, &scope, args(arguments)?).await,
 		Tool::ListDir => blocking(move || list_dir(&scope, args(arguments)?)).await,
 		Tool::Stat => stat_with_precondition(&context, scope, cancel).await,
 		Tool::Read => blocking(move || read(&scope, args(arguments)?, &cancel)).await,
@@ -487,6 +531,7 @@ pub async fn call(
 		Tool::WriteFile | Tool::MakeDir | Tool::Move | Tool::Delete => {
 			write(context.clone(), token, tool, &scope, arguments, cancel).await
 		}
+		Tool::ListChanges => list_changes(&context, &scope, args(arguments)?).await,
 		#[cfg(feature = "video-shots")]
 		Tool::ListShots => list_shots(&context, &scope).await,
 		#[cfg(feature = "footage-clips")]
@@ -497,6 +542,99 @@ pub async fn call(
 		Tool::ExportTimeline => footage::export_timeline(&context, token, &scope, args(arguments)?).await,
 	};
 	result.map_err(|message| scrub(&message, &root))
+}
+
+#[derive(Deserialize)]
+struct ListChangesArgs {
+	#[serde(default)]
+	limit: Option<u32>,
+	#[serde(default)]
+	cursor: Option<String>,
+}
+
+/// The changes of the grant's space that fall under the grant root, with
+/// paths relative to that root.
+async fn list_changes(
+	context: &CoreContext,
+	scope: &GrantScope,
+	args: ListChangesArgs,
+) -> Result<Output, String> {
+	let Some(space_id) = scope.space_id else {
+		return Err("this grant has no change log because it predates spaces; ask the owner for a new grant".to_string());
+	};
+	let since = match args.cursor.as_deref() {
+		Some(cursor) => cursor
+			.parse::<i64>()
+			.map_err(|_| "invalid cursor".to_string())?,
+		None => 0,
+	};
+	let at = crate::ops::spaces::events::space_of(context, &scope.root, Some(scope.library_id))
+		.await
+		.filter(|at| at.space_id == space_id)
+		.ok_or_else(|| "the grant root is no longer inside its space".to_string())?;
+	let library = context
+		.libraries()
+		.await
+		.get_library(scope.library_id)
+		.await
+		.ok_or_else(|| "the library is not open".to_string())?;
+	let limit = args.limit.unwrap_or(PAGE_DEFAULT).clamp(1, PAGE_MAX);
+	let page = crate::ops::spaces::page(
+		&library,
+		context,
+		at.source_id,
+		space_id,
+		sd_store::EventQuery {
+			cursor: Some(since),
+			newest: false,
+			path: Some(at.path.clone()),
+			limit,
+		},
+	)
+	.await?;
+	let under = |path: &str| -> Option<String> {
+		if at.path.is_empty() {
+			return Some(path.to_string());
+		}
+		if path == at.path {
+			return Some(String::new());
+		}
+		path.strip_prefix(at.path.as_str())
+			.and_then(|rest| rest.strip_prefix('/'))
+			.map(str::to_string)
+	};
+	let changes: Vec<Value> = page
+		.changes
+		.into_iter()
+		.filter_map(|change| {
+			let path = under(&change.path);
+			let to_path = change.to_path.as_deref().and_then(under);
+			if path.is_none() && to_path.is_none() {
+				return None;
+			}
+			let by = if change.actor.id == scope.actor_id {
+				"you".to_string()
+			} else {
+				change.actor.label.clone()
+			};
+			Some(json!({
+				"at": change.at,
+				"op": change.op,
+				"path": path,
+				"to_path": to_path,
+				"by": by,
+				"actor_kind": change.actor.kind,
+				"origin": change.origin,
+				"before_hash": change.before_hash,
+				"after_hash": change.after_hash,
+				"size": change.size,
+			}))
+		})
+		.collect();
+	Ok(Output::json(json!({
+		"changes": changes,
+		"next_cursor": page.next.to_string(),
+	})))
 }
 
 /// Drop any spelling of the grant root from a message, so a lower layer's
@@ -1469,6 +1607,68 @@ async fn search_content(
 	})))
 }
 
+#[derive(Deserialize)]
+struct SearchSemanticArgs {
+	query: String,
+	#[serde(default)]
+	kinds: Vec<TextKind>,
+	#[serde(default)]
+	max_results: Option<u32>,
+	#[serde(default)]
+	cursor: Option<String>,
+}
+
+async fn search_semantic(
+	context: &Arc<CoreContext>,
+	scope: &GrantScope,
+	args: SearchSemanticArgs,
+) -> Result<Output, String> {
+	let in_source = text_index_path(context, scope).await?;
+	let session = session(context, scope)?;
+	let found = SemanticSearchQuery::from_input(SemanticSearchInput {
+		scope: SdPath::local(in_source),
+		query: args.query,
+		kinds: args.kinds,
+		max_results: args.max_results,
+		cursor: args.cursor,
+	})
+	.map_err(content_error)?
+	.execute(context.clone(), session)
+	.await
+	.map_err(content_error)?;
+
+	let names: Vec<String> = found.hits.iter().map(|hit| hit.path.clone()).collect();
+	let placed = place(scope, names).await?;
+	let results: Vec<Value> = found
+		.hits
+		.into_iter()
+		.zip(placed)
+		.filter_map(|(hit, relative)| {
+			let relative = relative?;
+			let snippet: String = hit.snippet.iter().map(|part| part.text.as_str()).collect();
+			let mut result = json!({
+				"path": paths::shown(&relative),
+				"kind": hit.kind.as_str(),
+				"score": hit.score,
+				"similarity": hit.similarity,
+				"word_match": hit.word_match,
+				"snippet": snippet,
+			});
+			if let Some(time) = hit.time {
+				result["start_seconds"] = json!(time.start_seconds);
+				result["end_seconds"] = json!(time.end_seconds);
+			}
+			Some(result)
+		})
+		.collect();
+	Ok(Output::json(json!({
+		"results": results,
+		"next_cursor": found.next_cursor,
+		"pending_documents": found.pending_documents,
+		"note": "Semantic search ranks by meaning from Spacedrive's index, which can lag the disk and covers only the start of a long document. Confirm a hit with read.",
+	})))
+}
+
 #[cfg(feature = "video-shots")]
 async fn list_shots(context: &Arc<CoreContext>, scope: &GrantScope) -> Result<Output, String> {
 	let (root, relative) = (scope.root.clone(), scope.relative.clone());
@@ -1650,6 +1850,8 @@ mod tests {
 		std::fs::write(root.join("cloud.txt"), "not here").unwrap();
 		let scope = GrantScope {
 			grant_id: uuid::Uuid::new_v4(),
+			actor_id: uuid::Uuid::new_v4(),
+			space_id: None,
 			library_id: uuid::Uuid::new_v4(),
 			cap: GrantCap::Read,
 			path: root.join("cloud.txt"),

@@ -48,6 +48,13 @@ pub fn load(spec: &ModelSpec, dir: &Path) -> Result<Provider, AiError> {
 }
 
 fn session(path: &Path) -> Result<Mutex<Session>, AiError> {
+	session_with_threads(path, num_threads())
+}
+
+/// A session whose operators run on `threads` threads. With one, ONNX
+/// Runtime starts no pool and computes on the calling thread, so the
+/// caller's priority is the model's.
+fn session_with_threads(path: &Path, threads: usize) -> Result<Mutex<Session>, AiError> {
 	let model = |e: ort::Error<_>| AiError::Model(format!("{}: {e}", path.display()));
 	static ENVIRONMENT: OnceLock<Result<Environment, String>> = OnceLock::new();
 	let environment = ENVIRONMENT
@@ -65,7 +72,7 @@ fn session(path: &Path) -> Result<Mutex<Session>, AiError> {
 		.with_execution_providers([ort::ep::CoreML::default().build()])
 		.map_err(model)?;
 	let session = builder
-		.with_intra_threads(num_threads())
+		.with_intra_threads(threads.max(1))
 		.map_err(model)?
 		.commit_from_file(path)
 		.map_err(|e| AiError::Model(format!("{}: {e}", path.display())))?;
@@ -519,8 +526,18 @@ const E5_MAX_TOKENS: usize = 512;
 
 impl E5 {
 	pub fn new(model: &Path, tokenizer_path: &Path) -> Result<Self, AiError> {
+		Self::with_threads(model, tokenizer_path, num_threads())
+	}
+
+	/// An instance whose inference runs on `threads` threads, for work that
+	/// must not take more of the machine than that.
+	pub fn with_threads(
+		model: &Path,
+		tokenizer_path: &Path,
+		threads: usize,
+	) -> Result<Self, AiError> {
 		Ok(Self {
-			session: session(model)?,
+			session: session_with_threads(model, threads)?,
 			tokenizer: tokenizer(tokenizer_path, None, E5_MAX_TOKENS)?,
 		})
 	}
@@ -528,11 +545,21 @@ impl E5 {
 
 impl TextEmbedder for E5 {
 	fn embed(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, AiError> {
+		// E5 is trained with a role prefix; "query: " suits symmetric search.
+		self.embed_with("query: ", texts)
+	}
+
+	fn embed_passages(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, AiError> {
+		self.embed_with("passage: ", texts)
+	}
+}
+
+impl E5 {
+	fn embed_with(&self, role: &str, texts: &[&str]) -> Result<Vec<Vec<f32>>, AiError> {
 		if texts.is_empty() {
 			return Ok(Vec::new());
 		}
-		// E5 is trained with a role prefix; "query: " suits symmetric search.
-		let prefixed: Vec<String> = texts.iter().map(|t| format!("query: {t}")).collect();
+		let prefixed: Vec<String> = texts.iter().map(|t| format!("{role}{t}")).collect();
 		let encodings = self
 			.tokenizer
 			.encode_batch(prefixed, true)

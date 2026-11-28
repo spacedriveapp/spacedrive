@@ -149,6 +149,10 @@ pub struct GrantInfo {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GrantScope {
 	pub grant_id: Uuid,
+	/// Who the grant was lent to. A grant made before actors is its own actor.
+	pub actor_id: Uuid,
+	/// The space the grant lends a part of, for grants made since spaces.
+	pub space_id: Option<Uuid>,
 	pub library_id: Uuid,
 	pub cap: GrantCap,
 	/// The granted directory, canonical now.
