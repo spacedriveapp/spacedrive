@@ -15,6 +15,7 @@ import {useState} from 'react';
 import {useForm} from 'react-hook-form';
 import {useLibraryMutation} from '../../contexts/SpacedriveContext';
 import {useGiveToAgentDialog} from '../modals/GiveToAgentModal';
+import {SpaceVersioning} from './SpaceVersioning';
 import {useSpaces} from './useSpaces';
 
 /** The paths every writable grant protects, from grants/scope.rs. */
@@ -144,7 +145,7 @@ interface SpaceSettingsProps {
 	space: Space;
 }
 
-/** A space's settings: name, content indexing, and what comes later. */
+/** A space's settings: name, content indexing, versioning and snapshots. */
 export function useSpaceSettingsDialog() {
 	return (space: Space) =>
 		dialogManager.create((props: UseDialogProps) => (
@@ -160,6 +161,7 @@ function SpaceSettingsDialog(props: SpaceSettingsProps) {
 	const openGiveToAgent = useGiveToAgentDialog();
 	const [name, setName] = useState(space.name);
 	const [contentIndexing, setContentIndexing] = useState(space.content_indexing);
+	const [versioning, setVersioning] = useState(space.versioning);
 	const [confirmDelete, setConfirmDelete] = useState(false);
 	const [failure, setFailure] = useState<string | null>(null);
 	const update = useLibraryMutation('spaces.update', {
@@ -170,7 +172,9 @@ function SpaceSettingsDialog(props: SpaceSettingsProps) {
 	});
 	const close = () => dialogManager.setState(props.id, {open: false});
 	const changed =
-		name.trim() !== space.name || contentIndexing !== space.content_indexing;
+		name.trim() !== space.name ||
+		contentIndexing !== space.content_indexing ||
+		versioning !== space.versioning;
 
 	const submit = async () => {
 		if (!changed) return close();
@@ -181,6 +185,7 @@ function SpaceSettingsDialog(props: SpaceSettingsProps) {
 				name: name.trim() !== space.name ? name.trim() : null,
 				content_indexing:
 					contentIndexing !== space.content_indexing ? contentIndexing : null,
+				versioning: versioning !== space.versioning ? versioning : null,
 				protected: null
 			});
 			close();
@@ -225,15 +230,7 @@ function SpaceSettingsDialog(props: SpaceSettingsProps) {
 
 				<ContentIndexing checked={contentIndexing} onChange={setContentIndexing} />
 
-				<div className="bg-app-box flex items-center justify-between gap-3 rounded-md px-3 py-2 opacity-70">
-					<div>
-						<div className="text-ink text-sm">Versioning</div>
-						<div className="text-ink-dull text-[11px]">
-							History, snapshots and restore for this space. Not available yet.
-						</div>
-					</div>
-					<span className="text-ink-dull text-xs">Off</span>
-				</div>
+				<SpaceVersioning space={space} checked={versioning} onChange={setVersioning} />
 
 				<div className="bg-app-box rounded-md px-3 py-2">
 					<div className="text-ink text-sm">Protected from agents</div>
