@@ -696,6 +696,10 @@ impl LibraryManager {
 
 		info!("Opened library {} at {:?}", library.id(), path);
 
+		tokio::spawn(crate::ops::sources::rescan::rescan_buckets(Arc::downgrade(
+			&library,
+		)));
+
 		Ok(library)
 	}
 

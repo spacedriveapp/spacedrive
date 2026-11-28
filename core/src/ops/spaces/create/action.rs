@@ -5,8 +5,16 @@
 //! data directory's workspaces folder, for an agent to work in. Either way a
 //! folder no source of this library covers is tracked as a source first, so
 //! the space has a store to live in and its files are indexed.
+//!
+//! The folder can also be a prefix of a connected bucket, `s3://bucket/a/b`.
+//! A bucket folder space needs an object under the prefix, and a bucket
+//! workspace is an empty prefix marked with a directory object. Neither reads
+//! object contents.
 
-use std::{path::PathBuf, sync::Arc};
+use std::{
+	path::{Path, PathBuf},
+	sync::Arc,
+};
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -14,15 +22,17 @@ use specta::Type;
 use uuid::Uuid;
 
 use crate::{
-	config::WORKSPACES_DIR,
+	config::{MANAGED_DIR, WORKSPACES_DIR},
 	context::CoreContext,
 	domain::{Space, SpaceKind},
 	infra::action::{error::ActionError, LibraryAction},
 	library::{config::AddOverrides, Library},
 	ops::{
+		grants::{self, bucket::BucketUrl},
 		sources::track::action::track_and_index,
 		spaces::store::{self, Located},
 	},
+	volume::{backend::RawDirEntry, VolumeBackend},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -57,8 +67,12 @@ impl LibraryAction for SpaceCreateAction {
 		if input.kind == SpaceKind::Folder && input.path.is_none() {
 			return Err("a folder space needs a path".to_string());
 		}
-		if input.path.as_ref().is_some_and(|path| !path.is_absolute()) {
-			return Err("the path must be absolute".to_string());
+		if input
+			.path
+			.as_ref()
+			.is_some_and(|path| !path.is_absolute() && BucketUrl::parse(path).is_none())
+		{
+			return Err("the path must be absolute or a bucket URL".to_string());
 		}
 		if input
 			.name
@@ -77,8 +91,53 @@ impl LibraryAction for SpaceCreateAction {
 	) -> Result<Self::Output, ActionError> {
 		let id = Uuid::now_v7();
 		let input = self.input;
-		let path = match input.kind {
-			SpaceKind::Folder => {
+		let bucket = input.path.as_deref().and_then(BucketUrl::parse);
+		if bucket.is_some() && input.content_indexing == Some(true) {
+			return Err(ActionError::InvalidInput(
+				"a bucket space's contents are not read, since that would download every object"
+					.to_string(),
+			));
+		}
+		let path = match (input.kind, &bucket) {
+			(SpaceKind::Folder, Some(url)) => {
+				if bucket_children(&context, url).await?.is_empty() {
+					return Err(ActionError::InvalidInput(format!(
+						"{} holds no objects",
+						url.path().display()
+					)));
+				}
+				url.path()
+			}
+			(SpaceKind::Workspace, Some(url)) => {
+				let file = match url.key.is_empty() {
+					true => None,
+					false => backend(&context, url)
+						.await?
+						.entity_tag(Path::new(&url.key))
+						.await
+						.map_err(|e| ActionError::Internal(e.to_string()))?,
+				};
+				if file.is_some() || !bucket_children(&context, url).await?.is_empty() {
+					return Err(ActionError::InvalidInput(format!(
+						"{} is not empty",
+						url.path().display()
+					)));
+				}
+				// A prefix exists only through what is under it, so the empty
+				// workspace is a directory marker.
+				backend(&context, url)
+					.await?
+					.create_directory(Path::new(&url.key), true)
+					.await
+					.map_err(|e| {
+						ActionError::Internal(format!(
+							"could not create {}: {e}",
+							url.path().display()
+						))
+					})?;
+				url.path()
+			}
+			(SpaceKind::Folder, None) => {
 				let path = input.path.expect("checked in from_input");
 				if !tokio::fs::metadata(&path)
 					.await
@@ -91,7 +150,7 @@ impl LibraryAction for SpaceCreateAction {
 				}
 				path
 			}
-			SpaceKind::Workspace => {
+			(SpaceKind::Workspace, None) => {
 				let path = input
 					.path
 					.unwrap_or_else(|| context.data_dir.join(WORKSPACES_DIR).join(id.to_string()));
@@ -164,7 +223,7 @@ impl LibraryAction for SpaceCreateAction {
 			name,
 			kind: input.kind.as_str().to_string(),
 			root: relative,
-			content_indexing: input.content_indexing.unwrap_or(true),
+			content_indexing: input.content_indexing.unwrap_or(bucket.is_none()),
 			created_at: Utc::now().to_rfc3339(),
 			deleted: false,
 			updated_hlc: stamp.hlc,
@@ -194,6 +253,29 @@ impl LibraryAction for SpaceCreateAction {
 }
 
 crate::register_library_action!(SpaceCreateAction, "spaces.create");
+
+async fn backend(
+	context: &CoreContext,
+	url: &BucketUrl,
+) -> Result<Arc<dyn VolumeBackend>, ActionError> {
+	grants::bucket::backend(&context.volume_manager, url)
+		.await
+		.map_err(|e| ActionError::InvalidInput(e.to_string()))
+}
+
+/// What is under a bucket prefix, leaving out Spacedrive's own prefix.
+async fn bucket_children(
+	context: &CoreContext,
+	url: &BucketUrl,
+) -> Result<Vec<RawDirEntry>, ActionError> {
+	let mut children = grants::bucket::list(backend(context, url).await?.as_ref(), url)
+		.await
+		.map_err(|e| {
+			ActionError::Internal(format!("could not list {}: {e}", url.path().display()))
+		})?;
+	children.retain(|child| child.name != MANAGED_DIR);
+	Ok(children)
+}
 
 /// Create `path` as an empty folder, or accept one that already is.
 async fn create_empty(path: &std::path::Path) -> Result<(), ActionError> {

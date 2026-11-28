@@ -71,8 +71,9 @@ pub enum Refusal {
 	/// Something already sits at the destination.
 	Taken,
 	/// The copy landed, then the object changed before it could be deleted,
-	/// so both are kept.
-	Kept,
+	/// so both are kept. Carries the copy as it was written, when a move made
+	/// it, so a journal can name the version that is this job's.
+	Kept(Option<Object>),
 	/// The object is larger than a conditional copy takes.
 	TooLarge(u64),
 	Failed(VolumeError),
@@ -83,7 +84,7 @@ impl std::fmt::Display for Refusal {
 		match self {
 			Self::Changed => write!(f, "the object changed before it was copied"),
 			Self::Taken => write!(f, "something already sits at the destination"),
-			Self::Kept => write!(
+			Self::Kept(_) => write!(
 				f,
 				"the object changed after it was copied; both the copy and the object are kept"
 			),
@@ -125,6 +126,25 @@ pub async fn object(backend: &dyn VolumeBackend, key: &str) -> Result<Option<Obj
 	}))
 }
 
+/// Whether `url` names a directory: the bucket itself, a prefix with objects
+/// under it, or an empty prefix held open by its `key/` marker, which is
+/// what making a directory writes.
+pub async fn is_directory(
+	backend: &dyn VolumeBackend,
+	url: &BucketUrl,
+) -> Result<bool, VolumeError> {
+	if url.key.is_empty()
+		|| !crate::ops::grants::bucket::list(backend, url)
+			.await?
+			.is_empty()
+	{
+		return Ok(true);
+	}
+	backend
+		.holds_marker(Path::new(&format!("{}/", url.key)))
+		.await
+}
+
 /// Whether anything sits at `key`: an object, or objects below it.
 pub async fn occupied(backend: &dyn VolumeBackend, url: &BucketUrl) -> Result<bool, VolumeError> {
 	if backend.entity_tag(Path::new(&url.key)).await?.is_some() {
@@ -135,8 +155,9 @@ pub async fn occupied(backend: &dyn VolumeBackend, url: &BucketUrl) -> Result<bo
 		.is_empty())
 }
 
-/// Every object below the prefix `url` names, by key, in key order.
-/// Directory markers are left out; they hold no bytes.
+/// Every object below the prefix `url` names, by key, in key order, with
+/// the directory markers (`a/b/`) that keep empty directories, the prefix's
+/// own included. `None` past `limit` keys.
 pub async fn objects_under(
 	backend: &dyn VolumeBackend,
 	url: &BucketUrl,
@@ -145,6 +166,13 @@ pub async fn objects_under(
 	let mut found = Vec::new();
 	let mut pending = vec![url.clone()];
 	while let Some(prefix) = pending.pop() {
+		let marker = format!("{}/", prefix.key);
+		if !prefix.key.is_empty() && backend.holds_marker(Path::new(&marker)).await? {
+			found.push(marker);
+			if found.len() > limit {
+				return Ok(None);
+			}
+		}
 		for entry in crate::ops::grants::bucket::list(backend, &prefix).await? {
 			let child = prefix.join(&entry.name);
 			if entry.kind == EntryKind::Directory {
@@ -162,12 +190,12 @@ pub async fn objects_under(
 }
 
 /// Copy `object` to `to` only while it carries its tag and only if nothing
-/// is at `to`.
+/// is at `to`, answering with the entity tag the service gave the copy.
 pub async fn copy_new(
 	backend: &dyn VolumeBackend,
 	object: &Object,
 	to: &str,
-) -> Result<(), Refusal> {
+) -> Result<Option<String>, Refusal> {
 	if object.size > MAX_COPY_BYTES {
 		return Err(Refusal::TooLarge(object.size));
 	}
@@ -178,32 +206,46 @@ pub async fn copy_new(
 	backend
 		.write_if(Path::new(to), bytes, WriteCondition::Absent)
 		.await
-		.map_err(|error| refused(error, Refusal::Taken))?;
-	Ok(())
+		.map_err(|error| refused(error, Refusal::Taken))
 }
 
 /// Move `object` to `to`: a copy that replaces nothing, then a delete of
 /// the source while it still carries its tag. Answers with the copy, read
 /// before the delete so a failure after it cannot lose the journal record.
+///
+/// The copy carries the tag the write answered with, not whatever sits at
+/// `to` by the time it is read: another writer may replace the copy in
+/// between, and undo must never take that writer's object for this job's.
 pub async fn relocate(
 	backend: &dyn VolumeBackend,
 	object: &Object,
 	to: &str,
 ) -> Result<Object, Refusal> {
-	copy_new(backend, object, to).await?;
-	let copy = self::object(backend, to)
-		.await
-		.map_err(Refusal::Failed)?
-		.ok_or_else(|| {
-			Refusal::Failed(VolumeError::Io(std::io::Error::other(format!(
-				"the copy at {to} is missing"
+	let written = copy_new(backend, object, to).await?;
+	let now = self::object(backend, to).await.map_err(Refusal::Failed)?;
+	let copy = match (written, now) {
+		(Some(etag), Some(now)) if now.etag == etag => now,
+		(Some(etag), _) => Object {
+			key: to.to_string(),
+			etag,
+			size: object.size,
+			modified: None,
+		},
+		(None, Some(now)) => now,
+		(None, None) => {
+			return Err(Refusal::Failed(VolumeError::Io(std::io::Error::other(
+				format!("the copy at {to} is missing"),
 			))))
-		})?;
-	backend
+		}
+	};
+	match backend
 		.delete_if_match(Path::new(&object.key), &object.etag)
 		.await
-		.map_err(|error| refused(error, Refusal::Kept))?;
-	Ok(copy)
+	{
+		Ok(()) => Ok(copy),
+		Err(VolumeError::PreconditionFailed(_)) => Err(Refusal::Kept(Some(copy))),
+		Err(error) => Err(Refusal::Failed(error)),
+	}
 }
 
 /// The trash key an object goes to for one job.
@@ -233,7 +275,7 @@ pub async fn trash(
 		.map_err(|error| refused(error, Refusal::Changed))?;
 	match backend.entity_tag(Path::new(&object.key)).await {
 		Ok(Some(etag)) if etag == object.etag => {}
-		Ok(_) => return Err(Refusal::Kept),
+		Ok(_) => return Err(Refusal::Kept(None)),
 		Err(error) => return Err(Refusal::Failed(error)),
 	}
 	// Read the copy before the delete, so nothing can fail between the delete
@@ -249,7 +291,7 @@ pub async fn trash(
 	backend
 		.delete_if_match(Path::new(&object.key), &object.etag)
 		.await
-		.map_err(|error| refused(error, Refusal::Kept))?;
+		.map_err(|error| refused(error, Refusal::Kept(None)))?;
 	Ok(copy)
 }
 
@@ -300,6 +342,8 @@ mod tests {
 	struct Racing {
 		objects: Mutex<HashMap<String, (Bytes, u32)>>,
 		race: bool,
+		/// Another writer replaces each copy the moment it lands.
+		clobber: bool,
 	}
 
 	impl Racing {
@@ -312,6 +356,7 @@ mod tests {
 						.collect(),
 				),
 				race,
+				clobber: false,
 			}
 		}
 
@@ -395,8 +440,11 @@ mod tests {
 					return Err(VolumeError::PreconditionFailed("taken".into()));
 				}
 				objects.insert(key(path), (data, 1));
+				if self.clobber {
+					objects.insert(key(path), (Bytes::from("written elsewhere"), 2));
+				}
 			}
-			Ok(None)
+			Ok(Some("1".to_string()))
 		}
 		async fn entity_tag(&self, path: &Path) -> Result<Option<String>, VolumeError> {
 			Ok(self
@@ -463,9 +511,27 @@ mod tests {
 		let bucket = Racing::with(&[("a.txt", "alpha")], true);
 		let source = at(&bucket, "a.txt").await;
 		let refused = relocate(&bucket, &source, "b.txt").await;
-		assert!(matches!(refused, Err(Refusal::Kept)), "{refused:?}");
+		let Err(Refusal::Kept(Some(copy))) = refused else {
+			panic!("{refused:?}");
+		};
+		assert_eq!(copy.etag, "1");
 		assert_eq!(bucket.body("a.txt").as_deref(), Some("changed elsewhere"));
 		assert_eq!(bucket.body("b.txt").as_deref(), Some("alpha"));
+	}
+
+	#[tokio::test]
+	async fn a_move_records_the_copy_it_wrote_not_one_that_replaced_it() {
+		let bucket = Racing {
+			clobber: true,
+			..Racing::with(&[("a.txt", "alpha")], false)
+		};
+		let source = at(&bucket, "a.txt").await;
+		let copy = relocate(&bucket, &source, "b.txt").await.unwrap();
+		assert_eq!(copy.etag, "1");
+		assert_eq!(bucket.body("b.txt").as_deref(), Some("written elsewhere"));
+		assert!(still_holds(&bucket, "b.txt", &copy.subject())
+			.await
+			.is_none());
 	}
 
 	#[tokio::test]
@@ -474,7 +540,7 @@ mod tests {
 		let source = at(&bucket, "a.txt").await;
 		let job = Uuid::now_v7();
 		let refused = trash(&bucket, &source, job).await;
-		assert!(matches!(refused, Err(Refusal::Kept)), "{refused:?}");
+		assert!(matches!(refused, Err(Refusal::Kept(None))), "{refused:?}");
 		assert_eq!(bucket.body("a.txt").as_deref(), Some("changed elsewhere"));
 		assert_eq!(
 			bucket.body(&trash_key(job, "a.txt")).as_deref(),
