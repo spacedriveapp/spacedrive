@@ -25,63 +25,6 @@ export type ActiveProvider = { category: Category; locality: Locality;
  */
 model_id: string | null };
 
-/**
- * Who made a change.
- */
-export type ActivityActor = 
-/**
- * An agent writing through a grant. `grant_id` is `None` for writes
- * journaled before writes recorded their grant.
- */
-{ kind: "agent"; grant_id: string | null; label: string | null } | 
-/**
- * Someone using Spacedrive on this device, through a job such as a copy.
- */
-{ kind: "person"; device: string; job: string };
-
-/**
- * One change: an agent write, or a job's whole journal.
- */
-export type ActivityEntry = { 
-/**
- * The journal's id. `files.undo` with this id reverses the change.
- */
-id: string; at: string; actor: ActivityActor; 
-/**
- * What the last step of the change did, which for an agent write is
- * the write itself rather than the folders made above it. With a
- * requested path, the last step under it.
- */
-kind: ActivityKind; path: string; 
-/**
- * Where a move went.
- */
-to_path: string | null; 
-/**
- * How many paths the change touched, counting only those under the
- * requested path when one was given.
- */
-changes: number; 
-/**
- * Whether `files.undo` can reverse at least part of it.
- */
-undoable: boolean };
-
-export type ActivityKind = "create" | "make_dir" | "modify" | "move" | "delete" | "attributes";
-
-export type ActivityListInput = { 
-/**
- * Only changes at or under this path on this device. Every change
- * when absent.
- */
-path?: string | null; 
-/**
- * The most entries to return, newest first. Defaults to 50.
- */
-limit?: number | null };
-
-export type ActivityListOutput = { entries: ActivityEntry[] };
-
 export type Actor = { id: string; kind: ActorKind; label: string; harness: string | null };
 
 export type ActorKind = "person" | "device" | "agent";
@@ -7601,8 +7544,7 @@ export type CoreQuery =
 ;
 
 export type LibraryQuery =
-     { type: 'activity.list'; input: ActivityListInput; output: ActivityListOutput }
-  |  { type: 'actors.list'; input: ActorsListInput; output: ActorsListOutput }
+     { type: 'actors.list'; input: ActorsListInput; output: ActorsListOutput }
   |  { type: 'actors.me'; input: ActorsMeInput; output: ActorsMeOutput }
   |  { type: 'adapters.config'; input: GetAdapterConfigInput; output: [AdapterConfigField] }
   |  { type: 'adapters.list'; input: ListAdaptersInput; output: [AdapterInfo] }
@@ -7848,7 +7790,6 @@ export const WIRE_METHODS = {
   },
 
   libraryQueries: {
-    'activity.list': 'query:activity.list',
     'actors.list': 'query:actors.list',
     'actors.me': 'query:actors.me',
     'adapters.config': 'query:adapters.config',
