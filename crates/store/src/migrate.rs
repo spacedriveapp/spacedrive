@@ -57,7 +57,7 @@ pub(crate) async fn run(pool: &SqlitePool) -> Result<()> {
 		)));
 	}
 	if current == SCHEMA_VERSION {
-		return Ok(());
+		return add_space_versioning(&mut *pool.acquire().await?).await;
 	}
 
 	let has_record: Option<i64> =
@@ -141,29 +141,39 @@ async fn spaces_name_protected_patterns(pool: &SqlitePool) -> Result<()> {
 	Ok(())
 }
 
-/// Migration 4: `space.versioning`, off by default. A store from before
-/// spaces has no table yet; the record DDL that follows creates it with the
-/// column.
+/// Migration 4: `space.versioning`, off by default.
 async fn spaces_say_whether_they_keep_versions(pool: &SqlitePool) -> Result<()> {
 	let mut conn = pool.acquire().await?;
 	let mut tx = conn.begin().await?;
-	let has_space: Option<i64> =
-		sqlx::query_scalar("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'space'")
-			.fetch_optional(&mut *tx)
-			.await?;
-	let present: Option<i64> =
-		sqlx::query_scalar("SELECT 1 FROM pragma_table_info('space') WHERE name = 'versioning'")
-			.fetch_optional(&mut *tx)
-			.await?;
-	if has_space.is_some() && present.is_none() {
-		sqlx::query("ALTER TABLE space ADD COLUMN versioning INTEGER NOT NULL DEFAULT 0")
-			.execute(&mut *tx)
-			.await?;
-	}
+	add_space_versioning(&mut tx).await?;
 	sqlx::query("PRAGMA user_version = 4")
 		.execute(&mut *tx)
 		.await?;
 	tx.commit().await?;
+	Ok(())
+}
+
+/// Add `space.versioning` to a store whose `space` table lacks it. A store
+/// from before spaces has no table yet; the record DDL that follows creates
+/// it with the column.
+///
+/// This checks the column rather than the version, and also runs on a store
+/// already at [`SCHEMA_VERSION`]: a development store can carry another
+/// branch's migration under the same number without this column.
+async fn add_space_versioning(conn: &mut sqlx::SqliteConnection) -> Result<()> {
+	let has_space: Option<i64> =
+		sqlx::query_scalar("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'space'")
+			.fetch_optional(&mut *conn)
+			.await?;
+	let present: Option<i64> =
+		sqlx::query_scalar("SELECT 1 FROM pragma_table_info('space') WHERE name = 'versioning'")
+			.fetch_optional(&mut *conn)
+			.await?;
+	if has_space.is_some() && present.is_none() {
+		sqlx::query("ALTER TABLE space ADD COLUMN versioning INTEGER NOT NULL DEFAULT 0")
+			.execute(&mut *conn)
+			.await?;
+	}
 	Ok(())
 }
 

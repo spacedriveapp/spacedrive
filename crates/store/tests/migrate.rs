@@ -667,6 +667,38 @@ async fn migration_4_adds_versioning_to_spaces_off() {
 	assert_eq!(versioning, [false]);
 }
 
+/// A store already at this version whose `space` table lacks the versioning
+/// column, as a development store can after another branch's migration
+/// took the same number, gains it on open.
+#[tokio::test]
+async fn a_current_store_without_versioning_gains_it() {
+	let fixture = Fixture::new().await;
+	let pool = raw(&fixture.db_path()).await;
+	for sql in [
+		"ALTER TABLE space DROP COLUMN versioning",
+		"INSERT INTO space (uuid, name, kind, root, content_indexing, created_at, deleted, updated_hlc, origin_device) \
+		 VALUES (X'01', 'Docs', 'folder', 'Documents', 1, '2026-11-27T00:00:00Z', 0, '0001', X'09')",
+	] {
+		sqlx::query(sql).execute(&pool).await.expect(sql);
+	}
+	assert_eq!(
+		migrate::version(&pool).await.expect("version"),
+		SCHEMA_VERSION
+	);
+	pool.close().await;
+
+	let db = fixture
+		.manager
+		.open("source-1")
+		.await
+		.expect("open repairs");
+	let versioning: Vec<bool> = sqlx::query_scalar("SELECT versioning FROM space")
+		.fetch_all(db.pool())
+		.await
+		.expect("the column");
+	assert_eq!(versioning, [false]);
+}
+
 /// Migration 3 on a version 2 store: every space gains an empty protected
 /// list and keeps the rest of its row.
 #[tokio::test]
