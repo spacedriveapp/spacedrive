@@ -74,8 +74,8 @@ use crate::{
 		actors::{self, Actor},
 		sources::{DeleteSourceAction, DeleteSourceInput},
 		spaces::{
-			events, store, versioning, SpaceCreateAction, SpaceCreateInput, SpaceUpdateAction,
-			SpaceUpdateInput,
+			events, store, versioning, SpaceCreateAction, SpaceCreateInput, SpaceDeleteAction,
+			SpaceDeleteInput, SpaceUpdateAction, SpaceUpdateInput,
 		},
 	},
 };
@@ -243,16 +243,20 @@ async fn export(
 		let person = actors::this_person(library, context).await?;
 		let template =
 			VersionRow::attributed(&Utc::now().to_rfc3339(), person, versioning::BASELINE, None);
-		// The export may be spelled through a link to the space's folder, so
-		// it is recognized by its resolved path, not its spelling.
-		let output = tokio::fs::canonicalize(path)
-			.await
-			.map_err(|e| e.to_string())?;
+		// The export may be spelled through a link or a firmlink to the
+		// space's folder, so it is recognized as the same file on disk, not by
+		// its spelling.
 		for (source, below) in versioning::current_files(context, space).await {
-			if source.file_name() == output.file_name()
-				&& tokio::fs::canonicalize(&source).await.ok().as_ref() == Some(&output)
-			{
-				continue;
+			if source.file_name() == path.file_name() {
+				let (source, output) = (source.clone(), path.to_path_buf());
+				let own = tokio::task::spawn_blocking(move || {
+					same_file::is_same_file(&source, &output).unwrap_or(false)
+				})
+				.await
+				.unwrap_or(false);
+				if own {
+					continue;
+				}
 			}
 			versions
 				.capture(
@@ -401,6 +405,11 @@ impl LibraryAction for SpaceImportAction {
 			}
 		}
 		let existed = tokio::fs::symlink_metadata(destination).await.is_ok();
+		// Tracking an already registered folder reuses its source, and that
+		// source's catalog is not the import's to delete on failure.
+		let registered = store::locate(&library, &context, destination)
+			.await
+			.map(|located| located.source_id);
 
 		let space = SpaceCreateAction::from_input(SpaceCreateInput {
 			name: Some(self.input.name.clone().unwrap_or(record.name.clone())),
@@ -427,7 +436,16 @@ impl LibraryAction for SpaceImportAction {
 				space,
 			}),
 			Err(error) => {
-				unwind(&library, &context, &space, destination, existed).await;
+				let owns_source = registered != Some(space.source_id);
+				unwind(
+					&library,
+					&context,
+					&space,
+					owns_source,
+					destination,
+					existed,
+				)
+				.await;
 				Err(error)
 			}
 		}
@@ -521,31 +539,46 @@ async fn publish(
 	Ok((space, imported.len() as u64, counts))
 }
 
-/// Take back a failed import: the new space's source, its store and
-/// versions, and the files it moved in. A destination that existed before stays, empty, as it was.
+/// Take back a failed import: the space, its versions, the source when the
+/// import registered it, and the files it moved in. A destination that
+/// existed before stays, empty, as it was.
 async fn unwind(
 	library: &Arc<Library>,
 	context: &Arc<CoreContext>,
 	space: &Space,
+	owns_source: bool,
 	destination: &Path,
 	existed: bool,
 ) {
-	// A workspace space is a source of its own, created by this import, so
-	// the whole source goes, with its store and the space's versions in it.
-	versioning::close(space.id).await;
-	let deleted = DeleteSourceAction::from_input(DeleteSourceInput {
-		source_id: space.source_id.to_string(),
-		delete_catalog: true,
-	})
-	.map_err(ActionError::Internal);
-	if let Err(error) = match deleted {
-		Ok(action) => action
-			.execute(library.clone(), context.clone())
-			.await
-			.map(drop),
-		Err(error) => Err(error),
-	} {
-		warn!(space = %space.id, ?error, "could not remove the source of a failed import");
+	// A source the import registered goes whole, with its store and the
+	// space's versions in it. A source that was already registered keeps its
+	// catalog, and only the space and its versions go.
+	let removed = if owns_source {
+		versioning::close(space.id).await;
+		match DeleteSourceAction::from_input(DeleteSourceInput {
+			source_id: space.source_id.to_string(),
+			delete_catalog: true,
+		}) {
+			Ok(action) => action
+				.execute(library.clone(), context.clone())
+				.await
+				.map(drop),
+			Err(error) => Err(ActionError::Internal(error)),
+		}
+	} else {
+		if let Err(error) = versioning::discard(context, space.source_id, space.id).await {
+			warn!(space = %space.id, %error, "could not delete the versions of a failed import");
+		}
+		match SpaceDeleteAction::from_input(SpaceDeleteInput { id: space.id }) {
+			Ok(action) => action
+				.execute(library.clone(), context.clone())
+				.await
+				.map(drop),
+			Err(error) => Err(ActionError::Internal(error)),
+		}
+	};
+	if let Err(error) = removed {
+		warn!(space = %space.id, ?error, "could not remove the space of a failed import");
 	}
 	let cleared = if existed {
 		clear(destination).await

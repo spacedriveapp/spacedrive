@@ -780,6 +780,40 @@ async fn a_space_round_trips_through_an_sdspace_file() -> anyhow::Result<()> {
 		sources_before,
 		"no source is left registered"
 	);
+
+	// A folder that is already a registered source keeps that source and its
+	// catalog when an import into it fails.
+	let reused = out.path().join("reused");
+	let earlier = SpaceCreateAction::from_input(SpaceCreateInput {
+		name: None,
+		kind: SpaceKind::Workspace,
+		path: Some(reused.clone()),
+		content_indexing: None,
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?
+	.space;
+	sd_core::ops::spaces::SpaceDeleteAction::from_input(sd_core::ops::spaces::SpaceDeleteInput {
+		id: earlier.id,
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await?;
+	let with_reused = sources().await?;
+	let malformed_again = out.path().join("malformed-again.sdspace");
+	tokio::fs::copy(&full, &malformed_again).await?;
+	{
+		let pool =
+			sqlx::SqlitePool::connect(&format!("sqlite://{}", malformed_again.display())).await?;
+		sqlx::query("UPDATE space_event SET actor_id = 'not an id'")
+			.execute(&pool)
+			.await?;
+		pool.close().await;
+	}
+	assert!(import(malformed_again, reused.clone()).await.is_err());
+	assert_eq!(sources().await?, with_reused, "the registered source stays");
+	assert!(reused.exists(), "the folder that was there stays");
 	let spaces_after = SpacesListQuery::from_input(SpacesListQueryInput { source_id: None })
 		.expect("input")
 		.execute(harness.core.context.clone(), session(&harness))
