@@ -274,8 +274,6 @@ async fn a_bucket_prefix_is_a_space_an_agent_works_in() -> anyhow::Result<()> {
 		path: PathBuf::from(&project),
 		caps: Some(GrantCap::ReadWrite),
 		ttl_seconds: None,
-		kind: None,
-		token_format: None,
 		label: Some("bucket space".to_string()),
 	})
 	.map_err(anyhow::Error::msg)?
@@ -295,7 +293,7 @@ async fn a_bucket_prefix_is_a_space_an_agent_works_in() -> anyhow::Result<()> {
 		http: reqwest::Client::new(),
 		base: format!("http://{bound}"),
 		token: issued.token.clone(),
-		space: issued.grant.id.to_string(),
+		space: space.id.to_string(),
 	};
 
 	let root = rest.get("stat/").await;

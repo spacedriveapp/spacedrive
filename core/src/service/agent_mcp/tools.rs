@@ -246,6 +246,11 @@ pub fn definitions() -> Value {
 		},
 		"additionalProperties": false,
 	});
+	let epoch = json!({
+		"type": "integer",
+		"minimum": 0,
+		"description": "The space's authority epoch you are writing against. If the space has moved past it, the call fails as stale_epoch and names the current epoch. Omit it to skip the check.",
+	});
 	let writes = |title: &str, destructive: bool| {
 		json!({
 			"title": title,
@@ -435,6 +440,7 @@ pub fn definitions() -> Value {
 					"encoding": { "type": "string", "enum": ["utf8", "base64"], "default": "utf8" },
 					"offset": { "type": "integer", "minimum": 0, "description": "Write content starting at this byte and keep the rest of the file. Needs expect." },
 					"expect": expect.clone(),
+					"epoch": epoch.clone(),
 				},
 				"required": ["path", "content"],
 				"additionalProperties": false,
@@ -447,7 +453,7 @@ pub fn definitions() -> Value {
 			"description": "Creates a directory and any missing parents. A directory already there is left as it is. If a file has the name, the directory is made beside it under a conflict name.",
 			"inputSchema": {
 				"type": "object",
-				"properties": { "path": path("The directory") },
+				"properties": { "path": path("The directory"), "epoch": epoch.clone() },
 				"required": ["path"],
 				"additionalProperties": false,
 			},
@@ -463,6 +469,7 @@ pub fn definitions() -> Value {
 					"path": path("The file or directory to move"),
 					"to": path("Where it goes"),
 					"expect": expect.clone(),
+					"epoch": epoch.clone(),
 				},
 				"required": ["path", "to", "expect"],
 				"additionalProperties": false,
@@ -478,6 +485,7 @@ pub fn definitions() -> Value {
 				"properties": {
 					"path": path("The file or directory"),
 					"expect": expect,
+					"epoch": epoch,
 				},
 				"required": ["path", "expect"],
 				"additionalProperties": false,
@@ -641,9 +649,10 @@ async fn list_changes(
 	scope: &GrantScope,
 	args: ListChangesArgs,
 ) -> Result<Output, String> {
-	let Some(space_id) = scope.space_id else {
-		return Err("this grant has no change log because it predates spaces; ask the owner for a new grant".to_string());
-	};
+	if scope.space_id == scope.grant_id {
+		return Err("this grant has no change log because its folder is in no space".to_string());
+	}
+	let space_id = scope.space_id;
 	let since = match args.cursor.as_deref() {
 		Some(cursor) => cursor
 			.parse::<i64>()
@@ -1001,16 +1010,33 @@ fn scrub(message: &str, root: &Path) -> String {
 
 /// A tool's own arguments. `path` is left out: [`target_path`] checked it,
 /// the transport authorized it, and the tool works on the scope that
-/// resolved, never on the string.
+/// resolved, never on the string. `epoch` is left out too, since
+/// `authorize` already checked it.
 fn args<T: for<'de> Deserialize<'de>>(mut arguments: Value) -> Result<T, String> {
 	match &mut arguments {
 		Value::Object(fields) => {
 			fields.remove("path");
+			fields.remove("epoch");
 		}
 		Value::Null => arguments = json!({}),
 		_ => {}
 	}
 	serde_json::from_value(arguments).map_err(|e| format!("invalid arguments: {e}"))
+}
+
+/// The authority epoch a write call names, for `authorize` to check.
+/// Reads carry none.
+pub fn target_epoch(tool: Tool, arguments: &Value) -> Result<Option<u64>, String> {
+	if tool.cap() != GrantCap::ReadWrite {
+		return Ok(None);
+	}
+	match arguments.get("epoch") {
+		None | Some(Value::Null) => Ok(None),
+		Some(epoch) => epoch
+			.as_u64()
+			.map(Some)
+			.ok_or_else(|| "invalid arguments: epoch is a non-negative integer".to_string()),
+	}
 }
 
 /// The grant-relative path a call names, after checking the call's fields
@@ -2203,8 +2229,9 @@ mod tests {
 		let scope = GrantScope {
 			grant_id: uuid::Uuid::new_v4(),
 			actor_id: uuid::Uuid::new_v4(),
-			space_id: None,
 			library_id: uuid::Uuid::new_v4(),
+			space_id: uuid::Uuid::new_v4(),
+			authority_epoch: 0,
 			cap: GrantCap::Read,
 			path: root.join("cloud.txt"),
 			relative: PathBuf::from("cloud.txt"),
