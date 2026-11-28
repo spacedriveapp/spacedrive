@@ -274,8 +274,6 @@ async fn a_bucket_prefix_is_a_space_an_agent_works_in() -> anyhow::Result<()> {
 		path: PathBuf::from(&project),
 		caps: Some(GrantCap::ReadWrite),
 		ttl_seconds: None,
-		kind: None,
-		token_format: None,
 		label: Some("bucket space".to_string()),
 		kind: None,
 		token_format: None,
