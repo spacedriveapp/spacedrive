@@ -30,8 +30,8 @@ sd space import project.sdspace ~/Spaces/project --name "Project copy"
 
 The op is `spaces.import` with `{ path, destination, name? }`. It creates a new workspace space at `destination`, which must not exist or must be empty, and answers the new space and what came across.
 
-1. Spacedrive checks the whole file: every path stays inside the space, and every piece of content rebuilds to its hash. It writes the newest version of each file into a temporary folder beside the destination. A damaged file stops the import here, before anything exists in the library.
-2. It creates the space and moves the files into its folder. These writes are part of the import and do not appear as changes made outside Spacedrive.
+1. Spacedrive checks the whole file: every path stays inside the space, and every piece of content rebuilds to its hash. It writes the newest version of each file into a temporary folder in the Spacedrive data directory, which no space watches. A damaged file stops the import here, before anything exists in the library.
+2. It creates the space and moves the files into its folder, copying them when the destination is on another disk. These writes are part of the import and do not appear as changes made outside Spacedrive.
 3. It adds the change log to the new space's log.
 4. If the exported space kept versions, it copies the versions and snapshots into the new space's version store and turns versioning on.
 

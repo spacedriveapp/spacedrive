@@ -746,12 +746,63 @@ async fn a_space_round_trips_through_an_sdspace_file() -> anyhow::Result<()> {
 		.len();
 	assert_eq!(spaces_after, spaces_before, "no space is left behind");
 
+	// A file that passes the check but fails once the space exists, here an
+	// unreadable change log, takes the new space and its source back out.
+	let malformed = out.path().join("malformed.sdspace");
+	tokio::fs::copy(&full, &malformed).await?;
+	{
+		let pool = sqlx::SqlitePool::connect(&format!("sqlite://{}", malformed.display())).await?;
+		sqlx::query("UPDATE space_event SET actor_id = 'not an id'")
+			.execute(&pool)
+			.await?;
+		pool.close().await;
+	}
+	let sources = || async {
+		sd_core::ops::sources::list::query::ListSourcesQuery::from_input(
+			sd_core::ops::sources::list::query::ListSourcesInput { data_type: None },
+		)
+		.expect("input")
+		.execute(harness.core.context.clone(), session(&harness))
+		.await
+		.map(|sources| sources.len())
+	};
+	let sources_before = sources().await?;
+	let error = import(malformed, out.path().join("malformed"))
+		.await
+		.expect_err("an unreadable change log fails the import");
+	assert!(error.to_string().contains("Internal"), "{error}");
+	assert!(
+		!out.path().join("malformed").exists(),
+		"the files it moved in are gone"
+	);
+	assert_eq!(
+		sources().await?,
+		sources_before,
+		"no source is left registered"
+	);
+	let spaces_after = SpacesListQuery::from_input(SpacesListQueryInput { source_id: None })
+		.expect("input")
+		.execute(harness.core.context.clone(), session(&harness))
+		.await?
+		.spaces
+		.len();
+	assert_eq!(spaces_after, spaces_before, "no space is left behind");
+
 	// A space with versioning off exports its files as they are, and an
 	// export written inside the space leaves itself out.
 	let plain = space(&harness, &tracked.root.join("plain")).await?;
 	let inside = export(plain.id, tracked.root.join("plain/backup.sdspace"), false).await?;
 	assert_eq!(inside.summary.files, 1);
 	tokio::fs::remove_file(tracked.root.join("plain/backup.sdspace")).await?;
+	let alias = out.path().join("plain-link");
+	tokio::fs::symlink(tracked.root.join("plain"), &alias).await?;
+	let aliased = export(plain.id, alias.join("backup.sdspace"), false).await?;
+	assert_eq!(
+		aliased.summary.files, 1,
+		"an export reached through a link leaves itself out"
+	);
+	tokio::fs::remove_file(tracked.root.join("plain/backup.sdspace")).await?;
+	tokio::fs::remove_file(&alias).await?;
 	let plain_file = out.path().join("plain.sdspace");
 	let exported = export(plain.id, plain_file.clone(), false).await?;
 	assert_eq!(exported.summary.files, 1);

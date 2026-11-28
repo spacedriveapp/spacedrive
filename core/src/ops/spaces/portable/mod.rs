@@ -6,12 +6,12 @@
 //! need, or with `current_only` only the newest version of each file. A space
 //! with versioning off exports its current files.
 //!
-//! An import checks the whole file and writes its files beside the
-//! destination before it creates anything, so a damaged file leaves the
+//! An import checks the whole file and writes its files in the data
+//! directory before it creates anything, so a damaged file leaves the
 //! library as it was. It then creates a workspace space at the empty
 //! destination, moves the files in, and brings the log, versions and
 //! snapshots across, so history and restore work as they did. A failure
-//! after that removes the new space and its files again.
+//! after that removes the new space, its source and its files again.
 //!
 //! ## Example
 //! ```rust,no_run
@@ -72,12 +72,16 @@ use crate::{
 	library::Library,
 	ops::{
 		actors::{self, Actor},
+		sources::{DeleteSourceAction, DeleteSourceInput},
 		spaces::{
-			events, store, versioning, SpaceCreateAction, SpaceCreateInput, SpaceDeleteAction,
-			SpaceDeleteInput, SpaceUpdateAction, SpaceUpdateInput,
+			events, store, versioning, SpaceCreateAction, SpaceCreateInput, SpaceUpdateAction,
+			SpaceUpdateInput,
 		},
 	},
 };
+
+/// Where an import stages its files, under the data directory.
+const IMPORTS_DIR: &str = "imports";
 
 /// What an export or an import carried.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Type)]
@@ -239,8 +243,15 @@ async fn export(
 		let person = actors::this_person(library, context).await?;
 		let template =
 			VersionRow::attributed(&Utc::now().to_rfc3339(), person, versioning::BASELINE, None);
+		// The export may be spelled through a link to the space's folder, so
+		// it is recognized by its resolved path, not its spelling.
+		let output = tokio::fs::canonicalize(path)
+			.await
+			.map_err(|e| e.to_string())?;
 		for (source, below) in versioning::current_files(context, space).await {
-			if source == path {
+			if source.file_name() == output.file_name()
+				&& tokio::fs::canonicalize(&source).await.ok().as_ref() == Some(&output)
+			{
 				continue;
 			}
 			versions
@@ -356,18 +367,17 @@ impl LibraryAction for SpaceImportAction {
 			.await
 			.map_err(|e| ActionError::InvalidInput(e.to_string()))?;
 
-		// The files are written and checked in a folder beside the
-		// destination first, so a damaged file fails before any space exists.
+		// The files are written and checked in the data directory first, which
+		// no space watches, so a damaged file fails before any space exists
+		// and no enclosing space sees the staged copies.
 		let destination = &self.input.destination;
-		let parent = destination.parent().ok_or_else(|| {
-			ActionError::InvalidInput("the destination has no folder".to_string())
-		})?;
-		tokio::fs::create_dir_all(parent)
+		let imports = context.data_dir.join(IMPORTS_DIR);
+		tokio::fs::create_dir_all(&imports)
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?;
 		let staging = tempfile::Builder::new()
-			.prefix(".sdspace-import-")
-			.tempdir_in(parent)
+			.prefix("import-")
+			.tempdir_in(&imports)
 			.map_err(|e| ActionError::Internal(e.to_string()))?;
 		for row in &current {
 			let target = staging.path().join(&row.path);
@@ -452,8 +462,10 @@ async fn publish(
 		.await
 		.map_err(|e| internal(&e))?;
 	while let Some(entry) = entries.next_entry().await.map_err(|e| internal(&e))? {
-		tokio::fs::rename(entry.path(), folder.join(entry.file_name()))
+		let (from, to) = (entry.path(), folder.join(entry.file_name()));
+		tokio::task::spawn_blocking(move || move_tree(&from, &to))
 			.await
+			.map_err(|e| internal(&e))?
 			.map_err(|e| internal(&e))?;
 	}
 	drop(held);
@@ -509,8 +521,8 @@ async fn publish(
 	Ok((space, imported.len() as u64, counts))
 }
 
-/// Take back a failed import: the new space, its versions, and the files it
-/// moved in. A destination that existed before stays, empty, as it was.
+/// Take back a failed import: the new space's source, its store and
+/// versions, and the files it moved in. A destination that existed before stays, empty, as it was.
 async fn unwind(
 	library: &Arc<Library>,
 	context: &Arc<CoreContext>,
@@ -518,8 +530,14 @@ async fn unwind(
 	destination: &Path,
 	existed: bool,
 ) {
-	let deleted = SpaceDeleteAction::from_input(SpaceDeleteInput { id: space.id })
-		.map_err(ActionError::Internal);
+	// A workspace space is a source of its own, created by this import, so
+	// the whole source goes, with its store and the space's versions in it.
+	versioning::close(space.id).await;
+	let deleted = DeleteSourceAction::from_input(DeleteSourceInput {
+		source_id: space.source_id.to_string(),
+		delete_catalog: true,
+	})
+	.map_err(ActionError::Internal);
 	if let Err(error) = match deleted {
 		Ok(action) => action
 			.execute(library.clone(), context.clone())
@@ -527,7 +545,7 @@ async fn unwind(
 			.map(drop),
 		Err(error) => Err(error),
 	} {
-		warn!(space = %space.id, ?error, "could not remove the space of a failed import");
+		warn!(space = %space.id, ?error, "could not remove the source of a failed import");
 	}
 	let cleared = if existed {
 		clear(destination).await
@@ -536,6 +554,27 @@ async fn unwind(
 	};
 	if let Err(error) = cleared {
 		warn!(path = %destination.display(), %error, "could not remove the files of a failed import");
+	}
+}
+
+/// Move a staged file or folder into place. The data directory and the
+/// destination can sit on different disks, where a rename cannot reach, so
+/// that case copies and then removes the staged copy.
+fn move_tree(from: &Path, to: &Path) -> std::io::Result<()> {
+	match std::fs::rename(from, to) {
+		Err(error) if error.kind() == std::io::ErrorKind::CrossesDevices => {}
+		other => return other,
+	}
+	if std::fs::symlink_metadata(from)?.is_dir() {
+		std::fs::create_dir(to)?;
+		for entry in std::fs::read_dir(from)? {
+			let entry = entry?;
+			move_tree(&entry.path(), &to.join(entry.file_name()))?;
+		}
+		std::fs::remove_dir(from)
+	} else {
+		std::fs::copy(from, to)?;
+		std::fs::remove_file(from)
 	}
 }
 
