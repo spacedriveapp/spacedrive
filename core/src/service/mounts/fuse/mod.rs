@@ -32,7 +32,7 @@ pub use super::tree;
 
 use crate::config::AppConfig;
 use crate::context::CoreContext;
-use crate::ops::grants::GrantError;
+use crate::ops::grants::{create::owning_source, GrantError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -175,15 +175,19 @@ async fn mount_tree(
 				GrantCap::Read,
 			)
 			.await?;
-			let sources = context.volume_index().sources();
-			let source = crate::ops::paths::reach::innermost_source(&sources, &scope.root)
+			// The grant keeps the directory's canonical spelling, which on
+			// macOS can differ from the source's by a firmlink, and the tree
+			// answers only to the source's spelling.
+			let (source_id, path) = owning_source(&context, scope.library_id, &scope.root)
+				.await
+				.map_err(FuseError::Mount)?
 				.ok_or(FuseError::NoSource)?;
 			let grant = BoundGrant {
 				token,
 				root: MountRoot {
 					name: String::new(),
-					source_id: source.id,
-					path: scope.root.clone(),
+					source_id,
+					path,
 					remote: false,
 				},
 			};
