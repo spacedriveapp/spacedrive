@@ -18,6 +18,7 @@
 		"indexing",
 		"content-search",
 		"semantic-search",
+		"space-versioning",
 		"transcription",
 		"devices",
 		"volumes",

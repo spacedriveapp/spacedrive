@@ -9,6 +9,7 @@ serde       = { workspace = true }
 serde_json  = { workspace = true }
 uuid        = { workspace = true, features = ["v4", "v5", "v7", "serde"] }
 blake3      = { workspace = true }
+fastcdc     = { workspace = true }
 chrono      = { workspace = true }
 tokio       = { workspace = true, features = ["fs", "sync"] }
 toml        = { workspace = true }

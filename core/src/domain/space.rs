@@ -57,6 +57,8 @@ pub struct Space {
 	pub path: Option<PathBuf>,
 	/// Whether file contents inside the space are hashed and read.
 	pub content_indexing: bool,
+	/// Whether every change inside the space keeps its bytes as a version.
+	pub versioning: bool,
 	/// Patterns an agent may not write inside the space, on top of the
 	/// built-in list. `/`-anchored patterns start at the space root; others
 	/// match at any depth.
@@ -81,6 +83,7 @@ impl Space {
 			root: row.root,
 			path,
 			content_indexing: row.content_indexing,
+			versioning: row.versioning,
 			protected: serde_json::from_str(&row.protected).unwrap_or_default(),
 			created_at: DateTime::parse_from_rfc3339(&row.created_at)
 				.map(|at| at.with_timezone(&Utc))

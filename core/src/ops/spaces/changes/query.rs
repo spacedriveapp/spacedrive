@@ -87,6 +87,50 @@ pub struct SpaceChangesOutput {
 	pub next: i64,
 }
 
+/// The actors of a library by id, for naming who made a change.
+pub struct ActorNames {
+	known: HashMap<Uuid, Actor>,
+	this_device: Option<Actor>,
+}
+
+impl ActorNames {
+	pub async fn load(library: &Library, context: &CoreContext) -> Result<Self, String> {
+		let known = actors::all(library)
+			.await
+			.map_err(|e| e.to_string())?
+			.into_iter()
+			.map(|actor| (actor.id, actor))
+			.collect();
+		// The watcher attributes to this device, which has no row until an
+		// app action names it; a read never writes one.
+		let this_device = context.device_manager.config().ok().map(|device| Actor {
+			id: device.id,
+			kind: ActorKind::Device,
+			label: device.name,
+			harness: None,
+		});
+		Ok(Self { known, this_device })
+	}
+
+	/// The actor with `id`, or a stand-in named for the change's origin.
+	pub fn get(&self, id: Uuid, origin: &str) -> Actor {
+		self.known
+			.get(&id)
+			.or(self.this_device.as_ref().filter(|device| device.id == id))
+			.cloned()
+			.unwrap_or(Actor {
+				id,
+				kind: if origin == events::Origin::Watcher.as_str() {
+					ActorKind::Device
+				} else {
+					ActorKind::Agent
+				},
+				label: "an unknown actor".to_string(),
+				harness: None,
+			})
+	}
+}
+
 /// One page of a space's changes, with each actor resolved.
 pub async fn page(
 	library: &Library,
@@ -111,42 +155,12 @@ pub async fn page(
 		})
 		.await
 		.map_err(|e| e.to_string())?;
-	// The watcher attributes to this device, which has no row until an app
-	// action names it; a read never writes one.
-	let this_device = context.device_manager.config().ok();
-	let known: HashMap<Uuid, Actor> = actors::all(library)
-		.await
-		.map_err(|e| e.to_string())?
-		.into_iter()
-		.map(|actor| (actor.id, actor))
-		.collect();
+	let names = ActorNames::load(library, context).await?;
 	let next = rows.last().map_or(start, |row| row.seq);
 	let changes = rows
 		.into_iter()
 		.map(|row| {
-			let actor = known.get(&row.actor_id).cloned();
-			let actor = actor
-				.or_else(|| {
-					this_device
-						.as_ref()
-						.filter(|device| device.id == row.actor_id)
-						.map(|device| Actor {
-							id: device.id,
-							kind: ActorKind::Device,
-							label: device.name.clone(),
-							harness: None,
-						})
-				})
-				.unwrap_or(Actor {
-					id: row.actor_id,
-					kind: if row.origin == events::Origin::Watcher.as_str() {
-						ActorKind::Device
-					} else {
-						ActorKind::Agent
-					},
-					label: "an unknown actor".to_string(),
-					harness: None,
-				});
+			let actor = names.get(row.actor_id, &row.origin);
 			let target = row.to_path.as_deref().unwrap_or(&row.path);
 			let summary = if row.origin == events::Origin::Watcher.as_str() {
 				format!("{target} changed outside Spacedrive on {}", actor.label)

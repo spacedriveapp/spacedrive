@@ -72,6 +72,7 @@ pub mod schema;
 pub mod source;
 pub mod space;
 pub mod space_events;
+pub mod space_versions;
 pub mod tags;
 pub mod vectors;
 pub mod video;
@@ -109,6 +110,9 @@ pub use schema::{DataTypeSchema, FieldType, ModelDef};
 pub use source::SourceManager;
 pub use space::SpaceRow;
 pub use space_events::{EventQuery, SpaceEvent, SpaceEventLog, SPACE_EVENTS_FILE};
+pub use space_versions::{
+	Pruned, SnapshotRow, SpaceVersions, StoredBlob, VersionRow, BLOBS_DIR, SPACE_VERSIONS_FILE,
+};
 pub use tags::{
 	normalize_tag_path, slug_for_path, AppliedTag, TagAssertion, TagDefinition, TAG_NAMESPACE,
 };

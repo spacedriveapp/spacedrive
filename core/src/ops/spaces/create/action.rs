@@ -232,6 +232,7 @@ impl LibraryAction for SpaceCreateAction {
 			kind: input.kind.as_str().to_string(),
 			root: relative,
 			content_indexing: input.content_indexing.unwrap_or(bucket.is_none()),
+			versioning: false,
 			protected,
 			created_at: Utc::now().to_rfc3339(),
 			deleted: false,

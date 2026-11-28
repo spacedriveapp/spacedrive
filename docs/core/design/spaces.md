@@ -134,18 +134,21 @@ Retention is 30 days by default, configurable per space. With versioning off, a 
 
 ### Versioning objects
 
-These exist only for spaces with versioning on.
+These exist only for spaces with versioning on. They live in the space's directory, beside its event log: `versions.db` and `blobs/`. [space-versioning.mdx](../space-versioning.mdx) describes the built behavior.
 
 ```
-blob      content-addressed by BLAKE3, chunked (FastCDC, about 1 MiB average),
-          in sources/<id>/spaces/<space id>/blobs/
-manifest  id, parent_id?, space_id, entries: path -> {blob_hash, size, mode, mtime}, created_by, at
-version   space_id, path, blob_hash, manifest_id, event_seq     # per-file history, a view over events
-snapshot  name, manifest_id, created_by, at                      # a pinned manifest
-fork      child space_id, parent space_id, base manifest_id
+chunk     a FastCDC chunk (about 64 KiB average), stored once in blobs/ under its BLAKE3 hash
+blob      hash (BLAKE3 of the whole file, the precondition hash), size, ordered chunk list
+version   id, path, blob_hash? (none for a delete), size, mode, mtime, at, actor_id, origin, event_seq?
+snapshot  id, name, manifest_id, created_by, at                  # a pinned manifest
+fork      child space_id, parent space_id, base manifest_id       # not built yet
 ```
 
-Each committed change stores its new bytes as blobs before the commit rename, then appends a manifest delta. The write path already stages bytes, and it hashes as it stages. Changes seen by the watcher are captured by hashing on ingest. A change that was overwritten before ingest is lost, and the interface says so. Chunking keeps versioning of large media affordable when only part of a file changes.
+The `version` table is the manifest kept as a delta log. A row says what one path holds from that row on, and its id is a manifest id. The manifest at an id is the newest row per path at or below it, and per-file history is the rows for one path.
+
+Captures follow the event log. An agent write, a restore or an app operation is captured inside the same write turn as its event, from the bytes it just committed. A change seen by the watcher is captured once the path has been quiet for 1.5 seconds, so a burst of saves is one version. A change that was overwritten before that capture read it is lost, and the interface says so. Turning versioning on captures the files already in the space as a baseline. Turning it off stops capture and keeps the versions and snapshots, which age out under retention; `spaces.history.purge` deletes them. Chunking keeps versioning of large media affordable when only part of a file changes.
+
+Retention keeps every version newer than 30 days, the newest version of each path, and every version a snapshot's manifest needs. Blobs and chunks that no kept version reaches are then deleted.
 
 A snapshot is a named manifest. It costs O(entries) and copies no bytes. A fork is a new space whose root is materialized from a manifest, using reflinks where the volume supports them and independent copies otherwise. Hard links are never used, because an editor that writes a file in place would change the parent's bytes too. A fork can also be an on-demand space served from blobs. Restoring a file or a whole space goes through the normal write path, so a restore is attributed and undoable.
 

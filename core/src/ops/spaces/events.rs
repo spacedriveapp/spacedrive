@@ -7,6 +7,10 @@
 //! lookup and writes nothing, so a home folder full of caches and build
 //! output never fills a log or starts a job.
 //!
+//! In a space with versioning on, each logged change also feeds the space's
+//! versions ([`super::versioning`]). A space with versioning off never opens
+//! them; the flag rides in the same cached lookup that finds the space.
+//!
 //! An agent write or an app operation is seen again by the watcher a moment
 //! later. The first writer marks the path, and the watcher skips a marked path
 //! for a few seconds, so one change is one event with the right actor.
@@ -32,7 +36,10 @@ use uuid::Uuid;
 use crate::{
 	context::CoreContext,
 	infra::job::journal::Effect,
-	ops::{grants::protect, spaces::store::slash_path},
+	ops::{
+		grants::protect,
+		spaces::{store::slash_path, versioning},
+	},
 };
 
 /// How long a space keeps its events unless it says otherwise.
@@ -53,6 +60,8 @@ pub enum Origin {
 	AgentWrite,
 	AppOp,
 	Watcher,
+	/// A stored version written back through the write path.
+	Restore,
 }
 
 impl Origin {
@@ -61,6 +70,7 @@ impl Origin {
 			Self::AgentWrite => "agent_write",
 			Self::AppOp => "app_op",
 			Self::Watcher => "watcher",
+			Self::Restore => "restore",
 		}
 	}
 }
@@ -97,6 +107,8 @@ pub struct InSpace {
 	pub space_id: Uuid,
 	/// Relative to the space root, `/`-separated. Empty is the root itself.
 	pub path: String,
+	/// Whether the space keeps versions.
+	pub versioning: bool,
 }
 
 struct Logs {
@@ -106,11 +118,13 @@ struct Logs {
 }
 
 /// A space as the lookups here need it.
-struct Cached {
-	id: Uuid,
-	root: String,
+pub(super) struct Cached {
+	pub(super) id: Uuid,
+	pub(super) root: String,
 	/// Its protected patterns, when it has any that compile.
 	protected: Option<Arc<GlobSet>>,
+	/// Whether it keeps versions.
+	versioning: bool,
 }
 
 static SPACES: LazyLock<Mutex<HashMap<Uuid, Arc<Vec<Cached>>>>> = LazyLock::new(Default::default);
@@ -242,7 +256,7 @@ fn is_own(own: &HashMap<PathBuf, Claim>, path: &Path, now: Instant) -> bool {
 	})
 }
 
-async fn spaces_of(context: &CoreContext, source_id: Uuid) -> Arc<Vec<Cached>> {
+pub(super) async fn spaces_of(context: &CoreContext, source_id: Uuid) -> Arc<Vec<Cached>> {
 	let generation = {
 		let spaces = SPACES.lock();
 		if let Some(spaces) = spaces.get(&source_id) {
@@ -284,6 +298,7 @@ fn cached(row: sd_store::SpaceRow) -> Cached {
 		id: row.uuid,
 		root: row.root,
 		protected,
+		versioning: row.versioning,
 	}
 }
 
@@ -301,16 +316,21 @@ fn inside<'a>(root: &str, relative: &'a str) -> Option<&'a str> {
 }
 
 /// The innermost space of `spaces` that holds `relative`, and `relative`
-/// under that space's root.
-fn innermost(spaces: &[Cached], relative: &str) -> Option<(Uuid, String)> {
+/// under that space's root, and whether the space keeps versions.
+fn innermost(spaces: &[Cached], relative: &str) -> Option<(Uuid, String, bool)> {
 	spaces
 		.iter()
 		.filter_map(|space| {
 			let inside = inside(&space.root, relative)?;
-			Some((space.root.len(), space.id, inside.to_string()))
+			Some((
+				space.root.len(),
+				space.id,
+				inside.to_string(),
+				space.versioning,
+			))
 		})
-		.max_by_key(|(depth, _, _)| *depth)
-		.map(|(_, id, inside)| (id, inside))
+		.max_by_key(|(depth, ..)| *depth)
+		.map(|(_, id, inside, versioning)| (id, inside, versioning))
 }
 
 /// The source of `path`, its spaces, and `path` relative to the source
@@ -357,11 +377,12 @@ pub async fn space_of(
 	library: Option<Uuid>,
 ) -> Option<InSpace> {
 	let (source_id, spaces, relative) = locate(context, path, library).await?;
-	let (space_id, path) = innermost(&spaces, &relative)?;
+	let (space_id, path, versioning) = innermost(&spaces, &relative)?;
 	Some(InSpace {
 		source_id,
 		space_id,
 		path,
+		versioning,
 	})
 }
 
@@ -438,6 +459,7 @@ pub async fn log_of(
 			source_id,
 			space_id,
 			path: String::new(),
+			versioning: false,
 		},
 	)
 	.await
@@ -496,8 +518,15 @@ pub async fn record(context: &CoreContext, who: Attribution, change: Change) -> 
 		let Some(log) = log_for(context, &at).await else {
 			continue;
 		};
-		if let Err(error) = log.append(&event).await {
-			warn!(space = %at.space_id, %error, "could not append a space event");
+		let seq = match log.append(&event).await {
+			Ok(seq) => Some(seq),
+			Err(error) => {
+				warn!(space = %at.space_id, %error, "could not append a space event");
+				None
+			}
+		};
+		if at.versioning {
+			versioning::follow(context, &at, &event, &change, who, seq).await;
 		}
 	}
 	written
@@ -563,7 +592,7 @@ fn change_of(effect: &Effect) -> Option<Change> {
 
 /// Record a change the watcher saw, when it is inside a space and Spacedrive
 /// did not make it. It is attributed to this device.
-pub async fn record_watched(context: &CoreContext, event: &FsEvent) {
+pub async fn record_watched(context: &Arc<CoreContext>, event: &FsEvent) {
 	let (op, path, to) = match &event.kind {
 		FsEventKind::Create => ("create", &event.path, None),
 		FsEventKind::Modify => ("modify", &event.path, None),
@@ -571,11 +600,26 @@ pub async fn record_watched(context: &CoreContext, event: &FsEvent) {
 		FsEventKind::Rename { from, to } => ("move", from, Some(to)),
 	};
 	let now = Instant::now();
-	{
+	let own = {
 		let own = OWN_WRITES.lock();
-		if is_own(&own, path, now) || to.is_some_and(|to| is_own(&own, to, now)) {
-			return;
+		is_own(&own, path, now) || to.is_some_and(|to| is_own(&own, to, now))
+	};
+	// Repeats are one event, but a space keeping versions wants the bytes
+	// the last of them left, so it captures once the path goes quiet. An
+	// echo of Spacedrive's own write settles too: it matches what was
+	// captured and adds nothing, while an outside edit or delete in the
+	// same moment is still kept.
+	if own || op != "delete" {
+		let landed = to.unwrap_or(path);
+		if space_of(context, landed, None)
+			.await
+			.is_some_and(|at| at.versioning)
+		{
+			versioning::settle(context, landed);
 		}
+	}
+	if own {
+		return;
 	}
 	{
 		let mut watched = WATCHED.lock();
@@ -650,28 +694,32 @@ mod tests {
 		let a = Uuid::from_u128(1);
 		let b = Uuid::from_u128(2);
 		let c = Uuid::from_u128(3);
-		let space = |id, root: &str| Cached {
+		let space = |id, root: &str, versioning| Cached {
 			id,
 			root: root.into(),
 			protected: None,
+			versioning,
 		};
 		let spaces = vec![
-			space(a, ""),
-			space(b, "Documents"),
-			space(c, "Documents/thesis"),
+			space(a, "", false),
+			space(b, "Documents", false),
+			space(c, "Documents/thesis", true),
 		];
 		assert_eq!(
 			innermost(&spaces, "Documents/thesis/ch1.md"),
-			Some((c, "ch1.md".into()))
+			Some((c, "ch1.md".into(), true))
 		);
 		assert_eq!(
 			innermost(&spaces, "Documents/notes.md"),
-			Some((b, "notes.md".into()))
+			Some((b, "notes.md".into(), false))
 		);
-		assert_eq!(innermost(&spaces, "Documents"), Some((b, String::new())));
+		assert_eq!(
+			innermost(&spaces, "Documents"),
+			Some((b, String::new(), false))
+		);
 		assert_eq!(
 			innermost(&spaces, "Documentsx/a"),
-			Some((a, "Documentsx/a".into()))
+			Some((a, "Documentsx/a".into(), false))
 		);
 		assert_eq!(innermost(&spaces[1..], "Library/Caches/x"), None);
 	}

@@ -672,6 +672,7 @@ async fn space_patterns_protect_paths_inside_the_space() -> anyhow::Result<()> {
 		id: space.id,
 		name: None,
 		content_indexing: None,
+		versioning: None,
 		protected: Some(Vec::new()),
 	})
 	.map_err(anyhow::Error::msg)?

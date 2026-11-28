@@ -1,0 +1,118 @@
+---
+title: Space Versioning
+description: Keep every version of every file in a space, restore any of them, and pin a state with a snapshot
+sidebarTitle: Space Versioning
+---
+
+A space with versioning on keeps the bytes of every change made inside it. You can list the versions of a file, write any of them back, and name the state of the whole space with a snapshot. Versioning is off by default, because it stores more data. A space with versioning off writes no version data and does no extra work.
+
+## Turn it on or off
+
+Versioning is a setting of the space:
+
+```bash
+sd space update <space-id> --versioning true
+```
+
+The `spaces.update` op takes the same field, `versioning`. When you turn it on, Spacedrive captures every file already in the space as its baseline, in the background, so the first edit has a version to go back to. Folders inside the space that are spaces of their own are left to their own setting.
+
+When you turn it off, Spacedrive stops capturing changes and keeps what it stored. History, restore, and snapshot list and delete still work on those versions, and they age out under the usual retention. Turning it back on captures a new baseline. Only files that changed since are stored again.
+
+## Delete stored versions
+
+Turning versioning off never deletes data. To free the disk space versions take, purge them:
+
+```bash
+sd space purge-history <space-id>
+```
+
+The op is `spaces.history.purge`. It deletes every version and snapshot of the space. The files themselves and the change log stay. A space with versioning on keeps capturing changes from then on. Deleting a space also deletes its versions.
+
+## What is kept
+
+Each change inside the space becomes a version:
+
+- An agent write, a restore or a file operation in the app is captured as soon as it commits, from the bytes it wrote.
+- A change made outside Spacedrive, in an editor or Finder, is captured when the watcher reports it and the file has been quiet for 1.5 seconds. A burst of saves becomes one version.
+- A move or a rename keeps the history of the file at its new path. A delete is recorded, so the history shows when the file went.
+
+A change that something overwrote before Spacedrive read it has no version. This can happen when a program outside Spacedrive saves a file twice within a moment. The interface states this next to the history.
+
+Versions are kept for 30 days. The newest version of each file is always kept, and so is every version a snapshot pins. Pruning runs when the versions are opened and hourly while they are in use.
+
+## How versions are stored
+
+Everything lives in the space's own directory in the source store, `sources/<source>/spaces/<space>/`, beside the change log. Nothing is written inside the folder itself.
+
+- `blobs/` holds file contents cut into chunks with FastCDC, about 64 KiB on average (16 KiB to 256 KiB), each stored once and named by its BLAKE3 hash. An edit to part of a large file stores only the chunks it changed.
+- `versions.db` lists, for each path, what it held from each moment on. This list is the space's manifest kept as a sequence of changes. A version id is a manifest id.
+
+Every chunk and every file is checked against its hash when it is read back, so a damaged chunk is refused, not restored.
+
+## History
+
+`spaces.history` lists versions newest first, for one file, everything in a folder, or the whole space:
+
+```bash
+sd space history <space-id> --path notes/plan.md
+```
+
+Each version has an id, its path, its content hash and size, when it was captured, who made it (a person, an agent or "outside Spacedrive on" a device), how (`agent_write`, `app_op`, `watcher`, `restore` or `baseline`), and the `spaces.changes` entry that made it while that entry is kept.
+
+## Restore
+
+`spaces.restore` writes an earlier version back:
+
+```bash
+sd space restore <space-id> --version 42
+sd space restore <space-id> --version 42 --path notes/plan-old.md
+sd space restore <space-id> --snapshot "before the agent" --path notes
+```
+
+A restore goes through the same write path as an agent write:
+
+- If the file changes while it is restored, the restore is refused.
+- The bytes it replaces go to the trash, and `files.undo` with the returned id reverses it.
+- It appears in the change log with origin `restore` and the person or agent who asked for it, and it becomes a new version.
+- If something takes the name during the restore, both files are kept.
+
+Restoring a snapshot puts every file under the path back as the snapshot held it. Files the snapshot did not have are left alone. Each file is compared on disk before it is written, so a file that already matches is not written, even when its last change was not captured yet.
+
+## Snapshots
+
+A snapshot names the current state of the whole space and pins it. It copies no bytes.
+
+```bash
+sd space snapshot create <space-id> "before the agent"
+sd space snapshot list <space-id>
+sd space snapshot delete <space-id> <snapshot-id>
+```
+
+The ops are `spaces.snapshot.create`, `spaces.snapshot.list` and `spaces.snapshot.delete`. After you delete a snapshot, the versions only it pinned age out at the next pruning.
+
+## Agents
+
+Agents reach versions through four MCP tools, each limited to the grant's folder:
+
+- `history` lists the versions of a file or folder.
+- `restore` writes a version or a snapshot back. It needs a read-write grant, and every file it writes is checked against the grant, so protected names such as `AGENTS.md` stay protected.
+- `snapshot` creates, lists or deletes snapshots. It needs a read-write grant. Creating or deleting one needs a grant on the whole space, because a snapshot pins the whole space.
+- `purge_history` deletes every version and snapshot. It needs a read-write grant on the whole space.
+
+The REST API on the agent endpoint serves the same tools.
+
+## Cost
+
+Measured on a cloud machine with 4 vCPUs, a 1 GiB space of 544 files (512 of 1 MiB, 32 of 16 MiB), and 10,000 agent edits of 4 KiB at random offsets. See the pull request that added versioning for the full run.
+
+| | Versioning off | Versioning on |
+|---|---|---|
+| Agent write, mean | 16.1 ms | 19.0 ms |
+| Agent write, p50 | 11.6 ms | 13.7 ms |
+| Agent write, p95 | 52.1 ms | 67.1 ms |
+| Agent write, p99 | 85.5 ms | 91.4 ms |
+| Version data on disk | 0 | 1,028 MiB baseline, then 104.7 KiB per edit |
+
+Turning versioning on captured the 1 GiB baseline in 5.0 seconds and stored it at 1.00x the space's size. After the 10,000 edits the space's versions took 2,051 MiB.
+
+Each edit stores the one or two chunks it touched, about 64 KiB each, whatever the size of the edit. Small, frequent edits to many files are the most expensive case. Retention bounds the total to 30 days of edits plus what snapshots pin.

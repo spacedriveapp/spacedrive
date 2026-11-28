@@ -1,5 +1,5 @@
-//! `spaces.update`: rename a space, turn its content indexing on or off, or
-//! replace its protected patterns.
+//! `spaces.update`: rename a space, turn its content indexing or its
+//! versioning on or off, or replace its protected patterns.
 
 use std::sync::Arc;
 
@@ -12,7 +12,10 @@ use crate::{
 	domain::Space,
 	infra::action::{error::ActionError, LibraryAction},
 	library::Library,
-	ops::spaces::store,
+	ops::{
+		actors,
+		spaces::{store, versioning},
+	},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -20,6 +23,12 @@ pub struct SpaceUpdateInput {
 	pub id: Uuid,
 	pub name: Option<String>,
 	pub content_indexing: Option<bool>,
+	/// Keep every change's bytes as a version. Turning it on captures the
+	/// files already in the space in the background; turning it off stops
+	/// capture and keeps the versions and snapshots until they age out or
+	/// `spaces.history.purge` deletes them.
+	#[serde(default)]
+	pub versioning: Option<bool>,
 	/// The space's protected patterns, replacing the ones it has. An empty
 	/// list leaves only the built-in protection.
 	pub protected: Option<Vec<String>>,
@@ -80,6 +89,13 @@ impl LibraryAction for SpaceUpdateAction {
 		if let Some(reading) = reading {
 			row.content_indexing = reading;
 		}
+		let versioning = self
+			.input
+			.versioning
+			.filter(|versioning| *versioning != row.versioning);
+		if let Some(versioning) = versioning {
+			row.versioning = versioning;
+		}
 		if let Some(patterns) = self.input.protected {
 			row.protected =
 				store::protected_patterns(patterns).map_err(ActionError::InvalidInput)?;
@@ -96,9 +112,21 @@ impl LibraryAction for SpaceUpdateAction {
 		}
 
 		let root = context.volume_index().source_root(space.source_id);
-		Ok(SpaceUpdateOutput {
-			space: Space::from_row(row, space.source_id, root.as_deref()),
-		})
+		let space = Space::from_row(row, space.source_id, root.as_deref());
+		match versioning {
+			Some(true) => {
+				let person = actors::this_person(&library, &context)
+					.await
+					.map_err(|e| ActionError::Internal(e.to_string()))?;
+				let (context, space) = (context.clone(), space.clone());
+				tokio::spawn(async move {
+					versioning::baseline(&context, &space, person).await;
+				});
+			}
+			Some(false) => versioning::close(space.id).await,
+			None => {}
+		}
+		Ok(SpaceUpdateOutput { space })
 	}
 
 	fn action_kind(&self) -> &'static str {
