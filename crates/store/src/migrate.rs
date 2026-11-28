@@ -35,7 +35,9 @@ use crate::error::{Error, Result};
 /// 3. `space.protected`, the JSON array of patterns an agent may not write
 ///    inside the space, `[]` for every space that predates it.
 /// 4. `space.versioning`, off for every space that predates it.
-pub const SCHEMA_VERSION: i64 = 4;
+/// 5. `space.authority_epoch`, the count of hand-overs a space has been
+///    through, 0 for every space that predates it.
+pub const SCHEMA_VERSION: i64 = 5;
 
 /// The version a store carries. `0` for a store written before versions
 /// existed.
@@ -57,7 +59,7 @@ pub(crate) async fn run(pool: &SqlitePool) -> Result<()> {
 		)));
 	}
 	if current == SCHEMA_VERSION {
-		return add_space_versioning(&mut *pool.acquire().await?).await;
+		return add_space_columns(&mut *pool.acquire().await?).await;
 	}
 
 	let has_record: Option<i64> =
@@ -86,6 +88,7 @@ async fn apply(pool: &SqlitePool, next: i64) -> Result<()> {
 		2 => content_rows_name_their_kind(pool).await,
 		3 => spaces_name_protected_patterns(pool).await,
 		4 => spaces_say_whether_they_keep_versions(pool).await,
+		5 => spaces_carry_an_authority_epoch(pool).await,
 		_ => Err(Error::Other(format!(
 			"no migration defined for schema version {next}"
 		))),
@@ -153,24 +156,50 @@ async fn spaces_say_whether_they_keep_versions(pool: &SqlitePool) -> Result<()> 
 	Ok(())
 }
 
-/// Add `space.versioning` to a store whose `space` table lacks it. A store
-/// from before spaces has no table yet; the record DDL that follows creates
-/// it with the column.
+/// Migration 5: `space.authority_epoch`, 0 by default.
 ///
-/// This checks the column rather than the version, and also runs on a store
-/// already at [`SCHEMA_VERSION`]: a development store can carry another
-/// branch's migration under the same number without this column.
+/// It also adds `space.versioning` where it is missing: a development build
+/// numbered the epoch 4, so a store at 4 can lack versioning.
+async fn spaces_carry_an_authority_epoch(pool: &SqlitePool) -> Result<()> {
+	let mut conn = pool.acquire().await?;
+	let mut tx = conn.begin().await?;
+	add_space_columns(&mut tx).await?;
+	sqlx::query("PRAGMA user_version = 5")
+		.execute(&mut *tx)
+		.await?;
+	tx.commit().await?;
+	Ok(())
+}
+
+/// Add every column migrations 4 and 5 give `space` that the table lacks.
+/// This also runs on a store already at [`SCHEMA_VERSION`], because a
+/// development store can carry another branch's migration under the same
+/// number without these columns.
+async fn add_space_columns(conn: &mut sqlx::SqliteConnection) -> Result<()> {
+	add_space_versioning(&mut *conn).await?;
+	add_space_column(conn, "authority_epoch INTEGER NOT NULL DEFAULT 0").await
+}
+
 async fn add_space_versioning(conn: &mut sqlx::SqliteConnection) -> Result<()> {
+	add_space_column(conn, "versioning INTEGER NOT NULL DEFAULT 0").await
+}
+
+/// Add a column to `space` unless the table already has it. A store from
+/// before spaces has no table yet; the record DDL that follows creates it
+/// with the column.
+async fn add_space_column(conn: &mut sqlx::SqliteConnection, column: &str) -> Result<()> {
+	let name = column.split_whitespace().next().unwrap_or(column);
 	let has_space: Option<i64> =
 		sqlx::query_scalar("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'space'")
 			.fetch_optional(&mut *conn)
 			.await?;
 	let present: Option<i64> =
-		sqlx::query_scalar("SELECT 1 FROM pragma_table_info('space') WHERE name = 'versioning'")
+		sqlx::query_scalar("SELECT 1 FROM pragma_table_info('space') WHERE name = ?")
+			.bind(name)
 			.fetch_optional(&mut *conn)
 			.await?;
 	if has_space.is_some() && present.is_none() {
-		sqlx::query("ALTER TABLE space ADD COLUMN versioning INTEGER NOT NULL DEFAULT 0")
+		sqlx::query(&format!("ALTER TABLE space ADD COLUMN {column}"))
 			.execute(&mut *conn)
 			.await?;
 	}

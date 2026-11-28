@@ -17,14 +17,14 @@ use sd_core::{
 	infra::{action::LibraryAction, api::SessionContext, query::LibraryQuery},
 	ops::{
 		actors::ActorKind,
-		agent_write::{write_file, Precondition, WriteFileInput},
+		agent_write::{write_file, Precondition, WriteError, WriteFileInput},
 		grants::{
 			create::{CreateGrantAction, CreateGrantInput, CreateGrantOutput},
 			GrantCap,
 		},
 		spaces::{
-			ChangeOrder, SpaceChange, SpaceChangesInput, SpaceChangesQuery, SpaceCreateAction,
-			SpaceCreateInput,
+			store::advance_authority_epoch, ChangeOrder, SpaceChange, SpaceChangesInput,
+			SpaceChangesQuery, SpaceCreateAction, SpaceCreateInput,
 		},
 	},
 };
@@ -417,5 +417,127 @@ async fn undoing_an_agent_move_is_one_event_by_the_person() -> anyhow::Result<()
 	assert_ne!(me.label, "", "the person has a name");
 
 	harness.shutdown().await?;
+	Ok(())
+}
+
+#[tokio::test]
+async fn a_change_carries_the_authority_epoch_it_was_made_under() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("space_events_epoch")
+		.disable_watcher()
+		.build()
+		.await?;
+	let home = harness.create_test_dir("home").await?;
+	home.write_file("project/README.md", "hello").await?;
+	let tracked = home.track().await?;
+	let project = space(&harness, &tracked.root.join("project")).await?;
+	assert_eq!(project.authority_epoch, 0);
+	let agent = grant(&harness, &tracked.root.join("project"), "builder").await?;
+
+	write(&harness, &agent.token, "before.md", "one", None).await?;
+	assert_eq!(
+		advance_authority_epoch(&harness.core.context, &project)
+			.await
+			.map_err(anyhow::Error::msg)?,
+		1
+	);
+	write(&harness, &agent.token, "after.md", "two", None).await?;
+
+	let epochs: Vec<(String, i64)> = changes(&harness, &project)
+		.await
+		.into_iter()
+		.map(|change| (change.path, change.authority_epoch))
+		.collect();
+	assert_eq!(
+		epochs,
+		vec![("before.md".to_string(), 0), ("after.md".to_string(), 1)]
+	);
+	let reread =
+		sd_core::ops::spaces::store::find(&harness.library, &harness.core.context, project.id)
+			.await
+			.map_err(anyhow::Error::msg)?;
+	assert_eq!(reread.authority_epoch, 1);
+	Ok(())
+}
+
+/// A change's `after_hash` is the precondition for the next write to that
+/// file, and it stays valid while other files in the space change.
+#[tokio::test]
+async fn an_after_hash_is_a_per_file_precondition() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("space_events_after_hash")
+		.disable_watcher()
+		.build()
+		.await?;
+	let home = harness.create_test_dir("home").await?;
+	home.write_file("project/README.md", "hello").await?;
+	let tracked = home.track().await?;
+	let project = space(&harness, &tracked.root.join("project")).await?;
+	let agent = grant(&harness, &tracked.root.join("project"), "builder").await?;
+
+	write(&harness, &agent.token, "a.md", "a one", None).await?;
+	write(&harness, &agent.token, "b.md", "b one", None).await?;
+	let after_hash = |changes: &[SpaceChange], path: &str| {
+		changes
+			.iter()
+			.rev()
+			.find(|change| change.path == path)
+			.and_then(|change| change.after_hash.clone())
+			.expect("an after_hash")
+	};
+	let read_a = after_hash(&changes(&harness, &project).await, "a.md");
+	let read_b = after_hash(&changes(&harness, &project).await, "b.md");
+	write(
+		&harness,
+		&agent.token,
+		"b.md",
+		"b two",
+		Some(Precondition {
+			content_hash: Some(read_b),
+			..Default::default()
+		}),
+	)
+	.await?;
+
+	let by_hash = |hash: &str| Precondition {
+		content_hash: Some(hash.to_string()),
+		..Default::default()
+	};
+	write(
+		&harness,
+		&agent.token,
+		"a.md",
+		"a two",
+		Some(by_hash(&read_a)),
+	)
+	.await?;
+
+	let stale = write_file(
+		&harness.core.context,
+		WriteFileInput {
+			token: agent.token.clone(),
+			path: "a.md".into(),
+			content: "a three".to_string(),
+			encoding: None,
+			offset: None,
+			expect: Some(by_hash(&read_a)),
+		},
+	)
+	.await;
+	assert!(
+		matches!(stale, Err(WriteError::Stale { .. })),
+		"a write against a.md as it was before its last change is refused: {stale:?}"
+	);
+	assert_eq!(
+		tokio::fs::read_to_string(tracked.root.join("project/a.md")).await?,
+		"a two"
+	);
+	let latest = after_hash(&changes(&harness, &project).await, "a.md");
+	write(
+		&harness,
+		&agent.token,
+		"a.md",
+		"a three",
+		Some(by_hash(&latest)),
+	)
+	.await?;
 	Ok(())
 }

@@ -451,6 +451,7 @@ mod tests {
 			content_indexing: true,
 			versioning: false,
 			protected: Vec::new(),
+			authority_epoch: 0,
 			created_at: Utc::now(),
 		}
 	}

@@ -109,6 +109,8 @@ pub struct InSpace {
 	pub path: String,
 	/// Whether the space keeps versions.
 	pub versioning: bool,
+	/// The space's authority epoch when the path was looked up.
+	pub authority_epoch: u64,
 }
 
 struct Logs {
@@ -121,6 +123,7 @@ struct Logs {
 pub(super) struct Cached {
 	pub(super) id: Uuid,
 	pub(super) root: String,
+	authority_epoch: u64,
 	/// Its protected patterns, when it has any that compile.
 	protected: Option<Arc<GlobSet>>,
 	/// Whether it keeps versions.
@@ -297,6 +300,7 @@ fn cached(row: sd_store::SpaceRow) -> Cached {
 	Cached {
 		id: row.uuid,
 		root: row.root,
+		authority_epoch: u64::try_from(row.authority_epoch).unwrap_or_default(),
 		protected,
 		versioning: row.versioning,
 	}
@@ -378,11 +382,16 @@ pub async fn space_of(
 ) -> Option<InSpace> {
 	let (source_id, spaces, relative) = locate(context, path, library).await?;
 	let (space_id, path, versioning) = innermost(&spaces, &relative)?;
+	let authority_epoch = spaces
+		.iter()
+		.find(|space| space.id == space_id)
+		.map_or(0, |space| space.authority_epoch);
 	Some(InSpace {
 		source_id,
 		space_id,
 		path,
 		versioning,
+		authority_epoch,
 	})
 }
 
@@ -413,9 +422,13 @@ pub async fn protected_spaces(
 	found
 }
 
-async fn log_for(context: &CoreContext, at: &InSpace) -> Option<Arc<SpaceEventLog>> {
+async fn log_for(
+	context: &CoreContext,
+	source_id: Uuid,
+	space_id: Uuid,
+) -> Option<Arc<SpaceEventLog>> {
 	let mut logs = LOGS.lock().await;
-	if let Some((log, _, pruned)) = logs.open.get_mut(&at.space_id) {
+	if let Some((log, _, pruned)) = logs.open.get_mut(&space_id) {
 		if pruned.elapsed() >= PRUNE_EVERY {
 			*pruned = Instant::now();
 			prune(log).await;
@@ -424,19 +437,19 @@ async fn log_for(context: &CoreContext, at: &InSpace) -> Option<Arc<SpaceEventLo
 	}
 	let dir = context
 		.volume_index()
-		.store_dir(at.source_id)?
+		.store_dir(source_id)?
 		.join("spaces")
-		.join(at.space_id.to_string());
+		.join(space_id.to_string());
 	let log = match SpaceEventLog::open(&dir).await {
 		Ok(log) => Arc::new(log),
 		Err(error) => {
-			warn!(space = %at.space_id, %error, "could not open a space's event log");
+			warn!(space = %space_id, %error, "could not open a space's event log");
 			return None;
 		}
 	};
 	prune(&log).await;
 	logs.open
-		.insert(at.space_id, (log.clone(), at.source_id, Instant::now()));
+		.insert(space_id, (log.clone(), source_id, Instant::now()));
 	Some(log)
 }
 
@@ -453,16 +466,7 @@ pub async fn log_of(
 	source_id: Uuid,
 	space_id: Uuid,
 ) -> Option<Arc<SpaceEventLog>> {
-	log_for(
-		context,
-		&InSpace {
-			source_id,
-			space_id,
-			path: String::new(),
-			versioning: false,
-		},
-	)
-	.await
+	log_for(context, source_id, space_id).await
 }
 
 /// Record one change in the spaces it touches. A move within a space is one
@@ -496,7 +500,7 @@ pub async fn record(context: &CoreContext, who: Attribution, change: Change) -> 
 			after_hash: change.after_hash.clone(),
 			size: change.size.map(|size| size as i64),
 			undo_id: who.undo,
-			authority_epoch: 0,
+			authority_epoch: at.authority_epoch as i64,
 		};
 		written += 1;
 		(at, event)
@@ -515,7 +519,7 @@ pub async fn record(context: &CoreContext, who: Attribution, change: Change) -> 
 		(None, _) => Vec::new(),
 	};
 	for (at, event) in events {
-		let Some(log) = log_for(context, &at).await else {
+		let Some(log) = log_for(context, at.source_id, at.space_id).await else {
 			continue;
 		};
 		let seq = match log.append(&event).await {
@@ -697,6 +701,7 @@ mod tests {
 		let space = |id, root: &str, versioning| Cached {
 			id,
 			root: root.into(),
+			authority_epoch: 0,
 			protected: None,
 			versioning,
 		};

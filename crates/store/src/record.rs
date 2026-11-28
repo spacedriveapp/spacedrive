@@ -173,6 +173,7 @@ CREATE TABLE IF NOT EXISTS space (
     content_indexing INTEGER NOT NULL,
     versioning INTEGER NOT NULL DEFAULT 0,
     protected TEXT NOT NULL DEFAULT '[]',
+    authority_epoch INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     deleted INTEGER NOT NULL DEFAULT 0,
     updated_hlc TEXT NOT NULL,

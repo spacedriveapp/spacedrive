@@ -184,6 +184,7 @@ pub async fn adopt_deep_scope(
 			content_indexing: true,
 			versioning: false,
 			protected: "[]".to_string(),
+			authority_epoch: 0,
 			created_at: Utc::now().to_rfc3339(),
 			deleted: false,
 			updated_hlc: stamp.hlc.clone(),
@@ -255,6 +256,21 @@ pub async fn writable(context: &CoreContext, space: &Space) -> Result<Arc<Source
 		.store_for(&root)
 		.await
 		.ok_or_else(|| "the source holding this space has no store on this device".to_string())
+}
+
+/// Take authority over `space` on this device: raise its epoch by one, so a
+/// write naming the epoch before is refused. Called when authority over the
+/// space passes to this node; answers the new epoch.
+pub async fn advance_authority_epoch(context: &CoreContext, space: &Space) -> Result<u64, String> {
+	let epoch = writable(context, space)
+		.await?
+		.db()
+		.advance_authority_epoch(space.id, &stamp(context)?)
+		.await
+		.map_err(|e| e.to_string())?
+		.ok_or_else(|| format!("no space {}", space.id))?;
+	invalidate(space.source_id);
+	Ok(u64::try_from(epoch).unwrap_or_default())
 }
 
 /// Forget the cached spaces of a source after one of them changed, so the

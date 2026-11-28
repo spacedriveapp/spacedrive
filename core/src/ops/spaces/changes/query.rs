@@ -74,6 +74,8 @@ pub struct SpaceChange {
 	pub size: Option<i64>,
 	/// The job whose undo reverses the change.
 	pub undo_id: Option<Uuid>,
+	/// The space's authority epoch the change was made under.
+	pub authority_epoch: i64,
 	/// One line for a person, such as "changed outside Spacedrive on Studio".
 	pub summary: String,
 }
@@ -180,6 +182,7 @@ pub async fn page(
 				after_hash: row.after_hash,
 				size: row.size,
 				undo_id: row.undo_id,
+				authority_epoch: row.authority_epoch,
 				summary,
 			}
 		})
