@@ -443,25 +443,85 @@ pub(crate) async fn owning_source(
 		.collect();
 	let subtree = subtree.to_path_buf();
 	tokio::task::spawn_blocking(move || {
-		roots
-			.into_iter()
-			.filter_map(|(id, registered)| {
-				let root = std::fs::canonicalize(&registered).ok()?;
-				let rest = scope::within(&root, &subtree, |a, b| {
-					same_file::is_same_file(a, b).unwrap_or(false)
-				})?;
-				let path = if rest.as_os_str().is_empty() {
-					registered
-				} else {
-					registered.join(&rest)
-				};
-				Some((rest.components().count(), id, path))
-			})
-			.min_by_key(|(depth, _, _)| *depth)
-			.map(|(_, id, path)| (id, path))
+		let roots = roots.into_iter().filter_map(|(id, registered)| {
+			let canonical = std::fs::canonicalize(&registered).ok()?;
+			Some((id, registered, canonical))
+		});
+		innermost_holding(roots, &subtree, |a, b| {
+			same_file::is_same_file(a, b).unwrap_or(false)
+		})
 	})
 	.await
 	.map_err(|e| e.to_string())
 }
 
+/// The innermost of `roots`, each an id with its registered and canonical
+/// spelling, that holds `subtree`, with `subtree` respelled under the
+/// registered root. `same` decides directory identity, as in
+/// [`scope::within`].
+fn innermost_holding(
+	roots: impl IntoIterator<Item = (Uuid, PathBuf, PathBuf)>,
+	subtree: &Path,
+	same: impl Fn(&Path, &Path) -> bool,
+) -> Option<(Uuid, PathBuf)> {
+	roots
+		.into_iter()
+		.filter_map(|(id, registered, canonical)| {
+			let rest = scope::within(&canonical, subtree, &same)?;
+			let path = if rest.as_os_str().is_empty() {
+				registered
+			} else {
+				registered.join(&rest)
+			};
+			Some((rest.components().count(), id, path))
+		})
+		.min_by_key(|(depth, _, _)| *depth)
+		.map(|(_, id, path)| (id, path))
+}
+
 crate::register_library_action!(CreateGrantAction, "grants.create");
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// Stands in for a macOS firmlink on any platform: a path and its
+	/// /System/Volumes/Data spelling are one directory.
+	fn firmlinked(a: &Path, b: &Path) -> bool {
+		let plain = |path: &Path| {
+			path.strip_prefix("/System/Volumes/Data")
+				.map(|rest| Path::new("/").join(rest))
+				.unwrap_or_else(|_| path.to_path_buf())
+		};
+		plain(a) == plain(b)
+	}
+
+	#[test]
+	fn a_grant_finds_its_source_under_either_spelling() {
+		let (outer, inner) = (Uuid::now_v7(), Uuid::now_v7());
+		let roots = || {
+			[
+				(outer, "/System/Volumes/Data/Users/me"),
+				(inner, "/System/Volumes/Data/Users/me/work"),
+			]
+			.map(|(id, root)| (id, PathBuf::from(root), PathBuf::from(root)))
+		};
+		for subtree in [
+			"/Users/me/work/project",
+			"/System/Volumes/Data/Users/me/work/project",
+		] {
+			assert_eq!(
+				innermost_holding(roots(), Path::new(subtree), firmlinked),
+				Some((
+					inner,
+					PathBuf::from("/System/Volumes/Data/Users/me/work/project")
+				)),
+				"{subtree}"
+			);
+		}
+		assert_eq!(
+			innermost_holding(roots(), Path::new("/Users/someone"), firmlinked),
+			None
+		);
+	}
+}
