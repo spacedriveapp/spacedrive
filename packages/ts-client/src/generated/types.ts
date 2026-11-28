@@ -4419,7 +4419,11 @@ export type MountsConfigOutput = { cache_max_bytes: number;
 /**
  * Whether FUSE mounts are allowed on this device.
  */
-fuse_enabled: boolean };
+fuse_enabled: boolean; 
+/**
+ * Whether localhost NFS mounts are allowed on this device.
+ */
+nfs_enabled: boolean };
 
 export type MountsReadTrace = { 
 /**
@@ -4534,6 +4538,48 @@ export type NetworkStatusQueryInput = null;
 export type NetworkStopInput = Record<string, never>;
 
 export type NetworkStopOutput = { stopped: boolean };
+
+export type NfsListInput = Record<string, never>;
+
+export type NfsListOutput = { 
+/**
+ * This daemon was built with NFS support and runs on macOS or Linux.
+ */
+supported: boolean; 
+/**
+ * The daemon's config allows mounts.
+ */
+enabled: boolean; mounts: NfsMountInfo[] };
+
+/**
+ * An NFS mount the daemon holds.
+ */
+export type NfsMountInfo = { path: string; 
+/**
+ * The loopback port the mount's server answers on.
+ */
+port: number; 
+/**
+ * The grant the mount is bound to, when it shows only one directory.
+ */
+grant_id: string | null; 
+/**
+ * The granted directory the mount shows.
+ */
+granted_path: string | null; expires_at: string | null; mounted_at: string };
+
+export type NfsMountInput = { 
+/**
+ * An existing, empty directory to mount at.
+ */
+path: string; 
+/**
+ * Show only the directory this grant lends, checking the grant on
+ * every listing and open. Without one, every source is shown.
+ */
+grant_token?: string | null };
+
+export type NfsUnmountInput = { path: string };
 
 /**
  * A source's offline copy as `sources.list` reports it.
@@ -6759,6 +6805,11 @@ mounts_cache_max_bytes?: number | null;
  */
 mounts_fuse_enabled?: boolean | null; 
 /**
+ * Allow localhost NFS mounts. Mounts already up stay up when this is
+ * turned off; it only refuses new ones.
+ */
+mounts_nfs_enabled?: boolean | null; 
+/**
  * Ceiling on replica bytes per second, serving and fetching combined;
  * zero lifts it. Applies to transfers already in flight.
  */
@@ -7528,6 +7579,8 @@ export type CoreAction =
   |  { type: 'mounts.cache_clear'; input: MountsCacheClearInput; output: MountsCacheClearOutput }
   |  { type: 'mounts.fuse_mount'; input: FuseMountInput; output: FuseMountInfo }
   |  { type: 'mounts.fuse_unmount'; input: FuseUnmountInput; output: FuseMountInfo }
+  |  { type: 'mounts.nfs_mount'; input: NfsMountInput; output: NfsMountInfo }
+  |  { type: 'mounts.nfs_unmount'; input: NfsUnmountInput; output: NfsMountInfo }
   |  { type: 'mounts.replication_set_paused'; input: MountsReplicationSetPausedInput; output: MountsReplicationSetPausedOutput }
   |  { type: 'mounts.sync_peers'; input: MountsSyncPeersInput; output: MountsSyncPeersOutput }
   |  { type: 'mounts.trace_set'; input: MountsTraceSetInput; output: MountsTraceSetOutput }
@@ -7645,6 +7698,7 @@ export type CoreQuery =
   |  { type: 'models.whisper.list'; input: ListWhisperModelsInput; output: ListWhisperModelsOutput }
   |  { type: 'mounts.cache_status'; input: MountsCacheStatusInput; output: MountsCacheStatus }
   |  { type: 'mounts.fuse_list'; input: FuseListInput; output: FuseListOutput }
+  |  { type: 'mounts.nfs_list'; input: NfsListInput; output: NfsListOutput }
   |  { type: 'mounts.read_trace'; input: MountsReadTraceInput; output: MountsReadTrace }
   |  { type: 'mounts.replication_status'; input: MountsReplicationStatusInput; output: ReplicationStatus }
   |  { type: 'mounts.status'; input: MountsStatusInput; output: MountsStatus }
@@ -7774,6 +7828,8 @@ export const WIRE_METHODS = {
     'mounts.cache_clear': 'action:mounts.cache_clear.input',
     'mounts.fuse_mount': 'action:mounts.fuse_mount.input',
     'mounts.fuse_unmount': 'action:mounts.fuse_unmount.input',
+    'mounts.nfs_mount': 'action:mounts.nfs_mount.input',
+    'mounts.nfs_unmount': 'action:mounts.nfs_unmount.input',
     'mounts.replication_set_paused': 'action:mounts.replication_set_paused.input',
     'mounts.sync_peers': 'action:mounts.sync_peers.input',
     'mounts.trace_set': 'action:mounts.trace_set.input',
@@ -7891,6 +7947,7 @@ export const WIRE_METHODS = {
     'models.whisper.list': 'query:models.whisper.list',
     'mounts.cache_status': 'query:mounts.cache_status',
     'mounts.fuse_list': 'query:mounts.fuse_list',
+    'mounts.nfs_list': 'query:mounts.nfs_list',
     'mounts.read_trace': 'query:mounts.read_trace',
     'mounts.replication_status': 'query:mounts.replication_status',
     'mounts.status': 'query:mounts.status',

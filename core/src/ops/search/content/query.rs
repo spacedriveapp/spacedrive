@@ -80,7 +80,7 @@ impl LibraryQuery for ContentSearchQuery {
 		let search = sd_store::TextSearch {
 			expression: sd_store::match_expression(&self.input.query),
 			under: under.clone(),
-			subtrees: None,
+			scope: None,
 			kinds: self
 				.input
 				.kinds

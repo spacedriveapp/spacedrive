@@ -245,10 +245,11 @@ impl LibraryAction for SpaceCreateAction {
 			.map_err(|e| ActionError::Internal(format!("could not save the space: {e}")))?;
 		store::invalidate(source_id);
 		drop(one_create);
-		// A source tracked just now is already being read; an existing one
-		// reads the new space's files if they were outside what it read.
-		if row.content_indexing && !tracked {
-			store::reread(&library, &context, source_id, true).await?;
+		// A source tracked just now is already being read. An existing one
+		// reads the new space's files if they were outside what it read, or
+		// drops their text if the space turns reading off inside it.
+		if !tracked {
+			store::reread(&library, &context, source_id, row.content_indexing).await?;
 		}
 
 		Ok(SpaceCreateOutput {

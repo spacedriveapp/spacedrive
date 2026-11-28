@@ -27,7 +27,7 @@
 //! # ) -> anyhow::Result<()> {
 //! use sd_core::ops::indexing::{power, semantic_index::embed_pending};
 //!
-//! let everything = [String::new()];
+//! let everything = sd_store::DeepScope::whole();
 //! let (output, _stopped) = embed_pending(
 //!     vectors,
 //!     &everything,
@@ -155,12 +155,12 @@ impl JobHandler for SemanticIndexJob {
 			}
 		};
 		let vectors = store.vector_index().await.map_err(|e| e.to_string())?;
-		let subtrees = store.deep_subtrees().await.map_err(|e| e.to_string())?;
+		let scope = store.deep_scope().await.map_err(|e| e.to_string())?;
 		let label = super::content_identity::source_label(&self.root);
 
 		let (output, stopped) = embed_pending(
 			&vectors,
-			&subtrees,
+			&scope,
 			embedder,
 			|| async { ctx.check_interrupt().await.is_err() },
 			|| async {
@@ -199,7 +199,7 @@ impl JobHandler for SemanticIndexJob {
 	}
 }
 
-/// Embed every pending document in `subtrees`, pruning stale vectors first.
+/// Embed every pending document in `scope`, pruning stale vectors first.
 ///
 /// Stops early, with what it wrote kept, once `interrupted` says so, and
 /// then returns `true` beside the counts. While `on_battery` says so it
@@ -209,7 +209,7 @@ impl JobHandler for SemanticIndexJob {
 /// document written behind the cursor during the pass is still embedded.
 pub async fn embed_pending<F, B>(
 	vectors: &VectorIndex,
-	subtrees: &[String],
+	scope: &sd_store::DeepScope,
 	embedder: Arc<dyn Embedder>,
 	interrupted: impl Fn() -> F,
 	on_battery: impl Fn() -> B,
@@ -225,16 +225,16 @@ where
 	};
 	vectors.use_model(embedder.model(), probe.len()).await?;
 	let mut output = SemanticIndexOutput {
-		pruned: vectors.prune(subtrees).await?,
+		pruned: vectors.prune(scope).await?,
 		..Default::default()
 	};
-	let outstanding = vectors.pending_count(subtrees).await?;
+	let outstanding = vectors.pending_count(scope).await?;
 	let mut attempted: HashSet<(Origin, i64, String)> = HashSet::new();
 	let mut cursor = (Origin::Text, 0);
 	let mut swept_again = false;
 	let mut done = 0u64;
 	loop {
-		let claimed = vectors.pending(subtrees, cursor, BATCH_DOCS).await?;
+		let claimed = vectors.pending(scope, cursor, BATCH_DOCS).await?;
 		let Some(last) = claimed.last() else {
 			if swept_again || cursor == (Origin::Text, 0) {
 				break;
@@ -334,8 +334,8 @@ pub async fn index_vectors_soon(
 		return;
 	};
 	let pending = async {
-		let subtrees = store.deep_subtrees().await?;
-		anyhow::Ok(store.vector_index().await?.pending_count(&subtrees).await?)
+		let scope = store.deep_scope().await?;
+		anyhow::Ok(store.vector_index().await?.pending_count(&scope).await?)
 	};
 	match pending.await {
 		Ok(0) => return,
@@ -523,7 +523,7 @@ mod tests {
 		.collect();
 		let (_dir, source) = source_with(&files).await;
 		let vectors = VectorIndex::open(&source).await.unwrap();
-		let scope = vec!["Documents".to_string()];
+		let scope = sd_store::DeepScope::only(&["Documents"]);
 
 		let seen = std::sync::Mutex::new(Vec::new());
 		let (output, _) = embed_pending(
@@ -562,7 +562,7 @@ mod tests {
 
 		let (stopped, interrupted) = embed_pending(
 			&vectors,
-			&[String::new()],
+			&sd_store::DeepScope::whole(),
 			Arc::new(Stub),
 			|| async { true },
 			|| async { false },
@@ -586,7 +586,7 @@ mod tests {
 		let started = tokio::time::Instant::now();
 		let (output, interrupted) = embed_pending(
 			&vectors,
-			&[String::new()],
+			&sd_store::DeepScope::whole(),
 			Arc::new(Stub),
 			|| async { false },
 			|| {
@@ -651,7 +651,7 @@ mod tests {
 		let bytes: usize = files.iter().map(|(_, b)| b.len()).sum();
 		let (_dir, source) = source_with(&files).await;
 		let vectors = VectorIndex::open(&source).await.unwrap();
-		let everything = [String::new()];
+		let everything = sd_store::DeepScope::whole();
 
 		let cpu_before = cpu_seconds();
 		let started = std::time::Instant::now();
@@ -688,7 +688,7 @@ mod tests {
 			vector: embedder
 				.embed_query("how are files kept in sync between devices")
 				.unwrap(),
-			subtrees: everything.to_vec(),
+			scope: everything.clone(),
 			limit: 20,
 			..Default::default()
 		};

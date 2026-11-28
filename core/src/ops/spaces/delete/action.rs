@@ -65,10 +65,10 @@ impl LibraryAction for SpaceDeleteAction {
 			.await
 			.map_err(|e| ActionError::Internal(format!("could not delete the space: {e}")))?;
 		store::invalidate(space.source_id);
-		// Its files may now be outside what the source reads; drop their text.
-		if space.content_indexing {
-			store::reread(&library, &context, space.source_id, false).await?;
-		}
+		// Its folder falls back to what the source reads around it: a space
+		// that was read may leave it unread, so its text is dropped, and one
+		// that was skipped may leave it read, so its files are read.
+		store::reread(&library, &context, space.source_id, !space.content_indexing).await?;
 		Ok(SpaceDeleteOutput { id: space.id })
 	}
 

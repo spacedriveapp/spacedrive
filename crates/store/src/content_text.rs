@@ -33,6 +33,7 @@ use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePool, SqlitePo
 use sqlx::{Connection, Row};
 use uuid::Uuid;
 
+use crate::deep_scope::DeepScope;
 use crate::error::{Error, Result};
 use crate::file::address;
 
@@ -165,10 +166,8 @@ pub struct PendingText {
 pub struct TextFilter {
 	/// Lowercase extensions an extractor reads.
 	pub extensions: Vec<String>,
-	/// The subtrees the source's deep scope covers, `/`-separated and
-	/// relative to the source root. An empty string is the whole source;
-	/// no subtrees means no file is read.
-	pub subtrees: Vec<String>,
+	/// The source's deep scope.
+	pub scope: DeepScope,
 }
 
 impl TextFilter {
@@ -176,13 +175,13 @@ impl TextFilter {
 	pub fn everywhere(extensions: &[&str]) -> Self {
 		Self {
 			extensions: extensions.iter().map(|e| e.to_string()).collect(),
-			subtrees: vec![String::new()],
+			scope: DeepScope::whole(),
 		}
 	}
 
 	/// Whether no file can match, so a pass has nothing to claim.
 	pub fn is_empty(&self) -> bool {
-		self.extensions.is_empty() || self.subtrees.is_empty()
+		self.extensions.is_empty() || self.scope.is_empty()
 	}
 
 	/// A condition over `r`, `f` and `p` that holds for a file this
@@ -200,10 +199,7 @@ impl TextFilter {
 			"(lower(f.extension) IN ({}) AND instr('/' || {path}, '/.') = 0",
 			vec!["?"; self.extensions.len()].join(", ")
 		);
-		sql.push_str(&format!(
-			" AND {})",
-			crate::deep_scope::subtree_condition(&self.subtrees, "r.parent_uuid")
-		));
+		sql.push_str(&format!(" AND {})", self.scope.condition("r.parent_uuid")));
 		sql
 	}
 }
@@ -304,10 +300,9 @@ pub struct TextSearch {
 	pub under: String,
 	/// Only files read by these extractors. Empty means every kind.
 	pub kinds: Vec<String>,
-	/// Only files in these subtrees of the deep scope, when set. No subtrees
-	/// means no file. Transcripts and descriptions outlive a narrowed scope,
-	/// so a search that must honor it says so here.
-	pub subtrees: Option<Vec<String>>,
+	/// Only files in this deep scope, when set. Transcripts and descriptions
+	/// outlive a narrowed scope, so a search that must honor it says so here.
+	pub scope: Option<DeepScope>,
 	pub limit: usize,
 	pub offset: usize,
 	/// Tokens of context the snippet keeps around the best match.
@@ -764,11 +759,8 @@ impl ContentTextIndex {
 		let mut branches = Vec::new();
 		let snippet_tokens = i64::from(search.snippet_tokens.clamp(1, 64));
 		let path = RECORD_PATH;
-		let scope_clause = search.subtrees.as_ref().map_or(String::new(), |subtrees| {
-			format!(
-				" AND {}",
-				crate::deep_scope::subtree_condition(subtrees, "r.parent_uuid")
-			)
+		let scope_clause = search.scope.as_ref().map_or(String::new(), |scope| {
+			format!(" AND {}", scope.condition("r.parent_uuid"))
 		});
 		let under_clause = |binds: &mut Vec<Bind>| {
 			if under.is_empty() {

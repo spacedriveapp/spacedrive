@@ -31,12 +31,12 @@
 //! ## Example
 //! ```rust,no_run
 //! # async fn example(dir: &std::path::Path, embed: impl Fn(&str) -> Vec<f32>) -> sd_store::Result<()> {
-//! use sd_store::{ContentTextIndex, HybridSearch, Origin, VectorIndex};
+//! use sd_store::{ContentTextIndex, DeepScope, HybridSearch, Origin, VectorIndex};
 //!
 //! let text = ContentTextIndex::open(dir).await?;
 //! let vectors = VectorIndex::open(dir).await?;
 //! vectors.use_model("multilingual-e5-small", 384).await?;
-//! let scope = vec![String::new()];
+//! let scope = DeepScope::whole();
 //! for doc in vectors.pending(&scope, (Origin::Text, 0), 16).await? {
 //!     let chunks = vectors.chunks(&doc).await?;
 //!     let embedded: Vec<Vec<f32>> = chunks.iter().map(|c| embed(&c.text)).collect();
@@ -45,7 +45,7 @@
 //! let hits = sd_store::hybrid_search(&text, &vectors, &HybridSearch {
 //!     query: "kitchen renovation budget".into(),
 //!     vector: embed("kitchen renovation budget"),
-//!     subtrees: scope,
+//!     scope,
 //!     limit: 20,
 //!     ..Default::default()
 //! })
@@ -69,6 +69,7 @@ use crate::content_text::{
 	any_word_expression, ContentTextIndex, SnippetPart, TextSearch, RECORD_PATH, TEXT_INDEX_FILE,
 	TRANSCRIPT_KIND,
 };
+use crate::deep_scope::DeepScope;
 use crate::error::{Error, Result};
 use crate::file::address;
 
@@ -326,7 +327,7 @@ pub struct VectorSearch {
 	pub under: String,
 	/// The source's deep scope. Vectors outside it are never returned, even
 	/// before a pass prunes them.
-	pub subtrees: Vec<String>,
+	pub scope: DeepScope,
 	/// Only these kinds. Empty means every kind.
 	pub kinds: Vec<String>,
 	/// Files to return.
@@ -449,11 +450,11 @@ impl VectorIndex {
 		Ok(dropped > 0)
 	}
 
-	/// Documents in `subtrees` after `after` whose vectors are missing or
+	/// Documents in `scope` after `after` whose vectors are missing or
 	/// stale, in `(origin, doc_id)` order.
 	pub async fn pending(
 		&self,
-		subtrees: &[String],
+		scope: &DeepScope,
 		after: (Origin, i64),
 		limit: usize,
 	) -> Result<Vec<PendingVectors>> {
@@ -461,7 +462,7 @@ impl VectorIndex {
 			"SELECT v.origin, v.doc_id, v.stamp, v.kind FROM ({}) v \
 			 WHERE (v.origin, v.doc_id) > (?, ?) AND {STALE} \
 			 ORDER BY v.origin, v.doc_id LIMIT ?",
-			documents(subtrees)
+			documents(scope)
 		);
 		let rows = sqlx::query(&sql)
 			.bind(after.0 as i64)
@@ -483,10 +484,10 @@ impl VectorIndex {
 	}
 
 	/// How many documents [`Self::pending`] would hand out from the start.
-	pub async fn pending_count(&self, subtrees: &[String]) -> Result<u64> {
+	pub async fn pending_count(&self, scope: &DeepScope) -> Result<u64> {
 		let sql = format!(
 			"SELECT COUNT(*) FROM ({}) v WHERE {STALE}",
-			documents(subtrees)
+			documents(scope)
 		);
 		let count: i64 = sqlx::query_scalar(&sql).fetch_one(&self.pool).await?;
 		Ok(count.max(0) as u64)
@@ -593,8 +594,8 @@ impl VectorIndex {
 	}
 
 	/// Remove vectors whose document is gone, was rewritten, or left
-	/// `subtrees`. Returns how many documents lost their vectors.
-	pub async fn prune(&self, subtrees: &[String]) -> Result<u64> {
+	/// `scope`. Returns how many documents lost their vectors.
+	pub async fn prune(&self, scope: &DeepScope) -> Result<u64> {
 		let _writer = self.writer.lock().await;
 		let mut conn = self.pool.acquire().await?;
 		let mut tx = conn.begin().await?;
@@ -609,7 +610,7 @@ impl VectorIndex {
 			.await?;
 		sqlx::query(&format!(
 			"INSERT OR IGNORE INTO temp.vec_valid SELECT origin, doc_id, stamp FROM ({})",
-			documents(subtrees)
+			documents(scope)
 		))
 		.execute(&mut *tx)
 		.await?;
@@ -676,7 +677,7 @@ impl VectorIndex {
 	/// best first. A chunk counts only while its document's row is the one
 	/// it was made from and its file sits in the scope.
 	pub async fn search(&self, search: &VectorSearch) -> Result<Vec<VectorHit>> {
-		if search.limit == 0 || search.subtrees.is_empty() {
+		if search.limit == 0 || search.scope.is_empty() {
 			return Ok(Vec::new());
 		}
 		let matrix = self.matrix().await?;
@@ -817,10 +818,10 @@ const DESCRIPTION_STAMP: &str = TEXT_STAMP;
 const STALE: &str = "NOT EXISTS (SELECT 1 FROM vec_doc e \
 	WHERE e.origin = v.origin AND e.doc_id = v.doc_id AND e.stamp = v.stamp)";
 
-/// Every document in `subtrees` that has text to embed, with its stamp:
+/// Every document in `scope` that has text to embed, with its stamp:
 /// `(origin, doc_id, stamp, kind)`.
-fn documents(subtrees: &[String]) -> String {
-	let scope = crate::deep_scope::subtree_condition(subtrees, "r.parent_uuid");
+fn documents(scope: &DeepScope) -> String {
+	let scope = scope.condition("r.parent_uuid");
 	let current = "JOIN src.record r ON r.uuid = d.record_uuid AND r.type = 'file' \
 		JOIN src.facet_file f ON f.record_uuid = r.uuid \
 		WHERE d.skipped IS NULL AND f.size IS d.size AND f.mtime IS d.mtime \
@@ -848,7 +849,7 @@ fn documents(subtrees: &[String]) -> String {
 /// row is `(chunk, origin, doc)`; with it, the hit's record, path, kind, the
 /// chunk's text and its times.
 fn selection(search: &VectorSearch, ids: Option<&str>, with_text: bool) -> (String, Vec<String>) {
-	let scope = crate::deep_scope::subtree_condition(&search.subtrees, "r.parent_uuid");
+	let scope = search.scope.condition("r.parent_uuid");
 	let under = search.under.trim_matches('/');
 	let mut filter = String::new();
 	let mut binds = Vec::new();
@@ -953,7 +954,7 @@ pub struct HybridSearch {
 	/// Its embedding, from the embedder the index was written with.
 	pub vector: Vec<f32>,
 	pub under: String,
-	pub subtrees: Vec<String>,
+	pub scope: DeepScope,
 	pub kinds: Vec<String>,
 	pub limit: usize,
 	pub offset: usize,
@@ -981,7 +982,7 @@ pub async fn hybrid_search(
 			expression,
 			under: search.under.clone(),
 			kinds: search.kinds.clone(),
-			subtrees: Some(search.subtrees.clone()),
+			scope: Some(search.scope.clone()),
 			limit: depth * 2,
 			offset: 0,
 			snippet_tokens: search.snippet_tokens,
@@ -992,7 +993,7 @@ pub async fn hybrid_search(
 		.search(&VectorSearch {
 			vector: search.vector.clone(),
 			under: search.under.clone(),
-			subtrees: search.subtrees.clone(),
+			scope: search.scope.clone(),
 			kinds: search.kinds.clone(),
 			limit: depth,
 		})
