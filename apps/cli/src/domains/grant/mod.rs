@@ -15,7 +15,7 @@ use sd_core::ops::config::app::{
 	GetAppConfigQueryInput,
 };
 use sd_core::ops::grants::{
-	audit::{GrantAuditInput, GrantAuditOutput},
+	audit::{GrantAuditEntry, GrantAuditInput, GrantAuditOutput},
 	create::{CreateGrantInput, CreateGrantOutput},
 	extend::{ExtendGrantInput, ExtendGrantOutput},
 	list::{ListGrantsInput, ListGrantsOutput},
@@ -34,6 +34,7 @@ pub enum GrantCmd {
 	/// Give an active grant a new lifetime, measured from now
 	Extend(GrantExtendArgs),
 	/// Show the requests made with grants, newest first
+	#[command(alias = "log")]
 	Audit(GrantAuditArgs),
 }
 
@@ -186,6 +187,7 @@ pub async fn run(ctx: &Context, cmd: GrantCmd) -> Result<()> {
 					"Status",
 					"Expires",
 					"Last used",
+					"Requests",
 					"Label",
 				]);
 				for grant in &o.grants {
@@ -221,28 +223,70 @@ pub async fn run(ctx: &Context, cmd: GrantCmd) -> Result<()> {
 			};
 			let out: GrantAuditOutput = execute_query!(ctx, input);
 			print_output!(ctx, &out, |o: &GrantAuditOutput| {
-				if o.entries.is_empty() {
+				if o.entries.is_empty() && o.tallies.is_empty() {
 					println!("No requests recorded");
 					return;
 				}
-				for entry in &o.entries {
-					let result = match &entry.reason {
-						None => "allowed".to_string(),
-						Some(reason) => format!("refused: {reason}"),
-					};
-					println!(
-						"{} {} {} {} {}",
-						entry.at.to_rfc3339(),
-						entry.grant_id,
-						entry.op,
-						entry.path,
-						result
-					);
+				if !o.entries.is_empty() {
+					let mut table = Table::new();
+					table.load_preset(UTF8_BORDERS_ONLY);
+					table.set_header(vec![
+						"Time", "Grant", "Label", "Client", "Session", "Op", "Path", "Pattern",
+						"Bytes", "Result", "Ms", "Reason",
+					]);
+					for entry in &o.entries {
+						table.add_row(audit_row(entry));
+					}
+					println!("{table}");
+				}
+				if !o.tallies.is_empty() {
+					let mut table = Table::new();
+					table.load_preset(UTF8_BORDERS_ONLY);
+					table.set_header(vec!["Minute", "Kind", "Subject", "Client", "Count"]);
+					for tally in &o.tallies {
+						table.add_row(vec![
+							tally.minute.to_rfc3339(),
+							tally.kind.as_str().to_string(),
+							tally.subject.clone(),
+							tally.client.clone().unwrap_or_default(),
+							tally.count.to_string(),
+						]);
+					}
+					println!("{table}");
 				}
 			});
 		}
 	}
 	Ok(())
+}
+
+fn audit_row(entry: &GrantAuditEntry) -> Vec<String> {
+	let text = |value: &Option<String>| value.clone().unwrap_or_default();
+	let number = |value: Option<u64>| value.map(|n| n.to_string()).unwrap_or_default();
+	// Rows from before results were kept only know whether they were allowed.
+	let result = match entry.result {
+		Some(result) => result.as_str(),
+		None if entry.allowed => "ok",
+		None => "denied",
+	};
+	vec![
+		entry.at.to_rfc3339(),
+		entry.grant_id.to_string(),
+		text(&entry.grant_label),
+		text(&entry.client),
+		entry
+			.session
+			.as_deref()
+			.map(|s| s.chars().take(8).collect())
+			.unwrap_or_default(),
+		entry.op.clone(),
+		entry.path.clone(),
+		text(&entry.pattern),
+		number(entry.bytes),
+		result.to_string(),
+		number(entry.duration_ms),
+		text(&entry.reason),
+	]
 }
 
 fn row(grant: &GrantInfo) -> Vec<String> {
@@ -256,6 +300,7 @@ fn row(grant: &GrantInfo) -> Vec<String> {
 			.last_used_at
 			.map(|at| at.to_rfc3339())
 			.unwrap_or_else(|| "never".to_string()),
+		grant.request_count.to_string(),
 		grant.label.clone().unwrap_or_default(),
 	]
 }
