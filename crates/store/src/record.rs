@@ -174,6 +174,7 @@ CREATE TABLE IF NOT EXISTS space (
     versioning INTEGER NOT NULL DEFAULT 0,
     protected TEXT NOT NULL DEFAULT '[]',
     authority_epoch INTEGER NOT NULL DEFAULT 0,
+    retention_days INTEGER NOT NULL DEFAULT 30,
     created_at TEXT NOT NULL,
     deleted INTEGER NOT NULL DEFAULT 0,
     updated_hlc TEXT NOT NULL,

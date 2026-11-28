@@ -6061,7 +6061,11 @@ protected: string[];
  * How many times authority over the space has passed between nodes. A
  * write naming another epoch is refused.
  */
-authority_epoch: number; created_at: string };
+authority_epoch: number; 
+/**
+ * How many days the space keeps its changes and versions.
+ */
+retention_days: number; created_at: string };
 
 /**
  * One change inside a space.
@@ -6278,7 +6282,12 @@ versioning?: boolean | null;
  * The space's protected patterns, replacing the ones it has. An empty
  * list leaves only the built-in protection.
  */
-protected: string[] | null };
+protected: string[] | null; 
+/**
+ * How many days the space keeps its changes and versions, from 1 to
+ * 3650. A change takes effect at the next prune.
+ */
+retention_days?: number | null };
 
 export type SpaceUpdateOutput = { space: Space };
 

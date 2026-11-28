@@ -30,7 +30,10 @@ use crate::{
 	ops::{
 		grants::{self, bucket::BucketUrl},
 		sources::track::action::track_and_index,
-		spaces::store::{self, Located},
+		spaces::{
+			events::RETENTION_DAYS,
+			store::{self, Located},
+		},
 	},
 	volume::{backend::RawDirEntry, VolumeBackend},
 };
@@ -235,6 +238,7 @@ impl LibraryAction for SpaceCreateAction {
 			versioning: false,
 			protected,
 			authority_epoch: 0,
+			retention_days: RETENTION_DAYS,
 			created_at: Utc::now().to_rfc3339(),
 			deleted: false,
 			updated_hlc: stamp.hlc,

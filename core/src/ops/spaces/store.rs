@@ -185,6 +185,7 @@ pub async fn adopt_deep_scope(
 			versioning: false,
 			protected: "[]".to_string(),
 			authority_epoch: 0,
+			retention_days: 30,
 			created_at: Utc::now().to_rfc3339(),
 			deleted: false,
 			updated_hlc: stamp.hlc.clone(),

@@ -674,6 +674,7 @@ async fn space_patterns_protect_paths_inside_the_space() -> anyhow::Result<()> {
 		content_indexing: None,
 		versioning: None,
 		protected: Some(Vec::new()),
+		retention_days: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())

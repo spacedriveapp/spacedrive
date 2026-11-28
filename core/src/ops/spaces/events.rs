@@ -128,6 +128,7 @@ pub(super) struct Cached {
 	protected: Option<Arc<GlobSet>>,
 	/// Whether it keeps versions.
 	versioning: bool,
+	retention_days: i64,
 }
 
 static SPACES: LazyLock<Mutex<HashMap<Uuid, Arc<Vec<Cached>>>>> = LazyLock::new(Default::default);
@@ -303,7 +304,17 @@ fn cached(row: sd_store::SpaceRow) -> Cached {
 		authority_epoch: u64::try_from(row.authority_epoch).unwrap_or_default(),
 		protected,
 		versioning: row.versioning,
+		retention_days: row.retention_days,
 	}
+}
+
+/// How many days a space keeps its changes and versions.
+pub(super) async fn retention_days(context: &CoreContext, source_id: Uuid, space_id: Uuid) -> i64 {
+	spaces_of(context, source_id)
+		.await
+		.iter()
+		.find(|space| space.id == space_id)
+		.map_or(RETENTION_DAYS, |space| space.retention_days)
 }
 
 /// `relative` under `root`, when `root` holds it.
@@ -431,7 +442,7 @@ async fn log_for(
 	if let Some((log, _, pruned)) = logs.open.get_mut(&space_id) {
 		if pruned.elapsed() >= PRUNE_EVERY {
 			*pruned = Instant::now();
-			prune(log).await;
+			prune(log, retention_days(context, source_id, space_id).await).await;
 		}
 		return Some(log.clone());
 	}
@@ -447,14 +458,14 @@ async fn log_for(
 			return None;
 		}
 	};
-	prune(&log).await;
+	prune(&log, retention_days(context, source_id, space_id).await).await;
 	logs.open
 		.insert(space_id, (log.clone(), source_id, Instant::now()));
 	Some(log)
 }
 
-async fn prune(log: &SpaceEventLog) {
-	let cutoff = (Utc::now() - chrono::Duration::days(RETENTION_DAYS)).to_rfc3339();
+async fn prune(log: &SpaceEventLog, days: i64) {
+	let cutoff = (Utc::now() - chrono::Duration::days(days)).to_rfc3339();
 	if let Err(error) = log.prune_before(&cutoff).await {
 		warn!(%error, "could not prune a space's event log");
 	}
@@ -702,6 +713,7 @@ mod tests {
 			id,
 			root: root.into(),
 			authority_epoch: 0,
+			retention_days: 30,
 			protected: None,
 			versioning,
 		};

@@ -66,6 +66,8 @@ pub struct Space {
 	/// How many times authority over the space has passed between nodes. A
 	/// write naming another epoch is refused.
 	pub authority_epoch: u64,
+	/// How many days the space keeps its changes and versions.
+	pub retention_days: u32,
 	pub created_at: DateTime<Utc>,
 }
 
@@ -89,6 +91,7 @@ impl Space {
 			versioning: row.versioning,
 			protected: serde_json::from_str(&row.protected).unwrap_or_default(),
 			authority_epoch: u64::try_from(row.authority_epoch).unwrap_or_default(),
+			retention_days: u32::try_from(row.retention_days).unwrap_or_default(),
 			created_at: DateTime::parse_from_rfc3339(&row.created_at)
 				.map(|at| at.with_timezone(&Utc))
 				.unwrap_or_default(),

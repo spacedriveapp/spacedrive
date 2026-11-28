@@ -452,6 +452,7 @@ mod tests {
 			versioning: false,
 			protected: Vec::new(),
 			authority_epoch: 0,
+			retention_days: 30,
 			created_at: Utc::now(),
 		}
 	}

@@ -36,7 +36,8 @@ pub enum SpaceCmd {
 	},
 	/// Show one space
 	Show { id: Uuid },
-	/// Rename a space or turn its content indexing or versioning on or off
+	/// Rename a space, turn its content indexing or versioning on or off, or
+	/// set how long it keeps its history
 	Update(SpaceUpdateArgs),
 	/// Stop treating a folder as a space; its files stay
 	Delete { id: Uuid },
@@ -139,6 +140,10 @@ pub struct SpaceUpdateArgs {
 	/// Remove every protected pattern, leaving the built-in list
 	#[arg(long)]
 	pub no_protect: bool,
+	/// Days to keep changes and versions, from 1 to 3650. Applied at the
+	/// next prune
+	#[arg(long, value_name = "DAYS")]
+	pub retention_days: Option<u32>,
 }
 
 pub async fn run(ctx: &Context, cmd: SpaceCmd) -> Result<()> {
@@ -201,6 +206,7 @@ pub async fn run(ctx: &Context, cmd: SpaceCmd) -> Result<()> {
 				} else {
 					(!args.protect.is_empty()).then_some(args.protect)
 				},
+				retention_days: args.retention_days,
 			};
 			let out: SpaceUpdateOutput = execute_action!(ctx, input);
 			print_output!(ctx, &out, |o: &SpaceUpdateOutput| print_space(&o.space));
@@ -378,5 +384,6 @@ fn print_space(space: &Space) {
 	if !space.protected.is_empty() {
 		println!("  protected:        {}", space.protected.join(", "));
 	}
+	println!("  retention:        {} days", space.retention_days);
 	println!("  authority epoch:  {}", space.authority_epoch);
 }

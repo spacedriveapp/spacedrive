@@ -39,6 +39,8 @@ pub struct SpaceRow {
 	/// write naming an older epoch is refused. It only grows: a merge keeps
 	/// the higher of two epochs whichever stamp wins the rest of the row.
 	pub authority_epoch: i64,
+	/// How many days the space keeps its changes and versions.
+	pub retention_days: i64,
 	/// RFC 3339 time the space was created.
 	pub created_at: String,
 	pub deleted: bool,
@@ -56,14 +58,16 @@ impl SpaceRow {
 }
 
 const COLUMNS: &str = "uuid, name, kind, root, content_indexing, protected, versioning, \
-	authority_epoch, created_at, deleted, updated_hlc, origin_device";
+	authority_epoch, retention_days, created_at, deleted, updated_hlc, origin_device";
 
 /// What a replica copied from an owner that has not migrated selects for a
-/// column it lacks: no protected patterns, versioning off, epoch 0.
-const DEFAULTS: [(&str, &str); 3] = [
+/// column it lacks: no protected patterns, versioning off, epoch 0, the
+/// default retention.
+const DEFAULTS: [(&str, &str); 4] = [
 	("protected", "'[]' AS protected"),
 	("versioning", "0 AS versioning"),
 	("authority_epoch", "0 AS authority_epoch"),
+	("retention_days", "30 AS retention_days"),
 ];
 
 impl SourceDb {
@@ -93,7 +97,7 @@ impl SourceDb {
 	pub async fn put_space(&self, row: &SpaceRow) -> Result<bool> {
 		let mut tx = self.pool().begin().await?;
 		let replaced = sqlx::query(&format!(
-			"INSERT INTO space ({COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			"INSERT INTO space ({COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			 ON CONFLICT (uuid) DO UPDATE SET
 				name = excluded.name,
 				kind = excluded.kind,
@@ -102,6 +106,7 @@ impl SourceDb {
 				versioning = excluded.versioning,
 				protected = excluded.protected,
 				authority_epoch = MAX(space.authority_epoch, excluded.authority_epoch),
+				retention_days = excluded.retention_days,
 				created_at = excluded.created_at,
 				deleted = excluded.deleted,
 				updated_hlc = excluded.updated_hlc,
@@ -118,6 +123,7 @@ impl SourceDb {
 		.bind(&row.protected)
 		.bind(row.versioning)
 		.bind(row.authority_epoch)
+		.bind(row.retention_days)
 		.bind(&row.created_at)
 		.bind(row.deleted)
 		.bind(&row.updated_hlc)
@@ -206,6 +212,7 @@ mod tests {
 			versioning: false,
 			protected: r#"["secrets/**"]"#.into(),
 			authority_epoch: 0,
+			retention_days: 30,
 			created_at: "2026-11-27T00:00:00Z".into(),
 			deleted: false,
 			updated_hlc: hlc.into(),
@@ -252,7 +259,12 @@ mod tests {
 				.await
 				.unwrap();
 		}
-		for column in ["protected", "versioning", "authority_epoch"] {
+		for column in [
+			"protected",
+			"versioning",
+			"authority_epoch",
+			"retention_days",
+		] {
 			sqlx::query(&format!("ALTER TABLE space DROP COLUMN {column}"))
 				.execute(db.pool())
 				.await
@@ -262,6 +274,7 @@ mod tests {
 		assert_eq!(read.protected, "[]");
 		assert!(!read.versioning);
 		assert_eq!(read.authority_epoch, 0);
+		assert_eq!(read.retention_days, 30);
 		assert_eq!(read.name, "Docs");
 	}
 
