@@ -48,7 +48,7 @@ rather than inferring it from a diff.
 | — index to keep | **decided** | — | a source store is never rebuilt; it is user data, not a cache |
 | T2.0b Volume/source boundary | done | — | convergence P2.7/P3: a volume owns the index; a source is a retained scope with nullable `volume_uuid` |
 | — source store design | **decided** | — | `2026-08-21-filesystem-source-store.md`: shared store, forked ingest, ledger folds into the record table |
-| T2.1–T2.6 | core cutover landed; remainder split | — | `crates/store`, filesystem ingest, durable identity, record shape, and addressing are live; tag assertions moved to FD2 and source-scoped sidecars follow the product sequence |
+| T2.1–T2.6 | core cutover landed; remainder split | — | `crates/store`, filesystem ingest, durable identity, record shape, and addressing are live; tag assertions moved to FD2; source-scoped sidecars landed in #3292 (`content_sidecar` rows in each source store) |
 | T2.7 Content identity | done | — | absorbed by convergence P1.7: `content.uuid`, `sampled_hash` UNIQUE, upsert |
 | T3.1a Format v2 | done | — | `pvcache/layout.rs:12` `FORMAT_VERSION = 2`, four header fields on the frame |
 | T3.1b Native reader | done | — | `native/src/source/pvcache.rs:325` builds at the content extent |
