@@ -194,6 +194,13 @@ mod tests {
 		assert!(db.put_space(&row("0001", "Docs")).await.unwrap());
 		assert_eq!(db.spaces().await.unwrap()[0].protected, r#"["secrets/**"]"#);
 
+		// A replica from before migration 3 never had revision triggers naming the column.
+		for suffix in ["insert", "update", "delete"] {
+			sqlx::query(&format!("DROP TRIGGER IF EXISTS space_revision_{suffix}"))
+				.execute(db.pool())
+				.await
+				.unwrap();
+		}
 		sqlx::query("ALTER TABLE space DROP COLUMN protected")
 			.execute(db.pool())
 			.await
