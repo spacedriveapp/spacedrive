@@ -11,8 +11,8 @@ pub mod app_config;
 pub mod migration;
 
 pub use app_config::{
-	AppConfig, BackupConfig, JobLoggingConfig, LogStreamConfig, LoggingConfig, ProxyPairingConfig,
-	ReplicationConfig, ServiceConfig,
+	AgentMcpConfig, AppConfig, BackupConfig, JobLoggingConfig, LogStreamConfig, LoggingConfig,
+	ProxyPairingConfig, ReplicationConfig, ServiceConfig,
 };
 pub use migration::Migrate;
 

@@ -61,6 +61,7 @@ use crate::{
 			content::{ContentSearchInput, ContentSearchQuery},
 			grep::{scan, GrepOptions},
 			input::{PaginationOptions, SearchFilters, SortDirection, SortField, SortOptions},
+			semantic::{SemanticSearchInput, SemanticSearchQuery},
 		},
 	},
 };
@@ -74,6 +75,7 @@ pub enum Tool {
 	Grep,
 	Search,
 	SearchContent,
+	SearchSemantic,
 	GetSkill,
 	WriteFile,
 	MakeDir,
@@ -100,6 +102,7 @@ impl Tool {
 		Self::Grep,
 		Self::Search,
 		Self::SearchContent,
+		Self::SearchSemantic,
 		Self::WriteFile,
 		Self::MakeDir,
 		Self::Move,
@@ -124,6 +127,7 @@ impl Tool {
 			Self::Grep => "grep",
 			Self::Search => "search",
 			Self::SearchContent => "search_content",
+			Self::SearchSemantic => "search_semantic",
 			Self::GetSkill => "get_skill",
 			Self::WriteFile => "write_file",
 			Self::MakeDir => "make_dir",
@@ -376,6 +380,28 @@ pub fn definitions() -> Value {
 			"annotations": annotations("Search the text of files"),
 		},
 		{
+			"name": "search_semantic",
+			"title": "Search files by meaning",
+			"description": "Finds files under 'path' that are about what the query describes, even when they use other words, and returns them ranked with a snippet. Write the query as a phrase or question, such as 'notes on the kitchen renovation budget'. Ranking combines the meaning of the text with its words, so a file that also contains the query's words ranks higher; word_match says whether it did. It covers extracted document text, transcripts, and scene and caption descriptions, only in the folders the source indexes contents for. Recording hits carry start_seconds and end_seconds. It answers from an index that can lag the disk; pending_documents counts documents not embedded yet, which are still found by their words. It fails with the reason when this device has no text embedding model. Use search_content for exact words and grep for patterns.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"query": { "type": "string", "maxLength": SEMANTIC_QUERY_MAX_BYTES, "description": "What to find, in plain language." },
+					"path": path("The directory or file to search"),
+					"kinds": {
+						"type": "array",
+						"items": { "type": "string", "enum": ["text", "markdown", "csv", "json", "code", "pdf", "docx", "transcript", "scene", "caption"] },
+						"description": "Only files of these kinds. Empty or absent means every kind.",
+					},
+					"max_results": { "type": "integer", "minimum": 1, "maximum": SEMANTIC_PAGE_MAX, "default": CONTENT_PAGE_DEFAULT },
+					"cursor": cursor,
+				},
+				"required": ["query"],
+				"additionalProperties": false,
+			},
+			"annotations": annotations("Search files by meaning"),
+		},
+		{
 			"name": "write_file",
 			"title": "Write a file",
 			"description": "Writes a whole file, or content at a byte offset of an existing one. To change an existing file, pass expect with the content_hash (or revision) that stat returned; if the file changed since, the call fails as stale and names the current values. Without expect the call creates the file and never replaces anything: if the name is taken, the file is written beside it as 'name (agent conflict N).ext'. Missing parent directories are created. The result has the new content_hash to pass to the next write, and an undo id.",
@@ -496,6 +522,7 @@ pub async fn call(
 		}),
 		Tool::Search => search(&context, &scope, args(arguments)?).await,
 		Tool::SearchContent => search_content(&context, &scope, args(arguments)?).await,
+		Tool::SearchSemantic => search_semantic(&context, &scope, args(arguments)?).await,
 		Tool::ListDir => blocking(move || list_dir(&scope, args(arguments)?)).await,
 		Tool::Stat => stat_with_precondition(&context, scope, cancel).await,
 		Tool::Read => blocking(move || read(&scope, args(arguments)?, &cancel)).await,
@@ -1577,6 +1604,68 @@ async fn search_content(
 		"next_cursor": found.next_cursor,
 		"pending_files": found.pending_files,
 		"note": "Content search reads Spacedrive's text index, which can lag the disk and covers only the first part of a large file. Confirm a hit with read.",
+	})))
+}
+
+#[derive(Deserialize)]
+struct SearchSemanticArgs {
+	query: String,
+	#[serde(default)]
+	kinds: Vec<TextKind>,
+	#[serde(default)]
+	max_results: Option<u32>,
+	#[serde(default)]
+	cursor: Option<String>,
+}
+
+async fn search_semantic(
+	context: &Arc<CoreContext>,
+	scope: &GrantScope,
+	args: SearchSemanticArgs,
+) -> Result<Output, String> {
+	let in_source = text_index_path(context, scope).await?;
+	let session = session(context, scope)?;
+	let found = SemanticSearchQuery::from_input(SemanticSearchInput {
+		scope: SdPath::local(in_source),
+		query: args.query,
+		kinds: args.kinds,
+		max_results: args.max_results,
+		cursor: args.cursor,
+	})
+	.map_err(content_error)?
+	.execute(context.clone(), session)
+	.await
+	.map_err(content_error)?;
+
+	let names: Vec<String> = found.hits.iter().map(|hit| hit.path.clone()).collect();
+	let placed = place(scope, names).await?;
+	let results: Vec<Value> = found
+		.hits
+		.into_iter()
+		.zip(placed)
+		.filter_map(|(hit, relative)| {
+			let relative = relative?;
+			let snippet: String = hit.snippet.iter().map(|part| part.text.as_str()).collect();
+			let mut result = json!({
+				"path": paths::shown(&relative),
+				"kind": hit.kind.as_str(),
+				"score": hit.score,
+				"similarity": hit.similarity,
+				"word_match": hit.word_match,
+				"snippet": snippet,
+			});
+			if let Some(time) = hit.time {
+				result["start_seconds"] = json!(time.start_seconds);
+				result["end_seconds"] = json!(time.end_seconds);
+			}
+			Some(result)
+		})
+		.collect();
+	Ok(Output::json(json!({
+		"results": results,
+		"next_cursor": found.next_cursor,
+		"pending_documents": found.pending_documents,
+		"note": "Semantic search ranks by meaning from Spacedrive's index, which can lag the disk and covers only the start of a long document. Confirm a hit with read.",
 	})))
 }
 

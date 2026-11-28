@@ -220,6 +220,7 @@ async fn agent_mcp_serves_a_grant_and_refuses_everything_else() -> anyhow::Resul
 		"grep",
 		"search",
 		"search_content",
+		"search_semantic",
 		"get_skill",
 		"write_file",
 		"make_dir",

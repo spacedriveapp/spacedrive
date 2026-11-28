@@ -264,14 +264,7 @@ async fn serve(
 				.get("last-event-id")
 				.and_then(|value| value.to_str().ok())
 				.map(str::to_string);
-			events::open(endpoint.clone(), scope, last_event_id)
-				.await
-				.ok_or_else(|| {
-					too_many(
-						Duration::from_secs(60),
-						"the grant has too many open event streams",
-					)
-				})
+			Ok(events::open(endpoint.clone(), scope, last_event_id).await)
 		}
 	}
 }
