@@ -204,7 +204,7 @@ enum Origin {
 }
 
 fn guard(endpoint: &Endpoint, headers: &HeaderMap, origin: Origin) -> Result<String, Response> {
-	if !endpoint.oauth_offered(headers) {
+	if !endpoint.direct_local_request(headers) {
 		return Err(StatusCode::NOT_FOUND.into_response());
 	}
 	endpoint.screen_host(headers)?;

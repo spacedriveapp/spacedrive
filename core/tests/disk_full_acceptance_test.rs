@@ -35,9 +35,11 @@ use tracing::warn;
 const DIRECTORIES: usize = 80;
 const FILES_PER_DIRECTORY: usize = 100;
 
-/// Room left on the volume once it is filled. Enough for the walk to start
-/// and land a few batches, not enough for the store to hold the tree.
-const LEAVE_BYTES: u64 = 768 * 1024;
+/// Room left on the volume once it is filled. Tracking creates the store
+/// after the fill, and its schema alone takes about 630 KiB, so the room has
+/// to cover that with a wide margin before the walk lands a batch. The store
+/// needs over 4 MiB to hold the whole tree, so 2 MiB still cannot hold it.
+const LEAVE_BYTES: u64 = 2 * 1024 * 1024;
 
 async fn skip_reason() -> Option<String> {
 	TestVolumeManager::new()
