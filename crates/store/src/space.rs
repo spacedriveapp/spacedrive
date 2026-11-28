@@ -35,6 +35,10 @@ pub struct SpaceRow {
 	/// JSON array of the patterns an agent may not write inside the space,
 	/// on top of the built-in list.
 	pub protected: String,
+	/// How many times authority over the space has passed between nodes. A
+	/// write naming an older epoch is refused. It only grows: a merge keeps
+	/// the higher of two epochs whichever stamp wins the rest of the row.
+	pub authority_epoch: i64,
 	/// RFC 3339 time the space was created.
 	pub created_at: String,
 	pub deleted: bool,
@@ -51,9 +55,16 @@ impl SpaceRow {
 	}
 }
 
-const COLUMNS: &str =
-	"uuid, name, kind, root, content_indexing, protected, versioning, created_at, \
-	deleted, updated_hlc, origin_device";
+const COLUMNS: &str = "uuid, name, kind, root, content_indexing, protected, versioning, \
+	authority_epoch, created_at, deleted, updated_hlc, origin_device";
+
+/// What a replica copied from an owner that has not migrated selects for a
+/// column it lacks: no protected patterns, versioning off, epoch 0.
+const DEFAULTS: [(&str, &str); 3] = [
+	("protected", "'[]' AS protected"),
+	("versioning", "0 AS versioning"),
+	("authority_epoch", "0 AS authority_epoch"),
+];
 
 impl SourceDb {
 	/// Every space this store holds that has not been deleted, by root.
@@ -80,8 +91,9 @@ impl SourceDb {
 	/// Write a space, unless the store already holds that space with a later
 	/// stamp. Returns whether the row changed.
 	pub async fn put_space(&self, row: &SpaceRow) -> Result<bool> {
-		let result = sqlx::query(&format!(
-			"INSERT INTO space ({COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		let mut tx = self.pool().begin().await?;
+		let replaced = sqlx::query(&format!(
+			"INSERT INTO space ({COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			 ON CONFLICT (uuid) DO UPDATE SET
 				name = excluded.name,
 				kind = excluded.kind,
@@ -89,6 +101,7 @@ impl SourceDb {
 				content_indexing = excluded.content_indexing,
 				versioning = excluded.versioning,
 				protected = excluded.protected,
+				authority_epoch = MAX(space.authority_epoch, excluded.authority_epoch),
 				created_at = excluded.created_at,
 				deleted = excluded.deleted,
 				updated_hlc = excluded.updated_hlc,
@@ -104,42 +117,59 @@ impl SourceDb {
 		.bind(row.content_indexing)
 		.bind(&row.protected)
 		.bind(row.versioning)
+		.bind(row.authority_epoch)
 		.bind(&row.created_at)
 		.bind(row.deleted)
 		.bind(&row.updated_hlc)
 		.bind(row.origin_device)
-		.execute(self.pool())
+		.execute(&mut *tx)
 		.await?;
-		Ok(result.rows_affected() > 0)
+		// An older stamp loses the row but never lowers the epoch.
+		let raised = sqlx::query(
+			"UPDATE space SET authority_epoch = ? WHERE uuid = ? AND authority_epoch < ?",
+		)
+		.bind(row.authority_epoch)
+		.bind(row.uuid)
+		.bind(row.authority_epoch)
+		.execute(&mut *tx)
+		.await?;
+		tx.commit().await?;
+		Ok(replaced.rows_affected() > 0 || raised.rows_affected() > 0)
 	}
 
-	/// The space columns this store can select. A replica copied from an
-	/// owner that has not migrated lacks the newer columns, which read as
-	/// their defaults: no protected patterns and versioning off.
-	async fn space_columns(&self) -> Result<String> {
-		let present: Vec<String> = sqlx::query_scalar(
-			"SELECT name FROM pragma_table_info('space') WHERE name IN ('protected', 'versioning')",
+	/// Take authority over a space: raise its epoch by one and restamp it, so
+	/// a write naming the old epoch is refused here and on every replica the
+	/// row reaches. Answers the new epoch, or None when the store holds no
+	/// such space.
+	pub async fn advance_authority_epoch(&self, uuid: Uuid, stamp: &Stamp) -> Result<Option<i64>> {
+		Ok(sqlx::query_scalar(
+			"UPDATE space SET authority_epoch = authority_epoch + 1, updated_hlc = ?, origin_device = ?
+			 WHERE uuid = ? RETURNING authority_epoch",
 		)
-		.fetch_all(self.pool())
-		.await?;
-		let has = |name: &str| present.iter().any(|column| column == name);
+		.bind(&stamp.hlc)
+		.bind(stamp.device_uuid)
+		.bind(uuid)
+		.fetch_optional(self.pool())
+		.await?)
+	}
+
+	/// The space columns this store can select, with a default for each
+	/// column a replica of an unmigrated owner lacks.
+	async fn space_columns(&self) -> Result<String> {
+		let present: Vec<String> =
+			sqlx::query_scalar("SELECT name FROM pragma_table_info('space')")
+				.fetch_all(self.pool())
+				.await?;
 		Ok(COLUMNS
-			.replace(
-				"protected",
-				if has("protected") {
-					"protected"
-				} else {
-					"'[]' AS protected"
-				},
-			)
-			.replace(
-				"versioning",
-				if has("versioning") {
-					"versioning"
-				} else {
-					"0 AS versioning"
-				},
-			))
+			.split(", ")
+			.map(|column| {
+				DEFAULTS
+					.iter()
+					.find(|(name, _)| *name == column && !present.iter().any(|p| p == name))
+					.map_or(column, |(_, default)| default)
+			})
+			.collect::<Vec<_>>()
+			.join(", "))
 	}
 }
 
@@ -175,6 +205,7 @@ mod tests {
 			content_indexing: true,
 			versioning: false,
 			protected: r#"["secrets/**"]"#.into(),
+			authority_epoch: 0,
 			created_at: "2026-11-27T00:00:00Z".into(),
 			deleted: false,
 			updated_hlc: hlc.into(),
@@ -221,12 +252,52 @@ mod tests {
 				.await
 				.unwrap();
 		}
-		sqlx::query("ALTER TABLE space DROP COLUMN protected")
-			.execute(db.pool())
-			.await
-			.unwrap();
+		for column in ["protected", "versioning", "authority_epoch"] {
+			sqlx::query(&format!("ALTER TABLE space DROP COLUMN {column}"))
+				.execute(db.pool())
+				.await
+				.unwrap();
+		}
 		let read = db.space(Uuid::from_u128(1)).await.unwrap().unwrap();
 		assert_eq!(read.protected, "[]");
+		assert!(!read.versioning);
+		assert_eq!(read.authority_epoch, 0);
 		assert_eq!(read.name, "Docs");
+	}
+
+	#[tokio::test]
+	async fn the_epoch_only_grows_whichever_stamp_wins() {
+		let (_dir, db) = store().await;
+		let stale = row("0001", "Docs");
+		assert!(db.put_space(&stale).await.unwrap());
+		let stamp = Stamp {
+			hlc: "0002".into(),
+			device_uuid: Uuid::from_u128(9),
+		};
+		assert_eq!(
+			db.advance_authority_epoch(stale.uuid, &stamp)
+				.await
+				.unwrap(),
+			Some(1)
+		);
+
+		let mut renamed = row("0003", "Renamed");
+		renamed.authority_epoch = 0;
+		assert!(db.put_space(&renamed).await.unwrap());
+		let read = db.space(stale.uuid).await.unwrap().unwrap();
+		assert_eq!((read.name.as_str(), read.authority_epoch), ("Renamed", 1));
+
+		let mut handed_over = row("0001", "Older");
+		handed_over.authority_epoch = 4;
+		assert!(db.put_space(&handed_over).await.unwrap());
+		let read = db.space(stale.uuid).await.unwrap().unwrap();
+		assert_eq!((read.name.as_str(), read.authority_epoch), ("Renamed", 4));
+
+		assert_eq!(
+			db.advance_authority_epoch(Uuid::from_u128(2), &stamp)
+				.await
+				.unwrap(),
+			None
+		);
 	}
 }

@@ -6056,7 +6056,12 @@ versioning: boolean;
  * built-in list. `/`-anchored patterns start at the space root; others
  * match at any depth.
  */
-protected: string[]; created_at: string };
+protected: string[]; 
+/**
+ * How many times authority over the space has passed between nodes. A
+ * write naming another epoch is refused.
+ */
+authority_epoch: number; created_at: string };
 
 /**
  * One change inside a space.
@@ -6082,6 +6087,10 @@ path: string; to_path: string | null; before_hash: string | null; after_hash: st
  * The job whose undo reverses the change.
  */
 undo_id: string | null; 
+/**
+ * The space's authority epoch the change was made under.
+ */
+authority_epoch: number; 
 /**
  * One line for a person, such as "changed outside Spacedrive on Studio".
  */

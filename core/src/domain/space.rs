@@ -63,6 +63,9 @@ pub struct Space {
 	/// built-in list. `/`-anchored patterns start at the space root; others
 	/// match at any depth.
 	pub protected: Vec<String>,
+	/// How many times authority over the space has passed between nodes. A
+	/// write naming another epoch is refused.
+	pub authority_epoch: u64,
 	pub created_at: DateTime<Utc>,
 }
 
@@ -85,6 +88,7 @@ impl Space {
 			content_indexing: row.content_indexing,
 			versioning: row.versioning,
 			protected: serde_json::from_str(&row.protected).unwrap_or_default(),
+			authority_epoch: u64::try_from(row.authority_epoch).unwrap_or_default(),
 			created_at: DateTime::parse_from_rfc3339(&row.created_at)
 				.map(|at| at.with_timezone(&Utc))
 				.unwrap_or_default(),

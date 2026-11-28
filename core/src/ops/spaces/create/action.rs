@@ -234,6 +234,7 @@ impl LibraryAction for SpaceCreateAction {
 			content_indexing: input.content_indexing.unwrap_or(bucket.is_none()),
 			versioning: false,
 			protected,
+			authority_epoch: 0,
 			created_at: Utc::now().to_rfc3339(),
 			deleted: false,
 			updated_hlc: stamp.hlc,

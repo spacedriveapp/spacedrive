@@ -127,6 +127,7 @@ async fn downgrade_to_v0(path: &Path) -> SqlitePool {
 		"CREATE INDEX idx_content_uuid ON content(uuid)",
 		"CREATE INDEX idx_content_integrity ON content(integrity_hash)",
 		"ALTER TABLE space DROP COLUMN protected",
+		"ALTER TABLE space DROP COLUMN authority_epoch",
 		"PRAGMA user_version = 0",
 	] {
 		sqlx::query(sql).execute(&pool).await.expect(sql);
@@ -486,6 +487,7 @@ async fn downgrade_to_v1(path: &Path) -> SqlitePool {
 		"CREATE INDEX idx_content_candidate_uuid ON content(candidate_uuid)",
 		"DROP INDEX IF EXISTS idx_facet_file_extension",
 		"ALTER TABLE space DROP COLUMN protected",
+		"ALTER TABLE space DROP COLUMN authority_epoch",
 		"PRAGMA user_version = 1",
 	] {
 		sqlx::query(sql).execute(&pool).await.expect(sql);
@@ -699,14 +701,17 @@ async fn a_current_store_without_versioning_gains_it() {
 	assert_eq!(versioning, [false]);
 }
 
-/// Migration 3 on a version 2 store: every space gains an empty protected
-/// list and keeps the rest of its row.
+/// Migrations 3 to 5 on a version 2 store: every space gains an empty
+/// protected list, versioning off and authority epoch 0, and keeps the rest
+/// of its row.
 #[tokio::test]
-async fn migration_3_gives_every_space_an_empty_protected_list() {
+async fn migrations_3_to_5_give_every_space_no_protected_patterns_and_epoch_0() {
 	let fixture = Fixture::new().await;
 	let pool = raw(&fixture.db_path()).await;
 	for sql in [
 		"ALTER TABLE space DROP COLUMN protected",
+		"ALTER TABLE space DROP COLUMN versioning",
+		"ALTER TABLE space DROP COLUMN authority_epoch",
 		"INSERT INTO space (uuid, name, kind, root, content_indexing, created_at, deleted, updated_hlc, origin_device) \
 		 VALUES (X'01', 'Docs', 'folder', 'Documents', 1, '2026-11-27T00:00:00Z', 0, '0001', X'09')",
 		"PRAGMA user_version = 2",
@@ -724,9 +729,78 @@ async fn migration_3_gives_every_space_an_empty_protected_list() {
 		migrate::version(db.pool()).await.expect("version"),
 		SCHEMA_VERSION
 	);
-	let row: (String, String, String) = sqlx::query_as("SELECT name, root, protected FROM space")
+	let row: (String, String, String, bool, i64) =
+		sqlx::query_as("SELECT name, root, protected, versioning, authority_epoch FROM space")
+			.fetch_one(db.pool())
+			.await
+			.expect("space row");
+	assert_eq!(
+		row,
+		("Docs".into(), "Documents".into(), "[]".into(), false, 0)
+	);
+}
+
+/// Migration 5 on a version 4 store, as versioning left it: every space
+/// gains epoch 0 and keeps its patterns and versioning.
+#[tokio::test]
+async fn migration_5_gives_every_space_epoch_0_and_keeps_the_rest() {
+	let fixture = Fixture::new().await;
+	let pool = raw(&fixture.db_path()).await;
+	for sql in [
+		"ALTER TABLE space DROP COLUMN authority_epoch",
+		"INSERT INTO space (uuid, name, kind, root, content_indexing, protected, versioning, created_at, deleted, updated_hlc, origin_device) \
+		 VALUES (X'01', 'Docs', 'folder', 'Documents', 1, '[\"*.pem\"]', 1, '2026-11-27T00:00:00Z', 0, '0001', X'09')",
+		"PRAGMA user_version = 4",
+	] {
+		sqlx::query(sql).execute(&pool).await.expect(sql);
+	}
+	pool.close().await;
+
+	let db = fixture
+		.manager
+		.open("source-1")
+		.await
+		.expect("open migrates");
+	assert_eq!(
+		migrate::version(db.pool()).await.expect("version"),
+		SCHEMA_VERSION
+	);
+	let row: (String, bool, i64) =
+		sqlx::query_as("SELECT protected, versioning, authority_epoch FROM space")
+			.fetch_one(db.pool())
+			.await
+			.expect("space row");
+	assert_eq!(row, (r#"["*.pem"]"#.into(), true, 0));
+}
+
+/// A version 4 store from the build that numbered the epoch 4 has the epoch
+/// and no versioning. Migration 5 keeps the epoch and adds versioning, off.
+#[tokio::test]
+async fn a_version_4_store_with_the_epoch_gains_versioning() {
+	let fixture = Fixture::new().await;
+	let pool = raw(&fixture.db_path()).await;
+	for sql in [
+		"ALTER TABLE space DROP COLUMN versioning",
+		"INSERT INTO space (uuid, name, kind, root, content_indexing, protected, authority_epoch, created_at, deleted, updated_hlc, origin_device) \
+		 VALUES (X'01', 'Docs', 'folder', 'Documents', 1, '[]', 3, '2026-11-27T00:00:00Z', 0, '0001', X'09')",
+		"PRAGMA user_version = 4",
+	] {
+		sqlx::query(sql).execute(&pool).await.expect(sql);
+	}
+	pool.close().await;
+
+	let db = fixture
+		.manager
+		.open("source-1")
+		.await
+		.expect("open migrates");
+	assert_eq!(
+		migrate::version(db.pool()).await.expect("version"),
+		SCHEMA_VERSION
+	);
+	let row: (bool, i64) = sqlx::query_as("SELECT versioning, authority_epoch FROM space")
 		.fetch_one(db.pool())
 		.await
 		.expect("space row");
-	assert_eq!(row, ("Docs".into(), "Documents".into(), "[]".into()));
+	assert_eq!(row, (false, 3));
 }
