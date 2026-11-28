@@ -8,7 +8,6 @@
 //! - Content operations (deduplication, statistics)
 //! - Metadata operations (hierarchical tagging)
 
-pub mod activity;
 pub mod actors;
 pub mod adapters;
 pub mod addressing;

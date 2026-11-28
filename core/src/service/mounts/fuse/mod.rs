@@ -32,7 +32,7 @@ pub use super::tree;
 
 use crate::config::AppConfig;
 use crate::context::CoreContext;
-use crate::ops::grants::GrantError;
+use crate::ops::grants::{create::owning_source, GrantError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -175,19 +175,30 @@ async fn mount_tree(
 				GrantCap::Read,
 			)
 			.await?;
+			// The grant keeps the directory's canonical spelling, which on
+			// macOS can differ from the source's by a firmlink, and the tree
+			// answers only to the source's spelling. A bucket grant has no
+			// directory to compare, so its URL is matched by prefix.
 			let sources = context.volume_index().sources();
-			let source = crate::ops::paths::reach::innermost_source(&sources, &scope.root)
-				.ok_or(FuseError::NoSource)?;
+			let (source_id, path) = match owning_source(&context, scope.library_id, &scope.root)
+				.await
+				.map_err(FuseError::Mount)?
+			{
+				Some(found) => found,
+				None => crate::ops::paths::reach::innermost_source(&sources, &scope.root)
+					.map(|source| (source.id, scope.root.clone()))
+					.ok_or(FuseError::NoSource)?,
+			};
 			let grant = BoundGrant {
-				token,
+				token: token.clone(),
 				root: MountRoot {
 					name: String::new(),
-					source_id: source.id,
-					path: scope.root.clone(),
+					source_id,
+					path,
 					remote: false,
 				},
 			};
-			(Some(grant), Some(scope))
+			(Some(grant), Some((scope, token)))
 		}
 		None => (None, None),
 	};
@@ -202,17 +213,18 @@ async fn mount_tree(
 
 	let info = FuseMountInfo {
 		path: path.clone(),
-		grant_id: scope.as_ref().map(|scope| scope.grant_id),
-		granted_path: scope.as_ref().map(|scope| scope.root.clone()),
-		expires_at: scope.as_ref().map(|scope| scope.expires_at),
+		grant_id: scope.as_ref().map(|(scope, _)| scope.grant_id),
+		granted_path: scope.as_ref().map(|(scope, _)| scope.root.clone()),
+		expires_at: scope.as_ref().map(|(scope, _)| scope.expires_at),
 		mounted_at: Utc::now(),
 	};
-	let watch = scope.map(|scope| {
+	let watch = scope.map(|(scope, token)| {
 		tokio::spawn(watch_grant(
 			context.clone(),
 			path.clone(),
 			scope.library_id,
 			scope.grant_id,
+			token,
 		))
 	});
 	info!(path = %path.display(), grant = ?info.grant_id, "FUSE mount up");
@@ -284,17 +296,20 @@ fn lazy_unmount(path: &Path) {
 /// Take the mount down once its grant is revoked, expires, or disappears.
 /// Each open already checks the grant; this makes the mount itself go away.
 #[cfg(all(target_os = "linux", feature = "fuse"))]
-async fn watch_grant(context: Arc<CoreContext>, path: PathBuf, library_id: Uuid, grant_id: Uuid) {
-	use crate::ops::grants::{store, GrantStatus};
+async fn watch_grant(
+	context: Arc<CoreContext>,
+	path: PathBuf,
+	library_id: Uuid,
+	grant_id: Uuid,
+	token: String,
+) {
+	use crate::ops::grants::{verified, GrantError, GrantStatus};
 
 	loop {
 		tokio::time::sleep(GRANT_CHECK_INTERVAL).await;
-		let Some(library) = context.libraries().await.get_library(library_id).await else {
-			break;
-		};
-		match store::by_id(library.db().conn(), grant_id).await {
-			Ok(Some(row)) if store::status(&row, Utc::now()) == GrantStatus::Active => continue,
-			Ok(_) => break,
+		match verified(&context, library_id, &token).await {
+			Ok(grant) if grant.status(Utc::now()) == GrantStatus::Active => continue,
+			Ok(_) | Err(GrantError::UnknownToken) => break,
 			Err(err) => warn!(grant = %grant_id, error = %err, "could not read a mounted grant"),
 		}
 	}

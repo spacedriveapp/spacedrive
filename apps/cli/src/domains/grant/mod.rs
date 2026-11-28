@@ -20,7 +20,7 @@ use sd_core::ops::grants::{
 	extend::{ExtendGrantInput, ExtendGrantOutput},
 	list::{ListGrantsInput, ListGrantsOutput},
 	revoke::{RevokeGrantInput, RevokeGrantOutput},
-	GrantCap, GrantInfo,
+	GrantCap, GrantInfo, GrantKind, TokenFormat,
 };
 
 #[derive(Subcommand, Debug)]
@@ -48,9 +48,21 @@ pub struct GrantCreateArgs {
 	/// read-only.
 	#[arg(long)]
 	pub read_write: bool,
-	/// Lifetime, from 5m to 12h, such as 30m, 1h or 2h30m
-	#[arg(long, default_value = "1h")]
-	pub ttl: String,
+	/// Lifetime, such as 30m, 1h or 7d: 5m to 12h for a task grant (1h by
+	/// default), up to 30d for a standing grant (30d by default)
+	#[arg(long)]
+	pub ttl: Option<String>,
+	/// A standing grant for an agent's own workspace space, up to 30 days.
+	/// Its token is signed unless --opaque is given
+	#[arg(long)]
+	pub standing: bool,
+	/// Sign the token, so any device holding the space can check it. The
+	/// folder must be inside a space
+	#[arg(long, conflicts_with = "opaque")]
+	pub signed: bool,
+	/// Use an opaque token, checked only on this device
+	#[arg(long)]
+	pub opaque: bool,
 	/// A name for the grant, such as the agent it is for
 	#[arg(long)]
 	pub label: Option<String>,
@@ -78,9 +90,10 @@ pub struct GrantIdArgs {
 #[derive(Args, Debug)]
 pub struct GrantExtendArgs {
 	pub id: Uuid,
-	/// New lifetime from now, from 5m to 12h
-	#[arg(long, default_value = "1h")]
-	pub ttl: String,
+	/// New lifetime from now: 5m to 12h for a task grant (1h by default), up
+	/// to 30d for a standing grant (30d by default)
+	#[arg(long)]
+	pub ttl: Option<String>,
 }
 
 #[derive(Args, Debug)]
@@ -114,8 +127,16 @@ pub async fn run(ctx: &Context, cmd: GrantCmd) -> Result<()> {
 				} else {
 					GrantCap::Read
 				}),
-				ttl_seconds: Some(parse_ttl(&args.ttl)?),
+				ttl_seconds: args.ttl.as_deref().map(parse_ttl).transpose()?,
 				label: args.label,
+				kind: args.standing.then_some(GrantKind::Standing),
+				token_format: if args.signed {
+					Some(TokenFormat::Signed)
+				} else if args.opaque {
+					Some(TokenFormat::Opaque)
+				} else {
+					None
+				},
 			};
 			let out: CreateGrantOutput = execute_action!(ctx, input);
 			let endpoint = if args.print_mcp_config {
@@ -182,7 +203,7 @@ pub async fn run(ctx: &Context, cmd: GrantCmd) -> Result<()> {
 		GrantCmd::Extend(args) => {
 			let input = ExtendGrantInput {
 				id: args.id,
-				ttl_seconds: Some(parse_ttl(&args.ttl)?),
+				ttl_seconds: args.ttl.as_deref().map(parse_ttl).transpose()?,
 			};
 			let out: ExtendGrantOutput = execute_action!(ctx, input);
 			print_output!(ctx, &out, |o: &ExtendGrantOutput| {
@@ -311,7 +332,8 @@ fn parse_ttl(text: &str) -> Result<u32> {
 			's' => 1,
 			'm' => 60,
 			'h' => 3600,
-			_ => bail!("unknown unit {c:?} in {text:?}; use s, m or h"),
+			'd' => 86_400,
+			_ => bail!("unknown unit {c:?} in {text:?}; use s, m, h or d"),
 		};
 		if digits.is_empty() {
 			bail!("missing number before {c:?} in {text:?}");
@@ -325,7 +347,7 @@ fn parse_ttl(text: &str) -> Result<u32> {
 		digits.clear();
 	}
 	if !digits.is_empty() || total == 0 {
-		bail!("write a lifetime with units, such as 30m or 1h, not {text:?}");
+		bail!("write a lifetime with units, such as 30m, 1h or 7d, not {text:?}");
 	}
 	Ok(u32::try_from(total)?)
 }
@@ -377,7 +399,8 @@ mod tests {
 		assert_eq!(parse_ttl("2h30m").unwrap(), 9000);
 		assert_eq!(parse_ttl("90s").unwrap(), 90);
 		assert!(parse_ttl("60").is_err());
-		assert!(parse_ttl("1d").is_err());
+		assert_eq!(parse_ttl("30d").unwrap(), 30 * 86_400);
+		assert!(parse_ttl("1w").is_err());
 		assert!(parse_ttl("h").is_err());
 		assert!(parse_ttl("").is_err());
 		assert!(parse_ttl("5124095576030432h").is_err());

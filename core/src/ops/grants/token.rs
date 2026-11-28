@@ -58,7 +58,8 @@ fn hash_with(prefix: &str, token: &str) -> Option<String> {
 	Some(digest(token))
 }
 
-fn digest(token: &str) -> String {
+/// The stored hash of any token string.
+pub(crate) fn digest(token: &str) -> String {
 	hex::encode(Sha256::digest(token.as_bytes()))
 }
 

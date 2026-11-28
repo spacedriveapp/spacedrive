@@ -33,6 +33,8 @@ async fn grant(harness: &IndexingHarness, path: &Path, caps: GrantCap) -> anyhow
 		caps: Some(caps),
 		ttl_seconds: None,
 		label: Some("mcp writes".to_string()),
+		kind: None,
+		token_format: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())

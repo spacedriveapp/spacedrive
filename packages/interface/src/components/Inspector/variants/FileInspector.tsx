@@ -41,7 +41,7 @@ import {useContextMenu} from '../../../hooks/useContextMenu';
 import {useExtensionKinds} from '../../../hooks/useExtensionKinds';
 import {useOptionalJobsContext} from '../../JobManager/hooks/JobsContext';
 import {useHotThumb} from '../../../routes/explorer/hooks/useHotThumb';
-import {ActivityFeed, ChangedBy, useActivity} from '../../Activity/ActivityFeed';
+import {ActivityFeed, ChangedBy, useSpaceChanges} from '../../Activity/ActivityFeed';
 import {FootageSection} from '../../Footage/FootageSection';
 import {kindLabel} from '../../QuickPreview/renderers';
 import {File as FileComponent} from '../../../routes/explorer/File';
@@ -1473,9 +1473,9 @@ function ChatTab() {
 }
 
 function ChangedByRow({path}: {path: string}) {
-	const latest = useActivity(path, 1).data?.entries[0];
+	const latest = useSpaceChanges(path, 1).changes[0];
 	if (!latest) return null;
-	return <InfoRow label="Changed by" value={<ChangedBy entry={latest} />} />;
+	return <InfoRow label="Changed by" value={<ChangedBy change={latest} />} />;
 }
 
 function DetailsTab({file}: {file: File}) {
