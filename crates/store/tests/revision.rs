@@ -4,8 +4,8 @@
 use sd_store::file::{FileKind, FileWrite, Ledger, Observation, Watermark};
 use sd_store::schema::parser;
 use sd_store::{
-	filesystem_schema, normalize_tag_path, slug_for_path, Revision, SourceDb, SourceManager, Stamp,
-	TagAssertion, TagDefinition,
+	filesystem_schema, normalize_tag_path, slug_for_path, Revision, SourceDb, SourceManager,
+	SpaceRow, Stamp, TagAssertion, TagDefinition,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -331,4 +331,51 @@ async fn a_delivered_copy_carries_the_revision() {
 		.await
 		.expect("open copy");
 	assert_eq!(revision(&replica).await, owner);
+}
+
+#[tokio::test]
+async fn spaces_and_the_deep_scope_move_the_revision() {
+	let fixture = Fixture::notes().await;
+	let db = fixture.open().await;
+	let before = revision(&db).await.value;
+	let stamp = Stamp {
+		hlc: hlc(1),
+		device_uuid: Uuid::nil(),
+	};
+
+	let mut space = SpaceRow {
+		uuid: Uuid::now_v7(),
+		name: "Documents".into(),
+		kind: "folder".into(),
+		root: "Documents".into(),
+		content_indexing: true,
+		versioning: false,
+		created_at: "2026-11-27T00:00:00Z".into(),
+		deleted: false,
+		updated_hlc: hlc(1),
+		origin_device: Uuid::nil(),
+	};
+	db.put_space(&space).await.expect("put space");
+	let created = revision(&db).await.value;
+	assert!(created > before, "a new space moves the revision");
+
+	space.content_indexing = false;
+	space.updated_hlc = hlc(2);
+	db.put_space(&space).await.expect("update space");
+	let updated = revision(&db).await.value;
+	assert!(updated > created, "a changed space moves the revision");
+	assert!(!db.put_space(&space).await.expect("re-put"));
+	assert_eq!(
+		revision(&db).await.value,
+		updated,
+		"an unchanged space does not"
+	);
+
+	db.set_deep_scope(&["Documents".to_string()], &stamp)
+		.await
+		.expect("deep scope");
+	assert!(
+		revision(&db).await.value > updated,
+		"the deep scope moves the revision"
+	);
 }
