@@ -38,7 +38,7 @@ Each change inside the space becomes a version:
 
 A change that something overwrote before Spacedrive read it has no version. This can happen when a program outside Spacedrive saves a file twice within a moment. The interface states this next to the history.
 
-Versions are kept for 30 days. The newest version of each file is always kept, and so is every version a snapshot pins. Pruning runs when the versions are opened and hourly while they are in use.
+Versions and changes are kept for 30 days by default. Set a space's retention from 1 to 3650 days with `spaces.update` and `retention_days`, or `sd space update <id> --retention-days <days>`. A new retention applies at the next prune. The newest version of each file is always kept, and so is every version a snapshot pins. Pruning runs when the versions are opened and hourly while they are in use.
 
 ## How versions are stored
 
@@ -115,4 +115,4 @@ Measured on a cloud machine with 4 vCPUs, a 1 GiB space of 544 files (512 of 1 M
 
 Turning versioning on captured the 1 GiB baseline in 5.0 seconds and stored it at 1.00x the space's size. After the 10,000 edits the space's versions took 2,051 MiB.
 
-Each edit stores the one or two chunks it touched, about 64 KiB each, whatever the size of the edit. Small, frequent edits to many files are the most expensive case. Retention bounds the total to 30 days of edits plus what snapshots pin.
+Each edit stores the one or two chunks it touched, about 64 KiB each, whatever the size of the edit. Small, frequent edits to many files are the most expensive case. Retention bounds the total to the space's retention, 30 days by default, of edits plus what snapshots pin.

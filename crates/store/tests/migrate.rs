@@ -804,3 +804,67 @@ async fn a_version_4_store_with_the_epoch_gains_versioning() {
 		.expect("space row");
 	assert_eq!(row, (false, 3));
 }
+
+/// Migration 6 on a version 5 store: every space keeps its history the
+/// default 30 days and keeps the rest of its row.
+#[tokio::test]
+async fn migration_6_gives_every_space_30_days_and_keeps_the_rest() {
+	let fixture = Fixture::new().await;
+	let pool = raw(&fixture.db_path()).await;
+	for sql in [
+		"ALTER TABLE space DROP COLUMN retention_days",
+		"INSERT INTO space (uuid, name, kind, root, content_indexing, protected, versioning, authority_epoch, created_at, deleted, updated_hlc, origin_device) \
+		 VALUES (X'01', 'Docs', 'folder', 'Documents', 1, '[\"*.pem\"]', 1, 2, '2026-11-27T00:00:00Z', 0, '0001', X'09')",
+		"PRAGMA user_version = 5",
+	] {
+		sqlx::query(sql).execute(&pool).await.expect(sql);
+	}
+	pool.close().await;
+
+	let db = fixture
+		.manager
+		.open("source-1")
+		.await
+		.expect("open migrates");
+	assert_eq!(
+		migrate::version(db.pool()).await.expect("version"),
+		SCHEMA_VERSION
+	);
+	let row: (String, bool, i64, i64) =
+		sqlx::query_as("SELECT protected, versioning, authority_epoch, retention_days FROM space")
+			.fetch_one(db.pool())
+			.await
+			.expect("space row");
+	assert_eq!(row, (r#"["*.pem"]"#.into(), true, 2, 30));
+}
+
+/// A store already at this version whose `space` table lacks the retention
+/// column gains it on open, as one does without versioning.
+#[tokio::test]
+async fn a_current_store_without_retention_gains_it() {
+	let fixture = Fixture::new().await;
+	let pool = raw(&fixture.db_path()).await;
+	for sql in [
+		"ALTER TABLE space DROP COLUMN retention_days",
+		"INSERT INTO space (uuid, name, kind, root, content_indexing, created_at, deleted, updated_hlc, origin_device) \
+		 VALUES (X'01', 'Docs', 'folder', 'Documents', 1, '2026-11-27T00:00:00Z', 0, '0001', X'09')",
+	] {
+		sqlx::query(sql).execute(&pool).await.expect(sql);
+	}
+	assert_eq!(
+		migrate::version(&pool).await.expect("version"),
+		SCHEMA_VERSION
+	);
+	pool.close().await;
+
+	let db = fixture
+		.manager
+		.open("source-1")
+		.await
+		.expect("open repairs");
+	let days: Vec<i64> = sqlx::query_scalar("SELECT retention_days FROM space")
+		.fetch_all(db.pool())
+		.await
+		.expect("the column");
+	assert_eq!(days, [30]);
+}

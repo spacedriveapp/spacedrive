@@ -67,6 +67,7 @@ async fn set_versioning(
 		content_indexing: None,
 		protected: None,
 		versioning: Some(on),
+		retention_days: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())
@@ -469,6 +470,75 @@ async fn a_snapshot_keeps_its_versions_past_retention() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn a_space_prunes_by_its_own_retention() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("versioning_retention")
+		.disable_watcher()
+		.build()
+		.await?;
+	let home = harness.create_test_dir("home").await?;
+	home.write_file("project/a.md", "a1").await?;
+	let tracked = home.track().await?;
+	let project = space(&harness, &tracked.root.join("project")).await?;
+	let project = set_versioning(&harness, &project, true).await?;
+	let a = history_until(&harness, &project, None, |h| h.versions.len() == 1)
+		.await
+		.versions[0]
+		.hash
+		.clone();
+	assert_eq!(history(&harness, &project, None).await.retention_days, 30);
+	let token = grant(&harness, &tracked.root.join("project")).await?.token;
+	let a2 = write(&harness, &token, "a.md", "a2", a).await?;
+	write(&harness, &token, "a.md", "a3", a2).await?;
+
+	let retention = |days| {
+		SpaceUpdateAction::from_input(SpaceUpdateInput {
+			id: project.id,
+			name: None,
+			content_indexing: None,
+			versioning: None,
+			protected: None,
+			retention_days: Some(days),
+		})
+	};
+	assert!(retention(0).is_err());
+	assert!(retention(3651).is_err());
+	let updated = retention(2)
+		.map_err(anyhow::Error::msg)?
+		.execute(harness.library.clone(), harness.core.context.clone())
+		.await?
+		.space;
+	assert_eq!(updated.retention_days, 2);
+	assert_eq!(history(&harness, &project, None).await.retention_days, 2);
+
+	// Three days old is inside the default 30 but past this space's 2.
+	let file = space_dir(&harness, &project).join(sd_store::SPACE_VERSIONS_FILE);
+	let pool = sqlx::SqlitePool::connect(&format!("sqlite://{}", file.display())).await?;
+	let aged = (chrono::Utc::now() - chrono::Duration::days(3)).to_rfc3339();
+	sqlx::query("UPDATE version SET at = ?")
+		.bind(&aged)
+		.execute(&pool)
+		.await?;
+	pool.close().await;
+	assert_eq!(
+		history(&harness, &project, Some("a.md"))
+			.await
+			.versions
+			.len(),
+		3
+	);
+
+	// The next prune is the next time the versions open.
+	versioning::close(project.id).await;
+	let left = history(&harness, &project, Some("a.md")).await;
+	assert_eq!(
+		left.versions.len(),
+		1,
+		"only the current a3 stays: {left:?}"
+	);
+	Ok(())
+}
+
+#[tokio::test]
 async fn only_a_grant_on_the_whole_space_makes_or_drops_snapshots() -> anyhow::Result<()> {
 	use serde_json::{json, Value};
 
@@ -654,6 +724,7 @@ async fn a_space_round_trips_through_an_sdspace_file() -> anyhow::Result<()> {
 		content_indexing: None,
 		versioning: None,
 		protected: Some(vec!["secrets/**".to_string()]),
+		retention_days: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())

@@ -39,7 +39,7 @@ use crate::{
 	ops::{
 		agent_write::{restore_in, state_of, Fill, PathKind, WriteError, WriteOutcome, WriteTurn},
 		grants::{GrantCap, GrantScope},
-		spaces::events::{self, Attribution, Change, InSpace, Origin, RETENTION_DAYS},
+		spaces::events::{self, Attribution, Change, InSpace, Origin},
 	},
 };
 
@@ -79,7 +79,8 @@ pub async fn open(
 	if let Some((versions, pruned)) = open.get_mut(&space_id) {
 		if pruned.elapsed() >= PRUNE_EVERY {
 			*pruned = Instant::now();
-			prune(space_id, versions).await;
+			let days = events::retention_days(context, source_id, space_id).await;
+			prune(space_id, versions, days).await;
 		}
 		return Some(versions.clone());
 	}
@@ -91,7 +92,8 @@ pub async fn open(
 			return None;
 		}
 	};
-	prune(space_id, &versions).await;
+	let days = events::retention_days(context, source_id, space_id).await;
+	prune(space_id, &versions, days).await;
 	open.insert(space_id, (versions.clone(), Instant::now()));
 	Some(versions)
 }
@@ -125,8 +127,8 @@ pub async fn close(space_id: Uuid) {
 	}
 }
 
-async fn prune(space_id: Uuid, versions: &SpaceVersions) {
-	let cutoff = (Utc::now() - chrono::Duration::days(RETENTION_DAYS)).to_rfc3339();
+async fn prune(space_id: Uuid, versions: &SpaceVersions, days: i64) {
+	let cutoff = (Utc::now() - chrono::Duration::days(days)).to_rfc3339();
 	match versions.prune(&cutoff).await {
 		Ok(pruned) if pruned.versions > 0 => {
 			debug!(space = %space_id, ?pruned, "pruned versions past retention")

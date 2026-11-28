@@ -18,6 +18,9 @@ use crate::{
 	},
 };
 
+/// The longest a space can keep its history, ten years.
+pub const MAX_RETENTION_DAYS: u32 = 3650;
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SpaceUpdateInput {
 	pub id: Uuid,
@@ -32,6 +35,10 @@ pub struct SpaceUpdateInput {
 	/// The space's protected patterns, replacing the ones it has. An empty
 	/// list leaves only the built-in protection.
 	pub protected: Option<Vec<String>>,
+	/// How many days the space keeps its changes and versions, from 1 to
+	/// 3650. A change takes effect at the next prune.
+	#[serde(default)]
+	pub retention_days: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -58,6 +65,14 @@ impl LibraryAction for SpaceUpdateAction {
 		}
 		if let Some(patterns) = &input.protected {
 			store::protected_patterns(patterns.clone())?;
+		}
+		if input
+			.retention_days
+			.is_some_and(|days| !(1..=MAX_RETENTION_DAYS).contains(&days))
+		{
+			return Err(format!(
+				"retention must be from 1 to {MAX_RETENTION_DAYS} days"
+			));
 		}
 		Ok(Self { input })
 	}
@@ -99,6 +114,9 @@ impl LibraryAction for SpaceUpdateAction {
 		if let Some(patterns) = self.input.protected {
 			row.protected =
 				store::protected_patterns(patterns).map_err(ActionError::InvalidInput)?;
+		}
+		if let Some(days) = self.input.retention_days {
+			row.retention_days = i64::from(days);
 		}
 		row.set_stamp(&store::stamp(&context).map_err(ActionError::Internal)?);
 		writable

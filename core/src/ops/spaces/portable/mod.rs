@@ -537,6 +537,7 @@ async fn publish(
 		content_indexing: None,
 		versioning: Some(true),
 		protected: None,
+		retention_days: None,
 	})
 	.map_err(ActionError::Internal)?
 	.execute(library.clone(), context.clone())

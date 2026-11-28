@@ -148,7 +148,7 @@ The `version` table is the manifest kept as a delta log. A row says what one pat
 
 Captures follow the event log. An agent write, a restore or an app operation is captured inside the same write turn as its event, from the bytes it just committed. A change seen by the watcher is captured once the path has been quiet for 1.5 seconds, so a burst of saves is one version. A change that was overwritten before that capture read it is lost, and the interface says so. Turning versioning on captures the files already in the space as a baseline. Turning it off stops capture and keeps the versions and snapshots, which age out under retention; `spaces.history.purge` deletes them. Chunking keeps versioning of large media affordable when only part of a file changes.
 
-Retention keeps every version newer than 30 days, the newest version of each path, and every version a snapshot's manifest needs. Blobs and chunks that no kept version reaches are then deleted.
+Retention keeps every version newer than the space's retention (30 days by default, 1 to 3650), the newest version of each path, and every version a snapshot's manifest needs. Blobs and chunks that no kept version reaches are then deleted.
 
 A snapshot is a named manifest. It costs O(entries) and copies no bytes. A fork is a new space whose root is materialized from a manifest, using reflinks where the volume supports them and independent copies otherwise. Hard links are never used, because an editor that writes a file in place would change the parent's bytes too. A fork can also be an on-demand space served from blobs. Restoring a file or a whole space goes through the normal write path, so a restore is attributed and undoable.
 

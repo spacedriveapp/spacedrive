@@ -37,7 +37,7 @@ use crate::error::{Error, Result};
 /// 4. `space.versioning`, off for every space that predates it.
 /// 5. `space.authority_epoch`, the count of hand-overs a space has been
 ///    through, 0 for every space that predates it.
-pub const SCHEMA_VERSION: i64 = 5;
+pub const SCHEMA_VERSION: i64 = 6;
 
 /// The version a store carries. `0` for a store written before versions
 /// existed.
@@ -89,6 +89,7 @@ async fn apply(pool: &SqlitePool, next: i64) -> Result<()> {
 		3 => spaces_name_protected_patterns(pool).await,
 		4 => spaces_say_whether_they_keep_versions(pool).await,
 		5 => spaces_carry_an_authority_epoch(pool).await,
+		6 => spaces_keep_history_for_a_set_time(pool).await,
 		_ => Err(Error::Other(format!(
 			"no migration defined for schema version {next}"
 		))),
@@ -171,13 +172,26 @@ async fn spaces_carry_an_authority_epoch(pool: &SqlitePool) -> Result<()> {
 	Ok(())
 }
 
-/// Add every column migrations 4 and 5 give `space` that the table lacks.
+/// Migration 6: `space.retention_days`, 30 by default.
+async fn spaces_keep_history_for_a_set_time(pool: &SqlitePool) -> Result<()> {
+	let mut conn = pool.acquire().await?;
+	let mut tx = conn.begin().await?;
+	add_space_columns(&mut tx).await?;
+	sqlx::query("PRAGMA user_version = 6")
+		.execute(&mut *tx)
+		.await?;
+	tx.commit().await?;
+	Ok(())
+}
+
+/// Add every column migrations 4 to 6 give `space` that the table lacks.
 /// This also runs on a store already at [`SCHEMA_VERSION`], because a
 /// development store can carry another branch's migration under the same
 /// number without these columns.
 async fn add_space_columns(conn: &mut sqlx::SqliteConnection) -> Result<()> {
 	add_space_versioning(&mut *conn).await?;
-	add_space_column(conn, "authority_epoch INTEGER NOT NULL DEFAULT 0").await
+	add_space_column(&mut *conn, "authority_epoch INTEGER NOT NULL DEFAULT 0").await?;
+	add_space_column(conn, "retention_days INTEGER NOT NULL DEFAULT 30").await
 }
 
 async fn add_space_versioning(conn: &mut sqlx::SqliteConnection) -> Result<()> {

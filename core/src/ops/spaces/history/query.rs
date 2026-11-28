@@ -12,7 +12,7 @@ use crate::{
 	infra::query::{LibraryQuery, QueryError, QueryResult},
 	ops::{
 		actors::Actor,
-		spaces::{changes::ActorNames, events::RETENTION_DAYS, store, versioning},
+		spaces::{changes::ActorNames, store, versioning},
 	},
 };
 
@@ -103,7 +103,7 @@ impl LibraryQuery for SpaceHistoryQuery {
 		let start = self.input.before.unwrap_or(0);
 		let mut output = SpaceHistoryOutput {
 			versioning: space.versioning,
-			retention_days: RETENTION_DAYS as u32,
+			retention_days: space.retention_days,
 			versions: Vec::new(),
 			next: start,
 		};
