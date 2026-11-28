@@ -68,10 +68,7 @@ pub async fn search_source_store(
 			continue;
 		}
 
-		let sd_path = SdPath::Physical {
-			device_slug: device_slug.to_string(),
-			path: absolute,
-		};
+		let sd_path = SdPath::indexed(device_slug, absolute);
 		let file = File::from_store_entry(entry, sd_path);
 		let score = super::arena_search::score_match(&file, query);
 		results.push(FileSearchResult {

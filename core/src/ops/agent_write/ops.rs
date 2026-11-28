@@ -137,7 +137,9 @@ pub async fn write_file_in(
 
 	let scope = writable(context, &input.token, "agent.write_file", &input.path).await?;
 	if let Some(bucket) = Bucket::of(context, &scope).await? {
-		return bucket::write_file(bucket, bytes, input.offset, input.expect, &turn).await;
+		let outcome = bucket::write_file(bucket, bytes, input.offset, input.expect, &turn).await;
+		relist(context, scope.library_id, &scope.path).await;
+		return outcome;
 	}
 	let (current, metadata) =
 		state::read_until(context, &scope.root, &scope.path, turn.cancel.clone()).await?;
@@ -258,7 +260,9 @@ pub async fn make_dir_in(
 ) -> Result<WriteOutcome, WriteError> {
 	let scope = writable(context, &input.token, "agent.make_dir", &input.path).await?;
 	if let Some(bucket) = Bucket::of(context, &scope).await? {
-		return bucket::make_dir(bucket, &turn).await;
+		let outcome = bucket::make_dir(bucket, &turn).await;
+		relist(context, scope.library_id, &scope.path).await;
+		return outcome;
 	}
 	let (current, _) =
 		state::read_until(context, &scope.root, &scope.path, turn.cancel.clone()).await?;
@@ -315,7 +319,7 @@ pub async fn move_path_in(
 				"agents move within one volume; this move crosses volumes".to_string(),
 			));
 		};
-		return bucket::move_path(
+		let outcome = bucket::move_path(
 			context,
 			from.library_id,
 			from.grant_id,
@@ -325,6 +329,9 @@ pub async fn move_path_in(
 			&turn,
 		)
 		.await;
+		relist(context, from.library_id, &from.path).await;
+		relist(context, to.library_id, &to.path).await;
+		return outcome;
 	}
 	let (current, metadata) =
 		state::read_until(context, &from.root, &from.path, turn.cancel.clone()).await?;
@@ -399,7 +406,7 @@ pub async fn delete_in(
 ) -> Result<WriteOutcome, WriteError> {
 	let scope = writable(context, &input.token, "agent.delete", &input.path).await?;
 	if let Some(target) = Bucket::of(context, &scope).await? {
-		return bucket::delete(
+		let outcome = bucket::delete(
 			context,
 			scope.library_id,
 			scope.grant_id,
@@ -408,6 +415,8 @@ pub async fn delete_in(
 			&turn,
 		)
 		.await;
+		relist(context, scope.library_id, &scope.path).await;
+		return outcome;
 	}
 	let (current, metadata) =
 		state::read_until(context, &scope.root, &scope.path, turn.cancel.clone()).await?;
@@ -527,6 +536,13 @@ async fn still_inside(scope: &GrantScope) -> Result<(), WriteError> {
 }
 
 /// Create the missing directories above `path`, top down, journaling each.
+/// Bring a change to a bucket object into its source's records.
+async fn relist(context: &CoreContext, library: Uuid, path: &Path) {
+	if let Some(library) = context.get_library(library).await {
+		crate::ops::sources::rescan::rescan_soon(library, path);
+	}
+}
+
 async fn make_parents(root: &Path, path: &Path) -> Result<Vec<Effect>, WriteError> {
 	let mut missing = Vec::new();
 	let mut current = path.parent();

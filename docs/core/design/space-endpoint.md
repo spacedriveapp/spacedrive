@@ -179,6 +179,23 @@ bytes.
 
 The etag is opaque. Clients compare it for equality and never parse it.
 
+In a space homed in a bucket, the etag is the object's entity tag from the
+service, which changes with every write to the object. `list` carries it from
+the bucket listing without a request per object. A block read sends the tag
+with the ranged GET, so a write that lands between the stat and the read
+answers 412 rather than mixing versions.
+
+### Bucket spaces
+
+A space whose folder is a bucket prefix, `s3://bucket/prefix`, answers the
+same routes. A prefix is a `directory` when an object sits under it, and the
+space's own root is always one, even before anything is written to it. Objects
+are `file`s; buckets have no symlinks. `.spacedrive/`, which holds the trash,
+is never listed. The event stream carries the writes agents make through this
+endpoint. A bucket sends no change events, so writes made outside Spacedrive
+reach the index when the source is listed again, every 15 minutes, and do not
+appear on the stream.
+
 ## Event stream
 
 `GET /v1/spaces/<space>/events` with `Accept: text/event-stream`.
@@ -257,13 +274,21 @@ The endpoint is off by default. The daemon config holds it:
 | --- | --- | --- |
 | `agent_mcp.enabled` | `false` | Start the listener. |
 | `agent_mcp.listen` | `127.0.0.1:7765` | One explicit address. Wildcards (`0.0.0.0`, `::`) are refused. |
-| `agent_mcp.tls_cert`, `agent_mcp.tls_key` | none | PEM files. Required for a non-loopback address unless `plaintext` is set. |
-| `agent_mcp.plaintext` | `false` | Allow a non-loopback address without TLS, for an encrypted overlay such as WireGuard. Logs a warning at every start. |
+| `agent_mcp.tls_cert`, `agent_mcp.tls_key` | none | PEM files. Required for a non-loopback address. |
 | `agent_mcp.host_names` | none | Extra names accepted in `Host`, for a reverse proxy. |
+| `agent_mcp.block_bytes_per_hour` | `8589934592` (8 GiB) | Block-read budget per grant per hour. Must be greater than 0. |
 
-A non-loopback address with neither TLS files nor `plaintext` does not start,
-and the daemon logs why. Nothing is granted by address: a loopback request
-still needs a token.
+A non-loopback address without TLS files does not start, and the daemon logs
+why. Nothing is granted by address: a loopback request still needs a token.
+
+Writes need a direct local request: a loopback bind, a loopback Host with the
+bound port, and no `Forwarded`, `X-Forwarded-For`, `X-Forwarded-Host` or
+`X-Real-IP` header, the same test OAuth uses. Every other request that needs a
+writable grant, the write tools over MCP or REST, answers 403 with "writes over
+the network are off until the security review" before it runs. The grant check
+still records the attempt. A non-loopback listener is therefore read-only, and
+so is a loopback listener reached through a reverse proxy or a configured host
+name.
 
 ## Limits
 
@@ -271,7 +296,7 @@ The limits of `agent-access-threat-model.md` apply to every route here,
 counted per grant across MCP, REST, block reads and streams.
 
 A grant has two byte budgets. Block reads spend the block-read budget, 8 GiB
-per hour, and nothing else, so a mount can page files in without starving the
+per hour unless `agent_mcp.block_bytes_per_hour` sets another, and nothing else, so a mount can page files in without starving the
 grant's tools. Everything else, the tools over MCP or REST, `stat`, `list`
 and the event stream, spends the 256 MiB per hour budget. A spent budget
 answers 429 with `Retry-After` set to the seconds until its hour resets.
