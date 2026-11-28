@@ -44,6 +44,8 @@ async fn grant(
 		caps: Some(caps),
 		ttl_seconds: None,
 		label: Some("mcp tls".to_string()),
+		kind: None,
+		token_format: None,
 	})
 	.map_err(anyhow::Error::msg)?
 	.execute(harness.library.clone(), harness.core.context.clone())

@@ -109,6 +109,17 @@ pub fn unverified_claims(token: &str) -> Result<Claims, GrantError> {
 /// answers [`GrantError::UnknownToken`]: to its holder it is no credential at
 /// all. A genuine token past its `exp` answers [`GrantError::Expired`].
 pub fn verify(token: &str, key: &VerifyingKey, now: DateTime<Utc>) -> Result<Claims, GrantError> {
+	let claims = verify_signature(token, key)?;
+	if now.timestamp() >= claims.exp {
+		return Err(GrantError::Expired);
+	}
+	Ok(claims)
+}
+
+/// Check a signed token's signature against its issuer's key, whatever its
+/// expiry, so a verifier can record the refusal of an expired but genuine
+/// token against its grant.
+pub fn verify_signature(token: &str, key: &VerifyingKey) -> Result<Claims, GrantError> {
 	let (payload, signature) = split(token)?;
 	let signature: [u8; 64] = signature.try_into().map_err(|_| GrantError::UnknownToken)?;
 	key.verify_strict(
@@ -116,11 +127,7 @@ pub fn verify(token: &str, key: &VerifyingKey, now: DateTime<Utc>) -> Result<Cla
 		&Signature::from_bytes(&signature),
 	)
 	.map_err(|_| GrantError::UnknownToken)?;
-	let claims = parse(&payload)?;
-	if now.timestamp() >= claims.exp {
-		return Err(GrantError::Expired);
-	}
-	Ok(claims)
+	parse(&payload)
 }
 
 fn split(token: &str) -> Result<(Vec<u8>, Vec<u8>), GrantError> {
