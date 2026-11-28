@@ -75,7 +75,7 @@ impl LibraryAction for SpaceCreateAction {
 		library: Arc<Library>,
 		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		let created = create(library, context, self.input).await?;
+		let created = create(library, context, self).await?;
 		Ok(SpaceCreateOutput {
 			space: created.space,
 		})
@@ -98,8 +98,9 @@ pub(crate) struct Created {
 pub(crate) async fn create(
 	library: Arc<Library>,
 	context: Arc<CoreContext>,
-	input: SpaceCreateInput,
+	action: SpaceCreateAction,
 ) -> Result<Created, ActionError> {
+	let input = action.input;
 	let id = Uuid::now_v7();
 	let path = match input.kind {
 		SpaceKind::Folder => {

@@ -74,8 +74,8 @@ use crate::{
 		actors::{self, Actor},
 		sources::{DeleteSourceAction, DeleteSourceInput},
 		spaces::{
-			create, events, store, versioning, SpaceCreateInput, SpaceDeleteAction,
-			SpaceDeleteInput, SpaceUpdateAction, SpaceUpdateInput,
+			create, events, store, versioning, SpaceCreateAction, SpaceCreateInput,
+			SpaceDeleteAction, SpaceDeleteInput, SpaceUpdateAction, SpaceUpdateInput,
 		},
 	},
 };
@@ -413,12 +413,13 @@ impl LibraryAction for SpaceImportAction {
 		let created = create::create(
 			library.clone(),
 			context.clone(),
-			SpaceCreateInput {
+			SpaceCreateAction::from_input(SpaceCreateInput {
 				name: Some(self.input.name.clone().unwrap_or(record.name.clone())),
 				kind: SpaceKind::Workspace,
 				path: Some(destination.clone()),
 				content_indexing: Some(record.content_indexing),
-			},
+			})
+			.map_err(ActionError::InvalidInput)?,
 		)
 		.await?;
 		let space = created.space;

@@ -781,6 +781,27 @@ async fn a_space_round_trips_through_an_sdspace_file() -> anyhow::Result<()> {
 		"no source is left registered"
 	);
 
+	// A blank name is refused like it is for any new space, and nothing is
+	// created for it.
+	let blank = SpaceImportAction::from_input(SpaceImportInput {
+		path: full.clone(),
+		destination: out.path().join("blank"),
+		name: Some("   ".to_string()),
+	})
+	.map_err(anyhow::Error::msg)?
+	.execute(harness.library.clone(), harness.core.context.clone())
+	.await
+	.expect_err("a blank name is refused");
+	assert!(
+		format!("{blank:?}").contains("the name cannot be empty"),
+		"{blank:?}"
+	);
+	assert!(
+		!out.path().join("blank").exists(),
+		"no folder is made for it"
+	);
+	assert_eq!(sources().await?, sources_before, "no source is made for it");
+
 	// A folder that is already a registered source keeps that source and its
 	// catalog when an import into it fails.
 	let reused = out.path().join("reused");
