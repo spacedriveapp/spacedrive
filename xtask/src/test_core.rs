@@ -422,6 +422,16 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		features: Some("fuse"),
 		group: Group::Acceptance,
 	},
+	// A bucket space mounted through the thin client and read: prefix
+	// directories, empty directory markers, block-edge reads, and an object
+	// read afresh after it changes in the bucket.
+	TestSuite {
+		name: "Bucket mount test",
+		package: "sd-core",
+		test_args: &["--test", "bucket_mount_test"],
+		features: Some("fuse"),
+		group: Group::Acceptance,
+	},
 	// core("Sync event log test", &["--test", "sync_event_log_test"]),
 	// core("Sync metrics test", &["--test", "sync_metrics_test"]),
 	// core("Sync backfill test", &["--test", "sync_backfill_test"]),
