@@ -6157,6 +6157,31 @@ export type SpaceDeleteInput = { id: string };
 
 export type SpaceDeleteOutput = { id: string };
 
+export type SpaceExportInput = { id: string; 
+/**
+ * The file to write. It must not exist.
+ */
+path: string; 
+/**
+ * Only the newest version of each file, with no snapshots.
+ */
+current_only?: boolean };
+
+export type SpaceExportOutput = { path: string; summary: SpaceFileSummary };
+
+/**
+ * What an export or an import carried.
+ */
+export type SpaceFileSummary = { 
+/**
+ * Files in the space's current state.
+ */
+files: number; changes: number; versions: number; snapshots: number; 
+/**
+ * Chunk bytes the file holds.
+ */
+bytes: number };
+
 export type SpaceGetQueryInput = { id: string };
 
 export type SpaceGetQueryOutput = { space: Space };
@@ -6197,6 +6222,23 @@ export type SpaceHistoryPurgeOutput = {
  * Whether the space had versions to delete.
  */
 purged: boolean };
+
+export type SpaceImportInput = { 
+/**
+ * The `.sdspace` file.
+ */
+path: string; 
+/**
+ * The folder the space's files go in. It must not exist or must be
+ * empty.
+ */
+destination: string; 
+/**
+ * The new space's name; the exported name by default.
+ */
+name?: string | null };
+
+export type SpaceImportOutput = { space: Space; summary: SpaceFileSummary };
 
 /**
  * How a space came to be.
@@ -7836,7 +7878,9 @@ export type LibraryAction =
   |  { type: 'sources.verify'; input: VerifySourceInput; output: VerifySourceOutput }
   |  { type: 'spaces.create'; input: SpaceCreateInput; output: SpaceCreateOutput }
   |  { type: 'spaces.delete'; input: SpaceDeleteInput; output: SpaceDeleteOutput }
+  |  { type: 'spaces.export'; input: SpaceExportInput; output: SpaceExportOutput }
   |  { type: 'spaces.history.purge'; input: SpaceHistoryPurgeInput; output: SpaceHistoryPurgeOutput }
+  |  { type: 'spaces.import'; input: SpaceImportInput; output: SpaceImportOutput }
   |  { type: 'spaces.restore'; input: SpaceRestoreInput; output: SpaceRestoreOutput }
   |  { type: 'spaces.snapshot.create'; input: SpaceSnapshotCreateInput; output: SpaceSnapshotCreateOutput }
   |  { type: 'spaces.snapshot.delete'; input: SpaceSnapshotDeleteInput; output: SpaceSnapshotDeleteOutput }
@@ -8091,7 +8135,9 @@ export const WIRE_METHODS = {
     'sources.verify': 'action:sources.verify.input',
     'spaces.create': 'action:spaces.create.input',
     'spaces.delete': 'action:spaces.delete.input',
+    'spaces.export': 'action:spaces.export.input',
     'spaces.history.purge': 'action:spaces.history.purge.input',
+    'spaces.import': 'action:spaces.import.input',
     'spaces.restore': 'action:spaces.restore.input',
     'spaces.snapshot.create': 'action:spaces.snapshot.create.input',
     'spaces.snapshot.delete': 'action:spaces.snapshot.delete.input',

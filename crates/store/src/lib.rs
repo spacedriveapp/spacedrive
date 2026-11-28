@@ -72,6 +72,7 @@ pub mod schema;
 pub mod source;
 pub mod space;
 pub mod space_events;
+pub mod space_file;
 pub mod space_versions;
 pub mod tags;
 pub mod vectors;
