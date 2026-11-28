@@ -12,6 +12,7 @@ speech-to-text = ["sd-core/speech-to-text"]
 ai = ["sd-core/ai"]
 footage-clips = ["sd-core/footage-clips"]
 fuse = ["sd-core/fuse"]
+nfs = ["sd-core/nfs"]
 
 [dependencies]
 anyhow      = "1"

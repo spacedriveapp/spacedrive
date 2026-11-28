@@ -204,7 +204,7 @@ jobs:
         run: |
           cargo build --release --locked \
             -p sd-cli -p sd-core --bin sd-cli --bin sd-daemon \
-            --features sd-core/fuse \
+            --features "sd-core/fuse${{ contains(matrix.settings.target, 'apple') && ',sd-core/nfs' || '' }}" \
             --target ${{ matrix.settings.target }}
 
       - name: Prepare binaries

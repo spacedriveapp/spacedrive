@@ -138,6 +138,15 @@ pub async fn list() -> Vec<NfsMountInfo> {
 	mounts
 }
 
+/// `path`, absolute and canonical, once it is known to be an empty directory
+/// to mount at.
+#[cfg(all(unix, feature = "nfs"))]
+pub async fn prepare_mountpoint(path: PathBuf) -> Result<PathBuf, NfsError> {
+	tokio::task::spawn_blocking(move || Ok(super::mountpoint::empty_dir(&path)?))
+		.await
+		.map_err(|err| NfsError::Mount(err.to_string()))?
+}
+
 /// Mount every source at `path`, or with `grant_token` only the directory
 /// that grant lends. `path` must be an existing empty directory.
 pub async fn mount(

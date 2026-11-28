@@ -13,9 +13,14 @@ The mount is read-only.
 
 ## Requirements
 
-- Linux with `/dev/fuse` and `fusermount3` (`apt install fuse3` on Debian and
-  Ubuntu).
-- An `sd` built with the `fuse` feature: `cargo build -p sd-cli --features fuse`.
+- On Linux, `/dev/fuse` and `fusermount3` (`apt install fuse3` on Debian and
+  Ubuntu), and an `sd` built with the `fuse` feature:
+  `cargo build -p sd-cli --features fuse`.
+- On macOS, nothing to install. `sd mount` serves the folder over a localhost
+  NFSv3 server and the system's own `/sbin/mount_nfs` mounts it, as your user,
+  without a kernel extension or admin rights. It needs an `sd` built with the
+  `nfs` feature, which the macOS release and nightly builds include:
+  `cargo build -p sd-cli --features nfs`.
 - A node that serves its agent endpoint (`sd config set agent_mcp.enabled true`
   on the node, see the agent access guide). The endpoint binds loopback by
   default. A non-loopback address needs TLS and the outside security review
@@ -50,20 +55,32 @@ SD_GRANT_TOKEN=sdg_... sd mount http://127.0.0.1:7765 ~/site
 other users in the process list, so prefer the environment variable.
 
 The command runs in the foreground. Press Ctrl-C, or send SIGTERM, to unmount.
-If something still has a file open, the mount is detached and ends when that
-program closes it. The mount point must be an existing, empty directory.
+On Linux, if something still has a file open, the mount is detached and ends
+when that program closes it. On macOS a busy mount is forced off, and a
+program still holding a file gets errors. The mount point must be an existing,
+empty directory that you own.
+
+On macOS the NFS server listens on 127.0.0.1 only, on a port the system picks,
+for as long as the mount is up. NFSv3 has no authentication of its own, so the
+server answers MOUNT once, for a random export path made for this mount, and
+refuses file handles it did not hand out. While `mount_nfs` runs, another
+local user who reads its arguments could still race the mount. The NFS Mount
+page has the details.
 
 ## What the mount shows
 
 The granted folder's contents, at the root of the mount. Files and
 directories appear with their sizes and times. Symlinks, devices and sockets
-do not appear. Writes, renames and deletes fail with `EROFS`.
+do not appear. Writes, renames and deletes fail with `EROFS` (on macOS,
+`EROFS` or `EACCES`).
 
 The node checks the token on every request and records each one in the
 grant's audit log. The client also asks the node every 5 seconds whether the
 token still holds. Once the grant is revoked or expires, every listing, open
-and read fails with `EACCES`, files opened before included, the kernel drops
-what it cached, and `sd mount` unmounts and exits with an error.
+and read fails with `EACCES`, and `sd mount` unmounts and exits with an error.
+On Linux, files opened before fail too, since the kernel drops what it cached.
+NFSv3 cannot take pages back from the macOS client, so there a file opened
+before can read cached bytes until the unmount, which follows at once.
 
 ## Reads and caching
 
@@ -71,15 +88,17 @@ Bytes are fetched in 1 MiB blocks and kept in a block cache under
 `~/.cache/spacedrive/mounts` (use `--cache-dir` to move it), with up to 2 GiB on
 disk. The cache directory is made readable by your user only (mode 0700),
 since its blocks are copies of granted files. A file read in order is read
-ahead. Blocks are keyed by the file's path,
-size and modified time, so a file that changes on the node is fetched again,
+ahead. Blocks are keyed by the file's path
+and etag (size and modified time where the node sends no etag), so a file that changes on the node is fetched again,
 and the cache never serves its old bytes. The cache can be deleted at any time.
 
 ## Changes on the node
 
 Over the space endpoint, the client follows the space's event stream. Each
 change drops the cached attributes of the path, its parent's listing and, for
-moves and deletes, everything beneath, and tells the kernel to drop the same.
+moves and deletes, everything beneath. On Linux the client tells the kernel
+to drop the same. NFSv3 cannot call the macOS client back, so it asks again
+once its one-second attribute cache runs out.
 Attributes are otherwise trusted for 10 seconds, which bounds how stale a
 missed event can leave them. A dropped stream reconnects with the last event
 id, and a `reset` drops every cached answer. Each read sends the etag the file

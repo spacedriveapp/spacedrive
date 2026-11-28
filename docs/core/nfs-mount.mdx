@@ -87,11 +87,13 @@ second.
 The daemon runs this command as its own user:
 
 ```bash
-/sbin/mount_nfs -o vers=3,tcp,port=PORT,mountport=PORT,locallocks,rdonly,soft,rdirplus,actimeo=1 127.0.0.1:/ <path>
+/sbin/mount_nfs -o vers=3,tcp,port=PORT,mountport=PORT,locallocks,rdonly,soft,rdirplus,actimeo=1 127.0.0.1:/EXPORT <path>
 ```
 
 - `port` and `mountport` point at the one port the server answers both the NFS
   and the MOUNT programs on, so no portmapper is needed.
+- `EXPORT` is a random 128-bit path, new for each mount. The server hands out
+  the root of the mount for it once (see Security).
 - `locallocks` keeps file locks on this Mac; the server has no lock manager.
 - `soft` makes calls fail with an error instead of hanging if the server stops.
 - `rdirplus` makes the client fetch attributes with each listing, so Finder
@@ -114,14 +116,24 @@ and passes every other call to `nfsserve` on an internal loopback port.
 ## Security
 
 NFSv3 has no real authentication. The server trusts whatever user id a client
-claims, and any program running as any user on this machine that finds the port
-can mount it or talk to it directly and read everything the mount shows. This
-is why NFS mounts are off by default and why the server binds only to
-127.0.0.1, on random ports picked by the OS for each mount: the public port
-and the internal port behind the front. Do not turn
-`mounts.nfs_enabled` on for a machine where you do not trust every local user.
-A grant-bound mount narrows what the server shows, but it does not stop another
-local user from reading what that grant lends while the mount is up.
+claims. Each mount's server binds only to 127.0.0.1, on ports the OS picks,
+and stops when the mount ends. To keep other local users out, the server:
+
+- Answers MOUNT only for a random 128-bit export path that is made for this
+  mount and never logged, and only once. The mount table shows the path to
+  every local user, but by then it is spent.
+- Lists no exports and no mounts to a client that asks.
+- Tags every file handle with a key made for this mount, so a client cannot
+  forge the root handle or any other. A forged handle gets `NFS3ERR_STALE`.
+
+One gap remains. While `mount_nfs` runs, its arguments, the export path
+included, show in the process list. A local user who catches them in that
+moment could MOUNT first. The real mount then fails with an error, but that
+user can read what the mount shows until the server stops. The server cannot
+check which user connects: the kernel's NFS client opens the connection, not
+your program. NFS mounts are off by default for these reasons. Do not turn
+`mounts.nfs_enabled` on for a machine where you do not trust every local
+user. `docs/core/design/agent-access-threat-model.md` (F7) has the details.
 
 ## Errors
 
