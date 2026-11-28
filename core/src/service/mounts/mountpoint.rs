@@ -64,15 +64,36 @@ pub(crate) async fn bind_grant(
 	let scope = authorize(context, &token, op, Path::new(""), GrantCap::Read)
 		.await
 		.map_err(Refusal::Grant)?;
+	// macOS reaches one directory as /Users/me and as
+	// /System/Volumes/Data/Users/me, and a source keeps whichever spelling
+	// it was tracked under, so the granted directory is looked up under each
+	// and the mount lists it in the source's spelling, the one its arena
+	// knows.
+	let root = scope.root.clone();
+	let spellings = tokio::task::spawn_blocking(move || crate::config::path_spellings(&root))
+		.await
+		.unwrap_or_else(|_| vec![scope.root.clone()]);
 	let sources = context.volume_index().sources();
-	let source = crate::ops::paths::reach::innermost_source(&sources, &scope.root)
+	let (source, path) = spellings
+		.into_iter()
+		.filter_map(|spelling| {
+			let source = crate::ops::paths::reach::innermost_source(&sources, &spelling)?;
+			let depth = spelling
+				.strip_prefix(&source.root)
+				.ok()?
+				.components()
+				.count();
+			Some((depth, source.id, spelling))
+		})
+		.min_by_key(|(depth, _, _)| *depth)
+		.map(|(_, source, path)| (source, path))
 		.ok_or(Refusal::NoSource)?;
 	let grant = BoundGrant {
 		token,
 		root: MountRoot {
 			name: String::new(),
-			source_id: source.id,
-			path: scope.root.clone(),
+			source_id: source,
+			path,
 			remote: false,
 		},
 	};
