@@ -17,8 +17,9 @@ function author(version: SpaceVersion, you: string | undefined) {
 }
 
 /**
- * A file's versions in its space, newest first, each restorable. The newest
- * kept version is what is on disk, so it has no Restore.
+ * A file's versions in its space, newest first. Every kept version offers
+ * Restore, since a capture can lag or fail and leave the newest row behind
+ * the disk; restoring bytes that already match changes nothing.
  */
 export function SpaceHistorySection({file}: {file: File}) {
 	const path =
@@ -37,7 +38,12 @@ export function SpaceHistorySection({file}: {file: File}) {
 		{enabled: !!space, refetchInterval: 10_000}
 	);
 	const restore = useLibraryMutation('spaces.restore');
-	const [lastRestore, setLastRestore] = useState<{undo: string; from: string; path: string} | null>(
+	const [lastRestore, setLastRestore] = useState<{
+		undo: string;
+		from: string;
+		space: string;
+		path: string;
+	} | null>(
 		null
 	);
 	if (!space) return null;
@@ -60,7 +66,12 @@ export function SpaceHistorySection({file}: {file: File}) {
 			}
 			setLastRestore(
 				landed.undo
-					? {undo: landed.undo, from: ago(version.at), path: scope!.relative}
+					? {
+							undo: landed.undo,
+							from: ago(version.at),
+							space: space.id,
+							path: scope!.relative
+						}
 					: null
 			);
 			toast.success(
@@ -83,7 +94,7 @@ export function SpaceHistorySection({file}: {file: File}) {
 				</p>
 			) : (
 				<div className="space-y-0.5">
-					{versions.map((version, index) => (
+					{versions.map((version) => (
 						<div
 							key={version.id}
 							className="hover:bg-app-box/40 flex items-center gap-2 rounded-md px-1 py-1 transition-colors"
@@ -101,28 +112,24 @@ export function SpaceHistorySection({file}: {file: File}) {
 									{version.path !== scope!.relative && ` · ${version.path}`}
 								</div>
 							</div>
-							{index === 0 && !version.deleted ? (
-								<span className="text-sidebar-inkDull shrink-0 text-[11px]">Current</span>
-							) : (
-								!version.deleted && (
-									<Button
-										type="button"
-										size="xs"
-										variant="gray"
-										className="shrink-0"
-										disabled={restore.isPending}
-										onClick={() => void restoreVersion(version)}
-									>
-										<ArrowCounterClockwise size={12} className="mr-1 inline" />
-										Restore
-									</Button>
-								)
+							{!version.deleted && (
+								<Button
+									type="button"
+									size="xs"
+									variant="gray"
+									className="shrink-0"
+									disabled={restore.isPending}
+									onClick={() => void restoreVersion(version)}
+								>
+									<ArrowCounterClockwise size={12} className="mr-1 inline" />
+									Restore
+								</Button>
 							)}
 						</div>
 					))}
 				</div>
 			)}
-			{lastRestore?.path === scope!.relative && (
+			{lastRestore?.space === space.id && lastRestore.path === scope!.relative && (
 				<p className="text-sidebar-inkDull text-[11px]">
 					Restored from {lastRestore.from}.{' '}
 					<button
