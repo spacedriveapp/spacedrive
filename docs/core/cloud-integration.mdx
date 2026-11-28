@@ -131,6 +131,13 @@ Spacedrive; set a lifecycle rule on it to expire old copies. Grants,
 preconditions and refusals for agents on bucket sources are described in
 `docs/core/design/agent-grants.md` and `docs/core/design/agent-writes.md`.
 
+A bucket prefix can also be a space: `sd space create s3://bucket/prefix` for a
+prefix with objects, or `sd space create s3://bucket/prefix --kind workspace`
+for an empty one. Agents granted the
+space work in it through the space endpoint like a folder space;
+`docs/core/design/spaces.md` and `docs/core/design/space-endpoint.md` have
+the details.
+
 ### Indexing a bucket source
 
 Tracking a bucket prefix lists it into the source's store, so search reaches

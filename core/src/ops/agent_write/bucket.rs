@@ -145,7 +145,11 @@ async fn object(
 		}
 	}
 	let listing = list(bucket, url).await?;
-	if listing.is_empty() && !url.key.is_empty() {
+	if listing.is_empty()
+		&& !files_bucket::is_directory(bucket.backend.as_ref(), url)
+			.await
+			.map_err(io)?
+	{
 		return Ok(Object {
 			state: absent(None, None, None),
 			etag: None,
@@ -482,7 +486,7 @@ pub(super) async fn move_path(
 		)));
 	}
 
-	let sources = prefix_objects(&from, turn).await?;
+	let (sources, markers) = prefix_objects(&from, turn).await?;
 	let mut target = None;
 	for candidate in candidates {
 		turn.proceed()?;
@@ -525,6 +529,24 @@ pub(super) async fn move_path(
 				left.push(format!(
 					"{}: {refusal}",
 					from.shown(&from.url.join(relative))
+				));
+			}
+		}
+	}
+	if left.is_empty() {
+		for marker in &markers {
+			let relative = marker[from.url.key.len()..].trim_start_matches('/');
+			let destination = format!("{}/", target.join(relative.trim_end_matches('/')).key);
+			let landed = backend
+				.create_directory(Path::new(&destination), true)
+				.await;
+			if let Err(error) = match landed {
+				Ok(()) => backend.delete_marker(Path::new(marker)).await,
+				Err(error) => Err(error),
+			} {
+				left.push(format!(
+					"{}: {error}",
+					from.shown(&files_bucket_url(&from.url, marker))
 				));
 			}
 		}
@@ -599,7 +621,7 @@ async fn delete_prefix(
 ) -> Result<WriteOutcome, WriteError> {
 	let backend = bucket.backend.as_ref();
 	let id = Uuid::now_v7();
-	let sources = prefix_objects(&bucket, turn).await?;
+	let (sources, markers) = prefix_objects(&bucket, turn).await?;
 	if state(&bucket, turn.cancel()).await?.content_hash != checked.content_hash {
 		return Err(stale(state(&bucket, turn.cancel()).await?));
 	}
@@ -613,6 +635,16 @@ async fn delete_prefix(
 				"{}: {refusal}",
 				bucket.shown(&files_bucket_url(&bucket.url, &source.key))
 			)),
+		}
+	}
+	if left.is_empty() {
+		for marker in &markers {
+			if let Err(error) = backend.delete_marker(Path::new(marker)).await {
+				left.push(format!(
+					"{}: {error}",
+					bucket.shown(&files_bucket_url(&bucket.url, marker))
+				));
+			}
 		}
 	}
 	let undo = journal(context, library, grant, id, &effects).await;
@@ -648,11 +680,14 @@ fn files_bucket_url(url: &BucketUrl, key: &str) -> BucketUrl {
 /// Every object under the scope's prefix with the entity tag it has now,
 /// refusing a prefix that holds a path the grant protects or more objects
 /// than one call takes. Each object is then moved or trashed at that tag
-/// only, so one written after the check is left alone.
+/// only, so one written after the check is left alone. The directory
+/// markers under it come back apart, since they hold no bytes to trash:
+/// a move writes them at the target and a delete drops them, so empty
+/// directories go where their objects go. Undo restores objects only.
 async fn prefix_objects(
 	bucket: &Bucket,
 	turn: &WriteTurn,
-) -> Result<Vec<files_bucket::Object>, WriteError> {
+) -> Result<(Vec<files_bucket::Object>, Vec<String>), WriteError> {
 	turn.proceed()?;
 	let keys =
 		files_bucket::objects_under(bucket.backend.as_ref(), &bucket.url, MAX_PREFIX_OBJECTS)
@@ -672,6 +707,8 @@ async fn prefix_objects(
 			);
 		}
 	}
+	let (markers, keys): (Vec<String>, Vec<String>) =
+		keys.into_iter().partition(|key| key.ends_with('/'));
 	let mut objects = Vec::with_capacity(keys.len());
 	for key in &keys {
 		turn.proceed()?;
@@ -682,7 +719,7 @@ async fn prefix_objects(
 			objects.push(object);
 		}
 	}
-	Ok(objects)
+	Ok((objects, markers))
 }
 
 fn trashed(url: &BucketUrl, source: &files_bucket::Object, copy: &files_bucket::Object) -> Effect {

@@ -95,6 +95,20 @@ pub trait VolumeBackend: Send + Sync + Debug {
 		)))
 	}
 
+	/// Read `range` of the object only while its entity tag is still `etag`,
+	/// so a block read never mixes two versions.
+	async fn read_range_if_match(
+		&self,
+		path: &Path,
+		_range: Range<u64>,
+		_etag: &str,
+	) -> Result<Bytes, VolumeError> {
+		Err(VolumeError::Unsupported(format!(
+			"conditional reads of {}",
+			path.display()
+		)))
+	}
+
 	/// Delete the object at `path` only while its entity tag is still `etag`.
 	///
 	/// Returns [`VolumeError::PreconditionFailed`] when the object changed or
@@ -105,6 +119,21 @@ pub trait VolumeBackend: Send + Sync + Debug {
 	async fn delete_if_match(&self, path: &Path, _etag: &str) -> Result<(), VolumeError> {
 		Err(VolumeError::Unsupported(format!(
 			"conditional deletes of {}",
+			path.display()
+		)))
+	}
+
+	/// Whether an object stands at the directory marker `path` (`a/b/`)
+	/// itself, as opposed to a directory implied by the keys below it.
+	async fn holds_marker(&self, _path: &Path) -> Result<bool, VolumeError> {
+		Ok(false)
+	}
+
+	/// Delete the directory marker object at `path` (`a/b/`) alone, leaving
+	/// the keys below it in place.
+	async fn delete_marker(&self, path: &Path) -> Result<(), VolumeError> {
+		Err(VolumeError::Unsupported(format!(
+			"directory markers at {}",
 			path.display()
 		)))
 	}
@@ -250,6 +279,10 @@ pub struct RawDirEntry {
 	pub gid: Option<u32>,
 	/// Where a symlink points, verbatim from `readlink`
 	pub link_target: Option<String>,
+	/// The object's entity tag where the listing reports one, as a bucket's
+	/// does, so a listing can be checked against later reads without a stat
+	/// per object.
+	pub etag: Option<String>,
 }
 
 /// Raw metadata returned by volume backends
