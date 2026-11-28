@@ -9,7 +9,7 @@ on:
 jobs:
   build-server:
     name: Build a docker image for spacedrive server
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash

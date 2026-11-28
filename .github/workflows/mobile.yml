@@ -131,7 +131,7 @@ jobs:
   android:
     if: ${{ inputs.platform == 'all' || inputs.platform == 'android' }}
     name: Android - Play Store Internal
-    runs-on: blacksmith-8vcpu-ubuntu-2204
+    runs-on: ubuntu-22.04
     defaults:
       run:
         shell: bash

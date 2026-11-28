@@ -79,10 +79,10 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - host: blacksmith-4vcpu-ubuntu-2204
+          - host: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             platform: linux-x86_64
-          - host: blacksmith-4vcpu-ubuntu-2204-arm
+          - host: ubuntu-22.04-arm
             target: aarch64-unknown-linux-gnu
             platform: linux-aarch64
     name: Server - ${{ matrix.settings.platform }}
@@ -166,10 +166,10 @@ jobs:
           - host: macos-15-intel
             target: x86_64-apple-darwin
             platform: macos-x86_64
-          - host: blacksmith-4vcpu-ubuntu-2204
+          - host: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             platform: linux-x86_64
-          - host: blacksmith-4vcpu-ubuntu-2204-arm
+          - host: ubuntu-22.04-arm
             target: aarch64-unknown-linux-gnu
             platform: linux-aarch64
     name: CLI - ${{ matrix.settings.platform }}
@@ -352,12 +352,12 @@ jobs:
             bundles: dmg,app
             os: darwin
             arch: x86_64
-          - host: blacksmith-16vcpu-ubuntu-2404
+          - host: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             bundles: deb
             os: linux
             arch: x86_64
-          - host: blacksmith-8vcpu-ubuntu-2404-arm
+          - host: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             bundles: deb
             os: linux
@@ -787,7 +787,7 @@ jobs:
   # Create unified release with Server, CLI, and Desktop artifacts
   release:
     if: startsWith(github.ref, 'refs/tags/') && inputs.dry_run != true
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     name: Create Release
     needs: [server-build, cli-build, desktop-main, updater-manifest]
     permissions:
